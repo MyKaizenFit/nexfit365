@@ -1,0 +1,611 @@
+[
+  {
+    "name": "Press banca",
+    "category": "Fuerza",
+    "muscle_groups": ["Pecho", "Tríceps", "Hombro"],
+    "instructions": "Acuéstate en el banco. Agarra la barra con las manos separadas al ancho de los hombros. Baja la barra al pecho de forma controlada y empuja hacia arriba hasta extender los brazos completamente.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press banca en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Tríceps", "Hombro"],
+    "instructions": "Ajusta el multipower a la altura adecuada. Acuéstate en el banco y agarra la barra. Baja controladamente hasta tocar el pecho y empuja hacia arriba.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press banca agarre abierto en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Tríceps"],
+    "instructions": "En multipower, agarre más abierto que el ancho de hombros. Baja la barra al pecho y empuja hacia arriba.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press banca agarre estrecho en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Tríceps", "Pecho"],
+    "instructions": "En multipower, agarre más estrecho que el ancho de hombros. Enfoca el trabajo en tríceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press banca inclinado en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Hombro", "Tríceps"],
+    "instructions": "Ajusta el banco a 30-45 grados. Realiza el press inclinado en multipower, enfocando la parte superior del pecho.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press inclinado mancuernas",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Hombro"],
+    "instructions": "Con mancuernas, banco inclinado a 30-45 grados. Baja las mancuernas a los lados del pecho y empuja hacia arriba.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Press militar en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Hombro", "Tríceps"],
+    "instructions": "De pie o sentado, presiona la barra desde los hombros hacia arriba hasta extender completamente los brazos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo máquina",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Sentado en la máquina, agarra las manijas y tira hacia ti, juntando los omóplatos al final del movimiento.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo con barra",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps", "Erectores Espinales"],
+    "instructions": "Con barra, flexión de cadera manteniendo la espalda recta. Tira la barra hacia el abdomen, juntando los omóplatos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo con mancuerna unilateral",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Apoyado en un banco, tira la mancuerna hacia el torso, contrayendo el dorsal y el romboides.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo agarre neutro en polea baja",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Sentado, agarre neutro (palmas enfrentadas). Tira hacia el abdomen, contrayendo la espalda.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo agarre prono abierto en polea baja",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Agarre prono y abierto. Tira hacia el pecho, enfocando la parte media de la espalda.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo alto unilateral en máquina",
+    "category": "Analítico",
+    "muscle_groups": ["Hombro", "Trapecio"],
+    "instructions": "En máquina, remo alto unilateral. Eleva el brazo lateralmente, enfocando el deltoides medio y trapecio.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo apoyado",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Apoyado en banco inclinado, realiza el remo con mancuernas o barra, contrayendo la espalda.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo baja",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Remo en polea baja, sentado o de pie. Tira hacia el abdomen manteniendo la espalda recta.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al pecho agarre estrecho",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "En polea alta, agarre estrecho. Tira hacia el pecho, contrayendo los dorsales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al pecho agarre prono",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Agarre prono (palmas hacia adelante). Tira hacia el pecho, enfocando la parte media de la espalda.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al pecho agarre supino",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Agarre supino (palmas hacia ti). Tira hacia el pecho, mayor activación de bíceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al pecho agarre unilateral",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Jalón unilateral con una mano. Permite mayor rango de movimiento y corrección de desequilibrios.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al pecho en máquina",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "En máquina de jalón, tira hacia el pecho manteniendo el torso recto.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón neutro",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Jalón con agarre neutro (palmas enfrentadas). Tira hacia el pecho.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Cruce poleas",
+    "category": "Analítico",
+    "muscle_groups": ["Pecho"],
+    "instructions": "En poleas cruzadas, junta las manijas frente al pecho, contrayendo los pectorales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Prensa",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo"],
+    "instructions": "En prensa, coloca los pies al ancho de hombros. Baja controladamente y empuja hacia arriba.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Prensa con pies arriba",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "En prensa, pies colocados en la parte superior de la plataforma. Enfoca glúteos e isquiotibiales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Prensa unilateral",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo"],
+    "instructions": "Prensa con una sola pierna. Mayor activación y corrección de desequilibrios.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Prensa de glúteo en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "En multipower, posición específica para activar glúteos. Empuja la barra con la cadera.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo", "Femoral"],
+    "instructions": "En multipower, coloca la barra en los hombros. Baja como si te sentaras, manteniendo la espalda recta.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla barra alta",
+    "category": "Fuerza",
+    "muscle_groups": ["Cuádriceps", "Glúteo", "Femoral"],
+    "instructions": "Barra en la parte superior de los trapecios. Baja manteniendo el torso erguido.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla barra alta en máquina",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo"],
+    "instructions": "En máquina guiada, realiza la sentadilla con la barra en posición alta.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Peso muerto",
+    "category": "Fuerza",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "Barra en el suelo. Flexión de cadera manteniendo la espalda recta. Levanta extendiendo cadera y rodillas.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Peso muerto piernas rígidas en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "En multipower, piernas casi rectas. Flexiona cadera manteniendo las piernas extendidas, estirando isquiotibiales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Peso muerto rumano en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "Peso muerto rumano en multipower. Flexión de cadera con ligera flexión de rodillas.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Peso muerto sumo en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Aductor"],
+    "instructions": "Agarre sumo (pies muy separados). Baja manteniendo el torso erguido.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Peso muerto unilateral en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "Peso muerto con una sola pierna. Mayor activación de estabilizadores.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sumo",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo", "Aductor"],
+    "instructions": "Sentadilla con pies muy separados y punta de pies hacia afuera. Enfoca aductores y glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Búlgaras",
+    "category": "Multiarticular",
+    "muscle_groups": ["Cuádriceps", "Glúteo"],
+    "instructions": "Pie trasero elevado en banco. Baja la pierna delantera hasta formar 90 grados en la rodilla.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Dominada prona",
+    "category": "Fuerza",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Agarre prono (palmas hacia adelante). Tira el cuerpo hacia arriba hasta que la barbilla pase la barra.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Dominada con banda elástica",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Dominada asistida con banda elástica. Coloca la banda en la barra y el pie o rodilla para asistencia.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Dominadas supinas",
+    "category": "Fuerza",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Agarre supino (palmas hacia ti). Tira hacia arriba, mayor activación de bíceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hip thrust en multipower glute builder",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "Espalda apoyada en banco, barra en la cadera. Empuja la cadera hacia arriba contrayendo glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hip thrust",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "Espalda en banco, barra o peso en cadera. Empuja la cadera hacia arriba contrayendo glúteos al máximo.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Puente de glúteo",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "Acostado, rodillas flexionadas. Eleva la cadera contrayendo glúteos y mantén la posición.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Puente de glúteo con peso",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "Puente de glúteo con peso adicional en la cadera. Mayor resistencia para glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Glute bridge 1 pierna",
+    "category": "Multiarticular",
+    "muscle_groups": ["Glúteo", "Femoral"],
+    "instructions": "Puente de glúteo con una sola pierna. Mayor activación y estabilización.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl femoral en máquina",
+    "category": "Analítico",
+    "muscle_groups": ["Femoral"],
+    "instructions": "En máquina de curl femoral, flexiona las rodillas llevando los talones hacia los glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Femoral",
+    "category": "Analítico",
+    "muscle_groups": ["Femoral"],
+    "instructions": "Curl de isquiotibiales. Flexiona las rodillas contrayendo los músculos posteriores del muslo.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión de cuádriceps en máquina",
+    "category": "Analítico",
+    "muscle_groups": ["Cuádriceps"],
+    "instructions": "En máquina, extiende las rodillas contrayendo los cuádriceps completamente.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión cuádriceps",
+    "category": "Analítico",
+    "muscle_groups": ["Cuádriceps"],
+    "instructions": "Extensión de rodilla contrayendo los cuádriceps. Puede ser en máquina o con peso.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Elevaciones laterales",
+    "category": "Analítico",
+    "muscle_groups": ["Hombro"],
+    "instructions": "De pie, eleva los brazos lateralmente hasta la altura de los hombros, contrayendo el deltoides medio.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Laterales",
+    "category": "Analítico",
+    "muscle_groups": ["Hombro"],
+    "instructions": "Elevaciones laterales de hombro. Eleva los brazos lateralmente hasta la altura de los hombros.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones",
+    "category": "Analítico",
+    "muscle_groups": ["Erectores Espinales", "Glúteo"],
+    "instructions": "En máquina de hiperextensión, flexiona la cadera y luego extiende contrayendo la espalda baja y glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones en máquina glute builder",
+    "category": "Analítico",
+    "muscle_groups": ["Glúteo", "Erectores Espinales"],
+    "instructions": "En máquina glute builder, realiza hiperextensiones enfocando glúteos y espalda baja.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones con lastre",
+    "category": "Analítico",
+    "muscle_groups": ["Erectores Espinales", "Glúteo"],
+    "instructions": "Hiperextensiones con peso adicional. Mayor resistencia para espalda baja y glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Buenos días",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "Barra en los hombros. Flexiona la cadera manteniendo las piernas casi rectas, estirando isquiotibiales y glúteos.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Buenos días en multipower",
+    "category": "Multiarticular",
+    "muscle_groups": ["Femoral", "Glúteo", "Erectores Espinales"],
+    "instructions": "En multipower, realiza el movimiento de buenos días. Flexiona cadera manteniendo espalda recta.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Clamshells",
+    "category": "Analítico",
+    "muscle_groups": ["Abductor", "Glúteo"],
+    "instructions": "Acostado de lado, rodillas flexionadas. Abre la rodilla superior manteniendo los pies juntos, contrayendo glúteo medio.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Abducción en polea",
+    "category": "Analítico",
+    "muscle_groups": ["Abductor", "Glúteo"],
+    "instructions": "De pie, abduce la pierna contra la resistencia de la polea, contrayendo glúteo medio.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Patada de glúteo en máquina",
+    "category": "Analítico",
+    "muscle_groups": ["Glúteo"],
+    "instructions": "En máquina, realiza patadas de glúteo. Extiende la cadera contrayendo el glúteo.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Patada de glúteo en polea media",
+    "category": "Analítico",
+    "muscle_groups": ["Glúteo"],
+    "instructions": "Con polea a media altura, realiza patadas de glúteo. Extiende la cadera contrayendo el glúteo.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Elevación de talón en multipower",
+    "category": "Analítico",
+    "muscle_groups": ["Gemelo"],
+    "instructions": "En multipower, eleva los talones contrayendo los gemelos. Puede ser de pie o sentado.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de bíceps bayesian",
+    "category": "Analítico",
+    "muscle_groups": ["Bíceps"],
+    "instructions": "Curl de bíceps con agarre específico bayesian. Flexiona el codo contrayendo los bíceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de bíceps en polea con barra Z",
+    "category": "Analítico",
+    "muscle_groups": ["Bíceps"],
+    "instructions": "En polea, curl con barra Z. Flexiona los codos contrayendo los bíceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de bíceps en polea unilateral",
+    "category": "Analítico",
+    "muscle_groups": ["Bíceps"],
+    "instructions": "Curl de bíceps unilateral en polea. Permite trabajar cada brazo de forma independiente.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Biceps Z",
+    "category": "Analítico",
+    "muscle_groups": ["Bíceps"],
+    "instructions": "Curl de bíceps con barra Z. Flexiona los codos contrayendo los bíceps completamente.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión de tríceps en polea alta",
+    "category": "Analítico",
+    "muscle_groups": ["Tríceps"],
+    "instructions": "En polea alta, extiende los codos contrayendo los tríceps. Mantén los codos cerca del cuerpo.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión de tríceps en polea alta con barra Z",
+    "category": "Analítico",
+    "muscle_groups": ["Tríceps"],
+    "instructions": "En polea alta, extensión de tríceps con barra Z. Extiende los codos completamente.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Triceps en silla",
+    "category": "Analítico",
+    "muscle_groups": ["Tríceps"],
+    "instructions": "Fondos en silla o banco. Flexiona los codos bajando el cuerpo y luego extiende contrayendo tríceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Fondos",
+    "category": "Fuerza",
+    "muscle_groups": ["Tríceps", "Pecho", "Hombro"],
+    "instructions": "Fondos en barras paralelas. Baja el cuerpo flexionando codos y luego extiende contrayendo tríceps y pecho.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Crunch abdominal en polea alta",
+    "category": "Analítico",
+    "muscle_groups": ["Abdominales"],
+    "instructions": "Arrodillado, flexiona el tronco contrayendo los abdominales. Controla el movimiento.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Crunch",
+    "category": "Analítico",
+    "muscle_groups": ["Abdominales"],
+    "instructions": "Acostado, flexiona el tronco contrayendo los abdominales. No tires del cuello.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Crunch bicicleta",
+    "category": "Analítico",
+    "muscle_groups": ["Abdominales"],
+    "instructions": "Acostado, alterna llevar rodilla al codo opuesto, como pedaleando una bicicleta.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Pull over en máquina",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Espalda"],
+    "instructions": "En máquina, pull over. Extiende los brazos desde atrás hacia adelante, contrayendo pecho y dorsales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Pull over en polea alta",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Espalda"],
+    "instructions": "En polea alta, pull over. Extiende los brazos contrayendo pecho y dorsales.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Flexiones",
+    "category": "Fuerza",
+    "muscle_groups": ["Pecho", "Tríceps", "Hombro"],
+    "instructions": "En posición de plancha, baja el cuerpo flexionando codos y luego empuja hacia arriba contrayendo pecho y tríceps.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Flexiones rodillas",
+    "category": "Multiarticular",
+    "muscle_groups": ["Pecho", "Tríceps"],
+    "instructions": "Flexiones con rodillas apoyadas. Versión asistida para principiantes.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo mochila",
+    "category": "Multiarticular",
+    "muscle_groups": ["Espalda", "Bíceps"],
+    "instructions": "Con mochila con peso, realiza remo. Tira hacia el torso contrayendo la espalda.",
+    "google_drive_file_id": "",
+    "image_url": ""
+  }
+]
+

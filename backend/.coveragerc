@@ -1,0 +1,38 @@
+[run]
+source = .
+omit = 
+    */tests/*
+    */migrations/*
+    */venv/*
+    */.venv/*
+    */env/*
+    */staticfiles/*
+    */media/*
+    */__pycache__/*
+    */migrations/*
+    */test_*
+    */test_settings.py
+    manage.py
+    sentry.py
+    print_db_config.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+    def __init_subclass__
+
+show_missing = True
+precision = 2
+
+[html]
+directory = htmlcov
+title = MyKaizenFit - Cobertura de Tests 

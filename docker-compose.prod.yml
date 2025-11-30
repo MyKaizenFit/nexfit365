@@ -1,0 +1,203 @@
+# ============================================
+# Docker Compose para PRODUCCIÓN - Nex-Fit PRO
+# ============================================
+# 📁 Carpeta: /srv/mykaizenfit/pro/
+# 
+# ⚠️ IMPORTANTE: Usar SIEMPRE con COMPOSE_PROJECT_NAME para volúmenes estables
+# 
+# COMANDOS:
+#   Iniciar:  COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d
+#   Detener:  COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml down
+#   Logs:     COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs -f
+#   Estado:   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml ps
+#   Build:    COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml build --no-cache
+#
+# PUERTOS DE PRODUCCIÓN:
+#   - Frontend: 3000
+#   - Backend:  8000
+#   - DB:       5433 (para acceso externo si es necesario)
+#   - Redis:    NO expuesto (solo interno)
+#
+# DATOS PERSISTENTES:
+#   Todos los datos se guardan en /srv/mykaizenfit/pro/data/
+#   - postgres/    -> Base de datos PostgreSQL
+#   - redis/       -> Cache Redis
+#   - staticfiles/ -> Archivos estáticos Django
+#   - media/       -> Archivos subidos por usuarios
+#   - backups/     -> Backups automáticos de la BD
+
+services:
+  # ============================================
+  # BASE DE DATOS POSTGRES (PRODUCCIÓN)
+  # ============================================
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    env_file:
+      - ./docker/backend.env.production
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-mykaizenfit}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "0.0.0.0:5433:5432"  # Puerto 5433 para producción (acceso externo)
+    volumes:
+      - /srv/mykaizenfit/pro/data/postgres:/var/lib/postgresql/data
+      - /srv:/srv:ro  # Acceso de solo lectura a /srv
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ============================================
+  # REDIS (Cache y Colas) - PRODUCCIÓN
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    env_file:
+      - ./docker/backend.env.production
+    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\" --appendonly yes"]
+    # Redis NO expone puerto externamente por seguridad
+    volumes:
+      - /srv/mykaizenfit/pro/data/redis:/data
+      - /srv:/srv:ro
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping || redis-cli ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ============================================
+  # BACKEND (Django + Gunicorn) - PRODUCCIÓN
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "0:0"  # Root para evitar problemas de permisos
+    env_file:
+      - ./docker/backend.env.production
+    command: >
+      sh -c "
+        echo '🔄 Aplicando migraciones...' &&
+        python manage.py migrate --noinput &&
+        echo '📦 Recolectando archivos estáticos...' &&
+        python manage.py collectstatic --noinput &&
+        echo '🚀 Iniciando Gunicorn...' &&
+        gunicorn backend.wsgi:application 
+          --bind 0.0.0.0:8000 
+          --workers 4 
+          --threads 2 
+          --timeout 120 
+          --access-logfile - 
+          --error-logfile - 
+          --log-level info
+      "
+    ports:
+      - "0.0.0.0:8000:8000"  # Puerto 8000 para producción
+    volumes:
+      - ./backend:/app  # Código del backend
+      - /srv/mykaizenfit/pro/data/staticfiles:/app/staticfiles
+      - /srv/mykaizenfit/pro/data/media:/app/media
+      - /srv:/srv:rw
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    networks:
+      - internal
+      - web
+
+  # ============================================
+  # FRONTEND (Next.js) - PRODUCCIÓN
+  # ============================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    restart: unless-stopped
+    env_file:
+      - ./frontend/docker.env.production
+    ports:
+      - "0.0.0.0:3000:3000"  # Puerto 3000 para producción
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - web
+
+  # ============================================
+  # BACKUPS AUTOMÁTICOS DE LA BD
+  # ============================================
+  db-backup:
+    image: prodrigestivill/postgres-backup-local:16
+    restart: unless-stopped
+    env_file:
+      - ./docker/backend.env.production
+    environment:
+      POSTGRES_HOST: db
+      POSTGRES_DB: ${POSTGRES_DB:-mykaizenfit}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_EXTRA_OPTS: -Z6 --schema=public
+      SCHEDULE: "0 3 * * *"  # Diario a las 3 AM
+      BACKUP_DIR: /backups
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+      HEALTHCHECK_PORT: 8080
+    volumes:
+      - /srv/mykaizenfit/pro/data/backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - internal
+
+# ============================================
+# VOLÚMENES
+# ============================================
+# NOTA: No se usan volúmenes nombrados.
+# Todos los datos están en bind mounts a /srv/mykaizenfit/pro/data/
+# Esto permite:
+#   - Acceso directo desde el host
+#   - Fácil backup/restauración
+#   - Persistencia independiente de Docker
+
+# ============================================
+# REDES
+# ============================================
+networks:
+  internal:
+    driver: bridge
+    internal: true  # Red privada: solo comunicación entre servicios Docker
+  web:
+    driver: bridge
