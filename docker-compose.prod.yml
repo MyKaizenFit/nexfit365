@@ -91,14 +91,7 @@ services:
         echo '📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput &&
         echo '🚀 Iniciando Gunicorn...' &&
-        gunicorn backend.wsgi:application 
-          --bind 0.0.0.0:8000 
-          --workers 4 
-          --threads 2 
-          --timeout 120 
-          --access-logfile - 
-          --error-logfile - 
-          --log-level info
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --log-level info
       "
     ports:
       - "0.0.0.0:8000:8000"  # Puerto 8000 para producción
