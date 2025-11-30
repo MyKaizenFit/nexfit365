@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { Eye, EyeOff, Sparkles, Heart, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter, useSearchParams } from "next/navigation"
 
-export default function AuthPage() {
+function AuthPageContent() {
   const searchParams = useSearchParams()
   const registerParam = searchParams.get('register')
   const [isLogin, setIsLogin] = useState(registerParam !== 'true')
@@ -373,5 +373,22 @@ export default function AuthPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+// Loading component for Suspense fallback
+function AuthLoading() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50">
+      <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+    </div>
+  )
+}
+
+export default function AuthPage() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <AuthPageContent />
+    </Suspense>
   )
 }
