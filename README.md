@@ -8,29 +8,29 @@
 
 ## 🚀 Descripción
 
-NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Combina un frontend Next.js con un backend Django, desplegada con Docker Compose para una experiencia de desarrollo y producción simplificada.
+NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Combina un frontend Next.js con un backend Django en un **mono-repo** unificado, diseñado para facilitar el desarrollo y despliegue.
 
 ## ✨ Características Principales
 
-### 🎯 **Nutrición**
-- Plan de comidas personalizado con recetas
-- Seguimiento de macros (proteínas, carbohidratos, grasas, calorías)
-- Dashboard nutricional con métricas en tiempo real
-- Catálogo de recetas con instrucciones detalladas
+### 🍽️ Nutrición
+- Planes de alimentación personalizados
+- Biblioteca de recetas con información nutricional
+- Seguimiento de macros y calorías
+- Dashboard nutricional interactivo
 
-### 🏃‍♂️ **Entrenamientos**
+### 🏃‍♂️ Entrenamientos
 - Programas de entrenamiento personalizables
 - Biblioteca de ejercicios con videos
-- Seguimiento de rutinas y progreso
-- Planes por defecto y personalizados
+- Seguimiento de progreso y rendimiento
+- Planes predeterminados y personalizados
 
-### 📊 **Progreso**
-- Métricas avanzadas de rendimiento
-- Gráficos interactivos de evolución
-- Sistema de logros y rachas
+### 📊 Progreso
+- Métricas avanzadas y análisis
+- Gráficos interactivos
 - Historial completo de actividades
+- Sistema de logros y gamificación
 
-### 🔐 **Autenticación**
+### 🔐 Autenticación
 - JWT seguro con tokens de acceso y renovación
 - Roles de usuario (admin, trainer, user)
 - Panel de administración completo
@@ -39,224 +39,152 @@ NexFit365 es una aplicación web moderna para la gestión integral de fitness y 
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   Base de       │
-│   Next.js 14    │◄──►│   Django 4.2    │◄──►│   Datos         │
-│   TypeScript    │    │   Python 3.11   │    │   PostgreSQL 15 │
-│   Tailwind CSS  │    │   DRF + JWT     │    │                 │
-└────────┬────────┘    └────────┬────────┘    └─────────────────┘
-         │                      │                      ▲
+│   Frontend      │    │   Backend       │    │   PostgreSQL    │
+│   Next.js 14    │◄──►│   Django 4.2    │◄──►│   + Redis       │
+│   Port: 3000    │    │   Port: 8000    │    │   Port: 5432    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
          │                      │                      │
          └──────────────────────┴──────────────────────┘
-                           Docker Compose
+                        Docker Compose
 ```
-
-### **Stack Tecnológico**
-
-| Componente | Tecnología |
-|------------|------------|
-| Frontend | Next.js 14, TypeScript 5, Tailwind CSS, Shadcn/ui |
-| Backend | Django 4.2, Django REST Framework, Simple JWT |
-| Base de Datos | PostgreSQL 15 |
-| Cache | Redis 7 |
-| Containerización | Docker & Docker Compose |
-| Servidor Web | Gunicorn (backend), Node.js (frontend) |
-
-## 🚀 Inicio Rápido
-
-### **Prerrequisitos**
-- Docker y Docker Compose
-- Git
-
-### **1. Clonar el Repositorio**
-```bash
-git clone https://github.com/MyKaizenFit/nexfit365.git
-cd nexfit365
-```
-
-### **2. Configurar Variables de Entorno**
-
-Crear los archivos de configuración:
-
-```bash
-# Backend
-cp backend/docker/backend.env.example backend/docker/backend.env
-
-# Frontend  
-cp frontend/docker.env.example frontend/docker.env
-```
-
-Editar con tus valores (especialmente `SECRET_KEY`, `POSTGRES_PASSWORD`, etc.)
-
-### **3. Levantar con Docker Compose**
-
-**Desarrollo:**
-```bash
-docker compose -f docker-compose.dev.yml up --build
-```
-
-**Producción:**
-```bash
-docker compose -f docker-compose.prod.yml up --build -d
-```
-
-### **4. Acceder a la Aplicación**
-
-| Entorno | Frontend | Backend API | Admin Django |
-|---------|----------|-------------|--------------|
-| Dev | http://localhost:3001 | http://localhost:8001 | http://localhost:8001/admin |
-| Prod | http://localhost:3000 | http://localhost:8000 | http://localhost:8000/admin |
 
 ## 📁 Estructura del Proyecto
 
 ```
 nexfit365/
-├── frontend/                 # Aplicación Next.js
-│   ├── app/                 # App Router (páginas)
-│   ├── components/          # Componentes React
-│   ├── hooks/              # Hooks personalizados
-│   ├── lib/                # Servicios y utilidades
-│   ├── contexts/           # Contextos de React
-│   ├── docker.env          # Variables de entorno
-│   └── Dockerfile          # Imagen Docker
+├── frontend/                   # Aplicación Next.js
+│   ├── app/                   # App Router
+│   ├── components/            # Componentes React
+│   ├── hooks/                 # Hooks personalizados
+│   ├── lib/                   # Servicios y utilidades
+│   └── docker.env.example     # Variables de entorno
 │
-├── backend/                 # API Django
-│   ├── accounts/           # Gestión de usuarios
-│   ├── workouts/           # Entrenamientos y ejercicios
-│   ├── nutrition/          # Nutrición, recetas y planes
-│   ├── progress/           # Seguimiento de progreso
-│   ├── achievements/       # Sistema de logros
-│   ├── notifications/      # Notificaciones
-│   ├── dashboard/          # Panel de administración
-│   ├── api/                # Configuración API
-│   ├── docker/             # Configuración Docker
-│   │   └── backend.env     # Variables de entorno
-│   └── Dockerfile          # Imagen Docker
+├── backend/                    # API Django
+│   ├── accounts/              # Gestión de usuarios
+│   ├── nutrition/             # Nutrición y recetas
+│   ├── workouts/              # Entrenamientos y ejercicios
+│   ├── progress/              # Seguimiento de progreso
+│   ├── achievements/          # Sistema de logros
+│   ├── notifications/         # Notificaciones
+│   ├── dashboard/             # Panel de admin
+│   └── docker/                # Configuración Docker
+│       └── backend.env.example
 │
-├── doc/                     # Documentación
-│   ├── backend/            # Docs del backend
-│   ├── frontend/           # Docs del frontend
-│   └── api/                # Especificaciones API
+├── doc/                        # Documentación
 │
-├── docker-compose.dev.yml   # Compose para desarrollo
-├── docker-compose.prod.yml  # Compose para producción
+├── docker-compose.prod.yml     # Configuración para producción
+├── docker-compose.dev.yml      # Configuración para desarrollo
 └── .gitignore
 ```
 
+## 🚀 Inicio Rápido con Docker
+
+### Prerrequisitos
+- Docker y Docker Compose
+- Git
+
+### 1. Clonar el repositorio
+```bash
+git clone https://github.com/MyKaizenFit/nexfit365.git
+cd nexfit365
+```
+
+### 2. Configurar variables de entorno
+```bash
+# Backend
+cp backend/docker/backend.env.example backend/docker/backend.env
+# Editar backend/docker/backend.env con tus valores
+
+# Frontend
+cp frontend/docker.env.example frontend/docker.env
+# Editar frontend/docker.env con tus valores
+```
+
+### 3. Levantar los servicios
+
+**Producción:**
+```bash
+POSTGRES_PASSWORD='tu_password' \
+REDIS_PASSWORD='tu_password_redis' \
+docker compose -f docker-compose.prod.yml up -d
+```
+
+**Desarrollo:**
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
+
+### 4. Acceder a la aplicación
+- **Frontend**: http://localhost:3000
+- **Backend API**: http://localhost:8000/api
+- **Admin Django**: http://localhost:8000/admin
+
 ## 🔧 Comandos Útiles
 
-### **Docker**
+### Docker
 ```bash
 # Ver logs
 docker compose -f docker-compose.prod.yml logs -f
 
-# Ver logs de un servicio específico
-docker compose -f docker-compose.prod.yml logs -f backend
+# Reiniciar un servicio
+docker compose -f docker-compose.prod.yml restart backend
 
-# Ejecutar comando en el backend
-docker compose -f docker-compose.prod.yml exec backend python manage.py <comando>
+# Ejecutar migraciones
+docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
 
 # Crear superusuario
 docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
 
-# Aplicar migraciones
-docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
+# Acceder al shell de Django
+docker compose -f docker-compose.prod.yml exec backend python manage.py shell
 
-# Parar servicios
-docker compose -f docker-compose.prod.yml down
-
-# Parar y eliminar volúmenes (⚠️ borra datos)
-docker compose -f docker-compose.prod.yml down -v
+# Ver estado de los contenedores
+docker compose -f docker-compose.prod.yml ps
 ```
 
-### **Base de Datos**
+### Base de datos
 ```bash
-# Acceder a PostgreSQL
-docker compose -f docker-compose.prod.yml exec db psql -U postgres -d mykaizenfit
-
 # Backup de la base de datos
 docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfit > backup.sql
 
 # Restaurar backup
-cat backup.sql | docker compose -f docker-compose.prod.yml exec -T db psql -U postgres -d mykaizenfit
+docker compose -f docker-compose.prod.yml exec -T db psql -U postgres mykaizenfit < backup.sql
 ```
 
-## 📊 Modelos de Datos
+## 🛠️ Desarrollo Local (sin Docker)
 
-### **Usuarios** (`accounts`)
-- `CustomUser` - Usuario con roles (admin, trainer, user)
-
-### **Entrenamientos** (`workouts`)
-- `Exercise` - Catálogo de ejercicios
-- `WorkoutProgram` - Programas de entrenamiento
-- `WorkoutDay` - Días de entrenamiento
-- `WorkoutDayExercise` - Ejercicios asignados a cada día
-
-### **Nutrición** (`nutrition`)
-- `Recipe` - Recetas con ingredientes y macros
-- `NutritionPlan` - Planes de nutrición
-- `Meal` - Comidas del día
-- `PlanMeal` - Relación plan-comida
-- `MealLog` - Registro de comidas consumidas
-
-## 🔐 Autenticación
-
-La API usa JWT (JSON Web Tokens):
-
+### Backend
 ```bash
-# Login
-POST /api/auth/login/
-{
-  "email": "usuario@ejemplo.com",
-  "password": "contraseña"
-}
-
-# Respuesta
-{
-  "access": "eyJ...",
-  "refresh": "eyJ..."
-}
-
-# Usar token
-Authorization: Bearer eyJ...
+cd backend
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py runserver 8000
 ```
 
-## 📝 Variables de Entorno
-
-### **Backend** (`backend/docker/backend.env`)
+### Frontend
 ```bash
-DEBUG=False
-SECRET_KEY=tu-clave-secreta-muy-larga
-POSTGRES_DB=mykaizenfit
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=tu-password-seguro
-POSTGRES_HOST=db
-ALLOWED_HOSTS=localhost,127.0.0.1,tu-dominio.com
-CORS_ALLOWED_ORIGINS=http://localhost:3000,https://tu-dominio.com
+cd frontend
+npm install  # o pnpm install
+npm run dev
 ```
 
-### **Frontend** (`frontend/docker.env`)
-```bash
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
-NEXT_PUBLIC_APP_NAME=NexFit365
-NODE_ENV=production
-```
+## 📊 Estado del Proyecto
 
-## 🚀 Despliegue en Producción
+### ✅ Completado
+- [x] Sistema de autenticación JWT
+- [x] API REST para nutrición y entrenamientos
+- [x] Dashboard de usuario funcional
+- [x] Sistema de recetas y ejercicios
+- [x] Interfaz moderna y responsiva
+- [x] Dockerización completa
+- [x] Modelos de BD simplificados y unificados
 
-1. **Configurar dominio** en Nginx/Apache
-2. **SSL/TLS** con Let's Encrypt
-3. **Variables de entorno** con valores de producción
-4. **Levantar servicios**: `docker compose -f docker-compose.prod.yml up -d`
-
-## 🧪 Testing
-
-```bash
-# Backend
-docker compose exec backend python manage.py test
-
-# Frontend
-docker compose exec frontend npm run test
-```
+### 🔄 En Desarrollo
+- [ ] Tests automatizados
+- [ ] CI/CD pipeline
+- [ ] Optimizaciones de rendimiento
 
 ## 🤝 Contribución
 
