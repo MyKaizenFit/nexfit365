@@ -1,0 +1,154 @@
+from rest_framework import viewsets, status, filters
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
+from django.db.models import Q, Count
+from django.utils import timezone
+from datetime import timedelta
+
+from .models import Notification
+from .serializers import (
+    NotificationSerializer, NotificationCreateSerializer, 
+    NotificationUpdateSerializer, NotificationSummarySerializer
+)
+from .permissions import (
+    NotificationPermission, NotificationCreatePermission, NotificationBulkPermission
+)
+
+
+class NotificationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para notificaciones
+    """
+    queryset = Notification.objects.all()
+    serializer_class = NotificationSerializer
+    permission_classes = [NotificationPermission]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ["type", "read_at"]
+    ordering_fields = ["created_at", "read_at", "type"]
+    ordering = ["-created_at"]
+    search_fields = ["title", "message"]
+    
+    def get_queryset(self):
+        user_id = self.kwargs.get("user_id")
+        if user_id:
+            return Notification.objects.filter(user_id=user_id)
+        return Notification.objects.filter(user=self.request.user)
+    
+    def get_serializer_class(self):
+        if self.action == "create":
+            return NotificationCreateSerializer
+        elif self.action in ["update", "partial_update"]:
+            return NotificationUpdateSerializer
+        return NotificationSerializer
+    
+    def get_permissions(self):
+        if self.action == "create":
+            return [NotificationCreatePermission()]
+        elif self.action in ["mark_all_read", "delete_multiple"]:
+            return [NotificationBulkPermission()]
+        return [NotificationPermission()]
+    
+    def perform_create(self, serializer):
+        user_id = self.kwargs.get("user_id")
+        if user_id:
+            serializer.save(user_id=user_id)
+        else:
+            serializer.save(user=self.request.user)
+    
+    @action(detail=True, methods=["patch"])
+    def read(self, request, user_id=None, pk=None):
+        """Marcar notificación como leída"""
+        notification = self.get_object()
+        notification.mark_as_read()
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+    
+    @action(detail=True, methods=["patch"])
+    def unread(self, request, user_id=None, pk=None):
+        """Marcar notificación como no leída"""
+        notification = self.get_object()
+        notification.mark_as_unread()
+        serializer = self.get_serializer(notification)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=["patch"])
+    def mark_all_read(self, request, user_id=None):
+        """Marcar todas las notificaciones como leídas"""
+        user_id = user_id or request.user.id
+        queryset = self.get_queryset()
+        
+        # Marcar como leídas
+        updated_count = queryset.filter(read_at__isnull=True).update(
+            read_at=timezone.now()
+        )
+        
+        return Response({
+            "message": f"{updated_count} notificaciones marcadas como leídas",
+            "updated_count": updated_count
+        })
+    
+    @action(detail=False, methods=["get"])
+    def unread_count(self, request, user_id=None):
+        """Obtener contador de notificaciones no leídas"""
+        user_id = user_id or request.user.id
+        queryset = self.get_queryset()
+        
+        unread_count = queryset.filter(read_at__isnull=True).count()
+        
+        return Response({"unread_count": unread_count})
+    
+    @action(detail=False, methods=["get"])
+    def summary(self, request, user_id=None):
+        """Obtener resumen de notificaciones"""
+        user_id = user_id or request.user.id
+        queryset = self.get_queryset()
+        
+        # Estadísticas básicas
+        total_notifications = queryset.count()
+        unread_count = queryset.filter(read_at__isnull=True).count()
+        
+        # Notificaciones por tipo
+        notifications_by_type = queryset.values("type").annotate(
+            count=Count("id")
+        ).order_by("-count")
+        
+        # Última notificación
+        latest_notification = queryset.first().created_at if queryset.exists() else None
+        
+        data = {
+            "total_notifications": total_notifications,
+            "unread_count": unread_count,
+            "notifications_by_type": {item["type"]: item["count"] for item in notifications_by_type},
+            "latest_notification": latest_notification,
+        }
+        
+        serializer = NotificationSummarySerializer(data)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=["get"])
+    def recent(self, request, user_id=None):
+        """Obtener notificaciones recientes (últimas 10)"""
+        user_id = user_id or request.user.id
+        queryset = self.get_queryset()[:10]
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=["get"])
+    def by_type(self, request, user_id=None):
+        """Obtener notificaciones por tipo"""
+        notification_type = request.query_params.get("type")
+        if not notification_type:
+            return Response(
+                {"error": "El parámetro 'type' es requerido"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        user_id = user_id or request.user.id
+        queryset = self.get_queryset().filter(type=notification_type)
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data) 

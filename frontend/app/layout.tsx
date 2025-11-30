@@ -1,0 +1,53 @@
+import type { Metadata } from 'next'
+import { GeistSans } from 'geist/font/sans'
+import { GeistMono } from 'geist/font/mono'
+import './globals.css'
+import { AuthProvider } from '@/contexts/auth-context'
+import { Toaster } from '@/components/ui/toaster'
+import { NotificationContainer } from '@/components/ui/notification-toast'
+import { BetaBanner } from '@/components/beta-banner'
+// import { ThemeProvider } from '@/components/theme-provider'  // Deshabilitado para esta versión
+
+export const metadata: Metadata = {
+  title: 'Nex-Fit - Tu Compañero de Fitness',
+  description: 'Aplicación completa de fitness y bienestar para gestionar entrenamientos, nutrición y progreso',
+  generator: 'Nex-Fit v1.0',
+  keywords: 'fitness, entrenamiento, nutrición, progreso, bienestar',
+  authors: [{ name: 'Nex-Fit Team' }],
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="es" suppressHydrationWarning>
+      <head>
+        <style>{`
+html {
+  font-family: ${GeistSans.style.fontFamily};
+  --font-sans: ${GeistSans.variable};
+  --font-mono: ${GeistMono.variable};
+}
+        `}</style>
+      </head>
+      <body>
+        <BetaBanner />
+        {/* ThemeProvider deshabilitado para esta versión
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        > */}
+          <AuthProvider>
+            {children}
+            <Toaster />
+            <NotificationContainer />
+          </AuthProvider>
+        {/* </ThemeProvider> */}
+      </body>
+    </html>
+  )
+}

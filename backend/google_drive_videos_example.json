@@ -1,0 +1,15 @@
+[
+  {
+    "name": "Curl de Biceps",
+    "file_id": "REEMPLAZA_CON_EL_ID_DEL_ARCHIVO",
+    "category": "strength",
+    "muscle_groups": ["biceps"]
+  },
+  {
+    "name": "Press de Banca",
+    "file_id": "REEMPLAZA_CON_EL_ID_DEL_ARCHIVO",
+    "category": "strength",
+    "muscle_groups": ["pectorales", "triceps"]
+  }
+]
+

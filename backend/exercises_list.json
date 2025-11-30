@@ -1,0 +1,330 @@
+[
+  {
+    "name": "Abducciones en Polea",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "abductores"],
+    "instructions": "De pie de lado a la polea, con la pierna de trabajo conectada al cable. Realiza una abducción de cadera llevando la pierna hacia afuera. Mantén el torso recto y controla el movimiento. Vuelve a la posición inicial de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Clamshells",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "abductores"],
+    "instructions": "Acostado de lado, con las rodillas flexionadas y los pies juntos. Manteniendo los pies unidos, abre la rodilla superior manteniendo la cadera estable. Controla el movimiento y vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Crunch Abdominal en Polea Alta",
+    "category": "strength",
+    "muscle_groups": ["abdominales", "core"],
+    "instructions": "De rodillas frente a la polea alta, agarra la cuerda con ambas manos y lleva las manos hacia las sienes. Flexiona el tronco llevando los codos hacia las rodillas, contrayendo los abdominales. Vuelve a la posición inicial de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de Bíceps Bayesiano",
+    "category": "strength",
+    "muscle_groups": ["bíceps"],
+    "instructions": "De pie con la barra EZ o curl bar, realiza una flexión de brazos llevando la barra hacia el pecho. Mantén los codos pegados al cuerpo y controla el movimiento durante toda la fase excéntrica y concéntrica.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de Bíceps en Polea Baja con Barra Z",
+    "category": "strength",
+    "muscle_groups": ["bíceps"],
+    "instructions": "De pie frente a la polea baja, agarra la barra Z con las palmas hacia arriba. Flexiona los brazos llevando la barra hacia el pecho, manteniendo los codos fijos. Vuelve a la posición inicial lentamente.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Curl de Bíceps en Polea Unilateral",
+    "category": "strength",
+    "muscle_groups": ["bíceps"],
+    "instructions": "De pie frente a la polea baja, agarra la manija con una mano. Flexiona el brazo llevando la manija hacia el hombro, manteniendo el codo fijo. Realiza todas las repeticiones con un brazo antes de cambiar al otro.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Dominada con Banda Elástica",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Coloca una banda elástica alrededor de la barra y apoya el pie o la rodilla en ella. Realiza la dominada agarrándote de la barra con las palmas hacia adelante. La banda ayudará al movimiento hacia arriba.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Dominada Prona",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Cuelga de la barra con las palmas mirando hacia adelante y las manos separadas al ancho de los hombros. Tira del cuerpo hacia arriba hasta que la barbilla pase la barra. Baja de forma controlada hasta la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión de Tríceps en Polea Alta con Barra Z",
+    "category": "strength",
+    "muscle_groups": ["tríceps"],
+    "instructions": "De pie frente a la polea alta, agarra la barra Z con las manos separadas al ancho de los hombros. Mantén los codos pegados al cuerpo y extiende los brazos hacia abajo contrayendo los tríceps. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Extensión de Tríceps en Polea Alta",
+    "category": "strength",
+    "muscle_groups": ["tríceps"],
+    "instructions": "De pie frente a la polea alta, agarra la cuerda con ambas manos. Mantén los codos pegados al cuerpo y extiende los brazos hacia abajo separando las cuerdas al final del movimiento. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hip Thrust en Multipower Glute Builder",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "cuádriceps", "isquiotibiales"],
+    "instructions": "Sentado en el glute builder, con la espalda apoyada y las rodillas flexionadas. Empuja con los talones elevando las caderas hasta formar una línea recta desde las rodillas hasta los hombros. Contrae los glúteos al final del movimiento.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones con Lastre",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "isquiotibiales", "erectores espinales"],
+    "instructions": "En el banco de hiperextensiones, con un peso sujeto al pecho. Flexiona la cadera bajando el torso hacia abajo y luego extiende la cadera elevando el torso hasta quedar en línea recta. Mantén la espalda recta durante todo el movimiento.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones en Máquina Glute Builder",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "isquiotibiales", "erectores espinales"],
+    "instructions": "En el glute builder, con el torso apoyado en el cojín. Flexiona la cadera bajando hacia abajo y luego extiende elevando el torso, contrayendo los glúteos al final del movimiento. Controla el movimiento en ambas fases.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Hiperextensiones",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "isquiotibiales", "erectores espinales"],
+    "instructions": "En el banco de hiperextensiones, con los tobillos fijados. Flexiona la cadera bajando el torso hacia abajo y luego extiende la cadera elevando el torso hasta quedar en línea recta. Mantén la espalda recta.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al Pecho Agarre Estrecho",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina de jalones, agarra la barra con las manos juntas y las palmas enfrentadas. Tira de la barra hacia el pecho, manteniendo el torso recto. Lleva los codos hacia atrás y hacia abajo. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al Pecho Agarre Prono",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina de jalones, agarra la barra con las palmas mirando hacia adelante y las manos separadas al ancho de los hombros. Tira de la barra hacia el pecho, llevando los codos hacia atrás. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al Pecho Agarre Supino",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps"],
+    "instructions": "Sentado en la máquina de jalones, agarra la barra con las palmas mirando hacia ti y las manos separadas al ancho de los hombros. Tira de la barra hacia el pecho, manteniendo el torso recto. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al Pecho Agarre Unilateral",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina de jalones, agarra la manija con una mano. Tira de la manija hacia el pecho, llevando el codo hacia atrás y rotando ligeramente el torso hacia ese lado. Realiza todas las repeticiones con un brazo antes de cambiar al otro.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Jalón al Pecho en Máquina",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina de jalones, agarra la barra con las palmas mirando hacia adelante. Tira de la barra hacia el pecho, manteniendo el torso recto y llevando los codos hacia atrás. Vuelve a la posición inicial de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Patada de Glúteo en Máquina",
+    "category": "strength",
+    "muscle_groups": ["glúteos"],
+    "instructions": "En la máquina de patadas de glúteo, apoya la rodilla y el pie en el apoyo. Extiende la cadera llevando el pie hacia atrás, contrayendo el glúteo al final del movimiento. Vuelve a la posición inicial de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Patada de Glúteo en Polea Media",
+    "category": "strength",
+    "muscle_groups": ["glúteos"],
+    "instructions": "De pie frente a la polea media, conecta el tobillo al cable con la correa. Apoya las manos en un soporte para mantener el equilibrio. Extiende la cadera llevando el pie hacia atrás, contrayendo el glúteo. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Puente de Glúteo con Peso",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "isquiotibiales"],
+    "instructions": "Acostado boca arriba, con las rodillas flexionadas y un peso sobre las caderas. Eleva las caderas contrayendo los glúteos hasta formar una línea recta desde las rodillas hasta los hombros. Mantén la posición un momento y baja de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Puente de Glúteo",
+    "category": "strength",
+    "muscle_groups": ["glúteos", "isquiotibiales"],
+    "instructions": "Acostado boca arriba, con las rodillas flexionadas y los pies apoyados en el suelo. Eleva las caderas contrayendo los glúteos hasta formar una línea recta desde las rodillas hasta los hombros. Mantén la posición y baja de forma controlada.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Pull Over en Máquina",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "pectorales", "tríceps", "serrato"],
+    "instructions": "Sentado en la máquina de pull over, apoya los brazos en los cojines. Empuja hacia abajo y adelante, extendiendo los brazos. Contrae los dorsales y el serrato al final del movimiento. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Pull Over en Polea Alta",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "pectorales", "tríceps", "serrato"],
+    "instructions": "De rodillas frente a la polea alta, agarra la cuerda con ambas manos. Empuja hacia abajo y adelante, extendiendo los brazos en un arco. Contrae los dorsales y el serrato. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Agarre Neutro en Polea Baja",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en el suelo frente a la polea baja, agarra la barra con las palmas enfrentadas. Tira de la barra hacia el abdomen, llevando los codos hacia atrás y manteniendo el torso recto. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Agarre Prono Abierto en Polea Baja",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "deltoides posteriores"],
+    "instructions": "Sentado en el suelo frente a la polea baja, agarra la barra con las palmas mirando hacia adelante y las manos separadas más allá del ancho de los hombros. Tira de la barra hacia el pecho, llevando los codos hacia atrás. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Alto Unilateral en Máquina",
+    "category": "strength",
+    "muscle_groups": ["deltoides", "trapecios", "deltoides laterales"],
+    "instructions": "Sentado en la máquina, agarra la manija con una mano a la altura del hombro. Tira de la manija hacia arriba y hacia afuera, elevando el codo. Mantén el torso recto. Realiza todas las repeticiones con un brazo antes de cambiar al otro.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo con Barra",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores", "erectores espinales"],
+    "instructions": "De pie con los pies separados al ancho de los hombros, agarra la barra con las palmas mirando hacia ti y las manos separadas al ancho de los hombros. Flexiona ligeramente las rodillas e inclina el torso hacia adelante. Tira de la barra hacia el abdomen, llevando los codos hacia atrás. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo en Máquina con el Pecho Apoyado Agarre Neutro",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina de remo con el pecho apoyado, agarra las manijas con las palmas enfrentadas. Tira de las manijas hacia el pecho, llevando los codos hacia atrás. Mantén el pecho apoyado durante todo el movimiento. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo en Polea Baja con Agarre Cerrado",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en el suelo frente a la polea baja, agarra la barra con las palmas mirando hacia ti y las manos juntas. Tira de la barra hacia el abdomen, llevando los codos hacia atrás. Mantén el torso recto. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Sentado en Máquina con el Pecho Apoyado Agarre Neutro",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Sentado en la máquina con el pecho apoyado en el cojín, agarra las manijas con las palmas enfrentadas. Tira de las manijas hacia el pecho, llevando los codos hacia atrás y manteniendo el pecho apoyado. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Unilateral con Mancuerna",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "Apoya una rodilla y una mano en el banco, agarra la mancuerna con la mano libre. Tira de la mancuerna hacia arriba, llevando el codo hacia atrás y contrayendo el dorsal. Mantén el torso estable. Realiza todas las repeticiones con un brazo antes de cambiar al otro.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Remo Unilateral en Polea Baja",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "bíceps", "deltoides posteriores"],
+    "instructions": "De pie frente a la polea baja, agarra la manija con una mano. Tira de la manija hacia el abdomen, llevando el codo hacia atrás. Mantén el torso recto y estable. Realiza todas las repeticiones con un brazo antes de cambiar al otro.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Seal Row con Mancuernas",
+    "category": "strength",
+    "muscle_groups": ["dorsales", "deltoides posteriores", "erectores espinales"],
+    "instructions": "Acostado boca abajo en un banco alto, agarra las mancuernas con los brazos colgando. Tira de las mancuernas hacia arriba, llevando los codos hacia atrás y contrayendo los dorsales. Mantén el torso estable durante todo el movimiento. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla Barra Alta en Multipower",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps", "glúteos", "isquiotibiales"],
+    "instructions": "En el multipower, coloca la barra en la parte alta de los trapecios. Con los pies separados al ancho de los hombros, flexiona las rodillas y baja el cuerpo como si te sentaras. Mantén el torso recto y los talones en el suelo. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla Barra Baja en Multipower",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps", "glúteos", "isquiotibiales"],
+    "instructions": "En el multipower, coloca la barra en la parte baja de los trapecios. Con los pies separados al ancho de los hombros, flexiona las rodillas y baja el cuerpo manteniendo el torso más inclinado. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla en Multipower con Talones Elevados",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps", "glúteos"],
+    "instructions": "En el multipower, coloca la barra en la parte alta de los trapecios y eleva los talones con discos o plataforma. Flexiona las rodillas y baja el cuerpo, manteniendo el torso recto. Esto aumenta la activación de cuádriceps. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla Sissy con Peso",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps"],
+    "instructions": "Sujeta un peso con las manos o usa una máquina de sentadilla sissy. Flexiona las rodillas mientras inclinas el torso hacia atrás, manteniendo los muslos relativamente verticales. Este movimiento aísla intensamente los cuádriceps. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Sentadilla Sissy",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps"],
+    "instructions": "De pie, flexiona las rodillas mientras inclinas el torso hacia atrás, manteniendo los muslos relativamente verticales. Puedes sujetarte de una barra o soporte para mantener el equilibrio. Este movimiento aísla intensamente los cuádriceps. Vuelve a la posición inicial.",
+    "video_url": "",
+    "image_url": ""
+  },
+  {
+    "name": "Step Up en Polea",
+    "category": "strength",
+    "muscle_groups": ["cuádriceps", "glúteos", "isquiotibiales"],
+    "instructions": "Frente a un cajón o banco, con el cable de la polea conectado a un cinturón o mancuerna. Sube al cajón con una pierna, contrayendo el glúteo y el cuádriceps. Baja de forma controlada. Repite con la otra pierna.",
+    "video_url": "",
+    "image_url": ""
+  }
+]
