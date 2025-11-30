@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+venv_new/
+.venv/
+env/
+ENV/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+/media
+/staticfiles
+*.pot
+*.pyc
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+coverage_html/
+.tox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Scripts temporales
+# NO excluir requirements.txt (necesario para el build)
+output.txt
+test.log
+test_*.py
+check_*.py
+create_*.py
+show_*.py
+ver_*.py
+associate_*.py
+populate_*.py
+final_*.py
+setup_*.py
+
+# Archivos grandes
+exercises_list.json
+
+# Docker
+docker-compose.yml
+# NO excluir Dockerfile ni .dockerignore (necesarios para el build)
+# NO excluir requirements.txt (necesario para el build)
+
+# Git
+.git/
+.gitignore
+
+# Otros
+*.md
+Makefile
+pytest.ini
+nginx.conf
+render*.yaml
+

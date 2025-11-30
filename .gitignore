@@ -1,0 +1,119 @@
+# ========================================
+# NexFit365 Mono-repo .gitignore
+# ========================================
+
+# ===== Entornos y configuración local =====
+.env
+.env.local
+.env.*.local
+*.env.production
+*.env.development
+!*.env.example
+
+# ===== Docker =====
+data/
+docker-data/
+
+# ===== Backups =====
+backups/
+
+# ===== Python/Django =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
+venv/
+ENV/
+env/
+.mypy_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+.coverage.*
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Django
+*.log
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+
+# ===== Node.js/Next.js =====
+node_modules/
+.next/
+out/
+.nuxt/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.tsbuildinfo
+next-env.d.ts
+
+# ===== IDE y editores =====
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===== Temporales y logs =====
+*.log
+logs/
+tmp/
+temp/
+.tmp/
+.temp/
+*.bak
+*.backup
+
+# ===== Certificados SSL (locales) =====
+certs/
+*.pem
+*.key
+*.crt
+!certs/.gitkeep
+
+# ===== Documentación generada =====
+docs/_build/
+
+# ===== Testing =====
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+
+# ===== Archivos específicos que no deberían estar =====
+*.dump
+*.sql
+*.sqlite
+

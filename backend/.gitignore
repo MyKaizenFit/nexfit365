@@ -1,0 +1,37 @@
+# Python / Django
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+*.log
+*.pot
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Django
+/static/
+staticfiles/
+media/
+
+# Video files (too large for Git)
+*.mov
+*.MOV
+*.mp4
+*.MP4
+*.avi
+*.AVI
+*.mkv
+*.MKV
+
+# Env
+.env
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/

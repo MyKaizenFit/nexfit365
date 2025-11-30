@@ -1,0 +1,887 @@
+// lib/auth-service.ts
+// Servicio de autenticación mejorado con validación y manejo de errores
+
+import { 
+  buildApiUrl, 
+  getAuthHeaders, 
+  handleApiResponse, 
+  handleFetchError,
+  AUTH_ENDPOINTS 
+} from './api'
+import { requestThrottler } from './request-throttle'
+import { apiCache, generateCacheKey } from './api-cache'
+import type { User } from '@/types/user'
+
+// Re-exportar el tipo User
+export type { User } from '@/types/user'
+
+// Tipos para autenticación
+export interface LoginCredentials {
+  email: string
+  password: string
+}
+
+export interface RegisterCredentials {
+  email: string
+  password: string
+  password_confirm: string
+  first_name?: string
+  last_name?: string
+  role?: string
+}
+
+export interface AuthTokens {
+  access: string
+  refresh: string
+}
+
+export interface AuthResponse {
+  user: User
+  tokens: AuthTokens
+  must_change_password?: boolean
+}
+
+// Utilidades para cookies
+const setCookie = (name: string, value: string, days: number = 7) => {
+  if (typeof window === 'undefined') return
+  
+  const expires = new Date()
+  expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000))
+  
+  // Usar SameSite=Lax para HTTPS y dominios cruzados, o None; Secure si es necesario
+  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
+  const sameSite = isSecure ? 'Lax' : 'Lax'
+  const secureFlag = isSecure ? ';Secure' : ''
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=${sameSite}${secureFlag}`
+}
+
+const getCookie = (name: string): string | null => {
+  if (typeof window === 'undefined') return null
+  
+  const nameEQ = name + "="
+  const ca = document.cookie.split(';')
+  
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i]
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length)
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length)
+  }
+  
+  return null
+}
+
+const deleteCookie = (name: string) => {
+  if (typeof window === 'undefined') return
+  
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
+}
+
+// Clase principal del servicio de autenticación mejorado
+export class AuthService {
+  private static instance: AuthService
+  private accessToken: string | null = null
+  private refreshToken: string | null = null
+  private isOfflineMode: boolean = false
+
+  private constructor() {
+    // Inicializar tokens desde cookies si existen
+    if (typeof window !== 'undefined') {
+      this.accessToken = getCookie('accessToken')
+      this.refreshToken = getCookie('refreshToken')
+      
+      console.log('🍪 Tokens obtenidos de cookies:')
+      console.log('  accessToken:', this.accessToken ? `${this.accessToken.substring(0, 20)}...` : 'null')
+      console.log('  refreshToken:', this.refreshToken ? `${this.refreshToken.substring(0, 20)}...` : 'null')
+      
+      // Verificar si estamos en modo offline (sin backend)
+      this.checkOfflineMode()
+    }
+  }
+
+  public static getInstance(): AuthService {
+    if (!AuthService.instance) {
+      AuthService.instance = new AuthService()
+    }
+    return AuthService.instance
+  }
+
+  // Verificar si estamos en modo offline
+  private async checkOfflineMode() {
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos de timeout
+      
+      // Usar el endpoint público de health que no requiere autenticación
+      const response = await fetch(buildApiUrl('/public-health/'), { 
+        method: 'GET',
+        signal: controller.signal
+      })
+      
+      clearTimeout(timeoutId)
+      
+      if (response.ok) {
+        this.isOfflineMode = false
+      } else {
+        // Si el endpoint responde pero con error, no estamos en modo offline
+        this.isOfflineMode = false
+      }
+    } catch (error) {
+      console.warn('Backend no disponible, activando modo offline:', error)
+      this.isOfflineMode = true
+    }
+  }
+
+  // Verificar si estamos en modo offline
+  public getOfflineMode(): boolean {
+    return this.isOfflineMode
+  }
+
+  // Verificar si hay tokens válidos
+  hasValidTokens(): boolean {
+    // Verificar que existan los tokens
+    if (!this.accessToken || !this.refreshToken) {
+      return false
+    }
+    
+    // Verificar que no sean tokens offline (para desarrollo)
+    if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
+      return true
+    }
+    
+    // Verificar que el token de acceso tenga el formato correcto (JWT)
+    if (!this.accessToken.includes('.')) {
+      return false
+    }
+    
+    return true
+  }
+
+  // Verificar si el usuario está autenticado
+  isAuthenticated(): boolean {
+    return this.hasValidTokens()
+  }
+
+  // Verificar si el token está próximo a expirar
+  isTokenExpiringSoon(): boolean {
+    if (!this.accessToken || this.accessToken.startsWith('offline_token_')) {
+      return false
+    }
+
+    try {
+      // Decodificar el token JWT para obtener la fecha de expiración
+      const payload = JSON.parse(atob(this.accessToken.split('.')[1]))
+      const expirationTime = payload.exp * 1000 // Convertir a milisegundos
+      const currentTime = Date.now()
+      const timeUntilExpiration = expirationTime - currentTime
+      
+      // Considerar que está próximo a expirar si queda menos de 5 minutos
+      return timeUntilExpiration < 5 * 60 * 1000
+    } catch (error) {
+      console.warn('Error al verificar expiración del token:', error)
+      return false
+    }
+  }
+
+  // Login de usuario
+  async login(credentials: LoginCredentials): Promise<AuthResponse> {
+    try {
+      // Verificar si el backend está disponible
+      if (this.isOfflineMode) {
+        // Modo offline: simular login exitoso
+        const mockUser: User = {
+          id: 1,
+          email: credentials.email,
+          first_name: "Usuario",
+          last_name: "Demo",
+          role: "basic", // Usar "basic" como valor por defecto
+          is_staff: false,
+          is_superuser: false,
+          is_verified: true,
+          date_joined: new Date().toISOString(),
+        }
+        
+        const mockTokens: AuthTokens = {
+          access: `offline_token_${Date.now()}`,
+          refresh: `offline_refresh_${Date.now()}`,
+        }
+        
+        this.accessToken = mockTokens.access
+        this.refreshToken = mockTokens.refresh
+        
+        // Guardar en cookies
+        setCookie('accessToken', mockTokens.access, 7)
+        setCookie('refreshToken', mockTokens.refresh, 30)
+        
+        return {
+          user: mockUser,
+          tokens: mockTokens,
+        }
+      }
+
+      // Validar datos antes de enviar
+      if (!credentials.email || !credentials.password) {
+        throw new Error('Email y contraseña son requeridos')
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(credentials.email)) {
+        throw new Error('Formato de email inválido')
+      }
+
+      console.log('Enviando datos de login:', {
+        email: credentials.email,
+        password: credentials.password
+      })
+
+      // Agregar un pequeño delay para evitar rate limiting
+      await new Promise(resolve => setTimeout(resolve, 1000))
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGIN), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(credentials),
+      })
+
+      // Manejar diferentes códigos de respuesta
+      if (response.status === 400) {
+        const errorData = await response.json()
+        console.error('Error 400 del backend (login):', errorData)
+        
+        // Extraer mensaje de error específico con mejor formato
+        let errorMessage = 'Credenciales inválidas'
+        
+        if (errorData.email && Array.isArray(errorData.email)) {
+          errorMessage = `Email: ${errorData.email[0]}`
+        } else if (errorData.password && Array.isArray(errorData.password)) {
+          errorMessage = `Contraseña: ${errorData.password[0]}`
+        } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          errorMessage = errorData.non_field_errors[0]
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (errorData.error) {
+          errorMessage = errorData.error
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      if (response.status === 401) {
+        const errorData = await response.json().catch(() => ({}))
+        let errorMessage = 'Credenciales inválidas'
+        
+        if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      if (response.status === 429) {
+        throw new Error('Demasiados intentos de login. Por favor, espera un momento antes de intentar nuevamente.')
+      }
+
+      if (response.status === 500) {
+        throw new Error('Error interno del servidor. Inténtalo de nuevo más tarde.')
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`)
+      }
+
+      // El backend devuelve { access, refresh, user } en la respuesta del login
+      const responseData = await response.json()
+      console.log('🔍 AuthService - login - Respuesta completa del backend:', responseData)
+      
+      if (!responseData.access || !responseData.refresh) {
+        throw new Error('No se recibieron tokens de autenticación')
+      }
+
+      // Guardar tokens
+      this.accessToken = responseData.access
+      this.refreshToken = responseData.refresh
+      
+      // Guardar en cookies
+      setCookie('accessToken', responseData.access, 1) // 1 día
+      setCookie('refreshToken', responseData.refresh, 7) // 7 días
+
+      // Obtener información del usuario
+      // Intentar usar el usuario de la respuesta del login si está disponible
+      let user: User
+      if (responseData.user) {
+        console.log('🔍 AuthService - login - Usando usuario de la respuesta del login:', responseData.user)
+        // Convertir el usuario del backend al formato esperado
+        user = {
+          id: parseInt(responseData.user.id) || responseData.user.id,
+          email: responseData.user.email,
+          first_name: responseData.user.first_name || '',
+          last_name: responseData.user.last_name || '',
+          role: responseData.user.role || 'basic',
+          is_staff: responseData.user.is_staff || false,
+          is_superuser: responseData.user.is_superuser || false,
+          is_verified: responseData.user.is_verified || false,
+          date_joined: responseData.user.date_joined || new Date().toISOString(),
+          must_change_password: responseData.user.must_change_password || responseData.must_change_password || false,
+          ...responseData.user
+        } as User
+        console.log('🔍 AuthService - login - Usuario convertido:', user)
+      } else {
+        // Si no está en la respuesta, obtenerlo del endpoint /me/
+        console.log('🔍 AuthService - login - Usuario no en respuesta, obteniendo de /me/')
+        user = await this.getCurrentUser()
+      }
+      
+      return {
+        user,
+        tokens: {
+          access: responseData.access,
+          refresh: responseData.refresh
+        },
+        must_change_password: responseData.must_change_password || user.must_change_password || false
+      }
+    } catch (error) {
+      console.error('Error en login:', error)
+      
+      // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
+      if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
+        console.warn('Backend no disponible, activando modo offline')
+        this.isOfflineMode = true
+        return this.login(credentials) // Reintentar en modo offline
+      }
+      
+      // Re-lanzar el error para que se maneje en el contexto
+      throw error
+    }
+  }
+
+  // Registro de usuario
+  async register(credentials: RegisterCredentials): Promise<AuthResponse> {
+    try {
+      // Verificar si el backend está disponible
+      if (this.isOfflineMode) {
+        // Modo offline: simular registro exitoso
+        const mockUser: User = {
+          id: Date.now(),
+          email: credentials.email,
+          first_name: credentials.first_name || "Usuario",
+          last_name: credentials.last_name || "Nuevo",
+          role: "basic", // Usar "basic" como valor por defecto
+          is_staff: false,
+          is_superuser: false,
+          is_verified: true,
+          date_joined: new Date().toISOString(),
+        }
+        
+        const mockTokens: AuthTokens = {
+          access: `offline_token_${Date.now()}`,
+          refresh: `offline_refresh_${Date.now()}`,
+        }
+        
+        this.accessToken = mockTokens.access
+        this.refreshToken = mockTokens.refresh
+        
+        // Guardar en cookies
+        setCookie('accessToken', mockTokens.access, 7)
+        setCookie('refreshToken', mockTokens.refresh, 30)
+        
+        return {
+          user: mockUser,
+          tokens: mockTokens,
+        }
+      }
+
+      // Validar datos antes de enviar
+      if (!credentials.email || !credentials.password || !credentials.password_confirm) {
+        throw new Error('Todos los campos son requeridos')
+      }
+
+      if (credentials.password !== credentials.password_confirm) {
+        throw new Error('Las contraseñas no coinciden')
+      }
+
+      if (credentials.password.length < 8) {
+        throw new Error('La contraseña debe tener al menos 8 caracteres')
+      }
+
+      // Validar formato de email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(credentials.email)) {
+        throw new Error('Formato de email inválido')
+      }
+
+      // Corregir el role para que coincida con el backend
+      const correctedCredentials = {
+        ...credentials,
+        role: credentials.role || "basic" // Usar "basic" como valor por defecto
+      }
+
+      console.log('Enviando datos de registro:', {
+        email: correctedCredentials.email,
+        password: correctedCredentials.password,
+        password_confirm: correctedCredentials.password_confirm,
+        first_name: correctedCredentials.first_name,
+        last_name: correctedCredentials.last_name,
+        role: correctedCredentials.role
+      })
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REGISTER), {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(correctedCredentials),
+      })
+
+      // Manejar diferentes códigos de respuesta
+      if (response.status === 400) {
+        const errorData = await response.json()
+        console.error('Error 400 del backend:', errorData)
+        
+        // Extraer mensaje de error específico con mejor formato
+        let errorMessage = 'Error en el formulario'
+        
+        if (errorData.email && Array.isArray(errorData.email)) {
+          errorMessage = `Email: ${errorData.email[0]}`
+        } else if (errorData.password && Array.isArray(errorData.password)) {
+          errorMessage = `Contraseña: ${errorData.password[0]}`
+        } else if (errorData.password_confirm && Array.isArray(errorData.password_confirm)) {
+          errorMessage = `Confirmación de contraseña: ${errorData.password_confirm[0]}`
+        } else if (errorData.role && Array.isArray(errorData.role)) {
+          errorMessage = `Rol: ${errorData.role[0]}`
+        } else if (errorData.first_name && Array.isArray(errorData.first_name)) {
+          errorMessage = `Nombre: ${errorData.first_name[0]}`
+        } else if (errorData.last_name && Array.isArray(errorData.last_name)) {
+          errorMessage = `Apellido: ${errorData.last_name[0]}`
+        } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          errorMessage = errorData.non_field_errors[0]
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (errorData.error) {
+          errorMessage = errorData.error
+        } else if (typeof errorData === 'string') {
+          errorMessage = errorData
+        }
+        
+        throw new Error(errorMessage)
+      }
+
+      if (response.status === 500) {
+        throw new Error('Error interno del servidor. Inténtalo de nuevo más tarde.')
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.status}`)
+      }
+
+      const result = await handleApiResponse<AuthTokens>(response)
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      if (!result.data) {
+        throw new Error('No se recibieron datos de registro')
+      }
+
+      // Guardar tokens
+      this.accessToken = result.data.access
+      this.refreshToken = result.data.refresh
+      
+      // Guardar en cookies
+      setCookie('accessToken', result.data.access, 1) // 1 día
+      setCookie('refreshToken', result.data.refresh, 7) // 7 días
+
+      // Obtener información del usuario
+      const user = await this.getCurrentUser()
+      
+      return {
+        user,
+        tokens: result.data
+      }
+    } catch (error: any) {
+      console.error('Error en register:', error)
+      
+      // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
+      if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
+        console.warn('Backend no disponible, activando modo offline')
+        this.isOfflineMode = true
+        return this.register(credentials) // Reintentar en modo offline
+      }
+      
+      // Asegurar que el error tenga un mensaje
+      const errorMessage = error?.message || error?.toString() || 'Error desconocido al registrar usuario'
+      const enhancedError = new Error(errorMessage)
+      
+      // Re-lanzar el error para que se maneje en el contexto
+      throw enhancedError
+    }
+  }
+
+  // Obtener token de acceso actual
+  getAccessToken(): string | null {
+    // Si no hay token en memoria, intentar obtenerlo de las cookies
+    if (!this.accessToken && typeof window !== 'undefined') {
+      const cookieToken = getCookie('accessToken')
+      if (cookieToken) {
+        this.accessToken = cookieToken
+        console.log('🔄 Token recuperado de cookies en getAccessToken()')
+      }
+    }
+    return this.accessToken
+  }
+
+  // Obtener token de renovación
+  getRefreshToken(): string | null {
+    // Si no hay token en memoria, intentar obtenerlo de las cookies
+    if (!this.refreshToken && typeof window !== 'undefined') {
+      const cookieToken = getCookie('refreshToken')
+      if (cookieToken) {
+        this.refreshToken = cookieToken
+        console.log('🔄 Refresh token recuperado de cookies en getRefreshToken()')
+      }
+    }
+    return this.refreshToken
+  }
+
+  // Obtener usuario actual
+  async getCurrentUser(): Promise<User> {
+    try {
+      if (!this.accessToken || this.accessToken.startsWith('offline_token_')) {
+        throw new Error('No hay token de acceso válido')
+      }
+
+      // Verificar caché primero
+      const cacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)
+      const cached = apiCache.get<User>(cacheKey)
+      if (cached) {
+        return cached
+      }
+
+      // Usar throttling para la request
+      const user = await requestThrottler.throttle('auth-me', async () => {
+        const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.ME), {
+          method: 'GET',
+          headers: getAuthHeaders(this.accessToken),
+        })
+
+        // Si recibimos 401, intentar renovar el token
+        if (response.status === 401) {
+          try {
+            const refreshResult = await this.refreshAccessToken()
+            if (refreshResult.success && refreshResult.newToken) {
+              // Reintentar con el nuevo token
+              const retryResponse = await fetch(buildApiUrl(AUTH_ENDPOINTS.ME), {
+                method: 'GET',
+                headers: getAuthHeaders(refreshResult.newToken),
+              })
+              
+              if (retryResponse.ok) {
+                const result = await handleApiResponse<User>(retryResponse)
+                console.log('🔍 AuthService - getCurrentUser - Respuesta después de refresh:', result)
+                if (result.data) {
+                  console.log('🔍 AuthService - getCurrentUser - Datos del usuario después de refresh:', {
+                    email: result.data.email,
+                    is_superuser: result.data.is_superuser,
+                    is_staff: result.data.is_staff,
+                    role: result.data.role,
+                    roleType: typeof result.data.role
+                  })
+                  return result.data
+                }
+              }
+            } else {
+              // Si falla la renovación, limpiar tokens
+              this.clearTokens()
+              throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+            }
+          } catch (refreshError) {
+            // Si falla la renovación, limpiar tokens
+            this.clearTokens()
+            throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+          }
+        }
+
+        const result = await handleApiResponse<User>(response)
+        
+        console.log('🔍 AuthService - getCurrentUser - Respuesta del endpoint /me/:', result)
+        
+        if (result.error) {
+          throw new Error(result.error)
+        }
+
+        if (!result.data) {
+          throw new Error('No se recibieron datos del usuario')
+        }
+
+        console.log('🔍 AuthService - getCurrentUser - Datos del usuario:', {
+          email: result.data.email,
+          is_superuser: result.data.is_superuser,
+          is_staff: result.data.is_staff,
+          role: result.data.role,
+          roleType: typeof result.data.role,
+          fullUser: result.data
+        })
+
+        return result.data
+      })
+
+      // Guardar en caché por 5 minutos
+      apiCache.set(cacheKey, user, 5 * 60 * 1000)
+      
+      return user
+    } catch (error) {
+      // Solo mostrar error en consola si no es un error de autenticación esperado
+      if (error instanceof Error && !error.message.includes('No hay token de acceso válido')) {
+        console.error('Error en getCurrentUser:', error)
+      }
+      throw handleFetchError(error)
+    }
+  }
+
+  // Renovar token de acceso
+  async refreshAccessToken(): Promise<{ success: boolean; newToken?: string; error?: string }> {
+    try {
+      if (this.isOfflineMode) {
+        // En modo offline, generar nuevo token
+        const newToken = `offline_token_${Date.now()}`
+        this.accessToken = newToken
+        setCookie('accessToken', newToken, 1)
+        return { success: true, newToken }
+      }
+
+      if (!this.refreshToken) {
+        return { success: false, error: 'No hay token de renovación' }
+      }
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ refresh: this.refreshToken }),
+      })
+
+      const result = await handleApiResponse<{ access: string }>(response)
+      
+      if (result.error) {
+        return { success: false, error: result.error }
+      }
+
+      if (!result.data) {
+        return { success: false, error: 'No se recibió nuevo token de acceso' }
+      }
+
+      // Actualizar token de acceso
+      this.accessToken = result.data.access
+      
+      // Guardar en cookies
+      setCookie('accessToken', result.data.access, 1) // 1 día
+
+      return { success: true, newToken: result.data.access }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
+      return { success: false, error: errorMessage }
+    }
+  }
+
+  // Logout
+  async logout(): Promise<void> {
+    try {
+      if (!this.isOfflineMode && this.refreshToken) {
+        // Intentar invalidar el token en el backend
+        try {
+          console.log('🔐 Intentando logout en backend con refresh token:', this.refreshToken ? 'presente' : 'ausente')
+          console.log('🔐 Refresh token completo:', this.refreshToken)
+          console.log('🔐 URL del logout:', buildApiUrl(AUTH_ENDPOINTS.LOGOUT))
+          console.log('🔐 Headers enviados:', getAuthHeaders())
+          console.log('🔐 Body enviado:', JSON.stringify({ refresh: this.refreshToken }))
+          
+          const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({ refresh: this.refreshToken }),
+          })
+          
+          if (!response.ok) {
+            console.warn(`⚠️ Logout en backend falló con status ${response.status}:`, response.statusText)
+            // Intentar obtener más detalles del error
+            try {
+              const errorData = await response.json()
+              console.warn('📋 Detalles del error:', errorData)
+            } catch (parseError) {
+              console.warn('❌ No se pudo parsear el error del backend')
+            }
+          } else {
+            console.log('✅ Logout en backend exitoso')
+          }
+        } catch (error) {
+          // Si falla el logout en el backend, continuamos con la limpieza local
+          console.warn('⚠️ Error al hacer logout en el backend:', error)
+        }
+      } else {
+        console.log('ℹ️ Modo offline o sin refresh token, limpiando localmente')
+      }
+
+      // Limpiar tokens localmente
+      this.clearTokens()
+    } catch (error) {
+      // Asegurar que se limpien los tokens incluso si hay error
+      console.error('❌ Error en logout, limpiando tokens:', error)
+      this.clearTokens()
+      throw handleFetchError(error)
+    }
+  }
+
+  // Limpiar tokens
+  public clearTokens() {
+    this.accessToken = null
+    this.refreshToken = null
+    
+    // Limpiar cookies
+    deleteCookie('accessToken')
+    deleteCookie('refreshToken')
+  }
+
+  // Cambiar contraseña
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    try {
+      if (this.isOfflineMode) {
+        // En modo offline, simular cambio exitoso
+        console.log('Modo offline: cambio de contraseña simulado')
+        return
+      }
+
+      if (!this.accessToken) {
+        throw new Error('No hay token de acceso')
+      }
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.CHANGE_PASSWORD), {
+        method: 'POST',
+        headers: getAuthHeaders(this.accessToken),
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      })
+
+      const result = await handleApiResponse(response)
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+
+  // Actualizar perfil del usuario
+  async updateProfile(profileData: any): Promise<User> {
+    try {
+      if (this.isOfflineMode) {
+        // En modo offline, simular actualización exitosa
+        console.log('Modo offline: actualización de perfil simulada')
+        // En modo offline, devolver un usuario mock
+        const mockUser: User = {
+          id: 1,
+          email: 'demo@example.com',
+          first_name: 'Usuario',
+          last_name: 'Demo',
+          role: 'basic',
+          is_staff: false,
+          is_superuser: false,
+          is_verified: true,
+          date_joined: new Date().toISOString(),
+        }
+        return mockUser
+      }
+
+      if (!this.accessToken) {
+        throw new Error('No hay token de acceso')
+      }
+
+      const response = await fetch(buildApiUrl('profile/'), {
+        method: 'PUT',
+        headers: getAuthHeaders(this.accessToken),
+        body: JSON.stringify(profileData),
+      })
+
+      const result = await handleApiResponse(response)
+      
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      return result.data
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+
+  // Solicitar reset de contraseña (envía contraseña temporal por email)
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.FORGOT_PASSWORD), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ email }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Error al solicitar reset de contraseña')
+      }
+
+      // El backend siempre devuelve éxito por seguridad (no revela si el email existe)
+      return
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+
+  // Cambiar contraseña después de usar contraseña temporal
+  async changePasswordAfterTemporary(newPassword: string, newPasswordConfirm: string): Promise<void> {
+    try {
+      if (!this.accessToken) {
+        throw new Error('No hay token de acceso')
+      }
+
+      if (newPassword !== newPasswordConfirm) {
+        throw new Error('Las contraseñas no coinciden')
+      }
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.CHANGE_PASSWORD_AFTER_TEMPORARY), {
+        method: 'POST',
+        headers: getAuthHeaders(this.accessToken),
+        body: JSON.stringify({
+          new_password: newPassword,
+          new_password_confirm: newPasswordConfirm,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Error al cambiar contraseña')
+      }
+
+      // Limpiar tokens para forzar nuevo login
+      this.accessToken = null
+      this.refreshToken = null
+      deleteCookie('accessToken')
+      deleteCookie('refreshToken')
+
+      return
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+}
+
+// Exportar instancia singleton
+export const authService = AuthService.getInstance()

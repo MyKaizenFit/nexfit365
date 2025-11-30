@@ -1,0 +1,76 @@
+﻿­ƒì¢´©Å Creando planes de nutrici├│n b├ísicos...
+python : Traceback (most recent call last):
+En C:\Users\Iago\AppData\Local\Temp\ps-script-4f737fde-8183-4aed-9363-72f805c8b7fd.ps1: 84 Carácter: 98
++ ... ENCODING="utf-8"; python create_basic_nutrition_plans.py 2>&1 | Out-F ...
++                       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 
+105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\sqlite3\base.py", 
+line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: nutrition_defaultnutritionplan
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "F:\Proyecto Sara Aitor\repos separados para el host\backend\create_basic_nutrition_plans.py", line 130, in 
+<module>
+    create_basic_nutrition_plans()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "F:\Proyecto Sara Aitor\repos separados para el host\backend\create_basic_nutrition_plans.py", line 97, in 
+create_basic_nutrition_plans
+    if not DefaultNutritionPlan.objects.filter(name=plan_data['name']).exists():
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\query.py", line 1296, 
+in exists
+    return self.query.has_results(using=self.db)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\query.py", line 
+674, in has_results
+    return compiler.has_results()
+           ~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", 
+line 1591, in has_results
+    return bool(self.execute_sql(SINGLE))
+                ~~~~~~~~~~~~~~~~^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\models\sql\compiler.py", 
+line 1623, in execute_sql
+    cursor.execute(sql, params)
+    ~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 
+122, in execute
+    return super().execute(sql, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 79, 
+in execute
+    return self._execute_with_wrappers(
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        sql, params, many=False, executor=self._execute
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 92, 
+in _execute_with_wrappers
+    return executor(sql, params, many, context)
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 
+100, in _execute
+    with self.db.wrap_database_errors:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\utils.py", line 91, in 
+__exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\utils.py", line 
+105, in _execute
+    return self.cursor.execute(sql, params)
+           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\Iago\AppData\Local\Programs\Python\Python313\Lib\site-packages\django\db\backends\sqlite3\base.py", 
+line 360, in execute
+    return super().execute(query, params)
+           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: nutrition_defaultnutritionplan

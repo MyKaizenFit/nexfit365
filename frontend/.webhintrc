@@ -1,0 +1,23 @@
+{
+  "extends": ["web-recommended"],
+  "hints": {
+    "no-inline-styles": "off"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
