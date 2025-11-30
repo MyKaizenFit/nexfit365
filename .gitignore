@@ -107,6 +107,7 @@ docs/_build/
 # ===== Testing =====
 .coverage
 htmlcov/
+coverage_html/
 .tox/
 .nox/
 coverage.xml
