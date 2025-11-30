@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import React, { useState, useEffect, Suspense, ChangeEvent } from "react"
 import { Eye, EyeOff, Sparkles, Heart, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,6 +9,14 @@ import { Label } from "@/components/ui/label"
 
 import { useAuth } from "@/contexts/auth-context"
 import { useRouter, useSearchParams } from "next/navigation"
+
+interface FormData {
+  email: string
+  password: string
+  confirmPassword: string
+  name: string
+  resetEmail: string
+}
 
 function AuthPageContent() {
   const searchParams = useSearchParams()
@@ -45,11 +53,11 @@ function AuthPageContent() {
     setValidationErrors({})
   }, [isLogin, error, clearError])
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  const handleInputChange = (field: keyof FormData, value: string) => {
+    setFormData((prev: FormData) => ({ ...prev, [field]: value }))
     // Limpiar error de validación del campo cuando el usuario empiece a escribir
     if (validationErrors[field]) {
-      setValidationErrors(prev => ({ ...prev, [field]: '' }))
+      setValidationErrors((prev: {[key: string]: string}) => ({ ...prev, [field]: '' }))
     }
   }
 
@@ -151,7 +159,7 @@ function AuthPageContent() {
                 type="email"
                 placeholder="tu@correo.com"
                 value={formData.resetEmail}
-                onChange={(e) => handleInputChange("resetEmail", e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("resetEmail", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl ${
                   validationErrors.resetEmail ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-rose-400'
                 }`}
@@ -230,7 +238,7 @@ function AuthPageContent() {
                 type="text"
                 placeholder="Tu nombre completo"
                 value={formData.name}
-                onChange={(e) => handleInputChange("name", e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("name", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl ${
                   validationErrors.name ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
                 }`}
@@ -252,7 +260,7 @@ function AuthPageContent() {
               type="email"
               placeholder="tu@correo.com"
               value={formData.email}
-              onChange={(e) => handleInputChange("email", e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("email", e.target.value)}
               className={`h-12 border-2 transition-all duration-300 rounded-xl ${
                 validationErrors.email ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
               }`}
@@ -274,7 +282,7 @@ function AuthPageContent() {
                 type={showPassword ? "text" : "password"}
                 placeholder="Tu contraseña segura"
                 value={formData.password}
-                onChange={(e) => handleInputChange("password", e.target.value)}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("password", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl pr-12 ${
                   validationErrors.password ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
                 }`}
@@ -306,7 +314,7 @@ function AuthPageContent() {
                   type={showConfirmPassword ? "text" : "password"}
                   placeholder="Confirma tu contraseña"
                   value={formData.confirmPassword}
-                  onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("confirmPassword", e.target.value)}
                   className={`h-12 border-2 transition-all duration-300 rounded-xl pr-12 ${
                     validationErrors.confirmPassword ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
                   }`}
