@@ -8,20 +8,20 @@
 const getApiBaseUrl = (): string => {
   // SIEMPRE usar la variable de entorno (NUNCA hardcodear localhost)
   const envUrl = process.env.NEXT_PUBLIC_API_URL
-  
+
   if (envUrl) {
     // Si hay variable de entorno, usarla (remover /api si está al final)
     const baseUrl = envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
     return baseUrl
   }
-  
+
   // Si no hay variable de entorno, lanzar error en producción
   if (process.env.NODE_ENV === 'production') {
     // En producción, usar el dominio HTTPS como fallback si no hay variable de entorno
     console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada en producción, usando dominio HTTPS como fallback')
     return 'https://api.nexfit365.dpdns.org'
   }
-  
+
   // Solo en desarrollo, usar localhost como fallback
   console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8000 como fallback (solo desarrollo)')
   return 'http://localhost:8000'
@@ -32,10 +32,10 @@ export const API_CONFIG = {
   get BASE_URL() {
     return getApiBaseUrl()
   },
-  
+
   // Timeout para requests
   TIMEOUT: 10000,
-  
+
   // Headers por defecto
   DEFAULT_HEADERS: {
     'Content-Type': 'application/json',
@@ -127,9 +127,9 @@ export const buildApiUrl = (endpoint: string): string => {
 // Función para obtener headers con autenticación
 export const getAuthHeaders = (token?: string): Record<string, string> => {
   const headers = { ...API_CONFIG.DEFAULT_HEADERS }
-  
+
   let authToken = token
-  
+
   // Si no se proporciona token, intentar obtenerlo del contexto de autenticación
   if (!authToken && typeof window !== 'undefined') {
     try {
@@ -144,7 +144,7 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
       } catch (serviceError) {
         console.warn('No se pudo obtener el token del servicio de autenticación:', serviceError)
       }
-      
+
       // Si no se obtuvo del servicio, intentar obtenerlo de las cookies
       if (!authToken) {
         const cookies = document.cookie.split(';').reduce((acc, cookie) => {
@@ -152,9 +152,9 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
           acc[key] = value
           return acc
         }, {} as Record<string, string>)
-        
+
         authToken = cookies.accessToken
-        
+
         // Debug: verificar el token obtenido
         console.log('🔐 getAuthHeaders - Token obtenido de cookies:', authToken ? `${authToken.substring(0, 20)}...` : 'null')
         console.log('🔐 getAuthHeaders - Todas las cookies:', document.cookie)
@@ -163,14 +163,14 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
       console.warn('No se pudo obtener el token de autenticación:', error)
     }
   }
-  
+
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`
     console.log('🔐 getAuthHeaders - Headers con autorización:', { ...headers, Authorization: `Bearer ${authToken.substring(0, 20)}...` })
   } else {
     console.warn('🔐 getAuthHeaders - No se encontró token de autenticación')
   }
-  
+
   return headers
 }
 
@@ -182,13 +182,13 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
       if (response.status === 204 || response.headers.get('content-length') === '0') {
         return { data: null, error: null }
       }
-      
+
       const data = await response.json()
       return { data, error: null }
     } else {
       // Si hay error, intentar obtener el mensaje de error
       let errorMessage = `Error ${response.status}: ${response.statusText}`
-      
+
       // Manejo especial para rate limiting
       if (response.status === 429) {
         const retryAfter = response.headers.get('Retry-After')
@@ -200,7 +200,7 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         console.warn('Rate limit alcanzado:', errorMessage)
         return { data: null, error: errorMessage }
       }
-      
+
       try {
         const errorData = await response.json()
         if (errorData.detail) {
@@ -216,7 +216,7 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         // Si no se puede parsear el error, usar el mensaje por defecto
         console.warn('No se pudo parsear el mensaje de error:', parseError)
       }
-      
+
       return { data: null, error: errorMessage }
     }
   } catch (error) {
@@ -229,11 +229,11 @@ export const handleFetchError = (error: any): Error => {
   if (error instanceof Error) {
     return error
   }
-  
+
   if (typeof error === 'string') {
     return new Error(error)
   }
-  
+
   return new Error('Error desconocido')
 }
 
@@ -248,7 +248,7 @@ const getAuthService = () => {
 export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const authService = getAuthService()
   const token = authService.getAccessToken()
-  
+
   if (!token) {
     throw new Error('No hay token de acceso disponible')
   }
@@ -267,14 +267,14 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
 
     // Si recibimos un 401, intentar refrescar el token
     if (response.status === 401) {
-      console.log('Token expirado, intentando refrescar...')
-      
+      console.log('🔄 Token expirado (401), intentando refrescar...')
+
       try {
         const refreshResult = await authService.refreshAccessToken()
-        
+
         if (refreshResult.success && refreshResult.newToken) {
-          console.log('Token refrescado exitosamente, reintentando request...')
-          
+          console.log('✅ Token refrescado exitosamente, reintentando request...')
+
           // Reintentar la request con el nuevo token
           const retryResponse = await fetch(buildApiUrl(url), {
             ...options,
@@ -283,21 +283,37 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
               'Authorization': `Bearer ${refreshResult.newToken}`
             }
           })
-          
+
+          // Si el retry también falla con 401, entonces el refresh token también expiró
+          if (retryResponse.status === 401) {
+            console.error('❌ El refresh token también expiró')
+            authService.clearTokens()
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth'
+            }
+            throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+          }
+
           return retryResponse
         } else {
-          console.log('No se pudo refrescar el token, redirigiendo al login...')
-          // Limpiar tokens y redirigir al login
-          authService.clearTokens()
-          window.location.href = '/auth'
-          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+          console.error('❌ No se pudo refrescar el token:', refreshResult.error)
+          // Solo redirigir si no estamos en modo offline
+          if (!authService.isOfflineMode) {
+            authService.clearTokens()
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth'
+            }
+          }
+          throw new Error(refreshResult.error || 'Sesión expirada. Por favor, inicia sesión nuevamente.')
         }
       } catch (refreshError) {
-        console.error('Error refrescando token:', refreshError)
-        // Limpiar tokens y redirigir al login
-        authService.clearTokens()
-        window.location.href = '/auth'
-        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+        console.error('❌ Error refrescando token:', refreshError)
+        // Solo limpiar y redirigir si no es un error de modo offline
+        if (!authService.isOfflineMode && typeof window !== 'undefined') {
+          authService.clearTokens()
+          window.location.href = '/auth'
+        }
+        throw refreshError instanceof Error ? refreshError : new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
       }
     }
 

@@ -30,6 +30,7 @@ urlpatterns = [
             path("api/admin/nutrition/", include("nutrition.admin_urls")),
             path("api/admin/nutrition/", include("nutrition.admin_recipe_urls")),
     path("api/admin/notifications/", include("notifications.admin_urls")),
+    path("api/admin/dashboard/", include("dashboard.admin_urls")),
 
     # OpenAPI schema & Swagger UI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

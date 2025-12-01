@@ -90,7 +90,7 @@ class NutritionService {
     }
 
     const cacheKey = generateCacheKey(NUTRITION_ENDPOINTS.CURRENT_PLAN)
-    
+
     // Intentar obtener del caché primero
     const cached = apiCache.get<NutritionPlan>(cacheKey)
     if (cached) {
@@ -125,7 +125,7 @@ class NutritionService {
       if (result) {
         apiCache.set(cacheKey, result, 5 * 60 * 1000)
       }
-      
+
       return result
     } catch (error) {
       console.error('Error obteniendo plan de nutrición:', error)
@@ -154,11 +154,11 @@ class NutritionService {
       }
 
       const data = await response.json()
-      
+
       // Invalidar caché del plan actual
       const cacheKey = generateCacheKey(NUTRITION_ENDPOINTS.CURRENT_PLAN)
       apiCache.delete(cacheKey)
-      
+
       return data.plan || null
     } catch (error) {
       console.error('Error cambiando plan:', error)
@@ -217,7 +217,7 @@ class NutritionService {
   // Crear un plan de nutrición por defecto
   private async createDefaultPlan(): Promise<NutritionPlan> {
     const cacheKey = generateCacheKey('default-nutrition-plans/?is_default=true')
-    
+
     // Intentar obtener del caché primero
     const cached = apiCache.get<NutritionPlan>(cacheKey)
     if (cached) {
@@ -237,7 +237,7 @@ class NutritionService {
           const data = await response.json()
           if (data.results && data.results.length > 0) {
             const defaultPlan = data.results[0]
-            
+
             // Convertir DefaultMeal a Meal para mantener compatibilidad
             const meals = defaultPlan.meals?.map((defaultMeal: any) => ({
               id: defaultMeal.id,
@@ -264,7 +264,7 @@ class NutritionService {
             }
           }
         }
-        
+
         // Fallback: plan local por defecto (solo si falla el backend)
         const today = new Date()
         const endDate = new Date()
@@ -289,11 +289,11 @@ class NutritionService {
 
       // Almacenar en caché por 10 minutos (planes por defecto cambian menos)
       apiCache.set(cacheKey, result, 10 * 60 * 1000)
-      
+
       return result
     } catch (error) {
       console.error('Error obteniendo plan por defecto del backend:', error)
-      
+
       // Fallback: plan local por defecto (solo si falla el backend)
       const today = new Date()
       const endDate = new Date()
@@ -342,10 +342,10 @@ class NutritionService {
   async getFoods(search?: string): Promise<Food[]> {
     try {
       const headers = await getAuthHeaders()
-      const url = search 
+      const url = search
         ? `${buildApiUrl(NUTRITION_ENDPOINTS.FOODS)}?q=${encodeURIComponent(search)}`
         : `${buildApiUrl(NUTRITION_ENDPOINTS.FOODS)}`
-      
+
       const response = await fetch(url, {
         headers,
         method: 'GET',
@@ -414,11 +414,11 @@ class NutritionService {
   async createMealLog(mealData: Partial<MealLog>): Promise<MealLog | null> {
     try {
       const headers = await getAuthHeaders()
-      
+
       // Log de los datos que se van a enviar
       console.log('Datos a enviar a createMealLog:', mealData)
       console.log('Headers:', headers)
-      
+
       const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
         headers,
         method: 'POST',
@@ -434,7 +434,7 @@ class NutritionService {
         } catch {
           errorDetails = response.statusText
         }
-        
+
         console.error(`Error ${response.status} del backend:`, errorDetails)
         throw new Error(`Error ${response.status}: ${errorDetails}`)
       }
@@ -506,10 +506,10 @@ class NutritionService {
   // Determinar categoría de comida basada en macronutrientes
   private getMealCategory(meal: Meal): "light" | "balanced" | "protein-rich" {
     if (!meal.protein || !meal.carbs || !meal.fat) return "balanced"
-    
+
     const proteinRatio = meal.protein / (meal.protein + meal.carbs + meal.fat)
     const carbRatio = meal.carbs / (meal.protein + meal.carbs + meal.fat)
-    
+
     if (proteinRatio > 0.4) return "protein-rich"
     if (carbRatio > 0.6) return "light"
     return "balanced"
@@ -518,13 +518,13 @@ class NutritionService {
   // Asignar icono basado en categoría y nombre
   private getMealIcon(meal: Meal): "🥗" | "🍗" | "🥑" | "🍎" | "🥜" | "🐟" {
     const name = meal.name.toLowerCase()
-    
+
     if (name.includes('pollo') || name.includes('carne') || name.includes('huevo')) return "🍗"
     if (name.includes('pescado') || name.includes('atún') || name.includes('salmón')) return "🐟"
     if (name.includes('fruta') || name.includes('manzana') || name.includes('naranja')) return "🍎"
     if (name.includes('nueces') || name.includes('almendras') || name.includes('frutos secos')) return "🥜"
     if (name.includes('aguacate') || name.includes('palta')) return "🥑"
-    
+
     return "🥗" // Opción por defecto
   }
 

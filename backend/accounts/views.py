@@ -207,12 +207,8 @@ def initial_registration_status(request):
         else:
             missing_fields.append(field)
     
-    # Verificar versión del formulario
-    user_form_version = getattr(user, 'initial_registration_form_version', 1)
-    needs_update = user_form_version < INITIAL_REGISTRATION_FORM_VERSION
-    
-    # Si necesita actualización, marcar como incompleto
-    is_complete = len(missing_fields) == 0 and not needs_update
+    # Verificar si está completo (sin verificación de versión para simplificar)
+    is_complete = len(missing_fields) == 0
     completion_percentage = (len(completed_fields) / len(required_fields)) * 100
     
     response_data = {
@@ -221,9 +217,9 @@ def initial_registration_status(request):
         'completed_fields': completed_fields,
         'missing_fields': missing_fields,
         'form_version': INITIAL_REGISTRATION_FORM_VERSION,
-        'user_form_version': user_form_version,
-        'needs_update': needs_update,
-        'profile': UserProfileSerializer(user).data if is_complete else UserProfileSerializer(user).data  # Siempre enviar profile para prellenar
+        'user_form_version': INITIAL_REGISTRATION_FORM_VERSION,  # Siempre reportar versión actual
+        'needs_update': False,  # Deshabilitado por ahora
+        'profile': UserProfileSerializer(user).data
     }
     
     return Response(response_data)

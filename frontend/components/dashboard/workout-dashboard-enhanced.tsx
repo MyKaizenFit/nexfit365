@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { 
-  Dumbbell, Play, Check, Clock, Target, Calendar, 
-  TrendingUp, Award, Timer, Users, BarChart3, 
+import { useState, useEffect, useCallback } from "react"
+import {
+  Dumbbell, Play, Check, Clock, Target, Calendar,
+  TrendingUp, Award, Timer, Users, BarChart3,
   Video, CheckCircle2, Circle, Repeat
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,25 +18,33 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { useWorkouts } from "@/hooks/use-workouts"
 import { useUserProfile } from "@/hooks/use-user-profile"
+import { useAuth } from "@/contexts/auth-context"
+import { authenticatedFetch } from "@/lib/api"
 import { type WorkoutDay } from "@/lib/workout-service"
+import { ActiveWorkoutSession } from "@/components/active-workout-session"
+import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 
 export function WorkoutDashboardEnhanced() {
   const {
     workoutPrograms,
     activeProgram,
     workoutLogs,
+    workoutStatistics,
     loading,
     error,
     logWorkout,
+    fetchWorkoutLogs,
+    fetchWorkoutStatistics,
     getTodaysWorkout,
     getWeeklyProgress
   } = useWorkouts()
-  
+
   const { profile } = useUserProfile()
-  
+  const { isAuthenticated } = useAuth()
+
   // Usar activeProgram como userPlan
   const userPlan = activeProgram
-  
+
   const [isWorkoutDialogOpen, setIsWorkoutDialogOpen] = useState(false)
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null)
   const [workoutForm, setWorkoutForm] = useState({
@@ -47,45 +55,133 @@ export function WorkoutDashboardEnhanced() {
   // Estado para ejercicios completados durante el entrenamiento
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set())
   const [workoutStartTime, setWorkoutStartTime] = useState<Date | null>(null)
+  // Estado para verificar si el entrenamiento de hoy ya está completado
+  const [todayWorkoutCompleted, setTodayWorkoutCompleted] = useState<Record<string, boolean>>({})
 
   // Obtener entrenamiento de hoy
   const todaysWorkout = getTodaysWorkout()
-  
+
   // Obtener progreso semanal
   const weeklyProgress = getWeeklyProgress()
 
-  // Calcular estadísticas manualmente
-  const stats = {
+  // Verificar si los entrenamientos del día ya están completados
+  useEffect(() => {
+    const checkCompletedWorkouts = async () => {
+      if (!activeProgram?.days) return
+
+      const completed: Record<string, boolean> = {}
+
+      // También verificar desde los logs locales para respuesta más rápida
+      const today = new Date().toISOString().split('T')[0]
+      const todayLogs = workoutLogs.filter(log =>
+        log.date === today && log.completed === true
+      )
+
+      for (const day of activeProgram.days) {
+        if (day.is_rest_day) continue
+
+        // Primero verificar en los logs locales
+        const localCompleted = todayLogs.some(log =>
+          log.workout_day === day.id || log.workout_day === String(day.id)
+        )
+
+        if (localCompleted) {
+          completed[day.id] = true
+          continue
+        }
+
+        // Si no está en local, verificar en el servidor
+        try {
+          const response = await authenticatedFetch(
+            `workout-logs/check_today/?workout_day=${day.id}`
+          )
+          if (response.ok) {
+            const text = await response.text()
+            if (text) {
+              try {
+                const data = JSON.parse(text)
+                completed[day.id] = data.is_completed || false
+                console.log(`✅ Verificación servidor - WorkoutDay ${day.id}: ${data.is_completed ? 'Completado' : 'No completado'}`)
+              } catch (parseError) {
+                console.error(`Error parseando respuesta para ${day.id}:`, parseError, text)
+              }
+            }
+          } else {
+            console.warn(`⚠️ Respuesta no OK al verificar ${day.id}:`, response.status)
+          }
+        } catch (error) {
+          console.error(`❌ Error verificando entrenamiento ${day.id}:`, error)
+        }
+      }
+
+      console.log('📊 Entrenamientos completados hoy:', completed)
+      setTodayWorkoutCompleted(completed)
+    }
+
+    if (isAuthenticated && activeProgram) {
+      checkCompletedWorkouts()
+    }
+  }, [activeProgram, isAuthenticated, workoutLogs])
+
+  // Verificar también cuando cambian los workoutLogs (después de completar uno)
+  useEffect(() => {
+    if (isAuthenticated && activeProgram && workoutLogs.length > 0) {
+      // Pequeño delay para asegurar que el servidor haya actualizado
+      const timeoutId = setTimeout(() => {
+        checkCompletedWorkouts()
+      }, 1000)
+      return () => clearTimeout(timeoutId)
+    }
+  }, [workoutLogs.length]) // Solo cuando cambia el número de logs
+
+  // Usar estadísticas del servidor si están disponibles, sino calcular manualmente
+  const stats = workoutStatistics ? {
+    completedThisWeek: workoutStatistics.completed_this_week,
+    weeklyGoal: workoutStatistics.weekly_goal,
+    totalWorkouts: workoutStatistics.total_workouts,
+    averageDuration: workoutStatistics.average_duration,
+    currentStreak: workoutStatistics.current_streak,
+    longestStreak: workoutStatistics.longest_streak,
+    totalMinutesWeek: workoutStatistics.total_minutes_week
+  } : {
     completedThisWeek: workoutLogs.filter(log => {
       const logDate = new Date(log.date)
       const now = new Date()
       const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      return logDate >= weekAgo
+      return logDate >= weekAgo && log.completed
     }).length,
     weeklyGoal: 5,
     totalWorkouts: workoutLogs.length,
-    averageDuration: workoutLogs.length > 0 
-      ? Math.round(workoutLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0) / workoutLogs.length)
+    averageDuration: workoutLogs.filter(log => log.completed && log.duration_minutes).length > 0
+      ? Math.round(workoutLogs.filter(log => log.completed && log.duration_minutes)
+        .reduce((sum, log) => sum + (log.duration_minutes || 0), 0) /
+        workoutLogs.filter(log => log.completed && log.duration_minutes).length)
       : 0,
-    currentStreak: 0, // Simplificado, se puede calcular más adelante
-    longestStreak: 0 // Simplificado, se puede calcular más adelante
+    currentStreak: 0,
+    longestStreak: 0,
+    totalMinutesWeek: workoutLogs.filter(log => {
+      const logDate = new Date(log.date)
+      const now = new Date()
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+      return logDate >= weekAgo && log.completed
+    }).reduce((sum, log) => sum + (log.duration_minutes || 0), 0)
   }
-  
+
   // Obtener día actual en español
   const getTodayName = () => {
     const days = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     return days[new Date().getDay()]
   }
-  
+
   // Obtener días de entrenamiento del perfil
   const trainingDays = profile?.training_days || []
-  
+
   // Función para obtener el nombre del día desde el número (1=Lunes, 7=Domingo)
   const getDayNameFromNumber = (dayNumber: number) => {
     const days = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     return days[dayNumber] || ''
   }
-  
+
   // Función para determinar si un día es de entrenamiento o descanso
   const isTrainingDay = (dayNumber: number) => {
     return trainingDays.includes(dayNumber)
@@ -94,13 +190,13 @@ export function WorkoutDashboardEnhanced() {
   // Función para obtener ejercicios completados de un día desde localStorage
   const getCompletedExercisesForDay = (dayId: string | number) => {
     if (typeof window === 'undefined') return new Set<string>()
-    
+
     try {
       const dayIdStr = String(dayId)
       const today = new Date().toISOString().split('T')[0]
       const saveKey = `workout_completed_${dayIdStr}_${today}`
       const saved = localStorage.getItem(saveKey)
-      
+
       if (saved) {
         const savedExercises = JSON.parse(saved)
         return new Set(savedExercises)
@@ -108,10 +204,10 @@ export function WorkoutDashboardEnhanced() {
     } catch (error) {
       console.error('Error al cargar ejercicios completados:', error)
     }
-    
+
     return new Set<string>()
   }
-  
+
   // Generar calendario semanal con días de entrenamiento y descanso
   const getWeeklyCalendar = () => {
     const days = [
@@ -123,24 +219,24 @@ export function WorkoutDashboardEnhanced() {
       { number: 6, name: 'Sábado' },
       { number: 7, name: 'Domingo' },
     ]
-    
+
     const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
     const todayNumber = today === 0 ? 7 : today // Convertir a nuestro formato (1-7)
-    
+
     // Obtener días de entrenamiento del plan (sin descanso), ordenados
     const planWorkoutDays = userPlan?.days
       ?.filter((d: any) => !d.is_rest_day)
       ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-    
+
     // Días del usuario ordenados
     const userTrainingDays = trainingDays.length > 0 ? [...trainingDays].sort((a, b) => a - b) : []
-    
+
     return days.map(day => {
       // El calendario siempre muestra los días según el perfil del usuario
-      const isTraining = trainingDays.length > 0 
+      const isTraining = trainingDays.length > 0
         ? isTrainingDay(day.number) // Usar días del perfil siempre
         : false
-      
+
       // Si hay días del usuario configurados, buscar el entrenamiento mapeado
       let mappedWorkoutDay = null
       if (trainingDays.length > 0 && isTraining) {
@@ -149,7 +245,7 @@ export function WorkoutDashboardEnhanced() {
           mappedWorkoutDay = planWorkoutDays[userDayIndex]
         }
       }
-      
+
       return {
         ...day,
         isTraining, // Basado en el perfil del usuario
@@ -165,14 +261,25 @@ export function WorkoutDashboardEnhanced() {
 
   // Iniciar entrenamiento
   const handleStartWorkout = (day: any) => {
-    setSelectedDay(day)
     const dayId = day.id || day.day_number || 'unknown'
-    
+
+    // Verificar si ya está completado antes de permitir iniciar
+    if (todayWorkoutCompleted[dayId]) {
+      toast({
+        title: "Entrenamiento ya completado",
+        description: "Ya has completado este entrenamiento hoy. No puedes realizarlo de nuevo el mismo día.",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setSelectedDay(day)
+
     // Cargar ejercicios completados guardados desde localStorage
     const savedKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
     const saved = localStorage.getItem(savedKey)
     const savedExercises = saved ? JSON.parse(saved) : []
-    
+
     setCompletedExercises(new Set(savedExercises))
     setWorkoutStartTime(new Date()) // Guardar tiempo de inicio
     setIsWorkoutDialogOpen(true)
@@ -187,14 +294,14 @@ export function WorkoutDashboardEnhanced() {
       } else {
         newSet.add(exerciseId)
       }
-      
+
       // Guardar en localStorage
       if (selectedDay) {
         const dayId = selectedDay.id || selectedDay.day_number || 'unknown'
         const saveKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
         localStorage.setItem(saveKey, JSON.stringify(Array.from(newSet)))
       }
-      
+
       return newSet
     })
   }
@@ -213,12 +320,12 @@ export function WorkoutDashboardEnhanced() {
       }
 
       await logWorkout(selectedDay.id.toString(), workoutForm.notes)
-      
+
       // Limpiar datos guardados en localStorage después de completar
       const dayId = selectedDay.id || selectedDay.day_number || 'unknown'
       const saveKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
       localStorage.removeItem(saveKey)
-      
+
       setIsWorkoutDialogOpen(false)
       setWorkoutForm({ duration: 45, notes: "", rating: 5 })
       setCompletedExercises(new Set())
@@ -278,27 +385,27 @@ export function WorkoutDashboardEnhanced() {
       // Si no hay training_days, usar la función original
       return getTodaysWorkout()
     }
-    
+
     const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
     const todayNumber = today === 0 ? 7 : today // Convertir a nuestro formato (1-7)
-    
+
     // Verificar si hoy es un día de entrenamiento según el perfil
     if (!trainingDays.includes(todayNumber)) {
       // Si hoy no es un día de entrenamiento según el perfil, devolver null
       return null
     }
-    
+
     // Obtener días de entrenamiento del plan (sin descanso), ordenados
     const planWorkoutDays = userPlan.days
       ?.filter((d: any) => !d.is_rest_day)
       ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-    
+
     // Días del usuario ordenados
     const userTrainingDays = [...trainingDays].sort((a, b) => a - b)
-    
+
     // Encontrar el índice del día de hoy en los días del usuario
     const todayIndex = userTrainingDays.indexOf(todayNumber)
-    
+
     // Si hoy está en los días del usuario, obtener el entrenamiento correspondiente por índice
     if (todayIndex >= 0 && todayIndex < planWorkoutDays.length) {
       const todayWorkout = planWorkoutDays[todayIndex]
@@ -309,10 +416,10 @@ export function WorkoutDashboardEnhanced() {
         mapped_from: todayWorkout.day_number // Guardar el día original del plan para referencia
       }
     }
-    
+
     return null
   }
-  
+
   const todaysWorkoutFromProfile = getTodaysWorkoutFromProfile()
 
   return (
@@ -327,7 +434,7 @@ export function WorkoutDashboardEnhanced() {
               <div className="text-xs text-muted-foreground mt-1">de {stats.weeklyGoal} esta semana</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-700">{weeklyProgress.totalMinutes}</div>
+              <div className="text-2xl font-bold text-blue-700">{stats.totalMinutesWeek || 0}</div>
               <div className="text-xs text-blue-600 font-medium">Minutos</div>
               <div className="text-xs text-muted-foreground mt-1">total esta semana</div>
             </div>
@@ -350,7 +457,7 @@ export function WorkoutDashboardEnhanced() {
               </span>
             </div>
             <div className="relative h-3 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full overflow-hidden mt-2">
-              <div 
+              <div
                 className="h-full rounded-full bg-gradient-to-r from-purple-400 to-pink-500 transition-all duration-500"
                 style={{ width: `${Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100)}%` }}
               />
@@ -428,40 +535,47 @@ export function WorkoutDashboardEnhanced() {
                 )
               })}
             </div>
-            
+
             {/* Botón para iniciar */}
-                  <Button 
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-lg py-6 shadow-lg"
-                    onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
-                  >
-                    <Play className="h-5 w-5 mr-2" />
-                    Iniciar Entrenamiento de Hoy
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : trainingDays.length > 0 && !trainingDays.includes(new Date().getDay() === 0 ? 7 : new Date().getDay()) ? (
-              // Si hoy no es un día de entrenamiento según el perfil
-              <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
-                <CardContent className="p-8 text-center">
-                  <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
-                    <Clock className="h-8 w-8 text-white" />
-                  </div>
-                  <CardTitle className="text-2xl text-gray-700 mb-2">Día de Descanso</CardTitle>
-                  <CardDescription className="text-gray-600 text-lg">
-                    Hoy es {getTodayName()} - Es momento de descansar y recuperarte 💪
-                  </CardDescription>
-                  <CardDescription className="text-gray-500 text-sm mt-2">
-                    Tu próximo entrenamiento será: {
-                      trainingDays
-                        .filter(d => d > (new Date().getDay() === 0 ? 7 : new Date().getDay()))
-                        .map(d => getDayNameFromNumber(d))[0] || 
-                      trainingDays.map(d => getDayNameFromNumber(d))[0] || 
-                      'Próximamente'
-                    }
-                  </CardDescription>
-                </CardContent>
-              </Card>
-            ) : todaysWorkout && todaysWorkout.is_rest_day ? (
+            {todayWorkoutCompleted[todaysWorkoutFromProfile.id] ? (
+              <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-lg py-6 shadow-lg rounded-lg flex items-center justify-center">
+                <CheckCircle2 className="h-5 w-5 mr-2" />
+                Entrenamiento Completado Hoy
+              </div>
+            ) : (
+              <Button
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-lg py-6 shadow-lg"
+                onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+              >
+                <Play className="h-5 w-5 mr-2" />
+                Iniciar Entrenamiento de Hoy
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ) : trainingDays.length > 0 && !trainingDays.includes(new Date().getDay() === 0 ? 7 : new Date().getDay()) ? (
+        // Si hoy no es un día de entrenamiento según el perfil
+        <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
+              <Clock className="h-8 w-8 text-white" />
+            </div>
+            <CardTitle className="text-2xl text-gray-700 mb-2">Día de Descanso</CardTitle>
+            <CardDescription className="text-gray-600 text-lg">
+              Hoy es {getTodayName()} - Es momento de descansar y recuperarte 💪
+            </CardDescription>
+            <CardDescription className="text-gray-500 text-sm mt-2">
+              Tu próximo entrenamiento será: {
+                trainingDays
+                  .filter(d => d > (new Date().getDay() === 0 ? 7 : new Date().getDay()))
+                  .map(d => getDayNameFromNumber(d))[0] ||
+                trainingDays.map(d => getDayNameFromNumber(d))[0] ||
+                'Próximamente'
+              }
+            </CardDescription>
+          </CardContent>
+        </Card>
+      ) : todaysWorkout && todaysWorkout.is_rest_day ? (
         <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
@@ -493,7 +607,7 @@ export function WorkoutDashboardEnhanced() {
                   Activo
                 </Badge>
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-4 w-4 text-purple-600" />
@@ -524,19 +638,18 @@ export function WorkoutDashboardEnhanced() {
               {getWeeklyCalendar().map((day) => {
                 // Determinar el color y estilo según si es día de entrenamiento según el perfil
                 const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
-                
+
                 return (
                   <div
                     key={day.number}
-                    className={`p-3 rounded-lg text-center border-2 transition-all ${
-                      day.isToday
-                        ? isTrainingByProfile
-                          ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg scale-105'
-                          : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg scale-105'
-                        : isTrainingByProfile
+                    className={`p-3 rounded-lg text-center border-2 transition-all ${day.isToday
+                      ? isTrainingByProfile
+                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg scale-105'
+                        : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg scale-105'
+                      : isTrainingByProfile
                         ? 'bg-gradient-to-br from-blue-100 to-cyan-100 border-blue-300 text-blue-800'
                         : 'bg-gradient-to-br from-gray-100 to-slate-100 border-gray-300 text-gray-600'
-                    }`}
+                      }`}
                   >
                     <div className="text-xs font-medium mb-1">{day.name.substring(0, 3)}</div>
                     <div className="flex items-center justify-center">
@@ -548,9 +661,8 @@ export function WorkoutDashboardEnhanced() {
                     </div>
                     {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
                     {day.hasPlanWorkout && day.workoutDay && (
-                      <div className={`text-xs mt-1 font-semibold ${
-                        day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
-                      }`}>
+                      <div className={`text-xs mt-1 font-semibold ${day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
+                        }`}>
                         {day.workoutDay.exercises?.length || 0} ej.
                       </div>
                     )}
@@ -561,7 +673,7 @@ export function WorkoutDashboardEnhanced() {
                 )
               })}
             </div>
-            
+
             {/* Leyenda */}
             <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-center gap-4 text-xs">
               <div className="flex items-center gap-1">
@@ -597,17 +709,17 @@ export function WorkoutDashboardEnhanced() {
               )}
             </p>
           </div>
-          
+
           {/* Mostrar días según el perfil del usuario, mapeando entrenamientos del plan en orden */}
           {trainingDays.length > 0 ? (() => {
             // Obtener días de entrenamiento del plan (sin descanso), ordenados por day_number
             const planWorkoutDays = userPlan?.days
               ?.filter((d: any) => !d.is_rest_day)
               ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-            
+
             // Días del usuario ordenados
             const userTrainingDays = [...trainingDays].sort((a, b) => a - b)
-            
+
             // Mapear entrenamientos del plan a los días del usuario
             // Primer entrenamiento del plan → primer día del usuario
             // Segundo entrenamiento del plan → segundo día del usuario
@@ -619,13 +731,13 @@ export function WorkoutDashboardEnhanced() {
                 planDay: planWorkoutDay
               }
             })
-            
+
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {mappedDays.map(({ userDayNumber, planDay }) => {
                   const dayName = getDayNameFromNumber(userDayNumber)
                   const isToday = userDayNumber === (new Date().getDay() === 0 ? 7 : new Date().getDay())
-                  
+
                   return (
                     <Card key={userDayNumber} className={planDay ? '' : 'border-orange-200 bg-orange-50/30'}>
                       <CardHeader className="pb-3">
@@ -651,7 +763,7 @@ export function WorkoutDashboardEnhanced() {
                           const totalExercises = planDay.exercises?.length || 0
                           const completedCount = completedExercisesForDay.size
                           const progressPercentage = totalExercises > 0 ? (completedCount / totalExercises) * 100 : 0
-                          
+
                           return (
                             <>
                               <div className="flex items-center justify-between">
@@ -665,7 +777,7 @@ export function WorkoutDashboardEnhanced() {
                                   </Badge>
                                 )}
                               </div>
-                              
+
                               {/* Barra de progreso */}
                               {completedCount > 0 && (
                                 <div className="space-y-1">
@@ -675,21 +787,20 @@ export function WorkoutDashboardEnhanced() {
                                   </p>
                                 </div>
                               )}
-                              
+
                               <div className="space-y-2">
                                 {planDay.exercises?.slice(0, 3).map((exercise: any) => {
                                   const exerciseData = exercise.exercise || exercise
                                   const exerciseId = exercise.id || exerciseData.id || String(exercise)
                                   const isCompleted = completedExercisesForDay.has(String(exerciseId))
-                                  
+
                                   return (
-                                    <div 
-                                      key={exercise.id} 
-                                      className={`text-xs p-2 rounded transition-all ${
-                                        isCompleted 
-                                          ? 'bg-green-50 border border-green-200' 
-                                          : 'bg-muted/50'
-                                      }`}
+                                    <div
+                                      key={exercise.id}
+                                      className={`text-xs p-2 rounded transition-all ${isCompleted
+                                        ? 'bg-green-50 border border-green-200'
+                                        : 'bg-muted/50'
+                                        }`}
                                     >
                                       <div className="flex items-center gap-2">
                                         {isCompleted && (
@@ -714,15 +825,22 @@ export function WorkoutDashboardEnhanced() {
                                 )}
                               </div>
 
-                              <Button 
-                                size="sm" 
-                                className="w-full"
-                                onClick={() => handleStartWorkout(planDay)}
-                                variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
-                              >
-                                <Play className="h-3 w-3 mr-1" />
-                                {completedCount === totalExercises && totalExercises > 0 ? 'Continuar' : 'Iniciar'}
-                              </Button>
+                              {todayWorkoutCompleted[planDay.id] ? (
+                                <div className="w-full bg-green-100 border border-green-300 text-green-700 text-sm py-2 rounded-md flex items-center justify-center">
+                                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                                  Completado Hoy
+                                </div>
+                              ) : (
+                                <Button
+                                  size="sm"
+                                  className="w-full"
+                                  onClick={() => handleStartWorkout(planDay)}
+                                  variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
+                                >
+                                  <Play className="h-3 w-3 mr-1" />
+                                  {completedCount === totalExercises && totalExercises > 0 ? 'Continuar' : 'Iniciar'}
+                                </Button>
+                              )}
                             </>
                           )
                         })() : (
@@ -747,7 +865,7 @@ export function WorkoutDashboardEnhanced() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {userPlan?.days?.map((day: any, index: number) => {
                 const isToday = day.day_number === (new Date().getDay() === 0 ? 7 : new Date().getDay())
-                
+
                 return (
                   <Card key={day.id} className={day.is_rest_day ? 'opacity-75' : ''}>
                     <CardHeader className="pb-3">
@@ -784,7 +902,7 @@ export function WorkoutDashboardEnhanced() {
                         const totalExercises = day.exercises?.length || 0
                         const completedCount = completedExercisesForDay.size
                         const progressPercentage = totalExercises > 0 ? (completedCount / totalExercises) * 100 : 0
-                        
+
                         return (
                           <>
                             <div className="flex items-center justify-between">
@@ -798,7 +916,7 @@ export function WorkoutDashboardEnhanced() {
                                 </Badge>
                               )}
                             </div>
-                            
+
                             {/* Barra de progreso */}
                             {completedCount > 0 && (
                               <div className="space-y-1">
@@ -808,21 +926,20 @@ export function WorkoutDashboardEnhanced() {
                                 </p>
                               </div>
                             )}
-                            
+
                             <div className="space-y-2">
                               {day.exercises?.slice(0, 3).map((exercise: any) => {
                                 const exerciseData = exercise.exercise || exercise
                                 const exerciseId = exercise.id || exerciseData.id || String(exercise)
                                 const isCompleted = completedExercisesForDay.has(String(exerciseId))
-                                
+
                                 return (
-                                  <div 
-                                    key={exercise.id} 
-                                    className={`text-xs p-2 rounded transition-all ${
-                                      isCompleted 
-                                        ? 'bg-green-50 border border-green-200' 
-                                        : 'bg-muted/50'
-                                    }`}
+                                  <div
+                                    key={exercise.id}
+                                    className={`text-xs p-2 rounded transition-all ${isCompleted
+                                      ? 'bg-green-50 border border-green-200'
+                                      : 'bg-muted/50'
+                                      }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       {isCompleted && (
@@ -847,15 +964,22 @@ export function WorkoutDashboardEnhanced() {
                               )}
                             </div>
 
-                            <Button 
-                              size="sm" 
-                              className="w-full"
-                              onClick={() => handleStartWorkout(day)}
-                              variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
-                            >
-                              <Play className="h-3 w-3 mr-1" />
-                              {completedCount === totalExercises && totalExercises > 0 ? 'Continuar' : 'Iniciar'}
-                            </Button>
+                            {todayWorkoutCompleted[day.id] ? (
+                              <div className="w-full bg-green-100 border border-green-300 text-green-700 text-sm py-2 rounded-md flex items-center justify-center">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Completado Hoy
+                              </div>
+                            ) : (
+                              <Button
+                                size="sm"
+                                className="w-full"
+                                onClick={() => handleStartWorkout(day)}
+                                variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
+                              >
+                                <Play className="h-3 w-3 mr-1" />
+                                {completedCount === totalExercises && totalExercises > 0 ? 'Continuar' : 'Iniciar'}
+                              </Button>
+                            )}
                           </>
                         )
                       })()}
@@ -892,14 +1016,14 @@ export function WorkoutDashboardEnhanced() {
                       {log.rating && (
                         <div className="flex items-center gap-1">
                           {[...Array(5)].map((_, i) => (
-                            <Award 
-                              key={i} 
-                              className={`h-4 w-4 ${i < (log.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}`} 
+                            <Award
+                              key={i}
+                              className={`h-4 w-4 ${i < (log.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}`}
                             />
                           ))}
                         </div>
                       )}
-                      <Badge 
+                      <Badge
                         variant={log.completed ? "default" : "secondary"}
                         className={log.completed ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0" : ""}
                       >
@@ -954,12 +1078,12 @@ export function WorkoutDashboardEnhanced() {
                     <span>Entrenamientos completados</span>
                     <span>{stats.completedThisWeek}/{stats.weeklyGoal}</span>
                   </div>
-                  <Progress 
-                    value={(stats.completedThisWeek / stats.weeklyGoal) * 100} 
+                  <Progress
+                    value={(stats.completedThisWeek / stats.weeklyGoal) * 100}
                     className="h-3"
                   />
                 </div>
-                
+
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">
                     {Math.round((stats.completedThisWeek / stats.weeklyGoal) * 100)}%
@@ -974,193 +1098,61 @@ export function WorkoutDashboardEnhanced() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialog para entrenamiento interactivo */}
-      <Dialog open={isWorkoutDialogOpen} onOpenChange={setIsWorkoutDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Dumbbell className="h-5 w-5 text-purple-600" />
-              Entrenamiento: {selectedDay?.day_name || 'Día de Entrenamiento'}
-            </DialogTitle>
-            <DialogDescription>
-              Completa los ejercicios marcando cada uno cuando termines
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedDay && selectedDay.exercises && (
-            <div className="space-y-6">
-              {/* Lista de ejercicios */}
-              <div className="space-y-3">
-                <h3 className="text-lg font-semibold flex items-center gap-2">
-                  <Target className="h-5 w-5" />
-                  Ejercicios ({completedExercises.size} / {selectedDay.exercises.length} completados)
-                </h3>
-                
-                <div className="grid gap-3">
-                  {selectedDay.exercises.map((exerciseItem: any) => {
-                    const exercise = exerciseItem.exercise || exerciseItem
-                    const exerciseId = exerciseItem.id || exercise.id || String(exerciseItem)
-                    const isCompleted = completedExercises.has(String(exerciseId))
-                    
-                    return (
-                      <Card 
-                        key={exerciseId} 
-                        className={`transition-all ${
-                          isCompleted 
-                            ? 'bg-green-50 border-green-300' 
-                            : 'bg-white border-gray-200'
-                        }`}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start gap-3">
-                            {/* Checkbox para marcar como completado */}
-                            <button
-                              onClick={() => toggleExerciseCompleted(String(exerciseId))}
-                              className={`mt-1 transition-all ${
-                                isCompleted 
-                                  ? 'text-green-600 hover:text-green-700' 
-                                  : 'text-gray-400 hover:text-gray-600'
-                              }`}
-                            >
-                              {isCompleted ? (
-                                <CheckCircle2 className="h-6 w-6" />
-                              ) : (
-                                <Circle className="h-6 w-6" />
-                              )}
-                            </button>
-                            
-                            {/* Información del ejercicio */}
-                            <div className="flex-1">
-                              <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                  <h4 className={`font-semibold text-lg mb-1 ${
-                                    isCompleted ? 'text-green-700 line-through' : 'text-gray-900'
-                                  }`}>
-                                    {exercise.name || exerciseItem.name || 'Ejercicio'}
-                                  </h4>
-                                  <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                                    <span className="flex items-center gap-1">
-                                      <Target className="h-4 w-4" />
-                                      {exerciseItem.sets || 'N/A'} series
-                                    </span>
-                                    <span className="flex items-center gap-1">
-                                      <Repeat className="h-4 w-4" />
-                                      {exerciseItem.reps || 'N/A'} reps
-                                    </span>
-                                    {exerciseItem.weight && (
-                                      <span className="flex items-center gap-1">
-                                        <Dumbbell className="h-4 w-4" />
-                                        {exerciseItem.weight} kg
-                                      </span>
-                                    )}
-                                  </div>
-                                  {exercise.instructions && (
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                      {exercise.instructions}
-                                    </p>
-                                  )}
-                                </div>
-                                
-                                {/* Botón de video */}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className="flex items-center gap-2"
-                                  onClick={() => {
-                                    // Por ahora solo mostrar un toast
-                                    toast({
-                                      title: "Reproducir video",
-                                      description: "La funcionalidad de video estará disponible pronto.",
-                                    })
-                                  }}
-                                >
-                                  <Video className="h-4 w-4" />
-                                  Ver Video
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              </div>
-              
-              {/* Progreso */}
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">Progreso del entrenamiento</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {Math.round((completedExercises.size / selectedDay.exercises.length) * 100)}%
-                  </span>
-                </div>
-                <Progress 
-                  value={(completedExercises.size / selectedDay.exercises.length) * 100} 
-                  className="h-2"
-                />
-              </div>
-              
-              {/* Formulario final */}
-              <div className="border-t pt-4 space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="duration">Duración (minutos)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      value={workoutForm.duration}
-                      onChange={(e) => setWorkoutForm({ ...workoutForm, duration: Number(e.target.value) })}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="rating">Calificación (1-5)</Label>
-                    <Input
-                      id="rating"
-                      type="number"
-                      min="1"
-                      max="5"
-                      value={workoutForm.rating}
-                      onChange={(e) => setWorkoutForm({ ...workoutForm, rating: Number(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="notes">Notas (opcional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={workoutForm.notes}
-                    onChange={(e) => setWorkoutForm({ ...workoutForm, notes: e.target.value })}
-                    placeholder="¿Cómo te sentiste? ¿Algún comentario?"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              
-              {/* Botones de acción */}
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <Button variant="outline" onClick={() => {
-                  // No limpiar el estado guardado, solo cerrar el diálogo
-                  setIsWorkoutDialogOpen(false)
-                  setWorkoutStartTime(null)
-                }}>
-                  Cerrar (guardado)
-                </Button>
-                <Button 
-                  onClick={handleCompleteWorkout}
-                  className="bg-gradient-to-r from-purple-600 to-violet-600 hover:from-purple-700 hover:to-violet-700"
-                  disabled={completedExercises.size === 0}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Completar Entrenamiento
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Nuevo componente de entrenamiento activo */}
+      {selectedDay && (
+        <ActiveWorkoutSession
+          workoutDay={selectedDay}
+          isOpen={isWorkoutDialogOpen}
+          onClose={() => {
+            setIsWorkoutDialogOpen(false)
+            setSelectedDay(null)
+          }}
+          onComplete={async (data) => {
+            if (!selectedDay) return
+
+            try {
+              // Guardar el workout log con todos los datos
+              await logWorkout(
+                selectedDay.id.toString(),
+                data.notes,
+                data.duration_minutes,
+                data.rating,
+                data.exercises_data
+              )
+
+              // Recargar logs primero para tener los datos actualizados
+              await fetchWorkoutLogs()
+
+              // Marcar como completado
+              setTodayWorkoutCompleted(prev => ({
+                ...prev,
+                [selectedDay.id]: true
+              }))
+
+              // Recargar estadísticas
+              await fetchWorkoutStatistics()
+
+              // Verificar nuevamente los entrenamientos completados después de un breve delay
+              setTimeout(() => {
+                checkCompletedWorkouts()
+              }, 1000)
+
+              toast({
+                title: "¡Entrenamiento completado! 🎉",
+                description: `Duración: ${data.duration_minutes} min | Calificación: ${data.rating}/5 estrellas`,
+              })
+            } catch (error: any) {
+              const errorMessage = error?.response?.data?.detail || error?.message || 'Error al guardar el entrenamiento'
+              toast({
+                title: "Error",
+                description: errorMessage,
+                variant: "destructive",
+              })
+              throw error
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

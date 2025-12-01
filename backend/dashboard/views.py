@@ -503,7 +503,7 @@ def user_stats(request):
         calories_today = MealLog.objects.filter(
             user=user, date=today
         ).aggregate(
-            total_calories=Sum("meal__calories")
+            total_calories=Sum("calories")
         )["total_calories"] or 0
         
         # Entrenamientos de la semana
