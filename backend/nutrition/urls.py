@@ -1,7 +1,11 @@
 # nutrition/urls.py
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet
+from .views import (
+    RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet, 
+    current_plan, plan_meals_for_selection, daily_meal_selections,
+    default_plan_configurations, default_nutrition_plans
+)
 
 router = DefaultRouter()
 router.register(r'recipes', RecipeViewSet, basename='recipes')
@@ -10,5 +14,10 @@ router.register(r'meal-logs', MealLogViewSet, basename='meal-logs')
 router.register(r'foods', FoodViewSet, basename='foods')
 
 urlpatterns = [
+    path('current-plan/', current_plan, name='current-plan'),
+    path('plan-meals-for-selection/', plan_meals_for_selection, name='plan-meals-for-selection'),
+    path('daily-meal-selections/', daily_meal_selections, name='daily-meal-selections'),
+    path('default-plan-configurations/', default_plan_configurations, name='default-plan-configurations'),
+    path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
     path('', include(router.urls)),
 ]

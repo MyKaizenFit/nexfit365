@@ -440,8 +440,8 @@ class WorkoutLog(TimeStampedModel):
     rating = models.PositiveSmallIntegerField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(1), MaxValueValidator(10)],
-        help_text="Valoración del entrenamiento (1-10)"
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        help_text="Valoración del entrenamiento (1-5 estrellas)"
     )
     
     # Datos del entrenamiento (snapshot)

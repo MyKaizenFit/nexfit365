@@ -50,8 +50,8 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
       }
 
       // Si está autenticado pero no es admin, redirigir al dashboard
-      // Verificar tanto 'ADMIN' (mayúsculas) como 'admin' (minúsculas) para compatibilidad
-      const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin')
+      // Verificar roles de admin: superuser, staff, admin, trainer
+      const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
       
       console.log('🔍 AdminRouteGuard - Verificación de admin:', {
         is_superuser: user.is_superuser,
@@ -106,7 +106,7 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
   }
 
   // Si no está autenticado o no es admin, mostrar mensaje de acceso denegado
-  const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin')
+  const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
   if (!isAuthenticated || (user && !isAdmin)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center p-4">

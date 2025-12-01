@@ -8,8 +8,11 @@ import { handle401AndRefresh } from '@/lib/fetch-with-auth'
 export interface Exercise {
   id: number | string
   name: string
+  description?: string
   category: string
   muscle_groups: string[]
+  equipment?: string[]
+  difficulty?: string
   instructions: string
   video_url?: string
   video_file?: string
@@ -20,6 +23,9 @@ export interface Exercise {
   image_url?: string
   has_video?: boolean
   google_drive_file_id?: string
+  is_system?: boolean
+  is_active?: boolean
+  tags?: string[]
   created_at?: string
   updated_at?: string
 }
@@ -33,8 +39,11 @@ export interface ExerciseStats {
 
 export interface CreateExerciseData {
   name: string
+  description?: string
   category: string
   muscle_groups: string[]
+  equipment?: string[]
+  difficulty?: string
   instructions: string
   video_url?: string
   image_url?: string
@@ -51,7 +60,7 @@ export const useAdminExercises = () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/exercises/?page_size=1000`), {
         headers
@@ -75,7 +84,7 @@ export const useAdminExercises = () => {
 
       const data = await response.json()
       const exercisesData = data.results || data
-      
+
       if (Array.isArray(exercisesData)) {
         setExercises(exercisesData)
         console.log(`✅ Total ejercicios cargados: ${exercisesData.length}`)
@@ -205,7 +214,7 @@ export const useAdminExercises = () => {
       }
 
       const updatedExercise = await response.json()
-      setExercises(prev => prev.map(exercise => 
+      setExercises(prev => prev.map(exercise =>
         exercise.id === exerciseId ? updatedExercise : exercise
       ))
       return updatedExercise
@@ -302,7 +311,7 @@ export const useAdminExercises = () => {
       let headers = await getAuthHeaders()
       const formData = new FormData()
       formData.append('video_file', videoFile)
-      
+
       let response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-video/`), {
         method: 'POST',
         headers: {
@@ -331,7 +340,7 @@ export const useAdminExercises = () => {
       }
 
       const updatedExercise = await response.json()
-      setExercises(prev => prev.map(exercise => 
+      setExercises(prev => prev.map(exercise =>
         String(exercise.id) === String(exerciseId) ? updatedExercise : exercise
       ))
       return updatedExercise
@@ -347,7 +356,7 @@ export const useAdminExercises = () => {
       let headers = await getAuthHeaders()
       const formData = new FormData()
       formData.append('thumbnail', thumbnailFile)
-      
+
       let response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-thumbnail/`), {
         method: 'POST',
         headers: {
@@ -375,7 +384,7 @@ export const useAdminExercises = () => {
       }
 
       const updatedExercise = await response.json()
-      setExercises(prev => prev.map(exercise => 
+      setExercises(prev => prev.map(exercise =>
         String(exercise.id) === String(exerciseId) ? updatedExercise : exercise
       ))
       return updatedExercise
@@ -419,11 +428,11 @@ export const useAdminExercises = () => {
       }
 
       const result = await response.json()
-      
+
       // Refrescar la lista y estadísticas
       await fetchExercises()
       await fetchStats()
-      
+
       return result
     } catch (err) {
       console.error('Error bulk creating exercises:', err)

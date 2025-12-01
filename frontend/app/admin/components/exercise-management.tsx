@@ -63,25 +63,28 @@ export function ExerciseManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
-  
+
   // Ordenamiento
   const [sortColumn, setSortColumn] = useState<string>("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  
+
   // Estado del formulario
   const [formData, setFormData] = useState({
     name: '',
+    description: '',
     category: '',
     muscle_groups: '',
+    equipment: '',
+    difficulty: '',
     instructions: '',
     video_url: '',
     image_url: ''
   })
-  
+
   // Estado para archivos de video y miniatura
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
@@ -96,13 +99,13 @@ export function ExerciseManagement() {
 
   const filteredExercises = exercises.filter((exercise) => {
     const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         exercise.instructions?.toLowerCase().includes(searchTerm.toLowerCase())
-    
+      exercise.instructions?.toLowerCase().includes(searchTerm.toLowerCase())
+
     const matchesCategory = categoryFilter === "all" || exercise.category === categoryFilter
-    
-    const matchesMuscleGroup = muscleGroupFilter === "all" || 
+
+    const matchesMuscleGroup = muscleGroupFilter === "all" ||
       (exercise.muscle_groups && exercise.muscle_groups.includes(muscleGroupFilter))
-    
+
     return matchesSearch && matchesCategory && matchesMuscleGroup
   })
 
@@ -110,7 +113,7 @@ export function ExerciseManagement() {
   const sortedExercises = [...filteredExercises].sort((a, b) => {
     let aValue: any
     let bValue: any
-    
+
     switch (sortColumn) {
       case 'name':
         aValue = a.name.toLowerCase()
@@ -123,13 +126,13 @@ export function ExerciseManagement() {
       default:
         return 0
     }
-    
+
     if (typeof aValue === 'string') {
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue)
     } else {
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? (aValue - bValue)
         : (bValue - aValue)
     }
@@ -177,21 +180,29 @@ export function ExerciseManagement() {
         .split(',')
         .map(g => g.trim())
         .filter(g => g.length > 0)
-      
+
+      const equipmentArray = formData.equipment
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0)
+
       await createExercise({
         name: formData.name,
+        description: formData.description || undefined,
         category: formData.category,
         muscle_groups: muscleGroupsArray,
+        equipment: equipmentArray.length > 0 ? equipmentArray : undefined,
+        difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
         image_url: formData.image_url || undefined
       })
-      
+
       toast({
         title: "✅ Ejercicio creado",
         description: "El ejercicio ha sido creado correctamente",
       })
-      
+
       setShowCreateDialog(false)
       resetForm()
       refetch()
@@ -208,28 +219,36 @@ export function ExerciseManagement() {
 
   const handleUpdate = async () => {
     if (!editingExercise) return
-    
+
     try {
       setIsLoading(true)
       const muscleGroupsArray = formData.muscle_groups
         .split(',')
         .map(g => g.trim())
         .filter(g => g.length > 0)
-      
+
+      const equipmentArray = formData.equipment
+        .split(',')
+        .map(e => e.trim())
+        .filter(e => e.length > 0)
+
       await updateExercise(editingExercise.id, {
         name: formData.name,
+        description: formData.description || undefined,
         category: formData.category,
         muscle_groups: muscleGroupsArray,
+        equipment: equipmentArray.length > 0 ? equipmentArray : undefined,
+        difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
         image_url: formData.image_url || undefined
       })
-      
+
       toast({
         title: "✅ Ejercicio actualizado",
         description: "El ejercicio ha sido actualizado correctamente",
       })
-      
+
       setEditingExercise(null)
       resetForm()
       refetch()
@@ -295,8 +314,11 @@ export function ExerciseManagement() {
   const resetForm = () => {
     setFormData({
       name: '',
+      description: '',
       category: '',
       muscle_groups: '',
+      equipment: '',
+      difficulty: '',
       instructions: '',
       video_url: '',
       image_url: ''
@@ -309,8 +331,11 @@ export function ExerciseManagement() {
     setEditingExercise(exercise)
     setFormData({
       name: exercise.name,
+      description: exercise.description || '',
       category: exercise.category || '',
       muscle_groups: (exercise.muscle_groups || []).join(', '),
+      equipment: (exercise.equipment || []).join(', '),
+      difficulty: exercise.difficulty || '',
       instructions: exercise.instructions || '',
       video_url: exercise.video_url || '',
       image_url: exercise.image_url || ''
@@ -476,8 +501,10 @@ export function ExerciseManagement() {
                       )}
                     </button>
                   </th>
-                  <th className="p-3 text-left">Grupos Musculares</th>
-                  <th className="p-3 text-left">Instrucciones</th>
+                  <th className="p-3 text-left">Dificultad</th>
+                  <th className="p-3 text-left">Músculos</th>
+                  <th className="p-3 text-left">Equipamiento</th>
+                  <th className="p-3 text-center">Video</th>
                   <th className="p-3 text-right">Acciones</th>
                 </tr>
               </thead>
@@ -490,9 +517,32 @@ export function ExerciseManagement() {
                         onCheckedChange={(checked) => handleSelectExercise(exercise.id, checked as boolean)}
                       />
                     </td>
-                    <td className="p-3 font-medium">{exercise.name}</td>
                     <td className="p-3">
-                      <Badge variant="outline">{exercise.category}</Badge>
+                      <div className="font-medium">{exercise.name}</div>
+                      {exercise.description && (
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={exercise.description}>
+                          {exercise.description}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3">
+                      <Badge variant="outline">{exercise.category || '-'}</Badge>
+                    </td>
+                    <td className="p-3">
+                      {exercise.difficulty ? (
+                        <Badge
+                          variant="outline"
+                          className={
+                            exercise.difficulty === 'beginner' ? 'bg-green-100 text-green-800 border-green-200' :
+                              exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
+                          }
+                        >
+                          {exercise.difficulty === 'beginner' ? 'Principiante' :
+                            exercise.difficulty === 'intermediate' ? 'Intermedio' :
+                              exercise.difficulty === 'advanced' ? 'Avanzado' : exercise.difficulty}
+                        </Badge>
+                      ) : '-'}
                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
@@ -506,10 +556,32 @@ export function ExerciseManagement() {
                             +{(exercise.muscle_groups || []).length - 2}
                           </Badge>
                         )}
+                        {(exercise.muscle_groups || []).length === 0 && '-'}
                       </div>
                     </td>
-                    <td className="p-3 text-sm text-muted-foreground max-w-[200px] truncate">
-                      {exercise.instructions || '-'}
+                    <td className="p-3">
+                      <div className="flex flex-wrap gap-1">
+                        {(exercise.equipment || []).slice(0, 2).map((item, idx) => (
+                          <Badge key={idx} variant="outline" className="text-xs">
+                            {item}
+                          </Badge>
+                        ))}
+                        {(exercise.equipment || []).length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{(exercise.equipment || []).length - 2}
+                          </Badge>
+                        )}
+                        {(exercise.equipment || []).length === 0 && '-'}
+                      </div>
+                    </td>
+                    <td className="p-3 text-center">
+                      {exercise.has_video ? (
+                        <Badge className="bg-green-100 text-green-800 border-green-200">
+                          📹 Sí
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
                     </td>
                     <td className="p-3">
                       <div className="flex justify-end">
@@ -566,7 +638,7 @@ export function ExerciseManagement() {
                 >
                   Anterior
                 </Button>
-                
+
                 {/* Números de página */}
                 {totalPages > 0 && (
                   <div className="flex items-center gap-1">
@@ -581,7 +653,7 @@ export function ExerciseManagement() {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <Button
                           key={pageNum}
@@ -596,7 +668,7 @@ export function ExerciseManagement() {
                     })}
                   </div>
                 )}
-                
+
                 <Button
                   variant="outline"
                   size="sm"
@@ -642,61 +714,111 @@ export function ExerciseManagement() {
               {editingExercise ? 'Modifica los datos del ejercicio' : 'Completa los datos para crear un nuevo ejercicio'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             <div>
               <FormLabel>Nombre *</FormLabel>
               <Input
                 value={formData.name}
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Ej: Sentadillas"
+                placeholder="Ej: Press de Banca en Multipower"
               />
             </div>
-            
+
             <div>
-              <FormLabel>Categoría *</FormLabel>
-              <Input
-                value={formData.category}
-                onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                placeholder="Ej: strength"
+              <FormLabel>Descripción breve</FormLabel>
+              <Textarea
+                value={formData.description}
+                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                placeholder="Breve descripción del ejercicio..."
+                rows={2}
               />
             </div>
-            
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <FormLabel>Categoría *</FormLabel>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar categoría" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="strength">Fuerza</SelectItem>
+                    <SelectItem value="cardio">Cardio</SelectItem>
+                    <SelectItem value="flexibility">Flexibilidad</SelectItem>
+                    <SelectItem value="balance">Equilibrio</SelectItem>
+                    <SelectItem value="plyometrics">Pliometría</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div>
+                <FormLabel>Dificultad *</FormLabel>
+                <Select
+                  value={formData.difficulty}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Seleccionar dificultad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Principiante</SelectItem>
+                    <SelectItem value="intermediate">Intermedio</SelectItem>
+                    <SelectItem value="advanced">Avanzado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             <div>
               <FormLabel>Grupos Musculares (separados por comas) *</FormLabel>
               <Input
                 value={formData.muscle_groups}
                 onChange={(e) => setFormData(prev => ({ ...prev, muscle_groups: e.target.value }))}
-                placeholder="Ej: cuádriceps, glúteos"
+                placeholder="Ej: pectorales, tríceps, deltoides anterior"
               />
             </div>
-            
+
             <div>
-              <FormLabel>Instrucciones *</FormLabel>
+              <FormLabel>Equipamiento (separado por comas)</FormLabel>
+              <Input
+                value={formData.equipment}
+                onChange={(e) => setFormData(prev => ({ ...prev, equipment: e.target.value }))}
+                placeholder="Ej: multipower, banco plano"
+              />
+            </div>
+
+            <div>
+              <FormLabel>Instrucciones detalladas *</FormLabel>
               <Textarea
                 value={formData.instructions}
                 onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
-                placeholder="Describe cómo realizar el ejercicio..."
-                rows={4}
+                placeholder="1. Primer paso...&#10;2. Segundo paso...&#10;3. Tercer paso..."
+                rows={6}
               />
             </div>
-            
-            <div>
-              <FormLabel>URL del Video (opcional)</FormLabel>
-              <Input
-                value={formData.video_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
-                placeholder="https://..."
-              />
-            </div>
-            
-            <div>
-              <FormLabel>URL de la Imagen (opcional)</FormLabel>
-              <Input
-                value={formData.image_url}
-                onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                placeholder="https://..."
-              />
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <FormLabel>URL del Video (opcional)</FormLabel>
+                <Input
+                  value={formData.video_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
+                  placeholder="https://drive.google.com/file/d/..."
+                />
+              </div>
+
+              <div>
+                <FormLabel>URL de la Imagen (opcional)</FormLabel>
+                <Input
+                  value={formData.image_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
+                  placeholder="https://..."
+                />
+              </div>
             </div>
 
             {/* Subir archivo de video */}
@@ -804,7 +926,7 @@ export function ExerciseManagement() {
               </>
             )}
           </div>
-          
+
           <DialogFooter>
             <Button
               variant="outline"

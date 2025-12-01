@@ -1,12 +1,12 @@
 // lib/auth-service.ts
 // Servicio de autenticación mejorado con validación y manejo de errores
 
-import { 
-  buildApiUrl, 
-  getAuthHeaders, 
-  handleApiResponse, 
+import {
+  buildApiUrl,
+  getAuthHeaders,
+  handleApiResponse,
   handleFetchError,
-  AUTH_ENDPOINTS 
+  AUTH_ENDPOINTS
 } from './api'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
@@ -44,36 +44,64 @@ export interface AuthResponse {
 // Utilidades para cookies
 const setCookie = (name: string, value: string, days: number = 7) => {
   if (typeof window === 'undefined') return
-  
+
   const expires = new Date()
   expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000))
-  
-  // Usar SameSite=Lax para HTTPS y dominios cruzados, o None; Secure si es necesario
-  const isSecure = typeof window !== 'undefined' && window.location.protocol === 'https:'
-  const sameSite = isSecure ? 'Lax' : 'Lax'
-  const secureFlag = isSecure ? ';Secure' : ''
-  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/;SameSite=${sameSite}${secureFlag}`
+
+  // Construir la cookie con todos los atributos necesarios
+  const isSecure = window.location.protocol === 'https:'
+
+  // Construir el string de la cookie
+  let cookieString = `${name}=${encodeURIComponent(value)}`
+  cookieString += `;expires=${expires.toUTCString()}`
+  cookieString += `;path=/`
+  cookieString += `;SameSite=Lax`
+
+  if (isSecure) {
+    cookieString += `;Secure`
+  }
+
+  document.cookie = cookieString
+  console.log(`🍪 Cookie guardada: ${name}=${value.substring(0, 20)}...`)
+
+  // Verificar que se guardó correctamente
+  const saved = getCookie(name)
+  if (saved) {
+    console.log(`✅ Cookie ${name} verificada correctamente`)
+  } else {
+    console.error(`❌ Error: Cookie ${name} NO se guardó`)
+  }
 }
 
 const getCookie = (name: string): string | null => {
   if (typeof window === 'undefined') return null
-  
+
   const nameEQ = name + "="
   const ca = document.cookie.split(';')
-  
+
   for (let i = 0; i < ca.length; i++) {
-    let c = ca[i]
-    while (c.charAt(0) === ' ') c = c.substring(1, c.length)
-    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length)
+    let c = ca[i].trim()
+    if (c.indexOf(nameEQ) === 0) {
+      const value = c.substring(nameEQ.length, c.length)
+      // Decodificar el valor por si fue codificado
+      try {
+        return decodeURIComponent(value)
+      } catch {
+        return value
+      }
+    }
   }
-  
+
   return null
 }
 
 const deleteCookie = (name: string) => {
   if (typeof window === 'undefined') return
-  
+
+  // Eliminar con todos los posibles atributos
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
+  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`
+  console.log(`🗑️ Cookie eliminada: ${name}`)
 }
 
 // Clase principal del servicio de autenticación mejorado
@@ -88,11 +116,11 @@ export class AuthService {
     if (typeof window !== 'undefined') {
       this.accessToken = getCookie('accessToken')
       this.refreshToken = getCookie('refreshToken')
-      
+
       console.log('🍪 Tokens obtenidos de cookies:')
       console.log('  accessToken:', this.accessToken ? `${this.accessToken.substring(0, 20)}...` : 'null')
       console.log('  refreshToken:', this.refreshToken ? `${this.refreshToken.substring(0, 20)}...` : 'null')
-      
+
       // Verificar si estamos en modo offline (sin backend)
       this.checkOfflineMode()
     }
@@ -110,15 +138,15 @@ export class AuthService {
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos de timeout
-      
+
       // Usar el endpoint público de health que no requiere autenticación
-      const response = await fetch(buildApiUrl('/public-health/'), { 
+      const response = await fetch(buildApiUrl('/public-health/'), {
         method: 'GET',
         signal: controller.signal
       })
-      
+
       clearTimeout(timeoutId)
-      
+
       if (response.ok) {
         this.isOfflineMode = false
       } else {
@@ -142,17 +170,17 @@ export class AuthService {
     if (!this.accessToken || !this.refreshToken) {
       return false
     }
-    
+
     // Verificar que no sean tokens offline (para desarrollo)
     if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
       return true
     }
-    
+
     // Verificar que el token de acceso tenga el formato correcto (JWT)
     if (!this.accessToken.includes('.')) {
       return false
     }
-    
+
     return true
   }
 
@@ -173,9 +201,13 @@ export class AuthService {
       const expirationTime = payload.exp * 1000 // Convertir a milisegundos
       const currentTime = Date.now()
       const timeUntilExpiration = expirationTime - currentTime
-      
-      // Considerar que está próximo a expirar si queda menos de 5 minutos
-      return timeUntilExpiration < 5 * 60 * 1000
+
+      // Considerar que está próximo a expirar si queda menos de 30 minutos
+      // Esto da más margen de seguridad, especialmente ahora que el token dura 2 horas
+      // Esto asegura que el token se renueve automáticamente durante entrenamientos largos
+      // sin interacción del usuario. Con 30 minutos de margen, el token se renovará
+      // automáticamente cada ~90 minutos (2 horas - 30 minutos)
+      return timeUntilExpiration < 30 * 60 * 1000
     } catch (error) {
       console.warn('Error al verificar expiración del token:', error)
       return false
@@ -199,19 +231,19 @@ export class AuthService {
           is_verified: true,
           date_joined: new Date().toISOString(),
         }
-        
+
         const mockTokens: AuthTokens = {
           access: `offline_token_${Date.now()}`,
           refresh: `offline_refresh_${Date.now()}`,
         }
-        
+
         this.accessToken = mockTokens.access
         this.refreshToken = mockTokens.refresh
-        
+
         // Guardar en cookies
         setCookie('accessToken', mockTokens.access, 7)
         setCookie('refreshToken', mockTokens.refresh, 30)
-        
+
         return {
           user: mockUser,
           tokens: mockTokens,
@@ -247,10 +279,10 @@ export class AuthService {
       if (response.status === 400) {
         const errorData = await response.json()
         console.error('Error 400 del backend (login):', errorData)
-        
+
         // Extraer mensaje de error específico con mejor formato
         let errorMessage = 'Credenciales inválidas'
-        
+
         if (errorData.email && Array.isArray(errorData.email)) {
           errorMessage = `Email: ${errorData.email[0]}`
         } else if (errorData.password && Array.isArray(errorData.password)) {
@@ -266,20 +298,20 @@ export class AuthService {
         } else if (typeof errorData === 'string') {
           errorMessage = errorData
         }
-        
+
         throw new Error(errorMessage)
       }
 
       if (response.status === 401) {
         const errorData = await response.json().catch(() => ({}))
         let errorMessage = 'Credenciales inválidas'
-        
+
         if (errorData.detail) {
           errorMessage = errorData.detail
         } else if (errorData.message) {
           errorMessage = errorData.message
         }
-        
+
         throw new Error(errorMessage)
       }
 
@@ -298,7 +330,7 @@ export class AuthService {
       // El backend devuelve { access, refresh, user } en la respuesta del login
       const responseData = await response.json()
       console.log('🔍 AuthService - login - Respuesta completa del backend:', responseData)
-      
+
       if (!responseData.access || !responseData.refresh) {
         throw new Error('No se recibieron tokens de autenticación')
       }
@@ -306,7 +338,7 @@ export class AuthService {
       // Guardar tokens
       this.accessToken = responseData.access
       this.refreshToken = responseData.refresh
-      
+
       // Guardar en cookies
       setCookie('accessToken', responseData.access, 1) // 1 día
       setCookie('refreshToken', responseData.refresh, 7) // 7 días
@@ -336,7 +368,7 @@ export class AuthService {
         console.log('🔍 AuthService - login - Usuario no en respuesta, obteniendo de /me/')
         user = await this.getCurrentUser()
       }
-      
+
       return {
         user,
         tokens: {
@@ -347,14 +379,14 @@ export class AuthService {
       }
     } catch (error) {
       console.error('Error en login:', error)
-      
+
       // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
       if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
         console.warn('Backend no disponible, activando modo offline')
         this.isOfflineMode = true
         return this.login(credentials) // Reintentar en modo offline
       }
-      
+
       // Re-lanzar el error para que se maneje en el contexto
       throw error
     }
@@ -377,19 +409,19 @@ export class AuthService {
           is_verified: true,
           date_joined: new Date().toISOString(),
         }
-        
+
         const mockTokens: AuthTokens = {
           access: `offline_token_${Date.now()}`,
           refresh: `offline_refresh_${Date.now()}`,
         }
-        
+
         this.accessToken = mockTokens.access
         this.refreshToken = mockTokens.refresh
-        
+
         // Guardar en cookies
         setCookie('accessToken', mockTokens.access, 7)
         setCookie('refreshToken', mockTokens.refresh, 30)
-        
+
         return {
           user: mockUser,
           tokens: mockTokens,
@@ -443,10 +475,10 @@ export class AuthService {
       if (response.status === 400) {
         const errorData = await response.json()
         console.error('Error 400 del backend:', errorData)
-        
+
         // Extraer mensaje de error específico con mejor formato
         let errorMessage = 'Error en el formulario'
-        
+
         if (errorData.email && Array.isArray(errorData.email)) {
           errorMessage = `Email: ${errorData.email[0]}`
         } else if (errorData.password && Array.isArray(errorData.password)) {
@@ -470,7 +502,7 @@ export class AuthService {
         } else if (typeof errorData === 'string') {
           errorMessage = errorData
         }
-        
+
         throw new Error(errorMessage)
       }
 
@@ -483,7 +515,7 @@ export class AuthService {
       }
 
       const result = await handleApiResponse<AuthTokens>(response)
-      
+
       if (result.error) {
         throw new Error(result.error)
       }
@@ -495,32 +527,32 @@ export class AuthService {
       // Guardar tokens
       this.accessToken = result.data.access
       this.refreshToken = result.data.refresh
-      
+
       // Guardar en cookies
       setCookie('accessToken', result.data.access, 1) // 1 día
       setCookie('refreshToken', result.data.refresh, 7) // 7 días
 
       // Obtener información del usuario
       const user = await this.getCurrentUser()
-      
+
       return {
         user,
         tokens: result.data
       }
     } catch (error: any) {
       console.error('Error en register:', error)
-      
+
       // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
       if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
         console.warn('Backend no disponible, activando modo offline')
         this.isOfflineMode = true
         return this.register(credentials) // Reintentar en modo offline
       }
-      
+
       // Asegurar que el error tenga un mensaje
       const errorMessage = error?.message || error?.toString() || 'Error desconocido al registrar usuario'
       const enhancedError = new Error(errorMessage)
-      
+
       // Re-lanzar el error para que se maneje en el contexto
       throw enhancedError
     }
@@ -583,7 +615,7 @@ export class AuthService {
                 method: 'GET',
                 headers: getAuthHeaders(refreshResult.newToken),
               })
-              
+
               if (retryResponse.ok) {
                 const result = await handleApiResponse<User>(retryResponse)
                 console.log('🔍 AuthService - getCurrentUser - Respuesta después de refresh:', result)
@@ -611,9 +643,9 @@ export class AuthService {
         }
 
         const result = await handleApiResponse<User>(response)
-        
+
         console.log('🔍 AuthService - getCurrentUser - Respuesta del endpoint /me/:', result)
-        
+
         if (result.error) {
           throw new Error(result.error)
         }
@@ -636,7 +668,7 @@ export class AuthService {
 
       // Guardar en caché por 5 minutos
       apiCache.set(cacheKey, user, 5 * 60 * 1000)
-      
+
       return user
     } catch (error) {
       // Solo mostrar error en consola si no es un error de autenticación esperado
@@ -669,7 +701,7 @@ export class AuthService {
       })
 
       const result = await handleApiResponse<{ access: string }>(response)
-      
+
       if (result.error) {
         return { success: false, error: result.error }
       }
@@ -680,7 +712,7 @@ export class AuthService {
 
       // Actualizar token de acceso
       this.accessToken = result.data.access
-      
+
       // Guardar en cookies
       setCookie('accessToken', result.data.access, 1) // 1 día
 
@@ -702,13 +734,13 @@ export class AuthService {
           console.log('🔐 URL del logout:', buildApiUrl(AUTH_ENDPOINTS.LOGOUT))
           console.log('🔐 Headers enviados:', getAuthHeaders())
           console.log('🔐 Body enviado:', JSON.stringify({ refresh: this.refreshToken }))
-          
+
           const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
             method: 'POST',
             headers: getAuthHeaders(),
             body: JSON.stringify({ refresh: this.refreshToken }),
           })
-          
+
           if (!response.ok) {
             console.warn(`⚠️ Logout en backend falló con status ${response.status}:`, response.statusText)
             // Intentar obtener más detalles del error
@@ -743,7 +775,7 @@ export class AuthService {
   public clearTokens() {
     this.accessToken = null
     this.refreshToken = null
-    
+
     // Limpiar cookies
     deleteCookie('accessToken')
     deleteCookie('refreshToken')
@@ -772,7 +804,7 @@ export class AuthService {
       })
 
       const result = await handleApiResponse(response)
-      
+
       if (result.error) {
         throw new Error(result.error)
       }
@@ -813,7 +845,7 @@ export class AuthService {
       })
 
       const result = await handleApiResponse(response)
-      
+
       if (result.error) {
         throw new Error(result.error)
       }

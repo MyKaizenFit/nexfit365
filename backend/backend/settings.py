@@ -126,8 +126,27 @@ REST_FRAMEWORK = {
 }
 
 # JWT Configuration
+# ACCESS_TOKEN_LIFETIME: Tiempo de vida del token de acceso (1 hora por defecto)
+# REFRESH_TOKEN_LIFETIME: Tiempo de vida del token de renovación (30 días por defecto)
+# El token de acceso ahora dura 1 hora en lugar de 15 minutos para evitar cierres de sesión inesperados
+def get_access_token_lifetime():
+    """Obtiene el tiempo de vida del token de acceso desde variables de entorno"""
+    # Por defecto: 2 horas para evitar cierres de sesión inesperados durante entrenamientos
+    ttl_str = os.getenv("JWT_ACCESS_TTL", "120m")
+    if "h" in ttl_str.lower():
+        # Formato: "1h", "2h", etc.
+        hours = int(ttl_str.lower().replace("h", "").strip())
+        return timedelta(hours=hours)
+    elif "m" in ttl_str.lower():
+        # Formato: "60m", "120m", etc.
+        minutes = int(ttl_str.lower().replace("m", "").strip())
+        return timedelta(minutes=minutes)
+    else:
+        # Por defecto, asumir minutos
+        return timedelta(minutes=int(ttl_str))
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(os.getenv("JWT_ACCESS_TTL", "15").replace("m", ""))),
+    "ACCESS_TOKEN_LIFETIME": get_access_token_lifetime(),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=int(os.getenv("JWT_REFRESH_TTL", "30").replace("d", ""))),
     "ROTATE_REFRESH_TOKENS": os.getenv("JWT_ROTATE_REFRESH", "True") == "True",
     "BLACKLIST_AFTER_ROTATION": os.getenv("JWT_BLACKLIST_AFTER_ROTATION", "True") == "True",
@@ -142,6 +161,8 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "JTI_CLAIM": "jti",
+    # Usar el serializer personalizado que incluye is_staff, is_superuser, role
+    "TOKEN_OBTAIN_SERIALIZER": "api.auth_serializers.EmailTokenObtainPairSerializer",
 }
 
 # ---------------------------------
