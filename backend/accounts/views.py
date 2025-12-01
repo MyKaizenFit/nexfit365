@@ -1,7 +1,7 @@
 # accounts/views.py
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,6 +12,8 @@ from .serializers import (
 )
 
 @api_view(['POST'])
+@authentication_classes([])  # Deshabilitar autenticación para registro
+@permission_classes([AllowAny])
 def register(request):
     """Registro de nuevos usuarios con formulario completo"""
     serializer = UserRegistrationSerializer(data=request.data)

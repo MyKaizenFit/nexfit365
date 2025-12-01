@@ -549,9 +549,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               }
             } else {
               console.error('❌ No se pudo renovar el token:', refreshResult.error)
-              // Solo hacer logout si realmente no se pudo renovar
-              if (refreshResult.error && !refreshResult.error.includes('offline')) {
+              // Solo hacer logout si el error no es "blacklisted" o "en progreso"
+              // Estos pueden ser problemas temporales de sincronización
+              if (refreshResult.error && 
+                  !refreshResult.error.includes('offline') && 
+                  !refreshResult.error.includes('blacklisted') &&
+                  !refreshResult.error.includes('en progreso')) {
                 await logout()
+              } else if (refreshResult.error?.includes('blacklisted')) {
+                // Si el token está blacklisted, puede ser porque se renovó desde otro lugar
+                // Intentar obtener el usuario con el token actual antes de hacer logout
+                console.warn('⚠️ Token blacklisted, puede ser un problema temporal')
               }
             }
           } else {
@@ -588,14 +596,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
     }
 
-    // Verificar cada 1 minuto para ser más proactivo
-    // Esto asegura que el token se renueve rápidamente incluso durante entrenamientos
-    const interval = setInterval(checkTokenExpiration, 1 * 60 * 1000)
+    // Verificar cada 5 minutos para evitar renovaciones excesivas
+    // El token se renueva automáticamente cuando está próximo a expirar (30 min antes)
+    const interval = setInterval(checkTokenExpiration, 5 * 60 * 1000)
 
-    // Ejecutar inmediatamente al montar
-    checkTokenExpiration()
+    // Ejecutar después de 30 segundos para evitar ejecución inmediata al montar
+    // Esto da tiempo a que la página cargue completamente
+    const initialTimeout = setTimeout(() => {
+      checkTokenExpiration()
+    }, 30 * 1000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (initialTimeout) {
+        clearTimeout(initialTimeout)
+      }
+    }
   }, [state.isAuthenticated, refreshUser, logout])
 
   // Valor del contexto
