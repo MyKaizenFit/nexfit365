@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { InitialRegistrationForm } from '@/components/forms/initial-registration-form';
 import { useInitialRegistration } from '@/hooks/use-initial-registration';
@@ -153,7 +153,12 @@ export default function InitialRegistrationPage() {
           <InitialRegistrationForm
             onComplete={handleComplete}
             isLoading={isLoading}
-            userData={userData}
+            userData={useMemo(() => userData, [
+              userData?.first_name,
+              userData?.last_name,
+              userData?.email,
+              userData?.phone_number,
+            ])}
           />
         )}
         

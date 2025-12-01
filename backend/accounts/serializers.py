@@ -104,8 +104,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'email', 'password', 'password_confirm', 'first_name', 'last_name',
-            'birth_date', 'gender', 'height', 'weight', 'target_weight', 'target_date',
-            'fitness_goals', 'activity_level', 'dietary_restrictions', 'allergies',
+            'birth_date', 'gender', 'height', 'weight', 'target_weight',
+            'main_goal', 'activity_level', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
             'phone_number', 'role'
         ]

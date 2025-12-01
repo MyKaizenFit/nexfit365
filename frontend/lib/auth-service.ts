@@ -62,7 +62,11 @@ const setCookie = (name: string, value: string, days: number = 7) => {
   }
 
   document.cookie = cookieString
-  console.log(`🍪 Cookie guardada: ${name}=${value.substring(0, 20)}...`)
+  if (value && typeof value === 'string') {
+    console.log(`🍪 Cookie guardada: ${name}=${value.substring(0, 20)}...`)
+  } else {
+    console.log(`🍪 Cookie guardada: ${name}=[valor no disponible]`)
+  }
 
   // Verificar que se guardó correctamente
   const saved = getCookie(name)
@@ -110,6 +114,7 @@ export class AuthService {
   private accessToken: string | null = null
   private refreshToken: string | null = null
   private isOfflineMode: boolean = false
+  private isRefreshing: boolean = false // Flag para evitar múltiples renovaciones simultáneas
 
   private constructor() {
     // Inicializar tokens desde cookies si existen
@@ -514,7 +519,7 @@ export class AuthService {
         throw new Error(`Error del servidor: ${response.status}`)
       }
 
-      const result = await handleApiResponse<AuthTokens>(response)
+      const result = await handleApiResponse<any>(response)
 
       if (result.error) {
         throw new Error(result.error)
@@ -524,20 +529,34 @@ export class AuthService {
         throw new Error('No se recibieron datos de registro')
       }
 
+      // El backend devuelve { user, tokens: { access, refresh } }
+      const tokens = result.data.tokens || result.data
+      const userData = result.data.user
+
+      if (!tokens || !tokens.access || !tokens.refresh) {
+        throw new Error('No se recibieron tokens de autenticación')
+      }
+
       // Guardar tokens
-      this.accessToken = result.data.access
-      this.refreshToken = result.data.refresh
+      this.accessToken = tokens.access
+      this.refreshToken = tokens.refresh
 
       // Guardar en cookies
-      setCookie('accessToken', result.data.access, 1) // 1 día
-      setCookie('refreshToken', result.data.refresh, 7) // 7 días
+      setCookie('accessToken', tokens.access, 1) // 1 día
+      setCookie('refreshToken', tokens.refresh, 7) // 7 días
 
-      // Obtener información del usuario
-      const user = await this.getCurrentUser()
+      // Usar el usuario de la respuesta o obtenerlo
+      let user = userData
+      if (!user) {
+        user = await this.getCurrentUser()
+      }
 
       return {
         user,
-        tokens: result.data
+        tokens: {
+          access: tokens.access,
+          refresh: tokens.refresh
+        }
       }
     } catch (error: any) {
       console.error('Error en register:', error)
@@ -681,43 +700,74 @@ export class AuthService {
 
   // Renovar token de acceso
   async refreshAccessToken(): Promise<{ success: boolean; newToken?: string; error?: string }> {
+    // Evitar múltiples renovaciones simultáneas
+    if (this.isRefreshing) {
+      console.log('⏳ Renovación de token ya en progreso, esperando...')
+      // Esperar un poco y retornar el token actual si está disponible
+      await new Promise(resolve => setTimeout(resolve, 500))
+      if (this.accessToken) {
+        return { success: true, newToken: this.accessToken }
+      }
+      return { success: false, error: 'Renovación en progreso' }
+    }
+
+    this.isRefreshing = true
+
     try {
       if (this.isOfflineMode) {
         // En modo offline, generar nuevo token
         const newToken = `offline_token_${Date.now()}`
         this.accessToken = newToken
         setCookie('accessToken', newToken, 1)
+        this.isRefreshing = false
         return { success: true, newToken }
       }
 
       if (!this.refreshToken) {
+        this.isRefreshing = false
         return { success: false, error: 'No hay token de renovación' }
       }
 
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: JSON.stringify({ refresh: this.refreshToken }),
       })
 
-      const result = await handleApiResponse<{ access: string }>(response)
+      const result = await handleApiResponse<{ access: string; refresh?: string }>(response)
 
       if (result.error) {
+        this.isRefreshing = false
+        // Si el error es "Token is blacklisted", puede ser un problema temporal
+        // No hacer logout inmediatamente, solo retornar el error
         return { success: false, error: result.error }
       }
 
       if (!result.data) {
+        this.isRefreshing = false
         return { success: false, error: 'No se recibió nuevo token de acceso' }
       }
 
       // Actualizar token de acceso
       this.accessToken = result.data.access
 
+      // Si el backend devuelve un nuevo refresh token (ROTATE_REFRESH_TOKENS), actualizarlo también
+      if (result.data.refresh) {
+        this.refreshToken = result.data.refresh
+        setCookie('refreshToken', result.data.refresh, 7) // 7 días
+        console.log('✅ Nuevo refresh token guardado')
+      }
+
       // Guardar en cookies
       setCookie('accessToken', result.data.access, 1) // 1 día
 
+      this.isRefreshing = false
       return { success: true, newToken: result.data.access }
     } catch (error) {
+      this.isRefreshing = false
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
       return { success: false, error: errorMessage }
     }

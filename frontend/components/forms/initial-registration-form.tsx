@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, ChangeEvent, FormEvent, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, ChangeEvent, FormEvent, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -47,7 +47,7 @@ const STEPS = [
   { id: 3, title: 'Objetivos', icon: Target },
 ];
 
-export function InitialRegistrationForm({
+function InitialRegistrationFormComponent({
   onComplete,
   isLoading = false,
   userData
@@ -55,6 +55,7 @@ export function InitialRegistrationForm({
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
+  const focusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     first_name: '',
@@ -75,30 +76,111 @@ export function InitialRegistrationForm({
     disliked_foods: '',
   });
 
-  // Cargar datos del usuario si existen
+  // Memoizar userData para evitar re-renders innecesarios
+  const stableUserData = useMemo(() => userData, [
+    userData?.first_name,
+    userData?.last_name,
+    userData?.email,
+    userData?.phone_number,
+  ]);
+
+  // Cargar datos del usuario si existen (solo una vez al montar)
+  const initialDataLoadedRef = useRef(false);
   useEffect(() => {
-    if (userData) {
+    if (stableUserData && !initialDataLoadedRef.current) {
       setFormData((prev: FormData) => ({
         ...prev,
-        first_name: userData.first_name || prev.first_name,
-        last_name: userData.last_name || prev.last_name,
-        email: userData.email || prev.email,
-        phone_number: userData.phone_number || prev.phone_number,
+        first_name: stableUserData.first_name || prev.first_name,
+        last_name: stableUserData.last_name || prev.last_name,
+        email: stableUserData.email || prev.email,
+        phone_number: stableUserData.phone_number || prev.phone_number,
       }));
+      initialDataLoadedRef.current = true;
     }
-  }, [userData]);
+  }, [stableUserData]);
 
-  const updateField = (field: keyof FormData, value: string | number | number[]) => {
-    setFormData((prev: FormData) => ({ ...prev, [field]: value }));
-    // Limpiar error del campo cuando se modifica
-    if (errors[field]) {
-      setErrors((prev: Record<string, string>) => {
+  // Memoizar updateField para evitar re-renders innecesarios
+  const updateField = useCallback((field: keyof FormData, value: string | number | number[]) => {
+    // Guardar el elemento activo antes de actualizar el estado
+    const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
+    const selectionStart = activeElement?.selectionStart;
+    const selectionEnd = activeElement?.selectionEnd;
+    
+    setFormData((prev: FormData) => {
+      // Solo actualizar si el valor realmente cambió
+      if (prev[field] === value) {
+        return prev;
+      }
+      return { ...prev, [field]: value };
+    });
+    // Limpiar error del campo cuando se modifica (solo si existe)
+    setErrors((prev: Record<string, string>) => {
+      if (prev[field]) {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
-      });
-    }
-  };
+      }
+      return prev; // Retornar el mismo objeto si no hay cambios
+    });
+    
+    // Restaurar el foco y la selección después del re-render
+    requestAnimationFrame(() => {
+      if (activeElement && activeElement.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
+        activeElement.focus();
+        if (selectionStart !== null && selectionEnd !== null && activeElement.setSelectionRange) {
+          activeElement.setSelectionRange(selectionStart, selectionEnd);
+        }
+      }
+    });
+  }, []);
+
+  // Handlers memoizados para cada campo de texto
+  const handleFirstNameChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    updateField('first_name', e.target.value);
+  }, [updateField]);
+
+  const handleLastNameChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    updateField('last_name', e.target.value);
+  }, [updateField]);
+
+  const handleEmailChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    updateField('email', e.target.value);
+  }, [updateField]);
+
+  const handlePhoneChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    updateField('phone_number', e.target.value);
+  }, [updateField]);
+
+  const handleBirthDateChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    updateField('birth_date', e.target.value);
+  }, [updateField]);
+
+  const handleHeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9]/g, '');
+    updateField('height', value);
+  }, [updateField]);
+
+  const handleWeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    updateField('weight', value);
+  }, [updateField]);
+
+  const handleTargetWeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+    updateField('target_weight', value);
+  }, [updateField]);
+
+  const handleAllergiesChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    updateField('allergies', e.target.value);
+  }, [updateField]);
+
+  const handleMedicalConditionsChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    updateField('medical_conditions', e.target.value);
+  }, [updateField]);
+
+  const handleDislikedFoodsChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
+    updateField('disliked_foods', e.target.value);
+  }, [updateField]);
 
   const validateStep = (step: number): boolean => {
     const newErrors: Record<string, string> = {};
@@ -249,88 +331,91 @@ export function InitialRegistrationForm({
     </div>
   );
 
-  // Componente de campo de entrada con error
-  const FormField = ({
+  // Componente de campo de entrada con error (memoizado para evitar re-renders)
+  const FormField = React.memo(({
     label,
     name,
     required = false,
-    children
+    children,
+    error
   }: {
     label: string;
     name: string;
     required?: boolean;
     children: ReactNode;
+    error?: string;
   }): JSX.Element => (
     <div className="space-y-2">
       <Label htmlFor={name} className="text-sm font-medium text-gray-700">
         {label} {required && <span className="text-red-500">*</span>}
       </Label>
       {children}
-      {errors[name] && (
+      {error && (
         <p className="text-sm text-red-500 flex items-center gap-1">
-          <span>⚠️</span> {errors[name]}
+          <span>⚠️</span> {error}
         </p>
       )}
     </div>
-  );
+  ));
+  FormField.displayName = 'FormField';
 
   // Renderizar paso 1: Datos personales
   const renderStep1 = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="Nombre" name="first_name" required>
+        <FormField label="Nombre" name="first_name" required error={errors.first_name}>
           <Input
             id="first_name"
             value={formData.first_name}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => updateField('first_name', e.target.value)}
+            onChange={handleFirstNameChange}
             placeholder="Tu nombre"
             className={cn(errors.first_name && "border-red-500")}
-            disabled={!!userData?.first_name}
+            disabled={!!stableUserData?.first_name}
           />
         </FormField>
 
-        <FormField label="Apellidos" name="last_name" required>
+        <FormField label="Apellidos" name="last_name" required error={errors.last_name}>
           <Input
             id="last_name"
             value={formData.last_name}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => updateField('last_name', e.target.value)}
+            onChange={handleLastNameChange}
             placeholder="Tus apellidos"
             className={cn(errors.last_name && "border-red-500")}
-            disabled={!!userData?.last_name}
+            disabled={!!stableUserData?.last_name}
           />
         </FormField>
       </div>
 
-      <FormField label="Email" name="email" required>
+      <FormField label="Email" name="email" required error={errors.email}>
         <Input
           id="email"
           type="email"
           value={formData.email}
-          onChange={(e) => updateField('email', e.target.value)}
+          onChange={handleEmailChange}
           placeholder="tu@email.com"
           className={cn(errors.email && "border-red-500")}
-          disabled={!!userData?.email}
+          disabled={!!stableUserData?.email}
         />
       </FormField>
 
-      <FormField label="Teléfono" name="phone_number">
+      <FormField label="Teléfono" name="phone_number" error={errors.phone_number}>
         <Input
           id="phone_number"
           type="tel"
           value={formData.phone_number}
-          onChange={(e) => updateField('phone_number', e.target.value)}
+          onChange={handlePhoneChange}
           placeholder="+34 612 345 678"
         />
       </FormField>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <FormField label="Fecha de nacimiento" name="birth_date" required>
+        <FormField label="Fecha de nacimiento" name="birth_date" required error={errors.birth_date}>
           <div className="relative">
             <Input
               id="birth_date"
               type="date"
               value={formData.birth_date}
-              onChange={(e) => updateField('birth_date', e.target.value)}
+              onChange={handleBirthDateChange}
               className={cn(errors.birth_date && "border-red-500")}
               max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
               min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
@@ -343,7 +428,7 @@ export function InitialRegistrationForm({
           </div>
         </FormField>
 
-        <FormField label="Género" name="gender" required>
+        <FormField label="Género" name="gender" required error={errors.gender}>
           <div className="flex gap-2">
             {[
               { value: 'male', label: '👨 Masculino' },
@@ -374,17 +459,14 @@ export function InitialRegistrationForm({
   const renderStep2 = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <FormField label="Altura (cm)" name="height" required>
+        <FormField label="Altura (cm)" name="height" required error={errors.height}>
           <Input
             id="height"
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
             value={formData.height}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^0-9]/g, '');
-              updateField('height', value);
-            }}
+            onChange={handleHeightChange}
             placeholder="170"
             maxLength={3}
             className={cn(errors.height && "border-red-500")}
@@ -396,17 +478,14 @@ export function InitialRegistrationForm({
           )}
         </FormField>
 
-        <FormField label="Peso actual (kg)" name="weight" required>
+        <FormField label="Peso actual (kg)" name="weight" required error={errors.weight}>
           <Input
             id="weight"
             type="text"
             inputMode="decimal"
             pattern="[0-9]*\.?[0-9]*"
             value={formData.weight}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-              updateField('weight', value);
-            }}
+            onChange={handleWeightChange}
             placeholder="70"
             maxLength={5}
             className={cn(errors.weight && "border-red-500")}
@@ -421,17 +500,14 @@ export function InitialRegistrationForm({
           )}
         </FormField>
 
-        <FormField label="Peso objetivo (kg)" name="target_weight">
+        <FormField label="Peso objetivo (kg)" name="target_weight" error={errors.target_weight}>
           <Input
             id="target_weight"
             type="text"
             inputMode="decimal"
             pattern="[0-9]*\.?[0-9]*"
             value={formData.target_weight}
-            onChange={(e) => {
-              const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-              updateField('target_weight', value);
-            }}
+            onChange={handleTargetWeightChange}
             placeholder="65"
             maxLength={5}
             className={cn(errors.target_weight && "border-red-500")}
@@ -449,7 +525,7 @@ export function InitialRegistrationForm({
         </FormField>
       </div>
 
-      <FormField label="Nivel de actividad diaria" name="activity_level" required>
+      <FormField label="Nivel de actividad diaria" name="activity_level" required error={errors.activity_level}>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
           {[
             { value: 'sedentary', label: 'Sedentario', emoji: '🪑' },
@@ -476,7 +552,7 @@ export function InitialRegistrationForm({
         </div>
       </FormField>
 
-      <FormField label="¿Qué días puedes entrenar?" name="training_days" required>
+      <FormField label="¿Qué días puedes entrenar?" name="training_days" required error={errors.training_days}>
         <div className="grid grid-cols-7 gap-2">
           {[
             { num: 1, short: 'L', full: 'Lun' },
@@ -513,7 +589,7 @@ export function InitialRegistrationForm({
         )}
       </FormField>
 
-      <FormField label="¿Dónde prefieres entrenar?" name="training_location" required>
+      <FormField label="¿Dónde prefieres entrenar?" name="training_location" required error={errors.training_location}>
         <div className="grid grid-cols-2 gap-4">
           {[
             { value: 'home', label: 'En casa', emoji: '🏠', desc: 'Ejercicios sin equipamiento' },
@@ -543,7 +619,7 @@ export function InitialRegistrationForm({
   // Renderizar paso 3: Objetivos
   const renderStep3 = () => (
     <div className="space-y-6">
-      <FormField label="¿Cuál es tu objetivo principal?" name="main_goal" required>
+      <FormField label="¿Cuál es tu objetivo principal?" name="main_goal" required error={errors.main_goal}>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
             { value: 'lose_weight', label: 'Perder peso', emoji: '🔥', desc: 'Quemar grasa y definir' },
@@ -574,33 +650,33 @@ export function InitialRegistrationForm({
           Información adicional (opcional)
         </p>
 
-        <FormField label="Alergias o intolerancias alimentarias" name="allergies">
+        <FormField label="Alergias o intolerancias alimentarias" name="allergies" error={errors.allergies}>
           <Textarea
             id="allergies"
             value={formData.allergies}
-            onChange={(e) => updateField('allergies', e.target.value)}
+            onChange={handleAllergiesChange}
             placeholder="Ej: Intolerancia a la lactosa, alergia a frutos secos..."
             rows={2}
             className="resize-none"
           />
         </FormField>
 
-        <FormField label="Condiciones médicas" name="medical_conditions">
+        <FormField label="Condiciones médicas" name="medical_conditions" error={errors.medical_conditions}>
           <Textarea
             id="medical_conditions"
             value={formData.medical_conditions}
-            onChange={(e) => updateField('medical_conditions', e.target.value)}
+            onChange={handleMedicalConditionsChange}
             placeholder="Ej: Diabetes, hipotiroidismo, lesiones previas..."
             rows={2}
             className="resize-none"
           />
         </FormField>
 
-        <FormField label="Alimentos que no te gustan" name="disliked_foods">
+        <FormField label="Alimentos que no te gustan" name="disliked_foods" error={errors.disliked_foods}>
           <Textarea
             id="disliked_foods"
             value={formData.disliked_foods}
-            onChange={(e) => updateField('disliked_foods', e.target.value)}
+            onChange={handleDislikedFoodsChange}
             placeholder="Ej: Brócoli, mariscos, hígado..."
             rows={2}
             className="resize-none"
@@ -675,3 +751,15 @@ export function InitialRegistrationForm({
     </Card>
   );
 }
+
+// Memoizar el componente completo para evitar re-renders innecesarios
+export const InitialRegistrationForm = React.memo(InitialRegistrationFormComponent, (prevProps, nextProps) => {
+  // Solo re-renderizar si cambian props importantes
+  return (
+    prevProps.isLoading === nextProps.isLoading &&
+    prevProps.userData?.first_name === nextProps.userData?.first_name &&
+    prevProps.userData?.last_name === nextProps.userData?.last_name &&
+    prevProps.userData?.email === nextProps.userData?.email &&
+    prevProps.userData?.phone_number === nextProps.userData?.phone_number
+  );
+});
