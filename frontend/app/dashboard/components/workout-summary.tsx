@@ -9,16 +9,16 @@ import { toast } from "@/hooks/use-toast"
 import { useWorkouts } from "@/hooks/use-workouts"
 
 export function WorkoutSummary() {
-  const { 
-    activeProgram, 
-    workoutLogs, 
-    loading, 
-    error, 
-    getTodaysWorkout, 
+  const {
+    activeProgram,
+    workoutLogs,
+    loading,
+    error,
+    getTodaysWorkout,
     getWeeklyProgress,
-    createWorkoutLog 
+    createWorkoutLog
   } = useWorkouts()
-  
+
   const [isStartingWorkout, setIsStartingWorkout] = useState(false)
 
   // Generar datos de la semana basados en el programa activo
@@ -36,21 +36,21 @@ export function WorkoutSummary() {
     }
 
     const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
-    
+
     return dayNames.map((dayName, index) => {
       const dayNumber = index === 0 ? 7 : index // Domingo es día 7
-      const programDay = activeProgram.days.find(day => day.day_number === dayNumber)
-      
+      const programDay = activeProgram.days?.find(day => day.day_number === dayNumber) || null
+
       // Verificar si hay logs para este día
       const today = new Date()
       const dayDate = new Date(today)
       dayDate.setDate(today.getDate() - today.getDay() + index)
       const dayDateStr = dayDate.toISOString().split('T')[0]
-      
-      const hasLog = workoutLogs.some(log => 
+
+      const hasLog = workoutLogs.some(log =>
         log.date === dayDateStr && log.completed
       )
-      
+
       return {
         id: index + 1,
         day: dayName,
@@ -69,12 +69,12 @@ export function WorkoutSummary() {
 
   const handleStartWorkout = async () => {
     if (!nextWorkout) return
-    
+
     setIsStartingWorkout(true)
     try {
       // Usar el ID del workout directamente
       await createWorkoutLog(nextWorkout.id.toString(), "Entrenamiento iniciado")
-      
+
       toast({
         title: "¡Entrenamiento iniciado!",
         description: `${nextWorkout.name} - ${nextWorkout.day}. ¡Dale todo!`,
@@ -99,7 +99,7 @@ export function WorkoutSummary() {
       })
       return
     }
-    
+
     toast({
       title: "Plan de Entrenamientos",
       description: `Programa: ${activeProgram.name}. Duración: ${activeProgram.duration_weeks} semanas.`,
@@ -163,7 +163,7 @@ export function WorkoutSummary() {
           Entrenamientos
         </CardTitle>
         <CardDescription>
-          {activeProgram 
+          {activeProgram
             ? `Programa: ${activeProgram.name} (${activeProgram.duration_weeks} semanas)`
             : "Resumen de tu rutina semanal"
           }
@@ -224,9 +224,9 @@ export function WorkoutSummary() {
                   <p className="font-medium text-sm">{nextWorkout.name}</p>
                   <p className="text-xs text-muted-foreground">{nextWorkout.day} - 45 min</p>
                 </div>
-                <Button 
-                  size="sm" 
-                  onClick={handleStartWorkout} 
+                <Button
+                  size="sm"
+                  onClick={handleStartWorkout}
                   className="hover:scale-105 transition-transform"
                   disabled={isStartingWorkout}
                 >
@@ -249,18 +249,16 @@ export function WorkoutSummary() {
             {workouts.map((workout) => (
               <div
                 key={workout.id}
-                className={`flex items-center justify-between p-2 rounded text-xs hover:bg-muted/50 transition-colors ${
-                  workout.isRestDay ? 'opacity-60' : ''
-                }`}
+                className={`flex items-center justify-between p-2 rounded text-xs hover:bg-muted/50 transition-colors ${workout.isRestDay ? 'opacity-60' : ''
+                  }`}
               >
                 <div className="flex items-center gap-2">
-                  <div className={`p-1 rounded-full ${
-                    workout.completed 
-                      ? "bg-green-500" 
-                      : workout.isRestDay 
-                      ? "bg-gray-300 dark:bg-gray-600" 
-                      : "bg-muted"
-                  }`}>
+                  <div className={`p-1 rounded-full ${workout.completed
+                      ? "bg-green-500"
+                      : workout.isRestDay
+                        ? "bg-gray-300 dark:bg-gray-600"
+                        : "bg-muted"
+                    }`}>
                     {workout.completed ? (
                       <Check className="h-2 w-2 text-white" />
                     ) : workout.isRestDay ? (
@@ -270,18 +268,18 @@ export function WorkoutSummary() {
                     )}
                   </div>
                   <span className={
-                    workout.completed 
-                      ? "text-green-600" 
-                      : workout.isRestDay 
-                      ? "text-gray-500" 
-                      : "text-muted-foreground"
+                    workout.completed
+                      ? "text-green-600"
+                      : workout.isRestDay
+                        ? "text-gray-500"
+                        : "text-muted-foreground"
                   }>
                     {workout.day}
                   </span>
                 </div>
                 <span className={
-                  workout.isRestDay 
-                    ? "text-gray-500" 
+                  workout.isRestDay
+                    ? "text-gray-500"
                     : "text-muted-foreground"
                 }>
                   {workout.name}

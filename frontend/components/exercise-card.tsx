@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Play, Image as ImageIcon } from 'lucide-react'
+import { Play, Dumbbell, Target, BarChart3 } from 'lucide-react'
 import { ExerciseVideoPlayer } from './exercise-video-player'
 import Image from 'next/image'
 
@@ -11,8 +11,11 @@ interface ExerciseCardProps {
   exercise: {
     id: string
     name: string
+    description?: string
     category?: string
     muscle_groups?: string[]
+    equipment?: string[]
+    difficulty?: string
     instructions?: string
     video_display_url?: string
     video_file_url?: string
@@ -20,33 +23,48 @@ interface ExerciseCardProps {
     thumbnail_url?: string
     image_url?: string
     has_video?: boolean
+    google_drive_file_id?: string
   }
   showDetails?: boolean
   className?: string
 }
 
+const difficultyLabels: Record<string, { label: string; color: string }> = {
+  beginner: { label: 'Principiante', color: 'bg-green-100 text-green-800 border-green-200' },
+  intermediate: { label: 'Intermedio', color: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  advanced: { label: 'Avanzado', color: 'bg-red-100 text-red-800 border-red-200' },
+}
+
 export function ExerciseCard({ exercise, showDetails = true, className }: ExerciseCardProps) {
   const hasVisual = exercise.has_video || exercise.thumbnail_url || exercise.image_url
+  const difficultyInfo = exercise.difficulty ? difficultyLabels[exercise.difficulty] : null
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-lg">{exercise.name}</CardTitle>
-            {exercise.category && (
-              <CardDescription className="mt-1">{exercise.category}</CardDescription>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex-1 min-w-0">
+            <CardTitle className="text-lg leading-tight">{exercise.name}</CardTitle>
+            {exercise.description && (
+              <CardDescription className="mt-1 line-clamp-2">{exercise.description}</CardDescription>
             )}
           </div>
-          {exercise.has_video && (
-            <Badge variant="secondary" className="ml-2">
-              Video
-            </Badge>
-          )}
+          <div className="flex flex-col gap-1 items-end shrink-0">
+            {exercise.has_video && (
+              <Badge variant="secondary" className="text-xs">
+                📹 Video
+              </Badge>
+            )}
+            {difficultyInfo && (
+              <Badge variant="outline" className={`text-xs ${difficultyInfo.color}`}>
+                {difficultyInfo.label}
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
+
+      <CardContent className="space-y-4 pt-0">
         {/* Thumbnail o imagen */}
         {hasVisual && (
           <ExerciseVideoPlayer exercise={exercise}>
@@ -72,14 +90,42 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </ExerciseVideoPlayer>
         )}
 
+        {/* Categoría */}
+        {exercise.category && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Target className="w-4 h-4" />
+            <span className="capitalize">{exercise.category}</span>
+          </div>
+        )}
+
         {/* Muscle groups */}
         {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
           <div>
-            <p className="text-sm font-medium mb-2">Grupos musculares:</p>
+            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+              <Dumbbell className="w-4 h-4" />
+              Músculos trabajados:
+            </p>
             <div className="flex flex-wrap gap-1">
               {exercise.muscle_groups.map((group, index) => (
-                <Badge key={index} variant="outline" className="text-xs">
+                <Badge key={index} variant="outline" className="text-xs capitalize">
                   {group}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Equipment */}
+        {showDetails && exercise.equipment && exercise.equipment.length > 0 && (
+          <div>
+            <p className="text-sm font-medium mb-2 flex items-center gap-2">
+              <BarChart3 className="w-4 h-4" />
+              Equipamiento:
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {exercise.equipment.map((item, index) => (
+                <Badge key={index} variant="secondary" className="text-xs capitalize">
+                  {item}
                 </Badge>
               ))}
             </div>
@@ -89,8 +135,8 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
         {/* Instructions */}
         {showDetails && exercise.instructions && (
           <div>
-            <p className="text-sm font-medium mb-2">Instrucciones:</p>
-            <p className="text-sm text-muted-foreground line-clamp-3">
+            <p className="text-sm font-medium mb-2">📋 Instrucciones:</p>
+            <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-4">
               {exercise.instructions}
             </p>
           </div>
