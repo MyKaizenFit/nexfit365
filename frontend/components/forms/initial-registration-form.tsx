@@ -55,7 +55,6 @@ function InitialRegistrationFormComponent({
   const [currentStep, setCurrentStep] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
-  const focusedInputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
   const [formData, setFormData] = useState<FormData>({
     first_name: '',
@@ -101,11 +100,6 @@ function InitialRegistrationFormComponent({
 
   // Memoizar updateField para evitar re-renders innecesarios
   const updateField = useCallback((field: keyof FormData, value: string | number | number[]) => {
-    // Guardar el elemento activo antes de actualizar el estado
-    const activeElement = document.activeElement as HTMLInputElement | HTMLTextAreaElement | null;
-    const selectionStart = activeElement?.selectionStart;
-    const selectionEnd = activeElement?.selectionEnd;
-    
     setFormData((prev: FormData) => {
       // Solo actualizar si el valor realmente cambió
       if (prev[field] === value) {
@@ -121,16 +115,6 @@ function InitialRegistrationFormComponent({
         return newErrors;
       }
       return prev; // Retornar el mismo objeto si no hay cambios
-    });
-    
-    // Restaurar el foco y la selección después del re-render
-    requestAnimationFrame(() => {
-      if (activeElement && activeElement.tagName === 'INPUT' || activeElement?.tagName === 'TEXTAREA') {
-        activeElement.focus();
-        if (selectionStart !== null && selectionEnd !== null && activeElement.setSelectionRange) {
-          activeElement.setSelectionRange(selectionStart, selectionEnd);
-        }
-      }
     });
   }, []);
 
