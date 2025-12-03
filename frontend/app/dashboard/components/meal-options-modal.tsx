@@ -88,37 +88,37 @@ export function MealOptionsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto mx-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Utensils className="h-5 w-5" />
-            Opciones para {mealName}
+          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+            <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span className="truncate">Opciones para {mealName}</span>
           </DialogTitle>
-          <DialogDescription>
-            Selecciona una opción de comida para {mealTime}. Cada opción incluye receta completa y enlaces de preparación.
+          <DialogDescription className="text-xs sm:text-sm">
+            Selecciona una opción de comida para {mealTime}.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4">
           {options.map((option, index) => (
             <Card 
               key={option.id} 
               className="hover:shadow-lg transition-all duration-300 cursor-pointer group"
               onClick={() => setSelectedOption(option)}
             >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-2xl">{getCategoryIcon(option.name)}</span>
-                    <div>
-                      <CardTitle className="text-lg leading-tight">{option.name}</CardTitle>
-                      <CardDescription className="text-sm mt-1">
+              <CardHeader className="pb-2 sm:pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-xl sm:text-2xl flex-shrink-0">{getCategoryIcon(option.name)}</span>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-sm sm:text-base lg:text-lg leading-tight truncate">{option.name}</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm mt-1 truncate">
                         {option.calories} kcal • P: {option.protein}g • C: {option.carbs}g • G: {option.fat}g
                       </CardDescription>
                     </div>
                   </div>
-                  <Badge variant="outline" className="text-xs">
-                    Opción {index + 1}
+                  <Badge variant="outline" className="text-xs flex-shrink-0">
+                    #{index + 1}
                   </Badge>
                 </div>
               </CardHeader>
@@ -159,7 +159,7 @@ export function MealOptionsModal({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-sm"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (option.recipeUrl) {
@@ -168,8 +168,8 @@ export function MealOptionsModal({
                     }}
                     disabled={!option.recipeUrl}
                   >
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    Ver Receta
+                    <BookOpen className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                    <span className="hidden xs:inline">Ver </span>Receta
                   </Button>
                   <Button
                     size="sm"
@@ -177,9 +177,9 @@ export function MealOptionsModal({
                       e.stopPropagation()
                       handleSelectMeal(option)
                     }}
-                    className="flex-1"
+                    className="flex-1 text-xs sm:text-sm"
                   >
-                    <ChefHat className="h-4 w-4 mr-2" />
+                    <ChefHat className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Seleccionar
                   </Button>
                 </div>

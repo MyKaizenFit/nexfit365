@@ -305,15 +305,15 @@ export function DayOneSheet() {
                 </div>
                 <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nueva Foto
+                    <Button className="bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-xs sm:text-sm">
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden xs:inline">Nueva </span>Foto
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-md">
+                  <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
-                      <DialogTitle>Subir Foto de Progreso</DialogTitle>
-                      <DialogDescription>
+                      <DialogTitle className="text-lg sm:text-xl">Subir Foto de Progreso</DialogTitle>
+                      <DialogDescription className="text-sm">
                         Selecciona una foto para documentar tu progreso
                       </DialogDescription>
                     </DialogHeader>
@@ -353,13 +353,13 @@ export function DayOneSheet() {
                         </Button>
                         {photoPreview && (
                           <div className="mt-2 relative">
-                            <img src={photoPreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
+                            <img src={photoPreview} alt="Preview" className="w-full h-32 sm:h-48 object-cover rounded-lg" />
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
                               onClick={resetUploadForm}
-                              className="absolute top-2 right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
+                              className="absolute top-1 right-1 sm:top-2 sm:right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -508,28 +508,28 @@ export function DayOneSheet() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <p className="text-sm text-gray-600 mb-2 text-center">Día 1</p>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center">Día 1</p>
                     <Image 
                       src={firstPhoto.photo_url || '/placeholder.svg'} 
                       alt="Día 1"
                       width={200}
                       height={280}
-                      className="w-full h-64 object-cover rounded-lg border-2 border-pink-300"
+                      className="w-full h-40 sm:h-56 md:h-64 object-cover rounded-lg border-2 border-pink-300"
                     />
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(firstPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-2 text-center">Ahora</p>
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center">Ahora</p>
                     <Image 
                       src={latestPhoto.photo_url || '/placeholder.svg'} 
                       alt="Ahora"
                       width={200}
                       height={280}
-                      className="w-full h-64 object-cover rounded-lg border-2 border-indigo-300"
+                      className="w-full h-40 sm:h-56 md:h-64 object-cover rounded-lg border-2 border-indigo-300"
                     />
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(latestPhoto.date), "dd MMM yyyy", { locale: es })}
@@ -555,15 +555,15 @@ export function DayOneSheet() {
                 </div>
                 <Dialog open={isWeightDialogOpen} onOpenChange={setIsWeightDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Registrar Peso
+                    <Button className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-xs sm:text-sm px-2 sm:px-4">
+                      <Plus className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="hidden xs:inline">Registrar </span>Peso
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="w-[95vw] max-w-md mx-auto">
                     <DialogHeader>
-                      <DialogTitle>Registrar Peso</DialogTitle>
-                      <DialogDescription>
+                      <DialogTitle className="text-lg sm:text-xl">Registrar Peso</DialogTitle>
+                      <DialogDescription className="text-sm">
                         Registra tu peso actual para hacer seguimiento de tu progreso
                       </DialogDescription>
                     </DialogHeader>
@@ -602,8 +602,8 @@ export function DayOneSheet() {
             </CardHeader>
             <CardContent>
               {/* Tarjeta de peso actual */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6">
+                <div className="p-4 sm:p-5 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
                       <Weight className="h-5 w-5 text-white" />
@@ -631,7 +631,7 @@ export function DayOneSheet() {
                   )}
                 </div>
 
-                <div className="p-5 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border-2 border-purple-200">
+                <div className="p-4 sm:p-5 bg-gradient-to-br from-purple-50 to-violet-50 rounded-xl border-2 border-purple-200">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-2 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg">
                       <Target className="h-5 w-5 text-white" />
@@ -652,7 +652,7 @@ export function DayOneSheet() {
                   )}
                 </div>
 
-                <div className="p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border-2 border-emerald-200">
+                <div className="p-4 sm:p-5 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border-2 border-emerald-200">
                   <div className="flex items-center gap-2 mb-3">
                     <div className="p-2 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-lg">
                       <Calendar className="h-5 w-5 text-white" />
