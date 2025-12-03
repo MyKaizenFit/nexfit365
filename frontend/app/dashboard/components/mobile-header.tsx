@@ -82,11 +82,11 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/20 backdrop-blur-lg bg-white/80 md:hidden safe-area-pt">
-      <div className="responsive-flex h-16 items-center justify-between px-6 sm:px-8 w-full safe-area-pl safe-area-pr">
+      <div className="responsive-flex h-16 items-center justify-between px-4 sm:px-6 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
-        <div className="responsive-flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden bg-black">
-            <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} className="w-full h-full" />
+        <div className="responsive-flex items-center gap-3 min-w-0 flex-1 pl-2">
+          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+            <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-semibold responsive-text">
@@ -103,7 +103,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
         </div>
 
         {/* Right side - Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 pr-2">
           {/* Search button */}
           <Button
             variant="ghost"

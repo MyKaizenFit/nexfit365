@@ -72,7 +72,7 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-black/10 pointer-events-none"></div>
           <div className="relative max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
             <div className="text-center">
-              <div className="mx-auto w-24 h-24 bg-black/50 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-3">
+              <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-6">
                 <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
               </div>
               <h1 className="text-5xl md:text-6xl font-bold mb-4">
@@ -448,7 +448,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
-        <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl bg-black">
+        <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
           <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-gray-800">
