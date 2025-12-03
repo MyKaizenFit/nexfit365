@@ -36,7 +36,7 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                 key={item.url}
                 onClick={() => onSectionChange(item.url, item.title)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center p-3 rounded-xl transition-all duration-300 min-w-[64px] group",
+                  "relative flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl transition-all duration-300 group",
                   isActive
                     ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-600 scale-105"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50",
@@ -62,10 +62,10 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                   )}
                 </div>
 
-                {/* Label */}
+                {/* Label - Solo visible en tablets+ */}
                 <span
                   className={cn(
-                    "text-xs font-medium mt-1.5 transition-all duration-300 responsive-text",
+                    "text-xs font-medium mt-1.5 transition-all duration-300 responsive-text hidden sm:block",
                     isActive ? "text-teal-600" : "text-gray-500",
                   )}
                 >

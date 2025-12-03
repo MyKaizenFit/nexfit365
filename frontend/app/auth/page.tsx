@@ -216,14 +216,11 @@ function AuthPageContent() {
       </div>
 
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
-        <CardHeader className="text-center space-y-4 pb-8">
-          <div className="mx-auto w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center animate-bounce shadow-xl bg-black">
-            <Image src="/icono.png" alt="NEXFIT" width={80} height={80} className="w-full h-full" priority quality={100} />
+        <CardHeader className="text-center space-y-6 pb-8 pt-10">
+          <div className="flex items-center justify-center">
+            <Image src="/NexFit.png" alt="NEXFIT Logo" width={240} height={72} quality={100} priority />
           </div>
-          <div className="flex items-center justify-center gap-1">
-            <Image src="/NexFit.png" alt="NEXFIT Logo" width={200} height={60} quality={100} priority />
-          </div>
-          <CardDescription className="text-gray-600 text-lg">
+          <CardDescription className="text-gray-600 text-lg pt-2">
             {isLogin ? "¡Hola de nuevo! 👋 Nos alegra verte de vuelta" : "¡Únete a nosotros! 🎉 Comienza tu transformación hoy"}
           </CardDescription>
         </CardHeader>
