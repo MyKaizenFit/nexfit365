@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -45,6 +45,8 @@ const NotificationsPanel = lazy(() => import("./components/notifications-panel")
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
+import { useAuth } from "@/contexts/auth-context"
+
 export default function AdminPage() {
   return (
     <AdminRouteGuard>
@@ -55,6 +57,7 @@ export default function AdminPage() {
 
 function AdminPageContent() {
   const router = useRouter()
+  const { logout } = useAuth()
   const { 
     users, 
     stats, 
@@ -70,6 +73,15 @@ function AdminPageContent() {
     bulkChangeRole,
     refetch 
   } = useAdminUsers()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push('/auth')
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error)
+    }
+  }
   
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -525,16 +537,26 @@ function AdminPageContent() {
               <p className="text-gray-600">Gestiona usuarios y configuraciones del sistema</p>
             </div>
           </div>
-          {activeSection === 'users' && (
+          <div className="flex items-center gap-2">
+            {activeSection === 'users' && (
+              <Button
+                onClick={() => setShowNewUserForm(true)}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                disabled={isLoading}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Usuario
+              </Button>
+            )}
             <Button
-              onClick={() => setShowNewUserForm(true)}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-              disabled={isLoading}
+              variant="outline"
+              onClick={handleLogout}
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Usuario
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
             </Button>
-          )}
+          </div>
         </div>
 
         {/* Navigation Tabs */}
