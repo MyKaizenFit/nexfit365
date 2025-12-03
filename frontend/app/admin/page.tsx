@@ -50,19 +50,42 @@ import { useAuth } from "@/contexts/auth-context"
 export default function AdminPage() {
   return (
     <AdminRouteGuard>
-      <AdminPageContent />
+      <SafeAdminContent />
     </AdminRouteGuard>
   )
 }
 
-function AdminPageContent() {
-  const router = useRouter()
-  const { user, logout, isLoading: authLoading } = useAuth()
+// Wrapper seguro que verifica permisos antes de renderizar el contenido
+function SafeAdminContent() {
+  const { user, isLoading } = useAuth()
   
-  // Verificar permisos antes de cargar datos
+  // Verificar permisos
   const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
   
-  // Solo cargar datos de admin si el usuario es admin
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-lg font-semibold text-gray-700">Verificando permisos...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  
+  // Solo renderizar AdminPageContent si es admin
+  if (!isAdmin) {
+    return null  // El AdminRouteGuard ya maneja la redirección
+  }
+  
+  return <AdminPageContent />
+}
+
+function AdminPageContent() {
+  const router = useRouter()
+  const { logout } = useAuth()
   const { 
     users, 
     stats, 
@@ -95,38 +118,6 @@ function AdminPageContent() {
         variant: "destructive",
       })
     }
-  }
-  
-  // Mostrar loading mientras se verifica autenticación
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-lg font-semibold text-gray-700">Verificando permisos...</p>
-          </CardContent>
-        </Card>
-      </div>
-    )
-  }
-  
-  // Si el usuario no es admin, mostrar mensaje
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardContent className="flex flex-col items-center justify-center p-8">
-            <AlertCircle className="h-12 w-12 text-red-500" />
-            <p className="mt-4 text-lg font-semibold text-gray-700">Acceso Denegado</p>
-            <p className="text-sm text-gray-500 mt-2">No tienes permisos de administrador</p>
-            <Button onClick={() => router.push('/dashboard')} className="mt-4">
-              Ir al Dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    )
   }
   
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
