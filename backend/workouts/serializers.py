@@ -99,10 +99,20 @@ class WorkoutProgramSerializer(serializers.ModelSerializer):
 
 
 class WorkoutProgramMinimalSerializer(serializers.ModelSerializer):
-    """Serializer minimal para listas"""
+    """Serializer minimal para listas - incluye campos necesarios para admin"""
+    days_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = WorkoutProgram
-        fields = ["id", "name", "difficulty", "goal", "days_per_week", "is_system"]
+        fields = [
+            "id", "name", "description", "difficulty", "goal", 
+            "duration_weeks", "days_per_week", "estimated_duration_minutes",
+            "is_system", "is_template", "is_active", "location",
+            "days_count"
+        ]
+    
+    def get_days_count(self, obj):
+        return obj.days.count()
 
 
 class WorkoutLogSetSerializer(serializers.ModelSerializer):
