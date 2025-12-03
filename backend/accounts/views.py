@@ -184,6 +184,14 @@ def initial_registration_status(request):
     """Verificar si el usuario ha completado el registro inicial"""
     user = request.user
     
+    # AUTO-FIX: Si training_days está vacío pero training_days_per_week tiene valor, generar días por defecto
+    if user.training_days_per_week and (not user.training_days or len(user.training_days) == 0):
+        # Generar días de entrenamiento por defecto: Lun, Mié, Vie, Sáb, Dom (1,3,5,6,7)
+        default_days = [1, 3, 5, 6, 7][:user.training_days_per_week]
+        user.training_days = default_days
+        user.save()
+        print(f'✅ Auto-generados training_days para {user.email}: {default_days}')
+    
     # Campos requeridos (versión 2: birth_date en lugar de age, training_days agregado)
     required_fields = [
         'birth_date', 'gender', 'height', 'weight', 'activity_level',
