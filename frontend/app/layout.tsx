@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   keywords: 'fitness, entrenamiento, nutrición, progreso, bienestar',
   authors: [{ name: 'NEXFIT Team' }],
   icons: {
-    icon: '/icon.svg',
-    apple: '/icon.svg',
+    icon: '/icon.png',
+    apple: '/icon.png',
   },
 }
 
