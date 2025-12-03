@@ -35,15 +35,15 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   const { logout, user } = useAuth()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  
+
   const handleProfileClick = () => {
     router.push('/dashboard/profile')
   }
-  
+
   const handleSettingsClick = () => {
     router.push('/dashboard/settings')
   }
-  
+
   const handleLogout = async () => {
     try {
       await logout()
@@ -78,7 +78,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     setIsSearchOpen(false)
     setSearchQuery("")
   }
-  
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/20 backdrop-blur-lg bg-white/80 md:hidden safe-area-pt">
       <div className="responsive-flex h-16 items-center justify-between px-6 sm:px-8 w-full safe-area-pl safe-area-pr">
@@ -132,12 +132,12 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="h-9 w-9 cursor-pointer hover:ring-4 hover:ring-teal-200 transition-all duration-300 flex-shrink-0 ml-1">
-                <AvatarImage 
+                <AvatarImage
                   src={
-                    user?.profile_picture_url || 
-                    user?.profile_picture || 
+                    user?.profile_picture_url ||
+                    user?.profile_picture ||
                     undefined
-                  } 
+                  }
                 />
                 <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
                   {user?.first_name?.[0] || 'U'}{user?.last_name?.[0] || ''}
