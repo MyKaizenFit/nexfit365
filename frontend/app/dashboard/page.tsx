@@ -604,7 +604,9 @@ function DashboardContent() {
               <Suspense fallback={
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
+                      <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+                    </div>
                     <p className="text-gray-600">Cargando...</p>
                   </div>
                 </div>
@@ -632,7 +634,9 @@ function DashboardContent() {
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
+                  <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+                </div>
                 <p className="text-gray-600">Cargando...</p>
               </div>
             </div>

@@ -122,11 +122,11 @@ export default function InitialRegistrationPage() {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-6">
-              <Sparkles className="w-10 h-10 text-white" />
+            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-2">
+              <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              ¡Configura tu Perfil!
+              <span className="text-orange-400">NEX</span><span className="text-white">FIT</span> - ¡Configura tu Perfil!
             </h1>
             <p className="text-lg md:text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
               Para crear un plan de entrenamiento y nutrición personalizado, 
