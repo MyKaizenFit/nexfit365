@@ -59,6 +59,7 @@ import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
+import { useWeightHistory } from "@/hooks/use-weight-history"
 import { ProgressSummaryEnhanced } from "./progress-summary-enhanced"
 import { WorkoutSummaryEnhanced } from "./workout-summary-enhanced"
 import { NutritionSummaryEnhanced } from "./nutrition-summary-enhanced"
@@ -78,6 +79,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const { meals: dailyMeals, macros, loading: mealsLoading } = useDailyMeals()
   const { workoutLogs, loading: workoutLoading } = useWorkouts()
   const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
+  const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
 
   // Debug: verificar estado de autenticación
   console.log('🔐 Dashboard - Estado de autenticación:', {
@@ -102,11 +104,20 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   // Calcular métricas generales
   const overallProgress = progressStats?.overall_progress || 0
   
-  // Calcular peso actual desde las estadísticas disponibles
-  // Prioridad: peso del usuario > estadísticas de progreso > valor por defecto
-  const currentWeight = user?.weight || progressStats?.weight.current || userStats?.currentWeight || null
-  const targetWeight = user?.target_weight || progressStats?.weight.goal || userStats?.targetWeight || null
-  const weightChange = progressStats?.weight.change || userStats?.weightChange || 0
+  // Calcular peso actual desde el historial más reciente (prioridad)
+  // El peso del historial es más preciso que el del perfil
+  const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
+  const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
+  
+  // Prioridad: historial de peso > estadísticas de progreso > peso del perfil
+  const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
+  const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
+  
+  // Calcular cambio de peso real desde el historial
+  const weightChange = (latestWeightEntry && firstWeightEntry) 
+    ? latestWeightEntry.weight - firstWeightEntry.weight 
+    : (progressStats?.weight?.change || userStats?.weightChange || 0)
+  
   const daysInTransformation = userStats?.daysInTransformation || 1
 
   // Calcular calorías del día
@@ -137,7 +148,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       await Promise.all([
         refreshStats(),
         refreshProgressStats(),
-        refreshPhotos()
+        refreshPhotos(),
+        refreshWeight()
       ])
       
       setLastRefresh(new Date())
