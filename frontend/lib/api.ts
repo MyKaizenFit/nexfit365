@@ -284,36 +284,23 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
             }
           })
 
-          // Si el retry también falla con 401, entonces el refresh token también expiró
+          // Si el retry también falla con 401, NO cerrar sesión automáticamente
           if (retryResponse.status === 401) {
-            console.error('❌ El refresh token también expiró')
-            authService.clearTokens()
-            if (typeof window !== 'undefined') {
-              window.location.href = '/auth'
-            }
-            throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+            console.warn('⚠️ El refresh token también expiró. El usuario debe cerrar sesión manualmente.')
+            // NO redirigir automáticamente, solo loguear
+            throw new Error('Token expirado. Por favor, cierra sesión e inicia de nuevo.')
           }
 
           return retryResponse
         } else {
-          console.error('❌ No se pudo refrescar el token:', refreshResult.error)
-          // Solo redirigir si no estamos en modo offline
-          if (!authService.isOfflineMode) {
-            authService.clearTokens()
-            if (typeof window !== 'undefined') {
-              window.location.href = '/auth'
-            }
-          }
-          throw new Error(refreshResult.error || 'Sesión expirada. Por favor, inicia sesión nuevamente.')
+          console.warn('⚠️ No se pudo refrescar el token:', refreshResult.error)
+          // NO redirigir automáticamente, el usuario debe cerrar sesión manualmente
+          throw new Error(refreshResult.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
         }
       } catch (refreshError) {
-        console.error('❌ Error refrescando token:', refreshError)
-        // Solo limpiar y redirigir si no es un error de modo offline
-        if (!authService.isOfflineMode && typeof window !== 'undefined') {
-          authService.clearTokens()
-          window.location.href = '/auth'
-        }
-        throw refreshError instanceof Error ? refreshError : new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+        console.warn('⚠️ Error refrescando token:', refreshError)
+        // NO limpiar tokens ni redirigir automáticamente
+        throw refreshError instanceof Error ? refreshError : new Error('Error de autenticación. Por favor, intenta de nuevo.')
       }
     }
 
