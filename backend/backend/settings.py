@@ -114,13 +114,13 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.ScopedRateThrottle",  # para scopes como 'login'
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": "1000/min" if DEBUG else "60/min",
-        "user": "2000/min" if DEBUG else "120/min",
-        "login": "5/min",  # límite específico para intentos de login
-        "register": "3/min",  # límite para registro
-        "forgot_password": "3/min",  # límite para solicitar reset
-        "reset_password": "5/min",  # límite para resetear contraseña
-        "change_password": "10/min",  # límite para cambiar contraseña
+        "anon": "1000/min" if DEBUG else "100/min",
+        "user": "2000/min" if DEBUG else "1000/min",  # Aumentado para mejor UX
+        "login": "10/min",  # límite específico para intentos de login (aumentado)
+        "register": "5/min",  # límite para registro
+        "forgot_password": "5/min",  # límite para solicitar reset
+        "reset_password": "10/min",  # límite para resetear contraseña
+        "change_password": "20/min",  # límite para cambiar contraseña
     },
     "EXCEPTION_HANDLER": "api.utils.custom_exception_handler",
 }

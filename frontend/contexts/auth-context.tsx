@@ -96,19 +96,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               mustChangePassword: user.must_change_password || false,
             })
           } catch (userError: any) {
-            // Solo mostrar warning si no es un error de autenticación esperado
-            if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
+            // NO limpiar tokens si es un error de rate limiting (429)
+            if (userError.message?.includes('Demasiadas solicitudes') || userError.message?.includes('Too Many Requests')) {
+              console.warn('⚠️ Rate limit alcanzado, manteniendo sesión activa. Reintentará automáticamente...')
+              setState({
+                user: null,
+                isAuthenticated: true, // Mantener como autenticado
+                isLoading: false,
+                error: 'Rate limit alcanzado. Por favor, espera un momento.',
+                mustChangePassword: false,
+              })
+            } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
               console.warn('Error al obtener usuario, limpiando tokens inválidos:', userError)
+              // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
+              authService.clearTokens()
+              setState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                mustChangePassword: false,
+              })
+            } else {
+              // Error de sesión expirada, limpiar
+              authService.clearTokens()
+              setState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                mustChangePassword: false,
+              })
             }
-            // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
-            authService.clearTokens()
-            setState({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null,
-              mustChangePassword: false,
-            })
           }
         } else {
           // No hay tokens válidos, marcar como no autenticado silenciosamente
