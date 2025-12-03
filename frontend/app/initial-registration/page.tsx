@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { InitialRegistrationForm } from '@/components/forms/initial-registration-form';
 import { useInitialRegistration } from '@/hooks/use-initial-registration';
@@ -122,8 +123,8 @@ export default function InitialRegistrationPage() {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-2">
-              <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+            <div className="mx-auto w-20 h-20 bg-black/40 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6">
+              <Image src="/icono.png" alt="NEXFIT" width={80} height={80} quality={100} priority />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
               <span className="text-orange-400">NEX</span><span className="text-white">FIT</span> - ¡Configura tu Perfil!

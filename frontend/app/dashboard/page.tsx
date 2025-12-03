@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, lazy, Suspense } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Bell,
@@ -402,8 +403,8 @@ function DashboardContent() {
           <Sidebar className="flex-shrink-0 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
             <SidebarHeader>
               <div className="flex items-center gap-2 px-4 py-2">
-                <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-                  <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+                <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden bg-black">
+                  <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <div className="flex items-center">
@@ -604,8 +605,8 @@ function DashboardContent() {
               <Suspense fallback={
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center space-y-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
-                      <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse bg-black">
+                      <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
                     </div>
                     <p className="text-gray-600">Cargando...</p>
                   </div>
@@ -634,8 +635,8 @@ function DashboardContent() {
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
-                  <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+                <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse bg-black">
+                  <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
                 </div>
                 <p className="text-gray-600">Cargando...</p>
               </div>

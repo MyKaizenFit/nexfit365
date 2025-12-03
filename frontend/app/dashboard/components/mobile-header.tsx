@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Bell, Search, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -84,8 +85,8 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
       <div className="responsive-flex h-16 items-center justify-between px-6 sm:px-8 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
         <div className="responsive-flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-            <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden bg-black">
+            <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} className="w-full h-full" />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-semibold responsive-text">
