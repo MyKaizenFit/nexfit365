@@ -580,7 +580,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                   if (refreshResult.success && refreshResult.newToken) {
                     await refreshUser()
                   } else {
-                    await logout()
+                    console.warn('⚠️ No se pudo renovar el token automáticamente. Seguirá intentando...')
+                    // NO hacer logout automático, solo advertir
                   }
                 }
               } catch (error) {
