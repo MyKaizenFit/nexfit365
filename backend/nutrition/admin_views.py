@@ -92,9 +92,9 @@ def admin_default_plans(request):
     # Planes que son plantillas del sistema (sin usuario asignado o marcados como template)
     plans = NutritionPlan.objects.filter(
         user__isnull=True
-    ).prefetch_related('meals__recipe') | NutritionPlan.objects.filter(
+    ).prefetch_related('meals__suggested_recipes') | NutritionPlan.objects.filter(
         is_template=True
-    ).prefetch_related('meals__recipe')
+    ).prefetch_related('meals__suggested_recipes')
     
     plans = plans.distinct()
     
@@ -110,15 +110,40 @@ def admin_default_plans(request):
     
     results = []
     for plan in plans_list:
+        # Calcular porcentajes de macros
+        protein_pct = 30  # valor por defecto
+        carbs_pct = 40
+        fat_pct = 30
+        
+        if plan.daily_calories and plan.protein_grams:
+            protein_pct = round((plan.protein_grams * 4) / plan.daily_calories * 100, 1)
+        if plan.daily_calories and plan.carbs_grams:
+            carbs_pct = round((plan.carbs_grams * 4) / plan.daily_calories * 100, 1)
+        if plan.daily_calories and plan.fat_grams:
+            fat_pct = round((plan.fat_grams * 9) / plan.daily_calories * 100, 1)
+        
         results.append({
             'id': str(plan.id),
             'name': plan.name,
             'description': plan.description,
             'goal': plan.goal,
+            'diet_type': plan.diet_type,
             'daily_calories': plan.daily_calories,
+            'protein_grams': float(plan.protein_grams) if plan.protein_grams else 0,
+            'carbs_grams': float(plan.carbs_grams) if plan.carbs_grams else 0,
+            'fat_grams': float(plan.fat_grams) if plan.fat_grams else 0,
+            'protein_percentage': protein_pct,
+            'carbs_percentage': carbs_pct,
+            'fat_percentage': fat_pct,
+            'meals_per_day': plan.meals_per_day,
+            'duration_weeks': plan.duration_weeks,
             'is_active': plan.is_active,
+            'is_template': plan.is_template,
+            'is_system': plan.is_system,
+            'is_default': getattr(plan, 'is_default', False),
             'meals_count': plan.meals.count(),
             'created_at': plan.created_at.isoformat() if plan.created_at else None,
+            'updated_at': plan.updated_at.isoformat() if plan.updated_at else None,
         })
     
     return Response({

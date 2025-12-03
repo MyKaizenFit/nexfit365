@@ -4,6 +4,38 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { handle401AndRefresh } from '@/lib/fetch-with-auth'
 
+export interface Recipe {
+  id: string
+  name: string
+  description: string
+  category: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  fiber: number
+  prep_time_minutes: number
+  cook_time_minutes: number
+  servings: number
+  image_url?: string
+  instructions?: string
+  ingredients?: any[]
+}
+
+export interface PlanMeal {
+  id: string
+  name: string
+  meal_type: string
+  time: string
+  calories: number
+  protein: string
+  carbs: string
+  fat: string
+  description: string
+  order_index: number
+  suggested_recipes: string[] | Recipe[]
+}
+
 export interface NutritionPlan {
   id: string
   name: string
@@ -20,15 +52,22 @@ export interface NutritionPlan {
   protein_grams: number
   carbs_grams: number
   fat_grams: number
+  fiber_grams?: number
+  goal?: string
+  diet_type?: string
+  meals_per_day?: number
   is_active: boolean
   is_default: boolean
+  is_template?: boolean
+  is_system?: boolean
   min_role_required?: string
   duration_weeks?: number
   target_audience?: string
-  tags?: any // JSON con los menús
+  tags?: string[]
   image_url?: string
   created_at: string
   updated_at: string
+  meals?: PlanMeal[]
 }
 
 export interface NutritionPlanStats {
@@ -452,6 +491,73 @@ export const useAdminNutritionPlans = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [plans])
 
+  // Función para obtener el detalle completo de un plan con sus comidas y recetas
+  const fetchPlanDetail = async (planId: string): Promise<NutritionPlan | null> => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        headers
+      })
+
+      // Si recibimos 401, intentar refrescar el token
+      if (response.status === 401) {
+        const { authService } = await import('@/lib/auth-service')
+        const refreshResult = await authService.refreshAccessToken()
+        
+        if (refreshResult.success && refreshResult.newToken) {
+          headers = await getAuthHeaders()
+          response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+            headers
+          })
+        } else {
+          return null
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const planDetail = await response.json()
+      console.log('🍽️ Detalle del plan de nutrición cargado:', planDetail.name, '- Comidas:', planDetail.meals?.length || 0)
+      return planDetail
+    } catch (err) {
+      console.error('Error fetching nutrition plan detail:', err)
+      return null
+    }
+  }
+
+  // Función para obtener todas las recetas disponibles
+  const fetchRecipes = async (): Promise<Recipe[]> => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        headers
+      })
+
+      if (response.status === 401) {
+        const { authService } = await import('@/lib/auth-service')
+        const refreshResult = await authService.refreshAccessToken()
+        if (refreshResult.success) {
+          headers = await getAuthHeaders()
+          response = await fetch(buildApiUrl('admin/nutrition/recipes/'), { headers })
+        }
+      }
+
+      if (!response.ok) {
+        console.warn('Error fetching recipes, status:', response.status)
+        return []
+      }
+
+      const data = await response.json()
+      console.log('📦 Recetas cargadas:', data.results?.length || data.length || 0)
+      return data.results || data || []
+    } catch (err) {
+      console.error('Error fetching recipes:', err)
+      return []
+    }
+  }
+
   return {
     plans,
     stats,
@@ -464,6 +570,8 @@ export const useAdminNutritionPlans = () => {
     setAsDefault,
     bulkToggleActive,
     bulkDelete,
+    fetchPlanDetail,
+    fetchRecipes,
     refetch: fetchPlans
   }
 }

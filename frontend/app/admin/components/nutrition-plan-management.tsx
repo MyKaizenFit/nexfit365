@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
-import { useAdminNutritionPlans, NutritionPlan, CreateNutritionPlanData } from "@/hooks/use-admin-nutrition-plans"
+import { useAdminNutritionPlans, NutritionPlan, CreateNutritionPlanData, PlanMeal, Recipe } from "@/hooks/use-admin-nutrition-plans"
 import {
   Apple,
   Plus,
@@ -59,6 +59,8 @@ export function NutritionPlanManagement() {
     setAsDefault,
     bulkToggleActive,
     bulkDelete,
+    fetchPlanDetail,
+    fetchRecipes,
     refetch
   } = useAdminNutritionPlans()
 
@@ -68,6 +70,58 @@ export function NutritionPlanManagement() {
   const [editingPlan, setEditingPlan] = useState<NutritionPlan | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [planMeals, setPlanMeals] = useState<PlanMeal[]>([])
+  const [availableRecipes, setAvailableRecipes] = useState<Recipe[]>([])
+
+  // Cargar recetas disponibles al montar
+  useEffect(() => {
+    const loadRecipes = async () => {
+      const recipes = await fetchRecipes()
+      setAvailableRecipes(recipes)
+    }
+    loadRecipes()
+  }, [])
+
+  // Función para cargar los detalles completos de un plan
+  const handleEditPlan = async (planId: string) => {
+    try {
+      setLoadingDetail(true)
+      const planDetail = await fetchPlanDetail(planId)
+      
+      if (planDetail) {
+        setFormData({
+          name: planDetail.name || '',
+          description: planDetail.description || '',
+          daily_calories: planDetail.daily_calories || 2000,
+          target_macros: {
+            protein_percentage: planDetail.protein_percentage || 30,
+            carbs_percentage: planDetail.carbs_percentage || 40,
+            fat_percentage: planDetail.fat_percentage || 30
+          }
+        })
+        
+        // Cargar las comidas del plan
+        setPlanMeals(planDetail.meals || [])
+        setEditingPlan(planDetail)
+      }
+    } catch (error) {
+      console.error('Error loading plan detail:', error)
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  // Función para obtener el nombre de una receta por ID
+  const getRecipeName = (recipeId: string): string => {
+    const recipe = availableRecipes.find(r => r.id === recipeId)
+    return recipe?.name || recipeId
+  }
+
+  // Función para obtener los macros de una receta
+  const getRecipeMacros = (recipeId: string): Recipe | null => {
+    return availableRecipes.find(r => r.id === recipeId) || null
+  }
 
   // Estado del formulario
   const [formData, setFormData] = useState<CreateNutritionPlanData>({
@@ -267,20 +321,26 @@ export function NutritionPlanManagement() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => {
-                      setEditingPlan(plan)
-                      setFormData({
-                        name: plan.name,
-                        description: plan.description,
-                        daily_calories: plan.daily_calories,
-                        target_macros: {
-                          protein_percentage: plan.protein_percentage,
-                          carbs_percentage: plan.carbs_percentage,
-                          fat_percentage: plan.fat_percentage
-                        }
-                      })
-                    }}>
-                      <Edit className="w-4 h-4 mr-2" />
+                    <DropdownMenuItem 
+                      onClick={() => handleEditPlan(plan.id)}
+                      disabled={loadingDetail}
+                    >
+                      {loadingDetail ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Eye className="w-4 h-4 mr-2" />
+                      )}
+                      Ver Detalles
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleEditPlan(plan.id)}
+                      disabled={loadingDetail}
+                    >
+                      {loadingDetail ? (
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <Edit className="w-4 h-4 mr-2" />
+                      )}
                       Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleDelete(plan.id)}>
@@ -336,6 +396,7 @@ export function NutritionPlanManagement() {
         if (!open) {
           setShowCreateDialog(false)
           setEditingPlan(null)
+          setPlanMeals([])
           setFormData({
             name: '',
             description: '',
@@ -348,7 +409,7 @@ export function NutritionPlanManagement() {
           })
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingPlan ? "Editar Plan de Nutrición" : "Crear Plan de Nutrición"}
@@ -357,14 +418,25 @@ export function NutritionPlanManagement() {
               {editingPlan ? "Modifica los datos del plan" : "Completa los datos para crear un nuevo plan"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <FormLabel>Nombre</FormLabel>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="Ej: Plan de Pérdida de Peso"
-              />
+          <div className="space-y-6">
+            {/* Información básica */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <FormLabel>Nombre</FormLabel>
+                <Input
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="Ej: Plan de Pérdida de Peso"
+                />
+              </div>
+              <div>
+                <FormLabel>Calorías Diarias</FormLabel>
+                <Input
+                  type="number"
+                  value={formData.daily_calories}
+                  onChange={(e) => setFormData({ ...formData, daily_calories: parseInt(e.target.value) || 0 })}
+                />
+              </div>
             </div>
             <div>
               <FormLabel>Descripción</FormLabel>
@@ -372,68 +444,146 @@ export function NutritionPlanManagement() {
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="Descripción del plan..."
-                rows={3}
+                rows={2}
               />
             </div>
-            <div>
-              <FormLabel>Calorías Diarias</FormLabel>
-              <Input
-                type="number"
-                value={formData.daily_calories}
-                onChange={(e) => setFormData({ ...formData, daily_calories: parseInt(e.target.value) || 0 })}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <FormLabel>Proteína (%)</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.target_macros.protein_percentage}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    target_macros: {
-                      ...formData.target_macros,
-                      protein_percentage: parseFloat(e.target.value) || 0
-                    }
-                  })}
-                />
-              </div>
-              <div>
-                <FormLabel>Carbohidratos (%)</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.target_macros.carbs_percentage}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    target_macros: {
-                      ...formData.target_macros,
-                      carbs_percentage: parseFloat(e.target.value) || 0
-                    }
-                  })}
-                />
-              </div>
-              <div>
-                <FormLabel>Grasas (%)</FormLabel>
-                <Input
-                  type="number"
-                  value={formData.target_macros.fat_percentage}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    target_macros: {
-                      ...formData.target_macros,
-                      fat_percentage: parseFloat(e.target.value) || 0
-                    }
-                  })}
-                />
-              </div>
-            </div>
+            
+            {/* Macros */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Flame className="w-4 h-4 text-orange-500" />
+                  Distribución de Macronutrientes
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center p-3 bg-red-50 rounded-lg">
+                    <div className="text-2xl font-bold text-red-600">{formData.target_macros.protein_percentage}%</div>
+                    <div className="text-sm text-gray-600">Proteína</div>
+                    <div className="text-xs text-gray-500">
+                      ~{Math.round(formData.daily_calories * formData.target_macros.protein_percentage / 100 / 4)}g
+                    </div>
+                  </div>
+                  <div className="text-center p-3 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">{formData.target_macros.carbs_percentage}%</div>
+                    <div className="text-sm text-gray-600">Carbohidratos</div>
+                    <div className="text-xs text-gray-500">
+                      ~{Math.round(formData.daily_calories * formData.target_macros.carbs_percentage / 100 / 4)}g
+                    </div>
+                  </div>
+                  <div className="text-center p-3 bg-yellow-50 rounded-lg">
+                    <div className="text-2xl font-bold text-yellow-600">{formData.target_macros.fat_percentage}%</div>
+                    <div className="text-sm text-gray-600">Grasas</div>
+                    <div className="text-xs text-gray-500">
+                      ~{Math.round(formData.daily_calories * formData.target_macros.fat_percentage / 100 / 9)}g
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            
+            {/* Comidas del plan */}
+            {editingPlan && planMeals.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <ChefHat className="w-4 h-4 text-green-500" />
+                    Comidas del Plan ({planMeals.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {planMeals.map((meal, index) => (
+                    <Card key={meal.id} className="border-l-4 border-l-green-400">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold text-lg">{meal.name}</h4>
+                            <div className="flex items-center gap-2 text-sm text-gray-500">
+                              <Clock className="w-3 h-3" />
+                              {meal.time}
+                              <Badge variant="outline" className="ml-2">
+                                {meal.meal_type === 'breakfast' && 'Desayuno'}
+                                {meal.meal_type === 'morning_snack' && 'Snack Mañana'}
+                                {meal.meal_type === 'lunch' && 'Almuerzo'}
+                                {meal.meal_type === 'afternoon_snack' && 'Snack Tarde'}
+                                {meal.meal_type === 'dinner' && 'Cena'}
+                                {meal.meal_type === 'post_workout' && 'Post-Entreno'}
+                              </Badge>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xl font-bold text-orange-600">{meal.calories} kcal</div>
+                            <div className="text-xs text-gray-500">
+                              P:{meal.protein}g | C:{meal.carbs}g | G:{meal.fat}g
+                            </div>
+                          </div>
+                        </div>
+                        
+                        {meal.description && (
+                          <p className="text-sm text-gray-600 mb-3">{meal.description}</p>
+                        )}
+                        
+                        {/* Recetas sugeridas */}
+                        {meal.suggested_recipes && meal.suggested_recipes.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="text-sm font-medium mb-2 flex items-center gap-1">
+                              <Apple className="w-3 h-3" />
+                              Opciones de Recetas ({meal.suggested_recipes.length}):
+                            </h5>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                              {meal.suggested_recipes.slice(0, 6).map((recipeItem, idx) => {
+                                // La receta puede venir como objeto o como ID string
+                                const isObject = typeof recipeItem === 'object' && recipeItem !== null
+                                const recipe = isObject ? recipeItem as Recipe : getRecipeMacros(recipeItem as string)
+                                const recipeName = isObject 
+                                  ? (recipeItem as any).name 
+                                  : (recipe?.name || getRecipeName(recipeItem as string))
+                                
+                                return (
+                                  <div key={idx} className="bg-gray-50 rounded-lg p-2 text-sm">
+                                    <div className="font-medium truncate">
+                                      {recipeName}
+                                    </div>
+                                    {recipe && (
+                                      <div className="text-xs text-gray-500 mt-1">
+                                        {recipe.calories} kcal | P:{recipe.protein}g C:{recipe.carbs}g G:{recipe.fat}g
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {meal.suggested_recipes.length > 6 && (
+                              <div className="text-xs text-gray-400 mt-2">
+                                ... y {meal.suggested_recipes.length - 6} más
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+            
+            {editingPlan && planMeals.length === 0 && !loadingDetail && (
+              <Card className="border-dashed">
+                <CardContent className="p-6 text-center text-gray-500">
+                  <ChefHat className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p>Este plan no tiene comidas configuradas</p>
+                </CardContent>
+              </Card>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
               setShowCreateDialog(false)
               setEditingPlan(null)
+              setPlanMeals([])
             }}>
-              Cancelar
+              Cerrar
             </Button>
             <Button onClick={editingPlan ? handleUpdate : handleCreate} disabled={isLoading}>
               {isLoading ? (
