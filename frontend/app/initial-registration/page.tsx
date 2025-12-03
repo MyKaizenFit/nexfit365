@@ -16,6 +16,14 @@ export default function InitialRegistrationPage() {
   const { logout } = useAuth();
   const [showRecommendations, setShowRecommendations] = useState(false);
   
+  // Memoizar userData para evitar re-renders innecesarios
+  const memoizedUserData = useMemo(() => userData, [
+    userData?.first_name,
+    userData?.last_name,
+    userData?.email,
+    userData?.phone_number,
+  ]);
+  
   const handleLogout = async () => {
     try {
       await logout();
@@ -153,12 +161,7 @@ export default function InitialRegistrationPage() {
           <InitialRegistrationForm
             onComplete={handleComplete}
             isLoading={isLoading}
-            userData={useMemo(() => userData, [
-              userData?.first_name,
-              userData?.last_name,
-              userData?.email,
-              userData?.phone_number,
-            ])}
+            userData={memoizedUserData}
           />
         )}
         
