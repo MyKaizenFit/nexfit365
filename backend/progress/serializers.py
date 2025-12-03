@@ -16,8 +16,9 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "user", "created_at", "updated_at"]
     
     def create(self, validated_data):
-        """Override del método create para agregar logging"""
+        """Override del método create para agregar logging y registrar peso"""
         import logging
+        from decimal import Decimal
         logger = logging.getLogger(__name__)
         
         logger.info(f"🔍 Creando ProgressPhoto con datos: {validated_data}")
@@ -25,11 +26,41 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         
         try:
             # Agregar el usuario del request
-            validated_data['user'] = self.context['request'].user
+            user = self.context['request'].user
+            validated_data['user'] = user
             logger.info(f"🔍 Datos finales para crear: {validated_data}")
             
             instance = super().create(validated_data)
             logger.info(f"✅ ProgressPhoto creado exitosamente: ID={instance.id}")
+            
+            # Si la foto tiene peso, también crear una entrada en el historial de peso
+            if instance.weight and instance.weight > 0:
+                try:
+                    # Verificar si ya existe una entrada de peso para esta fecha
+                    existing_entry = WeightEntry.objects.filter(
+                        user=user,
+                        date=instance.date,
+                        weight=instance.weight
+                    ).first()
+                    
+                    if not existing_entry:
+                        weight_entry = WeightEntry.objects.create(
+                            user=user,
+                            weight=Decimal(str(instance.weight)),
+                            date=instance.date,
+                            notes=f"Peso registrado con foto de progreso"
+                        )
+                        logger.info(f"✅ Entrada de peso creada automáticamente: {weight_entry.weight} kg")
+                        
+                        # Actualizar peso actual en UserStats
+                        from dashboard.models import UserStats
+                        stats, _ = UserStats.objects.get_or_create(user=user)
+                        stats.current_weight = instance.weight
+                        stats.save()
+                        logger.info(f"✅ UserStats actualizado con peso: {instance.weight} kg")
+                except Exception as weight_error:
+                    logger.warning(f"⚠️ No se pudo crear entrada de peso automática: {weight_error}")
+            
             return instance
         except Exception as e:
             logger.error(f"❌ Error creando ProgressPhoto: {str(e)}")
@@ -57,14 +88,22 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         if obj.photo:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.photo.url)
+                url = request.build_absolute_uri(obj.photo.url)
+                # Forzar HTTPS en producción
+                if "api.nexfit365" in url:
+                    url = url.replace("http://", "https://")
+                return url
         return None
     
     def get_thumbnail_url(self, obj):
         if obj.thumbnail:
             request = self.context.get("request")
             if request:
-                return request.build_absolute_uri(obj.thumbnail.url)
+                url = request.build_absolute_uri(obj.thumbnail.url)
+                # Forzar HTTPS en producción
+                if "api.nexfit365" in url:
+                    url = url.replace("http://", "https://")
+                return url
         return None
     
     def validate_photo(self, value):
