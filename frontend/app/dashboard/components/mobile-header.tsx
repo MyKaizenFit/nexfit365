@@ -85,7 +85,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
         {/* Left side - Logo/Title */}
         <div className="responsive-flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
           <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-            <img src="/icon.svg" alt="NEXFIT" className="w-full h-full" />
+            <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-lg sm:text-xl font-semibold responsive-text">
