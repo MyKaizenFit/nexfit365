@@ -72,14 +72,13 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 
 const menuItems = [
   { title: "Dashboard", icon: Home, url: "dashboard", isActive: true },
+  { title: "Day 1", icon: Target, url: "day-one" },
   { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
   { title: "Consejos", icon: Heart, url: "tips" },
-  { title: "Mi Progreso", icon: TrendingUp, url: "progress" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
-  { title: "Day 1", icon: Target, url: "day-one" },
   { title: "Configuración", icon: Settings, url: "settings" },
 ]
 
@@ -191,15 +190,15 @@ function DashboardContent() {
         )
 
       case "progress":
+        // Redirigir a Day 1 (ahora unificado)
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
-            {/* Background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-200/20 to-teal-200/20 rounded-full blur-3xl animate-pulse"></div>
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <ProgressDashboard />
+              <DayOneSheet />
             </div>
           </div>
         )
