@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef, useMemo, ChangeEvent, FormEvent, ReactNode } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo, FormEvent, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -56,117 +56,61 @@ function InitialRegistrationFormComponent({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
 
-  const [formData, setFormData] = useState<FormData>({
-    first_name: '',
-    last_name: '',
-    email: '',
-    phone_number: '',
-    birth_date: '',
-    gender: '',
-    height: '',
-    weight: '',
-    target_weight: '',
-    activity_level: '',
-    training_days: [],
-    training_location: '',
-    main_goal: '',
-    allergies: '',
-    medical_conditions: '',
-    disliked_foods: '',
-  });
+  // Usar refs para campos de texto para evitar re-renders
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const birthDateRef = useRef<HTMLInputElement>(null);
+  const heightRef = useRef<HTMLInputElement>(null);
+  const weightRef = useRef<HTMLInputElement>(null);
+  const targetWeightRef = useRef<HTMLInputElement>(null);
+  const allergiesRef = useRef<HTMLTextAreaElement>(null);
+  const medicalConditionsRef = useRef<HTMLTextAreaElement>(null);
+  const dislikedFoodsRef = useRef<HTMLTextAreaElement>(null);
 
-  // Memoizar userData para evitar re-renders innecesarios
-  const stableUserData = useMemo(() => userData, [
-    userData?.first_name,
-    userData?.last_name,
-    userData?.email,
-    userData?.phone_number,
-  ]);
+  // Solo usar state para campos que no son texto (selects, radio, etc)
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('');
+  const [activityLevel, setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | ''>('');
+  const [trainingDays, setTrainingDays] = useState<number[]>([]);
+  const [trainingLocation, setTrainingLocation] = useState<'home' | 'gym' | ''>('');
+  const [mainGoal, setMainGoal] = useState<'lose_weight' | 'gain_muscle' | 'body_recomposition' | ''>('');
 
-  // Cargar datos del usuario si existen (solo una vez al montar)
+  // Cargar datos del usuario solo una vez
   const initialDataLoadedRef = useRef(false);
   useEffect(() => {
-    if (stableUserData && !initialDataLoadedRef.current) {
-      setFormData((prev: FormData) => ({
-        ...prev,
-        first_name: stableUserData.first_name || prev.first_name,
-        last_name: stableUserData.last_name || prev.last_name,
-        email: stableUserData.email || prev.email,
-        phone_number: stableUserData.phone_number || prev.phone_number,
-      }));
+    if (userData && !initialDataLoadedRef.current) {
+      if (firstNameRef.current && userData.first_name) firstNameRef.current.value = userData.first_name;
+      if (lastNameRef.current && userData.last_name) lastNameRef.current.value = userData.last_name;
+      if (emailRef.current && userData.email) emailRef.current.value = userData.email;
+      if (phoneRef.current && userData.phone_number) phoneRef.current.value = userData.phone_number;
       initialDataLoadedRef.current = true;
     }
-  }, [stableUserData]);
+  }, [userData]);
 
-  // Memoizar updateField para evitar re-renders innecesarios
-  const updateField = useCallback((field: keyof FormData, value: string | number | number[]) => {
-    setFormData((prev: FormData) => {
-      // Solo actualizar si el valor realmente cambió
-      if (prev[field] === value) {
-        return prev;
-      }
-      return { ...prev, [field]: value };
-    });
-    // Limpiar error del campo cuando se modifica (solo si existe)
-    setErrors((prev: Record<string, string>) => {
-      if (prev[field]) {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      }
-      return prev; // Retornar el mismo objeto si no hay cambios
-    });
-  }, []);
-
-  // Handlers memoizados para cada campo de texto
-  const handleFirstNameChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    updateField('first_name', e.target.value);
-  }, [updateField]);
-
-  const handleLastNameChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    updateField('last_name', e.target.value);
-  }, [updateField]);
-
-  const handleEmailChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    updateField('email', e.target.value);
-  }, [updateField]);
-
-  const handlePhoneChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    updateField('phone_number', e.target.value);
-  }, [updateField]);
-
-  const handleBirthDateChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    updateField('birth_date', e.target.value);
-  }, [updateField]);
-
-  const handleHeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9]/g, '');
-    updateField('height', value);
-  }, [updateField]);
-
-  const handleWeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-    updateField('weight', value);
-  }, [updateField]);
-
-  const handleTargetWeightChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
-    updateField('target_weight', value);
-  }, [updateField]);
-
-  const handleAllergiesChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    updateField('allergies', e.target.value);
-  }, [updateField]);
-
-  const handleMedicalConditionsChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    updateField('medical_conditions', e.target.value);
-  }, [updateField]);
-
-  const handleDislikedFoodsChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
-    updateField('disliked_foods', e.target.value);
-  }, [updateField]);
+  const getFormData = (): FormData => {
+    return {
+      first_name: firstNameRef.current?.value || '',
+      last_name: lastNameRef.current?.value || '',
+      email: emailRef.current?.value || '',
+      phone_number: phoneRef.current?.value || '',
+      birth_date: birthDateRef.current?.value || '',
+      gender,
+      height: heightRef.current?.value || '',
+      weight: weightRef.current?.value || '',
+      target_weight: targetWeightRef.current?.value || '',
+      activity_level: activityLevel,
+      training_days: trainingDays,
+      training_location: trainingLocation,
+      main_goal: mainGoal,
+      allergies: allergiesRef.current?.value || '',
+      medical_conditions: medicalConditionsRef.current?.value || '',
+      disliked_foods: dislikedFoodsRef.current?.value || '',
+    };
+  };
 
   const validateStep = (step: number): boolean => {
+    const formData = getFormData();
     const newErrors: Record<string, string> = {};
 
     if (step === 1) {
@@ -237,6 +181,8 @@ function InitialRegistrationFormComponent({
 
     if (!validateStep(3)) return;
 
+    const formData = getFormData();
+
     // Preparar datos para enviar
     const submitData = {
       first_name: formData.first_name.trim(),
@@ -266,11 +212,11 @@ function InitialRegistrationFormComponent({
   };
 
   const toggleTrainingDay = (day: number) => {
-    const current = formData.training_days;
-    const newDays = current.includes(day)
-      ? current.filter((d: number) => d !== day)
-      : [...current, day].sort((a: number, b: number) => a - b);
-    updateField('training_days', newDays);
+    setTrainingDays(current => 
+      current.includes(day)
+        ? current.filter(d => d !== day)
+        : [...current, day].sort((a, b) => a - b)
+    );
   };
 
   // Componente de paso del stepper
@@ -315,8 +261,8 @@ function InitialRegistrationFormComponent({
     </div>
   );
 
-  // Componente de campo de entrada con error (memoizado para evitar re-renders)
-  const FormField = React.memo(({
+  // Componente de campo de entrada con error
+  const FormField = ({
     label,
     name,
     required = false,
@@ -340,8 +286,7 @@ function InitialRegistrationFormComponent({
         </p>
       )}
     </div>
-  ));
-  FormField.displayName = 'FormField';
+  );
 
   // Renderizar paso 1: Datos personales
   const renderStep1 = () => (
@@ -349,67 +294,59 @@ function InitialRegistrationFormComponent({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField label="Nombre" name="first_name" required error={errors.first_name}>
           <Input
+            ref={firstNameRef}
             id="first_name"
-            value={formData.first_name}
-            onChange={handleFirstNameChange}
             placeholder="Tu nombre"
             className={cn(errors.first_name && "border-red-500")}
-            disabled={!!stableUserData?.first_name}
+            disabled={!!userData?.first_name}
+            defaultValue={userData?.first_name || ''}
           />
         </FormField>
 
         <FormField label="Apellidos" name="last_name" required error={errors.last_name}>
           <Input
+            ref={lastNameRef}
             id="last_name"
-            value={formData.last_name}
-            onChange={handleLastNameChange}
             placeholder="Tus apellidos"
             className={cn(errors.last_name && "border-red-500")}
-            disabled={!!stableUserData?.last_name}
+            disabled={!!userData?.last_name}
+            defaultValue={userData?.last_name || ''}
           />
         </FormField>
       </div>
 
       <FormField label="Email" name="email" required error={errors.email}>
         <Input
+          ref={emailRef}
           id="email"
           type="email"
-          value={formData.email}
-          onChange={handleEmailChange}
           placeholder="tu@email.com"
           className={cn(errors.email && "border-red-500")}
-          disabled={!!stableUserData?.email}
+          disabled={!!userData?.email}
+          defaultValue={userData?.email || ''}
         />
       </FormField>
 
       <FormField label="Teléfono" name="phone_number" error={errors.phone_number}>
         <Input
+          ref={phoneRef}
           id="phone_number"
           type="tel"
-          value={formData.phone_number}
-          onChange={handlePhoneChange}
           placeholder="+34 612 345 678"
+          defaultValue={userData?.phone_number || ''}
         />
       </FormField>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <FormField label="Fecha de nacimiento" name="birth_date" required error={errors.birth_date}>
-          <div className="relative">
-            <Input
-              id="birth_date"
-              type="date"
-              value={formData.birth_date}
-              onChange={handleBirthDateChange}
-              className={cn(errors.birth_date && "border-red-500")}
-              max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
-              min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
-            />
-            {formData.birth_date && (
-              <p className="text-xs text-gray-500 mt-1">
-                Edad: {calculateAge(formData.birth_date)} años
-              </p>
-            )}
-          </div>
+          <Input
+            ref={birthDateRef}
+            id="birth_date"
+            type="date"
+            className={cn(errors.birth_date && "border-red-500")}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
+            min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
+          />
         </FormField>
 
         <FormField label="Género" name="gender" required error={errors.gender}>
@@ -422,10 +359,10 @@ function InitialRegistrationFormComponent({
               <button
                 key={option.value}
                 type="button"
-                onClick={() => updateField('gender', option.value)}
+                onClick={() => setGender(option.value as any)}
                 className={cn(
                   "flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all",
-                  formData.gender === option.value
+                  gender === option.value
                     ? "border-blue-500 bg-blue-50 text-blue-700"
                     : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                 )}
@@ -445,67 +382,41 @@ function InitialRegistrationFormComponent({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <FormField label="Altura (cm)" name="height" required error={errors.height}>
           <Input
+            ref={heightRef}
             id="height"
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            value={formData.height}
-            onChange={handleHeightChange}
             placeholder="170"
             maxLength={3}
             className={cn(errors.height && "border-red-500")}
           />
-          {formData.height && Number(formData.height) >= 100 && Number(formData.height) <= 250 && (
-            <p className="text-xs text-gray-500 mt-1">
-              {(Number(formData.height) / 100).toFixed(2)} m
-            </p>
-          )}
         </FormField>
 
         <FormField label="Peso actual (kg)" name="weight" required error={errors.weight}>
           <Input
+            ref={weightRef}
             id="weight"
             type="text"
             inputMode="decimal"
             pattern="[0-9]*\.?[0-9]*"
-            value={formData.weight}
-            onChange={handleWeightChange}
             placeholder="70"
             maxLength={5}
             className={cn(errors.weight && "border-red-500")}
           />
-          {formData.weight && Number(formData.weight) >= 30 && Number(formData.weight) <= 300 && (
-            <p className="text-xs text-gray-500 mt-1">
-              IMC: {formData.height && Number(formData.height) >= 100
-                ? ((Number(formData.weight) / Math.pow(Number(formData.height) / 100, 2)).toFixed(1))
-                : '...'
-              }
-            </p>
-          )}
         </FormField>
 
         <FormField label="Peso objetivo (kg)" name="target_weight" error={errors.target_weight}>
           <Input
+            ref={targetWeightRef}
             id="target_weight"
             type="text"
             inputMode="decimal"
             pattern="[0-9]*\.?[0-9]*"
-            value={formData.target_weight}
-            onChange={handleTargetWeightChange}
             placeholder="65"
             maxLength={5}
             className={cn(errors.target_weight && "border-red-500")}
           />
-          {formData.target_weight && formData.weight && (
-            <p className="text-xs text-gray-500 mt-1">
-              {Number(formData.target_weight) < Number(formData.weight)
-                ? `Perder ${(Number(formData.weight) - Number(formData.target_weight)).toFixed(1)} kg`
-                : Number(formData.target_weight) > Number(formData.weight)
-                  ? `Ganar ${(Number(formData.target_weight) - Number(formData.weight)).toFixed(1)} kg`
-                  : 'Mantener peso'
-              }
-            </p>
-          )}
         </FormField>
       </div>
 
@@ -521,10 +432,10 @@ function InitialRegistrationFormComponent({
             <button
               key={option.value}
               type="button"
-              onClick={() => updateField('activity_level', option.value)}
+              onClick={() => setActivityLevel(option.value as any)}
               className={cn(
                 "py-3 px-2 rounded-lg border-2 text-center transition-all",
-                formData.activity_level === option.value
+                activityLevel === option.value
                   ? "border-blue-500 bg-blue-50 text-blue-700"
                   : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
               )}
@@ -547,7 +458,7 @@ function InitialRegistrationFormComponent({
             { num: 6, short: 'S', full: 'Sáb' },
             { num: 7, short: 'D', full: 'Dom' },
           ].map(day => {
-            const isSelected = formData.training_days.includes(day.num);
+            const isSelected = trainingDays.includes(day.num);
             return (
               <button
                 key={day.num}
@@ -566,9 +477,9 @@ function InitialRegistrationFormComponent({
             );
           })}
         </div>
-        {formData.training_days.length > 0 && (
+        {trainingDays.length > 0 && (
           <p className="text-sm text-gray-500 mt-2">
-            {formData.training_days.length} día{formData.training_days.length !== 1 ? 's' : ''} seleccionado{formData.training_days.length !== 1 ? 's' : ''}
+            {trainingDays.length} día{trainingDays.length !== 1 ? 's' : ''} seleccionado{trainingDays.length !== 1 ? 's' : ''}
           </p>
         )}
       </FormField>
@@ -582,10 +493,10 @@ function InitialRegistrationFormComponent({
             <button
               key={option.value}
               type="button"
-              onClick={() => updateField('training_location', option.value)}
+              onClick={() => setTrainingLocation(option.value as any)}
               className={cn(
                 "py-4 px-4 rounded-xl border-2 text-left transition-all",
-                formData.training_location === option.value
+                trainingLocation === option.value
                   ? "border-blue-500 bg-blue-50"
                   : "border-gray-200 bg-white hover:border-gray-300"
               )}
@@ -613,10 +524,10 @@ function InitialRegistrationFormComponent({
             <button
               key={option.value}
               type="button"
-              onClick={() => updateField('main_goal', option.value)}
+              onClick={() => setMainGoal(option.value as any)}
               className={cn(
                 "py-6 px-4 rounded-xl border-2 text-center transition-all",
-                formData.main_goal === option.value
+                mainGoal === option.value
                   ? "border-green-500 bg-green-50 ring-2 ring-green-200"
                   : "border-gray-200 bg-white hover:border-gray-300"
               )}
@@ -636,9 +547,8 @@ function InitialRegistrationFormComponent({
 
         <FormField label="Alergias o intolerancias alimentarias" name="allergies" error={errors.allergies}>
           <Textarea
+            ref={allergiesRef}
             id="allergies"
-            value={formData.allergies}
-            onChange={handleAllergiesChange}
             placeholder="Ej: Intolerancia a la lactosa, alergia a frutos secos..."
             rows={2}
             className="resize-none"
@@ -647,9 +557,8 @@ function InitialRegistrationFormComponent({
 
         <FormField label="Condiciones médicas" name="medical_conditions" error={errors.medical_conditions}>
           <Textarea
+            ref={medicalConditionsRef}
             id="medical_conditions"
-            value={formData.medical_conditions}
-            onChange={handleMedicalConditionsChange}
             placeholder="Ej: Diabetes, hipotiroidismo, lesiones previas..."
             rows={2}
             className="resize-none"
@@ -658,9 +567,8 @@ function InitialRegistrationFormComponent({
 
         <FormField label="Alimentos que no te gustan" name="disliked_foods" error={errors.disliked_foods}>
           <Textarea
+            ref={dislikedFoodsRef}
             id="disliked_foods"
-            value={formData.disliked_foods}
-            onChange={handleDislikedFoodsChange}
             placeholder="Ej: Brócoli, mariscos, hígado..."
             rows={2}
             className="resize-none"
@@ -736,14 +644,5 @@ function InitialRegistrationFormComponent({
   );
 }
 
-// Memoizar el componente completo para evitar re-renders innecesarios
-export const InitialRegistrationForm = React.memo(InitialRegistrationFormComponent, (prevProps, nextProps) => {
-  // Solo re-renderizar si cambian props importantes
-  return (
-    prevProps.isLoading === nextProps.isLoading &&
-    prevProps.userData?.first_name === nextProps.userData?.first_name &&
-    prevProps.userData?.last_name === nextProps.userData?.last_name &&
-    prevProps.userData?.email === nextProps.userData?.email &&
-    prevProps.userData?.phone_number === nextProps.userData?.phone_number
-  );
-});
+// No necesitamos memo ya que usamos refs
+export const InitialRegistrationForm = InitialRegistrationFormComponent;
