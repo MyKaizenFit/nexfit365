@@ -403,7 +403,7 @@ function DashboardContent() {
             <SidebarHeader>
               <div className="flex items-center gap-2 px-4 py-2">
                 <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
-                  <img src="/icon.svg" alt="NEXFIT" className="w-full h-full" />
+                  <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <div className="flex items-center">
