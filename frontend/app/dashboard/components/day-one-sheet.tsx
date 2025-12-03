@@ -403,15 +403,18 @@ export function DayOneSheet() {
                 <div className="space-y-4">
                   {/* Galería de fotos */}
                   <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 overflow-hidden group">
-                    <div className="flex items-center justify-center min-h-[280px]">
-                      <div className="relative">
-                        <Image
-                          src={sortedPhotos[currentPhotoIndex]?.photo_url || "/placeholder.svg"}
-                          alt={`Progreso ${sortedPhotos[currentPhotoIndex]?.date || 'Sin fecha'}`}
-                          width={200}
-                          height={280}
-                          className="rounded-lg object-cover shadow-lg border-2 border-white/50 transition-all duration-500"
-                        />
+                    <div className="flex items-center justify-center min-h-[280px] sm:min-h-[350px]">
+                      <div className="relative w-full max-w-[250px] sm:max-w-[300px]">
+                        <div className="relative aspect-[3/4] w-full">
+                          <Image
+                            src={sortedPhotos[currentPhotoIndex]?.photo_url || "/placeholder.svg"}
+                            alt={`Progreso ${sortedPhotos[currentPhotoIndex]?.date || 'Sin fecha'}`}
+                            fill
+                            className="rounded-lg object-cover shadow-lg border-2 border-white/50 transition-all duration-500"
+                            sizes="(max-width: 640px) 250px, 300px"
+                            quality={90}
+                          />
+                        </div>
                         {/* Overlay con info */}
                         <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-sm rounded-md p-2">
                           <div className="text-white text-sm text-center">
@@ -466,19 +469,22 @@ export function DayOneSheet() {
                         <button
                           key={photo.id}
                           onClick={() => setCurrentPhotoIndex(index)}
-                          className={`relative w-14 h-18 rounded-md overflow-hidden border-2 transition-all ${
+                          className={`relative w-14 h-18 rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${
                             index === currentPhotoIndex
                               ? "border-primary shadow-md scale-105"
                               : "border-gray-200 hover:border-gray-400"
                           }`}
                         >
-                          <Image
-                            src={photo.photo_url || "/placeholder.svg"}
-                            alt={`Miniatura ${index + 1}`}
-                            width={56}
-                            height={72}
-                            className="object-cover"
-                          />
+                          <div className="relative w-full h-full">
+                            <Image
+                              src={photo.photo_url || "/placeholder.svg"}
+                              alt={`Miniatura ${index + 1}`}
+                              fill
+                              className="object-cover"
+                              sizes="56px"
+                              quality={85}
+                            />
+                          </div>
                         </button>
                       ))}
                     </div>
@@ -510,27 +516,33 @@ export function DayOneSheet() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center">Día 1</p>
-                    <Image 
-                      src={firstPhoto.photo_url || '/placeholder.svg'} 
-                      alt="Día 1"
-                      width={200}
-                      height={280}
-                      className="w-full h-40 sm:h-56 md:h-64 object-cover rounded-lg border-2 border-pink-300"
-                    />
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Día 1</p>
+                    <div className="relative aspect-[3/4] w-full">
+                      <Image 
+                        src={firstPhoto.photo_url || '/placeholder.svg'} 
+                        alt="Día 1"
+                        fill
+                        className="object-cover rounded-lg border-2 border-pink-300 shadow-md"
+                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 250px"
+                        quality={90}
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(firstPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center">Ahora</p>
-                    <Image 
-                      src={latestPhoto.photo_url || '/placeholder.svg'} 
-                      alt="Ahora"
-                      width={200}
-                      height={280}
-                      className="w-full h-40 sm:h-56 md:h-64 object-cover rounded-lg border-2 border-indigo-300"
-                    />
+                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Ahora</p>
+                    <div className="relative aspect-[3/4] w-full">
+                      <Image 
+                        src={latestPhoto.photo_url || '/placeholder.svg'} 
+                        alt="Ahora"
+                        fill
+                        className="object-cover rounded-lg border-2 border-indigo-300 shadow-md"
+                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 250px"
+                        quality={90}
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(latestPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
