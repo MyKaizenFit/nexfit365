@@ -402,13 +402,14 @@ function DashboardContent() {
           <Sidebar className="flex-shrink-0 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
             <SidebarHeader>
               <div className="flex items-center gap-2 px-4 py-2">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex-shrink-0 shadow-lg animate-gentle-pulse">
-                  <Target className="size-4" />
+                <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+                  <img src="/icon.svg" alt="NEXFIT" className="w-full h-full" />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                  <span className="truncate font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                    NutriApp
-                  </span>
+                  <div className="flex items-center">
+                    <span className="font-bold text-orange-500">NEX</span>
+                    <span className="font-bold text-gray-600">FIT</span>
+                  </div>
                   <span className="truncate text-xs text-gray-500">Dashboard</span>
                 </div>
               </div>

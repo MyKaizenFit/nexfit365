@@ -9,11 +9,15 @@ import { BetaBanner } from '@/components/beta-banner'
 // import { ThemeProvider } from '@/components/theme-provider'  // Deshabilitado para esta versión
 
 export const metadata: Metadata = {
-  title: 'Nex-Fit - Tu Compañero de Fitness',
+  title: 'NEXFIT - Tu Compañero de Fitness',
   description: 'Aplicación completa de fitness y bienestar para gestionar entrenamientos, nutrición y progreso',
-  generator: 'Nex-Fit v1.0',
+  generator: 'NEXFIT v1.0',
   keywords: 'fitness, entrenamiento, nutrición, progreso, bienestar',
-  authors: [{ name: 'Nex-Fit Team' }],
+  authors: [{ name: 'NEXFIT Team' }],
+  icons: {
+    icon: '/icon.svg',
+    apple: '/icon.svg',
+  },
 }
 
 export default function RootLayout({

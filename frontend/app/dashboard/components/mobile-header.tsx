@@ -83,13 +83,20 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     <header className="sticky top-0 z-40 w-full border-b border-white/20 backdrop-blur-lg bg-white/80 md:hidden safe-area-pt">
       <div className="responsive-flex h-16 items-center justify-between px-6 sm:px-8 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
-        <div className="responsive-flex items-center gap-4 sm:gap-5 min-w-0 flex-1">
-          <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex-shrink-0 shadow-lg animate-gentle-pulse">
-            <span className="text-sm font-bold">N</span>
+        <div className="responsive-flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+            <img src="/icon.svg" alt="NEXFIT" className="w-full h-full" />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-xl font-semibold responsive-text bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-              {sectionTitles[selectedSection] || "NutriApp"}
+            <h1 className="text-lg sm:text-xl font-semibold responsive-text">
+              {sectionTitles[selectedSection] ? (
+                sectionTitles[selectedSection]
+              ) : (
+                <span>
+                  <span className="text-orange-500">NEX</span>
+                  <span className="text-gray-600">FIT</span>
+                </span>
+              )}
             </h1>
           </div>
         </div>
