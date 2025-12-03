@@ -71,11 +71,11 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-black/10 pointer-events-none"></div>
           <div className="relative max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
             <div className="text-center">
-              <div className="mx-auto w-24 h-24 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-6">
-                <Target className="w-12 h-12 text-white" />
+              <div className="mx-auto w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-3">
+                <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
               </div>
               <h1 className="text-5xl md:text-6xl font-bold mb-4">
-                ¡Bienvenido a Nex-Fit! 🎉
+                ¡Bienvenido a <span className="text-orange-400">NEX</span><span className="text-gray-200">FIT</span>! 🎉
               </h1>
               <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
                 Tu compañero personal para alcanzar tus objetivos de fitness y transformar tu vida
@@ -447,15 +447,17 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
-        <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center mb-8 animate-pulse shadow-2xl">
-          <Target className="w-12 h-12 text-white" />
+        <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl p-2 bg-white">
+          <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-gray-800">Cargando Nex-Fit...</h1>
+        <h1 className="text-4xl font-bold mb-4 text-gray-800">
+          Cargando <span className="text-orange-500">NEX</span><span className="text-gray-600">FIT</span>...
+        </h1>
         <p className="text-gray-600 text-lg mb-6">Preparando tu experiencia personalizada</p>
         <div className="flex justify-center gap-2">
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce"></div>
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce"></div>
+          <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+          <div className="w-3 h-3 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
         </div>
       </div>
     </div>
