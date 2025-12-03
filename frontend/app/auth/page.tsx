@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, Suspense, ChangeEvent } from "react"
+import Image from "next/image"
 import { Eye, EyeOff, Sparkles, Heart, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -216,13 +217,12 @@ function AuthPageContent() {
 
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
         <CardHeader className="text-center space-y-4 pb-8">
-          <div className="mx-auto w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center animate-bounce shadow-xl">
-            <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+          <div className="mx-auto w-20 h-20 rounded-2xl overflow-hidden flex items-center justify-center animate-bounce shadow-xl bg-black">
+            <Image src="/icono.png" alt="NEXFIT" width={80} height={80} className="w-full h-full" priority quality={100} />
           </div>
-          <CardTitle className="text-3xl font-bold">
-            <span className="text-orange-500">NEX</span>
-            <span className="text-gray-700">FIT</span>
-          </CardTitle>
+          <div className="flex items-center justify-center gap-1">
+            <Image src="/NexFit.png" alt="NEXFIT Logo" width={200} height={60} quality={100} priority />
+          </div>
           <CardDescription className="text-gray-600 text-lg">
             {isLogin ? "¡Hola de nuevo! 👋 Nos alegra verte de vuelta" : "¡Únete a nosotros! 🎉 Comienza tu transformación hoy"}
           </CardDescription>

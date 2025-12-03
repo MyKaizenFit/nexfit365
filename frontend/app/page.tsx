@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -71,8 +72,8 @@ export default function HomePage() {
           <div className="absolute inset-0 bg-black/10 pointer-events-none"></div>
           <div className="relative max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
             <div className="text-center">
-              <div className="mx-auto w-24 h-24 bg-white/20 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-3">
-                <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+              <div className="mx-auto w-24 h-24 bg-black/50 backdrop-blur-sm rounded-3xl overflow-hidden flex items-center justify-center mb-6 p-3">
+                <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
               </div>
               <h1 className="text-5xl md:text-6xl font-bold mb-4">
                 ¡Bienvenido a <span className="text-orange-400">NEX</span><span className="text-gray-200">FIT</span>! 🎉
@@ -447,8 +448,8 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
-        <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl p-2 bg-white">
-          <img src="/icon.png" alt="NEXFIT" className="w-full h-full object-cover" />
+        <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl bg-black">
+          <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
         </div>
         <h1 className="text-4xl font-bold mb-4 text-gray-800">
           Cargando <span className="text-orange-500">NEX</span><span className="text-gray-600">FIT</span>...
