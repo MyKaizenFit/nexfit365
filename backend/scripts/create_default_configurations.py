@@ -27,11 +27,23 @@ def create_default_configurations():
         'maintain': NutritionPlan.objects.filter(name__icontains='Mantenimiento', is_template=True).first(),
     }
     
-    workout_programs = {
+    # Programas de entrenamiento por ubicación y objetivo
+    workout_programs = {}
+    
+    # Para gym y home
+    workout_programs_default = {
         'lose_weight': WorkoutProgram.objects.filter(name__icontains='Definición').first() or WorkoutProgram.objects.filter(name__icontains='Pérdida').first(),
         'gain_muscle': WorkoutProgram.objects.filter(name__icontains='Full Body').first() or WorkoutProgram.objects.filter(name__icontains='Ganancia').first(),
         'body_recomposition': WorkoutProgram.objects.filter(name__icontains='Glúteos').first() or WorkoutProgram.objects.filter(name__icontains='Recomposición').first(),
         'maintain': WorkoutProgram.objects.filter(name__icontains='Principiante').first(),
+    }
+    
+    # Para outdoor
+    workout_programs_outdoor = {
+        'lose_weight': WorkoutProgram.objects.filter(name__icontains='Outdoor - Pérdida').first(),
+        'gain_muscle': WorkoutProgram.objects.filter(name__icontains='Outdoor - Calistenia').first(),
+        'body_recomposition': WorkoutProgram.objects.filter(name__icontains='Outdoor - Recomposición').first(),
+        'maintain': WorkoutProgram.objects.filter(name__icontains='Outdoor - Mantenimiento').first(),
     }
     
     print("📋 Planes disponibles:")
@@ -44,7 +56,7 @@ def create_default_configurations():
     
     # Combinaciones principales: Objetivo + Ubicación + Nivel de actividad
     goals = ['lose_weight', 'gain_muscle', 'body_recomposition', 'maintain']
-    locations = ['home', 'gym']
+    locations = ['home', 'gym', 'outdoor']
     activity_levels = ['sedentary', 'light', 'moderate', 'active', 'very_active']
     
     goal_names = {
@@ -56,7 +68,8 @@ def create_default_configurations():
     
     location_names = {
         'home': 'Casa',
-        'gym': 'Gimnasio'
+        'gym': 'Gimnasio',
+        'outdoor': 'Aire Libre'
     }
     
     activity_names = {
@@ -81,6 +94,12 @@ def create_default_configurations():
             for activity in activity_levels:
                 min_days, max_days = training_days_map[activity]
                 
+                # Seleccionar programa de entrenamiento según ubicación
+                if location == 'outdoor':
+                    workout_program = workout_programs_outdoor.get(goal)
+                else:
+                    workout_program = workout_programs_default.get(goal)
+                
                 config_data = {
                     'name': f"{goal_names[goal]} - {location_names[location]} - {activity_names[activity]}",
                     'description': f"Configuración automática para usuarios con objetivo de {goal_names[goal].lower()}, entrenando en {location_names[location].lower()} con nivel de actividad {activity_names[activity].lower()}",
@@ -92,7 +111,7 @@ def create_default_configurations():
                     'min_training_days_per_week': min_days,
                     'max_training_days_per_week': max_days,
                     'nutrition_plan': nutrition_plans.get(goal),
-                    'workout_program': workout_programs.get(goal),
+                    'workout_program': workout_program,
                 }
                 
                 configurations_data.append(config_data)
