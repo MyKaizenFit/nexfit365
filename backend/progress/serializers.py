@@ -58,6 +58,11 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
                         stats.current_weight = instance.weight
                         stats.save()
                         logger.info(f"✅ UserStats actualizado con peso: {instance.weight} kg")
+                        
+                        # IMPORTANTE: Actualizar también el peso en el perfil del usuario
+                        user.weight = instance.weight
+                        user.save(update_fields=['weight'])
+                        logger.info(f"✅ Peso del usuario actualizado: {instance.weight} kg")
                 except Exception as weight_error:
                     logger.warning(f"⚠️ No se pudo crear entrada de peso automática: {weight_error}")
             
@@ -213,12 +218,21 @@ class WeightEntrySerializer(serializers.ModelSerializer):
                     if not stats.transformation_start_date:
                         stats.transformation_start_date = validated_data.get('date', timezone.now().date())
                     stats.save()
+                
+                # Actualizar peso del usuario también
+                user.weight = validated_data['weight']
+                user.save(update_fields=['weight'])
                 logger.info(f"✅ Peso inicial guardado: {validated_data['weight']} kg")
             else:
                 # Actualizar peso actual en UserStats
                 stats, created = UserStats.objects.get_or_create(user=user)
                 stats.current_weight = validated_data['weight']
                 stats.save()
+            
+            # IMPORTANTE: Actualizar también el peso en el perfil del usuario para mantener sincronizado
+            user.weight = validated_data['weight']
+            user.save(update_fields=['weight'])
+            logger.info(f"✅ Peso del usuario actualizado: {validated_data['weight']} kg")
             
             # Crear la entrada sin validación adicional
             entry = WeightEntry.objects.create(
