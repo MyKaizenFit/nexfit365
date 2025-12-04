@@ -55,6 +55,7 @@ def create_default_configurations():
     priority = 10
     
     # Combinaciones principales: Objetivo + Ubicación + Nivel de actividad
+    # IMPORTANTE: El orden debe coincidir con el orden en que el frontend genera las combinaciones
     goals = ['lose_weight', 'gain_muscle', 'body_recomposition', 'maintain']
     locations = ['home', 'gym', 'outdoor']
     activity_levels = ['sedentary', 'light', 'moderate', 'active', 'very_active']
