@@ -1,6 +1,8 @@
 from rest_framework import serializers
 
-from .models import DashboardData, WellnessTip
+from .models import DashboardData, WellnessTip, DefaultPlanConfiguration
+from nutrition.models import NutritionPlan
+from workouts.models import WorkoutProgram
 
 
 class DashboardDataSerializer(serializers.ModelSerializer):
@@ -133,4 +135,101 @@ class WellnessTipSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "author_name", "author_email"]
 
 
-# DefaultPlanConfigurationSerializer fue eliminado porque el modelo ya no existe
+class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
+    """Serializer para configuraciones de planes por defecto"""
+    
+    default_nutrition_plan = serializers.SerializerMethodField()
+    default_workout_program = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = DefaultPlanConfiguration
+        fields = [
+            'id', 'name', 'description', 'priority', 'is_active',
+            'main_goal', 'training_location', 'activity_level', 'gender',
+            'min_training_days_per_week', 'max_training_days_per_week',
+            'age_min', 'age_max', 'dietary_restrictions', 'equipment_keywords',
+            'default_nutrition_plan', 'default_workout_program',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+    
+    def get_default_nutrition_plan(self, obj):
+        if obj.default_nutrition_plan:
+            return {
+                'id': str(obj.default_nutrition_plan.id),
+                'name': obj.default_nutrition_plan.name,
+            }
+        return None
+    
+    def get_default_workout_program(self, obj):
+        if obj.default_workout_program:
+            return {
+                'id': str(obj.default_workout_program.id),
+                'name': obj.default_workout_program.name,
+            }
+        return None
+
+
+class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer para crear/actualizar configuraciones de planes por defecto"""
+    
+    default_nutrition_plan_id = serializers.UUIDField(required=False, allow_null=True)
+    default_workout_program_id = serializers.UUIDField(required=False, allow_null=True)
+    
+    class Meta:
+        model = DefaultPlanConfiguration
+        fields = [
+            'name', 'description', 'priority', 'is_active',
+            'main_goal', 'training_location', 'activity_level', 'gender',
+            'min_training_days_per_week', 'max_training_days_per_week',
+            'age_min', 'age_max', 'dietary_restrictions', 'equipment_keywords',
+            'default_nutrition_plan_id', 'default_workout_program_id'
+        ]
+    
+    def validate(self, attrs):
+        # Validar que el plan nutricional existe
+        nutrition_plan_id = attrs.get('default_nutrition_plan_id')
+        if nutrition_plan_id:
+            if not NutritionPlan.objects.filter(id=nutrition_plan_id).exists():
+                raise serializers.ValidationError({
+                    'default_nutrition_plan_id': 'Plan nutricional no encontrado'
+                })
+        
+        # Validar que el programa de entrenamiento existe
+        workout_program_id = attrs.get('default_workout_program_id')
+        if workout_program_id:
+            if not WorkoutProgram.objects.filter(id=workout_program_id).exists():
+                raise serializers.ValidationError({
+                    'default_workout_program_id': 'Programa de entrenamiento no encontrado'
+                })
+        
+        return attrs
+    
+    def create(self, validated_data):
+        nutrition_plan_id = validated_data.pop('default_nutrition_plan_id', None)
+        workout_program_id = validated_data.pop('default_workout_program_id', None)
+        
+        config = DefaultPlanConfiguration.objects.create(**validated_data)
+        
+        if nutrition_plan_id:
+            config.default_nutrition_plan_id = nutrition_plan_id
+        if workout_program_id:
+            config.default_workout_program_id = workout_program_id
+        
+        config.save()
+        return config
+    
+    def update(self, instance, validated_data):
+        nutrition_plan_id = validated_data.pop('default_nutrition_plan_id', None)
+        workout_program_id = validated_data.pop('default_workout_program_id', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        if nutrition_plan_id is not None:
+            instance.default_nutrition_plan_id = nutrition_plan_id
+        if workout_program_id is not None:
+            instance.default_workout_program_id = workout_program_id
+        
+        instance.save()
+        return instance
