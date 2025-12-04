@@ -9,11 +9,12 @@ from django.core.cache import cache
 from datetime import timedelta, datetime
 import calendar
 
-from .models import DashboardData, UserStats, WellnessTip
+from .models import DashboardData, UserStats, WellnessTip, DefaultPlanConfiguration
 from .serializers import (
     DashboardDataSerializer, DashboardTodaySerializer, 
     DashboardWeeklySerializer, DashboardMonthlySerializer,
-    DashboardStatsSerializer, WellnessTipSerializer
+    DashboardStatsSerializer, WellnessTipSerializer,
+    DefaultPlanConfigurationSerializer, DefaultPlanConfigurationCreateUpdateSerializer
 )
 from .permissions import DashboardPermission, DashboardDataPermission
 from accounts.models import CustomUser
@@ -651,3 +652,89 @@ class WellnessTipViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para configuraciones de planes por defecto.
+    Solo accesible para administradores.
+    """
+    queryset = DefaultPlanConfiguration.objects.all()
+    permission_classes = [IsAdminUser]
+    
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return DefaultPlanConfigurationCreateUpdateSerializer
+        return DefaultPlanConfigurationSerializer
+    
+    def get_queryset(self):
+        queryset = DefaultPlanConfiguration.objects.select_related(
+            'default_nutrition_plan',
+            'default_workout_program'
+        ).all()
+        
+        # Filtros opcionales
+        is_active = self.request.query_params.get('is_active')
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == 'true')
+        
+        main_goal = self.request.query_params.get('main_goal')
+        if main_goal:
+            queryset = queryset.filter(main_goal=main_goal)
+        
+        return queryset.order_by('priority', 'created_at')
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        
+        # Devolver con el serializer de lectura
+        read_serializer = DefaultPlanConfigurationSerializer(instance)
+        return Response(read_serializer.data, status=status.HTTP_201_CREATED)
+    
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        instance = serializer.save()
+        
+        # Devolver con el serializer de lectura
+        read_serializer = DefaultPlanConfigurationSerializer(instance)
+        return Response(read_serializer.data)
+    
+    @action(detail=False, methods=['get'])
+    def match_user(self, request):
+        """
+        Endpoint para obtener la mejor configuración para un perfil de usuario dado.
+        """
+        user_id = request.query_params.get('user_id')
+        if not user_id:
+            return Response(
+                {'error': 'user_id es requerido'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            user = CustomUser.objects.get(id=user_id)
+        except CustomUser.DoesNotExist:
+            return Response(
+                {'error': 'Usuario no encontrado'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Buscar configuración que coincida, ordenada por prioridad
+        configurations = DefaultPlanConfiguration.objects.filter(
+            is_active=True
+        ).order_by('priority')
+        
+        for config in configurations:
+            if config.matches_user_profile(user):
+                serializer = DefaultPlanConfigurationSerializer(config)
+                return Response(serializer.data)
+        
+        return Response(
+            {'message': 'No se encontró configuración que coincida'}, 
+            status=status.HTTP_404_NOT_FOUND
+        )
