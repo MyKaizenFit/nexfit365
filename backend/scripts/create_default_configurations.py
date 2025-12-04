@@ -54,11 +54,21 @@ def create_default_configurations():
     configurations_data = []
     priority = 10
     
-    # Combinaciones principales: Objetivo + Ubicación + Nivel de actividad
+    # Combinaciones principales: Objetivo + Ubicación + Nivel de actividad + Género (opcional) + Edad (opcional)
     # IMPORTANTE: El orden debe coincidir con el orden en que el frontend genera las combinaciones
     goals = ['lose_weight', 'gain_muscle', 'body_recomposition', 'maintain']
     locations = ['home', 'gym', 'outdoor']
     activity_levels = ['sedentary', 'light', 'moderate', 'active', 'very_active']
+    genders = [None, 'male', 'female']  # None = para todos, male = hombres, female = mujeres
+    
+    # Rangos de edad: (age_min, age_max, descripción)
+    age_ranges = [
+        (None, None, ''),  # Sin rango específico (para todas las edades)
+        (18, 30, ' - Jóvenes'),
+        (31, 45, ' - Adultos'),
+        (46, 60, ' - Adultos Maduros'),
+        (61, None, ' - Seniors')
+    ]
     
     goal_names = {
         'lose_weight': 'Pérdida de Peso',
@@ -81,6 +91,12 @@ def create_default_configurations():
         'very_active': 'Muy Activo'
     }
     
+    gender_names = {
+        None: '',
+        'male': ' - Hombres',
+        'female': ' - Mujeres'
+    }
+    
     # Mapeo de días de entrenamiento según nivel de actividad
     training_days_map = {
         'sedentary': (1, 3),
@@ -93,41 +109,68 @@ def create_default_configurations():
     for goal in goals:
         for location in locations:
             for activity in activity_levels:
-                min_days, max_days = training_days_map[activity]
-                
-                # Seleccionar programa de entrenamiento según ubicación
-                if location == 'outdoor':
-                    workout_program = workout_programs_outdoor.get(goal)
-                else:
-                    workout_program = workout_programs_default.get(goal)
-                
-                config_data = {
-                    'name': f"{goal_names[goal]} - {location_names[location]} - {activity_names[activity]}",
-                    'description': f"Configuración automática para usuarios con objetivo de {goal_names[goal].lower()}, entrenando en {location_names[location].lower()} con nivel de actividad {activity_names[activity].lower()}",
-                    'priority': priority,
-                    'is_active': True,
-                    'main_goal': goal,
-                    'training_location': location,
-                    'activity_level': activity,
-                    'min_training_days_per_week': min_days,
-                    'max_training_days_per_week': max_days,
-                    'nutrition_plan': nutrition_plans.get(goal),
-                    'workout_program': workout_program,
-                }
-                
-                configurations_data.append(config_data)
-                priority += 1
+                for gender in genders:
+                    for age_min, age_max, age_desc in age_ranges:
+                        min_days, max_days = training_days_map[activity]
+                        
+                        # Seleccionar programa de entrenamiento según ubicación
+                        if location == 'outdoor':
+                            workout_program = workout_programs_outdoor.get(goal)
+                        else:
+                            workout_program = workout_programs_default.get(goal)
+                        
+                        # Nombre con género y edad
+                        gender_suffix = gender_names[gender]
+                        base_name = f"{goal_names[goal]} - {location_names[location]} - {activity_names[activity]}"
+                        config_name = base_name + gender_suffix + age_desc
+                        
+                        # Descripción
+                        gender_desc_text = ""
+                        if gender:
+                            gender_desc_text = f" específico para {gender_names[gender].strip(' -').lower()}"
+                        
+                        age_desc_text = ""
+                        if age_min or age_max:
+                            if age_min and age_max:
+                                age_desc_text = f" entre {age_min} y {age_max} años"
+                            elif age_min:
+                                age_desc_text = f" mayores de {age_min} años"
+                            elif age_max:
+                                age_desc_text = f" menores de {age_max} años"
+                        
+                        config_data = {
+                            'name': config_name,
+                            'description': f"Configuración automática para usuarios con objetivo de {goal_names[goal].lower()}, entrenando en {location_names[location].lower()} con nivel de actividad {activity_names[activity].lower()}{gender_desc_text}{age_desc_text}",
+                            'priority': priority,
+                            'is_active': True,
+                            'main_goal': goal,
+                            'training_location': location,
+                            'activity_level': activity,
+                            'gender': gender,
+                            'age_min': age_min,
+                            'age_max': age_max,
+                            'min_training_days_per_week': min_days,
+                            'max_training_days_per_week': max_days,
+                            'nutrition_plan': nutrition_plans.get(goal),
+                            'workout_program': workout_program,
+                        }
+                        
+                        configurations_data.append(config_data)
+                        priority += 1
     
     # Crear configuraciones
     created_count = 0
     skipped_count = 0
     
     for config_data in configurations_data:
-        # Verificar si ya existe
+        # Verificar si ya existe (incluyendo género y edad en la búsqueda)
         existing = DefaultPlanConfiguration.objects.filter(
             main_goal=config_data['main_goal'],
             training_location=config_data['training_location'],
-            activity_level=config_data['activity_level']
+            activity_level=config_data['activity_level'],
+            gender=config_data['gender'],
+            age_min=config_data['age_min'],
+            age_max=config_data['age_max']
         ).first()
         
         if existing:
