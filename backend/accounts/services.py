@@ -81,7 +81,7 @@ def get_default_nutrition_plan_for_user(user):
 
 def assign_default_plans_to_user(user):
     """
-    Asigna planes por defecto a un usuario nuevo.
+    Asigna planes por defecto a un usuario nuevo (método legacy).
     """
     from workouts.models import WorkoutProgram
     from nutrition.models import NutritionPlan
@@ -134,3 +134,135 @@ def assign_default_plans_to_user(user):
         results['nutrition_plan'] = plan
     
     return results
+
+
+class AssignmentResult:
+    """Resultado de la asignación automática de planes"""
+    def __init__(self, configuration=None, nutrition_plan=None, workout_program=None):
+        self.configuration = configuration
+        self.nutrition_plan = nutrition_plan
+        self.workout_program = workout_program
+
+
+class DefaultPlanAssignmentService:
+    """
+    Servicio para asignar planes automáticamente usando DefaultPlanConfiguration
+    """
+    def __init__(self, user):
+        self.user = user
+    
+    def find_best_configuration(self):
+        """Encontrar la mejor configuración para el usuario"""
+        from dashboard.models import DefaultPlanConfiguration
+        
+        # Buscar configuraciones activas ordenadas por prioridad
+        configurations = DefaultPlanConfiguration.objects.filter(
+            is_active=True
+        ).order_by('priority')
+        
+        # Buscar la primera que coincida con el perfil del usuario
+        for config in configurations:
+            if config.matches_user_profile(self.user):
+                return config
+        
+        # Si no hay coincidencia exacta, buscar solo por objetivo
+        if self.user.main_goal:
+            config = DefaultPlanConfiguration.objects.filter(
+                is_active=True,
+                main_goal=self.user.main_goal,
+                gender__isnull=True,  # Configuración genérica
+                age_min__isnull=True,  # Sin restricción de edad
+            ).order_by('priority').first()
+            
+            if config:
+                return config
+        
+        # Como último recurso, devolver la configuración de mayor prioridad (menor número)
+        return DefaultPlanConfiguration.objects.filter(is_active=True).order_by('priority').first()
+    
+    def assign(self):
+        """Asignar planes al usuario basado en configuración"""
+        from workouts.models import WorkoutProgram
+        from nutrition.models import NutritionPlan, PlanMeal
+        from django.utils import timezone
+        from datetime import timedelta
+        
+        # Encontrar la mejor configuración
+        configuration = self.find_best_configuration()
+        
+        if not configuration:
+            return AssignmentResult()
+        
+        nutrition_plan = None
+        workout_program = None
+        
+        # Asignar plan nutricional
+        if configuration.default_nutrition_plan:
+            template = configuration.default_nutrition_plan
+            
+            # Crear plan personalizado para el usuario
+            nutrition_plan = NutritionPlan.objects.create(
+                user=self.user,
+                name=f"{template.name} - {self.user.first_name}",
+                description=template.description,
+                daily_calories=template.daily_calories,
+                protein_grams=template.protein_grams,
+                carbs_grams=template.carbs_grams,
+                fat_grams=template.fat_grams,
+                fiber_grams=template.fiber_grams,
+                goal=template.goal,
+                diet_type=template.diet_type,
+                meals_per_day=template.meals_per_day,
+                duration_weeks=template.duration_weeks,
+                is_template=False,
+                is_system=False,
+                is_active=True,
+                start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(weeks=template.duration_weeks),
+                tags=template.tags,
+                created_by=self.user
+            )
+            
+            # Copiar comidas del template
+            for meal_template in template.meals.all():
+                meal = PlanMeal.objects.create(
+                    plan=nutrition_plan,
+                    name=meal_template.name,
+                    meal_type=meal_template.meal_type,
+                    time=meal_template.time,
+                    calories=meal_template.calories,
+                    protein=meal_template.protein,
+                    carbs=meal_template.carbs,
+                    fat=meal_template.fat,
+                    description=meal_template.description,
+                    order_index=meal_template.order_index
+                )
+                # Copiar recetas sugeridas
+                meal.suggested_recipes.set(meal_template.suggested_recipes.all())
+        
+        # Asignar programa de entrenamiento
+        if configuration.default_workout_program:
+            template_program = configuration.default_workout_program
+            
+            # Crear programa personalizado para el usuario
+            workout_program = WorkoutProgram.objects.create(
+                user=self.user,
+                name=f"{template_program.name} - {self.user.first_name}",
+                description=template_program.description,
+                difficulty=template_program.difficulty,
+                goal=template_program.goal,
+                duration_weeks=template_program.duration_weeks,
+                days_per_week=template_program.days_per_week,
+                equipment_needed=template_program.equipment_needed,
+                tags=template_program.tags,
+                is_template=False,
+                is_active=True,
+                start_date=timezone.now().date(),
+                created_by=None
+            )
+        
+        return AssignmentResult(
+            configuration=configuration,
+            nutrition_plan=nutrition_plan,
+            workout_program=workout_program
+        )
