@@ -25,7 +25,6 @@ import { useWeightHistory } from "@/hooks/use-weight-history"
 import { userService } from "@/lib/user-service"
 import { format, differenceInDays, differenceInMonths, startOfMonth, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
-import Image from "next/image"
 
 export function DayOneSheet() {
   const { profile, loading: profileLoading, updateProfile } = useUserProfile()
@@ -405,16 +404,12 @@ export function DayOneSheet() {
                   <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 overflow-hidden group">
                     <div className="flex items-center justify-center min-h-[280px] sm:min-h-[350px]">
                       <div className="relative w-full max-w-[250px] sm:max-w-[300px]">
-                        <div className="relative aspect-[3/4] w-full">
-                          <Image
-                            src={sortedPhotos[currentPhotoIndex]?.photo_url || "/placeholder.svg"}
-                            alt={`Progreso ${sortedPhotos[currentPhotoIndex]?.date || 'Sin fecha'}`}
-                            fill
-                            className="rounded-lg object-cover shadow-lg border-2 border-white/50 transition-all duration-500"
-                            sizes="(max-width: 640px) 250px, 300px"
-                            quality={90}
-                          />
-                        </div>
+                        <img
+                          src={sortedPhotos[currentPhotoIndex]?.photo_url || "/placeholder.svg"}
+                          alt={`Progreso ${sortedPhotos[currentPhotoIndex]?.date || 'Sin fecha'}`}
+                          className="w-full aspect-[3/4] rounded-lg object-cover shadow-lg border-2 border-white/50 transition-all duration-500"
+                          loading="eager"
+                        />
                         {/* Overlay con info */}
                         <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-sm rounded-md p-2">
                           <div className="text-white text-sm text-center">
@@ -475,16 +470,12 @@ export function DayOneSheet() {
                               : "border-gray-200 hover:border-gray-400"
                           }`}
                         >
-                          <div className="relative w-full h-full">
-                            <Image
-                              src={photo.photo_url || "/placeholder.svg"}
-                              alt={`Miniatura ${index + 1}`}
-                              fill
-                              className="object-cover"
-                              sizes="56px"
-                              quality={85}
-                            />
-                          </div>
+                          <img
+                            src={photo.photo_url || "/placeholder.svg"}
+                            alt={`Miniatura ${index + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
                         </button>
                       ))}
                     </div>
@@ -517,32 +508,24 @@ export function DayOneSheet() {
                 <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Día 1</p>
-                    <div className="relative aspect-[3/4] w-full">
-                      <Image 
-                        src={firstPhoto.photo_url || '/placeholder.svg'} 
-                        alt="Día 1"
-                        fill
-                        className="object-cover rounded-lg border-2 border-pink-300 shadow-md"
-                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 250px"
-                        quality={90}
-                      />
-                    </div>
+                    <img 
+                      src={firstPhoto.photo_url || '/placeholder.svg'} 
+                      alt="Día 1"
+                      className="w-full aspect-[3/4] object-cover rounded-lg border-2 border-pink-300 shadow-md"
+                      loading="lazy"
+                    />
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(firstPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Ahora</p>
-                    <div className="relative aspect-[3/4] w-full">
-                      <Image 
-                        src={latestPhoto.photo_url || '/placeholder.svg'} 
-                        alt="Ahora"
-                        fill
-                        className="object-cover rounded-lg border-2 border-indigo-300 shadow-md"
-                        sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 250px"
-                        quality={90}
-                      />
-                    </div>
+                    <img 
+                      src={latestPhoto.photo_url || '/placeholder.svg'} 
+                      alt="Ahora"
+                      className="w-full aspect-[3/4] object-cover rounded-lg border-2 border-indigo-300 shadow-md"
+                      loading="lazy"
+                    />
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(latestPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
