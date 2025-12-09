@@ -8,12 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
-import { 
-  Dumbbell, 
-  Target, 
-  Calendar, 
-  Clock, 
-  TrendingUp, 
+import {
+  Dumbbell,
+  Target,
+  Calendar,
+  Clock,
+  TrendingUp,
   Play,
   CheckCircle,
   Plus,
@@ -26,13 +26,13 @@ import { WorkoutScheduleConfig } from '@/components/workout-schedule-config'
 
 export default function EntrenamientosPage() {
   const { user, isAuthenticated } = useAuth()
-  const { 
-    activeProgram, 
-    workoutPrograms, 
-    templates, 
-    exercises, 
-    workoutLogs, 
-    loading, 
+  const {
+    activeProgram,
+    workoutPrograms,
+    templates,
+    exercises,
+    workoutLogs,
+    loading,
     error,
     createProgramFromTemplate,
     activateProgram,
@@ -54,11 +54,11 @@ export default function EntrenamientosPage() {
   ]
 
   // Filtrar plantillas por objetivo seleccionado
-  const filteredTemplates = selectedGoal 
-    ? templates.filter(template => 
-        template.goal === selectedGoal || 
-        template.tags?.includes(selectedGoal)
-      )
+  const filteredTemplates = selectedGoal
+    ? templates.filter(template =>
+      template.goal === selectedGoal ||
+      template.tags?.includes(selectedGoal)
+    )
     : templates
 
   // Calcular progreso semanal
@@ -73,15 +73,15 @@ export default function EntrenamientosPage() {
   const progressPercentage = (weeklyProgress / weeklyGoal) * 100
 
   // Obtener el entrenamiento de hoy
-  const todaysWorkout = activeProgram ? (() => {
+  const todaysWorkout = activeProgram && activeProgram.days ? (() => {
     const today = new Date().getDay()
     const dayNumber = today === 0 ? 7 : today
-    return activeProgram.days.find(day => day.day_number === dayNumber)
+    return activeProgram.days.find(day => day.day_number === dayNumber) || null
   })() : null
 
   const handleCreateProgram = async (template: any) => {
     if (!user) return
-    
+
     try {
       const program = await createProgramFromTemplate(template.id, user.id.toString())
       await activateProgram(program.id)
@@ -147,7 +147,7 @@ export default function EntrenamientosPage() {
               </div>
               <Progress value={progressPercentage} className="h-2" />
               <div className="text-sm text-gray-600">
-                {weeklyProgress >= weeklyGoal 
+                {weeklyProgress >= weeklyGoal
                   ? "¡Excelente! Has cumplido tu meta semanal 🎉"
                   : `Te faltan ${weeklyGoal - weeklyProgress} entrenamientos para cumplir tu meta`
                 }
@@ -204,7 +204,7 @@ export default function EntrenamientosPage() {
                       <div className="text-gray-600">Objetivo</div>
                     </div>
                     <div className="text-center">
-                      <div className="font-semibold">{activeProgram.days.length}</div>
+                      <div className="font-semibold">{activeProgram.days?.length || 0}</div>
                       <div className="text-gray-600">Días</div>
                     </div>
                   </div>
@@ -229,7 +229,7 @@ export default function EntrenamientosPage() {
                             Tiempo estimado: {todaysWorkout.exercises.length * 3} minutos
                           </p>
                         </div>
-                        <Button 
+                        <Button
                           onClick={() => handleStartWorkout(todaysWorkout)}
                           className="bg-purple-600 hover:bg-purple-700"
                         >
@@ -237,7 +237,7 @@ export default function EntrenamientosPage() {
                           Iniciar
                         </Button>
                       </div>
-                      
+
                       <div className="grid grid-cols-1 gap-2">
                         {todaysWorkout.exercises.map((exerciseItem: any, index: number) => (
                           <div key={index} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
@@ -270,18 +270,18 @@ export default function EntrenamientosPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {activeProgram.days.map((day: any, index: number) => (
+                    {(activeProgram.days || []).map((day: any, index: number) => (
                       <div key={index} className="p-4 border rounded-lg">
                         <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{day.day_name}</h3>
+                          <h3 className="font-medium">{day.day_name || day.name}</h3>
                           <Badge variant={day.is_rest_day ? "secondary" : "default"}>
                             {day.is_rest_day ? "Descanso" : "Entrenamiento"}
                           </Badge>
                         </div>
                         {!day.is_rest_day && (
                           <div className="space-y-1 text-sm text-gray-600">
-                            <p>{day.exercises.length} ejercicios</p>
-                            <p>Tiempo: ~{day.exercises.length * 3} min</p>
+                            <p>{day.exercises?.length || 0} ejercicios</p>
+                            <p>Tiempo: ~{(day.exercises?.length || 0) * 3} min</p>
                           </div>
                         )}
                       </div>
@@ -298,7 +298,7 @@ export default function EntrenamientosPage() {
                 <p className="text-gray-600 mb-6">
                   Selecciona una plantilla que se adapte a tus objetivos y comienza tu transformación
                 </p>
-                <Button 
+                <Button
                   onClick={() => (document.querySelector('[value="templates"]') as HTMLElement | null)?.click()}
                   className="bg-purple-600 hover:bg-purple-700"
                 >
@@ -367,14 +367,14 @@ export default function EntrenamientosPage() {
                         <div className="text-gray-600">Duración</div>
                       </div>
                     </div>
-                    
+
                     <div className="flex items-center space-x-2">
                       <Target className="h-4 w-4 text-gray-500" />
                       <span className="text-sm capitalize">{template.goal}</span>
                     </div>
 
                     <div className="flex space-x-2">
-                      <Button 
+                      <Button
                         onClick={() => handleCreateProgram(template)}
                         className="flex-1 bg-purple-600 hover:bg-purple-700"
                       >

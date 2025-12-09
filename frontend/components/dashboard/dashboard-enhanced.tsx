@@ -16,55 +16,34 @@ import {
   ArrowUp,
   ArrowDown,
   CheckCircle,
-  AlertCircle,
-  Info,
   Sparkles,
   Zap,
   Heart,
   Clock,
   Star,
   Award,
-  Bell,
-  Settings,
-  User,
-  LogOut,
-  Home,
   ChefHat,
-  Medal,
-  Eye,
-  Edit
+  Scale,
+  Play,
+  ArrowRight,
+  Utensils
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
 import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
-
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
-import { ProgressSummaryEnhanced } from "./progress-summary-enhanced"
-import { WorkoutSummaryEnhanced } from "./workout-summary-enhanced"
-import { NutritionSummaryEnhanced } from "./nutrition-summary-enhanced"
-import { PhotoCarousel } from "./photo-carousel"
-
-
+import { useWeightHistory } from "@/hooks/use-weight-history"
 import { toast } from "@/hooks/use-toast"
 
 interface DashboardEnhancedProps {
@@ -72,20 +51,13 @@ interface DashboardEnhancedProps {
 }
 
 export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, isAuthenticated } = useAuth()
   const { userStats, loading: statsLoading, refreshStats } = useUserData()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats: refreshProgressStats } = useProgressStats()
   const { meals: dailyMeals, macros, loading: mealsLoading } = useDailyMeals()
   const { workoutLogs, loading: workoutLoading } = useWorkouts()
   const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
-
-  // Debug: verificar estado de autenticación
-  console.log('🔐 Dashboard - Estado de autenticación:', {
-    isAuthenticated,
-    user: user ? { id: user.id, email: user.email, name: user.first_name } : null,
-    hasAccessToken: typeof window !== 'undefined' ? !!document.cookie.includes('accessToken') : false
-  })
-
+  const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
 
   // Estados locales
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
@@ -99,14 +71,15 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
 
-  // Calcular métricas generales
+  // Calcular métricas
   const overallProgress = progressStats?.overall_progress || 0
-  
-  // Calcular peso actual desde las estadísticas disponibles
-  // Prioridad: peso del usuario > estadísticas de progreso > valor por defecto
-  const currentWeight = user?.weight || progressStats?.weight.current || userStats?.currentWeight || null
-  const targetWeight = user?.target_weight || progressStats?.weight.goal || userStats?.targetWeight || null
-  const weightChange = progressStats?.weight.change || userStats?.weightChange || 0
+  const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
+  const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
+  const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
+  const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
+  const weightChange = (latestWeightEntry && firstWeightEntry) 
+    ? latestWeightEntry.weight - firstWeightEntry.weight 
+    : (progressStats?.weight?.change || userStats?.weightChange || 0)
   const daysInTransformation = userStats?.daysInTransformation || 1
 
   // Calcular calorías del día
@@ -114,7 +87,15 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const caloriesGoal = macros.caloriesGoal || 2000
   const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
 
-  // Estadísticas de entrenamientos (calcular desde workoutLogs)
+  // Calcular macros
+  const proteinConsumed = macros.proteinConsumed || 0
+  const proteinGoal = macros.proteinGoal || 150
+  const carbsConsumed = macros.carbsConsumed || 0
+  const carbsGoal = macros.carbsGoal || 200
+  const fatConsumed = macros.fatConsumed || 0
+  const fatGoal = macros.fatGoal || 70
+
+  // Estadísticas de entrenamientos
   const workoutsThisWeek = workoutLogs.filter(log => {
     const logDate = new Date(log.date)
     const now = new Date()
@@ -126,30 +107,34 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
   // Estadísticas de fotos
   const totalPhotos = progressStats?.photos.total || photos.length || 0
-  const photosThisMonth = progressStats?.photos.this_month || 0
+
+  // Obtener saludo según la hora
+  const getGreeting = () => {
+    const hour = new Date().getHours()
+    if (hour < 12) return "¡Buenos días"
+    if (hour < 18) return "¡Buenas tardes"
+    return "¡Buenas noches"
+  }
 
   // Función para refrescar todos los datos
   const handleRefreshAll = async () => {
     try {
       setIsRefreshing(true)
-      
-      // Refrescar todos los datos en paralelo
       await Promise.all([
         refreshStats(),
         refreshProgressStats(),
-        refreshPhotos()
+        refreshPhotos(),
+        refreshWeight()
       ])
-      
       setLastRefresh(new Date())
       toast({
-        title: "Datos actualizados",
+        title: "✅ Datos actualizados",
         description: "Tu dashboard ha sido actualizado correctamente.",
       })
     } catch (error) {
-      console.error('Error refreshing dashboard:', error)
       toast({
-        title: "Error",
-        description: "No se pudieron actualizar todos los datos. Inténtalo de nuevo.",
+        title: "❌ Error",
+        description: "No se pudieron actualizar los datos.",
         variant: "destructive",
       })
     } finally {
@@ -157,37 +142,28 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     }
   }
 
-  // Auto-refresh cada 5 minutos para evitar rate limiting
+  // Auto-refresh cada 5 minutos
   useAutoRefresh({
-    interval: 300000, // 5 minutos
+    interval: 300000,
     enabled: true,
     onRefresh: handleRefreshAll,
-    dependencies: [user?.id] // Solo cuando cambie el usuario
+    dependencies: [user?.id]
   })
 
-
-
-  // Función para abrir diálogo de fotos
-  const handleAddPhoto = () => {
-    setIsPhotoDialogOpen(true)
-  }
-
-  // Función para manejar selección de archivo
+  // Funciones de foto
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       setSelectedFile(file)
-      const url = URL.createObjectURL(file)
-      setPreviewUrl(url)
+      setPreviewUrl(URL.createObjectURL(file))
     }
   }
 
-  // Función para subir foto
   const handleUploadPhoto = async () => {
     if (!selectedFile || !newPhotoWeight.trim()) {
       toast({
         title: "❌ Error",
-        description: "Por favor selecciona una foto y especifica el peso actual.",
+        description: "Por favor selecciona una foto y especifica el peso.",
         variant: "destructive",
       })
       return
@@ -195,85 +171,35 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
     try {
       const weight = parseFloat(newPhotoWeight)
-      if (isNaN(weight) || weight <= 0) {
-        toast({
-          title: "❌ Error",
-          description: "Por favor ingresa un peso válido mayor a 0.",
-          variant: "destructive",
-        })
-        return
-      }
-      
       await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType)
-      
-      toast({
-        title: "✅ ¡Foto añadida!",
-        description: "Tu nueva foto de progreso ha sido guardada correctamente.",
-      })
-      
-      // Reset form
+      toast({ title: "✅ ¡Foto añadida!", description: "Tu foto de progreso ha sido guardada." })
       setSelectedFile(null)
       setNewPhotoWeight("")
       setNewPhotoNotes("")
-      setSelectedPhotoType('front')
       setIsPhotoDialogOpen(false)
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl)
-        setPreviewUrl(null)
-      }
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setPreviewUrl(null)
     } catch (error) {
-      console.error('Error al subir foto:', error)
       toast({
         title: "❌ Error",
-        description: `No se pudo subir la foto: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        description: `No se pudo subir la foto: ${error instanceof Error ? error.message : 'Error'}`,
         variant: "destructive",
       })
     }
   }
 
-  // Función para resetear formulario de fotos
-  const resetPhotoForm = () => {
-    setSelectedFile(null)
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
-    setNewPhotoWeight("")
-    setNewPhotoNotes("")
-    setSelectedPhotoType('front')
-  }
-
-  // Función para ver progreso completo
-  const handleViewProgress = () => {
-    toast({
-      title: "Ver Progreso Completo",
-      description: "Abriendo tu progreso detallado...",
-    })
-  }
-
-  // Si está cargando, mostrar skeleton
+  // Loading state
   if (statsLoading || progressStatsLoading || mealsLoading || workoutLoading || photosLoading) {
     return (
       <div className={`space-y-6 ${className}`}>
-        {/* Header skeleton */}
         <div className="text-center space-y-4 animate-pulse">
-          <div className="mx-auto w-16 h-16 bg-muted rounded-2xl"></div>
-          <div className="h-8 bg-muted rounded w-1/3 mx-auto"></div>
-          <div className="h-4 bg-muted rounded w-1/2 mx-auto"></div>
+          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-orange-200 to-gray-200 rounded-3xl"></div>
+          <div className="h-10 bg-gray-200 rounded-lg w-2/3 mx-auto"></div>
+          <div className="h-6 bg-gray-100 rounded w-1/2 mx-auto"></div>
         </div>
-        
-        {/* Grid skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardHeader className="pb-3">
-                <div className="h-4 bg-muted rounded w-3/4"></div>
-                <div className="h-3 bg-muted rounded w-1/2"></div>
-              </CardHeader>
-              <CardContent>
-                <div className="h-32 bg-muted rounded"></div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="h-36 bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl animate-pulse"></div>
           ))}
         </div>
       </div>
@@ -281,265 +207,375 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   }
 
   return (
-    <div className={`space-y-6 ${className}`}>
-      {/* Header del Dashboard */}
-      <Card className="bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-emerald-200/50 shadow-lg mb-6">
-        <CardContent className="p-6">
-          <div className="text-center space-y-4">
-            <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center shadow-md animate-bounce">
-              <TrendingUp className="w-8 h-8 text-white" />
+    <div className={`space-y-6 sm:space-y-8 ${className}`}>
+      {/* Hero Section - Saludo personalizado */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 p-6 sm:p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+        
+        <div className="relative z-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                  <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                    {getGreeting()}, {user?.first_name || 'Campeón'}! 💪
+                  </h1>
+                  <p className="text-white/80 text-sm sm:text-base">
+                    Día {daysInTransformation} de tu transformación
+                  </p>
+                </div>
+              </div>
             </div>
-            <h1 className="text-3xl font-bold text-emerald-700">
-              ¡Hola, {user?.first_name || 'Usuario'}! 👋
-            </h1>
-            <p className="text-emerald-600/80 max-w-2xl mx-auto">
-              Llevas {daysInTransformation} día{daysInTransformation !== 1 ? 's' : ''} en tu transformación. 
-              ¡Cada paso cuenta hacia tu objetivo!
-            </p>
             
-            {/* Botón de actualizar y estado de conexión */}
-            <div className="flex items-center justify-center gap-4 mt-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <Button 
                 onClick={handleRefreshAll}
                 disabled={isRefreshing}
-                variant="outline"
+                variant="secondary"
                 size="sm"
-                className="border-emerald-200 hover:bg-emerald-50"
+                className="bg-white/20 hover:bg-white/30 border-0 text-white backdrop-blur-sm"
               >
-                {isRefreshing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Actualizando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Actualizar Datos
-                  </>
-                )}
+                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Actualizar</span>
               </Button>
-              
-              {/* Indicador de conexión en tiempo real */}
-              <div className="flex items-center gap-2 text-xs text-emerald-600/70">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                <span>Datos en tiempo real</span>
+              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5">
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                <span className="text-xs text-white/90">Online</span>
               </div>
             </div>
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Métricas principales */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+          {/* Mensaje motivacional */}
+          <div className="mt-6 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
+            <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
+              <Zap className="h-5 w-5 text-yellow-300 flex-shrink-0" />
+              <span>
+                {overallProgress >= 80 
+                  ? "¡Increíble progreso! Estás cerca de tu objetivo 🎯"
+                  : overallProgress >= 50 
+                  ? "¡Vas por buen camino! Mantén el ritmo 🔥"
+                  : "¡Cada día cuenta! Sigue adelante 💪"}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Grid - Métricas principales */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Progreso General */}
-        <Card className="bg-white/95 border-2 border-emerald-100/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden">
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-xl flex items-center justify-center mx-auto shadow-md">
-              <TrendingUp className="h-7 w-7 text-white" />
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-emerald-50 to-teal-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">
+                {overallProgress >= 50 ? '👍' : '📈'}
+              </Badge>
             </div>
             <div className="space-y-2">
-              <div className="text-3xl font-bold text-emerald-700">
-                {Math.round(overallProgress)}%
-              </div>
-              <div className="text-sm font-medium text-emerald-600">Progreso General</div>
-            </div>
-            <div className="pt-2">
-              <div className="relative h-2.5 bg-gradient-to-r from-emerald-100 to-teal-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-500 to-cyan-500 transition-all duration-500"
-                  style={{ width: `${overallProgress}%` }}
-                />
-              </div>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-700">{Math.round(overallProgress)}%</p>
+              <p className="text-xs sm:text-sm text-emerald-600 font-medium">Progreso Total</p>
+              <Progress value={overallProgress} className="h-2 bg-emerald-100" />
             </div>
           </CardContent>
         </Card>
 
-        {/* Peso */}
-        <Card className="bg-white/95 border-2 border-blue-100/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden">
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-xl flex items-center justify-center mx-auto shadow-md">
-              <Target className="h-7 w-7 text-white" />
-            </div>
-            <div className="space-y-2">
-              <div className="text-3xl font-bold text-blue-700">
-                {currentWeight}kg
+        {/* Peso Actual */}
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <div className="text-sm font-medium text-blue-600">Peso Actual</div>
+              {weightChange !== 0 && (
+                <Badge className={`border-0 text-xs ${weightChange < 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {weightChange < 0 ? '↓' : '↑'} {Math.abs(weightChange).toFixed(1)}kg
+                </Badge>
+              )}
             </div>
-            {weightChange !== 0 && (
-              <div className={`text-xs flex items-center justify-center gap-1.5 pt-1 ${
-                weightChange < 0 ? 'text-green-600' : 'text-red-600'
-              }`}>
-                {weightChange < 0 ? (
-                  <ArrowDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ArrowUp className="h-3.5 w-3.5" />
-                )}
-                <span className="font-semibold">{Math.abs(weightChange).toFixed(1)}kg</span>
-                <span className="text-muted-foreground">
-                  {weightChange < 0 ? 'bajó' : 'subió'}
-                </span>
-              </div>
-            )}
+            <div className="space-y-1">
+              <p className="text-2xl sm:text-3xl font-bold text-blue-700">{currentWeight || '--'}kg</p>
+              <p className="text-xs sm:text-sm text-blue-600 font-medium">Peso Actual</p>
+              {targetWeight && (
+                <p className="text-xs text-blue-500">Objetivo: {targetWeight}kg</p>
+              )}
+            </div>
           </CardContent>
         </Card>
 
         {/* Entrenamientos */}
-        <Card className="bg-white/95 border-2 border-purple-100/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden">
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-purple-400 to-pink-500 rounded-xl flex items-center justify-center mx-auto shadow-md">
-              <Dumbbell className="h-7 w-7 text-white" />
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-purple-50 to-pink-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <Badge className="bg-purple-100 text-purple-700 border-0 text-xs">
+                {workoutsThisWeek}/{workoutsGoal}
+              </Badge>
             </div>
             <div className="space-y-2">
-              <div className="text-3xl font-bold text-purple-700">
-                {workoutsThisWeek}
-              </div>
-              <div className="text-sm font-medium text-purple-600">Esta Semana</div>
-              <div className="text-xs text-muted-foreground">{workoutsGoal} objetivo</div>
-            </div>
-            <div className="pt-2">
-              <div className="relative h-2.5 bg-gradient-to-r from-purple-100 to-pink-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-purple-400 to-pink-500 transition-all duration-500"
-                  style={{ width: `${workoutProgress}%` }}
-                />
-              </div>
+              <p className="text-2xl sm:text-3xl font-bold text-purple-700">{workoutsThisWeek}</p>
+              <p className="text-xs sm:text-sm text-purple-600 font-medium">Esta Semana</p>
+              <Progress value={workoutProgress} className="h-2 bg-purple-100" />
             </div>
           </CardContent>
         </Card>
 
         {/* Calorías */}
-        <Card className="bg-white/95 border-2 border-red-100/50 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden">
-          <CardContent className="p-6 text-center space-y-4">
-            <div className="w-14 h-14 bg-gradient-to-br from-red-400 to-orange-500 rounded-xl flex items-center justify-center mx-auto shadow-md">
-              <Flame className="h-7 w-7 text-white" />
+        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-orange-50 to-red-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+              </div>
+              <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">
+                {Math.round(caloriesProgress)}%
+              </Badge>
             </div>
             <div className="space-y-2">
-              <div className="text-3xl font-bold text-red-700">
-                {caloriesConsumed}
-              </div>
-              <div className="text-sm font-medium text-red-600">Calorías Hoy</div>
-              <div className="text-xs text-muted-foreground">{caloriesGoal} objetivo</div>
+              <p className="text-2xl sm:text-3xl font-bold text-orange-700">{caloriesConsumed}</p>
+              <p className="text-xs sm:text-sm text-orange-600 font-medium">Calorías Hoy</p>
+              <Progress value={caloriesProgress} className="h-2 bg-orange-100" />
             </div>
-            <div className="pt-2">
-              <div className="relative h-2.5 bg-gradient-to-r from-red-100 to-orange-100 rounded-full overflow-hidden">
-                <div 
-                  className="h-full rounded-full bg-gradient-to-r from-red-400 to-orange-500 transition-all duration-500"
-                  style={{ width: `${caloriesProgress}%` }}
-                />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Quick Actions - Acciones rápidas */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        <Button 
+          variant="outline" 
+          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all group"
+          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
+        >
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
+            <Dumbbell className="h-5 w-5 text-purple-600" />
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-purple-700">Entrenar</span>
+        </Button>
+
+        <Button 
+          variant="outline" 
+          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-orange-50 border-2 border-orange-100 hover:border-orange-300 transition-all group"
+          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
+        >
+          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center group-hover:bg-orange-200 transition-colors">
+            <Utensils className="h-5 w-5 text-orange-600" />
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-orange-700">Comidas</span>
+        </Button>
+
+        <Button 
+          variant="outline" 
+          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-emerald-50 border-2 border-emerald-100 hover:border-emerald-300 transition-all group"
+          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'day-one' } }))}
+        >
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
+            <Camera className="h-5 w-5 text-emerald-600" />
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-emerald-700">Progreso</span>
+        </Button>
+
+        <Button 
+          variant="outline" 
+          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-2 border-blue-100 hover:border-blue-300 transition-all group"
+          onClick={() => setIsPhotoDialogOpen(true)}
+        >
+          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
+            <Plus className="h-5 w-5 text-blue-600" />
+          </div>
+          <span className="text-xs sm:text-sm font-medium text-blue-700">Nueva Foto</span>
+        </Button>
+      </div>
+
+      {/* Resumen de Macros */}
+      <Card className="border-0 bg-gradient-to-br from-gray-50 to-white shadow-lg">
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-lg sm:text-xl">Macros del Día</CardTitle>
+                <CardDescription className="text-xs sm:text-sm">Tu balance nutricional de hoy</CardDescription>
+              </div>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+              onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
+            >
+              Ver más <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-4 sm:gap-6">
+            {/* Proteína */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-red-100 rounded-2xl flex items-center justify-center">
+                <span className="text-xl sm:text-2xl">🥩</span>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-red-600">{proteinConsumed}g</p>
+                <p className="text-xs text-gray-500">de {proteinGoal}g</p>
+                <Progress value={(proteinConsumed/proteinGoal)*100} className="h-1.5 mt-2 bg-red-100" />
+              </div>
+              <p className="text-xs font-medium text-gray-600">Proteína</p>
+            </div>
+
+            {/* Carbohidratos */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-amber-100 rounded-2xl flex items-center justify-center">
+                <span className="text-xl sm:text-2xl">🍞</span>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-amber-600">{carbsConsumed}g</p>
+                <p className="text-xs text-gray-500">de {carbsGoal}g</p>
+                <Progress value={(carbsConsumed/carbsGoal)*100} className="h-1.5 mt-2 bg-amber-100" />
+              </div>
+              <p className="text-xs font-medium text-gray-600">Carbos</p>
+            </div>
+
+            {/* Grasas */}
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-green-100 rounded-2xl flex items-center justify-center">
+                <span className="text-xl sm:text-2xl">🥑</span>
+              </div>
+              <div>
+                <p className="text-lg sm:text-xl font-bold text-green-600">{fatConsumed}g</p>
+                <p className="text-xs text-gray-500">de {fatGoal}g</p>
+                <Progress value={(fatConsumed/fatGoal)*100} className="h-1.5 mt-2 bg-green-100" />
+              </div>
+              <p className="text-xs font-medium text-gray-600">Grasas</p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Resumen de Actividad */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Próximo Entrenamiento */}
+        <Card className="border-0 bg-gradient-to-br from-purple-500 to-pink-500 text-white overflow-hidden">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Dumbbell className="h-5 w-5" />
+                  <span className="font-medium text-sm">Entrenamientos</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold">
+                  {workoutsThisWeek < workoutsGoal ? '¡A entrenar!' : '¡Meta cumplida!'}
+                </h3>
+                <p className="text-white/80 text-sm">
+                  {workoutsGoal - workoutsThisWeek > 0 
+                    ? `Te faltan ${workoutsGoal - workoutsThisWeek} sesiones esta semana`
+                    : 'Has completado tu objetivo semanal 🎉'}
+                </p>
+                <Button 
+                  size="sm" 
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
+                >
+                  <Play className="h-4 w-4 mr-2" />
+                  Comenzar
+                </Button>
+              </div>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <Trophy className="w-10 h-10 text-white/80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Fotos de Progreso */}
+        <Card className="border-0 bg-gradient-to-br from-emerald-500 to-teal-500 text-white overflow-hidden">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Camera className="h-5 w-5" />
+                  <span className="font-medium text-sm">Tu Progreso</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold">
+                  {totalPhotos} {totalPhotos === 1 ? 'foto' : 'fotos'}
+                </h3>
+                <p className="text-white/80 text-sm">
+                  Documenta tu transformación visual
+                </p>
+                <Button 
+                  size="sm" 
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  onClick={() => setIsPhotoDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Añadir Foto
+                </Button>
+              </div>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <Heart className="w-10 h-10 text-white/80" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Contenido principal con tabs */}
-      <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="overview" className="flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" />
-            Resumen
-          </TabsTrigger>
-          <TabsTrigger value="progress" className="flex items-center gap-2">
-            <TrendingUp className="h-4 w-4" />
-            Progreso
-          </TabsTrigger>
-          <TabsTrigger value="workouts" className="flex items-center gap-2">
-            <Dumbbell className="h-4 w-4" />
-            Entrenamientos
-          </TabsTrigger>
-          <TabsTrigger value="nutrition" className="flex items-center gap-2">
-            <Flame className="h-4 w-4" />
-            Nutrición
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab de Resumen */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <ProgressSummaryEnhanced 
-              onAddPhoto={handleAddPhoto}
-              onViewProgress={handleViewProgress}
-            />
-            <WorkoutSummaryEnhanced />
-          </div>
-          <NutritionSummaryEnhanced />
-        </TabsContent>
-
-        {/* Tab de Progreso */}
-        <TabsContent value="progress" className="space-y-6">
-          <div className="grid grid-cols-1 gap-6">
-            <PhotoCarousel
-              photos={photos}
-              loading={photosLoading}
-              onUploadPhoto={handleAddPhoto}
-              onRefreshPhotos={refreshPhotos}
-            />
-          </div>
-        </TabsContent>
-
-        {/* Tab de Entrenamientos */}
-        <TabsContent value="workouts" className="space-y-6">
-          <WorkoutSummaryEnhanced />
-        </TabsContent>
-
-        {/* Tab de Nutrición */}
-        <TabsContent value="nutrition" className="space-y-6">
-          <NutritionSummaryEnhanced />
-        </TabsContent>
-      </Tabs>
-
-
+      {/* Footer info */}
+      <div className="text-center text-xs text-gray-400 py-2">
+        Última actualización: {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+      </div>
 
       {/* Dialog para subir foto */}
       <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Camera className="h-5 w-5" />
-              Subir Foto de Progreso
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Camera className="h-5 w-5 text-emerald-600" />
+              Nueva Foto de Progreso
             </DialogTitle>
-            <DialogDescription>
-              Añade una nueva foto para documentar tu progreso. También se registrará tu peso actual.
+            <DialogDescription className="text-sm">
+              Documenta tu transformación visual
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
-            {/* Selector de archivo */}
             <div className="space-y-2">
-              <Label htmlFor="photo-upload">Seleccionar Foto</Label>
+              <Label htmlFor="photo-upload" className="text-sm font-medium">Seleccionar Foto</Label>
               <Input
                 id="photo-upload"
                 type="file"
                 accept="image/*"
                 onChange={handleFileSelect}
-                className="cursor-pointer"
+                className="cursor-pointer text-sm"
               />
             </div>
 
-            {/* Preview de la imagen */}
             {previewUrl && (
-              <div className="space-y-2">
-                <Label>Vista Previa</Label>
-                <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-                  <img
-                    src={previewUrl}
-                    alt="Preview"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
+              <div className="relative w-full h-40 sm:h-48 bg-gray-100 rounded-xl overflow-hidden">
+                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
               </div>
             )}
 
-            {/* Tipo de foto */}
             <div className="space-y-2">
-              <Label htmlFor="photo-type">Tipo de Foto</Label>
+              <Label htmlFor="photo-type" className="text-sm font-medium">Tipo de Foto</Label>
               <select
                 id="photo-type"
                 value={selectedPhotoType}
                 onChange={(e) => setSelectedPhotoType(e.target.value as 'front' | 'side' | 'back' | 'other')}
-                className="w-full p-2 border border-gray-300 rounded-md"
-                title="Seleccionar tipo de foto"
+                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="front">Frontal</option>
                 <option value="side">Lateral</option>
@@ -548,9 +584,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               </select>
             </div>
 
-            {/* Peso actual */}
             <div className="space-y-2">
-              <Label htmlFor="photo-weight">Peso Actual (kg) *</Label>
+              <Label htmlFor="photo-weight" className="text-sm font-medium">Peso Actual (kg) *</Label>
               <Input
                 id="photo-weight"
                 type="number"
@@ -558,49 +593,48 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 placeholder="Ej: 70.5"
                 value={newPhotoWeight}
                 onChange={(e) => setNewPhotoWeight(e.target.value)}
-                required
+                className="text-sm"
               />
             </div>
 
-            {/* Notas */}
             <div className="space-y-2">
-              <Label htmlFor="photo-notes">Notas (opcional)</Label>
+              <Label htmlFor="photo-notes" className="text-sm font-medium">Notas (opcional)</Label>
               <Textarea
                 id="photo-notes"
-                placeholder="Añade cualquier comentario sobre esta foto..."
+                placeholder="Comentarios sobre esta foto..."
                 value={newPhotoNotes}
                 onChange={(e) => setNewPhotoNotes(e.target.value)}
-                rows={3}
+                rows={2}
+                className="text-sm resize-none"
               />
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2">
+          <DialogFooter className="flex gap-2 pt-4">
             <Button
               variant="outline"
               onClick={() => {
                 setIsPhotoDialogOpen(false)
-                resetPhotoForm()
+                setSelectedFile(null)
+                setPreviewUrl(null)
+                setNewPhotoWeight("")
+                setNewPhotoNotes("")
               }}
+              className="flex-1 sm:flex-none"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleUploadPhoto}
               disabled={!selectedFile || !newPhotoWeight.trim()}
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700"
+              className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
             >
               <Camera className="h-4 w-4 mr-2" />
-              Subir Foto
+              Subir
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Información de última actualización */}
-      <div className="text-center text-xs text-muted-foreground">
-        Última actualización: {lastRefresh.toLocaleTimeString('es-ES')}
-      </div>
     </div>
   )
 }

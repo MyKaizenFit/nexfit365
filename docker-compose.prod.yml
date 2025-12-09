@@ -58,15 +58,13 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    env_file:
-      - ./docker/backend.env.production
-    command: ["sh", "-c", "redis-server --requirepass \"$REDIS_PASSWORD\" --appendonly yes"]
+    command: ["redis-server", "--appendonly", "yes"]
     # Redis NO expone puerto externamente por seguridad
     volumes:
       - /srv/mykaizenfit/pro/data/redis:/data
       - /srv:/srv:ro
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --no-auth-warning -a \"$$REDIS_PASSWORD\" ping || redis-cli ping"]
+      test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -188,9 +186,12 @@ services:
 # ============================================
 # REDES
 # ============================================
+# Nombres únicos para evitar conflictos con desarrollo
 networks:
   internal:
+    name: nexfit-pro-internal
     driver: bridge
     internal: true  # Red privada: solo comunicación entre servicios Docker
   web:
+    name: nexfit-pro-web
     driver: bridge

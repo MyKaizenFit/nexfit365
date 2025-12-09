@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, lazy, Suspense } from "react"
+import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
   Bell,
@@ -72,14 +73,13 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 
 const menuItems = [
   { title: "Dashboard", icon: Home, url: "dashboard", isActive: true },
+  { title: "Day 1", icon: Target, url: "day-one" },
   { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
   { title: "Consejos", icon: Heart, url: "tips" },
-  { title: "Mi Progreso", icon: TrendingUp, url: "progress" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
-  { title: "Day 1", icon: Target, url: "day-one" },
   { title: "Configuración", icon: Settings, url: "settings" },
 ]
 
@@ -191,15 +191,15 @@ function DashboardContent() {
         )
 
       case "progress":
+        // Redirigir a Day 1 (ahora unificado)
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
-            {/* Background elements */}
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
               <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-200/20 to-teal-200/20 rounded-full blur-3xl animate-pulse"></div>
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <ProgressDashboard />
+              <DayOneSheet />
             </div>
           </div>
         )
@@ -402,14 +402,15 @@ function DashboardContent() {
         <SidebarProvider>
           <Sidebar className="flex-shrink-0 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
             <SidebarHeader>
-              <div className="flex items-center gap-2 px-4 py-2">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex-shrink-0 shadow-lg animate-gentle-pulse">
-                  <Target className="size-4" />
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+                  <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
-                  <span className="truncate font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                    NutriApp
-                  </span>
+                  <div className="flex items-center">
+                    <span className="font-bold text-orange-500">NEX</span>
+                    <span className="font-bold text-gray-600">FIT</span>
+                  </div>
                   <span className="truncate text-xs text-gray-500">Dashboard</span>
                 </div>
               </div>
@@ -604,7 +605,9 @@ function DashboardContent() {
               <Suspense fallback={
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center space-y-4">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
+                      <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
+                    </div>
                     <p className="text-gray-600">Cargando...</p>
                   </div>
                 </div>
@@ -632,7 +635,9 @@ function DashboardContent() {
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mx-auto"></div>
+                <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
+                  <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
+                </div>
                 <p className="text-gray-600">Cargando...</p>
               </div>
             </div>

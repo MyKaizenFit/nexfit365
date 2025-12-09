@@ -70,7 +70,7 @@ export function useAchievements() {
 
   const fetchAchievements = async () => {
     try {
-      const response = await authenticatedFetch('achievements/achievements/')
+      const response = await authenticatedFetch('achievements/')
       if (response.ok) {
         const data = await response.json()
         setAchievements(data.results || data || [])
@@ -83,7 +83,7 @@ export function useAchievements() {
 
   const fetchUserAchievements = async () => {
     try {
-      const response = await authenticatedFetch('achievements/user-achievements/')
+      const response = await authenticatedFetch('user-achievements/')
       if (response.ok) {
         const data = await response.json()
         setUserAchievements(data.results || data || [])
@@ -96,7 +96,7 @@ export function useAchievements() {
 
   const fetchSummary = async () => {
     try {
-      const response = await authenticatedFetch('achievements/user-achievements/summary/')
+      const response = await authenticatedFetch('user-achievements/summary/')
       if (response.ok) {
         const data = await response.json()
         setSummary(data)
@@ -105,7 +105,7 @@ export function useAchievements() {
     } catch (err) {
       console.error('Error fetching summary:', err)
     }
-    
+
     // Si falla o no existe, calcular un resumen básico
     // Usar un efecto para calcular después de cargar los datos
     if (achievements.length > 0 || userAchievements.length > 0) {

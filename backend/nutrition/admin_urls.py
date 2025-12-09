@@ -11,4 +11,5 @@ router.register(r'foods', admin_views.AdminFoodViewSet, basename='admin-foods')
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('default-plans/', admin_views.admin_default_plans, name='admin-default-plans'),
 ]

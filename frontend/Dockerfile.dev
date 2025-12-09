@@ -29,3 +29,8 @@ ENV WATCHPACK_POLLING=true
 # Iniciar servidor de desarrollo con hot reload
 CMD ["npm", "run", "dev"]
 
+
+
+
+
+

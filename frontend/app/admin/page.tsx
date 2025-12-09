@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,21 +40,52 @@ const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-manag
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const NutritionPlanManagement = lazy(() => import("./components/nutrition-plan-management").then(module => ({ default: module.NutritionPlanManagement })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
-const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations").then(module => ({ default: module.DefaultPlanConfigurationsPanel })))
+const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-improved").then(module => ({ default: module.DefaultPlanConfigurationsImproved })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
+import { useAuth } from "@/contexts/auth-context"
+
 export default function AdminPage() {
   return (
     <AdminRouteGuard>
-      <AdminPageContent />
+      <SafeAdminContent />
     </AdminRouteGuard>
   )
 }
 
+// Wrapper seguro que verifica permisos antes de renderizar el contenido
+function SafeAdminContent() {
+  const { user, isLoading } = useAuth()
+  
+  // Verificar permisos
+  const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-4 text-lg font-semibold text-gray-700">Verificando permisos...</p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+  
+  // Solo renderizar AdminPageContent si es admin
+  if (!isAdmin) {
+    return null  // El AdminRouteGuard ya maneja la redirección
+  }
+  
+  return <AdminPageContent />
+}
+
 function AdminPageContent() {
   const router = useRouter()
+  const { logout } = useAuth()
   const { 
     users, 
     stats, 
@@ -70,6 +101,24 @@ function AdminPageContent() {
     bulkChangeRole,
     refetch 
   } = useAdminUsers()
+
+  const handleLogout = async () => {
+    try {
+      await logout()
+      router.push('/auth')
+      toast({
+        title: "✅ Sesión cerrada",
+        description: "Has cerrado sesión correctamente",
+      })
+    } catch (error) {
+      console.error('Error al cerrar sesión:', error)
+      toast({
+        title: "❌ Error",
+        description: "Error al cerrar sesión",
+        variant: "destructive",
+      })
+    }
+  }
   
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -525,16 +574,26 @@ function AdminPageContent() {
               <p className="text-gray-600">Gestiona usuarios y configuraciones del sistema</p>
             </div>
           </div>
-          {activeSection === 'users' && (
+          <div className="flex items-center gap-2">
+            {activeSection === 'users' && (
+              <Button
+                onClick={() => setShowNewUserForm(true)}
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                disabled={isLoading}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Nuevo Usuario
+              </Button>
+            )}
             <Button
-              onClick={() => setShowNewUserForm(true)}
-              className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-              disabled={isLoading}
+              variant="outline"
+              onClick={handleLogout}
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Nuevo Usuario
+              <LogOut className="h-4 w-4 mr-2" />
+              Cerrar Sesión
             </Button>
-          )}
+          </div>
         </div>
 
         {/* Navigation Tabs */}

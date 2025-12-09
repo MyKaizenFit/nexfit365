@@ -67,12 +67,6 @@ export function MealDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Card del Plan Nutricional */}
-      <NutritionPlanCard />
-
-      {/* Historial de cambios de plan */}
-      <NutritionPlanHistoryUser />
-
       {/* Header con progreso del día */}
       <div className="bg-gradient-to-r from-blue-50 via-green-50 to-purple-50 rounded-xl p-6 border border-blue-100 shadow-sm">
         <div className="flex items-center justify-between mb-6">
@@ -293,6 +287,12 @@ export function MealDashboard() {
           fatGoal={macros.fatGoal}
         />
       </div>
+
+      {/* Card del Plan Nutricional */}
+      <NutritionPlanCard />
+
+      {/* Historial de cambios de plan */}
+      <NutritionPlanHistoryUser />
 
       {/* Modal de selección de comidas */}
       {selectedMeal && (

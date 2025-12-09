@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { InitialRegistrationForm } from '@/components/forms/initial-registration-form';
 import { useInitialRegistration } from '@/hooks/use-initial-registration';
@@ -15,6 +16,14 @@ export default function InitialRegistrationPage() {
   const { completeRegistration, isLoading, isComplete, completionPercentage, userData, userDataLoaded, profile } = useInitialRegistration();
   const { logout } = useAuth();
   const [showRecommendations, setShowRecommendations] = useState(false);
+  
+  // Memoizar userData para evitar re-renders innecesarios
+  const memoizedUserData = useMemo(() => userData, [
+    userData?.first_name,
+    userData?.last_name,
+    userData?.email,
+    userData?.phone_number,
+  ]);
   
   const handleLogout = async () => {
     try {
@@ -114,11 +123,11 @@ export default function InitialRegistrationPage() {
         <div className="absolute inset-0 bg-black/10"></div>
         <div className="relative max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
           <div className="text-center">
-            <div className="mx-auto w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center mb-6">
-              <Sparkles className="w-10 h-10 text-white" />
+            <div className="mx-auto w-20 h-20 rounded-3xl overflow-hidden flex items-center justify-center mb-6">
+              <Image src="/icono.png" alt="NEXFIT" width={80} height={80} quality={100} priority />
             </div>
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              ¡Configura tu Perfil!
+              <span className="text-orange-400">NEX</span><span className="text-white">FIT</span> - ¡Configura tu Perfil!
             </h1>
             <p className="text-lg md:text-xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
               Para crear un plan de entrenamiento y nutrición personalizado, 
@@ -153,7 +162,7 @@ export default function InitialRegistrationPage() {
           <InitialRegistrationForm
             onComplete={handleComplete}
             isLoading={isLoading}
-            userData={userData}
+            userData={memoizedUserData}
           />
         )}
         
