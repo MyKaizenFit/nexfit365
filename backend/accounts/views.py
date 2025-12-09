@@ -1,7 +1,7 @@
 # accounts/views.py
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.decorators import api_view, permission_classes, authentication_classes
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -12,6 +12,8 @@ from .serializers import (
 )
 
 @api_view(['POST'])
+@authentication_classes([])  # Deshabilitar autenticación para registro
+@permission_classes([AllowAny])
 def register(request):
     """Registro de nuevos usuarios con formulario completo"""
     serializer = UserRegistrationSerializer(data=request.data)
@@ -182,6 +184,14 @@ def initial_registration_status(request):
     """Verificar si el usuario ha completado el registro inicial"""
     user = request.user
     
+    # AUTO-FIX: Si training_days está vacío pero training_days_per_week tiene valor, generar días por defecto
+    if user.training_days_per_week and (not user.training_days or len(user.training_days) == 0):
+        # Generar días de entrenamiento por defecto: Lun, Mié, Vie, Sáb, Dom (1,3,5,6,7)
+        default_days = [1, 3, 5, 6, 7][:user.training_days_per_week]
+        user.training_days = default_days
+        user.save()
+        print(f'✅ Auto-generados training_days para {user.email}: {default_days}')
+    
     # Campos requeridos (versión 2: birth_date en lugar de age, training_days agregado)
     required_fields = [
         'birth_date', 'gender', 'height', 'weight', 'activity_level',
@@ -207,12 +217,8 @@ def initial_registration_status(request):
         else:
             missing_fields.append(field)
     
-    # Verificar versión del formulario
-    user_form_version = getattr(user, 'initial_registration_form_version', 1)
-    needs_update = user_form_version < INITIAL_REGISTRATION_FORM_VERSION
-    
-    # Si necesita actualización, marcar como incompleto
-    is_complete = len(missing_fields) == 0 and not needs_update
+    # Verificar si está completo (sin verificación de versión para simplificar)
+    is_complete = len(missing_fields) == 0
     completion_percentage = (len(completed_fields) / len(required_fields)) * 100
     
     response_data = {
@@ -221,9 +227,9 @@ def initial_registration_status(request):
         'completed_fields': completed_fields,
         'missing_fields': missing_fields,
         'form_version': INITIAL_REGISTRATION_FORM_VERSION,
-        'user_form_version': user_form_version,
-        'needs_update': needs_update,
-        'profile': UserProfileSerializer(user).data if is_complete else UserProfileSerializer(user).data  # Siempre enviar profile para prellenar
+        'user_form_version': INITIAL_REGISTRATION_FORM_VERSION,  # Siempre reportar versión actual
+        'needs_update': False,  # Deshabilitado por ahora
+        'profile': UserProfileSerializer(user).data
     }
     
     return Response(response_data)

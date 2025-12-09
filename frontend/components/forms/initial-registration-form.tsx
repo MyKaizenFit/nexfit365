@@ -1,888 +1,640 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
+import React, { useState, useEffect, useCallback, useRef, useMemo, FormEvent, ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Check, User, Activity, Target } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-// Esquema de validación - Formulario de inicio con 16 campos
-const initialRegistrationSchema = z.object({
-  // 1. Nombre y apellidos
-  first_name: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
-  last_name: z.string().min(2, 'El apellido debe tener al menos 2 caracteres'),
-  
-  // 2. Correo electrónico
-  email: z.string().email('Email inválido'),
-  
-  // 3. Código de país
-  country_code: z.string().min(1, 'Selecciona un código de país'),
-  
-  // 4. Número de teléfono
-  phone_number: z.string()
-    .min(8, 'El número de teléfono debe tener al menos 8 dígitos')
-    .regex(/^\d+$/, 'El número de teléfono solo puede contener números'),
-  
-  // 5. Fecha de nacimiento
-  birth_date: z.string().refine((val) => {
-    if (!val) return false;
-    const date = new Date(val);
-    const today = new Date();
-    const age = today.getFullYear() - date.getFullYear() - 
-      (today.getMonth() < date.getMonth() || (today.getMonth() === date.getMonth() && today.getDate() < date.getDate()) ? 1 : 0);
-    return age >= 13 && age <= 120;
-  }, 'Debes tener entre 13 y 120 años'),
-  
-  // 6. Sexo
-  gender: z.enum(['male', 'female', 'other'], {
-    required_error: 'Selecciona tu sexo',
-  }),
-  
-  // 7. Altura (en cm)
-  height: z.number().min(50, 'La altura mínima es 50 cm').max(250, 'La altura máxima es 250 cm'),
-  
-  // 8. Peso actual (en kg)
-  weight: z.number().min(20, 'El peso mínimo es 20 kg').max(300, 'El peso máximo es 300 kg'),
-  
-  // 8b. Peso objetivo (en kg) - opcional
-  target_weight: z.number().min(20, 'El peso objetivo mínimo es 20 kg').max(300, 'El peso objetivo máximo es 300 kg').optional(),
-  
-  // 9. Nivel de actividad diaria
-  activity_level: z.enum(['sedentary', 'light', 'moderate', 'active', 'very_active'], {
-    required_error: 'Selecciona tu nivel de actividad',
-  }),
-  
-  // 10. Días de entrenamiento por semana (calculado automáticamente)
-  training_days_per_week: z.number().min(1, 'Mínimo 1 día').max(7, 'Máximo 7 días').optional(),
-  // 10b. Días específicos de entrenamiento
-  training_days: z.array(z.number().min(1).max(7)).min(1, 'Debes seleccionar al menos un día'),
-  
-  // 11. Dónde prefieres entrenar
-  training_location: z.enum(['home', 'gym'], {
-    required_error: 'Selecciona dónde prefieres entrenar',
-  }),
-  
-  // 12. Intolerancias o alergias alimentarias
-  allergies: z.string().optional(),
-  
-  // 13. Problemas hormonales o metabólicos
-  medical_conditions: z.string().optional(),
-  
-  // 14. Alimentos que no te gustan
-  disliked_foods: z.string().optional(),
-  
-  // 15. Objetivo principal
-  main_goal: z.enum(['lose_weight', 'gain_muscle', 'body_recomposition'], {
-    required_error: 'Selecciona tu objetivo principal',
-  }),
-  
-  // 16. Qué te ha impedido lograrlo hasta ahora
-  previous_obstacles: z.string().optional(),
-  
-  // 17. Lesiones o intervenciones médicas importantes
-  injuries_or_medical_issues: z.string().optional(),
-});
+// Tipos para el formulario
+interface FormData {
+  // Paso 1: Datos personales
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone_number: string;
+  birth_date: string;
+  gender: 'male' | 'female' | 'other' | '';
 
-type InitialRegistrationFormData = z.infer<typeof initialRegistrationSchema>;
+  // Paso 2: Datos físicos y actividad
+  height: string;
+  weight: string;
+  target_weight: string;
+  activity_level: 'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | '';
+  training_days: number[];
+  training_location: 'home' | 'gym' | '';
 
-interface InitialRegistrationFormProps {
-  onComplete: (data: InitialRegistrationFormData) => void;
-  initialData?: Partial<InitialRegistrationFormData>;
-  isLoading?: boolean;
-  userData?: Partial<InitialRegistrationFormData> | null;
+  // Paso 3: Objetivos y preferencias
+  main_goal: 'lose_weight' | 'gain_muscle' | 'body_recomposition' | '';
+  allergies: string;
+  medical_conditions: string;
+  disliked_foods: string;
 }
 
-const activityLevelOptions = [
-  { value: 'sedentary', label: 'Sedentario' },
-  { value: 'light', label: 'Ligero' },
-  { value: 'moderate', label: 'Moderado' },
-  { value: 'active', label: 'Activo' },
-  { value: 'very_active', label: 'Muy activo' },
+interface InitialRegistrationFormProps {
+  onComplete: (data: any) => void;
+  isLoading?: boolean;
+  userData?: Partial<FormData> | null;
+}
+
+const STEPS = [
+  { id: 1, title: 'Datos Personales', icon: User },
+  { id: 2, title: 'Físico y Actividad', icon: Activity },
+  { id: 3, title: 'Objetivos', icon: Target },
 ];
 
-const genderOptions = [
-  { value: 'male', label: 'Masculino' },
-  { value: 'female', label: 'Femenino' },
-  { value: 'other', label: 'Otro' },
-];
-
-const trainingLocationOptions = [
-  { value: 'home', label: 'Casa' },
-  { value: 'gym', label: 'Gimnasio' },
-];
-
-const mainGoalOptions = [
-  { value: 'lose_weight', label: 'Perder peso o Definir' },
-  { value: 'gain_muscle', label: 'Ganar músculo o Subir de peso' },
-  { value: 'body_recomposition', label: 'Recomposición corporal' },
-];
-
-export function InitialRegistrationForm({ 
-  onComplete, 
-  initialData = {}, 
+function InitialRegistrationFormComponent({
+  onComplete,
   isLoading = false,
-  userData 
+  userData
 }: InitialRegistrationFormProps) {
   const [currentStep, setCurrentStep] = useState(1);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
-  
-  // Combinar datos del usuario con datos iniciales (solo una vez al montar)
-  const combinedData = useMemo(() => {
-    const data = { ...initialData, ...userData };
-    return data;
-  }, [
-    initialData?.first_name,
-    initialData?.last_name,
-    initialData?.email,
-    userData?.first_name,
-    userData?.last_name,
-    userData?.email,
-    userData?.phone_number
-  ]);
 
-  const form = useForm<InitialRegistrationFormData>({
-    resolver: zodResolver(initialRegistrationSchema),
-    defaultValues: {
-      first_name: combinedData.first_name || '',
-      last_name: combinedData.last_name || '',
-      email: combinedData.email || '',
-      country_code: combinedData.country_code || '+34',
-      phone_number: combinedData.phone_number || '',
-      birth_date: combinedData.birth_date || (combinedData.age ? 
-        // Si hay age pero no birth_date, calcular una fecha aproximada (hoy - age años)
-        (() => {
-          const today = new Date();
-          const approxDate = new Date(today.getFullYear() - (combinedData.age as number), today.getMonth(), today.getDate());
-          return approxDate.toISOString().split('T')[0];
-        })() : undefined),
-      training_days: combinedData.training_days || 
-        (combinedData.training_days_per_week ? 
-          // Si hay training_days_per_week pero no training_days, usar días por defecto
-          [1, 3, 5].slice(0, combinedData.training_days_per_week as number) : undefined),
-      gender: combinedData.gender || undefined,
-      height: combinedData.height || undefined,
-      weight: combinedData.weight || undefined,
-      activity_level: combinedData.activity_level || undefined,
-      training_days_per_week: combinedData.training_days_per_week || undefined,
-      training_location: combinedData.training_location || undefined,
-      allergies: combinedData.allergies || '',
-      medical_conditions: combinedData.medical_conditions || '',
-      disliked_foods: combinedData.disliked_foods || '',
-      main_goal: combinedData.main_goal || undefined,
-      previous_obstacles: combinedData.previous_obstacles || '',
-      injuries_or_medical_issues: combinedData.injuries_or_medical_issues || '',
-    },
-  });
+  // Usar refs para campos de texto para evitar re-renders
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const phoneRef = useRef<HTMLInputElement>(null);
+  const birthDateRef = useRef<HTMLInputElement>(null);
+  const heightRef = useRef<HTMLInputElement>(null);
+  const weightRef = useRef<HTMLInputElement>(null);
+  const targetWeightRef = useRef<HTMLInputElement>(null);
+  const allergiesRef = useRef<HTMLTextAreaElement>(null);
+  const medicalConditionsRef = useRef<HTMLTextAreaElement>(null);
+  const dislikedFoodsRef = useRef<HTMLTextAreaElement>(null);
 
-  const totalSteps = 4;
-  const progress = (currentStep / totalSteps) * 100;
+  // Solo usar state para campos que no son texto (selects, radio, etc)
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | ''>('');
+  const [activityLevel, setActivityLevel] = useState<'sedentary' | 'light' | 'moderate' | 'active' | 'very_active' | ''>('');
+  const [trainingDays, setTrainingDays] = useState<number[]>([]);
+  const [trainingLocation, setTrainingLocation] = useState<'home' | 'gym' | ''>('');
+  const [mainGoal, setMainGoal] = useState<'lose_weight' | 'gain_muscle' | 'body_recomposition' | ''>('');
 
-  const nextStep = async () => {
-    // Validar campos del paso actual antes de avanzar
-    const currentStepFields = getCurrentStepFields();
-    const isValid = await validateCurrentStep(currentStepFields);
-    
-    if (isValid && currentStep < totalSteps) {
-      setCurrentStep(currentStep + 1);
-    } else if (!isValid) {
-      toast({
-        title: "Campos requeridos",
-        description: "Por favor, completa todos los campos obligatorios antes de continuar.",
-        variant: "destructive",
-      });
+  // Cargar datos del usuario solo una vez
+  const initialDataLoadedRef = useRef(false);
+  useEffect(() => {
+    if (userData && !initialDataLoadedRef.current) {
+      if (firstNameRef.current && userData.first_name) firstNameRef.current.value = userData.first_name;
+      if (lastNameRef.current && userData.last_name) lastNameRef.current.value = userData.last_name;
+      if (emailRef.current && userData.email) emailRef.current.value = userData.email;
+      if (phoneRef.current && userData.phone_number) phoneRef.current.value = userData.phone_number;
+      initialDataLoadedRef.current = true;
     }
-  };
+  }, [userData]);
 
-  const prevStep = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
-  // Obtener los campos del paso actual
-  const getCurrentStepFields = () => {
-    switch (currentStep) {
-      case 1:
-        return ['first_name', 'last_name', 'email', 'country_code', 'phone_number'];
-      case 2:
-        return ['birth_date', 'gender', 'height', 'weight'];
-      case 3:
-        return ['activity_level', 'training_days', 'training_location'];
-      case 4:
-        return ['main_goal'];
-      default:
-        return [];
-    }
-  };
-
-  // Validar campos del paso actual
-  const validateCurrentStep = async (fields: string[]) => {
-    // Trigger validation for current step fields
-    const validationResult = await form.trigger(fields as any);
-    
-    // Verificar campos específicos según el paso
-    const errors = form.formState.errors;
-    const hasErrors = fields.some(field => errors[field as keyof typeof errors]);
-    
-    if (hasErrors) {
-      console.log('Errores de validación encontrados:', errors);
-    }
-    
-    return validationResult && !hasErrors;
-  };
-
-  // Verificar si el paso actual es válido
-  const isCurrentStepValid = () => {
-    const currentFields = getCurrentStepFields();
-    const errors = form.formState.errors;
-    const values = form.getValues();
-    
-    // Verificar que no haya errores Y que los valores estén presentes
-    const hasErrors = currentFields.some(field => errors[field as keyof typeof errors]);
-    if (hasErrors) {
-      return false;
-    }
-    
-    // Verificar que los valores requeridos estén presentes
-    const missingValues = currentFields.filter(field => {
-      const value = values[field as keyof typeof values];
-      // Para arrays, verificar que tengan al menos un elemento
-      if (Array.isArray(value)) {
-        return value.length === 0;
-      }
-      // Para otros valores, verificar que no sean undefined, null o string vacío
-      return value === undefined || value === null || value === '';
-    });
-    
-    if (missingValues.length > 0) {
-      console.log('🔍 Campos sin valor en el paso actual:', missingValues);
-      return false;
-    }
-    
-    return true;
-  };
-
-  const onSubmit = async (data: InitialRegistrationFormData) => {
-    console.log('✅ onSubmit llamado con datos:', data);
-    
-    // Validar que todos los campos requeridos estén presentes
-    const requiredFields = ['first_name', 'last_name', 'email', 'birth_date', 'gender', 'height', 'weight', 'activity_level', 'training_days', 'training_location', 'main_goal'];
-    const missingFields = requiredFields.filter(field => {
-      const value = data[field as keyof InitialRegistrationFormData];
-      return value === undefined || value === null || value === '' || (Array.isArray(value) && value.length === 0);
-    });
-    
-    if (missingFields.length > 0) {
-      console.error('❌ Campos faltantes:', missingFields);
-      console.error('❌ Datos recibidos:', data);
-      toast({
-        title: "Campos requeridos faltantes",
-        description: `Por favor completa: ${missingFields.join(', ')}`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // Calcular training_days_per_week desde training_days si no está presente
-    if (data.training_days && data.training_days.length > 0 && !data.training_days_per_week) {
-      data.training_days_per_week = data.training_days.length;
-    }
-    
-    console.log('✅ Datos validados, llamando a onComplete:', data);
-    console.log('✅ onComplete es una función?', typeof onComplete);
-    
-    try {
-      if (typeof onComplete !== 'function') {
-        console.error('❌ onComplete no es una función:', onComplete);
-        toast({
-          title: "Error",
-          description: "Error interno: función de callback no disponible",
-          variant: "destructive",
-        });
-        return;
-      }
-      
-      await onComplete(data);
-      console.log('✅ onComplete ejecutado exitosamente');
-    } catch (error) {
-      console.error('❌ Error en onComplete:', error);
-      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack available');
-      toast({
-        title: "Error al guardar",
-        description: error instanceof Error ? error.message : "Error desconocido al guardar los datos",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Lista de códigos de país (simplificada y ordenada)
-  const countryCodes = [
-    { code: '+34', name: 'España', flag: '🇪🇸' },
-    { code: '+1', name: 'Estados Unidos', flag: '🇺🇸' },
-    { code: '+44', name: 'Reino Unido', flag: '🇬🇧' },
-    { code: '+33', name: 'Francia', flag: '🇫🇷' },
-    { code: '+49', name: 'Alemania', flag: '🇩🇪' },
-    { code: '+39', name: 'Italia', flag: '🇮🇹' },
-    { code: '+31', name: 'Países Bajos', flag: '🇳🇱' },
-    { code: '+351', name: 'Portugal', flag: '🇵🇹' },
-    { code: '+32', name: 'Bélgica', flag: '🇧🇪' },
-    { code: '+41', name: 'Suiza', flag: '🇨🇭' },
-    { code: '+43', name: 'Austria', flag: '🇦🇹' },
-    { code: '+45', name: 'Dinamarca', flag: '🇩🇰' },
-    { code: '+46', name: 'Suecia', flag: '🇸🇪' },
-    { code: '+47', name: 'Noruega', flag: '🇳🇴' },
-    { code: '+358', name: 'Finlandia', flag: '🇫🇮' },
-    { code: '+54', name: 'Argentina', flag: '🇦🇷' },
-    { code: '+52', name: 'México', flag: '🇲🇽' },
-    { code: '+55', name: 'Brasil', flag: '🇧🇷' },
-    { code: '+56', name: 'Chile', flag: '🇨🇱' },
-    { code: '+57', name: 'Colombia', flag: '🇨🇴' },
-    { code: '+51', name: 'Perú', flag: '🇵🇪' },
-    { code: '+58', name: 'Venezuela', flag: '🇻🇪' },
-    { code: '+598', name: 'Uruguay', flag: '🇺🇾' },
-    { code: '+591', name: 'Bolivia', flag: '🇧🇴' },
-    { code: '+595', name: 'Paraguay', flag: '🇵🇾' },
-    { code: '+593', name: 'Ecuador', flag: '🇪🇨' },
-  ];
-
-  // Detectar ubicación del usuario para establecer código de país por defecto
-  React.useEffect(() => {
-    const detectUserLocation = async () => {
-      try {
-        // Usar la API de geolocalización del navegador
-        const response = await fetch('https://ipapi.co/json/');
-        const data = await response.json();
-        
-        // Mapear códigos de país a códigos de teléfono
-        const countryCodeMap: { [key: string]: string } = {
-          'ES': '+34',
-          'US': '+1',
-          'GB': '+44',
-          'FR': '+33',
-          'DE': '+49',
-          'IT': '+39',
-          'NL': '+31',
-          'PT': '+351',
-          'BE': '+32',
-          'CH': '+41',
-          'AT': '+43',
-          'DK': '+45',
-          'SE': '+46',
-          'NO': '+47',
-          'FI': '+358',
-          'AR': '+54',
-          'MX': '+52',
-          'BR': '+55',
-          'CL': '+56',
-          'CO': '+57',
-          'PE': '+51',
-          'VE': '+58',
-          'UY': '+598',
-          'BO': '+591',
-          'PY': '+595',
-          'EC': '+593',
-        };
-        
-        const detectedCode = countryCodeMap[data.country_code];
-        if (detectedCode && !form.getValues('country_code')) {
-          form.setValue('country_code', detectedCode);
-          console.log('🌍 Ubicación detectada:', data.country_name, detectedCode);
-        }
-      } catch (error) {
-        console.log('No se pudo detectar la ubicación, usando España por defecto');
-      }
+  const getFormData = (): FormData => {
+    return {
+      first_name: firstNameRef.current?.value || '',
+      last_name: lastNameRef.current?.value || '',
+      email: emailRef.current?.value || '',
+      phone_number: phoneRef.current?.value || '',
+      birth_date: birthDateRef.current?.value || '',
+      gender,
+      height: heightRef.current?.value || '',
+      weight: weightRef.current?.value || '',
+      target_weight: targetWeightRef.current?.value || '',
+      activity_level: activityLevel,
+      training_days: trainingDays,
+      training_location: trainingLocation,
+      main_goal: mainGoal,
+      allergies: allergiesRef.current?.value || '',
+      medical_conditions: medicalConditionsRef.current?.value || '',
+      disliked_foods: dislikedFoodsRef.current?.value || '',
     };
-    
-    detectUserLocation();
-  }, []);
+  };
 
+  const validateStep = (step: number): boolean => {
+    const formData = getFormData();
+    const newErrors: Record<string, string> = {};
+
+    if (step === 1) {
+      if (!formData.first_name.trim()) newErrors.first_name = 'El nombre es requerido';
+      if (!formData.last_name.trim()) newErrors.last_name = 'El apellido es requerido';
+      if (!formData.email.trim()) newErrors.email = 'El email es requerido';
+      else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Email inválido';
+      }
+      if (!formData.birth_date) newErrors.birth_date = 'La fecha de nacimiento es requerida';
+      else {
+        const age = calculateAge(formData.birth_date);
+        if (age < 13 || age > 120) newErrors.birth_date = 'Debes tener entre 13 y 120 años';
+      }
+      if (!formData.gender) newErrors.gender = 'Selecciona tu género';
+    }
+
+    if (step === 2) {
+      const height = Number(formData.height);
+      const weight = Number(formData.weight);
+      const targetWeight = formData.target_weight ? Number(formData.target_weight) : null;
+
+      if (!formData.height || isNaN(height) || height < 100 || height > 250) {
+        newErrors.height = 'Altura inválida (100-250 cm)';
+      }
+      if (!formData.weight || isNaN(weight) || weight < 30 || weight > 300) {
+        newErrors.weight = 'Peso inválido (30-300 kg)';
+      }
+      if (targetWeight !== null && (isNaN(targetWeight) || targetWeight < 30 || targetWeight > 300)) {
+        newErrors.target_weight = 'Peso objetivo inválido (30-300 kg)';
+      }
+      if (!formData.activity_level) newErrors.activity_level = 'Selecciona tu nivel de actividad';
+      if (formData.training_days.length === 0) newErrors.training_days = 'Selecciona al menos un día';
+      if (!formData.training_location) newErrors.training_location = 'Selecciona dónde entrenas';
+    }
+
+    if (step === 3) {
+      if (!formData.main_goal) newErrors.main_goal = 'Selecciona tu objetivo principal';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const calculateAge = (birthDate: string): number => {
+    const birth = new Date(birthDate);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep((prev: number) => Math.min(prev + 1, 3));
+    }
+  };
+
+  const handlePrev = () => {
+    setCurrentStep((prev: number) => Math.max(prev - 1, 1));
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!validateStep(3)) return;
+
+    const formData = getFormData();
+
+    // Preparar datos para enviar
+    const submitData = {
+      first_name: formData.first_name.trim(),
+      last_name: formData.last_name.trim(),
+      email: formData.email.trim(),
+      phone_number: formData.phone_number.trim() || undefined,
+      birth_date: formData.birth_date,
+      gender: formData.gender,
+      height: Number(formData.height),
+      weight: Number(formData.weight),
+      target_weight: formData.target_weight ? Number(formData.target_weight) : undefined,
+      activity_level: formData.activity_level,
+      training_days: formData.training_days,
+      training_days_per_week: formData.training_days.length,
+      training_location: formData.training_location,
+      main_goal: formData.main_goal,
+      allergies: formData.allergies.trim() || undefined,
+      medical_conditions: formData.medical_conditions.trim() || undefined,
+      disliked_foods: formData.disliked_foods.trim() || undefined,
+    };
+
+    try {
+      await onComplete(submitData);
+    } catch (error) {
+      console.error('Error al enviar formulario:', error);
+    }
+  };
+
+  const toggleTrainingDay = (day: number) => {
+    setTrainingDays(current => 
+      current.includes(day)
+        ? current.filter(d => d !== day)
+        : [...current, day].sort((a, b) => a - b)
+    );
+  };
+
+  // Componente de paso del stepper
+  const StepIndicator = () => (
+    <div className="flex items-center justify-center mb-8">
+      {STEPS.map((step, index) => {
+        const Icon = step.icon;
+        const isActive = currentStep === step.id;
+        const isCompleted = currentStep > step.id;
+
+        return (
+          <React.Fragment key={step.id}>
+            <div className="flex flex-col items-center">
+              <div
+                className={cn(
+                  "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
+                  isCompleted && "bg-green-500 text-white",
+                  isActive && "bg-blue-600 text-white ring-4 ring-blue-200",
+                  !isActive && !isCompleted && "bg-gray-200 text-gray-500"
+                )}
+              >
+                {isCompleted ? <Check className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
+              </div>
+              <span className={cn(
+                "text-xs mt-2 font-medium",
+                isActive && "text-blue-600",
+                isCompleted && "text-green-600",
+                !isActive && !isCompleted && "text-gray-400"
+              )}>
+                {step.title}
+              </span>
+            </div>
+            {index < STEPS.length - 1 && (
+              <div className={cn(
+                "w-16 h-1 mx-2 rounded transition-all duration-300",
+                currentStep > step.id ? "bg-green-500" : "bg-gray-200"
+              )} />
+            )}
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+
+  // Componente de campo de entrada con error
+  const FormField = ({
+    label,
+    name,
+    required = false,
+    children,
+    error
+  }: {
+    label: string;
+    name: string;
+    required?: boolean;
+    children: ReactNode;
+    error?: string;
+  }): JSX.Element => (
+    <div className="space-y-2">
+      <Label htmlFor={name} className="text-sm font-medium text-gray-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </Label>
+      {children}
+      {error && (
+        <p className="text-sm text-red-500 flex items-center gap-1">
+          <span>⚠️</span> {error}
+        </p>
+      )}
+    </div>
+  );
+
+  // Renderizar paso 1: Datos personales
   const renderStep1 = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          1-3. Información Personal
-        </h3>
-        <p className="text-gray-600 mt-2">Datos básicos para tu perfil</p>
-        <p className="text-sm text-red-500 mt-1">Los campos marcados con * son obligatorios</p>
-      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="first_name">Nombre *</Label>
+        <FormField label="Nombre" name="first_name" required error={errors.first_name}>
           <Input
+            ref={firstNameRef}
             id="first_name"
-            {...form.register('first_name')}
             placeholder="Tu nombre"
+            className={cn(errors.first_name && "border-red-500")}
             disabled={!!userData?.first_name}
-            className={userData?.first_name ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""}
+            defaultValue={userData?.first_name || ''}
           />
-          {form.formState.errors.first_name && (
-            <p className="text-sm text-red-500">{form.formState.errors.first_name.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="last_name">Apellidos *</Label>
+        </FormField>
+
+        <FormField label="Apellidos" name="last_name" required error={errors.last_name}>
           <Input
+            ref={lastNameRef}
             id="last_name"
-            {...form.register('last_name')}
             placeholder="Tus apellidos"
+            className={cn(errors.last_name && "border-red-500")}
             disabled={!!userData?.last_name}
-            className={userData?.last_name ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""}
+            defaultValue={userData?.last_name || ''}
           />
-          {form.formState.errors.last_name && (
-            <p className="text-sm text-red-500">{form.formState.errors.last_name.message}</p>
-          )}
-        </div>
+        </FormField>
       </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="email">Correo electrónico *</Label>
+
+      <FormField label="Email" name="email" required error={errors.email}>
         <Input
+          ref={emailRef}
           id="email"
           type="email"
-          {...form.register('email')}
           placeholder="tu@email.com"
+          className={cn(errors.email && "border-red-500")}
           disabled={!!userData?.email}
-          className={userData?.email ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""}
+          defaultValue={userData?.email || ''}
         />
-        {form.formState.errors.email && (
-          <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
-        )}
-      </div>
-      
-        <div className="space-y-2">
-          <Label htmlFor="country_code">Código de país *</Label>
-          <Select
-            value={form.watch('country_code')}
-            onValueChange={(value) => form.setValue('country_code', value)}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Selecciona tu país" />
-            </SelectTrigger>
-            <SelectContent className="max-h-60">
-              {countryCodes.map((country) => (
-                <SelectItem 
-                  key={country.code} 
-                  value={country.code}
-                  className="flex items-center gap-2"
-                >
-                  <span>{country.flag}</span>
-                  <span className="font-medium">{country.code}</span>
-                  <span className="text-gray-500">{country.name}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {form.formState.errors.country_code && (
-            <p className="text-sm text-red-500">{form.formState.errors.country_code.message}</p>
-          )}
-        </div>
-        
-        <div className="space-y-2">
-          <Label htmlFor="phone_number">Número de teléfono *</Label>
-          <Input
-            id="phone_number"
-            {...form.register('phone_number')}
-            placeholder="123 456 789"
-            disabled={!!userData?.phone_number}
-            className={userData?.phone_number ? "bg-gray-100 text-gray-600 cursor-not-allowed" : ""}
-            type="tel"
-            inputMode="numeric"
-            pattern="[0-9]*"
-          />
-          {form.formState.errors.phone_number && (
-            <p className="text-sm text-red-500">{form.formState.errors.phone_number.message}</p>
-          )}
-        </div>
-    </div>
-  );
+      </FormField>
 
-  const renderStep2 = () => (
-    <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          4-7. Información Física
-        </h3>
-        <p className="text-gray-600 mt-2">Características físicas para cálculos precisos</p>
-        <p className="text-sm text-red-500 mt-1">Los campos marcados con * son obligatorios</p>
-      </div>
+      <FormField label="Teléfono" name="phone_number" error={errors.phone_number}>
+        <Input
+          ref={phoneRef}
+          id="phone_number"
+          type="tel"
+          placeholder="+34 612 345 678"
+          defaultValue={userData?.phone_number || ''}
+        />
+      </FormField>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="birth_date">Fecha de Nacimiento *</Label>
+        <FormField label="Fecha de nacimiento" name="birth_date" required error={errors.birth_date}>
           <Input
+            ref={birthDateRef}
             id="birth_date"
             type="date"
-            {...form.register('birth_date')}
-            max={(() => {
-              const today = new Date();
-              const maxDate = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
-              return maxDate.toISOString().split('T')[0];
-            })()}
-            min={(() => {
-              const today = new Date();
-              const minDate = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
-              return minDate.toISOString().split('T')[0];
-            })()}
+            className={cn(errors.birth_date && "border-red-500")}
+            max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split('T')[0]}
+            min={new Date(new Date().setFullYear(new Date().getFullYear() - 120)).toISOString().split('T')[0]}
           />
-          {form.formState.errors.birth_date && (
-            <p className="text-sm text-red-500">{form.formState.errors.birth_date.message}</p>
-          )}
-          {form.watch('birth_date') && (
-            <p className="text-xs text-gray-500">
-              Edad: {(() => {
-                const birth = new Date(form.watch('birth_date')!);
-                const today = new Date();
-                let age = today.getFullYear() - birth.getFullYear();
-                const monthDiff = today.getMonth() - birth.getMonth();
-                if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-                  age--;
-                }
-                return age;
-              })()} años
-            </p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label>Sexo *</Label>
-          <RadioGroup
-            value={form.watch('gender')}
-            onValueChange={(value) => form.setValue('gender', value as 'male' | 'female' | 'other')}
-          >
-            {genderOptions.map((option) => (
-              <div key={option.value} className="flex items-center space-x-2">
-                <RadioGroupItem value={option.value} id={option.value} />
-                <Label htmlFor={option.value}>{option.label}</Label>
-              </div>
+        </FormField>
+
+        <FormField label="Género" name="gender" required error={errors.gender}>
+          <div className="flex gap-2">
+            {[
+              { value: 'male', label: '👨 Masculino' },
+              { value: 'female', label: '👩 Femenino' },
+              { value: 'other', label: '🧑 Otro' },
+            ].map(option => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setGender(option.value as any)}
+                className={cn(
+                  "flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all",
+                  gender === option.value
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                )}
+              >
+                {option.label}
+              </button>
             ))}
-          </RadioGroup>
-          {form.formState.errors.gender && (
-            <p className="text-sm text-red-500">{form.formState.errors.gender.message}</p>
-          )}
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="height">Altura (cm) *</Label>
-          <Input
-            id="height"
-            type="number"
-            {...form.register('height', { valueAsNumber: true })}
-            placeholder="170"
-            min="50"
-            max="250"
-          />
-          {form.formState.errors.height && (
-            <p className="text-sm text-red-500">{form.formState.errors.height.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="weight">Peso actual (kg) *</Label>
-          <Input
-            id="weight"
-            type="number"
-            {...form.register('weight', { valueAsNumber: true })}
-            placeholder="70"
-            min="20"
-            max="300"
-            step="0.1"
-          />
-          {form.formState.errors.weight && (
-            <p className="text-sm text-red-500">{form.formState.errors.weight.message}</p>
-          )}
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="target_weight">Peso objetivo (kg) (opcional)</Label>
-          <Input
-            id="target_weight"
-            type="number"
-            {...form.register('target_weight', { valueAsNumber: true })}
-            placeholder="65"
-            min="20"
-            max="300"
-            step="0.1"
-          />
-          <p className="text-xs text-gray-500">
-            Si no especificas un peso objetivo, podrás configurarlo más tarde en tu perfil
-          </p>
-          {form.formState.errors.target_weight && (
-            <p className="text-sm text-red-500">{form.formState.errors.target_weight.message}</p>
-          )}
-        </div>
+          </div>
+        </FormField>
       </div>
     </div>
   );
 
-  const renderStep3 = () => (
+  // Renderizar paso 2: Datos físicos y actividad
+  const renderStep2 = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          8-10. Actividad y Entrenamiento
-        </h3>
-        <p className="text-gray-600 mt-2">Preferencias de actividad y entrenamiento</p>
-        <p className="text-sm text-red-500 mt-1">Los campos marcados con * son obligatorios</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <FormField label="Altura (cm)" name="height" required error={errors.height}>
+          <Input
+            ref={heightRef}
+            id="height"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            placeholder="170"
+            maxLength={3}
+            className={cn(errors.height && "border-red-500")}
+          />
+        </FormField>
+
+        <FormField label="Peso actual (kg)" name="weight" required error={errors.weight}>
+          <Input
+            ref={weightRef}
+            id="weight"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
+            placeholder="70"
+            maxLength={5}
+            className={cn(errors.weight && "border-red-500")}
+          />
+        </FormField>
+
+        <FormField label="Peso objetivo (kg)" name="target_weight" error={errors.target_weight}>
+          <Input
+            ref={targetWeightRef}
+            id="target_weight"
+            type="text"
+            inputMode="decimal"
+            pattern="[0-9]*\.?[0-9]*"
+            placeholder="65"
+            maxLength={5}
+            className={cn(errors.target_weight && "border-red-500")}
+          />
+        </FormField>
       </div>
-      <div className="space-y-2">
-        <Label>¿Cuál es tu nivel de actividad diaria? *</Label>
-        <Select
-          value={form.watch('activity_level')}
-          onValueChange={(value) => form.setValue('activity_level', value as any)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecciona tu nivel de actividad" />
-          </SelectTrigger>
-          <SelectContent>
-            {activityLevelOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {form.formState.errors.activity_level && (
-          <p className="text-sm text-red-500">{form.formState.errors.activity_level.message}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <Label>¿Qué días de la semana puedes entrenar? *</Label>
+
+      <FormField label="Nivel de actividad diaria" name="activity_level" required error={errors.activity_level}>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+          {[
+            { value: 'sedentary', label: 'Sedentario', emoji: '🪑' },
+            { value: 'light', label: 'Ligero', emoji: '🚶' },
+            { value: 'moderate', label: 'Moderado', emoji: '🏃' },
+            { value: 'active', label: 'Activo', emoji: '💪' },
+            { value: 'very_active', label: 'Muy activo', emoji: '🏆' },
+          ].map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setActivityLevel(option.value as any)}
+              className={cn(
+                "py-3 px-2 rounded-lg border-2 text-center transition-all",
+                activityLevel === option.value
+                  ? "border-blue-500 bg-blue-50 text-blue-700"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+              )}
+            >
+              <div className="text-2xl mb-1">{option.emoji}</div>
+              <div className="text-xs font-medium">{option.label}</div>
+            </button>
+          ))}
+        </div>
+      </FormField>
+
+      <FormField label="¿Qué días puedes entrenar?" name="training_days" required error={errors.training_days}>
         <div className="grid grid-cols-7 gap-2">
           {[
-            { id: 'monday', name: 'Lunes', short: 'L', number: 1 },
-            { id: 'tuesday', name: 'Martes', short: 'M', number: 2 },
-            { id: 'wednesday', name: 'Miércoles', short: 'X', number: 3 },
-            { id: 'thursday', name: 'Jueves', short: 'J', number: 4 },
-            { id: 'friday', name: 'Viernes', short: 'V', number: 5 },
-            { id: 'saturday', name: 'Sábado', short: 'S', number: 6 },
-            { id: 'sunday', name: 'Domingo', short: 'D', number: 7 },
-          ].map((day) => {
-            const trainingDays = form.watch('training_days') || [];
-            const isSelected = trainingDays.includes(day.number);
+            { num: 1, short: 'L', full: 'Lun' },
+            { num: 2, short: 'M', full: 'Mar' },
+            { num: 3, short: 'X', full: 'Mié' },
+            { num: 4, short: 'J', full: 'Jue' },
+            { num: 5, short: 'V', full: 'Vie' },
+            { num: 6, short: 'S', full: 'Sáb' },
+            { num: 7, short: 'D', full: 'Dom' },
+          ].map(day => {
+            const isSelected = trainingDays.includes(day.num);
             return (
               <button
-                key={day.id}
+                key={day.num}
                 type="button"
-                onClick={() => {
-                  const current = form.getValues('training_days') || [];
-                  const newDays = isSelected
-                    ? current.filter((d) => d !== day.number)
-                    : [...current, day.number].sort((a, b) => a - b);
-                  form.setValue('training_days', newDays);
-                  form.setValue('training_days_per_week', newDays.length);
-                  form.trigger('training_days');
-                }}
-                className={`
-                  relative p-3 rounded-lg border-2 transition-all text-center
-                  ${isSelected
-                    ? 'bg-gradient-to-br from-purple-500 to-violet-500 border-purple-600 text-white shadow-md'
-                    : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50'
-                  }
-                `}
-              >
-                <div className="text-xs font-semibold">{day.short}</div>
-                <div className="text-xs mt-1 opacity-75">{day.name}</div>
-                {isSelected && (
-                  <div className="absolute -top-1 -right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm">
-                    <span className="text-purple-600 text-xs">✓</span>
-                  </div>
+                onClick={() => toggleTrainingDay(day.num)}
+                className={cn(
+                  "py-3 rounded-lg border-2 transition-all",
+                  isSelected
+                    ? "border-green-500 bg-green-50 text-green-700"
+                    : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
                 )}
+              >
+                <div className="text-lg font-bold">{day.short}</div>
+                <div className="text-xs hidden md:block">{day.full}</div>
               </button>
             );
           })}
         </div>
-        {form.watch('training_days') && form.watch('training_days')!.length > 0 && (
-          <p className="text-xs text-gray-500 mt-2">
-            Total: {form.watch('training_days')!.length} día{form.watch('training_days')!.length !== 1 ? 's' : ''} seleccionado{form.watch('training_days')!.length !== 1 ? 's' : ''}
+        {trainingDays.length > 0 && (
+          <p className="text-sm text-gray-500 mt-2">
+            {trainingDays.length} día{trainingDays.length !== 1 ? 's' : ''} seleccionado{trainingDays.length !== 1 ? 's' : ''}
           </p>
         )}
-        {form.formState.errors.training_days && (
-          <p className="text-sm text-red-500">{form.formState.errors.training_days.message}</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <Label>¿Dónde prefieres entrenar? *</Label>
-        <RadioGroup
-          value={form.watch('training_location')}
-          onValueChange={(value) => form.setValue('training_location', value as 'home' | 'gym')}
-        >
-          {trainingLocationOptions.map((option) => (
-            <div key={option.value} className="flex items-center space-x-2">
-              <RadioGroupItem value={option.value} id={option.value} />
-              <Label htmlFor={option.value}>{option.label}</Label>
-            </div>
+      </FormField>
+
+      <FormField label="¿Dónde prefieres entrenar?" name="training_location" required error={errors.training_location}>
+        <div className="grid grid-cols-2 gap-4">
+          {[
+            { value: 'home', label: 'En casa', emoji: '🏠', desc: 'Ejercicios sin equipamiento' },
+            { value: 'gym', label: 'Gimnasio', emoji: '🏋️', desc: 'Con máquinas y pesas' },
+          ].map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setTrainingLocation(option.value as any)}
+              className={cn(
+                "py-4 px-4 rounded-xl border-2 text-left transition-all",
+                trainingLocation === option.value
+                  ? "border-blue-500 bg-blue-50"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              )}
+            >
+              <div className="text-3xl mb-2">{option.emoji}</div>
+              <div className="font-semibold text-gray-800">{option.label}</div>
+              <div className="text-xs text-gray-500">{option.desc}</div>
+            </button>
           ))}
-        </RadioGroup>
-        {form.formState.errors.training_location && (
-          <p className="text-sm text-red-500">{form.formState.errors.training_location.message}</p>
-        )}
-      </div>
+        </div>
+      </FormField>
     </div>
   );
 
-  const renderStep4 = () => (
+  // Renderizar paso 3: Objetivos
+  const renderStep3 = () => (
     <div className="space-y-6">
-      <div className="text-center">
-        <h3 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          11-16. Información Dietética y Objetivos
-        </h3>
-        <p className="text-gray-600 mt-2">Información adicional para personalizar tu plan</p>
-        <p className="text-sm text-red-500 mt-1">Los campos marcados con * son obligatorios</p>
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="allergies">¿Tienes alguna intolerancia o alergia alimentaria que deba saber?</Label>
-        <Textarea
-          id="allergies"
-          {...form.register('allergies')}
-          placeholder="Ej: Intolerancia a la lactosa, alergia a los frutos secos..."
-          rows={3}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="medical_conditions">¿Tienes algún problema hormonal o metabólico diagnosticado?</Label>
-        <Textarea
-          id="medical_conditions"
-          {...form.register('medical_conditions')}
-          placeholder="Ejemplo: hipotiroidismo, diabetes..."
-          rows={3}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="disliked_foods">¿Hay algún alimento que no te guste o que nunca comas?</Label>
-        <Textarea
-          id="disliked_foods"
-          {...form.register('disliked_foods')}
-          placeholder="Ej: No me gusta el brócoli, nunca como marisco..."
-          rows={3}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label>¿Cuál es tu objetivo principal? *</Label>
-        <RadioGroup
-          value={form.watch('main_goal') || ''}
-          onValueChange={(value) => {
-            form.setValue('main_goal', value as any, { shouldValidate: true });
-            // Forzar validación inmediata
-            form.trigger('main_goal');
-          }}
-        >
-          {mainGoalOptions.map((option) => (
-            <div key={option.value} className="flex items-center space-x-2">
-              <RadioGroupItem value={option.value} id={option.value} />
-              <Label htmlFor={option.value}>{option.label}</Label>
-            </div>
+      <FormField label="¿Cuál es tu objetivo principal?" name="main_goal" required error={errors.main_goal}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[
+            { value: 'lose_weight', label: 'Perder peso', emoji: '🔥', desc: 'Quemar grasa y definir' },
+            { value: 'gain_muscle', label: 'Ganar músculo', emoji: '💪', desc: 'Aumentar masa muscular' },
+            { value: 'body_recomposition', label: 'Recomposición', emoji: '⚖️', desc: 'Perder grasa y ganar músculo' },
+          ].map(option => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setMainGoal(option.value as any)}
+              className={cn(
+                "py-6 px-4 rounded-xl border-2 text-center transition-all",
+                mainGoal === option.value
+                  ? "border-green-500 bg-green-50 ring-2 ring-green-200"
+                  : "border-gray-200 bg-white hover:border-gray-300"
+              )}
+            >
+              <div className="text-4xl mb-2">{option.emoji}</div>
+              <div className="font-semibold text-gray-800">{option.label}</div>
+              <div className="text-xs text-gray-500 mt-1">{option.desc}</div>
+            </button>
           ))}
-        </RadioGroup>
-        {form.formState.errors.main_goal && (
-          <p className="text-sm text-red-500">{form.formState.errors.main_goal.message}</p>
-        )}
-        {!form.watch('main_goal') && !form.formState.errors.main_goal && (
-          <p className="text-sm text-red-500">Selecciona tu objetivo principal</p>
-        )}
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="previous_obstacles">¿Qué crees que te ha impedido lograrlo hasta ahora?</Label>
-        <Textarea
-          id="previous_obstacles"
-          {...form.register('previous_obstacles')}
-          placeholder="Ejemplo: falta de constancia, motivación, tiempo, conocimiento..."
-          rows={3}
-        />
-      </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="injuries_or_medical_issues">¿Has tenido alguna lesión o intervención médica importante? ¿Actualmente te molesta algo?</Label>
-        <Textarea
-          id="injuries_or_medical_issues"
-          {...form.register('injuries_or_medical_issues')}
-          placeholder="Describe brevemente y fecha aproximada..."
-          rows={3}
-        />
+        </div>
+      </FormField>
+
+      <div className="bg-gray-50 rounded-xl p-4 space-y-4">
+        <p className="text-sm font-medium text-gray-700">
+          Información adicional (opcional)
+        </p>
+
+        <FormField label="Alergias o intolerancias alimentarias" name="allergies" error={errors.allergies}>
+          <Textarea
+            ref={allergiesRef}
+            id="allergies"
+            placeholder="Ej: Intolerancia a la lactosa, alergia a frutos secos..."
+            rows={2}
+            className="resize-none"
+          />
+        </FormField>
+
+        <FormField label="Condiciones médicas" name="medical_conditions" error={errors.medical_conditions}>
+          <Textarea
+            ref={medicalConditionsRef}
+            id="medical_conditions"
+            placeholder="Ej: Diabetes, hipotiroidismo, lesiones previas..."
+            rows={2}
+            className="resize-none"
+          />
+        </FormField>
+
+        <FormField label="Alimentos que no te gustan" name="disliked_foods" error={errors.disliked_foods}>
+          <Textarea
+            ref={dislikedFoodsRef}
+            id="disliked_foods"
+            placeholder="Ej: Brócoli, mariscos, hígado..."
+            rows={2}
+            className="resize-none"
+          />
+        </FormField>
       </div>
     </div>
   );
 
   return (
-    <Card className="w-full max-w-4xl mx-auto border-0 bg-white/80 backdrop-blur-sm shadow-2xl">
-      <CardHeader className="text-center bg-gradient-to-r from-blue-50 to-purple-50 rounded-t-lg">
-        <CardTitle className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-          Formulario de Configuración Inicial
+    <Card className="w-full max-w-3xl mx-auto border-0 shadow-xl bg-white/95 backdrop-blur">
+      <CardHeader className="text-center pb-2">
+        <CardTitle className="text-2xl font-bold text-gray-800">
+          Configura tu Perfil
         </CardTitle>
-        <CardDescription className="text-gray-600">
-          Completa tu perfil para personalizar tu experiencia
+        <CardDescription>
+          Completa estos datos para personalizar tu plan
         </CardDescription>
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>Paso {currentStep} de {totalSteps}</span>
-            <span>{Math.round(progress)}% completado</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
-              className={`${
-                isCurrentStepValid() 
-                  ? "bg-gradient-to-r from-blue-500 to-purple-500" 
-                  : "bg-gradient-to-r from-red-500 to-pink-500"
-              } h-2 rounded-full transition-all duration-300 ease-out`}
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-          {!isCurrentStepValid() && (
-            <p className="text-xs text-red-500 text-center">
-              ⚠️ Completa todos los campos obligatorios para continuar
-            </p>
-          )}
-        </div>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+
+      <CardContent className="pt-4">
+        <StepIndicator />
+
+        <form onSubmit={handleSubmit}>
           {currentStep === 1 && renderStep1()}
           {currentStep === 2 && renderStep2()}
           {currentStep === 3 && renderStep3()}
-          {currentStep === 4 && renderStep4()}
-          
-          <div className="flex justify-between">
+
+          <div className="flex justify-between mt-8 pt-6 border-t">
             <Button
               type="button"
               variant="outline"
-              onClick={prevStep}
+              onClick={handlePrev}
               disabled={currentStep === 1}
-              className="bg-white/50 hover:bg-white/70 border-gray-300 text-gray-700 hover:text-gray-900"
+              className="gap-2"
             >
+              <ChevronLeft className="w-4 h-4" />
               Anterior
             </Button>
-            
-            {currentStep < totalSteps ? (
-              <Button 
-                type="button" 
-                onClick={nextStep}
-                className={`${
-                  isCurrentStepValid() 
-                    ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600" 
-                    : "bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600"
-                } text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300`}
+
+            {currentStep < 3 ? (
+              <Button
+                type="button"
+                onClick={handleNext}
+                className="gap-2 bg-blue-600 hover:bg-blue-700"
               >
-                {isCurrentStepValid() ? "Siguiente" : "Completa los campos requeridos"}
+                Siguiente
+                <ChevronRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={isLoading}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="gap-2 bg-green-600 hover:bg-green-700 min-w-[200px]"
               >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? 'Guardando...' : 'Completar Configuración'}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Completar Configuración
+                  </>
+                )}
               </Button>
             )}
           </div>
@@ -892,3 +644,5 @@ export function InitialRegistrationForm({
   );
 }
 
+// No necesitamos memo ya que usamos refs
+export const InitialRegistrationForm = InitialRegistrationFormComponent;

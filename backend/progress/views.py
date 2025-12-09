@@ -317,23 +317,34 @@ class ProgressStatsViewSet(viewsets.ViewSet):
             workout_goal = 5  # entrenamientos por semana
             nutrition_goal = 21  # comidas por semana (3 por día)
             
-            # Cálculo de progreso
-            weight_progress = 0
+            # Cálculo de progreso (asegurar que todos sean float para evitar errores de tipo)
+            weight_progress = 0.0
             if current_weight and weight_goal:
-                if weight_change and weight_change < 0:  # Pérdida de peso
-                    weight_progress = min(100, abs(weight_change) / abs(current_weight.weight - weight_goal) * 100)
+                current_weight_float = float(current_weight.weight)
+                weight_goal_float = float(weight_goal)
+                if weight_change is not None:
+                    weight_change_float = float(weight_change)
+                    if weight_change_float < 0:  # Pérdida de peso
+                        diff = abs(current_weight_float - weight_goal_float)
+                        if diff > 0:
+                            weight_progress = min(100.0, abs(weight_change_float) / diff * 100.0)
+                    else:
+                        weight_progress = 0.0
                 else:
-                    weight_progress = 0
+                    weight_progress = 0.0
             
-            workout_progress = min(100, (workouts_this_week / workout_goal) * 100)
-            nutrition_progress = min(100, (meals_this_week / nutrition_goal) * 100)
+            workout_progress = float(min(100, (workouts_this_week / workout_goal) * 100))
+            nutrition_progress = float(min(100, (meals_this_week / nutrition_goal) * 100))
+            
+            # Asegurar que total_workout_time sea un número
+            total_workout_time_float = float(total_workout_time) if total_workout_time else 0.0
             
             data = {
                 "weight": {
                     "current": float(current_weight.weight) if current_weight else None,
-                    "goal": weight_goal,
-                    "change": float(weight_change) if weight_change else None,
-                    "progress": round(weight_progress, 1),
+                    "goal": float(weight_goal),
+                    "change": float(weight_change) if weight_change is not None else None,
+                    "progress": round(float(weight_progress), 1),
                     "entries_count": weight_entries.count(),
                     "entries_this_month": weight_entries.filter(date__gte=month_start).count()
                 },
@@ -341,15 +352,15 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                     "this_week": workouts_this_week,
                     "this_month": workouts_this_month,
                     "goal_per_week": workout_goal,
-                    "progress": round(workout_progress, 1),
-                    "total_time_month": total_workout_time,
-                    "avg_time_per_workout": round(total_workout_time / workouts_this_month, 1) if workouts_this_month > 0 else 0
+                    "progress": round(float(workout_progress), 1),
+                    "total_time_month": int(total_workout_time_float),
+                    "avg_time_per_workout": round(total_workout_time_float / workouts_this_month, 1) if workouts_this_month > 0 else 0.0
                 },
                 "nutrition": {
                     "meals_this_week": meals_this_week,
                     "meals_this_month": meals_this_month,
                     "goal_per_week": nutrition_goal,
-                    "progress": round(nutrition_progress, 1)
+                    "progress": round(float(nutrition_progress), 1)
                 },
                 "photos": {
                     "total": ProgressPhoto.objects.filter(user=user).count(),
@@ -358,7 +369,7 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                         date__gte=month_start
                     ).count()
                 },
-                "overall_progress": round((weight_progress + workout_progress + nutrition_progress) / 3, 1)
+                "overall_progress": round((float(weight_progress) + float(workout_progress) + float(nutrition_progress)) / 3.0, 1)
             }
             
             logger.info(f"✅ Estadísticas generadas exitosamente para usuario: {user.email}")

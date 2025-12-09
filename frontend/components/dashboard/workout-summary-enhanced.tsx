@@ -1,13 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { 
-  Dumbbell, 
-  Play, 
-  Check, 
-  Clock, 
-  Trophy, 
-  Flame, 
+import {
+  Dumbbell,
+  Play,
+  Check,
+  Clock,
+  Trophy,
+  Flame,
   Target,
   TrendingUp,
   Calendar,
@@ -30,12 +30,12 @@ interface WorkoutSummaryEnhancedProps {
 }
 
 export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProps) {
-  const { 
-    workoutLogs, 
-    loading, 
-    error, 
+  const {
+    workoutLogs,
+    loading,
+    error,
     activeProgram,
-    refreshData 
+    refreshData
   } = useWorkouts()
 
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutLog | null>(null)
@@ -88,9 +88,9 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
 
   // Obtener los ejercicios del día de entrenamiento desde el programa activo
   const getWorkoutDayDetails = (workoutDayId: string) => {
-    if (!activeProgram || !workoutDayId) return null
-    
-    return activeProgram.days.find(day => day.id === workoutDayId)
+    if (!activeProgram || !activeProgram.days || !workoutDayId) return null
+
+    return activeProgram.days.find(day => day.id === workoutDayId) || null
   }
 
   if (loading) {
@@ -177,8 +177,8 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
               {stats?.this_week || 0} / {stats?.goal_per_week || 5}
             </span>
           </div>
-          <Progress 
-            value={stats?.progress || 0} 
+          <Progress
+            value={stats?.progress || 0}
             className="h-2"
           />
         </div>
@@ -207,8 +207,8 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
             <h4 className="text-sm font-medium text-gray-700">Entrenamientos recientes</h4>
             <div className="space-y-2">
               {recentWorkouts.map((workout) => (
-                <div 
-                  key={workout.id} 
+                <div
+                  key={workout.id}
                   onClick={() => handleViewWorkoutDetails(workout)}
                   className="flex items-center justify-between p-2 sm:p-3 bg-muted/30 rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
                 >
@@ -220,15 +220,15 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
                     )}
                     <div>
                       <div className="text-sm font-medium">
-                        {workout.workout_day_name || 
-                         (workout.workout_day_day ? 
-                           workout.workout_day_day.charAt(0).toUpperCase() + workout.workout_day_day.slice(1) : 
-                           'Entrenamiento')}
+                        {workout.workout_day_name ||
+                          (workout.workout_day_day ?
+                            workout.workout_day_day.charAt(0).toUpperCase() + workout.workout_day_day.slice(1) :
+                            'Entrenamiento')}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {new Date(workout.date).toLocaleDateString('es-ES', { 
-                          weekday: 'short', 
-                          day: 'numeric' 
+                        {new Date(workout.date).toLocaleDateString('es-ES', {
+                          weekday: 'short',
+                          day: 'numeric'
                         })} • {workout.duration_minutes || 0} min
                       </div>
                     </div>
@@ -240,8 +240,8 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
                         <span className="text-xs font-medium">{workout.rating || 0}</span>
                       </div>
                     )}
-                    <Badge 
-                      variant={workout.completed ? "default" : "secondary"} 
+                    <Badge
+                      variant={workout.completed ? "default" : "secondary"}
                       className={workout.completed ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-xs" : "text-xs"}
                     >
                       {workout.completed ? "Completado" : "Pendiente"}
@@ -289,7 +289,7 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
                       <span className="text-xs font-medium text-purple-700">Fecha</span>
                     </div>
                     <p className="text-sm font-semibold text-purple-900">
-                      {new Date(selectedWorkout.date).toLocaleDateString('es-ES', { 
+                      {new Date(selectedWorkout.date).toLocaleDateString('es-ES', {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -316,10 +316,10 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
               <Card>
                 <CardHeader>
                   <CardTitle className="text-lg">
-                    {selectedWorkout.workout_day_name || 
-                     (selectedWorkout.workout_day_day ? 
-                       selectedWorkout.workout_day_day.charAt(0).toUpperCase() + selectedWorkout.workout_day_day.slice(1) : 
-                       'Entrenamiento')}
+                    {selectedWorkout.workout_day_name ||
+                      (selectedWorkout.workout_day_day ?
+                        selectedWorkout.workout_day_day.charAt(0).toUpperCase() + selectedWorkout.workout_day_day.slice(1) :
+                        'Entrenamiento')}
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -340,8 +340,8 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
                         {workoutDay.exercises.map((exercise: any, index: number) => {
                           const exerciseData = exercise.exercise || exercise
                           return (
-                            <div 
-                              key={exercise.id || index} 
+                            <div
+                              key={exercise.id || index}
                               className="p-3 bg-muted/50 rounded-lg border border-purple-100"
                             >
                               <div className="flex items-start justify-between">
@@ -388,7 +388,7 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
                     </CardContent>
                   </Card>
                 )}
-                
+
                 {selectedWorkout.rating && (
                   <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
                     <CardHeader>

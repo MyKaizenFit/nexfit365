@@ -2,7 +2,7 @@
 # Views para la nueva estructura simplificada
 
 from rest_framework import viewsets, status, filters
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
@@ -14,6 +14,214 @@ from .serializers import (
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
     PlanMealSerializer, MealLogSerializer, FoodSerializer
 )
+from .services import PersonalizedNutritionService
+from django.shortcuts import get_object_or_404
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def current_plan(request):
+    """
+    Obtener el plan de nutrición actual del usuario.
+    Devuelve el plan más reciente asignado al usuario o null si no tiene ninguno.
+    """
+    plan = NutritionPlan.objects.filter(
+        user=request.user,
+        is_active=True
+    ).prefetch_related('meals__suggested_recipes').order_by('-created_at').first()
+    
+    if plan:
+        serializer = NutritionPlanSerializer(plan)
+        return Response({'plan': serializer.data})
+    
+    # Si no tiene plan, devolver null (no es un error)
+    return Response({'plan': None})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def plan_meals_for_selection(request):
+    """
+    Obtener comidas disponibles para selección.
+    Devuelve las comidas del plan actual del usuario organizadas por tipo con recetas sugeridas.
+    """
+    user = request.user
+    
+    # Primero intentar obtener comidas del plan actual del usuario
+    user_plan = NutritionPlan.objects.filter(
+        user=user,
+        is_active=True
+    ).prefetch_related('meals__suggested_recipes').first()
+    
+    meals_by_type = {}
+    
+    if user_plan:
+        meals = user_plan.meals.all()
+        for meal in meals:
+            meal_type = meal.meal_type
+            if meal_type not in meals_by_type:
+                meals_by_type[meal_type] = []
+            
+            # Crear opciones basadas en la comida y sus recetas sugeridas
+            meal_options = []
+            
+            # Si hay recetas sugeridas, crear una opción por cada receta
+            if meal.suggested_recipes.exists():
+                for recipe in meal.suggested_recipes.all():
+                    meal_options.append({
+                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                        'name': recipe.name,
+                        'calories': int(recipe.calories) if recipe.calories else meal.calories,
+                        'protein': float(recipe.protein) if recipe.protein else float(meal.protein),
+                        'carbs': float(recipe.carbs) if recipe.carbs else float(meal.carbs),
+                        'fat': float(recipe.fat) if recipe.fat else float(meal.fat),
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': recipe.description or meal.description,
+                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                        'recipeId': recipe.id
+                    })
+            else:
+                # Si no hay recetas, crear una opción genérica basada en la comida
+                meal_options.append({
+                    'id': f"meal-{meal.id}",
+                    'name': meal.name,
+                    'calories': meal.calories,
+                    'protein': float(meal.protein),
+                    'carbs': float(meal.carbs),
+                    'fat': float(meal.fat),
+                    'category': 'balanced',
+                    'icon': '🍽️',
+                    'description': meal.description,
+                    'cookTime': '15 min'
+                })
+            
+            meals_by_type[meal_type].extend(meal_options)
+        
+        return Response({
+            'meals_by_type': meals_by_type,
+            'plan_name': user_plan.name,
+            'source': 'user_plan'
+        })
+    
+    # Si no tiene plan, devolver comidas de plantillas del sistema
+    system_plans = NutritionPlan.objects.filter(
+        is_system=True,
+        is_active=True
+    ).prefetch_related('meals__suggested_recipes')[:3]
+    
+    for plan in system_plans:
+        for meal in plan.meals.all():
+            meal_type = meal.meal_type
+            if meal_type not in meals_by_type:
+                meals_by_type[meal_type] = []
+            
+            # Crear opciones basadas en la comida y sus recetas sugeridas
+            if meal.suggested_recipes.exists():
+                for recipe in meal.suggested_recipes.all():
+                    meals_by_type[meal_type].append({
+                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                        'name': recipe.name,
+                        'calories': int(recipe.calories) if recipe.calories else meal.calories,
+                        'protein': float(recipe.protein) if recipe.protein else float(meal.protein),
+                        'carbs': float(recipe.carbs) if recipe.carbs else float(meal.carbs),
+                        'fat': float(recipe.fat) if recipe.fat else float(meal.fat),
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': recipe.description or meal.description,
+                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                        'recipeId': recipe.id
+                    })
+            else:
+                meals_by_type[meal_type].append({
+                    'id': f"meal-{meal.id}",
+                    'name': meal.name,
+                    'calories': meal.calories,
+                    'protein': float(meal.protein),
+                    'carbs': float(meal.carbs),
+                    'fat': float(meal.fat),
+                    'category': 'balanced',
+                    'icon': '🍽️',
+                    'description': meal.description,
+                    'cookTime': '15 min'
+                })
+    
+    return Response({
+        'meals_by_type': meals_by_type,
+        'plan_name': None,
+        'source': 'system_templates'
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def daily_meal_selections(request):
+    """
+    Obtener o crear selecciones de comidas para un día específico.
+    GET: Obtener las selecciones de comidas del día
+    POST: Guardar/actualizar las selecciones de comidas del día
+    """
+    from django.utils import timezone
+    
+    date_str = request.query_params.get('date') or request.data.get('date')
+    if date_str:
+        try:
+            from datetime import datetime
+            date = datetime.strptime(date_str, '%Y-%m-%d').date()
+        except ValueError:
+            date = timezone.localdate()
+    else:
+        date = timezone.localdate()
+    
+    user = request.user
+    
+    if request.method == 'GET':
+        # Obtener los logs de comidas del día
+        meal_logs = MealLog.objects.filter(user=user, date=date)
+        serializer = MealLogSerializer(meal_logs, many=True)
+        
+        # También obtener las comidas del plan si existe
+        user_plan = NutritionPlan.objects.filter(
+            user=user, is_active=True
+        ).prefetch_related('meals__suggested_recipes').first()
+        
+        plan_meals = []
+        if user_plan:
+            plan_meals = PlanMealSerializer(user_plan.meals.all(), many=True).data
+        
+        return Response({
+            'date': date.isoformat(),
+            'selections': serializer.data,
+            'plan_meals': plan_meals,
+            'has_plan': user_plan is not None
+        })
+    
+    elif request.method == 'POST':
+        # Guardar selección de comida
+        data = request.data
+        meal_type = data.get('meal_type')
+        recipe_id = data.get('recipe_id')
+        
+        if not meal_type:
+            return Response({'error': 'meal_type es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Crear o actualizar el log de comida
+        meal_log, created = MealLog.objects.update_or_create(
+            user=user,
+            date=date,
+            meal_type=meal_type,
+            defaults={
+                'recipe_id': recipe_id,
+                'completed': True,
+                'calories': data.get('calories', 0),
+                'protein': data.get('protein', 0),
+                'carbs': data.get('carbs', 0),
+                'fat': data.get('fat', 0),
+            }
+        )
+        
+        serializer = MealLogSerializer(meal_log)
+        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -49,6 +257,41 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Recetas destacadas"""
         recipes = Recipe.objects.filter(is_featured=True, is_active=True)[:10]
         return Response(RecipeMinimalSerializer(recipes, many=True).data)
+    
+    @action(detail=True, methods=['get'])
+    def personalized(self, request, pk=None):
+        """
+        Obtiene cantidades personalizadas de una receta según el perfil del usuario.
+        GET /api/nutrition/recipes/{id}/personalized/?meal_type=breakfast
+        """
+        recipe = get_object_or_404(Recipe, pk=pk, is_active=True)
+        meal_type = request.query_params.get('meal_type', 'lunch')
+        
+        # Validar meal_type
+        valid_meal_types = ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner', 'evening_snack', 'snack']
+        if meal_type not in valid_meal_types:
+            meal_type = 'lunch'
+        
+        # Calcular cantidades personalizadas
+        service = PersonalizedNutritionService(request.user)
+        personalized = service.calculate_personalized_recipe_quantities(recipe, meal_type)
+        
+        # Serializar la receta
+        recipe_data = RecipeSerializer(recipe).data
+        
+        return Response({
+            'recipe': recipe_data,
+            'personalized_quantities': personalized,
+            'user_profile': {
+                'weight': request.user.weight,
+                'height': request.user.height,
+                'age': request.user.age,
+                'gender': request.user.gender,
+                'main_goal': request.user.main_goal,
+                'activity_level': request.user.activity_level,
+                'daily_calories_target': service.calculate_daily_calories()
+            }
+        })
 
 
 class NutritionPlanViewSet(viewsets.ModelViewSet):
@@ -141,3 +384,83 @@ class FoodViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'brand']
+
+
+@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def default_plan_configurations(request):
+    """
+    Configuraciones de planes por defecto.
+    Este endpoint gestiona las configuraciones que determinan qué planes
+    de nutrición y entrenamiento se asignan por defecto según el perfil del usuario.
+    """
+    if request.method == 'GET':
+        # Devolver configuraciones vacías por ahora
+        # En el futuro esto puede expandirse para gestionar configuraciones reales
+        return Response({
+            'results': [],
+            'count': 0,
+            'page': 1,
+            'page_size': 50,
+            'total_pages': 0,
+        })
+    
+    elif request.method == 'POST':
+        # Crear nueva configuración (placeholder)
+        return Response({
+            'message': 'Configuración creada',
+            'id': None
+        }, status=status.HTTP_201_CREATED)
+    
+    elif request.method == 'PUT':
+        # Actualizar configuración (placeholder)
+        return Response({'message': 'Configuración actualizada'})
+    
+    elif request.method == 'DELETE':
+        # Eliminar configuración (placeholder)
+        return Response({'message': 'Configuración eliminada'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def default_nutrition_plans(request):
+    """
+    Planes de nutrición predeterminados/plantillas.
+    Devuelve planes que pueden ser usados como plantillas.
+    """
+    # Buscar planes que son plantillas (is_template=True) o del sistema (user=None)
+    plans = NutritionPlan.objects.filter(
+        models.Q(is_template=True) | models.Q(user__isnull=True)
+    ).distinct().prefetch_related('meals__suggested_recipes')
+    
+    # Paginación
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 100))
+    
+    total = plans.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    
+    plans_list = plans[start:end]
+    
+    results = []
+    for plan in plans_list:
+        results.append({
+            'id': str(plan.id),
+            'name': plan.name,
+            'description': plan.description,
+            'goal': plan.goal,
+            'daily_calories': plan.daily_calories,
+            'is_active': plan.is_active,
+            'is_template': plan.is_template,
+            'meals_count': plan.meals.count(),
+            'created_at': plan.created_at.isoformat() if plan.created_at else None,
+        })
+    
+    return Response({
+        'results': results,
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size if total > 0 else 0,
+    })

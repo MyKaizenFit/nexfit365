@@ -6,8 +6,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
     
     bmi = serializers.ReadOnlyField()
-    calculated_age = serializers.ReadOnlyField()
-    
     profile_picture = serializers.ImageField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
     
@@ -15,10 +13,10 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'id', 'email', 'first_name', 'last_name', 'phone_number', 'birth_date', 
-            'age', 'gender', 'height', 'weight', 'target_weight', 'target_date', 
-            'bmi', 'calculated_age', 'fitness_goals', 'activity_level', 
-            'training_days_per_week', 'training_days', 'training_location', 'main_goal',
-            'previous_obstacles', 'injuries_or_medical_issues', 'disliked_foods',
+            'gender', 'height', 'weight', 'target_weight', 'bmi',
+            'activity_level', 'training_days_per_week', 'training_days', 
+            'training_location', 'main_goal',
+            'injuries_or_medical_issues', 'disliked_foods',
             'dietary_restrictions', 'allergies', 'medical_conditions', 
             'workout_preferences', 'equipment_available', 'notification_preferences', 
             'profile_picture', 'profile_picture_url',
@@ -40,7 +38,6 @@ class AdminUserSerializer(serializers.ModelSerializer):
     """Serializer para administración de usuarios con información completa"""
     
     bmi = serializers.ReadOnlyField()
-    age = serializers.ReadOnlyField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     gender_display = serializers.CharField(source='get_gender_display', read_only=True)
     is_staff_display = serializers.SerializerMethodField()
@@ -53,9 +50,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
             'is_active', 'is_staff', 'is_staff_display', 'is_superuser', 'is_superuser_display',
-            'is_verified', 'birth_date', 'gender', 'gender_display', 'age',
-            'height', 'weight', 'target_weight', 'target_date', 'bmi',
-            'fitness_goals', 'activity_level', 'dietary_restrictions', 'allergies',
+            'is_verified', 'birth_date', 'gender', 'gender_display',
+            'height', 'weight', 'target_weight', 'bmi',
+            'activity_level', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
             'notification_preferences', 'date_joined', 'created_at_formatted',
             'last_login', 'last_login_formatted', 'created_at', 'updated_at'
@@ -107,8 +104,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'email', 'password', 'password_confirm', 'first_name', 'last_name',
-            'birth_date', 'gender', 'height', 'weight', 'target_weight', 'target_date',
-            'fitness_goals', 'activity_level', 'dietary_restrictions', 'allergies',
+            'birth_date', 'gender', 'height', 'weight', 'target_weight',
+            'main_goal', 'activity_level', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
             'phone_number', 'role'
         ]
