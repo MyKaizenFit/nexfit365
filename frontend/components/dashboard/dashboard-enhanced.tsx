@@ -540,7 +540,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
       {/* Dialog para subir foto */}
       <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
-        <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
               <Camera className="h-5 w-5 text-emerald-600" />

@@ -309,7 +309,7 @@ export function DayOneSheet() {
                       <span className="hidden xs:inline">Nueva </span>Foto
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="w-[95vw] max-w-md mx-auto max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle className="text-lg sm:text-xl">Subir Foto de Progreso</DialogTitle>
                       <DialogDescription className="text-sm">
@@ -555,7 +555,7 @@ export function DayOneSheet() {
                       <span className="hidden xs:inline">Registrar </span>Peso
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="w-[95vw] max-w-md mx-auto">
+                  <DialogContent className="w-[95vw] max-w-md">
                     <DialogHeader>
                       <DialogTitle className="text-lg sm:text-xl">Registrar Peso</DialogTitle>
                       <DialogDescription className="text-sm">

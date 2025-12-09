@@ -98,8 +98,8 @@ export function MealSelectionModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-50 p-4">
-        <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md max-h-[90vh] overflow-y-auto">
           <div className="bg-white rounded-2xl w-full shadow-2xl border-2 border-purple-100">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-2xl">
@@ -288,8 +288,8 @@ function RecipeDetailModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] p-4">
-      <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
         <div className="bg-white rounded-2xl w-full shadow-2xl">
           {/* Header */}
           <div className="sticky top-0 bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-6 rounded-t-2xl">
