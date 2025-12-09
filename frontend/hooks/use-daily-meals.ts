@@ -240,15 +240,15 @@ export function useDailyMeals() {
 
     return {
       caloriesConsumed: totalCalories,
-      caloriesGoal: 2000,
+      caloriesGoal: macros.caloriesGoal,
       proteinConsumed: totalProtein,
-      proteinGoal: 150,
+      proteinGoal: macros.proteinGoal,
       carbsConsumed: totalCarbs,
-      carbsGoal: 220,
+      carbsGoal: macros.carbsGoal,
       fatConsumed: totalFat,
-      fatGoal: 80
+      fatGoal: macros.fatGoal
     }
-  }, [])
+  }, [macros])
 
   // Guardar selecciones en localStorage como backup
   const saveSelectionsToStorage = useCallback((meals: DailyMeal[]) => {
@@ -432,8 +432,23 @@ export function useDailyMeals() {
       if (planMeals && planMeals.meals_by_type) {
         setPlanMealOptions(planMeals.meals_by_type)
         
-        // Actualizar macros del plan si está disponible
-        if (currentPlan && currentPlan.daily_calories && currentPlan.target_macros) {
+        // Actualizar macros con valores personalizados del backend
+        if (planMeals.daily_calories_target && planMeals.daily_macros) {
+          setMacros(prev => ({
+            ...prev,
+            caloriesGoal: planMeals.daily_calories_target!,
+            proteinGoal: planMeals.daily_macros!.protein,
+            carbsGoal: planMeals.daily_macros!.carbs,
+            fatGoal: planMeals.daily_macros!.fat
+          }))
+          console.log('✅ Macros personalizados actualizados:', {
+            calories: planMeals.daily_calories_target,
+            protein: planMeals.daily_macros.protein,
+            carbs: planMeals.daily_macros.carbs,
+            fat: planMeals.daily_macros.fat
+          })
+        } else if (currentPlan && currentPlan.daily_calories && currentPlan.target_macros) {
+          // Fallback a valores del plan si no hay personalización
           setMacros(prev => ({
             ...prev,
             caloriesGoal: currentPlan.daily_calories,
