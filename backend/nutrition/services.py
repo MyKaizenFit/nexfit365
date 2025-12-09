@@ -3,7 +3,7 @@ from typing import Dict, List, Optional, Tuple
 from django.db.models import Q
 from django.utils import timezone
 from accounts.models import CustomUser
-from .models import DefaultNutritionPlan, DefaultMeal, NutritionPlan, Meal, NutritionPlanHistory
+from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe
 import math
 
 class PersonalizedNutritionService:
@@ -85,35 +85,24 @@ class PersonalizedNutritionService:
     
     def get_suitable_plans(self):
         """Obtiene planes nutricionales adecuados para el usuario"""
-        plans = DefaultNutritionPlan.objects.filter(is_active=True)
+        # Usar planes del sistema o plantillas en lugar de DefaultNutritionPlan
+        plans = NutritionPlan.objects.filter(
+            Q(is_system=True) | Q(is_template=True),
+            is_active=True
+        )
         
-        # Filtrar por rol del usuario (convertir role del usuario a formato de plan)
-        user_role = self.user.role if hasattr(self.user, 'role') else 'MEMBER'
-        
-        # Mapeo de roles de CustomUser (MEMBER, TRAINER, ADMIN) a roles de planes (basic, pro, admin)
-        user_role_to_plan_role = {
-            'MEMBER': 'basic',
-            'TRAINER': 'pro',
-            'ADMIN': 'admin',
-            'basic': 'basic',
-            'pro': 'pro',
-            'premium': 'premium',
-            'admin': 'admin'
-        }
-        
-        # Convertir el rol del usuario al formato de planes
-        user_plan_role = user_role_to_plan_role.get(user_role, 'basic')
-        role_hierarchy = {'basic': 1, 'pro': 2, 'premium': 3, 'admin': 4}
-        user_role_level = role_hierarchy.get(user_plan_role.lower(), 1)
-        
-        # Filtrar por rol mínimo requerido
-        filtered_plans = []
-        for plan in plans:
-            plan_role_level = role_hierarchy.get(plan.min_role_required.lower(), 1)
-            if user_role_level >= plan_role_level:
-                filtered_plans.append(plan)
-        
-        plans = DefaultNutritionPlan.objects.filter(id__in=[p.id for p in filtered_plans])
+        # Filtrar por objetivo del usuario si está disponible
+        if self.user.main_goal:
+            goal_mapping = {
+                'lose_weight': 'lose_weight',
+                'gain_muscle': 'gain_muscle',
+                'body_recomposition': 'body_recomposition',
+                'maintain': 'maintain',
+                'performance': 'performance'
+            }
+            user_goal = goal_mapping.get(self.user.main_goal)
+            if user_goal:
+                plans = plans.filter(goal=user_goal)
         
         # Filtrar por objetivo principal usando mapeo más flexible
         if self.user.main_goal:
@@ -129,9 +118,6 @@ class PersonalizedNutritionService:
             for plan in plans:
                 # Buscar en nombre
                 if any(keyword.lower() in plan.name.lower() for keyword in goal_keywords):
-                    matching_plans.append(plan.id)
-                # Buscar en target_audience
-                elif plan.target_audience and any(keyword.lower() in plan.target_audience.lower() for keyword in goal_keywords):
                     matching_plans.append(plan.id)
                 # Buscar en tags
                 elif plan.tags and isinstance(plan.tags, list):
@@ -161,7 +147,7 @@ class PersonalizedNutritionService:
             if restriction_matching_plans:
                 plans = plans.filter(id__in=restriction_matching_plans)
         
-        return plans.order_by('-is_default', 'name')
+        return plans.order_by('-is_system', '-is_template', 'name')
     
     @staticmethod
     def record_plan_change(user, old_plan, new_plan, changed_by=None, reason='other', notes='', is_admin_change=False):
@@ -282,6 +268,99 @@ class PersonalizedNutritionService:
         
         return recommendations
     
+    def calculate_personalized_recipe_quantities(self, recipe: Recipe, meal_type: str) -> Dict:
+        """
+        Calcula las cantidades personalizadas de una receta según:
+        - Peso y altura del usuario
+        - Objetivo (perder peso, ganar músculo, etc.)
+        - Tipo de comida (desayuno, almuerzo, cena)
+        - Calorías objetivo del día
+        
+        Args:
+            recipe: Receta a personalizar
+            meal_type: Tipo de comida ('breakfast', 'lunch', 'dinner', 'snack')
+        
+        Returns:
+            Dict con ingredientes escalados, macros y factor de escala
+        """
+        # Calcular calorías objetivo para esta comida específica
+        daily_calories = self.calculate_daily_calories()
+        
+        # Distribución de calorías por comida (porcentajes del total diario)
+        meal_calorie_distribution = {
+            'breakfast': 0.25,      # 25% del día
+            'morning_snack': 0.10,  # 10% del día
+            'lunch': 0.35,          # 35% del día
+            'afternoon_snack': 0.10, # 10% del día
+            'dinner': 0.25,          # 25% del día
+            'evening_snack': 0.10,   # 10% del día
+            'snack': 0.15            # 15% del día (genérico)
+        }
+        
+        # Obtener porcentaje para este tipo de comida
+        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        target_calories = daily_calories * meal_percentage
+        
+        # Calcular factor de escala basado en calorías objetivo vs receta base
+        if recipe.calories and recipe.calories > 0:
+            scale_factor = target_calories / recipe.calories
+        else:
+            # Si la receta no tiene calorías, usar un factor por defecto
+            scale_factor = 1.0
+        
+        # Ajustar según objetivo del usuario
+        if self.user.main_goal == 'lose_weight':
+            scale_factor *= 0.9  # Reducir un 10% para déficit
+        elif self.user.main_goal == 'gain_muscle':
+            scale_factor *= 1.1  # Aumentar un 10% para superávit
+        
+        # Limitar el factor de escala a un rango razonable (0.5x a 2x)
+        scale_factor = max(0.5, min(2.0, scale_factor))
+        
+        # Calcular ingredientes escalados
+        scaled_ingredients = []
+        if recipe.ingredients and isinstance(recipe.ingredients, list):
+            for ingredient in recipe.ingredients:
+                if isinstance(ingredient, dict):
+                    original_amount = float(ingredient.get('amount', 0))
+                    scaled_amount = original_amount * scale_factor
+                    scaled_ingredients.append({
+                        'name': ingredient.get('name', 'Ingrediente'),
+                        'amount': round(scaled_amount, 1),
+                        'unit': ingredient.get('unit', 'g')
+                    })
+                elif isinstance(ingredient, str):
+                    # Si es solo un string, mantenerlo pero agregar nota
+                    scaled_ingredients.append({
+                        'name': ingredient,
+                        'amount': None,
+                        'unit': None,
+                        'note': 'Cantidad a ajustar según tu perfil'
+                    })
+        
+        # Calcular macros escalados
+        scaled_macros = {
+            'calories': round(recipe.calories * scale_factor) if recipe.calories else 0,
+            'protein': round(float(recipe.protein) * scale_factor, 1) if recipe.protein else 0,
+            'carbs': round(float(recipe.carbs) * scale_factor, 1) if recipe.carbs else 0,
+            'fat': round(float(recipe.fat) * scale_factor, 1) if recipe.fat else 0,
+            'fiber': round(float(recipe.fiber) * scale_factor, 1) if recipe.fiber else 0
+        }
+        
+        # Calcular porciones ajustadas
+        servings = max(1, round(recipe.servings * scale_factor)) if recipe.servings else 1
+        
+        return {
+            'scale_factor': round(scale_factor, 2),
+            'ingredients': scaled_ingredients,
+            'macros': scaled_macros,
+            'servings': servings,
+            'target_calories': round(target_calories),
+            'original_calories': recipe.calories,
+            'meal_type': meal_type,
+            'meal_percentage': round(meal_percentage * 100, 1)
+        }
+    
     def assign_best_plan(self) -> Optional[NutritionPlan]:
         """
         Asigna automáticamente el mejor plan nutricional según el perfil del usuario.
@@ -291,23 +370,23 @@ class PersonalizedNutritionService:
         suitable_plans = self.get_suitable_plans()
         
         if not suitable_plans.exists():
-            # Si no hay planes adecuados, usar el plan por defecto
-            default_plan = DefaultNutritionPlan.objects.filter(
-                is_active=True, 
-                is_default=True
+            # Si no hay planes adecuados, usar el plan del sistema por defecto
+            default_plan = NutritionPlan.objects.filter(
+                is_system=True,
+                is_active=True
             ).first()
             
             if not default_plan:
-                # Si no hay plan por defecto, usar el primero disponible
-                default_plan = DefaultNutritionPlan.objects.filter(
-                    is_active=True,
-                    min_role_required='basic'
+                # Si no hay plan del sistema, usar cualquier plantilla activa
+                default_plan = NutritionPlan.objects.filter(
+                    is_template=True,
+                    is_active=True
                 ).first()
             
             if not default_plan:
                 return None
             
-            suitable_plans = DefaultNutritionPlan.objects.filter(id=default_plan.id)
+            suitable_plans = NutritionPlan.objects.filter(id=default_plan.id)
         
         # Convertir QuerySet a lista para el método de selección
         plans_list = list(suitable_plans)
@@ -322,17 +401,17 @@ class PersonalizedNutritionService:
 
     def assign_plan_from_default(
         self,
-        default_plan: DefaultNutritionPlan,
+        default_plan: NutritionPlan,
         changed_by: Optional[CustomUser] = None,
         reason: str = "auto_assigned",
         notes: Optional[str] = None,
     ) -> Optional[NutritionPlan]:
-        """Asigna un plan específico basado en un DefaultNutritionPlan."""
+        """Asigna un plan específico basado en un NutritionPlan (sistema o plantilla)."""
         if not default_plan:
             return None
         return self._assign_plan_from_default(default_plan, changed_by=changed_by, reason=reason, notes=notes)
     
-    def _select_best_plan(self, plans: List[DefaultNutritionPlan]) -> Optional[DefaultNutritionPlan]:
+    def _select_best_plan(self, plans: List[NutritionPlan]) -> Optional[NutritionPlan]:
         """
         Selecciona el mejor plan de una lista de planes adecuados.
         Prioridades:
@@ -344,25 +423,26 @@ class PersonalizedNutritionService:
         if not plans:
             return None
         
-        # Prioridad 1: Plan por defecto
-        default_plan = next((p for p in plans if p.is_default), None)
-        if default_plan:
-            return default_plan
+        # Prioridad 1: Plan del sistema
+        system_plan = next((p for p in plans if p.is_system), None)
+        if system_plan:
+            return system_plan
         
         # Prioridad 2: Match exacto con objetivo principal
         if self.user.main_goal:
             goal_mapping = {
-                'lose_weight': ['Pérdida de peso', 'perdida de peso'],
-                'gain_muscle': ['Ganancia muscular', 'ganancia muscular'],
-                'body_recomposition': ['Mantenimiento', 'mantenimiento']
+                'lose_weight': 'lose_weight',
+                'gain_muscle': 'gain_muscle',
+                'body_recomposition': 'body_recomposition',
+                'maintain': 'maintain',
+                'performance': 'performance'
             }
             
-            goal_keywords = goal_mapping.get(self.user.main_goal, [])
-            for plan in plans:
-                if any(keyword in plan.target_audience.lower() for keyword in goal_keywords):
-                    return plan
-                if any(keyword in plan.name.lower() for keyword in goal_keywords):
-                    return plan
+            user_goal = goal_mapping.get(self.user.main_goal)
+            if user_goal:
+                for plan in plans:
+                    if plan.goal == user_goal:
+                        return plan
         
         # Prioridad 3: Match con restricciones dietéticas
         if self.user.dietary_restrictions:
@@ -380,25 +460,25 @@ class PersonalizedNutritionService:
         # Prioridad 4: Plan para nivel de actividad muy alto
         if self.user.activity_level == 'very_active' and self.user.training_days_per_week >= 5:
             for plan in plans:
-                if 'Deportivo' in plan.name or 'deportivo' in plan.target_audience.lower():
+                if plan.goal == 'performance' or 'deportivo' in plan.name.lower():
                     return plan
         
-        # Prioridad 5: Retornar el primer plan básico disponible
-        basic_plan = next((p for p in plans if p.min_role_required == 'basic'), None)
-        if basic_plan:
-            return basic_plan
+        # Prioridad 5: Retornar el primer plan disponible
+        if plans:
+            return plans[0]
         
         # Última opción: retornar el primero
         return plans[0]
     
-    def _copy_meals_from_default_plan(self, user_plan: NutritionPlan, default_plan: DefaultNutritionPlan):
+    def _copy_meals_from_default_plan(self, user_plan: NutritionPlan, default_plan: NutritionPlan):
         """Copia las comidas del plan por defecto al plan del usuario"""
         default_meals = default_plan.meals.all().order_by('order_index')
         
         for default_meal in default_meals:
-            Meal.objects.create(
+            PlanMeal.objects.create(
                 plan=user_plan,
                 name=default_meal.name,
+                meal_type=default_meal.meal_type,
                 time=default_meal.time,
                 calories=default_meal.calories,
                 protein=default_meal.protein,
@@ -407,10 +487,15 @@ class PersonalizedNutritionService:
                 description=default_meal.description,
                 order_index=default_meal.order_index
             )
+            # Copiar recetas sugeridas si existen
+            if default_meal.suggested_recipes.exists():
+                new_meal = user_plan.meals.filter(name=default_meal.name).first()
+                if new_meal:
+                    new_meal.suggested_recipes.set(default_meal.suggested_recipes.all())
 
     def _assign_plan_from_default(
         self,
-        best_plan: DefaultNutritionPlan,
+        best_plan: NutritionPlan,
         changed_by: Optional[CustomUser] = None,
         reason: str = "auto_assigned",
         notes: Optional[str] = None,
