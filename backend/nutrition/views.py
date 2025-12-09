@@ -44,8 +44,91 @@ def plan_meals_for_selection(request):
     """
     Obtener comidas disponibles para selección.
     Devuelve las comidas del plan actual del usuario organizadas por tipo con recetas sugeridas.
+    Las cantidades se personalizan según el perfil del usuario (peso, altura, objetivo, etc.)
     """
     user = request.user
+    service = PersonalizedNutritionService(user)
+    
+    # Calcular calorías y macros diarios personalizados
+    daily_calories = service.calculate_daily_calories()
+    daily_macros = service.calculate_macros(daily_calories)
+    
+    # Distribución de calorías por comida (porcentajes del total diario)
+    meal_calorie_distribution = {
+        'breakfast': 0.25,      # 25% del día
+        'morning_snack': 0.10,  # 10% del día
+        'lunch': 0.35,          # 35% del día
+        'afternoon_snack': 0.10, # 10% del día
+        'dinner': 0.25,          # 25% del día
+        'evening_snack': 0.10,   # 10% del día
+        'snack': 0.15            # 15% del día (genérico)
+    }
+    
+    # Función helper para personalizar una receta
+    def personalize_recipe(recipe, meal_type, meal_base=None):
+        """Personaliza una receta según el perfil del usuario"""
+        # Calcular porcentaje de calorías para este tipo de comida
+        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        target_calories = daily_calories * meal_percentage
+        
+        # Calcular factor de escala basado en calorías objetivo vs receta base
+        if recipe.calories and recipe.calories > 0:
+            scale_factor = target_calories / recipe.calories
+        elif meal_base and meal_base.calories:
+            scale_factor = target_calories / meal_base.calories
+        else:
+            scale_factor = 1.0
+        
+        # Ajustar según objetivo del usuario
+        if user.main_goal == 'lose_weight':
+            scale_factor *= 0.9  # Reducir un 10% para déficit
+        elif user.main_goal == 'gain_muscle':
+            scale_factor *= 1.1  # Aumentar un 10% para superávit
+        
+        # Limitar el factor de escala a un rango razonable (0.5x a 2x)
+        scale_factor = max(0.5, min(2.0, scale_factor))
+        
+        # Calcular macros personalizados
+        personalized_calories = int(recipe.calories * scale_factor) if recipe.calories else (int(meal_base.calories * scale_factor) if meal_base and meal_base.calories else int(target_calories))
+        personalized_protein = float(recipe.protein * scale_factor) if recipe.protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
+        personalized_carbs = float(recipe.carbs * scale_factor) if recipe.carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
+        personalized_fat = float(recipe.fat * scale_factor) if recipe.fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
+        
+        return {
+            'calories': personalized_calories,
+            'protein': round(personalized_protein, 1),
+            'carbs': round(personalized_carbs, 1),
+            'fat': round(personalized_fat, 1),
+            'scale_factor': round(scale_factor, 2)
+        }
+    
+    # Función helper para personalizar una comida sin receta
+    def personalize_meal(meal, meal_type):
+        """Personaliza una comida genérica según el perfil del usuario"""
+        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        target_calories = daily_calories * meal_percentage
+        
+        # Calcular factor de escala
+        if meal.calories and meal.calories > 0:
+            scale_factor = target_calories / meal.calories
+        else:
+            scale_factor = 1.0
+        
+        # Ajustar según objetivo
+        if user.main_goal == 'lose_weight':
+            scale_factor *= 0.9
+        elif user.main_goal == 'gain_muscle':
+            scale_factor *= 1.1
+        
+        scale_factor = max(0.5, min(2.0, scale_factor))
+        
+        return {
+            'calories': int(meal.calories * scale_factor) if meal.calories else int(target_calories),
+            'protein': round(float(meal.protein * scale_factor), 1) if meal.protein else round(float(daily_macros['protein'] * meal_percentage), 1),
+            'carbs': round(float(meal.carbs * scale_factor), 1) if meal.carbs else round(float(daily_macros['carbs'] * meal_percentage), 1),
+            'fat': round(float(meal.fat * scale_factor), 1) if meal.fat else round(float(daily_macros['fat'] * meal_percentage), 1),
+            'scale_factor': round(scale_factor, 2)
+        }
     
     # Primero intentar obtener comidas del plan actual del usuario
     user_plan = NutritionPlan.objects.filter(
@@ -68,13 +151,14 @@ def plan_meals_for_selection(request):
             # Si hay recetas sugeridas, crear una opción por cada receta
             if meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
+                    personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
                         'name': recipe.name,
-                        'calories': int(recipe.calories) if recipe.calories else meal.calories,
-                        'protein': float(recipe.protein) if recipe.protein else float(meal.protein),
-                        'carbs': float(recipe.carbs) if recipe.carbs else float(meal.carbs),
-                        'fat': float(recipe.fat) if recipe.fat else float(meal.fat),
+                        'calories': personalized['calories'],
+                        'protein': personalized['protein'],
+                        'carbs': personalized['carbs'],
+                        'fat': personalized['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
                         'description': recipe.description or meal.description,
@@ -83,13 +167,14 @@ def plan_meals_for_selection(request):
                     })
             else:
                 # Si no hay recetas, crear una opción genérica basada en la comida
+                personalized = personalize_meal(meal, meal_type)
                 meal_options.append({
                     'id': f"meal-{meal.id}",
                     'name': meal.name,
-                    'calories': meal.calories,
-                    'protein': float(meal.protein),
-                    'carbs': float(meal.carbs),
-                    'fat': float(meal.fat),
+                    'calories': personalized['calories'],
+                    'protein': personalized['protein'],
+                    'carbs': personalized['carbs'],
+                    'fat': personalized['fat'],
                     'category': 'balanced',
                     'icon': '🍽️',
                     'description': meal.description,
@@ -101,7 +186,9 @@ def plan_meals_for_selection(request):
         return Response({
             'meals_by_type': meals_by_type,
             'plan_name': user_plan.name,
-            'source': 'user_plan'
+            'source': 'user_plan',
+            'daily_calories_target': daily_calories,
+            'daily_macros': daily_macros
         })
     
     # Si no tiene plan, devolver comidas de plantillas del sistema
@@ -119,13 +206,14 @@ def plan_meals_for_selection(request):
             # Crear opciones basadas en la comida y sus recetas sugeridas
             if meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
+                    personalized = personalize_recipe(recipe, meal_type, meal)
                     meals_by_type[meal_type].append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
                         'name': recipe.name,
-                        'calories': int(recipe.calories) if recipe.calories else meal.calories,
-                        'protein': float(recipe.protein) if recipe.protein else float(meal.protein),
-                        'carbs': float(recipe.carbs) if recipe.carbs else float(meal.carbs),
-                        'fat': float(recipe.fat) if recipe.fat else float(meal.fat),
+                        'calories': personalized['calories'],
+                        'protein': personalized['protein'],
+                        'carbs': personalized['carbs'],
+                        'fat': personalized['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
                         'description': recipe.description or meal.description,
@@ -133,13 +221,14 @@ def plan_meals_for_selection(request):
                         'recipeId': recipe.id
                     })
             else:
+                personalized = personalize_meal(meal, meal_type)
                 meals_by_type[meal_type].append({
                     'id': f"meal-{meal.id}",
                     'name': meal.name,
-                    'calories': meal.calories,
-                    'protein': float(meal.protein),
-                    'carbs': float(meal.carbs),
-                    'fat': float(meal.fat),
+                    'calories': personalized['calories'],
+                    'protein': personalized['protein'],
+                    'carbs': personalized['carbs'],
+                    'fat': personalized['fat'],
                     'category': 'balanced',
                     'icon': '🍽️',
                     'description': meal.description,
@@ -149,7 +238,9 @@ def plan_meals_for_selection(request):
     return Response({
         'meals_by_type': meals_by_type,
         'plan_name': None,
-        'source': 'system_templates'
+        'source': 'system_templates',
+        'daily_calories_target': daily_calories,
+        'daily_macros': daily_macros
     })
 
 
