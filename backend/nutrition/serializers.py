@@ -69,10 +69,21 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
 
 
 class NutritionPlanMinimalSerializer(serializers.ModelSerializer):
-    """Serializer minimal para listas"""
+    """Serializer minimal para listas - incluye campos necesarios para admin"""
+    meals_count = serializers.SerializerMethodField()
+    
     class Meta:
         model = NutritionPlan
-        fields = ["id", "name", "daily_calories", "goal", "diet_type", "is_system"]
+        fields = [
+            "id", "name", "description", "daily_calories", 
+            "protein_grams", "carbs_grams", "fat_grams",
+            "goal", "diet_type", "meals_per_day", "duration_weeks",
+            "is_system", "is_template", "is_active",
+            "meals_count"
+        ]
+    
+    def get_meals_count(self, obj):
+        return obj.meals.count()
 
 
 class MealLogSerializer(serializers.ModelSerializer):

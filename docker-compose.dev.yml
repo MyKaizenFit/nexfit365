@@ -148,9 +148,12 @@ services:
 # ============================================
 # REDES
 # ============================================
+# Nombres únicos para evitar conflictos con producción
 networks:
   internal:
+    name: nexfit-dev-internal
     driver: bridge
     internal: true
   web:
+    name: nexfit-dev-web
     driver: bridge

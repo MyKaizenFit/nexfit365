@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
-import { useAdminWorkoutPlans, WorkoutPlan, Exercise } from "@/hooks/use-admin-workout-plans"
+import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
 import {
   Dumbbell,
   Plus,
@@ -71,8 +71,11 @@ export function WorkoutPlanManagement() {
     setAsDefault,
     bulkToggleActive,
     bulkDelete,
+    fetchPlanDetail,
     refetch
   } = useAdminWorkoutPlans()
+
+  const [loadingDetail, setLoadingDetail] = useState(false)
 
   const [selectedPlans, setSelectedPlans] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState("")
@@ -105,9 +108,10 @@ export function WorkoutPlanManagement() {
     is_rest_day: boolean
     notes: string
     exercises: Array<{
-      exercise_id: number
+      exercise_id: string  // UUID
+      exercise_name?: string  // Nombre para mostrar
       sets: number
-      reps: number
+      reps: string | number
       weight?: number
       duration?: number
       rest_time?: number
@@ -126,7 +130,7 @@ export function WorkoutPlanManagement() {
   ])
 
   // Estado para el selector múltiple de ejercicios
-  const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{[dayId: string]: number[]}>({})
+  const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{[dayId: string]: string[]}>({})
   const [showExerciseSelector, setShowExerciseSelector] = useState<{[dayId: string]: boolean}>({})
 
   // Aplicar filtros del servidor y ordenamiento local
@@ -405,14 +409,15 @@ export function WorkoutPlanManagement() {
     ))
   }
 
-  const addExerciseToDay = (dayId: string, exerciseId: number) => {
-    const exercise = exercises.find(e => e.id === exerciseId)
+  const addExerciseToDay = (dayId: string, exerciseId: string) => {
+    const exercise = exercises.find(e => String(e.id) === String(exerciseId))
     if (!exercise) return
 
     const newExercise = {
-      exercise_id: exerciseId,
+      exercise_id: String(exerciseId),
+      exercise_name: exercise.name,  // Guardar nombre para mostrar
       sets: 3,
-      reps: 10,
+      reps: '10',
       weight: 0,
       duration: 0,
       rest_time: 60,
@@ -435,7 +440,7 @@ export function WorkoutPlanManagement() {
     }))
   }
 
-  const toggleExerciseSelection = (dayId: string, exerciseId: number) => {
+  const toggleExerciseSelection = (dayId: string, exerciseId: string) => {
     setSelectedExercisesForDay(prev => {
       const current = prev[dayId] || []
       const isSelected = current.includes(exerciseId)
@@ -455,7 +460,7 @@ export function WorkoutPlanManagement() {
     selectedIds.forEach(exerciseId => {
       // Verificar si el ejercicio ya está en el día
       const day = workoutDays.find(d => d.id === dayId)
-      const alreadyExists = day?.exercises.some(e => e.exercise_id === exerciseId)
+      const alreadyExists = day?.exercises.some(e => String(e.exercise_id) === String(exerciseId))
       
       if (!alreadyExists) {
         addExerciseToDay(dayId, exerciseId)
@@ -621,6 +626,87 @@ export function WorkoutPlanManagement() {
     setShowExerciseSelector({})
     setShowCreateDialog(false)
     setEditingPlan(null)
+  }
+
+  // Función para cargar los detalles completos de un plan y abrir el editor
+  const handleEditPlan = async (planId: string) => {
+    try {
+      setLoadingDetail(true)
+      const planDetail = await fetchPlanDetail(planId)
+      
+      if (planDetail) {
+        // Cargar datos del formulario
+        setFormData({
+          name: planDetail.name || '',
+          description: planDetail.description || '',
+          difficulty: planDetail.difficulty || 'beginner',
+          duration_weeks: planDetail.duration_weeks || 4,
+          min_role_required: planDetail.min_role_required || 'basic',
+          estimated_duration_minutes: planDetail.estimated_duration_minutes || 60
+        })
+        
+        // Convertir días del plan al formato del formulario
+        if (planDetail.days && planDetail.days.length > 0) {
+          const convertedDays = planDetail.days.map((day: any) => ({
+            id: day.id || Date.now().toString(),
+            day_name: day.name || day.day_name || `Día ${day.day_number}`,
+            day_number: day.day_number || day.order_index || 1,
+            is_rest_day: day.is_rest_day || false,
+            notes: day.notes || '',
+            exercises: (day.exercises || []).map((ex: any) => {
+              // Extraer datos del ejercicio (puede venir como objeto o ID)
+              const exerciseObj = typeof ex.exercise === 'object' ? ex.exercise : null
+              return {
+                exercise_id: exerciseObj ? exerciseObj.id : (ex.exercise_id || ex.exercise),
+                exercise_name: exerciseObj ? exerciseObj.name : '',  // Guardar nombre para mostrar
+                sets: ex.sets || 3,
+                reps: ex.reps || '10',
+                weight: ex.weight || 0,
+                duration: ex.duration_seconds || 0,
+                rest_time: ex.rest_seconds || 60,
+                notes: ex.notes || '',
+                order: ex.order_index || 0
+              }
+            })
+          }))
+          setWorkoutDays(convertedDays)
+          console.log('📋 Días cargados:', convertedDays.map(d => ({ 
+            name: d.day_name, 
+            exercises: d.exercises.map(e => e.exercise_name || e.exercise_id)
+          })))
+        } else {
+          setWorkoutDays([{
+            id: '1',
+            day_name: 'Día 1',
+            day_number: 1,
+            is_rest_day: false,
+            notes: '',
+            exercises: []
+          }])
+        }
+        
+        setEditingPlan(planDetail)
+        toast({
+          title: "✅ Plan cargado",
+          description: `${planDetail.days?.length || 0} días con ejercicios cargados`,
+        })
+      } else {
+        toast({
+          title: "❌ Error",
+          description: "No se pudo cargar el plan",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Error loading plan detail:', error)
+      toast({
+        title: "❌ Error",
+        description: "Error al cargar los detalles del plan",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingDetail(false)
+    }
   }
 
   if (loading) {
@@ -927,9 +1013,11 @@ export function WorkoutPlanManagement() {
                               )}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                              {plan.description.length > 50 
-                                ? `${plan.description.substring(0, 50)}...` 
-                                : plan.description}
+                              {plan.description 
+                                ? (plan.description.length > 50 
+                                    ? `${plan.description.substring(0, 50)}...` 
+                                    : plan.description)
+                                : 'Sin descripción'}
                             </div>
                             {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
                               <div className="text-xs text-muted-foreground mt-1">
@@ -992,17 +1080,27 @@ export function WorkoutPlanManagement() {
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => setEditingPlan(plan)}
+                              onClick={() => handleEditPlan(plan.id)}
                               className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                              disabled={loadingDetail}
                             >
-                              <Eye className="h-4 w-4 mr-2" />
+                              {loadingDetail ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Eye className="h-4 w-4 mr-2" />
+                              )}
                               Ver Detalles
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => setEditingPlan(plan)}
+                              onClick={() => handleEditPlan(plan.id)}
                               className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
+                              disabled={loadingDetail}
                             >
-                              <Edit className="h-4 w-4 mr-2" />
+                              {loadingDetail ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <Edit className="h-4 w-4 mr-2" />
+                              )}
                               Editar
                             </DropdownMenuItem>
                             <DropdownMenuItem
@@ -1320,12 +1418,13 @@ export function WorkoutPlanManagement() {
                                     {/* Lista de ejercicios con checkboxes */}
                                     <div className="max-h-60 overflow-y-auto space-y-2">
                                       {exercises.map((exercise) => {
-                                        const isSelected = selectedExercisesForDay[day.id]?.includes(exercise.id) || false
-                                        const alreadyInDay = day.exercises.some(e => e.exercise_id === exercise.id)
+                                        const exerciseIdStr = String(exercise.id)
+                                        const isSelected = selectedExercisesForDay[day.id]?.includes(exerciseIdStr) || false
+                                        const alreadyInDay = day.exercises.some(e => String(e.exercise_id) === exerciseIdStr)
                                         
                                         return (
                                           <div
-                                            key={exercise.id}
+                                            key={exerciseIdStr}
                                             className={`flex items-center space-x-3 p-2 rounded border ${
                                               alreadyInDay 
                                                 ? 'bg-gray-100 border-gray-300' 
@@ -1336,7 +1435,7 @@ export function WorkoutPlanManagement() {
                                           >
                                             <Checkbox
                                               checked={isSelected}
-                                              onCheckedChange={() => toggleExerciseSelection(day.id, exercise.id)}
+                                              onCheckedChange={() => toggleExerciseSelection(day.id, exerciseIdStr)}
                                               disabled={alreadyInDay}
                                             />
                                             <div className="flex-1">
@@ -1384,16 +1483,20 @@ export function WorkoutPlanManagement() {
                           {/* Lista de ejercicios del día */}
                           {day.exercises.length > 0 && (
                             <div className="space-y-3">
-                              <FormLabel>Ejercicios del día</FormLabel>
+                              <FormLabel>Ejercicios del día ({day.exercises.length})</FormLabel>
                               {day.exercises.map((exercise, exerciseIndex) => {
-                                const exerciseData = exercises.find(e => e.id === exercise.exercise_id)
+                                // Buscar datos del ejercicio en el array de ejercicios disponibles
+                                const exerciseData = exercises.find(e => String(e.id) === String(exercise.exercise_id))
+                                // Usar el nombre guardado si no se encuentra en el array
+                                const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
+                                const displayCategory = exerciseData?.category || ''
                                 return (
                                   <Card key={exerciseIndex} className="border border-gray-200">
                                     <CardContent className="pt-4">
                                       <div className="flex items-center justify-between mb-3">
                                         <div>
-                                          <h4 className="font-medium">{exerciseData?.name}</h4>
-                                          <p className="text-sm text-muted-foreground">{exerciseData?.category}</p>
+                                          <h4 className="font-medium">{displayName}</h4>
+                                          <p className="text-sm text-muted-foreground">{displayCategory}</p>
                                         </div>
                                         <Button
                                           size="sm"
@@ -1417,18 +1520,20 @@ export function WorkoutPlanManagement() {
                                         <div>
                                           <FormLabel className="text-xs">Repeticiones</FormLabel>
                                           <Input
-                                            type="number"
-                                            value={exercise.reps}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', parseInt(e.target.value) || 0)}
+                                            type="text"
+                                            placeholder="ej: 10 o 8-12"
+                                            value={exercise.reps || ''}
+                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
                                             className="h-8"
                                           />
                                         </div>
                                         <div>
                                           <FormLabel className="text-xs">Peso (kg)</FormLabel>
                                           <Input
-                                            type="number"
+                                            type="text"
+                                            placeholder="ej: 50 o RPE 8"
                                             value={exercise.weight || ''}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', parseFloat(e.target.value) || 0)}
+                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
                                             className="h-8"
                                           />
                                         </div>

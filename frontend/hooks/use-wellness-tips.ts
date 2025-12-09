@@ -1,148 +1,179 @@
-"use client"
+import { useState, useEffect } from 'react'
+import { buildApiUrl, getAuthHeaders } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import { buildApiUrl, getAuthHeaders, handleApiResponse, handleFetchError, TIPS_ENDPOINTS } from "@/lib/api"
-import { authService } from "@/lib/auth-service"
-import type { WellnessTip, WellnessTipPayload } from "@/types/tip"
+export interface WellnessTip {
+  id: string
+  title: string
+  summary: string
+  content: string
+  category: 'nutrition' | 'training' | 'mindset' | 'recovery' | 'lifestyle'
+  audience: string
+  is_active: boolean
+  is_highlighted: boolean
+  created_at: string
+  updated_at: string
+}
 
-export interface UseWellnessTipsOptions {
+export type WellnessTipCategory = 'nutrition' | 'training' | 'mindset' | 'recovery' | 'lifestyle'
+
+export interface WellnessTipPayload {
+  title: string
+  summary: string
+  content: string
+  category: WellnessTipCategory
+  audience: string
+  is_active: boolean
+  is_highlighted: boolean
+}
+
+interface UseWellnessTipsOptions {
   highlighted?: boolean
-  category?: string
-  audience?: string
   limit?: number
-  autoFetch?: boolean
+  category?: string
 }
 
-interface UseWellnessTipsResult {
-  tips: WellnessTip[]
-  loading: boolean
-  error: string | null
-  refresh: () => Promise<void>
-  createTip: (payload: WellnessTipPayload) => Promise<WellnessTip | null>
-  updateTip: (id: string, payload: Partial<WellnessTipPayload>) => Promise<WellnessTip | null>
-}
-
-const buildQueryString = (options?: UseWellnessTipsOptions) => {
-  if (!options) return ""
-  const params = new URLSearchParams()
-  if (options.highlighted) params.append("highlighted", "true")
-  if (options.category) params.append("category", options.category)
-  if (options.audience) params.append("audience", options.audience)
-  if (options.limit) params.append("limit", String(options.limit))
-  return params.toString() ? `?${params.toString()}` : ""
-}
-
-export function useWellnessTips(options?: UseWellnessTipsOptions): UseWellnessTipsResult {
+export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
   const [tips, setTips] = useState<WellnessTip[]>([])
-  const [loading, setLoading] = useState<boolean>(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const queryString = useMemo(() => buildQueryString(options), [options])
-
-  const fetchTips = useCallback(async () => {
+  const fetchTips = async () => {
     try {
       setLoading(true)
-      setError(null)
+      
+      // Construir query params
+      const params = new URLSearchParams()
+      if (options.limit) params.append('limit', options.limit.toString())
+      if (options.category) params.append('category', options.category)
+      
+      const url = params.toString() 
+        ? `tips/?${params.toString()}`
+        : 'tips/'
+      
+      const response = await fetch(buildApiUrl(url), {
+        headers: getAuthHeaders(),
+      })
 
-      const response = await fetch(
-        buildApiUrl(`${TIPS_ENDPOINTS.TIPS}${queryString}`),
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        }
-      )
-
-      const { data, error: apiError } = await handleApiResponse<WellnessTip[]>(response)
-
-      if (apiError) {
-        setError(apiError)
-        setTips([])
-      } else {
-        setTips(data || [])
+      if (!response.ok) {
+        throw new Error('Error al cargar tips')
       }
+
+      let data = await response.json()
+      
+      // Si la respuesta es paginada, extraer results
+      if (data.results) {
+        data = data.results
+      }
+      
+      // Filtrar por highlighted si se especificó
+      if (options.highlighted && Array.isArray(data)) {
+        data = data.filter((tip: WellnessTip) => tip.is_highlighted)
+      }
+      
+      // Limitar en frontend si es necesario
+      if (options.limit && Array.isArray(data) && data.length > options.limit) {
+        data = data.slice(0, options.limit)
+      }
+      
+      setTips(data)
+      setError(null)
     } catch (err) {
-      const fetchError = handleFetchError(err)
-      setError(fetchError.message)
+      console.error('Error fetching wellness tips:', err)
+      setError(err instanceof Error ? err.message : 'Error desconocido')
       setTips([])
     } finally {
       setLoading(false)
     }
-  }, [queryString])
+  }
 
-  const createTip = useCallback(
-    async (payload: WellnessTipPayload) => {
-      try {
-        setLoading(true)
-        setError(null)
+  const createTip = async (payload: WellnessTipPayload) => {
+    try {
+      const response = await fetch(buildApiUrl('tips/'), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
+      })
 
-        const response = await fetch(
-          buildApiUrl(TIPS_ENDPOINTS.TIPS),
-          {
-            method: "POST",
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload),
-          }
-        )
-
-        const { data, error: apiError } = await handleApiResponse<WellnessTip>(response)
-        if (apiError) {
-          setError(apiError)
-          return null
-        }
-
-        await fetchTips()
-        return data || null
-      } catch (err) {
-        const fetchError = handleFetchError(err)
-        setError(fetchError.message)
-        return null
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Error al crear tip')
       }
-    },
-    [fetchTips]
-  )
 
-  const updateTip = useCallback(
-    async (id: string, payload: Partial<WellnessTipPayload>) => {
-      try {
-        setLoading(true)
-        setError(null)
+      const newTip = await response.json()
+      toast({
+        title: '✅ Consejo creado',
+        description: 'El consejo ha sido publicado correctamente',
+      })
+      
+      await fetchTips()
+      return newTip
+    } catch (err) {
+      toast({
+        title: '❌ Error',
+        description: err instanceof Error ? err.message : 'Error al crear consejo',
+        variant: 'destructive',
+      })
+      return null
+    }
+  }
 
-        const response = await fetch(
-          buildApiUrl(`${TIPS_ENDPOINTS.TIPS}${id}/`),
-          {
-            method: "PATCH",
-            headers: getAuthHeaders(),
-            body: JSON.stringify(payload),
-          }
-        )
+  const updateTip = async (id: string, updates: Partial<WellnessTipPayload>) => {
+    try {
+      const response = await fetch(buildApiUrl(`tips/${id}/`), {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(updates),
+      })
 
-        const { data, error: apiError } = await handleApiResponse<WellnessTip>(response)
-        if (apiError) {
-          setError(apiError)
-          return null
-        }
-
-        await fetchTips()
-        return data || null
-      } catch (err) {
-        const fetchError = handleFetchError(err)
-        setError(fetchError.message)
-        return null
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        throw new Error('Error al actualizar tip')
       }
-    },
-    [fetchTips]
-  )
+
+      toast({
+        title: '✅ Actualizado',
+        description: 'El consejo ha sido actualizado',
+      })
+      
+      await fetchTips()
+    } catch (err) {
+      toast({
+        title: '❌ Error',
+        description: err instanceof Error ? err.message : 'Error al actualizar',
+        variant: 'destructive',
+      })
+    }
+  }
+
+  const deleteTip = async (id: string) => {
+    try {
+      const response = await fetch(buildApiUrl(`tips/${id}/`), {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      })
+
+      if (!response.ok) {
+        throw new Error('Error al eliminar tip')
+      }
+
+      toast({
+        title: '✅ Eliminado',
+        description: 'El consejo ha sido eliminado',
+      })
+      
+      await fetchTips()
+    } catch (err) {
+      toast({
+        title: '❌ Error',
+        description: err instanceof Error ? err.message : 'Error al eliminar',
+        variant: 'destructive',
+      })
+    }
+  }
 
   useEffect(() => {
-    if (options?.autoFetch === false) return
-    // Evitar llamadas cuando no hay usuario autenticado (por ejemplo durante SSR)
-    if (!authService.isAuthenticated()) return
     fetchTips()
-  }, [fetchTips, options?.autoFetch])
+  }, [options.highlighted, options.limit, options.category])
 
   return {
     tips,
@@ -151,6 +182,6 @@ export function useWellnessTips(options?: UseWellnessTipsOptions): UseWellnessTi
     refresh: fetchTips,
     createTip,
     updateTip,
+    deleteTip,
   }
 }
-

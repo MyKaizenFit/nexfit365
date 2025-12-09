@@ -4,13 +4,15 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
 export interface Exercise {
-  id: number
+  id: string  // UUID
   name: string
   category: string
   muscle_groups: string[]
   instructions: string
   video_url: string
   image_url: string
+  difficulty?: string
+  description?: string
 }
 
 export interface WorkoutPlan {
@@ -233,6 +235,87 @@ export const useAdminWorkoutPlansOptimized = () => {
     }
   }, [totalCount])
 
+  // Función para obtener el detalle completo de un plan
+  const fetchPlanDetail = useCallback(async (planId: string): Promise<WorkoutPlan | null> => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
+        headers
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+      
+      const planDetail = await response.json()
+      console.log('📋 Detalle del plan cargado:', planDetail.name, '- Días:', planDetail.days?.length || 0)
+      return planDetail
+    } catch (err) {
+      console.error('Error fetching plan detail:', err)
+      return null
+    }
+  }, [getAuthHeaders])
+
+  // CRUD operations
+  const createPlan = async (planData: any): Promise<WorkoutPlan> => {
+    const headers = await getAuthHeaders()
+    const response = await fetch(buildApiUrl('workout-plan-templates/'), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData)
+    })
+    if (!response.ok) throw new Error(`Error ${response.status}`)
+    const newPlan = await response.json()
+    fetchPlans(currentPage, filters)
+    return newPlan
+  }
+
+  const updatePlan = async (planId: string, planData: any): Promise<WorkoutPlan> => {
+    const headers = await getAuthHeaders()
+    const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
+      method: 'PATCH',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData)
+    })
+    if (!response.ok) throw new Error(`Error ${response.status}`)
+    const updatedPlan = await response.json()
+    fetchPlans(currentPage, filters)
+    return updatedPlan
+  }
+
+  const deletePlan = async (planId: string): Promise<void> => {
+    const headers = await getAuthHeaders()
+    const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
+      method: 'DELETE',
+      headers
+    })
+    if (!response.ok) throw new Error(`Error ${response.status}`)
+    fetchPlans(currentPage, filters)
+  }
+
+  const togglePlanActive = async (planId: string): Promise<void> => {
+    const plan = plans.find(p => p.id === planId)
+    if (plan) {
+      await updatePlan(planId, { is_active: !plan.is_active })
+    }
+  }
+
+  const setAsDefault = async (planId: string): Promise<void> => {
+    await updatePlan(planId, { is_default: true })
+  }
+
+  const bulkToggleActive = async (planIds: string[], isActive: boolean): Promise<void> => {
+    for (const id of planIds) {
+      await updatePlan(id, { is_active: isActive })
+    }
+  }
+
+  const bulkDelete = async (planIds: string[]): Promise<void> => {
+    for (const id of planIds) {
+      await deletePlan(id)
+    }
+  }
+
   return {
     plans,
     exercises,
@@ -245,10 +328,18 @@ export const useAdminWorkoutPlansOptimized = () => {
     pageSize,
     filters,
     fetchPlans: (page?: number) => fetchPlans(page || currentPage, filters),
+    fetchPlanDetail,
     fetchExercises,
     fetchStats,
     updateFilters,
     changePage,
+    createPlan,
+    updatePlan,
+    deletePlan,
+    togglePlanActive,
+    setAsDefault,
+    bulkToggleActive,
+    bulkDelete,
     refetch: () => { fetchPlans(currentPage, filters); fetchExercises(); fetchStats() }
   }
 }

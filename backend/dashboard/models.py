@@ -177,3 +177,149 @@ class WellnessTip(TimeStampedModel):
 
     def __str__(self):
         return self.title
+
+
+class DefaultPlanConfiguration(TimeStampedModel):
+    """
+    Configuración por defecto de planes según perfil de usuario.
+    Define qué plan nutricional y programa de entrenamiento asignar
+    automáticamente cuando un usuario se registra con cierto perfil.
+    """
+    
+    # Información básica
+    name = models.CharField(max_length=200, help_text="Nombre descriptivo de la configuración")
+    description = models.TextField(blank=True, help_text="Descripción detallada")
+    priority = models.IntegerField(
+        default=100,
+        help_text="Prioridad de evaluación (menor número = mayor prioridad)"
+    )
+    is_active = models.BooleanField(default=True, help_text="Si está activa para asignación automática")
+    
+    # Criterios de coincidencia del perfil de usuario
+    main_goal = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Objetivo principal del usuario (lose_weight, gain_muscle, etc.)"
+    )
+    training_location = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Ubicación de entrenamiento (home, gym, outdoor)"
+    )
+    activity_level = models.CharField(
+        max_length=50,
+        null=True,
+        blank=True,
+        help_text="Nivel de actividad (sedentary, light, moderate, active, very_active)"
+    )
+    gender = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True,
+        help_text="Género objetivo (male, female, other) - null para todos"
+    )
+    
+    # Rangos de días de entrenamiento
+    min_training_days_per_week = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Mínimo de días de entrenamiento por semana"
+    )
+    max_training_days_per_week = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Máximo de días de entrenamiento por semana"
+    )
+    
+    # Rangos de edad
+    age_min = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Edad mínima del usuario"
+    )
+    age_max = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Edad máxima del usuario"
+    )
+    
+    # Restricciones alimentarias y equipamiento
+    dietary_restrictions = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Lista de restricciones dietéticas a considerar"
+    )
+    equipment_keywords = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Palabras clave de equipamiento disponible"
+    )
+    
+    # Planes a asignar
+    default_nutrition_plan = models.ForeignKey(
+        'nutrition.NutritionPlan',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='default_configurations',
+        help_text="Plan nutricional a asignar"
+    )
+    default_workout_program = models.ForeignKey(
+        'workouts.WorkoutProgram',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='default_configurations',
+        help_text="Programa de entrenamiento a asignar"
+    )
+    
+    class Meta:
+        ordering = ['priority', 'created_at']
+        verbose_name = "Configuración de Plan por Defecto"
+        verbose_name_plural = "Configuraciones de Planes por Defecto"
+        indexes = [
+            models.Index(fields=['priority', 'is_active']),
+            models.Index(fields=['main_goal', 'training_location', 'activity_level']),
+        ]
+    
+    def __str__(self):
+        return f"{self.name} (Prioridad: {self.priority})"
+    
+    def matches_user_profile(self, user):
+        """
+        Verifica si esta configuración coincide con el perfil del usuario
+        """
+        # Verificar objetivo principal
+        if self.main_goal and user.main_goal != self.main_goal:
+            return False
+        
+        # Verificar ubicación de entrenamiento
+        if self.training_location and user.training_location != self.training_location:
+            return False
+        
+        # Verificar nivel de actividad
+        if self.activity_level and user.activity_level != self.activity_level:
+            return False
+        
+        # Verificar género
+        if self.gender and user.gender != self.gender:
+            return False
+        
+        # Verificar días de entrenamiento
+        if self.min_training_days_per_week and user.training_days_per_week < self.min_training_days_per_week:
+            return False
+        if self.max_training_days_per_week and user.training_days_per_week > self.max_training_days_per_week:
+            return False
+        
+        # Verificar edad
+        if user.birth_date:
+            from datetime import date
+            age = (date.today() - user.birth_date).days // 365
+            if self.age_min and age < self.age_min:
+                return False
+            if self.age_max and age > self.age_max:
+                return False
+        
+        return True

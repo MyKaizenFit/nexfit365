@@ -5,12 +5,12 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  authService, 
-  User, 
-  LoginCredentials, 
+import {
+  authService,
+  User,
+  LoginCredentials,
   RegisterCredentials,
-  AuthResponse 
+  AuthResponse
 } from '@/lib/auth-service'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
 
@@ -37,7 +37,7 @@ interface AuthActions {
 }
 
 // Contexto completo
-interface AuthContextType extends AuthState, AuthActions {}
+interface AuthContextType extends AuthState, AuthActions { }
 
 // Crear contexto
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         // Verificar si hay tokens válidos
         const hasValidTokens = await authService.hasValidTokens()
-        
+
         if (hasValidTokens) {
           try {
             // Intentar obtener usuario actual
@@ -96,19 +96,38 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               mustChangePassword: user.must_change_password || false,
             })
           } catch (userError: any) {
-            // Solo mostrar warning si no es un error de autenticación esperado
-            if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
+            // NO limpiar tokens si es un error de rate limiting (429)
+            if (userError.message?.includes('Demasiadas solicitudes') || userError.message?.includes('Too Many Requests')) {
+              console.warn('⚠️ Rate limit alcanzado, manteniendo sesión activa. Reintentará automáticamente...')
+              setState({
+                user: null,
+                isAuthenticated: true, // Mantener como autenticado
+                isLoading: false,
+                error: 'Rate limit alcanzado. Por favor, espera un momento.',
+                mustChangePassword: false,
+              })
+            } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
               console.warn('Error al obtener usuario, limpiando tokens inválidos:', userError)
+              // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
+              authService.clearTokens()
+              setState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                mustChangePassword: false,
+              })
+            } else {
+              // Error de sesión expirada, limpiar
+              authService.clearTokens()
+              setState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                mustChangePassword: false,
+              })
             }
-            // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
-            authService.clearTokens()
-            setState({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null,
-              mustChangePassword: false,
-            })
           }
         } else {
           // No hay tokens válidos, marcar como no autenticado silenciosamente
@@ -146,10 +165,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }))
 
       const authResponse: AuthResponse = await authService.login(credentials)
-      
+
       // Verificar si el usuario debe cambiar contraseña
       const mustChangePassword = authResponse.must_change_password || authResponse.user.must_change_password || false
-      
+
       // Debug: verificar datos del usuario ANTES de guardar
       console.log('🔍 AuthContext - Datos del usuario recibidos del login:', {
         email: authResponse.user.email,
@@ -160,7 +179,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         must_change_password: mustChangePassword,
         fullUser: authResponse.user
       })
-      
+
       setState({
         user: authResponse.user,
         isAuthenticated: true,
@@ -203,23 +222,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Redirigir según el rol del usuario (priorizar información del token)
       const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || authResponse.user.role === 'ADMIN'
+
+      // Usar window.location.href para forzar un reload completo que lea las cookies correctamente
+      // Esto es necesario porque router.push hace navegación del lado del cliente y el middleware
+      // puede no ver las cookies recién guardadas
       if (isAdmin) {
         console.log('🔀 Redirigiendo a /admin (usuario administrador)')
-        router.push('/admin')
+        // Pequeño delay para asegurar que las cookies se guarden
+        await new Promise(resolve => setTimeout(resolve, 100))
+        window.location.href = '/admin'
       } else {
         // Verificar si el formulario inicial está completo
         const formCompleted = localStorage.getItem('initial_form_completed')
         if (!formCompleted || formCompleted !== 'true') {
           console.log('🔀 Redirigiendo a /initial-registration (formulario pendiente)')
-          router.push('/initial-registration')
+          await new Promise(resolve => setTimeout(resolve, 100))
+          window.location.href = '/initial-registration'
         } else {
           console.log('🔀 Redirigiendo a /dashboard (usuario normal)')
-          router.push('/dashboard')
+          await new Promise(resolve => setTimeout(resolve, 100))
+          window.location.href = '/dashboard'
         }
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Error al iniciar sesión'
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -248,12 +275,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('initial_form_completed')
       localStorage.removeItem('user_profile')
       localStorage.removeItem('form_version')
-      
+
       // Limpiar cookie del formulario
       document.cookie = 'initial_form_completed=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
-      
+
       const authResponse: AuthResponse = await authService.register(credentials)
-      
+
       setState({
         user: authResponse.user,
         isAuthenticated: true,
@@ -288,17 +315,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Redirigir según el rol del usuario (priorizar información del token)
       const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || authResponse.user.role === 'ADMIN'
+
+      // Usar window.location.href para forzar un reload completo
       if (isAdmin) {
         console.log('🔀 Redirigiendo a /admin (usuario administrador)')
-        router.push('/admin')
+        await new Promise(resolve => setTimeout(resolve, 100))
+        window.location.href = '/admin'
       } else {
         // SIEMPRE redirigir al formulario de registro inicial después de registrar
         console.log('🔀 Redirigiendo a /initial-registration (formulario de registro inicial)')
-        router.push('/initial-registration')
+        await new Promise(resolve => setTimeout(resolve, 100))
+        window.location.href = '/initial-registration'
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Error al registrar usuario'
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -321,7 +352,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }))
 
       await authService.logout()
-      
+
       setState({
         user: null,
         isAuthenticated: false,
@@ -336,10 +367,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       router.push('/auth')
     } catch (error) {
       console.error('Error al hacer logout:', error)
-      
+
       // Mostrar notificación de error
       authNotifications.showLogoutError('Error al cerrar sesión')
-      
+
       // Asegurar que se limpie el estado incluso si hay error
       setState({
         user: null,
@@ -395,7 +426,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }))
 
       const updatedUser = await authService.updateProfile(profileData)
-      
+
       setState(prev => ({
         ...prev,
         user: updatedUser,
@@ -407,7 +438,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       authNotifications.showProfileUpdateSuccess()
     } catch (error: any) {
       const errorMessage = error.message || 'Error al actualizar el perfil'
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -441,7 +472,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       authNotifications.showLoginSuccess('Se ha enviado una contraseña temporal a tu correo')
     } catch (error: any) {
       const errorMessage = error.message || 'Error al solicitar reset de contraseña'
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -482,7 +513,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       router.push('/auth')
     } catch (error: any) {
       const errorMessage = error.message || 'Error al cambiar contraseña'
-      
+
       setState(prev => ({
         ...prev,
         isLoading: false,
@@ -503,7 +534,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (!accessToken) {
         throw new Error('No hay token de acceso disponible')
       }
-      
+
       return {
         'Authorization': `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
@@ -516,23 +547,92 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Verificar si el token está próximo a expirar y renovarlo
   useEffect(() => {
+    if (!state.isAuthenticated) return
+
     const checkTokenExpiration = async () => {
-      if (authService.isAuthenticated() && authService.isTokenExpiringSoon()) {
+      if (authService.isAuthenticated()) {
         try {
-          await authService.refreshAccessToken()
-          await refreshUser()
+          // Verificar si el token está próximo a expirar
+          if (authService.isTokenExpiringSoon()) {
+            console.log('🔄 Token próximo a expirar, renovando automáticamente...')
+            const refreshResult = await authService.refreshAccessToken()
+
+            if (refreshResult.success && refreshResult.newToken) {
+              console.log('✅ Token renovado exitosamente')
+              // Refrescar datos del usuario con el nuevo token
+              try {
+                await refreshUser()
+              } catch (refreshError) {
+                console.warn('Error al refrescar usuario después de renovar token:', refreshError)
+                // No hacer logout si solo falla el refresh del usuario
+              }
+            } else {
+              console.error('❌ No se pudo renovar el token:', refreshResult.error)
+              // Solo hacer logout si el error no es "blacklisted" o "en progreso"
+              // Estos pueden ser problemas temporales de sincronización
+              if (refreshResult.error && 
+                  !refreshResult.error.includes('offline') && 
+                  !refreshResult.error.includes('blacklisted') &&
+                  !refreshResult.error.includes('en progreso')) {
+                await logout()
+              } else if (refreshResult.error?.includes('blacklisted')) {
+                // Si el token está blacklisted, puede ser porque se renovó desde otro lugar
+                // Intentar obtener el usuario con el token actual antes de hacer logout
+                console.warn('⚠️ Token blacklisted, puede ser un problema temporal')
+              }
+            }
+          } else {
+            // Si no está próximo a expirar, verificar que el token sea válido
+            // haciendo una verificación silenciosa
+            const token = authService.getAccessToken()
+            if (token && !token.startsWith('offline_token_')) {
+              try {
+                // Verificar que el token sea válido decodificándolo
+                const payload = JSON.parse(atob(token.split('.')[1]))
+                const expirationTime = payload.exp * 1000
+                const currentTime = Date.now()
+
+                // Si el token ya expiró, intentar renovarlo inmediatamente
+                if (expirationTime <= currentTime) {
+                  console.log('⚠️ Token expirado, renovando inmediatamente...')
+                  const refreshResult = await authService.refreshAccessToken()
+                  if (refreshResult.success && refreshResult.newToken) {
+                    await refreshUser()
+                  } else {
+                    console.warn('⚠️ No se pudo renovar el token automáticamente. Seguirá intentando...')
+                    // NO hacer logout automático, solo advertir
+                  }
+                }
+              } catch (error) {
+                console.warn('Error verificando token:', error)
+              }
+            }
+          }
         } catch (error) {
-          console.error('Error al renovar token:', error)
-          await logout()
+          console.error('Error al verificar/renovar token:', error)
+          // No hacer logout automáticamente, solo loguear el error
+          // El usuario puede seguir usando la app si el token aún es válido
         }
       }
     }
 
-    // Verificar cada 5 minutos
+    // Verificar cada 5 minutos para evitar renovaciones excesivas
+    // El token se renueva automáticamente cuando está próximo a expirar (30 min antes)
     const interval = setInterval(checkTokenExpiration, 5 * 60 * 1000)
-    
-    return () => clearInterval(interval)
-  }, [state.isAuthenticated])
+
+    // Ejecutar después de 30 segundos para evitar ejecución inmediata al montar
+    // Esto da tiempo a que la página cargue completamente
+    const initialTimeout = setTimeout(() => {
+      checkTokenExpiration()
+    }, 30 * 1000)
+
+    return () => {
+      clearInterval(interval)
+      if (initialTimeout) {
+        clearTimeout(initialTimeout)
+      }
+    }
+  }, [state.isAuthenticated, refreshUser, logout])
 
   // Valor del contexto
   const contextValue: AuthContextType = {

@@ -62,7 +62,7 @@ export function middleware(request: NextRequest) {
     try {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'admin'
+      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'admin' || payload.role === 'trainer'
       
       // Los administradores no necesitan completar el formulario
       if (!isAdmin) {
@@ -86,8 +86,8 @@ export function middleware(request: NextRequest) {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
       console.log('🔍 Middleware - Payload del token:', payload)
-      // Verificar tanto 'ADMIN' (mayúsculas) como 'admin' (minúsculas) para compatibilidad
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin'
+      // Verificar roles de admin: superuser, staff, admin, trainer
+      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
       
       if (isAdmin) {
         // Si es admin, redirigir al panel de administrador
@@ -119,8 +119,8 @@ export function middleware(request: NextRequest) {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
       console.log('🔍 Middleware Admin - Payload del token:', payload)
-      // Verificar tanto 'ADMIN' (mayúsculas) como 'admin' (minúsculas) para compatibilidad
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin'
+      // Verificar roles de admin: superuser, staff, admin, trainer
+      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
       
       if (!isAdmin) {
         // Si no es admin, redirigir al dashboard

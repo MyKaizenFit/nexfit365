@@ -5,16 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { 
-  Dumbbell, 
-  CheckCircle, 
-  Circle, 
-  Clock, 
+import {
+  Dumbbell,
+  CheckCircle,
+  Circle,
+  Clock,
   Play,
   Trophy,
   Target
 } from 'lucide-react'
 import { ExerciseVideoPlayer } from './exercise-video-player'
+import { ActiveWorkoutSession } from './active-workout-session'
 import { toast } from '@/hooks/use-toast'
 import { useWorkouts } from '@/hooks/use-workouts'
 import { useUserProfile } from '@/hooks/use-user-profile'
@@ -29,6 +30,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set())
   const [workoutStarted, setWorkoutStarted] = useState(false)
   const [workoutCompleted, setWorkoutCompleted] = useState(false)
+  const [showActiveWorkout, setShowActiveWorkout] = useState(false)
 
   // Obtener el día actual (1-7, donde 1 = Lunes, 7 = Domingo)
   const getTodayDayNumber = () => {
@@ -43,8 +45,8 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   const isTrainingDay = trainingDays.length > 0 ? trainingDays.includes(todayDayNumber) : true // Si no hay configuración, asumir que sí
 
   // Obtener el entrenamiento de hoy
-  const todaysWorkout = activeProgram ? (() => {
-    return activeProgram.days.find(day => day.day_number === todayDayNumber)
+  const todaysWorkout = activeProgram && activeProgram.days ? (() => {
+    return activeProgram.days.find(day => day.day_number === todayDayNumber) || null
   })() : null
 
   // Verificar si es día de descanso
@@ -58,7 +60,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   })
 
   // Verificar si el entrenamiento de hoy ya fue completado
-  const isWorkoutCompletedToday = todayLogs.some(log => 
+  const isWorkoutCompletedToday = todayLogs.some(log =>
     log.completed && log.workout_day === todaysWorkout?.id
   )
 
@@ -70,7 +72,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   // Manejar inicio de entrenamiento
   const handleStartWorkout = () => {
     if (!todaysWorkout) return
-    
+
     setWorkoutStarted(true)
     toast({
       title: "Entrenamiento iniciado",
@@ -99,7 +101,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
       await createWorkoutLog(todaysWorkout.id, 'Entrenamiento completado')
       setWorkoutCompleted(true)
       await refreshData()
-      
+
       toast({
         title: "¡Entrenamiento completado! 🎉",
         description: "Excelente trabajo. Sigue así.",
@@ -131,7 +133,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
         title: "Redirigiendo al formulario",
         description: "Vamos a completar tu perfil para asignarte un plan personalizado.",
       })
-      
+
       // Esperar un momento para que se vea el toast
       setTimeout(() => {
         window.location.href = '/initial-registration'
@@ -148,7 +150,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   // Si no hay plan activo
   if (!activeProgram) {
     const hasCompleteProfile = profile && profile.main_goal && profile.activity_level && profile.training_days_per_week
-    
+
     return (
       <Card className={className}>
         <CardContent className="p-8 text-center">
@@ -159,12 +161,12 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
             No tienes un plan de entrenamiento activo
           </h3>
           <p className="text-muted-foreground mb-4">
-            {hasCompleteProfile 
+            {hasCompleteProfile
               ? "Completa el formulario de registro para que te asignemos un plan personalizado automáticamente."
               : "Completa tu perfil para obtener un plan de entrenamiento personalizado."
             }
           </p>
-          <Button 
+          <Button
             onClick={handleCreatePlan}
             className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600"
           >
@@ -180,7 +182,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   if (isRestDay) {
     const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado']
     const dayName = dayNames[new Date().getDay()]
-    
+
     return (
       <Card className={className}>
         <CardContent className="p-8 text-center">
@@ -200,8 +202,8 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                 {trainingDays.map((day: number) => {
                   const dayNamesShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
                   return (
-                    <Badge 
-                      key={day} 
+                    <Badge
+                      key={day}
                       className={day === todayDayNumber ? 'bg-purple-600' : 'bg-gray-200 text-gray-600'}
                     >
                       {dayNamesShort[day - 1]}
@@ -237,13 +239,13 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
           )}
         </div>
       </CardHeader>
-      
+
       <CardContent className="space-y-4">
         {/* Barra de progreso */}
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">
-              {workoutStarted || isWorkoutCompletedToday 
+              {workoutStarted || isWorkoutCompletedToday
                 ? `${completedCount}/${totalExercises} ejercicios completados`
                 : 'Entrenamiento pendiente'
               }
@@ -258,14 +260,14 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
           {todaysWorkout.exercises?.map((exercise: any, index: number) => {
             const exerciseData = exercise.exercise || exercise
             const isCompleted = completedExercises.has(exercise.id) || isWorkoutCompletedToday
-            
+
             return (
               <div
                 key={exercise.id}
                 className={`
                   p-4 rounded-lg border-2 transition-all
-                  ${isCompleted 
-                    ? 'bg-green-50 border-green-200' 
+                  ${isCompleted
+                    ? 'bg-green-50 border-green-200'
                     : 'bg-white border-gray-200 hover:border-purple-300 cursor-pointer'
                   }
                 `}
@@ -280,7 +282,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                       <Circle className="h-5 w-5 text-gray-400 hover:text-purple-600" />
                     )}
                   </div>
-                  
+
                   {/* Información del ejercicio */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
@@ -306,7 +308,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                           )}
                         </div>
                       </div>
-                      
+
                       {/* Botón de video si está disponible */}
                       {exerciseData.has_video && (
                         <ExerciseVideoPlayer exercise={exerciseData}>
@@ -321,7 +323,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                         </ExerciseVideoPlayer>
                       )}
                     </div>
-                    
+
                     {/* Thumbnail del ejercicio si existe */}
                     {(exerciseData.thumbnail_url || exerciseData.image_url) && (
                       <ExerciseVideoPlayer exercise={exerciseData}>
@@ -337,7 +339,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                         </div>
                       </ExerciseVideoPlayer>
                     )}
-                    
+
                     {/* Notas si existen */}
                     {exercise.notes && (
                       <p className="mt-2 text-xs text-gray-600 italic">
@@ -353,40 +355,35 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
         {/* Acciones */}
         <div className="pt-4 space-y-2">
-          {!workoutStarted && !isWorkoutCompletedToday && (
-            <Button 
-              onClick={handleStartWorkout}
+          {!isWorkoutCompletedToday && (
+            <Button
+              onClick={() => setShowActiveWorkout(true)}
               className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600"
             >
               <Play className="h-4 w-4 mr-2" />
-              Iniciar Entrenamiento
+              Iniciar Entrenamiento Completo
             </Button>
-          )}
-          
-          {workoutStarted && !workoutCompleted && !isWorkoutCompletedToday && completedCount > 0 && (
-            <div className="space-y-2">
-              <Button 
-                onClick={() => {
-                  setCompletedExercises(new Set(todaysWorkout.exercises?.map((e: any) => e.id)))
-                }}
-                variant="outline"
-                className="w-full"
-              >
-                Marcar todos como completados
-              </Button>
-              
-              <Button 
-                onClick={handleCompleteWorkout}
-                className="w-full bg-green-600 hover:bg-green-700"
-                disabled={completedCount === 0}
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Finalizar Entrenamiento
-              </Button>
-            </div>
           )}
         </div>
       </CardContent>
+
+      {/* Sesión de entrenamiento activo */}
+      {todaysWorkout && (
+        <ActiveWorkoutSession
+          workoutDay={todaysWorkout}
+          isOpen={showActiveWorkout}
+          onClose={() => setShowActiveWorkout(false)}
+          onComplete={async (data) => {
+            try {
+              await createWorkoutLog(todaysWorkout.id, data.notes)
+              await refreshData()
+              setShowActiveWorkout(false)
+            } catch (error) {
+              throw error
+            }
+          }}
+        />
+      )}
     </Card>
   )
 }

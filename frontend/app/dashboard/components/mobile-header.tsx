@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { Bell, Search, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -35,15 +36,15 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   const { logout, user } = useAuth()
   const [isSearchOpen, setIsSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
-  
+
   const handleProfileClick = () => {
     router.push('/dashboard/profile')
   }
-  
+
   const handleSettingsClick = () => {
     router.push('/dashboard/settings')
   }
-  
+
   const handleLogout = async () => {
     try {
       await logout()
@@ -78,24 +79,31 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     setIsSearchOpen(false)
     setSearchQuery("")
   }
-  
+
   return (
     <header className="sticky top-0 z-40 w-full border-b border-white/20 backdrop-blur-lg bg-white/80 md:hidden safe-area-pt">
-      <div className="responsive-flex h-16 items-center justify-between px-6 sm:px-8 w-full safe-area-pl safe-area-pr">
+      <div className="responsive-flex h-16 items-center justify-between px-4 sm:px-6 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
-        <div className="responsive-flex items-center gap-4 sm:gap-5 min-w-0 flex-1">
-          <div className="flex aspect-square size-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-400 to-cyan-500 text-white flex-shrink-0 shadow-lg animate-gentle-pulse">
-            <span className="text-sm font-bold">N</span>
+        <div className="responsive-flex items-center gap-3 min-w-0 flex-1 pl-2">
+          <div className="flex aspect-square size-9 sm:size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
+            <Image src="/icono.png" alt="NEXFIT" width={40} height={40} quality={100} />
           </div>
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg sm:text-xl font-semibold responsive-text bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-              {sectionTitles[selectedSection] || "NutriApp"}
+            <h1 className="text-lg sm:text-xl font-semibold responsive-text">
+              {sectionTitles[selectedSection] ? (
+                sectionTitles[selectedSection]
+              ) : (
+                <span>
+                  <span className="text-orange-500">NEX</span>
+                  <span className="text-gray-600">FIT</span>
+                </span>
+              )}
             </h1>
           </div>
         </div>
 
         {/* Right side - Actions */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 pr-2">
           {/* Search button */}
           <Button
             variant="ghost"
@@ -125,12 +133,12 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="h-9 w-9 cursor-pointer hover:ring-4 hover:ring-teal-200 transition-all duration-300 flex-shrink-0 ml-1">
-                <AvatarImage 
+                <AvatarImage
                   src={
-                    user?.profile_picture_url || 
-                    user?.profile_picture || 
+                    user?.profile_picture_url ||
+                    user?.profile_picture ||
                     undefined
-                  } 
+                  }
                 />
                 <AvatarFallback className="text-sm font-medium bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
                   {user?.first_name?.[0] || 'U'}{user?.last_name?.[0] || ''}

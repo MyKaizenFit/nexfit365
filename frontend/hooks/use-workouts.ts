@@ -113,7 +113,7 @@ export function useWorkouts() {
       const timer = setTimeout(() => {
         loadWorkoutData()
       }, 100)
-      
+
       return () => clearTimeout(timer)
     } else {
       // Limpiar datos cuando el usuario se desloguea
@@ -137,20 +137,20 @@ export function useWorkouts() {
     try {
       setLoading(true)
       setError(null)
-      
+
       // Cargar de forma secuencial para evitar rate limiting
       await fetchWorkoutPrograms()
       await new Promise(resolve => setTimeout(resolve, 200)) // Pequeño delay
-      
+
       await fetchActiveProgram()
       await new Promise(resolve => setTimeout(resolve, 200))
-      
+
       await fetchTemplates()
       await new Promise(resolve => setTimeout(resolve, 200))
-      
+
       await fetchExercises()
       await new Promise(resolve => setTimeout(resolve, 200))
-      
+
       await fetchWorkoutLogs()
     } catch (err) {
       console.error('Error loading workout data:', err)
@@ -170,7 +170,7 @@ export function useWorkouts() {
     try {
       const response = await authenticatedFetch('workout-programs/')
       const data = await response.json()
-      
+
       if (response.ok) {
         setWorkoutPrograms(data.results || data)
       } else {
@@ -191,10 +191,20 @@ export function useWorkouts() {
 
     try {
       const response = await authenticatedFetch('workout-programs/my_active_program/')
-      
+
       if (response.ok) {
         const data = await response.json()
-        setActiveProgram(data)
+        // El API devuelve { program: {...} } o { program: null }
+        const program = data.program || data
+        if (program && program.id) {
+          // Asegurar que days siempre sea un array
+          setActiveProgram({
+            ...program,
+            days: program.days || []
+          })
+        } else {
+          setActiveProgram(null)
+        }
       } else if (response.status === 404) {
         setActiveProgram(null)
       } else {
@@ -217,7 +227,7 @@ export function useWorkouts() {
     try {
       const response = await authenticatedFetch('workout-programs/available_templates/')
       const data = await response.json()
-      
+
       if (response.ok) {
         setTemplates(data)
       } else {
@@ -239,7 +249,7 @@ export function useWorkouts() {
     try {
       const response = await authenticatedFetch('exercises/')
       const data = await response.json()
-      
+
       if (response.ok) {
         setExercises(data.results || data)
       } else {
@@ -261,7 +271,7 @@ export function useWorkouts() {
     try {
       const response = await authenticatedFetch('workout-logs/')
       const data = await response.json()
-      
+
       if (response.ok) {
         setWorkoutLogs(data.results || data)
       } else {
@@ -292,7 +302,7 @@ export function useWorkouts() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         // Recargar programas
         await fetchWorkoutPrograms()
@@ -318,7 +328,7 @@ export function useWorkouts() {
       })
 
       const data = await response.json()
-      
+
       if (response.ok) {
         // Recargar programa activo
         await fetchActiveProgram()
@@ -334,7 +344,13 @@ export function useWorkouts() {
   }
 
   // Crear log de entrenamiento
-  const createWorkoutLog = async (workoutDayId: string, notes?: string) => {
+  const createWorkoutLog = async (
+    workoutDayId: string,
+    notes?: string,
+    duration_minutes?: number,
+    rating?: number,
+    exercises_data?: any[]
+  ) => {
     if (!isAuthenticated) {
       throw new Error('Usuario no autenticado')
     }
@@ -349,22 +365,119 @@ export function useWorkouts() {
           workout_day: workoutDayId,
           notes: notes || '',
           completed: true,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          duration_minutes: duration_minutes || null,
+          rating: rating || null,
+          exercises_data: exercises_data || []
         })
       })
 
-      const data = await response.json()
-      
+      // Leer la respuesta como texto primero para poder manejarla correctamente
+      let text: string
+      try {
+        text = await response.text()
+      } catch (textError) {
+        console.error('Error reading response text:', textError)
+        throw new Error('No se pudo leer la respuesta del servidor')
+      }
+
+      // Limpiar el texto de posibles caracteres no válidos al inicio
+      const cleanedText = text.trim()
+
+      // Verificar el tipo de contenido
+      const contentType = response.headers.get('content-type') || ''
+      let data: any
+
+      // Intentar parsear como JSON si el content-type lo indica o si parece JSON
+      const looksLikeJson = cleanedText.startsWith('{') || cleanedText.startsWith('[')
+
+      if (contentType.includes('application/json') || looksLikeJson) {
+        try {
+          // Si el texto está vacío, no intentar parsear
+          if (!cleanedText || cleanedText === '') {
+            if (response.ok) {
+              // Respuesta exitosa sin contenido
+              await fetchWorkoutLogs()
+              await fetchWorkoutStatistics()
+              return {}
+            } else {
+              throw new Error('Error del servidor: respuesta vacía')
+            }
+          }
+
+          // Intentar parsear el JSON
+          data = JSON.parse(cleanedText)
+        } catch (jsonError) {
+          // Si falla el parseo JSON, loguear el error completo
+          console.error('❌ Error parsing JSON response:')
+          console.error('  Status:', response.status, response.statusText)
+          console.error('  Content-Type:', contentType)
+          console.error('  Response text (first 500 chars):', cleanedText.substring(0, 500))
+          console.error('  Parse error:', jsonError)
+
+          // Si la respuesta es exitosa pero no es JSON válido, intentar continuar
+          if (response.ok) {
+            console.warn('⚠️ Respuesta exitosa pero no es JSON válido, continuando...')
+            await fetchWorkoutLogs()
+            await fetchWorkoutStatistics()
+            return {}
+          }
+
+          // Si hay error, usar el texto como mensaje
+          const errorMsg = cleanedText || 'Error desconocido del servidor'
+          throw new Error(`Error del servidor: ${errorMsg.substring(0, 200)}`)
+        }
+      } else {
+        // Si no es JSON, usar el texto directamente
+        console.warn('⚠️ Response is not JSON:', {
+          contentType,
+          status: response.status,
+          text: cleanedText.substring(0, 200)
+        })
+
+        if (response.ok) {
+          // Respuesta exitosa pero no JSON
+          await fetchWorkoutLogs()
+          await fetchWorkoutStatistics()
+          return {}
+        } else {
+          throw new Error(cleanedText || 'Error del servidor')
+        }
+      }
+
       if (response.ok) {
-        // Recargar logs
+        // Recargar logs y estadísticas
         await fetchWorkoutLogs()
+        await fetchWorkoutStatistics()
         return data
       } else {
-        throw new Error(data.detail || 'Error al crear log de entrenamiento')
+        // Manejar errores de validación de DRF
+        let errorMessage = 'Error al crear log de entrenamiento'
+
+        if (data) {
+          if (typeof data === 'string') {
+            errorMessage = data
+          } else if (data.detail) {
+            errorMessage = data.detail
+          } else if (data.message) {
+            errorMessage = data.message
+          } else if (Array.isArray(data) && data.length > 0) {
+            errorMessage = data[0]
+          } else {
+            errorMessage = JSON.stringify(data)
+          }
+        }
+
+        throw new Error(errorMessage)
       }
     } catch (err) {
       console.error('Error creating workout log:', err)
-      throw err
+      // Si el error ya es un Error con mensaje, lanzarlo tal cual
+      if (err instanceof Error) {
+        throw err
+      }
+      // Si no, crear un nuevo Error
+      throw new Error(err instanceof Error ? err.message : 'Error desconocido al crear log de entrenamiento')
     }
   }
 
@@ -375,8 +488,8 @@ export function useWorkouts() {
 
   // Obtener ejercicios por grupo muscular
   const getExercisesByMuscleGroup = (muscleGroup: string) => {
-    return exercises.filter(exercise => 
-      exercise.muscle_groups.some(mg => 
+    return exercises.filter(exercise =>
+      exercise.muscle_groups.some(mg =>
         mg.toLowerCase().includes(muscleGroup.toLowerCase())
       )
     )
@@ -384,23 +497,63 @@ export function useWorkouts() {
 
   // Obtener programa activo del día actual
   const getTodaysWorkout = () => {
-    if (!activeProgram) return null
-    
+    if (!activeProgram || !activeProgram.days) return null
+
     const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
     const dayNumber = today === 0 ? 7 : today // Convertir domingo a día 7
-    
-    return activeProgram.days.find(day => day.day_number === dayNumber)
+
+    return activeProgram.days.find(day => day.day_number === dayNumber) || null
   }
 
-  // Obtener progreso semanal
+  // Obtener progreso semanal (usando datos del servidor)
+  const [workoutStatistics, setWorkoutStatistics] = useState<any>(null)
+
+  const fetchWorkoutStatistics = async () => {
+    if (!isAuthenticated) {
+      return null
+    }
+
+    try {
+      const response = await authenticatedFetch('workout-logs/statistics/')
+      const data = await response.json()
+
+      if (response.ok) {
+        setWorkoutStatistics(data)
+        return data
+      } else {
+        throw new Error(data.detail || 'Error al obtener estadísticas')
+      }
+    } catch (err) {
+      console.error('Error fetching workout statistics:', err)
+      return null
+    }
+  }
+
+  // Cargar estadísticas cuando se cargan los datos
+  useEffect(() => {
+    if (isAuthenticated && workoutLogs.length >= 0) {
+      fetchWorkoutStatistics()
+    }
+  }, [isAuthenticated, workoutLogs.length])
+
+  // Obtener progreso semanal (compatibilidad con código existente)
   const getWeeklyProgress = () => {
+    if (workoutStatistics) {
+      return {
+        totalWorkouts: workoutStatistics.completed_this_week,
+        completedWorkouts: workoutStatistics.completed_this_week,
+        totalMinutes: workoutStatistics.total_minutes_week
+      }
+    }
+
+    // Fallback al cálculo local si no hay estadísticas del servidor
     const oneWeekAgo = new Date()
     oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-    
-    const recentLogs = workoutLogs.filter(log => 
+
+    const recentLogs = workoutLogs.filter(log =>
       new Date(log.date) >= oneWeekAgo
     )
-    
+
     return {
       totalWorkouts: recentLogs.length,
       completedWorkouts: recentLogs.filter(log => log.completed).length,
@@ -415,7 +568,7 @@ export function useWorkouts() {
 
   // Alias para logWorkout
   const logWorkout = createWorkoutLog
-  
+
   return {
     // Estado
     workoutPrograms,
@@ -423,21 +576,23 @@ export function useWorkouts() {
     templates,
     exercises,
     workoutLogs,
+    workoutStatistics,
     loading,
     error,
-    
+
     // Acciones
     fetchWorkoutPrograms,
     fetchActiveProgram,
     fetchTemplates,
     fetchExercises,
     fetchWorkoutLogs,
+    fetchWorkoutStatistics,
     createProgramFromTemplate,
     activateProgram,
     createWorkoutLog,
     logWorkout,  // Alias
     refreshData,
-    
+
     // Utilidades
     getExercisesByCategory,
     getExercisesByMuscleGroup,
