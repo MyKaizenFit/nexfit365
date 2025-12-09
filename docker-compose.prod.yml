@@ -186,9 +186,12 @@ services:
 # ============================================
 # REDES
 # ============================================
+# Nombres únicos para evitar conflictos con desarrollo
 networks:
   internal:
+    name: nexfit-pro-internal
     driver: bridge
     internal: true  # Red privada: solo comunicación entre servicios Docker
   web:
+    name: nexfit-pro-web
     driver: bridge
