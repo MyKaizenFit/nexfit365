@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
 
@@ -62,7 +63,14 @@ export function MealSelectionModal({
     }
   }
 
-  if (!isOpen) return null
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  if (!isOpen || !mounted) return null
 
   const handleSelectOption = (option: MealOption) => {
     setSelectedOption(option)
@@ -96,10 +104,10 @@ export function MealSelectionModal({
     }
   }
 
-  return (
+  const modalContent = (
     <>
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="w-full max-w-md max-h-[90vh] overflow-y-auto">
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
+        <div className="w-full max-w-md max-h-[90vh] overflow-y-auto z-[9999]">
           <div className="bg-white rounded-2xl w-full shadow-2xl border-2 border-purple-100">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-2xl">
@@ -219,6 +227,12 @@ export function MealSelectionModal({
           </div>
         </div>
       </div>
+    </>
+  )
+
+  return (
+    <>
+      {typeof document !== 'undefined' && createPortal(modalContent, document.body)}
 
       {/* Modal de Receta Completa */}
       {showRecipe && recipeData && (
@@ -269,6 +283,15 @@ function RecipeDetailModal({
   onClose,
   onSelectRecipe
 }: RecipeDetailModalProps) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    return () => setMounted(false)
+  }, [])
+
+  if (!mounted) return null
+
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'easy': return 'text-green-600 bg-green-50'
@@ -287,9 +310,9 @@ function RecipeDetailModal({
     }
   }
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+  const modalContent = (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
+      <div className="w-full max-w-3xl max-h-[90vh] overflow-y-auto z-[9999]">
         <div className="bg-white rounded-2xl w-full shadow-2xl">
           {/* Header */}
           <div className="sticky top-0 bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-6 rounded-t-2xl">
@@ -445,4 +468,6 @@ function RecipeDetailModal({
       </div>
     </div>
   )
+
+  return typeof document !== 'undefined' && createPortal(modalContent, document.body)
 }
