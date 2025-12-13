@@ -151,6 +151,36 @@ docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfi
 docker compose -f docker-compose.prod.yml exec -T db psql -U postgres mykaizenfit < backup.sql
 ```
 
+## 🔄 Flujo de Trabajo: Desarrollo y Producción
+
+Para separar correctamente desarrollo de producción, consulta **[WORKFLOW.md](WORKFLOW.md)** para el flujo completo recomendado.
+
+### Resumen Rápido
+
+**En tu máquina local:**
+```bash
+git clone <repo-url> nexfit365
+cd nexfit365
+git checkout -b develop
+# Trabaja en tus cambios...
+git commit -m "feat: nueva funcionalidad"
+git push origin develop
+```
+
+**En el servidor (desarrollo):**
+```bash
+cd /srv/mykaizenfit/pro
+git checkout develop
+git pull origin develop
+./dev.sh up  # Inicia en puertos 3001, 8001, 5434
+```
+
+**Deploy a producción:**
+```bash
+cd /srv/mykaizenfit/pro
+./deploy.sh  # Script automatizado de deploy
+```
+
 ## 🛠️ Desarrollo Local (sin Docker)
 
 ### Backend
@@ -185,4 +215,10 @@ npm run dev
 - [ ] Tests automatizados
 - [ ] CI/CD pipeline
 - [ ] Optimizaciones de rendimiento
+
+## 📚 Documentación Adicional
+
+- **[WORKFLOW.md](WORKFLOW.md)**: Flujo completo de desarrollo y despliegue
+- **`deploy.sh`**: Script automatizado para deploy a producción
+- **`dev.sh`**: Script para gestionar el entorno de desarrollo
 

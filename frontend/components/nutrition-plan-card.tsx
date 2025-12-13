@@ -20,7 +20,8 @@ import {
   TrendingUp, 
   CheckCircle,
   ArrowRight,
-  Loader2
+  Loader2,
+  Database
 } from 'lucide-react'
 import { toast } from '@/hooks/use-toast'
 
@@ -118,9 +119,17 @@ export function NutritionPlanCard() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">
-              {currentPlan.name}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {currentPlan.name}
+              </h3>
+              {(currentPlan.is_system || currentPlan.is_template) && (
+                <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-300 text-xs">
+                  <Database className="w-3 h-3 mr-1" />
+                  Backend
+                </Badge>
+              )}
+            </div>
             {currentPlan.description && (
               <p className="text-sm text-gray-600">{currentPlan.description}</p>
             )}

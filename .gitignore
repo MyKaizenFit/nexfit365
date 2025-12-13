@@ -12,6 +12,7 @@
 
 # ===== Docker =====
 data/
+data-dev/
 docker-data/
 
 # ===== Backups =====

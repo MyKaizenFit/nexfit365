@@ -302,7 +302,6 @@ class DailyMealSelectionsService {
   async loadSelectionsFromBackend(date: string): Promise<Record<string, MealOption>> {
     try {
       const backendSelections = await this.getDailySelections(date)
-      console.log('Selecciones cargadas del backend:', backendSelections)
 
       // Mapeo inverso de tipos de comida
       const mealTypeMapping: Record<string, string> = {
@@ -322,7 +321,6 @@ class DailyMealSelectionsService {
         }
       })
 
-      console.log('Selecciones convertidas al formato local:', localSelections)
       return localSelections
     } catch (error) {
       console.error('Error cargando selecciones del backend:', error)
