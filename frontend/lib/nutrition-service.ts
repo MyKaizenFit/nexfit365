@@ -19,6 +19,25 @@ export interface Food {
 export interface NutritionPlan {
   id: string
   name: string
+  description?: string
+  daily_calories: number
+  target_macros: {
+    protein: number
+    carbs: number
+    fat: number
+    protein_percentage?: number
+    carbs_percentage?: number
+    fat_percentage?: number
+  }
+  meals?: Meal[]
+  start_date?: string
+  end_date?: string
+  is_active: boolean
+  is_system?: boolean
+  is_template?: boolean
+  is_default?: boolean
+  id: string
+  name: string
   description: string
   daily_calories: number | null
   target_macros: {
@@ -82,6 +101,8 @@ export interface Recipe {
   carbs: number
   fat: number
   fiber?: number
+  sugar?: number
+  sodium?: number
   ingredients: Array<{
     name: string
     amount: number | string
@@ -100,7 +121,7 @@ export interface PersonalizedRecipeQuantities {
   scale_factor: number
   ingredients: Array<{
     name: string
-    amount: number | null
+    amount: number | string | null
     unit: string | null
     note?: string
   }>

@@ -220,7 +220,7 @@ export function useDailyMeals() {
   }
 
   // Calcular macros totales
-  const calculateTotalMacros = useCallback((meals: DailyMeal[]) => {
+  const calculateTotalMacros = useCallback((meals: DailyMeal[], goalMacros?: DailyMacros) => {
     const totalCalories = meals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.calories || 0), 0)
     const totalProtein = meals.reduce((sum, meal) => 
@@ -230,23 +230,18 @@ export function useDailyMeals() {
     const totalFat = meals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.fat || 0), 0)
 
-    console.log('Calculando macros:', {
-      meals: meals.map(m => ({ name: m.name, selected: m.selectedOption?.name, calories: m.selectedOption?.calories })),
-      totalCalories,
-      totalProtein,
-      totalCarbs,
-      totalFat
-    })
+    // Usar macros personalizados si están disponibles, sino usar los del estado
+    const targetMacros = goalMacros || macros
 
     return {
       caloriesConsumed: totalCalories,
-      caloriesGoal: macros.caloriesGoal,
+      caloriesGoal: targetMacros.caloriesGoal,
       proteinConsumed: totalProtein,
-      proteinGoal: macros.proteinGoal,
+      proteinGoal: targetMacros.proteinGoal,
       carbsConsumed: totalCarbs,
-      carbsGoal: macros.carbsGoal,
+      carbsGoal: targetMacros.carbsGoal,
       fatConsumed: totalFat,
-      fatGoal: macros.fatGoal
+      fatGoal: targetMacros.fatGoal
     }
   }, [macros])
 
@@ -395,14 +390,11 @@ export function useDailyMeals() {
   // Cargar selecciones del backend
   const loadSelectionsFromBackend = useCallback(async (date: string) => {
     try {
-      console.log('Cargando selecciones del backend para:', date)
       const backendSelections = await dailyMealSelectionsService.loadSelectionsFromBackend(date)
       
       if (Object.keys(backendSelections).length > 0) {
-        console.log('Selecciones encontradas en backend:', backendSelections)
         return backendSelections
       } else {
-        console.log('No se encontraron selecciones en backend, usando localStorage como backup')
         return null
       }
     } catch (error) {
@@ -468,67 +460,73 @@ export function useDailyMeals() {
     }
   }, [currentPlan])
 
-  // Cargar opciones del plan cuando cambie el plan activo
+  // Cargar datos iniciales (solo una vez al montar o cuando cambie el plan)
   useEffect(() => {
-    if (isAuthenticated) {
-      loadPlanMealOptions()
+    if (!isAuthenticated) {
+      setLoading(false)
+      return
     }
-  }, [isAuthenticated, currentPlan, loadPlanMealOptions])
 
-  // Cargar datos iniciales
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLoading(true)
-      
-      const loadData = async () => {
-        try {
-          // Primero cargar opciones del plan
-          await loadPlanMealOptions()
+    let isMounted = true
+    setLoading(true)
+    
+    const loadData = async () => {
+      try {
+        // Primero cargar opciones del plan
+        await loadPlanMealOptions()
+        
+        if (!isMounted) return
+        
+        // Generar comidas del día
+        const dailyMeals = generateDailyMeals()
+        const today = new Date().toISOString().split('T')[0]
+        
+        // Intentar cargar desde el backend primero
+        const backendSelections = await loadSelectionsFromBackend(today)
+        
+        if (!isMounted) return
+        
+        if (backendSelections) {
+          // Usar selecciones del backend
+          const mealsWithBackendSelections = applySelectionsToMeals(dailyMeals, backendSelections)
+          setMeals(mealsWithBackendSelections)
           
-          // Generar comidas del día
-          const dailyMeals = generateDailyMeals()
-          const today = new Date().toISOString().split('T')[0]
-          
-          // Intentar cargar desde el backend primero
-          const backendSelections = await loadSelectionsFromBackend(today)
-          
-          if (backendSelections) {
-            // Usar selecciones del backend
-            const mealsWithBackendSelections = applySelectionsToMeals(dailyMeals, backendSelections)
-            setMeals(mealsWithBackendSelections)
-            
-            // Calcular macros
-            const initialMacros = calculateTotalMacros(mealsWithBackendSelections)
-            setMacros(initialMacros)
-            
-            // Sincronizar localStorage con backend
-            saveSelectionsToStorage(mealsWithBackendSelections)
-          } else {
-            // Usar localStorage como backup
-            const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)
-            setMeals(mealsWithLocalSelections)
-            
-            // Calcular macros
-            const initialMacros = calculateTotalMacros(mealsWithLocalSelections)
-            setMacros(initialMacros)
-          }
-        } catch (error) {
-          console.error('Error cargando datos iniciales:', error)
-          // Fallback: usar solo comidas sin selecciones
-          const fallbackMeals = generateDailyMeals()
-          setMeals(fallbackMeals)
-          const initialMacros = calculateTotalMacros(fallbackMeals)
+          // Calcular macros
+          const initialMacros = calculateTotalMacros(mealsWithBackendSelections)
           setMacros(initialMacros)
-        } finally {
+          
+          // Sincronizar localStorage con backend
+          saveSelectionsToStorage(mealsWithBackendSelections)
+        } else {
+          // Usar localStorage como backup
+          const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)
+          setMeals(mealsWithLocalSelections)
+          
+          // Calcular macros
+          const initialMacros = calculateTotalMacros(mealsWithLocalSelections)
+          setMacros(initialMacros)
+        }
+      } catch (error) {
+        console.error('Error cargando datos iniciales:', error)
+        if (!isMounted) return
+        // Fallback: usar solo comidas sin selecciones
+        const fallbackMeals = generateDailyMeals()
+        setMeals(fallbackMeals)
+        const initialMacros = calculateTotalMacros(fallbackMeals)
+        setMacros(initialMacros)
+      } finally {
+        if (isMounted) {
           setLoading(false)
         }
       }
-
-      loadData()
-    } else {
-      setLoading(false)
     }
-  }, [isAuthenticated, generateDailyMeals, calculateTotalMacros, loadSelectionsFromBackend, applySelectionsToMeals, saveSelectionsToStorage, loadSelectionsFromStorage, loadPlanMealOptions])
+
+    loadData()
+    
+    return () => {
+      isMounted = false
+    }
+  }, [isAuthenticated, currentPlan?.id]) // Solo cuando cambie el ID del plan, no el objeto completo
 
   // Obtener opciones para una comida específica
   const getMealOptions = useCallback((mealName: string): MealOption[] => {

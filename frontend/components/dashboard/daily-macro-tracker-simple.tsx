@@ -1,6 +1,7 @@
 'use client'
 
 import React from 'react'
+import { formatMacro } from '@/lib/utils'
 
 interface DailyMacroTrackerSimpleProps {
   caloriesConsumed: number
@@ -53,7 +54,7 @@ export function DailyMacroTrackerSimple({
             </span>
           </div>
           <div className="text-sm font-medium text-gray-700">Proteínas</div>
-          <div className="text-xs text-gray-500">{proteinConsumed}/{proteinGoal}g</div>
+          <div className="text-xs text-gray-500">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
         </div>
         
         <div className="text-center">
@@ -63,7 +64,7 @@ export function DailyMacroTrackerSimple({
             </span>
           </div>
           <div className="text-sm font-medium text-gray-700">Carbohidratos</div>
-          <div className="text-xs text-gray-500">{carbsConsumed}/{carbsGoal}g</div>
+          <div className="text-xs text-gray-500">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
         </div>
         
         <div className="text-center">
@@ -73,7 +74,7 @@ export function DailyMacroTrackerSimple({
             </span>
           </div>
           <div className="text-sm font-medium text-gray-700">Grasas</div>
-          <div className="text-xs text-gray-500">{fatConsumed}/{fatGoal}g</div>
+          <div className="text-xs text-gray-500">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
         </div>
       </div>
 
@@ -86,8 +87,8 @@ export function DailyMacroTrackerSimple({
               <span className="text-sm font-medium text-gray-700">Proteínas</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{proteinConsumed}/{proteinGoal}g</div>
-              <div className="text-xs text-gray-500">Faltan {calculateRemaining(proteinConsumed, proteinGoal)}g</div>
+              <div className="text-sm font-medium text-gray-900">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
+              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(proteinConsumed, proteinGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -105,8 +106,8 @@ export function DailyMacroTrackerSimple({
               <span className="text-sm font-medium text-gray-700">Carbohidratos</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{carbsConsumed}/{carbsGoal}g</div>
-              <div className="text-xs text-gray-500">Faltan {calculateRemaining(carbsConsumed, carbsGoal)}g</div>
+              <div className="text-sm font-medium text-gray-900">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
+              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(carbsConsumed, carbsGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -124,8 +125,8 @@ export function DailyMacroTrackerSimple({
               <span className="text-sm font-medium text-gray-700">Grasas</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{fatConsumed}/{fatGoal}g</div>
-              <div className="text-xs text-gray-500">Faltan {calculateRemaining(fatConsumed, fatGoal)}g</div>
+              <div className="text-sm font-medium text-gray-900">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
+              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(fatConsumed, fatGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">

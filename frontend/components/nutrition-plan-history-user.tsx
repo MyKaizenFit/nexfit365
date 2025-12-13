@@ -38,9 +38,13 @@ export function NutritionPlanHistoryUser() {
       if (response.ok) {
         const data = await response.json()
         setHistory(data.history || [])
+      } else if (response.status === 404) {
+        // Endpoint no existe aún, simplemente no mostrar historial
+        setHistory([])
       }
     } catch (error) {
-      console.error('Error cargando historial:', error)
+      // Silenciar errores de endpoint no disponible
+      setHistory([])
     } finally {
       setLoading(false)
     }
