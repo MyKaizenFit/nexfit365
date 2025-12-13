@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
 import { useNutrition } from "@/hooks/use-nutrition"
+import { formatMacro } from "@/lib/utils"
 
 interface NutritionSummaryEnhancedProps {
   className?: string
@@ -151,7 +152,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-blue-600">
-                  {proteinConsumed}g / {proteinGoal}g
+                  {formatMacro(proteinConsumed)}g / {formatMacro(proteinGoal)}g
                 </span>
                 {proteinStatus.icon}
               </div>
@@ -169,7 +170,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
                  proteinStatus.status === 'low' ? 'Bajo' :
                  proteinStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
-              <span>{proteinGoal}g</span>
+              <span>{formatMacro(proteinGoal)}g</span>
             </div>
           </div>
 
@@ -182,7 +183,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-green-600">
-                  {carbsConsumed}g / {carbsGoal}g
+                  {formatMacro(carbsConsumed)}g / {formatMacro(carbsGoal)}g
                 </span>
                 {carbsStatus.icon}
               </div>
@@ -200,7 +201,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
                  carbsStatus.status === 'low' ? 'Bajo' :
                  carbsStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
-              <span>{carbsGoal}g</span>
+              <span>{formatMacro(carbsGoal)}g</span>
             </div>
           </div>
 
@@ -213,7 +214,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-semibold text-yellow-600">
-                  {fatConsumed}g / {fatGoal}g
+                  {formatMacro(fatConsumed)}g / {formatMacro(fatGoal)}g
                 </span>
                 {fatStatus.icon}
               </div>
@@ -231,7 +232,7 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
                  fatStatus.status === 'low' ? 'Bajo' :
                  fatStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
-              <span>{fatGoal}g</span>
+              <span>{formatMacro(fatGoal)}g</span>
             </div>
           </div>
         </div>

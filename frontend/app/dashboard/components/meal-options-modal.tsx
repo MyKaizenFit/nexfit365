@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
+import { formatMacro } from "@/lib/utils"
 
 interface MealOption {
   id: string
@@ -113,7 +114,7 @@ export function MealOptionsModal({
                     <div className="min-w-0 flex-1">
                       <CardTitle className="text-sm sm:text-base lg:text-lg leading-tight truncate">{option.name}</CardTitle>
                       <CardDescription className="text-xs sm:text-sm mt-1 truncate">
-                        {option.calories} kcal • P: {option.protein}g • C: {option.carbs}g • G: {option.fat}g
+                        {option.calories} kcal • P: {formatMacro(option.protein)}g • C: {formatMacro(option.carbs)}g • G: {formatMacro(option.fat)}g
                       </CardDescription>
                     </div>
                   </div>

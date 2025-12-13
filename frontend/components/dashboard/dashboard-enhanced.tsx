@@ -40,6 +40,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
+import { formatMacro } from "@/lib/utils"
 import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
@@ -430,8 +431,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 <span className="text-xl sm:text-2xl">🥩</span>
               </div>
               <div>
-                <p className="text-lg sm:text-xl font-bold text-red-600">{proteinConsumed}g</p>
-                <p className="text-xs text-gray-500">de {proteinGoal}g</p>
+                <p className="text-lg sm:text-xl font-bold text-red-600">{formatMacro(proteinConsumed)}g</p>
+                <p className="text-xs text-gray-500">de {formatMacro(proteinGoal)}g</p>
                 <Progress value={(proteinConsumed/proteinGoal)*100} className="h-1.5 mt-2 bg-red-100" />
               </div>
               <p className="text-xs font-medium text-gray-600">Proteína</p>
@@ -443,8 +444,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 <span className="text-xl sm:text-2xl">🍞</span>
               </div>
               <div>
-                <p className="text-lg sm:text-xl font-bold text-amber-600">{carbsConsumed}g</p>
-                <p className="text-xs text-gray-500">de {carbsGoal}g</p>
+                <p className="text-lg sm:text-xl font-bold text-amber-600">{formatMacro(carbsConsumed)}g</p>
+                <p className="text-xs text-gray-500">de {formatMacro(carbsGoal)}g</p>
                 <Progress value={(carbsConsumed/carbsGoal)*100} className="h-1.5 mt-2 bg-amber-100" />
               </div>
               <p className="text-xs font-medium text-gray-600">Carbos</p>
@@ -456,8 +457,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 <span className="text-xl sm:text-2xl">🥑</span>
               </div>
               <div>
-                <p className="text-lg sm:text-xl font-bold text-green-600">{fatConsumed}g</p>
-                <p className="text-xs text-gray-500">de {fatGoal}g</p>
+                <p className="text-lg sm:text-xl font-bold text-green-600">{formatMacro(fatConsumed)}g</p>
+                <p className="text-xs text-gray-500">de {formatMacro(fatGoal)}g</p>
                 <Progress value={(fatConsumed/fatGoal)*100} className="h-1.5 mt-2 bg-green-100" />
               </div>
               <p className="text-xs font-medium text-gray-600">Grasas</p>

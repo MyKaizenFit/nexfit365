@@ -24,7 +24,10 @@ import {
   Users,
   Flame,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  X,
+  BookOpen,
+  Zap
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -73,6 +76,9 @@ export function NutritionPlanManagement() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [planMeals, setPlanMeals] = useState<PlanMeal[]>([])
   const [availableRecipes, setAvailableRecipes] = useState<Recipe[]>([])
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
+  const [loadingRecipe, setLoadingRecipe] = useState(false)
+  const [showRecipeModal, setShowRecipeModal] = useState(false)
 
   // Cargar recetas disponibles al montar
   useEffect(() => {
@@ -121,6 +127,63 @@ export function NutritionPlanManagement() {
   // Función para obtener los macros de una receta
   const getRecipeMacros = (recipeId: string): Recipe | null => {
     return availableRecipes.find(r => r.id === recipeId) || null
+  }
+
+  // Función para cargar una receta completa por ID
+  const loadRecipeDetail = async (recipeId: string) => {
+    try {
+      setLoadingRecipe(true)
+      const { getAuthHeaders } = await import('@/contexts/auth-context')
+      const { buildApiUrl } = await import('@/lib/api')
+      const headers = await getAuthHeaders()
+      
+      const response = await fetch(buildApiUrl(`admin/nutrition/recipes/${recipeId}/`), {
+        headers
+      })
+
+      if (response.ok) {
+        const recipe = await response.json()
+        setSelectedRecipe(recipe)
+        setShowRecipeModal(true)
+      } else {
+        // Si no se encuentra en el endpoint admin, intentar en el endpoint público
+        const publicResponse = await fetch(buildApiUrl(`nutrition/recipes/${recipeId}/`), {
+          headers
+        })
+        if (publicResponse.ok) {
+          const recipe = await publicResponse.json()
+          setSelectedRecipe(recipe)
+          setShowRecipeModal(true)
+        } else {
+          toast({
+            title: "Error",
+            description: "No se pudo cargar la receta",
+            variant: "destructive"
+          })
+        }
+      }
+    } catch (error) {
+      console.error('Error loading recipe:', error)
+      toast({
+        title: "Error",
+        description: "Error al cargar la receta",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingRecipe(false)
+    }
+  }
+
+  // Función para manejar el clic en una receta
+  const handleViewRecipe = async (recipeItem: string | Recipe) => {
+    if (typeof recipeItem === 'object' && recipeItem !== null) {
+      // Si ya tenemos la receta completa, mostrarla directamente
+      setSelectedRecipe(recipeItem as Recipe)
+      setShowRecipeModal(true)
+    } else {
+      // Si solo tenemos el ID, cargar la receta completa
+      await loadRecipeDetail(recipeItem as string)
+    }
   }
 
   // Estado del formulario
@@ -539,17 +602,34 @@ export function NutritionPlanManagement() {
                                 const recipeName = isObject 
                                   ? (recipeItem as any).name 
                                   : (recipe?.name || getRecipeName(recipeItem as string))
+                                const recipeId = isObject ? (recipeItem as any).id : recipeItem as string
                                 
                                 return (
-                                  <div key={idx} className="bg-gray-50 rounded-lg p-2 text-sm">
-                                    <div className="font-medium truncate">
-                                      {recipeName}
-                                    </div>
-                                    {recipe && (
-                                      <div className="text-xs text-gray-500 mt-1">
-                                        {recipe.calories} kcal | P:{recipe.protein}g C:{recipe.carbs}g G:{recipe.fat}g
+                                  <div key={idx} className="bg-gray-50 rounded-lg p-2 text-sm hover:bg-gray-100 transition-colors">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-medium truncate">
+                                          {recipeName}
+                                        </div>
+                                        {recipe && (
+                                          <div className="text-xs text-gray-500 mt-1">
+                                            {recipe.calories} kcal | P:{recipe.protein}g C:{recipe.carbs}g G:{recipe.fat}g
+                                          </div>
+                                        )}
                                       </div>
-                                    )}
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-7 px-2 flex-shrink-0"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          handleViewRecipe(recipeItem)
+                                        }}
+                                        disabled={loadingRecipe}
+                                      >
+                                        <Eye className="w-3 h-3" />
+                                      </Button>
+                                    </div>
                                   </div>
                                 )
                               })}
@@ -598,7 +678,227 @@ export function NutritionPlanManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de detalles de receta */}
+      {showRecipeModal && selectedRecipe && (
+        <RecipeDetailModal
+          recipe={selectedRecipe}
+          onClose={() => {
+            setShowRecipeModal(false)
+            setSelectedRecipe(null)
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+// Componente modal para mostrar detalles completos de una receta
+interface RecipeDetailModalProps {
+  recipe: Recipe
+  onClose: () => void
+}
+
+function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
+  const getDifficultyColor = (difficulty?: string) => {
+    switch (difficulty) {
+      case 'easy': return 'text-green-600 bg-green-50'
+      case 'medium': return 'text-yellow-600 bg-yellow-50'
+      case 'hard': return 'text-red-600 bg-red-50'
+      default: return 'text-gray-600 bg-gray-50'
+    }
+  }
+
+  const getDifficultyLabel = (difficulty?: string) => {
+    switch (difficulty) {
+      case 'easy': return 'Fácil'
+      case 'medium': return 'Medio'
+      case 'hard': return 'Difícil'
+      default: return difficulty || 'No especificado'
+    }
+  }
+
+  const formatMacro = (value: number | string | undefined): string => {
+    if (value === undefined || value === null) return '0'
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return '0'
+    const rounded = Math.round(num * 10) / 10
+    return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(1)
+  }
+
+  const formatIngredients = (ingredients: any): Array<{ name: string; amount: string | number | null; unit: string | null }> => {
+    if (!ingredients) return []
+    if (Array.isArray(ingredients)) {
+      return ingredients.map(ing => {
+        if (typeof ing === 'string') {
+          return { name: ing, amount: null, unit: null }
+        }
+        if (typeof ing === 'object') {
+          return {
+            name: ing.name || ing.ingredient || 'Ingrediente',
+            amount: ing.amount || ing.quantity || null,
+            unit: ing.unit || 'g'
+          }
+        }
+        return { name: String(ing), amount: null, unit: null }
+      })
+    }
+    return []
+  }
+
+  const ingredients = formatIngredients(recipe.ingredients)
+  const instructions = recipe.instructions 
+    ? (typeof recipe.instructions === 'string' ? recipe.instructions.split('\n') : recipe.instructions)
+    : []
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
+                  <ChefHat className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-2xl font-bold">{recipe.name}</DialogTitle>
+                  <DialogDescription className="text-sm text-gray-600 mt-1">
+                    {recipe.description || 'Sin descripción'}
+                  </DialogDescription>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                {recipe.difficulty && (
+                  <Badge className={getDifficultyColor(recipe.difficulty)}>
+                    {getDifficultyLabel(recipe.difficulty)}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {recipe.prep_time_minutes || 0} min prep + {recipe.cook_time_minutes || 0} min cocción
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {recipe.servings || 1} {recipe.servings === 1 ? 'porción' : 'porciones'}
+                </Badge>
+                {recipe.category && (
+                  <Badge variant="secondary">{recipe.category}</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-6 mt-4">
+          {/* Macros */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center bg-orange-50 rounded-lg p-4 border border-orange-100">
+              <div className="text-2xl font-bold text-orange-600 mb-1">
+                {recipe.calories || 0}
+              </div>
+              <div className="text-xs text-orange-500 font-medium">kcal</div>
+            </div>
+            <div className="text-center bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <div className="text-2xl font-bold text-blue-600 mb-1">
+                {formatMacro(recipe.protein)}g
+              </div>
+              <div className="text-xs text-blue-500 font-medium">Proteína</div>
+            </div>
+            <div className="text-center bg-green-50 rounded-lg p-4 border border-green-100">
+              <div className="text-2xl font-bold text-green-600 mb-1">
+                {formatMacro(recipe.carbs)}g
+              </div>
+              <div className="text-xs text-green-500 font-medium">Carbos</div>
+            </div>
+            <div className="text-center bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+              <div className="text-2xl font-bold text-yellow-600 mb-1">
+                {formatMacro(recipe.fat)}g
+              </div>
+              <div className="text-xs text-yellow-500 font-medium">Grasas</div>
+            </div>
+          </div>
+
+          {/* Ingredientes */}
+          {ingredients.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-orange-500" />
+                Ingredientes
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                {ingredients.map((ingredient, index) => (
+                  <div key={index} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0">
+                    <span className="text-gray-700 font-medium">{ingredient.name}</span>
+                    {ingredient.amount !== null && (
+                      <span className="text-gray-600 font-semibold">
+                        {ingredient.amount} {ingredient.unit || 'g'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Instrucciones */}
+          {instructions.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-orange-500" />
+                Instrucciones
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                {instructions.map((instruction, index) => (
+                  instruction.trim() && (
+                    <div key={index} className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </div>
+                      <p className="text-gray-700 flex-1">{instruction.trim()}</p>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Información adicional */}
+          {(recipe.fiber || recipe.sugar || recipe.sodium) && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Información Nutricional Adicional</h3>
+              <div className="grid grid-cols-3 gap-4">
+                {recipe.fiber && (
+                  <div className="text-center bg-purple-50 rounded-lg p-3 border border-purple-100">
+                    <div className="text-lg font-bold text-purple-600">{formatMacro(recipe.fiber)}g</div>
+                    <div className="text-xs text-purple-500 font-medium">Fibra</div>
+                  </div>
+                )}
+                {recipe.sugar && (
+                  <div className="text-center bg-pink-50 rounded-lg p-3 border border-pink-100">
+                    <div className="text-lg font-bold text-pink-600">{formatMacro(recipe.sugar)}g</div>
+                    <div className="text-xs text-pink-500 font-medium">Azúcar</div>
+                  </div>
+                )}
+                {recipe.sodium && (
+                  <div className="text-center bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                    <div className="text-lg font-bold text-indigo-600">{formatMacro(recipe.sodium)}mg</div>
+                    <div className="text-xs text-indigo-500 font-medium">Sodio</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

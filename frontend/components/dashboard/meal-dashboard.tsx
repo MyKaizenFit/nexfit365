@@ -37,18 +37,7 @@ export function MealDashboard() {
   // Calcular progreso del día
   const completedMeals = meals.filter(meal => meal.selectedOption).length
   const totalMeals = meals.length
-  const progressPercentage = (completedMeals / totalMeals) * 100
-
-  // Debug temporal
-  console.log('🔍 MealDashboard Debug:', {
-    meals: meals.map(m => ({ id: m.id, name: m.name, selectedOption: m.selectedOption?.name })),
-    macros,
-    loading,
-    syncing,
-    completedMeals,
-    totalMeals,
-    progressPercentage
-  })
+  const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
 
   if (loading) {
     return (
