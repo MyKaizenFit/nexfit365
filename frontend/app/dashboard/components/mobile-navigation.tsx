@@ -8,8 +8,9 @@ const mobileMenuItems = [
   { title: "Progreso", icon: TrendingUp, url: "progress", badge: null },
   { title: "Comidas", icon: ChefHat, url: "meals", badge: null },
   { title: "Entrenar", icon: Dumbbell, url: "workouts-3", badge: null },
-  { title: "Inspiración", icon: Sparkles, url: "recommendations", badge: null },
-  { title: "Consejos", icon: Heart, url: "tips", badge: null },
+  // TODO: Activar en versiones posteriores
+  // { title: "Inspiración", icon: Sparkles, url: "recommendations", badge: null },
+  // { title: "Consejos", icon: Heart, url: "tips", badge: null },
   { title: "Perfil", icon: User, url: "profile", badge: null },
 ]
 
