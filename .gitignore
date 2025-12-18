@@ -17,6 +17,12 @@ docker-data/
 
 # ===== Backups =====
 backups/
+# Pero permitir backups de desarrollo para sincronización entre equipos
+!backups/dev/
+!backups/dev/*.sql.gz
+!backups/dev/latest_backup.txt
+# Ignorar archivos SQL sin comprimir (solo mantener .gz)
+backups/dev/*.sql
 
 # ===== Python/Django =====
 __pycache__/
@@ -117,5 +123,7 @@ coverage.xml
 # ===== Archivos específicos que no deberían estar =====
 *.dump
 *.sql
+# Pero permitir backups comprimidos de desarrollo
+!backups/dev/*.sql.gz
 *.sqlite
 
