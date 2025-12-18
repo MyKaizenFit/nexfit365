@@ -5,9 +5,8 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { NutritionPlanCard } from '@/components/nutrition-plan-card'
-import { NutritionPlanHistoryUser } from '@/components/nutrition-plan-history-user'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, RefreshCw, Cloud, Database, Target } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target } from 'lucide-react'
 
 export function MealDashboard() {
   const { meals, macros, loading, syncing, selectMealOption, getMealOptions } = useDailyMeals()
@@ -56,80 +55,28 @@ export function MealDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Header con progreso del día */}
-      <div className="bg-gradient-to-r from-blue-50 via-green-50 to-purple-50 rounded-xl p-6 border border-blue-100 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
+      {/* Progreso Detallado del Día - Movido a la parte superior */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+            <Target className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Buen día! 🌅</h2>
-            <p className="text-gray-600">Tu plan nutricional personalizado</p>
-          </div>
-          <div className="flex items-center gap-3">
-            {syncing && (
-              <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Sincronizando...
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-lg border">
-              <Database className="w-3 h-3" />
-              Backend
-            </div>
+            <h3 className="text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
+            <p className="text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
           </div>
         </div>
-
-        {/* Progreso del día */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progreso del día</span>
-            <span className="text-sm text-gray-500">{completedMeals}/{totalMeals} comidas</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
-        </div>
-
-        {/* Resumen de macros */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-orange-500 mb-1">
-              {macros.caloriesGoal - macros.caloriesConsumed}
-            </div>
-            <div className="text-sm text-gray-600">kcal restantes</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.caloriesConsumed / macros.caloriesGoal) * 100)}% completado
-            </div>
-          </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-red-500 mb-1">
-              {macros.proteinGoal - macros.proteinConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g proteína</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.proteinConsumed / macros.proteinGoal) * 100)}% completado
-            </div>
-          </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-green-500 mb-1">
-              {macros.carbsGoal - macros.carbsConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g carbos</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.carbsConsumed / macros.carbsGoal) * 100)}% completado
-            </div>
-          </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-yellow-500 mb-1">
-              {macros.fatGoal - macros.fatConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g grasas</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.fatConsumed / macros.fatGoal) * 100)}% completado
-            </div>
-          </div>
-        </div>
+        
+        <DailyMacroTrackerSimple
+          caloriesConsumed={macros.caloriesConsumed}
+          caloriesGoal={macros.caloriesGoal}
+          proteinConsumed={macros.proteinConsumed}
+          proteinGoal={macros.proteinGoal}
+          carbsConsumed={macros.carbsConsumed}
+          carbsGoal={macros.carbsGoal}
+          fatConsumed={macros.fatConsumed}
+          fatGoal={macros.fatGoal}
+        />
       </div>
 
       {/* Comidas del día */}
@@ -253,35 +200,9 @@ export function MealDashboard() {
         </div>
       </div>
 
-      {/* Tracker de macros detallado */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-            <Target className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
-            <p className="text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
-          </div>
-        </div>
-        
-        <DailyMacroTrackerSimple
-          caloriesConsumed={macros.caloriesConsumed}
-          caloriesGoal={macros.caloriesGoal}
-          proteinConsumed={macros.proteinConsumed}
-          proteinGoal={macros.proteinGoal}
-          carbsConsumed={macros.carbsConsumed}
-          carbsGoal={macros.carbsGoal}
-          fatConsumed={macros.fatConsumed}
-          fatGoal={macros.fatGoal}
-        />
-      </div>
 
       {/* Card del Plan Nutricional */}
       <NutritionPlanCard />
-
-      {/* Historial de cambios de plan */}
-      <NutritionPlanHistoryUser />
 
       {/* Modal de selección de comidas */}
       {selectedMeal && (

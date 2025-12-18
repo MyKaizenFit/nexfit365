@@ -74,8 +74,9 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 const menuItems = [
   { title: "Dashboard", icon: Home, url: "dashboard", isActive: true },
   { title: "Day 1", icon: Target, url: "day-one" },
-  { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
-  { title: "Consejos", icon: Heart, url: "tips" },
+  // TODO: Activar en versiones posteriores
+  // { title: "Recomendaciones", icon: Sparkles, url: "recommendations", disabled: true },
+  // { title: "Consejos", icon: Heart, url: "tips", disabled: true },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Mi Perfil", icon: User, url: "profile" },
@@ -170,12 +171,13 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                <Suspense fallback={null}>
+                {/* TODO: Activar en versiones posteriores */}
+                {/* <Suspense fallback={null}>
                   <RecommendationsSection />
                 </Suspense>
                 <Suspense fallback={null}>
                   <TipsShowcase />
-                </Suspense>
+                </Suspense> */}
               </div>
 
               {/* Elementos móviles al final */}
@@ -204,7 +206,8 @@ function DashboardContent() {
           </div>
         )
 
-      case "recommendations":
+      // TODO: Activar en versiones posteriores
+      /* case "recommendations":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -232,7 +235,7 @@ function DashboardContent() {
               </Suspense>
             </div>
           </div>
-        )
+        ) */
 
       case "meals":
         return (
