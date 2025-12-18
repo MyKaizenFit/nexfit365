@@ -102,8 +102,9 @@ services:
       - "0.0.0.0:8001:8000"
     volumes:
       - ./backend:/app
-      - /srv/mykaizenfit/pro/data-dev/staticfiles:/app/staticfiles
-      - /srv/mykaizenfit/pro/data-dev/media:/app/media
+      # Volúmenes nombrados para Windows (más rápido que bind mounts a rutas Linux)
+      - nexfit-dev-staticfiles:/app/staticfiles
+      - nexfit-dev-media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -133,6 +134,7 @@ services:
       NEXT_PUBLIC_APP_NAME: NexFit365-DEV
       NEXT_PUBLIC_DEBUG: "true"
       WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "0.0.0.0:3001:3000"
     volumes:
@@ -144,6 +146,15 @@ services:
         condition: service_healthy
     networks:
       - web
+
+# ============================================
+# VOLÚMENES
+# ============================================
+volumes:
+  nexfit-dev-staticfiles:
+    name: nexfit-dev-staticfiles
+  nexfit-dev-media:
+    name: nexfit-dev-media
 
 # ============================================
 # REDES
