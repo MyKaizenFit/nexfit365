@@ -168,3 +168,4 @@ Si todo salió bien, deberías ver:
 - ✅ El backup se guarda en `./backups/` por si necesitas restaurarlo manualmente más tarde
 - 💾 El proceso completo puede tardar 10-30 minutos dependiendo del tamaño de la BD
 
+

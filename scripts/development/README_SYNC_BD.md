@@ -196,3 +196,4 @@ docker exec nexfit-dev-db-1 psql -U postgres -d mykaizenfit_dev -c "SELECT COUNT
 - [ ] Probado restore: `.\scripts\development\restore-dev-db.ps1`
 - [ ] Configurado en ambos equipos
 
+

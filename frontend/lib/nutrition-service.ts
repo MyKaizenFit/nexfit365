@@ -679,22 +679,26 @@ class NutritionService {
   } | null> {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(
-        `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`,
-        {
-          headers,
-          method: 'GET',
-        }
-      )
+      const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`
+      console.log('📡 Llamando a endpoint:', url)
+      
+      const response = await fetch(url, {
+        headers,
+        method: 'GET',
+      })
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`❌ Error ${response.status} al obtener receta personalizada:`, errorText)
+        throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
       }
 
-      return await response.json()
-    } catch (error) {
-      console.error('Error obteniendo receta personalizada:', error)
-      return null
+      const data = await response.json()
+      console.log('✅ Respuesta recibida:', data)
+      return data
+    } catch (error: any) {
+      console.error('❌ Error obteniendo receta personalizada:', error)
+      throw error // Re-lanzar el error para que el componente pueda manejarlo
     }
   }
 
@@ -702,8 +706,63 @@ class NutritionService {
   async getRecipe(recipeId: number): Promise<Recipe | null> {
     try {
       const headers = await getAuthHeaders()
+      const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`
+      console.log('📡 Llamando a endpoint de receta básica:', url)
+      
+      const response = await fetch(url, {
+        headers,
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ Error ${response.status} al obtener receta:`, errorText)
+        throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Receta básica recibida:', data.name)
+      return data
+    } catch (error: any) {
+      console.error('❌ Error obteniendo receta:', error)
+      throw error // Re-lanzar el error para que el componente pueda manejarlo
+    }
+  }
+
+  // Buscar recetas por nombre
+  async searchRecipes(query: string): Promise<Recipe[]> {
+    try {
+      const headers = await getAuthHeaders()
       const response = await fetch(
-        `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`,
+        `${buildApiUrl(`nutrition/recipes/?search=${encodeURIComponent(query)}`)}`,
+        {
+          headers,
+          method: 'GET',
+        }
+      )
+
+      if (!response.ok) {
+        // Si el endpoint no existe, devolver array vacío
+        if (response.status === 404) {
+          return []
+        }
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return Array.isArray(data) ? data : (data.results || data.recipes || [])
+    } catch (error) {
+      console.error('Error buscando recetas:', error)
+      return []
+    }
+  }
+
+  // Listar todas las recetas
+  async listRecipes(): Promise<Recipe[]> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(
+        `${buildApiUrl('nutrition/recipes/')}`,
         {
           headers,
           method: 'GET',
@@ -714,10 +773,11 @@ class NutritionService {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      return Array.isArray(data) ? data : (data.results || data.recipes || [])
     } catch (error) {
-      console.error('Error obteniendo receta:', error)
-      return null
+      console.error('Error listando recetas:', error)
+      return []
     }
   }
 }
