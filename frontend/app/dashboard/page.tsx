@@ -244,7 +244,7 @@ function DashboardContent() {
               <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-red-200/20 rounded-full blur-3xl animate-pulse"></div>
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-yellow-200/20 to-orange-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
-            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+            <div className="responsive-content px-3 pt-2 pb-4 sm:px-4 sm:pt-3 sm:pb-6 lg:px-6 lg:pt-4 lg:pb-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
                 <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl flex items-center justify-center animate-bounce">
                   <ChefHat className="w-8 h-8 text-white" />
@@ -634,7 +634,7 @@ function DashboardContent() {
         </Suspense>
 
         {/* Mobile Main Content */}
-        <main className="flex-1 min-h-0 w-full pb-20">
+        <main className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">

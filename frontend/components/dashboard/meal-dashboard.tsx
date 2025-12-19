@@ -53,7 +53,7 @@ export function MealDashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 pb-4">
       {/* Progreso Detallado del Día - Movido a la parte superior */}
       <div className="space-y-6">
         <div className="flex items-center gap-3">
