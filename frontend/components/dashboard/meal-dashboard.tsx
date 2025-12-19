@@ -5,16 +5,23 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { useUserData } from '@/hooks/use-user-data'
 
 export function MealDashboard() {
   const { meals, macros, loading, syncing, selectMealOption, getMealOptions } = useDailyMeals()
+  const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
     name: string
     time: string
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const handleOpenMealOptions = (meal: { id: string; name: string; time: string }) => {
     setSelectedMeal(meal)
@@ -36,6 +43,17 @@ export function MealDashboard() {
   const completedMeals = meals.filter(meal => meal.selectedOption).length
   const totalMeals = meals.length
   const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
+  const daysInTransformation = userStats?.daysInTransformation || 1
+
+  // Función para refrescar datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshStats()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -54,6 +72,52 @@ export function MealDashboard() {
 
   return (
     <div className="space-y-8 pb-4">
+      {/* Hero Section - Tarjeta de Nutrición */}
+      <Card className="backdrop-blur-sm bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-0 shadow-xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20"></div>
+        <CardHeader className="text-center relative z-10">
+          <div className="flex justify-end mb-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse">
+            <ChefHat className="h-12 w-12 text-white" />
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
+            Plan Nutricional 🍽️
+          </CardTitle>
+          <CardDescription className="text-base mt-2 text-gray-700">
+            Tu alimentación equilibrada para alcanzar tus objetivos
+          </CardDescription>
+          {daysInTransformation > 0 && (
+            <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+              <Flame className="h-3 w-3 mr-1" />
+              {daysInTransformation} días en tu transformación
+            </Badge>
+          )}
+          {/* Barra de progreso de comidas */}
+          {totalMeals > 0 && (
+            <div className="mt-4 space-y-2">
+              <Progress value={progressPercentage} className="h-3 bg-orange-100" />
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="font-medium">
+                  {completedMeals} de {totalMeals} comidas completadas
+                </span>
+              </div>
+            </div>
+          )}
+        </CardHeader>
+      </Card>
+
       {/* Progreso Detallado del Día - Movido a la parte superior */}
       <div className="space-y-6">
         <div className="flex items-center gap-3">
