@@ -31,7 +31,12 @@ class RecipeMinimalSerializer(serializers.ModelSerializer):
     """Serializer minimal para listas"""
     class Meta:
         model = Recipe
-        fields = ["id", "name", "category", "calories", "prep_time_minutes", "difficulty"]
+        fields = [
+            "id", "name", "category", "description",
+            "calories", "protein", "carbs", "fat",
+            "prep_time_minutes", "cook_time_minutes", "difficulty",
+            "servings", "image_url"
+        ]
 
 
 class PlanMealSerializer(serializers.ModelSerializer):

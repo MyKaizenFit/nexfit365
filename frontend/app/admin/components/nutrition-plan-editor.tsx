@@ -66,7 +66,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       
       const headers = await getAuthHeaders()
       // Obtener planes del usuario (activos primero)
-      const response = await fetch(buildApiUrl(`nutrition-plans/?user=${userId}`), {
+      const response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), {
         headers,
       })
 
@@ -82,7 +82,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
 
       if (userPlan) {
         // Cargar detalles completos del plan
-        const detailResponse = await fetch(buildApiUrl(`nutrition-plans/${userPlan.id}/`), {
+        const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), {
           headers,
         })
 
@@ -273,7 +273,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       let response
       if (plan.id) {
         // Actualizar plan existente
-        response = await fetch(buildApiUrl(`nutrition-plans/${plan.id}/`), {
+        response = await fetch(buildApiUrl(`nutrition/plans/${plan.id}/`), {
           method: 'PATCH',
           headers: {
             ...headers,
@@ -283,7 +283,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         })
       } else {
         // Crear nuevo plan
-        response = await fetch(buildApiUrl('nutrition-plans/'), {
+        response = await fetch(buildApiUrl('nutrition/plans/'), {
           method: 'POST',
           headers: {
             ...headers,

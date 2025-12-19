@@ -18,7 +18,7 @@
 #
 # BASE DE DATOS SEPARADA:
 #   - Nombre: mykaizenfit_dev (prod: mykaizenfit)
-#   - Datos en: /srv/mykaizenfit/pro/data-dev/
+#   - Datos en volúmenes nombrados de Docker (compatible Windows/Linux)
 
 services:
   # ============================================
@@ -30,11 +30,11 @@ services:
     environment:
       POSTGRES_DB: mykaizenfit_dev
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_PASSWORD: postgres
     ports:
       - "0.0.0.0:5434:5432"
     volumes:
-      - /srv/mykaizenfit/pro/data-dev/postgres:/var/lib/postgresql/data
+      - nexfit-dev-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -52,7 +52,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     # Sin password en desarrollo para simplicidad
     volumes:
-      - /srv/mykaizenfit/pro/data-dev/redis:/data
+      - nexfit-dev-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -78,7 +78,7 @@ services:
       # Base de datos
       DB_NAME: mykaizenfit_dev
       DB_USER: postgres
-      DB_PASSWORD: dev_password_123
+      DB_PASSWORD: postgres
       DB_HOST: db
       DB_PORT: "5432"
       # Redis (sin password en dev)
@@ -151,6 +151,10 @@ services:
 # VOLÚMENES
 # ============================================
 volumes:
+  nexfit-dev-postgres:
+    name: nexfit-dev-postgres
+  nexfit-dev-redis:
+    name: nexfit-dev-redis
   nexfit-dev-staticfiles:
     name: nexfit-dev-staticfiles
   nexfit-dev-media:

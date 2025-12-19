@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 
 // Endpoints para obtener TODOS los planes (no solo los default)
-const ALL_NUTRITION_PLANS_ENDPOINT = "default-nutrition-plans/" // Todos los planes de nutrición
+const ALL_NUTRITION_PLANS_ENDPOINT = "nutrition/default-nutrition-plans/" // Todos los planes de nutrición
 const ALL_WORKOUT_PROGRAMS_ENDPOINT = "workout-plan-templates/" // Todos los templates de entrenamiento (los 315)
 
 type FetchState = "idle" | "loading" | "success" | "error"

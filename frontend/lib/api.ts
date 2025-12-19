@@ -71,17 +71,18 @@ export const WORKOUT_ENDPOINTS = {
   EXERCISES: 'exercises/',
 }
 
-// Endpoints de nutrición
+// Endpoints de nutrición (todos con prefijo nutrition/)
 export const NUTRITION_ENDPOINTS = {
-  PLANS: 'nutrition-plans/',
-  MEALS: 'meal-logs/',
-  FOODS: 'foods/',
-  DEFAULT_PLANS: 'default-plans/',
-  CURRENT_PLAN: 'current-plan/',
-  CHANGE_PLAN: 'change-plan/',
-  SUITABLE_PLANS: 'personalized/suitable-plans/',
-  PLAN_MEALS_FOR_SELECTION: 'plan-meals-for-selection/',
-  PLAN_HISTORY: 'plan-history/',
+  PLANS: 'nutrition/plans/',
+  MEALS: 'nutrition/meal-logs/',
+  FOODS: 'nutrition/foods/',
+  DEFAULT_PLANS: 'nutrition/default-plans/',
+  CURRENT_PLAN: 'nutrition/current-plan/',
+  CHANGE_PLAN: 'nutrition/change-plan/',
+  SUITABLE_PLANS: 'nutrition/personalized/suitable-plans/',
+  PLAN_MEALS_FOR_SELECTION: 'nutrition/plan-meals-for-selection/',
+  PLAN_HISTORY: 'nutrition/plan-history/',
+  RECIPES: 'nutrition/recipes/',
 }
 
 // Endpoints de progreso
@@ -114,7 +115,7 @@ export const TIPS_ENDPOINTS = {
 
 // Endpoints de configuraciones
 export const CONFIGURATION_ENDPOINTS = {
-  DEFAULT_PLAN_CONFIGURATIONS: 'default-plan-configurations/',
+  DEFAULT_PLAN_CONFIGURATIONS: 'nutrition/default-plan-configurations/',
 }
 
 // Función para construir URLs completas

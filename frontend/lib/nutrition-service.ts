@@ -84,11 +84,11 @@ export interface MealOption {
   icon?: string  // Permitir cualquier emoji
   description: string
   cookTime?: string
-  recipeId?: number  // ID de la receta si está asociada
+  recipeId?: number | string  // ID de la receta si está asociada (puede ser número o UUID)
 }
 
 export interface Recipe {
-  id: number
+  id: number | string  // Puede ser número o UUID (string)
   name: string
   description: string
   category: string
@@ -314,7 +314,7 @@ class NutritionService {
       const result = await requestThrottler.throttle('default-nutrition-plans', async () => {
         // Intentar obtener el plan por defecto del backend
         const headers = await getAuthHeaders()
-        const response = await fetch(`${buildApiUrl('default-nutrition-plans/')}?is_default=true`, {
+        const response = await fetch(`${buildApiUrl('nutrition/default-nutrition-plans/')}?is_default=true`, {
           headers,
           method: 'GET',
         })
@@ -664,7 +664,7 @@ class NutritionService {
   }
 
   // Obtener receta personalizada con cantidades ajustadas según perfil
-  async getPersonalizedRecipe(recipeId: number, mealType: string): Promise<{
+  async getPersonalizedRecipe(recipeId: number | string, mealType: string): Promise<{
     recipe: Recipe
     personalized_quantities: PersonalizedRecipeQuantities
     user_profile: {
@@ -703,7 +703,7 @@ class NutritionService {
   }
 
   // Obtener receta por ID
-  async getRecipe(recipeId: number): Promise<Recipe | null> {
+  async getRecipe(recipeId: number | string): Promise<Recipe | null> {
     try {
       const headers = await getAuthHeaders()
       const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`
@@ -761,7 +761,9 @@ class NutritionService {
   async listRecipes(): Promise<Recipe[]> {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(
+      
+      // Intentar primero con el endpoint estándar
+      let response = await fetch(
         `${buildApiUrl('nutrition/recipes/')}`,
         {
           headers,
@@ -769,14 +771,46 @@ class NutritionService {
         }
       )
 
+      // Si recibimos 401, intentar refrescar el token
+      if (response.status === 401) {
+        const { authService } = await import('./auth-service')
+        const refreshResult = await authService.refreshAccessToken()
+        if (refreshResult.success && refreshResult.newToken) {
+          headers['Authorization'] = `Bearer ${refreshResult.newToken}`
+          response = await fetch(
+            `${buildApiUrl('nutrition/recipes/')}`,
+            {
+              headers,
+              method: 'GET',
+            }
+          )
+        }
+      }
+
+      // Si aún falla con 404, intentar con el endpoint de admin
+      if (response.status === 404) {
+        console.warn('⚠️ Endpoint /api/nutrition/recipes/ no encontrado, intentando con endpoint de admin...')
+        response = await fetch(
+          `${buildApiUrl('admin/nutrition/recipes/')}`,
+          {
+            headers,
+            method: 'GET',
+          }
+        )
+      }
+
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        console.error(`❌ Error ${response.status} al listar recetas:`, response.statusText)
+        // Si falla, devolver array vacío en lugar de lanzar error
+        return []
       }
 
       const data = await response.json()
-      return Array.isArray(data) ? data : (data.results || data.recipes || [])
+      const recipes = Array.isArray(data) ? data : (data.results || data.recipes || [])
+      console.log(`✅ ${recipes.length} recetas cargadas`)
+      return recipes
     } catch (error) {
-      console.error('Error listando recetas:', error)
+      console.error('❌ Error listando recetas:', error)
       return []
     }
   }
