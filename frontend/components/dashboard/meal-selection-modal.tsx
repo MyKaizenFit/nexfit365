@@ -55,12 +55,17 @@ export function MealSelectionModal({
 
       if (isNaN(recipeId)) {
         console.error('recipeId inválido:', option.recipeId)
+        setLoadingRecipe(false)
+        alert('Error: ID de receta inválido')
         return
       }
 
+      console.log('🔍 Cargando receta personalizada:', { recipeId, mealType, mealName })
+      
       const data = await nutritionService.getPersonalizedRecipe(recipeId, mealType)
 
-      if (data) {
+      if (data && data.recipe) {
+        console.log('✅ Receta cargada exitosamente:', data.recipe.name)
         setRecipeData({
           recipe: data.recipe,
           personalized: data.personalized_quantities,
@@ -68,60 +73,58 @@ export function MealSelectionModal({
         })
         setShowRecipe(true)
       } else {
-        console.error('No se recibieron datos de la receta')
-      }
-    } catch (error) {
-      console.error('Error cargando receta:', error)
-      // Intentar cargar la receta básica como fallback
-      try {
-        const recipeId = typeof option.recipeId === 'string' ? parseInt(option.recipeId, 10) : option.recipeId
-        if (!isNaN(recipeId)) {
-          const basicRecipe = await nutritionService.getRecipe(recipeId)
-          if (basicRecipe) {
-            // Crear datos básicos de personalización
-            const mealType = mealTypeMap[mealName] || "lunch"
-            // Mapear ingredientes al formato correcto
-            const mappedIngredients = (basicRecipe.ingredients || []).map((ing: any) => ({
-              name: ing.name || 'Ingrediente',
-              amount: ing.amount || null,
-              unit: ing.unit || null,
-              note: typeof ing.amount === 'string' && !ing.unit ? ing.amount : undefined
-            }))
+        console.warn('⚠️ No se recibieron datos de la receta personalizada, intentando receta básica...')
+        // Intentar cargar la receta básica como fallback
+        const basicRecipe = await nutritionService.getRecipe(recipeId)
+        if (basicRecipe) {
+          console.log('✅ Receta básica cargada:', basicRecipe.name)
+          // Crear datos básicos de personalización
+          // Mapear ingredientes al formato correcto
+          const mappedIngredients = (basicRecipe.ingredients || []).map((ing: any) => ({
+            name: ing.name || 'Ingrediente',
+            amount: ing.amount || null,
+            unit: ing.unit || null,
+            note: typeof ing.amount === 'string' && !ing.unit ? ing.amount : undefined
+          }))
 
-            setRecipeData({
-              recipe: basicRecipe,
-              personalized: {
-                scale_factor: 1,
-                ingredients: mappedIngredients,
-                macros: {
-                  calories: basicRecipe.calories,
-                  protein: basicRecipe.protein,
-                  carbs: basicRecipe.carbs,
-                  fat: basicRecipe.fat,
-                  fiber: basicRecipe.fiber || 0
-                },
-                servings: basicRecipe.servings,
-                target_calories: basicRecipe.calories,
-                original_calories: basicRecipe.calories,
-                meal_type: mealType,
-                meal_percentage: 25
+          setRecipeData({
+            recipe: basicRecipe,
+            personalized: {
+              scale_factor: 1,
+              ingredients: mappedIngredients,
+              macros: {
+                calories: basicRecipe.calories || 0,
+                protein: basicRecipe.protein || 0,
+                carbs: basicRecipe.carbs || 0,
+                fat: basicRecipe.fat || 0,
+                fiber: basicRecipe.fiber || 0
               },
-              userProfile: {
-                weight: 70,
-                height: 170,
-                age: 30,
-                gender: 'male',
-                main_goal: 'maintain',
-                activity_level: 'moderate',
-                daily_calories_target: 2000
-              }
-            })
-            setShowRecipe(true)
-          }
+              servings: basicRecipe.servings || 1,
+              target_calories: basicRecipe.calories || 0,
+              original_calories: basicRecipe.calories || 0,
+              meal_type: mealType,
+              meal_percentage: 25
+            },
+            userProfile: {
+              weight: 70,
+              height: 170,
+              age: 30,
+              gender: 'male',
+              main_goal: 'maintain',
+              activity_level: 'moderate',
+              daily_calories_target: 2000
+            }
+          })
+          setShowRecipe(true)
+        } else {
+          console.error('❌ No se pudo cargar la receta básica')
+          alert(`No se pudo cargar la receta. Por favor, verifica que la receta con ID ${recipeId} exista en la base de datos.`)
         }
-      } catch (fallbackError) {
-        console.error('Error en fallback de receta:', fallbackError)
       }
+    } catch (error: any) {
+      console.error('❌ Error cargando receta:', error)
+      const errorMessage = error?.message || 'Error desconocido al cargar la receta'
+      alert(`Error al cargar la receta: ${errorMessage}\n\nPor favor, verifica la consola para más detalles.`)
     } finally {
       setLoadingRecipe(false)
     }
@@ -201,7 +204,11 @@ export function MealSelectionModal({
                 <div
                   key={option.id}
                   onClick={() => handleSelectOption(option)}
-                  className="border border-gray-200 rounded-lg p-3 cursor-pointer hover:border-blue-300 hover:bg-blue-50 transition-all"
+                  className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                    option.recipeId 
+                      ? 'border-orange-200 bg-gradient-to-br from-orange-50 to-pink-50 hover:border-orange-400 hover:shadow-md' 
+                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                  }`}
                 >
                   <div className="flex items-start gap-3">
                     <div className="text-2xl">{option.icon}</div>
@@ -209,10 +216,16 @@ export function MealSelectionModal({
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="font-medium text-gray-900">{option.name}</h4>
                         {option.recipeId && (
-                          <span className="px-2 py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-xs font-medium rounded-full flex items-center gap-1">
-                            <Target className="w-3 h-3" />
-                            Recomendado para ti
-                          </span>
+                          <>
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-xs font-medium rounded-full flex items-center gap-1">
+                              <BookOpen className="w-3 h-3" />
+                              Receta disponible
+                            </span>
+                            <span className="px-2 py-0.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 text-xs font-medium rounded-full flex items-center gap-1">
+                              <Target className="w-3 h-3" />
+                              Recomendado
+                            </span>
+                          </>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{option.description}</p>
@@ -250,14 +263,14 @@ export function MealSelectionModal({
                         )}
                       </div>
 
-                      {/* Botón Ver Receta si tiene recipeId */}
+                      {/* Botón Ver Receta - Solo si tiene recipeId */}
                       {option.recipeId && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
                             handleViewRecipe(option)
                           }}
-                          className="w-full mt-2 px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                          className="w-full mt-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 animate-pulse hover:animate-none"
                           disabled={loadingRecipe}
                         >
                           {loadingRecipe ? (
@@ -268,7 +281,7 @@ export function MealSelectionModal({
                           ) : (
                             <>
                               <BookOpen className="w-4 h-4" />
-                              Ver Receta Completa
+                              📖 Ver Receta Completa
                             </>
                           )}
                         </button>

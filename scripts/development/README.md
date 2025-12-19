@@ -76,3 +76,4 @@ docker compose -f docker-compose.dev.yml up -d
 - El proceso puede tardar varios minutos dependiendo del tamaño de la BD
 - Durante el proceso, el backend de desarrollo estará temporalmente inaccesible
 
+
