@@ -521,14 +521,13 @@ class PersonalizedNutritionService:
             name=f"{best_plan.name} - {self.user.get_full_name()}",
             description=f"Plan nutricional asignado automáticamente basado en: {best_plan.description}",
             daily_calories=plan_calories,
-            target_macros={
-                'protein': macros['protein'],
-                'carbs': macros['carbs'],
-                'fat': macros['fat'],
-                'protein_percentage': macros['protein_percentage'],
-                'carbs_percentage': macros['carbs_percentage'],
-                'fat_percentage': macros['fat_percentage']
-            },
+            protein_grams=int(macros['protein']),
+            carbs_grams=int(macros['carbs']),
+            fat_grams=int(macros['fat']),
+            goal=best_plan.goal,
+            diet_type=best_plan.diet_type,
+            meals_per_day=best_plan.meals_per_day,
+            duration_weeks=best_plan.duration_weeks,
             start_date=timezone.now().date(),
             is_active=True
         )

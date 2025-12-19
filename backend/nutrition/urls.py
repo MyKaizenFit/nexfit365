@@ -3,12 +3,13 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet, 
-    current_plan, plan_meals_for_selection, daily_meal_selections,
-    default_plan_configurations, default_nutrition_plans
+    current_plan, plan_meals_for_selection, daily_meal_selections, daily_meal_selections_today,
+    default_plan_configurations, default_nutrition_plans, list_recipes
 )
 
 router = DefaultRouter()
-router.register(r'recipes', RecipeViewSet, basename='recipes')
+# No registrar recipes en el router para evitar conflictos con el endpoint explícito
+# router.register(r'recipes', RecipeViewSet, basename='recipes')
 router.register(r'plans', NutritionPlanViewSet, basename='nutrition-plans')
 router.register(r'meal-logs', MealLogViewSet, basename='meal-logs')
 router.register(r'foods', FoodViewSet, basename='foods')
@@ -16,8 +17,14 @@ router.register(r'foods', FoodViewSet, basename='foods')
 urlpatterns = [
     path('current-plan/', current_plan, name='current-plan'),
     path('plan-meals-for-selection/', plan_meals_for_selection, name='plan-meals-for-selection'),
+    path('daily-meal-selections/today/', daily_meal_selections_today, name='daily-meal-selections-today'),
     path('daily-meal-selections/', daily_meal_selections, name='daily-meal-selections'),
     path('default-plan-configurations/', default_plan_configurations, name='default-plan-configurations'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
+    # Endpoint explícito para listar recetas (tiene prioridad sobre el router)
+    path('recipes/', list_recipes, name='recipes-list'),
+    # Endpoint para obtener una receta específica (usando el ViewSet)
+    path('recipes/<uuid:pk>/', RecipeViewSet.as_view({'get': 'retrieve'}), name='recipe-detail'),
+    path('recipes/<uuid:pk>/personalized/', RecipeViewSet.as_view({'get': 'personalized'}), name='recipe-personalized'),
     path('', include(router.urls)),
 ]

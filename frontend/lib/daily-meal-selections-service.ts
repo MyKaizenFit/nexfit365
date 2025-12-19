@@ -57,7 +57,7 @@ class DailyMealSelectionsService {
     try {
       const result = await requestThrottler.throttle('daily-meal-selections', async () => {
         const headers = await getAuthHeaders()
-        const response = await fetch(`${buildApiUrl('daily-meal-selections/')}?date=${date}`, {
+        const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
           headers,
           method: 'GET',
         })
@@ -137,7 +137,7 @@ class DailyMealSelectionsService {
 
       if (existingSelection) {
         // Actualizar selección existente
-        response = await fetch(`${buildApiUrl(`daily-meal-selections/${existingSelection.id}/`)}`, {
+        response = await fetch(`${buildApiUrl(`nutrition/daily-meal-selections/${existingSelection.id}/`)}`, {
           headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -147,7 +147,7 @@ class DailyMealSelectionsService {
         })
       } else {
         // Crear nueva selección
-        response = await fetch(`${buildApiUrl('daily-meal-selections/')}`, {
+        response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}`, {
           headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -196,7 +196,7 @@ class DailyMealSelectionsService {
 
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${buildApiUrl(`daily-meal-selections/${selectionId}/`)}`, {
+      const response = await fetch(`${buildApiUrl(`nutrition/daily-meal-selections/${selectionId}/`)}`, {
         headers,
         method: 'DELETE',
       })
@@ -230,8 +230,8 @@ class DailyMealSelectionsService {
     try {
       const headers = await getAuthHeaders()
       const url = userId 
-        ? `${buildApiUrl('daily-meal-selections/')}?user=${userId}`
-        : `${buildApiUrl('daily-meal-selections/')}`
+        ? `${buildApiUrl('nutrition/daily-meal-selections/')}?user=${userId}`
+        : `${buildApiUrl('nutrition/daily-meal-selections/')}`
       
       const response = await fetch(url, {
         headers,

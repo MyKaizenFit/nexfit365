@@ -71,11 +71,12 @@ def plan_meals_for_selection(request):
         meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
         target_calories = daily_calories * meal_percentage
         
-        # Calcular factor de escala basado en calorías objetivo vs receta base
-        if recipe.calories and recipe.calories > 0:
-            scale_factor = target_calories / recipe.calories
+        # Calcular factor de escala basado en calorías objetivo vs receta base (convertir Decimal a float)
+        recipe_calories_float = float(recipe.calories) if recipe.calories else None
+        if recipe_calories_float and recipe_calories_float > 0:
+            scale_factor = target_calories / recipe_calories_float
         elif meal_base and meal_base.calories:
-            scale_factor = target_calories / meal_base.calories
+            scale_factor = target_calories / float(meal_base.calories)
         else:
             scale_factor = 1.0
         
@@ -88,11 +89,16 @@ def plan_meals_for_selection(request):
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
         
-        # Calcular macros personalizados
-        personalized_calories = int(recipe.calories * scale_factor) if recipe.calories else (int(meal_base.calories * scale_factor) if meal_base and meal_base.calories else int(target_calories))
-        personalized_protein = float(recipe.protein * scale_factor) if recipe.protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
-        personalized_carbs = float(recipe.carbs * scale_factor) if recipe.carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
-        personalized_fat = float(recipe.fat * scale_factor) if recipe.fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
+        # Calcular macros personalizados (convertir Decimal a float antes de multiplicar)
+        recipe_calories = float(recipe.calories) if recipe.calories else None
+        recipe_protein = float(recipe.protein) if recipe.protein else None
+        recipe_carbs = float(recipe.carbs) if recipe.carbs else None
+        recipe_fat = float(recipe.fat) if recipe.fat else None
+        
+        personalized_calories = int(recipe_calories * scale_factor) if recipe_calories else (int(float(meal_base.calories) * scale_factor) if meal_base and meal_base.calories else int(target_calories))
+        personalized_protein = float(recipe_protein * scale_factor) if recipe_protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
+        personalized_carbs = float(recipe_carbs * scale_factor) if recipe_carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
+        personalized_fat = float(recipe_fat * scale_factor) if recipe_fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
         
         return {
             'calories': personalized_calories,
@@ -108,9 +114,10 @@ def plan_meals_for_selection(request):
         meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
         target_calories = daily_calories * meal_percentage
         
-        # Calcular factor de escala
-        if meal.calories and meal.calories > 0:
-            scale_factor = target_calories / meal.calories
+        # Calcular factor de escala (convertir Decimal a float)
+        meal_calories_float = float(meal.calories) if meal.calories else None
+        if meal_calories_float and meal_calories_float > 0:
+            scale_factor = target_calories / meal_calories_float
         else:
             scale_factor = 1.0
         
@@ -122,11 +129,17 @@ def plan_meals_for_selection(request):
         
         scale_factor = max(0.5, min(2.0, scale_factor))
         
+        # Convertir Decimal a float antes de multiplicar
+        meal_calories_float = float(meal.calories) if meal.calories else None
+        meal_protein_float = float(meal.protein) if meal.protein else None
+        meal_carbs_float = float(meal.carbs) if meal.carbs else None
+        meal_fat_float = float(meal.fat) if meal.fat else None
+        
         return {
-            'calories': int(meal.calories * scale_factor) if meal.calories else int(target_calories),
-            'protein': round(float(meal.protein * scale_factor), 1) if meal.protein else round(float(daily_macros['protein'] * meal_percentage), 1),
-            'carbs': round(float(meal.carbs * scale_factor), 1) if meal.carbs else round(float(daily_macros['carbs'] * meal_percentage), 1),
-            'fat': round(float(meal.fat * scale_factor), 1) if meal.fat else round(float(daily_macros['fat'] * meal_percentage), 1),
+            'calories': int(meal_calories_float * scale_factor) if meal_calories_float else int(target_calories),
+            'protein': round(float(meal_protein_float * scale_factor), 1) if meal_protein_float else round(float(daily_macros['protein'] * meal_percentage), 1),
+            'carbs': round(float(meal_carbs_float * scale_factor), 1) if meal_carbs_float else round(float(daily_macros['carbs'] * meal_percentage), 1),
+            'fat': round(float(meal_fat_float * scale_factor), 1) if meal_fat_float else round(float(daily_macros['fat'] * meal_percentage), 1),
             'scale_factor': round(scale_factor, 2)
         }
     
@@ -241,6 +254,38 @@ def plan_meals_for_selection(request):
         'source': 'system_templates',
         'daily_calories_target': daily_calories,
         'daily_macros': daily_macros
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def daily_meal_selections_today(request):
+    """
+    Obtener las selecciones de comidas de hoy.
+    GET /api/nutrition/daily-meal-selections/today/
+    """
+    from django.utils import timezone
+    date = timezone.localdate()
+    user = request.user
+    
+    # Obtener los logs de comidas del día
+    meal_logs = MealLog.objects.filter(user=user, date=date)
+    serializer = MealLogSerializer(meal_logs, many=True)
+    
+    # También obtener las comidas del plan si existe
+    user_plan = NutritionPlan.objects.filter(
+        user=user, is_active=True
+    ).prefetch_related('meals__suggested_recipes').first()
+    
+    plan_meals = []
+    if user_plan:
+        plan_meals = PlanMealSerializer(user_plan.meals.all(), many=True).data
+    
+    return Response({
+        'date': date.isoformat(),
+        'selections': serializer.data,
+        'plan_meals': plan_meals,
+        'has_plan': user_plan is not None
     })
 
 
@@ -510,6 +555,74 @@ def default_plan_configurations(request):
     elif request.method == 'DELETE':
         # Eliminar configuración (placeholder)
         return Response({'message': 'Configuración eliminada'})
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def list_recipes(request):
+    """
+    Lista todas las recetas disponibles.
+    GET /api/nutrition/recipes/
+    
+    Parámetros de consulta:
+    - search: Buscar por nombre, descripción o ingredientes
+    - category: Filtrar por categoría
+    - difficulty: Filtrar por dificultad
+    - meal_type: Filtrar por tipo de comida
+    - page: Número de página (default: 1)
+    - page_size: Tamaño de página (default: 100)
+    """
+    queryset = Recipe.objects.filter(is_active=True)
+    
+    # Búsqueda
+    search_query = request.query_params.get('search', '')
+    if search_query:
+        queryset = queryset.filter(
+            models.Q(name__icontains=search_query) |
+            models.Q(description__icontains=search_query) |
+            models.Q(ingredients__icontains=search_query)
+        )
+    
+    # Filtros
+    category = request.query_params.get('category')
+    if category:
+        queryset = queryset.filter(category=category)
+    
+    difficulty = request.query_params.get('difficulty')
+    if difficulty:
+        queryset = queryset.filter(difficulty=difficulty)
+    
+    meal_type = request.query_params.get('meal_type')
+    if meal_type:
+        queryset = queryset.filter(meal_types__contains=[meal_type])
+    
+    # Ordenamiento
+    ordering = request.query_params.get('ordering', 'name')
+    if ordering.lstrip('-') in ['name', 'calories', 'prep_time_minutes', 'created_at']:
+        queryset = queryset.order_by(ordering)
+    else:
+        queryset = queryset.order_by('name')
+    
+    # Paginación
+    page = int(request.query_params.get('page', 1))
+    page_size = int(request.query_params.get('page_size', 100))
+    
+    total = queryset.count()
+    start = (page - 1) * page_size
+    end = start + page_size
+    
+    recipes_list = queryset[start:end]
+    
+    # Serializar
+    serializer = RecipeMinimalSerializer(recipes_list, many=True)
+    
+    return Response({
+        'results': serializer.data,
+        'count': total,
+        'page': page,
+        'page_size': page_size,
+        'total_pages': (total + page_size - 1) // page_size if total > 0 else 0,
+    })
 
 
 @api_view(['GET'])

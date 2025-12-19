@@ -462,7 +462,7 @@ export class UserService {
         throw new Error('No hay token de acceso disponible')
       }
 
-      const response = await fetch(buildApiUrl('/nutrition-plans/current/'), {
+      const response = await fetch(buildApiUrl('nutrition/current-plan/'), {
         method: 'GET',
         headers: {
           ...getAuthHeaders(),

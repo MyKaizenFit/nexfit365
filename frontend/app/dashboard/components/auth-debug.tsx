@@ -40,7 +40,7 @@ export function AuthDebug() {
       // Probar endpoint de nutrición
       try {
         const accessToken = authService.getAccessToken()
-        const response = await authenticatedFetch(buildApiUrl('daily-meal-selections/today/'), {
+        const response = await authenticatedFetch(buildApiUrl('nutrition/daily-meal-selections/today/'), {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${accessToken}`,

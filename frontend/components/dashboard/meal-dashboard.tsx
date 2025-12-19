@@ -4,7 +4,6 @@ import React, { useState } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
-import { NutritionPlanCard } from '@/components/nutrition-plan-card'
 import { MealOption } from '@/lib/nutrition-service'
 import { Check, Clock, Plus, Utensils, Cloud, Target } from 'lucide-react'
 
@@ -199,10 +198,6 @@ export function MealDashboard() {
           ))}
         </div>
       </div>
-
-
-      {/* Card del Plan Nutricional */}
-      <NutritionPlanCard />
 
       {/* Modal de selección de comidas */}
       {selectedMeal && (

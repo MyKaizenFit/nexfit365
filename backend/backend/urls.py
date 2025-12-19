@@ -20,7 +20,7 @@ urlpatterns = [
     path("api/", include("dashboard.urls")),
     path("api/", include("progress.urls")),
     path("api/", include("workouts.urls")),
-    path("api/", include("nutrition.urls")),
+    path("api/nutrition/", include("nutrition.urls")),  # Prefijo nutrition/ para las URLs
     path("api/", include("achievements.urls")),
     path("api/", include("notifications.urls")),
     
