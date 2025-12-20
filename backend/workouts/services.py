@@ -8,14 +8,55 @@ from django.utils import timezone
 
 from accounts.models import CustomUser
 from .models import (
-    DefaultExercise,
-    DefaultWorkoutProgram,
-    DefaultWorkoutDay,
     Exercise,
     WorkoutProgram,
     WorkoutDay,
     WorkoutDayExercise,
 )
+
+
+def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgram:
+    """
+    Verifica si un plan de entrenamiento necesita reiniciarse semanalmente
+    y lo reinicia si es necesario (si no tiene end_date y ha pasado una semana)
+    """
+    if not program or not program.is_active:
+        return program
+    
+    # Solo reiniciar planes sin fecha de fin (reinicio semanal activado)
+    if program.end_date is not None:
+        return program
+    
+    today = timezone.now().date()
+    
+    # Si no tiene start_date, establecerlo a hoy
+    if not program.start_date:
+        program.start_date = today
+        program.save()
+        return program
+    
+    # Calcular días desde el inicio
+    days_since_start = (today - program.start_date).days
+    
+    # Si han pasado 7 días o más, reiniciar
+    if days_since_start >= 7:
+        # Calcular nuevo lunes (inicio de semana)
+        days_until_monday = (today.weekday() - 0) % 7
+        if days_until_monday == 0 and today.weekday() != 0:
+            days_until_monday = 7
+        new_start_date = today - timedelta(days=days_until_monday)
+        if today.weekday() == 0:
+            new_start_date = today
+        
+        # Actualizar fecha de inicio
+        program.start_date = new_start_date
+        program.save()
+        
+        # Opcional: Limpiar logs de entrenamiento de la semana anterior
+        # Esto se puede hacer si se quiere resetear el progreso semanal
+        # Por ahora solo actualizamos la fecha de inicio
+        
+    return program
 
 class PersonalizedWorkoutService:
     """Servicio para generar planes de entrenamiento personalizados basados en el perfil del usuario"""
@@ -70,9 +111,9 @@ class PersonalizedWorkoutService:
         else:
             return base_duration + 20
     
-    def get_suitable_programs(self) -> List[DefaultWorkoutProgram]:
+    def get_suitable_programs(self) -> List[WorkoutProgram]:
         """Obtiene programas de entrenamiento adecuados para el usuario"""
-        programs = DefaultWorkoutProgram.objects.filter(is_active=True)
+        programs = WorkoutProgram.objects.filter(is_system=True, is_active=True, user__isnull=True)
         
         # Filtrar por rol del usuario
         programs = programs.filter(min_role_required__lte=self.user.role)
@@ -247,7 +288,7 @@ class PersonalizedWorkoutService:
             'workout_goal': self.determine_workout_goal(),
             'recommended_days_per_week': self.user.training_days_per_week or 3,
             'workout_duration': self.get_workout_duration(),
-            'suitable_programs': self.get_suitable_programs()[:3],  # Top 3 programas
+            'suitable_programs': list(self.get_suitable_programs()[:3]),  # Top 3 programas
             'exercise_recommendations': self.get_exercise_recommendations()[:10],  # Top 10 ejercicios
             'tips': []
         }
@@ -283,7 +324,7 @@ class PersonalizedWorkoutService:
 
 class DefaultWorkoutAssignmentService:
     """
-    Convierte un `DefaultWorkoutProgram` en un `WorkoutProgram` asignado al usuario.
+    Convierte un `WorkoutProgram` del sistema en un `WorkoutProgram` asignado al usuario.
     """
 
     DAY_NUMBER_TO_NAME = {
@@ -301,7 +342,7 @@ class DefaultWorkoutAssignmentService:
 
     def assign_from_default(
         self,
-        default_program: Optional[DefaultWorkoutProgram],
+        default_program: Optional[WorkoutProgram],
         assigned_by: Optional[CustomUser] = None,
         notes: Optional[str] = None,
     ) -> Optional[WorkoutProgram]:
@@ -321,54 +362,52 @@ class DefaultWorkoutAssignmentService:
             user=self.user,
             name=f"{default_program.name} - {self.user.get_full_name() or self.user.email}",
             description=(default_program.description or "Programa asignado automáticamente"),
-            level=default_program.difficulty or "beginner",
+            difficulty=default_program.difficulty or "beginner",
             goal=self._infer_goal(default_program),
-            days_per_week=default_program.days.count() or None,
+            days_per_week=default_program.days_per_week or default_program.days.count() or None,
             duration_weeks=default_program.duration_weeks,
             start_date=start_date,
             end_date=end_date,
             is_active=True,
         )
 
-        for order, default_day in enumerate(default_program.days.all().order_by("day_number"), start=1):
+        for order, default_day in enumerate(default_program.days.all().order_by("day_number", "order_index"), start=1):
             workout_day = WorkoutDay.objects.create(
                 program=program,
-                day=self.DAY_NUMBER_TO_NAME.get(default_day.day_number, f"day_{default_day.day_number or order}"),
-                name=default_day.day_name,
+                day_of_week=default_day.day_of_week or self.DAY_NUMBER_TO_NAME.get(default_day.day_number, "monday"),
+                name=default_day.name,
                 day_number=default_day.day_number or order,
-                duration_minutes=default_program.estimated_duration_minutes,
+                duration_minutes=default_day.duration_minutes or default_program.estimated_duration_minutes,
                 is_rest_day=default_day.is_rest_day,
-                notes=default_day.notes,
+                notes=default_day.notes or "",
                 order_index=order,
             )
 
             for index, default_exercise in enumerate(default_day.exercises.all().order_by("order_index"), start=1):
                 WorkoutDayExercise.objects.create(
-                    day=workout_day,
+                    workout_day=workout_day,
                     exercise=default_exercise.exercise,
-                    category="",
-                    muscle_groups=[],
                     sets=default_exercise.sets,
-                    reps=str(default_exercise.reps),
-                    weight=str(default_exercise.weight) if default_exercise.weight is not None else "",
-                    rest_seconds=default_exercise.rest_time,
-                    notes="",
+                    reps=default_exercise.reps,
+                    weight=default_exercise.weight or "",
+                    rest_seconds=default_exercise.rest_seconds,
+                    notes=default_exercise.notes or "",
                     order_index=index,
                 )
 
         return program
 
-    def _infer_goal(self, default_program: DefaultWorkoutProgram) -> str:
+    def _infer_goal(self, default_program: WorkoutProgram) -> str:
         tags = {str(tag).lower() for tag in (default_program.tags or [])}
         if {"weight_loss", "fat_loss"} & tags:
             return "weight_loss"
         if {"muscle_gain", "hypertrophy"} & tags:
             return "muscle_gain"
         if {"strength"} & tags:
-            return "strength_building"
+            return "strength"
         if {"endurance"} & tags:
             return "endurance"
-        return "general_fitness"
+        return default_program.goal or "general_fitness"
 
 
 def get_personalized_workout_plan(user: CustomUser) -> Dict[str, any]:

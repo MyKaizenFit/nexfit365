@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react"
 import {
   Dumbbell, Play, Check, Clock, Target, Calendar,
   TrendingUp, Award, Timer, Users, BarChart3,
-  Video, CheckCircle2, Circle, Repeat
+  Video, CheckCircle2, Circle, Repeat, RefreshCw, Flame
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { useWorkouts } from "@/hooks/use-workouts"
 import { useUserProfile } from "@/hooks/use-user-profile"
+import { useUserData } from "@/hooks/use-user-data"
 import { useAuth } from "@/contexts/auth-context"
 import { authenticatedFetch } from "@/lib/api"
 import { type WorkoutDay } from "@/lib/workout-service"
@@ -40,7 +41,9 @@ export function WorkoutDashboardEnhanced() {
   } = useWorkouts()
 
   const { profile } = useUserProfile()
+  const { userStats, refreshStats } = useUserData()
   const { isAuthenticated } = useAuth()
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   // Usar activeProgram como userPlan
   const userPlan = activeProgram
@@ -173,8 +176,24 @@ export function WorkoutDashboardEnhanced() {
     return days[new Date().getDay()]
   }
 
-  // Obtener días de entrenamiento del perfil
-  const trainingDays = profile?.training_days || []
+  // Obtener días de entrenamiento del perfil y convertir strings a números si es necesario
+  const trainingDaysRaw = profile?.training_days || []
+  const trainingDays = trainingDaysRaw.map((day: string | number) => {
+    // Si es un string, convertir a número
+    if (typeof day === 'string') {
+      const dayMap: Record<string, number> = {
+        'monday': 1,
+        'tuesday': 2,
+        'wednesday': 3,
+        'thursday': 4,
+        'friday': 5,
+        'saturday': 6,
+        'sunday': 7
+      }
+      return dayMap[day.toLowerCase()] || day
+    }
+    return day
+  }).filter((d: any) => typeof d === 'number') as number[]
 
   // Función para obtener el nombre del día desde el número (1=Lunes, 7=Domingo)
   const getDayNameFromNumber = (dayNumber: number) => {
@@ -421,9 +440,73 @@ export function WorkoutDashboardEnhanced() {
   }
 
   const todaysWorkoutFromProfile = getTodaysWorkoutFromProfile()
+  const daysInTransformation = userStats?.daysInTransformation || 1
+
+  // Función para refrescar datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await Promise.all([
+        refreshStats(),
+        fetchWorkoutLogs(),
+        fetchWorkoutStatistics()
+      ])
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
+      {/* Hero Section - Tarjeta de Entrenamiento */}
+      <Card className="backdrop-blur-sm bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-0 shadow-xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-teal-200/20"></div>
+        <CardHeader className="text-center relative z-10">
+          <div className="flex justify-end mb-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
+          </div>
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse">
+            <Dumbbell className="h-12 w-12 text-white" />
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
+            Entrenamientos 💪
+          </CardTitle>
+          <CardDescription className="text-base mt-2 text-gray-700">
+            Tu rutina completa con seguimiento y estadísticas
+          </CardDescription>
+          {daysInTransformation > 0 && (
+            <Badge className="mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
+              <Flame className="h-3 w-3 mr-1" />
+              {daysInTransformation} días en tu transformación
+            </Badge>
+          )}
+          {/* Barra de progreso semanal */}
+          {stats.weeklyGoal > 0 && (
+            <div className="mt-4 space-y-2">
+              <Progress 
+                value={Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100)} 
+                className="h-3 bg-emerald-100" 
+              />
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Flame className="h-4 w-4 text-gray-600" />
+                <span className="font-medium">
+                  {stats.completedThisWeek} de {stats.weeklyGoal} entrenamientos completados esta semana
+                </span>
+              </div>
+            </div>
+          )}
+        </CardHeader>
+      </Card>
+
       {/* Resumen Semanal Compacto */}
       <Card className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 border-purple-200/50 shadow-lg">
         <CardContent className="p-6">
@@ -610,11 +693,11 @@ export function WorkoutDashboardEnhanced() {
 
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-purple-600" />
+                  <Calendar className="h-4 w-4" />
                   <span className="text-purple-700">Inicio: {new Date(userPlan.start_date).toLocaleDateString()}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-purple-600" />
+                  <Users className="h-4 w-4" />
                   <span className="text-purple-700">{userPlan.days?.length || 0} días</span>
                 </div>
               </div>
@@ -654,9 +737,9 @@ export function WorkoutDashboardEnhanced() {
                     <div className="text-xs font-medium mb-1">{day.name.substring(0, 3)}</div>
                     <div className="flex items-center justify-center">
                       {isTrainingByProfile ? (
-                        <Dumbbell className={`h-5 w-5 ${day.isToday ? 'text-white' : 'text-blue-600'}`} />
+                        <Dumbbell className={`h-5 w-5 ${day.isToday ? 'text-white' : ''}`} />
                       ) : (
-                        <Clock className={`h-5 w-5 ${day.isToday ? 'text-white' : 'text-gray-500'}`} />
+                        <Clock className={`h-5 w-5 ${day.isToday ? 'text-white' : ''}`} />
                       )}
                     </div>
                     {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
@@ -845,7 +928,7 @@ export function WorkoutDashboardEnhanced() {
                           )
                         })() : (
                           <div className="text-center py-6">
-                            <Clock className="h-8 w-8 mx-auto mb-2 text-orange-500" />
+                            <Clock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
                             <p className="text-sm text-orange-700 font-medium mb-1">Sin plan asignado</p>
                             <p className="text-xs text-muted-foreground">
                               No hay entrenamiento asignado para este día.
