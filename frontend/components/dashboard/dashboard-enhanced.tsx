@@ -361,7 +361,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
           onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
         >
           <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-            <Dumbbell className="h-5 w-5 text-purple-600" />
+            <Dumbbell className="h-5 w-5 text-gray-700" />
           </div>
           <span className="text-xs sm:text-sm font-medium text-purple-700">Entrenar</span>
         </Button>
@@ -372,7 +372,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
           onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
         >
           <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-            <Utensils className="h-5 w-5 text-orange-600" />
+            <Utensils className="h-5 w-5 text-gray-700" />
           </div>
           <span className="text-xs sm:text-sm font-medium text-orange-700">Comidas</span>
         </Button>
@@ -383,7 +383,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
           onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'day-one' } }))}
         >
           <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-            <Camera className="h-5 w-5 text-emerald-600" />
+            <Camera className="h-5 w-5 text-gray-700" />
           </div>
           <span className="text-xs sm:text-sm font-medium text-emerald-700">Progreso</span>
         </Button>
@@ -394,7 +394,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
           onClick={() => setIsPhotoDialogOpen(true)}
         >
           <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-            <Plus className="h-5 w-5 text-blue-600" />
+            <Plus className="h-5 w-5 text-gray-700" />
           </div>
           <span className="text-xs sm:text-sm font-medium text-blue-700">Nueva Foto</span>
         </Button>
@@ -544,7 +544,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <Camera className="h-5 w-5 text-emerald-600" />
+              <Camera className="h-5 w-5 text-gray-700" />
               Nueva Foto de Progreso
             </DialogTitle>
             <DialogDescription className="text-sm">

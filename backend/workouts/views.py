@@ -93,11 +93,15 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def my_active_program(self, request):
         """Programa activo del usuario actual"""
+        from .services import reset_weekly_workout_plan_if_needed
+        
         program = WorkoutProgram.objects.filter(
             user=request.user, is_active=True
         ).prefetch_related('days__exercises__exercise').order_by('-created_at').first()
         
         if program:
+            # Verificar y reiniciar si es necesario (reinicio semanal)
+            program = reset_weekly_workout_plan_if_needed(program)
             serializer = WorkoutProgramSerializer(program)
             return Response({'program': serializer.data})
         return Response({'program': None})

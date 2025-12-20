@@ -260,16 +260,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Dumbbell className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                  Entrenamientos 💪
-                </h2>
-                <p className="text-sm text-gray-600">Rutina completa con seguimiento y estadísticas</p>
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <WorkoutDashboardEnhanced />
               </div>
-              <WorkoutDashboardEnhanced />
             </div>
           </div>
         )
