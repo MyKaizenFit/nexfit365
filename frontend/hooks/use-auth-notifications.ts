@@ -14,10 +14,18 @@ export const useAuthNotifications = () => {
   }
 
   const showLoginError = (errorMessage: string) => {
+    // Detectar si el error indica que el usuario no existe
+    const messageLower = errorMessage.toLowerCase()
+    const isUserNotFound = messageLower.includes('no existe') || 
+                          messageLower.includes('not found') || 
+                          messageLower.includes('no encontrado') ||
+                          messageLower.includes('puedes crear una nueva cuenta')
+    
     toast({
-      title: "Error de autenticación",
+      title: isUserNotFound ? "Usuario no encontrado" : "Error de autenticación",
       description: errorMessage,
       variant: "destructive",
+      duration: 5000, // Mostrar por más tiempo para que el usuario lo lea
     })
   }
 

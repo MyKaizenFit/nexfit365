@@ -299,14 +299,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-emerald-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Target className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                  Day 1 🎯
-                </h2>
-              </div>
               <DayOneSheet />
             </div>
           </div>

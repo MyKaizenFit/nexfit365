@@ -161,9 +161,9 @@ def plan_meals_for_selection(request):
             # Crear opciones basadas en la comida y sus recetas sugeridas
             meal_options = []
             
-            # Si hay recetas sugeridas, crear una opción por cada receta
+            # Si hay recetas sugeridas, crear una opción por cada receta (máximo 3)
             if meal.suggested_recipes.exists():
-                for recipe in meal.suggested_recipes.all():
+                for recipe in meal.suggested_recipes.all()[:3]:
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
@@ -216,9 +216,9 @@ def plan_meals_for_selection(request):
             if meal_type not in meals_by_type:
                 meals_by_type[meal_type] = []
             
-            # Crear opciones basadas en la comida y sus recetas sugeridas
+            # Crear opciones basadas en la comida y sus recetas sugeridas (máximo 3)
             if meal.suggested_recipes.exists():
-                for recipe in meal.suggested_recipes.all():
+                for recipe in meal.suggested_recipes.all()[:3]:
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meals_by_type[meal_type].append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",

@@ -419,10 +419,9 @@ export function MealSelectionModal({
   const modalContent = (
     <>
       <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
-        <div className="w-full max-w-md max-h-[90vh] overflow-y-auto z-[9999]">
-          <div className="bg-white rounded-2xl w-full shadow-2xl border-2 border-purple-100">
+        <div className="w-full max-w-md h-[90vh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white border-2 border-purple-100 flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-2xl">
+            <div className="flex items-center justify-between p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-2xl flex-shrink-0">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">{mealName}</h3>
                 <p className="text-sm text-gray-600 flex items-center gap-1">
@@ -439,8 +438,8 @@ export function MealSelectionModal({
               </button>
             </div>
 
-            {/* Content */}
-            <div className="p-4 space-y-3">
+            {/* Content - Scrollable */}
+            <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
               <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-600">
                   Selecciona una opción para {mealName.toLowerCase()}:
@@ -555,7 +554,7 @@ export function MealSelectionModal({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200 flex-shrink-0">
               <button
                 onClick={onClose}
                 className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -563,7 +562,6 @@ export function MealSelectionModal({
                 Cancelar
               </button>
             </div>
-          </div>
         </div>
       </div>
     </>
@@ -1041,10 +1039,9 @@ function AllRecipesModal({
 
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto z-[9999]">
-        <div className="bg-white rounded-2xl w-full shadow-2xl">
+      <div className="w-full max-w-4xl h-[90vh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
           {/* Header */}
-          <div className="sticky top-0 bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 p-6 rounded-t-2xl">
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 p-6 rounded-t-2xl flex-shrink-0">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2 flex items-center gap-2">
@@ -1088,8 +1085,8 @@ function AllRecipesModal({
             </div>
           </div>
 
-          {/* Content */}
-          <div className="p-6">
+          {/* Content - Scrollable */}
+          <div className="p-6 overflow-y-auto flex-1 min-h-0">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
@@ -1185,7 +1182,7 @@ function AllRecipesModal({
           </div>
 
           {/* Footer */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 rounded-b-2xl">
+          <div className="bg-white border-t border-gray-200 p-4 rounded-b-2xl flex-shrink-0">
             <button
               onClick={onClose}
               className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
@@ -1193,7 +1190,6 @@ function AllRecipesModal({
               Cerrar
             </button>
           </div>
-        </div>
       </div>
     </div>
   )

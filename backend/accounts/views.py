@@ -32,7 +32,7 @@ def register(request):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def profile(request):
     """Obtener o actualizar perfil del usuario"""
@@ -40,7 +40,7 @@ def profile(request):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
     
-    elif request.method == 'PUT':
+    elif request.method in ['PUT', 'PATCH']:
         # Campos que pueden afectar la asignación automática
         fields_affecting_assignment = [
             'main_goal', 'training_location', 'activity_level', 'gender',
@@ -100,80 +100,96 @@ def profile_summary(request):
 @permission_classes([IsAuthenticated])
 def complete_initial_registration(request):
     """Completar el formulario de registro inicial y asignar planes automáticamente"""
-    serializer = InitialRegistrationSerializer(request.user, data=request.data, partial=True)
-    if serializer.is_valid():
-        user = serializer.save()
-        
-        # Si el usuario tenía age pero no birth_date, calcular birth_date desde age
-        if not user.birth_date and hasattr(user, 'age') and user.age:
-            from datetime import date, timedelta
-            # Aproximar birth_date desde age (asumir cumpleaños hoy)
-            user.birth_date = date.today() - timedelta(days=user.age * 365)
-            user.save()
-        
-        # Calcular age desde birth_date si no existe
-        if user.birth_date and (not hasattr(user, 'age') or not user.age):
-            user.age = user.calculated_age
-            if user.age:
-                user.save()
-        
-        # Asignar planes automáticamente usando el nuevo servicio de configuraciones
-        from accounts.services import DefaultPlanAssignmentService
-        assigned_nutrition_plan = None
-        assigned_workout_program = None
-        configuration_name = None
-        plan_message = ""
-        workout_message = ""
-        
-        try:
-            assignment_service = DefaultPlanAssignmentService(user)
-            result = assignment_service.assign()
+    try:
+        serializer = InitialRegistrationSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            user = serializer.save()
             
-            if result.configuration:
-                configuration_name = result.configuration.name
-                assigned_nutrition_plan = result.nutrition_plan
-                assigned_workout_program = result.workout_program
+            # Si el usuario tenía age pero no birth_date, calcular birth_date desde age
+            if not user.birth_date and hasattr(user, 'age') and user.age:
+                from datetime import date, timedelta
+                # Aproximar birth_date desde age (asumir cumpleaños hoy)
+                user.birth_date = date.today() - timedelta(days=user.age * 365)
+                user.save()
+            
+            # Calcular age desde birth_date si no existe
+            if user.birth_date and (not hasattr(user, 'age') or not user.age):
+                user.age = user.calculated_age
+                if user.age:
+                    user.save()
+            
+            # Asignar planes automáticamente usando el nuevo servicio de configuraciones
+            from accounts.services import DefaultPlanAssignmentService
+            assigned_nutrition_plan = None
+            assigned_workout_program = None
+            configuration_name = None
+            plan_message = ""
+            workout_message = ""
+            
+            try:
+                assignment_service = DefaultPlanAssignmentService(user)
+                result = assignment_service.assign()
                 
-                if assigned_nutrition_plan:
-                    plan_message = f"Plan nutricional '{assigned_nutrition_plan.name.split(' - ')[0]}' asignado automáticamente"
+                if result.configuration:
+                    configuration_name = result.configuration.name
+                    assigned_nutrition_plan = result.nutrition_plan
+                    assigned_workout_program = result.workout_program
+                    
+                    if assigned_nutrition_plan:
+                        plan_message = f"Plan nutricional '{assigned_nutrition_plan.name.split(' - ')[0]}' asignado automáticamente"
+                    else:
+                        plan_message = "No se asignó plan nutricional (la configuración no incluye uno)"
+                    
+                    if assigned_workout_program:
+                        workout_message = f"Plan de entrenamiento '{assigned_workout_program.name.split(' - ')[0]}' asignado automáticamente"
+                    else:
+                        workout_message = "No se asignó plan de entrenamiento (la configuración no incluye uno)"
                 else:
-                    plan_message = "No se asignó plan nutricional (la configuración no incluye uno)"
-                
-                if assigned_workout_program:
-                    workout_message = f"Plan de entrenamiento '{assigned_workout_program.name.split(' - ')[0]}' asignado automáticamente"
-                else:
-                    workout_message = "No se asignó plan de entrenamiento (la configuración no incluye uno)"
-            else:
-                plan_message = "No se encontró una configuración que coincida con tu perfil"
-                workout_message = "No se encontró una configuración que coincida con tu perfil"
-        except Exception as e:
-            plan_message = f"Error al asignar planes: {str(e)}"
-            workout_message = f"Error al asignar planes: {str(e)}"
-        
-        response_data = {
-            'message': 'Formulario de registro inicial completado exitosamente',
-            'profile': UserProfileSerializer(user).data,
-            'form_version': INITIAL_REGISTRATION_FORM_VERSION,
-            'configuration': {
-                'name': configuration_name,
-                'found': configuration_name is not None
-            },
-            'nutrition_plan': {
-                'assigned': assigned_nutrition_plan is not None,
-                'message': plan_message,
-                'plan_id': str(assigned_nutrition_plan.id) if assigned_nutrition_plan else None,
-                'plan_name': assigned_nutrition_plan.name if assigned_nutrition_plan else None
-            },
-            'workout_plan': {
-                'assigned': assigned_workout_program is not None,
-                'message': workout_message,
-                'plan_id': str(assigned_workout_program.id) if assigned_workout_program else None,
-                'plan_name': assigned_workout_program.name if assigned_workout_program else None
+                    plan_message = "No se encontró una configuración que coincida con tu perfil"
+                    workout_message = "No se encontró una configuración que coincida con tu perfil"
+            except Exception as e:
+                plan_message = f"Error al asignar planes: {str(e)}"
+                workout_message = f"Error al asignar planes: {str(e)}"
+            
+            response_data = {
+                'message': 'Formulario de registro inicial completado exitosamente',
+                'profile': UserProfileSerializer(user).data,
+                'form_version': INITIAL_REGISTRATION_FORM_VERSION,
+                'configuration': {
+                    'name': configuration_name,
+                    'found': configuration_name is not None
+                },
+                'nutrition_plan': {
+                    'assigned': assigned_nutrition_plan is not None,
+                    'message': plan_message,
+                    'plan_id': str(assigned_nutrition_plan.id) if assigned_nutrition_plan else None,
+                    'plan_name': assigned_nutrition_plan.name if assigned_nutrition_plan else None
+                },
+                'workout_plan': {
+                    'assigned': assigned_workout_program is not None,
+                    'message': workout_message,
+                    'plan_id': str(assigned_workout_program.id) if assigned_workout_program else None,
+                    'plan_name': assigned_workout_program.name if assigned_workout_program else None
+                }
             }
-        }
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            # Si hay errores de validación, devolverlos con más detalle
+            error_response = {
+                'detail': 'Error de validación en el formulario',
+                'errors': serializer.errors
+            }
+            return Response(error_response, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        # Capturar cualquier excepción inesperada
+        import traceback
+        error_detail = str(e)
+        traceback.print_exc()
+        return Response({
+            'detail': f'Error al procesar el registro: {error_detail}',
+            'error': error_detail
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Versión actual del formulario de registro inicial
 INITIAL_REGISTRATION_FORM_VERSION = 2  # Incrementar esto cuando se agreguen/modifiquen campos
