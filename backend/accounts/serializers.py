@@ -179,7 +179,7 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'email', 'phone_number', 'birth_date', 'gender',
             'height', 'weight', 'target_weight', 'activity_level', 'training_days_per_week', 'training_days',
             'training_location', 'allergies', 'medical_conditions', 'disliked_foods',
-            'main_goal', 'previous_obstacles', 'injuries_or_medical_issues'
+            'main_goal', 'injuries_or_medical_issues'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
@@ -210,8 +210,8 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
         return value
     
     def validate_height(self, value):
-        if value < 50 or value > 250:
-            raise serializers.ValidationError("La altura debe estar entre 50 y 250 cm")
+        if value < 50 or value > 210:
+            raise serializers.ValidationError("La altura debe estar entre 50 y 210 cm")
         return value
     
     def validate_weight(self, value):
@@ -261,25 +261,13 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
                 # Si está vacío, usar lista vacía
                 self.validated_data['medical_conditions'] = []
         
-        # Añadir main_goal a fitness_goals si está presente
-        if 'main_goal' in self.validated_data and self.validated_data['main_goal']:
-            main_goal = self.validated_data['main_goal']
-            # Obtener fitness_goals actual o crear lista vacía
-            instance = self.instance
-            current_fitness_goals = []
-            if instance and instance.fitness_goals:
-                current_fitness_goals = list(instance.fitness_goals) if isinstance(instance.fitness_goals, list) else []
-            
-            # Añadir main_goal a fitness_goals si no está ya presente
-            if main_goal not in current_fitness_goals:
-                current_fitness_goals.append(main_goal)
-                self.validated_data['fitness_goals'] = current_fitness_goals
+        # main_goal se guarda directamente en el campo main_goal del modelo
+        # No hay necesidad de añadirlo a fitness_goals ya que ese campo no existe en el modelo
         
-        # Calcular age desde birth_date si no está presente
+        # Convertir birth_date de string a date si es necesario
         if 'birth_date' in self.validated_data and self.validated_data['birth_date']:
             from datetime import date
             birth_date = self.validated_data['birth_date']
-            # Convertir string a date si es necesario
             if isinstance(birth_date, str):
                 from datetime import datetime
                 try:
@@ -287,16 +275,8 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
                     self.validated_data['birth_date'] = birth_date
                 except ValueError:
                     pass
-            
-            if isinstance(birth_date, date):
-                today = date.today()
-                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-                if age >= 13 and age <= 120:
-                    self.validated_data['age'] = age
         
-        # Actualizar versión del formulario
-        from accounts.views import INITIAL_REGISTRATION_FORM_VERSION
-        self.validated_data['initial_registration_form_version'] = INITIAL_REGISTRATION_FORM_VERSION
+        # Nota: age es una propiedad calculada en el modelo, no se debe asignar directamente
         
         # Forzar guardado de todos los campos, incluso si partial=True
         user = super().save(**kwargs)
@@ -308,8 +288,6 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
             user.phone_number = self.validated_data['phone_number']
         if 'main_goal' in self.validated_data:
             user.main_goal = self.validated_data['main_goal']
-        if 'fitness_goals' in self.validated_data:
-            user.fitness_goals = self.validated_data['fitness_goals']
         
         user.save()
         return user

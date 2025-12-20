@@ -51,26 +51,42 @@ export function AchievementsDuolingo() {
   
   const [lastCompletedDay, setLastCompletedDay] = useState<string | null>(null)
 
+  // Detectar si hoy es día de descanso según el perfil del usuario
+  const isRestDay = () => {
+    const trainingDays = profile?.training_days || []
+    if (trainingDays.length === 0) return false // Si no hay días configurados, asumimos que no es descanso
+    
+    const today = new Date()
+    const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
+    
+    // Es día de descanso si NO está en la lista de días de entrenamiento
+    return !trainingDays.includes(todayDayNumber)
+  }
+  
+  const isTodayRestDay = isRestDay()
+
+  // Verificar si hay un entrenamiento completado hoy
+  const hasWorkoutToday = workoutLogs.some(log => {
+    const logDate = new Date(log.date)
+    const today = new Date()
+    return logDate.toDateString() === today.toDateString() && log.completed
+  })
+
   // Calcular objetivos diarios
   const dailyGoals: DailyGoal[] = [
     {
       id: 'workout',
       type: 'workout',
-      name: 'Entrenamiento Diario',
-      description: 'Completa tu entrenamiento del día',
+      name: isTodayRestDay ? 'Día de Descanso 😴' : 'Entrenamiento Diario',
+      description: isTodayRestDay 
+        ? '¡Hoy es tu día de descanso! 🎉' 
+        : 'Completa tu entrenamiento del día',
       icon: Dumbbell,
       target: 1,
-      current: workoutLogs.filter(log => {
-        const logDate = new Date(log.date)
-        const today = new Date()
-        return logDate.toDateString() === today.toDateString() && log.completed
-      }).length,
-      completed: workoutLogs.some(log => {
-        const logDate = new Date(log.date)
-        const today = new Date()
-        return logDate.toDateString() === today.toDateString() && log.completed
-      }),
-      color: 'from-purple-500 to-violet-600'
+      // Si es día de descanso, el objetivo se considera completado automáticamente
+      current: isTodayRestDay ? 1 : (hasWorkoutToday ? 1 : 0),
+      completed: isTodayRestDay || hasWorkoutToday,
+      color: isTodayRestDay ? 'from-teal-500 to-cyan-600' : 'from-purple-500 to-violet-600'
     },
     {
       id: 'nutrition',
@@ -113,8 +129,7 @@ export function AchievementsDuolingo() {
   ]
 
   // Verificar si el día está completo
-  // Un día completo requiere: entrenamiento completado Y plan nutricional completado
-  // (Si el plan nutricional está completo, los macros ya están incluidos)
+  // Un día completo requiere: entrenamiento completado (o día de descanso) Y plan nutricional completado
   const isDayComplete = () => {
     const workoutGoal = dailyGoals.find(g => g.id === 'workout')
     const nutritionGoal = dailyGoals.find(g => g.id === 'nutrition')
@@ -125,16 +140,12 @@ export function AchievementsDuolingo() {
   // Actualizar racha cuando se completa un día completo
   useEffect(() => {
     const checkAndUpdateStreak = async () => {
-      // Verificar si entrenamiento y nutrición están completos
-      const hasWorkoutToday = workoutLogs.some(log => {
-        const logDate = new Date(log.date)
-        const today = new Date()
-        return logDate.toDateString() === today.toDateString() && log.completed
-      })
-      
+      // Si es día de descanso, solo verificar nutrición
+      // Si no, verificar ambos: entrenamiento y nutrición
+      const workoutComplete = isTodayRestDay || hasWorkoutToday
       const allMealsSelected = meals.length > 0 && meals.every(meal => meal.selectedOption)
       
-      const dayComplete = hasWorkoutToday && allMealsSelected
+      const dayComplete = workoutComplete && allMealsSelected
 
       if (!dayComplete) return
 
@@ -182,31 +193,53 @@ export function AchievementsDuolingo() {
     if (workoutLogs && meals) {
       checkAndUpdateStreak()
     }
-  }, [meals, workoutLogs, lastCompletedDay])
+  }, [meals, workoutLogs, lastCompletedDay, isTodayRestDay, hasWorkoutToday])
 
   const daysOfWeek = ['L', 'M', 'X', 'J', 'V', 'S', 'D']
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl bg-gradient-to-r from-yellow-50 to-amber-50">
-        <CardHeader>
-          <div>
-            <CardTitle className="text-2xl bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
-              Mis Recompensas 🏆
-            </CardTitle>
-            <CardDescription>
-              Completa todos los objetivos del día para sumar un día a tu racha
-            </CardDescription>
+      {/* Hero Section */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-yellow-500 via-amber-400 to-orange-400 p-6 sm:p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+              <Target className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+            </div>
+            <div>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                Mis Recompensas 🏆
+              </h1>
+              <p className="text-white/80 text-sm sm:text-base">
+                Completa todos los objetivos del día para sumar un día a tu racha
+              </p>
+            </div>
           </div>
-        </CardHeader>
-      </Card>
+
+          {/* Mensaje motivacional */}
+          <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
+            <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
+              <Flame className="h-5 w-5 text-orange-300 flex-shrink-0" />
+              <span>
+                {weeklyStreak.currentStreak >= 7 
+                  ? "¡Racha perfecta! Sigue así 🔥"
+                  : weeklyStreak.currentStreak >= 3 
+                  ? "¡Vas por buen camino! Mantén tu racha 💪"
+                  : "¡Cada día cuenta! Completa tus objetivos para aumentar tu racha 🌟"}
+              </span>
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Objetivos Diarios */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
+          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
+            <Target className="h-5 w-5" />
             Objetivos de Hoy
           </CardTitle>
           <CardDescription>
@@ -287,10 +320,10 @@ export function AchievementsDuolingo() {
       </Card>
 
       {/* Racha Semanal */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Flame className="h-5 w-5 text-orange-500" />
+          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+            <Flame className="h-5 w-5" />
             Racha Semanal
           </CardTitle>
           <CardDescription>
@@ -341,24 +374,22 @@ export function AchievementsDuolingo() {
       </Card>
 
       {/* Acción rápida */}
-      <Card className="backdrop-blur-sm bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200">
+      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardContent className="p-6 text-center">
-          <p className="text-sm font-medium text-purple-900 mb-3">
+          <p className="text-sm font-medium text-gray-900 mb-3">
             ¿Listo para completar tus objetivos de hoy? 💪
           </p>
           <div className="flex gap-2 justify-center">
             <Button 
               onClick={() => router.push('/dashboard?section=workouts-1')}
-              variant="outline"
-              className="bg-white"
+              className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0 shadow-lg hover:shadow-xl transition-all"
             >
               <Dumbbell className="h-4 w-4 mr-2" />
               Entrenar
             </Button>
             <Button 
               onClick={() => router.push('/dashboard?section=meals')}
-              variant="outline"
-              className="bg-white"
+              className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0 shadow-lg hover:shadow-xl transition-all"
             >
               <ChefHat className="h-4 w-4 mr-2" />
               Ver Menú

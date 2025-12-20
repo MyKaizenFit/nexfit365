@@ -45,6 +45,7 @@ import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { useWeightHistory } from "@/hooks/use-weight-history"
+import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
 
 interface DashboardEnhancedProps {
@@ -59,6 +60,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const { workoutLogs, loading: workoutLoading } = useWorkouts()
   const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
   const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
+  const { profile } = useUserProfile()
 
   // Estados locales
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
@@ -103,8 +105,22 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
     return logDate >= weekAgo
   }).length
-  const workoutsGoal = 5
+  
+  // Usar los días de entrenamiento del perfil del usuario como objetivo semanal
+  const trainingDays = profile?.training_days || []
+  const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
   const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
+  
+  // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
+  const getRemainingTrainingDays = () => {
+    const today = new Date()
+    const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
+    
+    // Contar cuántos días de entrenamiento quedan en la semana (incluyendo hoy)
+    const remainingDays = trainingDays.filter((day: number) => day >= todayDayNumber).length
+    return remainingDays
+  }
+  const remainingTrainingSessions = Math.max(0, getRemainingTrainingDays() - workoutsThisWeek)
 
   // Estadísticas de fotos
   const totalPhotos = progressStats?.photos.total || photos.length || 0
@@ -482,8 +498,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                   {workoutsThisWeek < workoutsGoal ? '¡A entrenar!' : '¡Meta cumplida!'}
                 </h3>
                 <p className="text-white/80 text-sm">
-                  {workoutsGoal - workoutsThisWeek > 0 
-                    ? `Te faltan ${workoutsGoal - workoutsThisWeek} sesiones esta semana`
+                  {remainingTrainingSessions > 0 
+                    ? `Te ${remainingTrainingSessions === 1 ? 'falta' : 'faltan'} ${remainingTrainingSessions} ${remainingTrainingSessions === 1 ? 'sesión' : 'sesiones'} esta semana`
                     : 'Has completado tu objetivo semanal 🎉'}
                 </p>
                 <Button 

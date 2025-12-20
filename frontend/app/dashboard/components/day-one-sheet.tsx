@@ -245,37 +245,50 @@ export function DayOneSheet() {
   return (
     <div className="space-y-6">
       {/* Hero Section */}
-      <Card className="backdrop-blur-sm bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-0 shadow-xl overflow-hidden relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-teal-200/20"></div>
-        <CardHeader className="text-center relative z-10">
-          <div className="flex justify-end mb-2">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-500 via-teal-400 to-cyan-400 p-6 sm:p-8 text-white shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+        
+        <div className="relative z-10">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <Target className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                  Day 1 🎯
+                </h1>
+                <p className="text-white/80 text-sm sm:text-base">
+                  Tu punto de partida y tu transformación
+                </p>
+              </div>
+            </div>
             <Button 
-              variant="ghost" 
-              size="sm" 
+              variant="secondary"
+              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="text-gray-600 hover:text-gray-900"
+              className="bg-white/20 hover:bg-white/30 border-0 text-white backdrop-blur-sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Actualizar
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Actualizar</span>
             </Button>
           </div>
-          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse">
-            <Target className="h-12 w-12 text-white" />
+
+          {/* Mensaje motivacional */}
+          <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
+            <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-emerald-300 flex-shrink-0" />
+              <span>
+                {daysSinceStart > 0 
+                  ? `🔥 ${daysSinceStart} días en tu transformación - ¡Sigue así!`
+                  : "¡Comienza tu transformación hoy! Cada paso cuenta hacia tus objetivos"}
+              </span>
+            </p>
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
-            Day 1 🎯
-          </CardTitle>
-          <CardDescription className="text-base mt-2 text-gray-700">
-            Tu punto de partida y tu transformación
-          </CardDescription>
-          {daysSinceStart > 0 && (
-            <Badge className="mt-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white">
-              🔥 {daysSinceStart} días en tu transformación
-            </Badge>
-          )}
-        </CardHeader>
-      </Card>
+        </div>
+      </div>
 
       {/* Tabs para Fotos y Peso */}
       <Tabs defaultValue="photos" className="w-full">

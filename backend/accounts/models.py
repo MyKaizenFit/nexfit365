@@ -87,7 +87,7 @@ class CustomUser(AbstractUser):
     height = models.FloatField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(50), MaxValueValidator(250)],
+        validators=[MinValueValidator(50), MaxValueValidator(210)],
         help_text="Altura en centímetros"
     )
     weight = models.FloatField(
@@ -99,7 +99,7 @@ class CustomUser(AbstractUser):
     target_weight = models.FloatField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(20), MaxValueValidator(300)],
+        validators=[MinValueValidator(50), MaxValueValidator(100)],
         help_text="Peso objetivo en kg"
     )
     

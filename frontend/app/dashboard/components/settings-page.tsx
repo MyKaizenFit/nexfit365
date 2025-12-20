@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { User, Lock, Bell, Moon, Sun, Palette, Globe, HelpCircle } from "lucide-react"
+import { User, Lock, Bell, Moon, Sun, Palette, Globe, HelpCircle, Settings } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProfilePanel } from "./profile-panel"
@@ -48,16 +48,40 @@ const SettingsPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-            Configuración
-          </h1>
-          <p className="text-gray-600">Personaliza tu experiencia y gestiona tu cuenta</p>
+        {/* Hero Section */}
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-500 via-cyan-400 to-blue-400 p-6 sm:p-8 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
+                <Settings className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
+                  Configuración
+                </h1>
+                <p className="text-white/80 text-sm sm:text-base">
+                  Personaliza tu experiencia y gestiona tu cuenta
+                </p>
+              </div>
+            </div>
+
+            {/* Mensaje informativo */}
+            <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
+              <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
+                <Palette className="h-5 w-5 text-cyan-300 flex-shrink-0" />
+                <span>
+                  Ajusta tus preferencias, seguridad y apariencia según tus necesidades
+                </span>
+              </p>
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1 bg-white/50 backdrop-blur-sm border-0">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger
               value="profile"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
@@ -72,6 +96,7 @@ const SettingsPage = () => {
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Seguridad</span>
             </TabsTrigger>
+            {/* TODO: Notificaciones - Oculto temporalmente para versiones futuras
             <TabsTrigger
               value="notifications"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white"
@@ -79,6 +104,7 @@ const SettingsPage = () => {
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Notificaciones</span>
             </TabsTrigger>
+            */}
             <TabsTrigger
               value="appearance"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white"
@@ -105,14 +131,15 @@ const SettingsPage = () => {
             <ChangePasswordPanel />
           </TabsContent>
 
-          {/* Notificaciones Tab */}
+          {/* TODO: Notificaciones - Oculto temporalmente para versiones futuras
           <TabsContent value="notifications">
             <NotificationsPanel />
           </TabsContent>
+          */}
 
           {/* Apariencia Tab */}
           <TabsContent value="appearance" className="space-y-6">
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
                   <Palette className="h-5 w-5" />
@@ -182,7 +209,7 @@ const SettingsPage = () => {
 
           {/* Ayuda Tab */}
           <TabsContent value="help" className="space-y-6">
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   <HelpCircle className="h-5 w-5" />

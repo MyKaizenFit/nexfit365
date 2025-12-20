@@ -74,6 +74,50 @@ Mantener un registro claro de:
 
 ---
 
+### 2. Sistema de Notificaciones (Configuración de Usuario)
+
+**Estado:** ✅ Implementado | ❌ Oculto
+
+**Ubicación:**
+- `frontend/app/dashboard/components/settings-page.tsx` (pestaña comentada)
+- `frontend/app/dashboard/components/notifications-panel.tsx` (componente existe)
+
+**Componentes afectados:**
+- `NotificationsPanel` - Panel de configuración de notificaciones del usuario
+- Pestaña "Notificaciones" en la página de configuración
+
+**Qué se ocultó:**
+- Pestaña "Notificaciones" en la página de configuración (`/dashboard?section=settings`)
+- El componente `NotificationsPanel` sigue existiendo pero no es accesible
+
+**Backend:**
+- ✅ Campo `notification_preferences` en modelo de usuario - Funcional
+- ✅ API para actualizar preferencias - Funcional
+
+**Razón para diferir:**
+- El sistema de notificaciones push/email no está completamente implementado
+- Priorizar funcionalidades core (entrenamientos, nutrición, progreso)
+- Requiere integración con servicios de notificaciones externos
+
+**Plan de activación:**
+- **Versión objetivo:** v2.0.0
+- **Requisitos previos:**
+  - Integración con servicio de notificaciones push (Firebase, OneSignal, etc.)
+  - Integración con servicio de email transaccional (SendGrid, Mailgun, etc.)
+  - Backend para gestionar envío de notificaciones
+  - Sistema de colas para envío masivo
+
+**Cómo activar:**
+1. Descomentar líneas en `frontend/app/dashboard/components/settings-page.tsx`:
+   - TabsTrigger de "notifications"
+   - TabsContent de "notifications"
+
+2. Implementar servicios de notificaciones en el backend
+
+3. Probar flujo completo de notificaciones
+
+---
+
 ## 🔧 Instrucciones para Activar Funcionalidades
 
 ### Para Consejos y Recomendaciones:
@@ -210,6 +254,10 @@ Este documento se organiza por:
 ---
 
 ## 📅 Historial de Cambios
+
+### 2025-08-28
+- ✅ Sistema de Notificaciones (Configuración) documentado como oculto
+- ✅ Pestaña de notificaciones ocultada en settings-page.tsx
 
 ### 2025-12-18
 - ✅ Documento creado
