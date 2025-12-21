@@ -92,6 +92,7 @@ export interface WorkoutLog {
   total_sets: number
   duration_minutes?: number
   rating?: number  // Calificación del entrenamiento (1-5)
+  exercises_data?: any[]  // Datos de ejercicios realizados con sets/reps/peso
   created_at?: string
   updated_at?: string
 }
