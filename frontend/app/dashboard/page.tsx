@@ -18,6 +18,7 @@ import {
   LogOut,
   Sparkles,
   Heart,
+  Moon,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -66,6 +67,7 @@ const WorkoutPlansDashboard = lazy(() => import("@/components/workout-plans-dash
 const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").then(module => ({ default: module.TipsShowcase })))
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
+const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -79,6 +81,7 @@ const menuItems = [
   // { title: "Consejos", icon: Heart, url: "tips", disabled: true },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
+  { title: "Bienestar", icon: Moon, url: "wellness" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
   { title: "Configuración", icon: Settings, url: "settings" },
@@ -267,7 +270,20 @@ function DashboardContent() {
           </div>
         )
 
-
+      case "wellness":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-pink-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <WellnessTracker />
+              </div>
+            </div>
+          </div>
+        )
 
       case "achievements":
         return (

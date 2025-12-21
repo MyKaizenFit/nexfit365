@@ -195,3 +195,52 @@ class MoodEntry(TimeStampedModel):
     
     def __str__(self):
         return f"{self.user.email} - {self.date} (Mood: {self.mood_score})"
+
+
+class DailyWellness(TimeStampedModel):
+    """
+    Registro diario de bienestar: horas de sueño y motivación
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="daily_wellness_entries"
+    )
+    date = models.DateField(help_text="Fecha del registro")
+    sleep_hours = models.DecimalField(
+        max_digits=4,
+        decimal_places=1,
+        validators=[MinValueValidator(0), MaxValueValidator(24)],
+        help_text="Horas de sueño (0-24)"
+    )
+    motivation_score = models.PositiveSmallIntegerField(
+        choices=[
+            (1, '😢 Muy baja'),
+            (2, '😕 Baja'),
+            (3, '😐 Regular'),
+            (4, '🙂 Buena'),
+            (5, '😄 Muy alta'),
+        ],
+        help_text="Nivel de motivación (1-5)"
+    )
+    notes = models.TextField(blank=True, help_text="Notas adicionales")
+    
+    class Meta:
+        ordering = ['-date', '-created_at']
+        unique_together = ['user', 'date']
+        verbose_name = "Registro de Bienestar Diario"
+        verbose_name_plural = "Registros de Bienestar Diario"
+        indexes = [
+            models.Index(fields=['user', 'date']),
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.date} (Sueño: {self.sleep_hours}h, Motivación: {self.motivation_score})"
+    
+    def clean(self):
+        if self.date > timezone.now().date():
+            raise ValidationError("La fecha no puede ser en el futuro")
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)

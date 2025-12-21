@@ -8,10 +8,10 @@ from django.db.models import Q, Count, Avg, Max, Min
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import ProgressPhoto, WeightEntry, BodyMeasurement
+from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 from .serializers import (
     ProgressPhotoSerializer, WeightEntrySerializer, BodyMeasurementSerializer,
-    ProgressSummarySerializer
+    ProgressSummarySerializer, DailyWellnessSerializer
 )
 from workouts.models import WorkoutLog
 from nutrition.models import MealLog  # Modelo eliminado
@@ -433,3 +433,41 @@ class BodyMeasurementViewSet(viewsets.ModelViewSet):
         }
         
         return Response(data)
+
+
+class DailyWellnessViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para registros diarios de bienestar (sueño y motivación)
+    """
+    serializer_class = DailyWellnessSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["date"]
+    ordering_fields = ["date", "created_at"]
+    ordering = ["-date", "-created_at"]
+    
+    def get_queryset(self):
+        """Filtrar registros por usuario autenticado"""
+        return DailyWellness.objects.filter(user=self.request.user)
+    
+    def get_serializer_context(self):
+        """Agregar el request al contexto del serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def perform_create(self, serializer):
+        """Crear registro con usuario autenticado"""
+        serializer.save(user=self.request.user)
+    
+    @action(detail=False, methods=["get"])
+    def today(self, request):
+        """Obtener registro de hoy"""
+        today = timezone.now().date()
+        entry = DailyWellness.objects.filter(user=request.user, date=today).first()
+        
+        if entry:
+            serializer = self.get_serializer(entry)
+            return Response(serializer.data)
+        else:
+            return Response({"detail": "No hay registro para hoy"}, status=status.HTTP_404_NOT_FOUND)
