@@ -24,6 +24,7 @@ import { authenticatedFetch } from "@/lib/api"
 import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
+import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 
 export function WorkoutDashboardEnhanced() {
   const {
@@ -67,64 +68,65 @@ export function WorkoutDashboardEnhanced() {
   // Obtener progreso semanal
   const weeklyProgress = getWeeklyProgress()
 
-  // Verificar si los entrenamientos del día ya están completados
-  useEffect(() => {
-    const checkCompletedWorkouts = async () => {
-      if (!activeProgram?.days) return
+  // Función para verificar si los entrenamientos del día ya están completados
+  const checkCompletedWorkouts = useCallback(async () => {
+    if (!activeProgram?.days) return
 
-      const completed: Record<string, boolean> = {}
+    const completed: Record<string, boolean> = {}
 
-      // También verificar desde los logs locales para respuesta más rápida
-      const today = new Date().toISOString().split('T')[0]
-      const todayLogs = workoutLogs.filter(log =>
-        log.date === today && log.completed === true
+    // También verificar desde los logs locales para respuesta más rápida
+    const today = new Date().toISOString().split('T')[0]
+    const todayLogs = workoutLogs.filter(log =>
+      log.date === today && log.completed === true
+    )
+
+    for (const day of activeProgram.days) {
+      if (day.is_rest_day) continue
+
+      // Primero verificar en los logs locales
+      const localCompleted = todayLogs.some(log =>
+        log.workout_day === day.id || log.workout_day === String(day.id)
       )
 
-      for (const day of activeProgram.days) {
-        if (day.is_rest_day) continue
-
-        // Primero verificar en los logs locales
-        const localCompleted = todayLogs.some(log =>
-          log.workout_day === day.id || log.workout_day === String(day.id)
-        )
-
-        if (localCompleted) {
-          completed[day.id] = true
-          continue
-        }
-
-        // Si no está en local, verificar en el servidor
-        try {
-          const response = await authenticatedFetch(
-            `workout-logs/check_today/?workout_day=${day.id}`
-          )
-          if (response.ok) {
-            const text = await response.text()
-            if (text) {
-              try {
-                const data = JSON.parse(text)
-                completed[day.id] = data.is_completed || false
-                console.log(`✅ Verificación servidor - WorkoutDay ${day.id}: ${data.is_completed ? 'Completado' : 'No completado'}`)
-              } catch (parseError) {
-                console.error(`Error parseando respuesta para ${day.id}:`, parseError, text)
-              }
-            }
-          } else {
-            console.warn(`⚠️ Respuesta no OK al verificar ${day.id}:`, response.status)
-          }
-        } catch (error) {
-          console.error(`❌ Error verificando entrenamiento ${day.id}:`, error)
-        }
+      if (localCompleted) {
+        completed[day.id] = true
+        continue
       }
 
-      console.log('📊 Entrenamientos completados hoy:', completed)
-      setTodayWorkoutCompleted(completed)
+      // Si no está en local, verificar en el servidor
+      try {
+        const response = await authenticatedFetch(
+          `workout-logs/check_today/?workout_day=${day.id}`
+        )
+        if (response.ok) {
+          const text = await response.text()
+          if (text) {
+            try {
+              const data = JSON.parse(text)
+              completed[day.id] = data.is_completed || false
+              console.log(`✅ Verificación servidor - WorkoutDay ${day.id}: ${data.is_completed ? 'Completado' : 'No completado'}`)
+            } catch (parseError) {
+              console.error(`Error parseando respuesta para ${day.id}:`, parseError, text)
+            }
+          }
+        } else {
+          console.warn(`⚠️ Respuesta no OK al verificar ${day.id}:`, response.status)
+        }
+      } catch (error) {
+        console.error(`❌ Error verificando entrenamiento ${day.id}:`, error)
+      }
     }
 
+    console.log('📊 Entrenamientos completados hoy:', completed)
+    setTodayWorkoutCompleted(completed)
+  }, [activeProgram, workoutLogs, isAuthenticated])
+
+  // Verificar si los entrenamientos del día ya están completados
+  useEffect(() => {
     if (isAuthenticated && activeProgram) {
       checkCompletedWorkouts()
     }
-  }, [activeProgram, isAuthenticated, workoutLogs])
+  }, [isAuthenticated, activeProgram, checkCompletedWorkouts])
 
   // Verificar también cuando cambian los workoutLogs (después de completar uno)
   useEffect(() => {
@@ -135,7 +137,7 @@ export function WorkoutDashboardEnhanced() {
       }, 1000)
       return () => clearTimeout(timeoutId)
     }
-  }, [workoutLogs.length]) // Solo cuando cambia el número de logs
+  }, [workoutLogs.length, isAuthenticated, activeProgram, checkCompletedWorkouts]) // Solo cuando cambia el número de logs
 
   // Usar estadísticas del servidor si están disponibles, sino calcular manualmente
   const stats = workoutStatistics ? {
@@ -1074,55 +1076,8 @@ export function WorkoutDashboardEnhanced() {
           )}
         </TabsContent>
 
-        <TabsContent value="history" className="space-y-4">
-          <div className="space-y-3">
-            {workoutLogs.slice(0, 10).map((log) => (
-              <Card key={log.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {log.completed ? (
-                        <Check className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Clock className="h-5 w-5 text-yellow-600" />
-                      )}
-                      <div>
-                        <div className="font-medium">
-                          {new Date(log.date).toLocaleDateString()}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {log.duration_minutes} minutos
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {log.rating && (
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Award
-                              key={i}
-                              className={`h-4 w-4 ${i < (log.rating || 0) ? 'text-yellow-500' : 'text-gray-300'}`}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <Badge
-                        variant={log.completed ? "default" : "secondary"}
-                        className={log.completed ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0" : ""}
-                      >
-                        {log.completed ? "Completado" : "Pendiente"}
-                      </Badge>
-                    </div>
-                  </div>
-                  {log.notes && (
-                    <div className="mt-2 text-sm text-muted-foreground">
-                      {log.notes}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        <TabsContent value="history" className="space-y-6">
+          <WorkoutHistoryEnhanced workoutLogs={workoutLogs} />
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">
