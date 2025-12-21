@@ -23,6 +23,10 @@ backups/
 !backups/dev/latest_backup.txt
 # Ignorar archivos SQL sin comprimir (solo mantener .gz)
 backups/dev/*.sql
+# Permitir archivos de exportación para deployment
+!backups/dev_database_export_*.sql
+!backups/dev_database_export_*.sql.zip
+!backups/dev_database_export_*.dump
 
 # ===== Python/Django =====
 __pycache__/
