@@ -6,16 +6,31 @@ Este directorio contiene todos los scripts y documentación necesarios para desp
 
 ### Scripts
 
-1. **`export-dev-db.ps1`** - Exporta la base de datos de desarrollo
+1. **`export-dev-db.sh`** - Exporta la base de datos de desarrollo (Linux)
+   - Uso: `./scripts/deployment/export-dev-db.sh`
+   - Genera un archivo `.sql.gz` en `./backups/`
+   - Requiere que los servicios de desarrollo estén corriendo
+
+2. **`export-dev-db.ps1`** - Exporta la base de datos de desarrollo (Windows/PowerShell)
    - Uso: `.\scripts\deployment\export-dev-db.ps1`
    - Genera un archivo `.sql.gz` en `.\backups\`
 
-2. **`import-to-prod.ps1`** - Importa una base de datos a producción
+3. **`import-to-prod.sh`** - Importa una base de datos a producción (Linux)
+   - Uso: `./scripts/deployment/import-to-prod.sh -f backups/archivo.sql.gz`
+   - ⚠️ **ADVERTENCIA:** Reemplaza completamente la BD de producción
+
+4. **`import-to-prod.ps1`** - Importa una base de datos a producción (Windows/PowerShell)
    - Uso: `.\scripts\deployment\import-to-prod.ps1 -BackupFile ".\backups\archivo.sql.gz"`
    - ⚠️ **ADVERTENCIA:** Reemplaza completamente la BD de producción
 
-3. **`deploy.sh`** - Script principal de deployment (ya existente)
-   - Automatiza el proceso completo de deployment
+5. **`deploy-full.sh`** - Script maestro que ejecuta todo el proceso
+   - Uso: `./scripts/deployment/deploy-full.sh`
+   - Ejecuta: exportar BD → importar BD → desplegar app
+   - Opciones: `--skip-export`, `--skip-import`, `--backup-file FILE`
+
+6. **`deploy.sh`** - Script principal de deployment (en la raíz del proyecto)
+   - Uso: `./deploy.sh`
+   - Opciones: `--no-build`, `--skip-migrations`
 
 ### Documentación
 
@@ -42,6 +57,8 @@ scp .\backups\dev_database_export_*.sql.gz usuario@servidor:/srv/mykaizenfit/pro
 
 ### 2. En Producción (Linux)
 
+**Opción A: Proceso completo automatizado (recomendado)**
+
 ```bash
 # 1. Conectar al servidor
 ssh usuario@servidor
@@ -50,14 +67,30 @@ cd /srv/mykaizenfit/pro
 # 2. Actualizar código
 git pull origin develop
 
-# 3. Importar base de datos (si es necesario)
-# En Windows PowerShell desde tu máquina local:
-# .\scripts\deployment\import-to-prod.ps1 -BackupFile ".\backups\dev_database_export_YYYYMMDD_HHMMSS.sql.gz"
+# 3. Ejecutar proceso completo (exporta BD dev, importa en prod, despliega)
+./scripts/deployment/deploy-full.sh
 
-# O manualmente en el servidor:
-docker exec -i <db-container> psql -U postgres -d mykaizenfit < backup.sql
+# O si ya tienes un backup:
+./scripts/deployment/deploy-full.sh --skip-export --backup-file backups/dev/mykaizenfit_dev_20251218_163104.sql.gz
+```
 
-# 4. Ejecutar deployment
+**Opción B: Proceso paso a paso**
+
+```bash
+# 1. Conectar al servidor
+ssh usuario@servidor
+cd /srv/mykaizenfit/pro
+
+# 2. Actualizar código
+git pull origin develop
+
+# 3. Exportar base de datos de desarrollo (si los servicios están corriendo)
+./scripts/deployment/export-dev-db.sh
+
+# 4. Importar base de datos en producción
+./scripts/deployment/import-to-prod.sh -f backups/dev_database_export_YYYYMMDD_HHMMSS.sql.gz
+
+# 5. Ejecutar deployment
 ./deploy.sh
 
 # O manualmente:
