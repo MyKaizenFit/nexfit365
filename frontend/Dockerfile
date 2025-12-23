@@ -34,13 +34,14 @@ COPY package.json package-lock.json ./
 COPY . .
 
 # Seleccionar y copiar el archivo correcto según el build arg
+# Priorizar docker.env.production para producción
 RUN set -e; \
     if [ -n "$ENV_FILE" ] && [ "$ENV_FILE" != "docker.env.production" ] && [ -f "$ENV_FILE" ]; then \
       cp "$ENV_FILE" .env.production && echo "✓ Using $ENV_FILE"; \
-    elif [ -f "docker.env" ]; then \
-      cp docker.env .env.production && echo "✓ Using docker.env"; \
     elif [ -f "docker.env.production" ]; then \
       cp docker.env.production .env.production && echo "✓ Using docker.env.production"; \
+    elif [ -f "docker.env" ]; then \
+      cp docker.env .env.production && echo "✓ Using docker.env (fallback)"; \
     else \
       echo "⚠ Warning: No env file found, creating empty .env.production"; \
       touch .env.production; \
