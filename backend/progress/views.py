@@ -269,6 +269,36 @@ class ProgressStatsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     
     @action(detail=False, methods=["get"])
+    def analysis(self, request):
+        """
+        Obtener análisis completo de progreso con recomendaciones automáticas.
+        GET /api/progress/progress-stats/analysis/?weeks=4
+        """
+        from progress.services import ProgressAnalysisService
+        
+        weeks = int(request.query_params.get('weeks', 4))
+        weeks = max(1, min(weeks, 12))  # Limitar entre 1 y 12 semanas
+        
+        try:
+            analysis_service = ProgressAnalysisService(request.user)
+            analysis = analysis_service.get_comprehensive_analysis(weeks=weeks)
+            
+            # Verificar si se debe sugerir ajuste de plan
+            should_adjust, suggestion = analysis_service.should_suggest_plan_adjustment()
+            if should_adjust:
+                analysis['plan_adjustment_suggestion'] = suggestion
+            
+            return Response(analysis)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error en análisis de progreso: {str(e)}")
+            return Response(
+                {'error': 'Error al analizar progreso'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["get"])
     def dashboard(self, request):
         """Obtener estadísticas para el dashboard de progreso"""
         import logging

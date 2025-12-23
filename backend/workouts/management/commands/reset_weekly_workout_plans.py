@@ -75,3 +75,4 @@ class Command(BaseCommand):
                 "\n💡 Tip: Configura este comando para ejecutarse automáticamente cada lunes "
                 "usando cron (Linux) o Task Scheduler (Windows)"
             ))
+

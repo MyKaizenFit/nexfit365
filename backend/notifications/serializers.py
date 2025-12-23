@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Notification
+from .models import Notification, PushSubscription
 
 
 class NotificationSerializer(serializers.ModelSerializer):
@@ -91,4 +91,25 @@ class CreateNotificationSerializer(serializers.Serializer):
         default='medium'
     )
     action_url = serializers.URLField(required=False, allow_blank=True)
-    expires_at = serializers.DateTimeField(required=False, allow_null=True) 
+    expires_at = serializers.DateTimeField(required=False, allow_null=True)
+
+
+class PushSubscriptionSerializer(serializers.ModelSerializer):
+    """Serializer para suscripciones push"""
+    user_email = serializers.ReadOnlyField(source='user.email')
+    
+    class Meta:
+        model = PushSubscription
+        fields = [
+            'id', 'user', 'user_email', 'endpoint', 'p256dh', 'auth',
+            'is_active', 'user_agent', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def create(self, validated_data):
+        """Crear suscripción asociada al usuario autenticado"""
+        request = self.context.get('request')
+        if request and request.user:
+            validated_data['user'] = request.user
+            validated_data['user_agent'] = request.META.get('HTTP_USER_AGENT', '')
+        return super().create(validated_data) 

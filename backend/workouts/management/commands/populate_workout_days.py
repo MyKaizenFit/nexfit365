@@ -184,3 +184,4 @@ class Command(BaseCommand):
                 for d in days
             )
             self.stdout.write(f'{program.name}: {days.count()} días, {total_exercises} ejercicios')
+

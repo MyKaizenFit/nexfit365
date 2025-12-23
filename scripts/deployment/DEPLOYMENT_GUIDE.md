@@ -268,3 +268,4 @@ COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec b
 ## 🆘 Solución de Problemas
 
 Ver sección de troubleshooting en `PRE_DEPLOYMENT_CHECKLIST.md`
+

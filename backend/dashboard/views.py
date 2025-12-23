@@ -9,12 +9,13 @@ from django.core.cache import cache
 from datetime import timedelta, datetime
 import calendar
 
-from .models import DashboardData, UserStats, WellnessTip, DefaultPlanConfiguration
+from .models import DashboardData, UserStats, WellnessTip, DefaultPlanConfiguration, HelpSettings, ProblemReport
 from .serializers import (
     DashboardDataSerializer, DashboardTodaySerializer, 
     DashboardWeeklySerializer, DashboardMonthlySerializer,
     DashboardStatsSerializer, WellnessTipSerializer,
-    DefaultPlanConfigurationSerializer, DefaultPlanConfigurationCreateUpdateSerializer
+    DefaultPlanConfigurationSerializer, DefaultPlanConfigurationCreateUpdateSerializer,
+    HelpSettingsSerializer, ProblemReportSerializer, ProblemReportCreateSerializer
 )
 from .permissions import DashboardPermission, DashboardDataPermission
 from accounts.models import CustomUser
@@ -738,3 +739,101 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
             {'message': 'No se encontró configuración que coincida'}, 
             status=status.HTTP_404_NOT_FOUND
         )
+
+
+class HelpSettingsViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar configuración de ayuda
+    """
+    serializer_class = HelpSettingsSerializer
+    permission_classes = [IsAdminUser]
+    queryset = HelpSettings.objects.all()
+    
+    def get_permissions(self):
+        # El endpoint 'active' es público
+        if self.action == 'active':
+            return []
+        return [IsAdminUser()]
+    
+    @action(detail=False, methods=['get'], permission_classes=[], url_path='active', url_name='active')
+    def active(self, request):
+        """Obtener configuración activa (público)"""
+        try:
+            settings = HelpSettings.get_active()
+            serializer = self.get_serializer(settings)
+            return Response(serializer.data)
+        except Exception as e:
+            return Response(
+                {'error': f'Error obteniendo configuración: {str(e)}'}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ProblemReportViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar reportes de problemas
+    """
+    queryset = ProblemReport.objects.all()
+    
+    def get_serializer_class(self):
+        if self.action == 'create':
+            return ProblemReportCreateSerializer
+        return ProblemReportSerializer
+    
+    def get_permissions(self):
+        if self.action == 'create':
+            # Permitir crear reportes sin autenticación
+            return []
+        # Solo admin puede ver/editar reportes
+        return [IsAdminUser()]
+    
+    def perform_create(self, serializer):
+        # Asignar usuario si está autenticado
+        if self.request.user.is_authenticated:
+            serializer.save(user=self.request.user)
+        else:
+            serializer.save()
+        
+        # Enviar email de notificación (opcional)
+        instance = serializer.instance
+        help_settings = HelpSettings.get_active()
+        if help_settings.report_enabled and help_settings.report_email:
+            try:
+                from django.core.mail import send_mail
+                from django.conf import settings
+                
+                subject = f"[NexFit365] Nuevo Reporte: {instance.subject}"
+                message = f"""
+Se ha recibido un nuevo reporte de problema:
+
+Tipo: {instance.get_problem_type_display()}
+Asunto: {instance.subject}
+Descripción: {instance.description}
+
+Usuario: {instance.user.email if instance.user else instance.contact_email or 'Anónimo'}
+Estado: {instance.get_status_display()}
+
+Ver detalles: {settings.FRONTEND_URL}/admin/problem-reports/{instance.id}/
+"""
+                send_mail(
+                    subject,
+                    message,
+                    settings.DEFAULT_FROM_EMAIL,
+                    [help_settings.report_email],
+                    fail_silently=True,
+                )
+            except Exception as e:
+                # No fallar si el email no se puede enviar
+                pass
+    
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def resolve(self, request, pk=None):
+        """Marcar un reporte como resuelto"""
+        report = self.get_object()
+        report.status = ProblemReport.Status.RESOLVED
+        report.resolved_by = request.user
+        report.resolved_at = timezone.now()
+        report.save()
+        
+        serializer = self.get_serializer(report)
+        return Response(serializer.data)

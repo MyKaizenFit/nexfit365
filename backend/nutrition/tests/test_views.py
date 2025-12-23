@@ -7,7 +7,7 @@ from model_bakery import baker
 from freezegun import freeze_time
 from decimal import Decimal
 
-from nutrition.models import Food, NutritionPlan, Meal, MealFood, MealLog
+from nutrition.models import Food, NutritionPlan, PlanMeal, MealLog, Recipe
 
 User = get_user_model()
 
@@ -43,18 +43,13 @@ def nutrition_plan(member_user):
 
 
 @pytest.fixture
-def meal(nutrition_plan):
-    return baker.make(Meal, plan=nutrition_plan, name='Breakfast', order_index=1)
+def plan_meal(nutrition_plan):
+    return baker.make(PlanMeal, plan=nutrition_plan, name='Breakfast', meal_type='breakfast', order_index=1)
 
 
 @pytest.fixture
-def meal_food(meal, food):
-    return baker.make(MealFood, meal=meal, food=food, quantity=Decimal('100.0'))
-
-
-@pytest.fixture
-def meal_log(member_user, meal):
-    return baker.make(MealLog, user=member_user, meal=meal, date='2025-01-15')
+def meal_log(member_user):
+    return baker.make(MealLog, user=member_user, date='2025-01-15', meal_type='breakfast')
 
 
 @pytest.mark.django_db
@@ -166,7 +161,7 @@ class TestNutritionPlanViewSet:
     def test_list_nutrition_plans_owner_access(self, api_client, member_user, nutrition_plan):
         """Usuario puede ver sus propios planes"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-list')
+        url = reverse('nutrition-plans-list')
         
         response = api_client.get(url)
         
@@ -177,33 +172,23 @@ class TestNutritionPlanViewSet:
     def test_list_nutrition_plans_staff_access(self, api_client, trainer_user, nutrition_plan):
         """Staff puede ver todos los planes"""
         api_client.force_authenticate(user=trainer_user)
-        url = reverse('nutritionplan-list')
+        url = reverse('nutrition-plans-list')
         
         response = api_client.get(url)
         
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
-    def test_create_nutrition_plan_authenticated_access(self, api_client, member_user, food):
+    def test_create_nutrition_plan_authenticated_access(self, api_client, member_user):
         """Usuarios autenticados pueden crear planes"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-list')
+        url = reverse('nutrition-plans-list')
         data = {
             'name': 'My Plan',
             'daily_calories': 1800,
-            'start_date': '2025-01-20',
-            'meals': [
-                {
-                    'name': 'Breakfast',
-                    'order_index': 1,
-                    'meal_foods': [
-                        {
-                            'food_id': str(food.id),
-                            'quantity': '100.0'
-                        }
-                    ]
-                }
-            ]
+            'protein_grams': 135,
+            'carbs_grams': 202,
+            'fat_grams': 60
         }
         
         response = api_client.post(url, data, format='json')
@@ -211,17 +196,15 @@ class TestNutritionPlanViewSet:
         assert response.status_code == status.HTTP_201_CREATED
         assert NutritionPlan.objects.filter(name='My Plan').exists()
         plan = NutritionPlan.objects.get(name='My Plan')
-        assert plan.meals.count() == 1
-        assert plan.meals.first().meal_foods.count() == 1
+        assert plan.daily_calories == 1800
 
     def test_create_nutrition_plan_without_meals(self, api_client, member_user):
         """Se puede crear plan sin comidas inicialmente"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-list')
+        url = reverse('nutrition-plans-list')
         data = {
             'name': 'Empty Plan',
-            'daily_calories': 2000,
-            'start_date': '2025-01-20'
+            'daily_calories': 2000
         }
         
         response = api_client.post(url, data)
@@ -232,7 +215,7 @@ class TestNutritionPlanViewSet:
     def test_activate_nutrition_plan(self, api_client, member_user, nutrition_plan):
         """Usuario puede activar un plan"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-activate', kwargs={'pk': nutrition_plan.id})
+        url = reverse('nutrition-plans-activate', kwargs={'pk': nutrition_plan.id})
         
         response = api_client.post(url)
         
@@ -260,7 +243,7 @@ class TestNutritionPlanViewSet:
     def test_update_nutrition_plan_owner_access(self, api_client, member_user, nutrition_plan):
         """Usuario puede actualizar sus propios planes"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-detail', kwargs={'pk': nutrition_plan.id})
+        url = reverse('nutrition-plans-detail', kwargs={'pk': nutrition_plan.id})
         data = {'name': 'Updated Plan Name'}
         
         response = api_client.patch(url, data)
@@ -272,7 +255,7 @@ class TestNutritionPlanViewSet:
     def test_delete_nutrition_plan_owner_access(self, api_client, member_user, nutrition_plan):
         """Usuario puede eliminar sus propios planes"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-detail', kwargs={'pk': nutrition_plan.id})
+        url = reverse('nutrition-plans-detail', kwargs={'pk': nutrition_plan.id})
         
         response = api_client.delete(url)
         
@@ -282,7 +265,7 @@ class TestNutritionPlanViewSet:
     def test_nutrition_plan_validation(self, api_client, member_user):
         """Validaciones de plan de nutrición funcionan"""
         api_client.force_authenticate(user=member_user)
-        url = reverse('nutritionplan-list')
+        url = reverse('nutrition-plans-list')
         
         # Plan sin nombre
         data = {'daily_calories': 2000, 'start_date': '2025-01-20'}

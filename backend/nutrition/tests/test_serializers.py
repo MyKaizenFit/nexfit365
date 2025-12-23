@@ -1,11 +1,10 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
 from datetime import date, time
-from nutrition.models import Food, NutritionPlan, Meal, MealFood, DefaultNutritionPlan, DefaultMeal, DailyMealSelection
+from nutrition.models import Food, NutritionPlan, PlanMeal, MealLog, Recipe
 from nutrition.serializers import (
-    FoodSerializer, MealFoodSerializer, MealSerializer,
-    DefaultNutritionPlanSerializer, DefaultMealSerializer,
-    DailyMealSelectionSerializer, NutritionPlanListSerializer
+    FoodSerializer, NutritionPlanSerializer, PlanMealSerializer,
+    MealLogSerializer, RecipeSerializer
 )
 
 User = get_user_model()

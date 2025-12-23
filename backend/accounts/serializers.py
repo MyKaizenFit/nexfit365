@@ -87,11 +87,12 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'first_name', 'last_name', 'birth_date', 'gender',
-            'height', 'weight', 'target_weight', 'target_date',
-            'fitness_goals', 'activity_level', 'training_days_per_week', 'training_days',
+            'height', 'weight', 'target_weight',
+            'main_goal', 'activity_level', 'training_days_per_week', 'training_days',
             'training_location', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
-            'notification_preferences', 'profile_picture'
+            'notification_preferences', 'profile_picture', 'disliked_foods',
+            'injuries_or_medical_issues'
         ]
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -168,7 +169,7 @@ class UserGoalsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ['fitness_goals', 'activity_level', 'target_weight', 'target_date']
+        fields = ['main_goal', 'activity_level', 'target_weight']
 
 class InitialRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para el formulario de registro inicial completo"""

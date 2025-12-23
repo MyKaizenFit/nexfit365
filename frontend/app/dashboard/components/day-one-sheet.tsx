@@ -52,7 +52,8 @@ export function DayOneSheet() {
   const loading = profileLoading || statsLoading || photosLoading || weightLoading
 
   // Obtener datos iniciales
-  const targetWeight = profile?.target_weight || progressStats?.weight?.goal
+  const targetWeightRaw = profile?.target_weight || progressStats?.weight?.goal
+  const targetWeight = typeof targetWeightRaw === 'number' ? targetWeightRaw : null
   const mainGoal = profile?.main_goal
   const startDate = profile?.created_at ? new Date(profile.created_at) : new Date()
   const daysSinceStart = Math.max(0, Math.floor((new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)))
@@ -66,9 +67,24 @@ export function DayOneSheet() {
   // Obtener peso del historial (más preciso)
   const firstWeightEntry = weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
   const latestWeightEntry = weightEntries.length > 0 ? weightEntries[0] : null
-  const currentWeight = latestWeightEntry?.weight || profile?.weight || null
-  const initialWeight = firstWeightEntry?.weight || profile?.weight || null
-  const weightChange = (currentWeight && initialWeight) ? currentWeight - initialWeight : 0
+  const currentWeightRaw = latestWeightEntry?.weight || profile?.weight || null
+  const currentWeight = typeof currentWeightRaw === 'number' ? currentWeightRaw : null
+  const initialWeightRaw = firstWeightEntry?.weight || profile?.weight || null
+  const initialWeight = typeof initialWeightRaw === 'number' ? initialWeightRaw : null
+  const weightChange = (currentWeight !== null && initialWeight !== null) ? currentWeight - initialWeight : 0
+
+  // Escuchar actualizaciones de peso desde otros componentes
+  useEffect(() => {
+    const handleWeightUpdate = async () => {
+      await Promise.all([
+        refreshStats(),
+        refreshWeight()
+      ])
+    }
+    
+    window.addEventListener('weightUpdated', handleWeightUpdate)
+    return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
+  }, [refreshStats, refreshWeight])
 
   // Refrescar todos los datos
   const handleRefresh = async () => {
@@ -618,7 +634,7 @@ export function DayOneSheet() {
                     </div>
                     <span className="text-sm font-semibold text-blue-900">Peso Actual</span>
                   </div>
-                  {currentWeight ? (
+                  {currentWeight !== null ? (
                     <div>
                       <p className="text-3xl font-bold text-blue-700 mb-1">{currentWeight.toFixed(1)} kg</p>
                       {weightChange !== 0 && (
@@ -646,10 +662,10 @@ export function DayOneSheet() {
                     </div>
                     <span className="text-sm font-semibold text-purple-900">Peso Objetivo</span>
                   </div>
-                  {targetWeight ? (
+                  {targetWeight !== null ? (
                     <div>
-                      <p className="text-3xl font-bold text-purple-700 mb-1">{targetWeight} kg</p>
-                      {currentWeight && (
+                      <p className="text-3xl font-bold text-purple-700 mb-1">{targetWeight.toFixed(1)} kg</p>
+                      {currentWeight !== null && targetWeight !== null && (
                         <p className="text-sm text-purple-600">
                           {Math.abs(currentWeight - targetWeight).toFixed(1)} kg para {currentWeight > targetWeight ? 'perder' : 'ganar'}
                         </p>
@@ -686,7 +702,12 @@ export function DayOneSheet() {
                 </h3>
                 {weightEntries.length > 0 ? (
                   <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {weightEntries.slice(0, 10).map((entry, index) => (
+                    {weightEntries.slice(0, 10).map((entry, index) => {
+                      const entryWeight = typeof entry.weight === 'number' ? entry.weight : null
+                      const prevEntryWeight = index > 0 && typeof weightEntries[index - 1].weight === 'number' 
+                        ? weightEntries[index - 1].weight 
+                        : null
+                      return (
                       <div 
                         key={entry.id} 
                         className={`flex items-center justify-between p-3 rounded-lg ${
@@ -700,27 +721,28 @@ export function DayOneSheet() {
                             <Weight className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="font-semibold">{entry.weight.toFixed(1)} kg</p>
+                            <p className="font-semibold">{entryWeight !== null ? entryWeight.toFixed(1) : 'N/A'} kg</p>
                             <p className="text-xs text-gray-500">
                               {format(new Date(entry.date), "dd MMM yyyy", { locale: es })}
                             </p>
                           </div>
                         </div>
-                        {index > 0 && (
+                        {index > 0 && entryWeight !== null && prevEntryWeight !== null && (
                           <div className={`text-sm font-medium ${
-                            entry.weight < weightEntries[index - 1].weight ? 'text-green-600' : 
-                            entry.weight > weightEntries[index - 1].weight ? 'text-red-600' : 'text-gray-500'
+                            entryWeight < prevEntryWeight ? 'text-green-600' : 
+                            entryWeight > prevEntryWeight ? 'text-red-600' : 'text-gray-500'
                           }`}>
-                            {entry.weight < weightEntries[index - 1].weight ? '↓' : 
-                             entry.weight > weightEntries[index - 1].weight ? '↑' : '='} 
-                            {Math.abs(entry.weight - weightEntries[index - 1].weight).toFixed(1)} kg
+                            {entryWeight < prevEntryWeight ? '↓' : 
+                             entryWeight > prevEntryWeight ? '↑' : '='} 
+                            {Math.abs(entryWeight - prevEntryWeight).toFixed(1)} kg
                           </div>
                         )}
                         {index === 0 && (
                           <Badge className="bg-blue-500">Más reciente</Badge>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 ) : (
                   <div className="text-center py-8 text-gray-500">
@@ -753,13 +775,25 @@ export function DayOneSheet() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-purple-50 rounded-lg">
                       <p className="text-sm text-gray-600">Día 1</p>
-                      <p className="text-2xl font-bold text-purple-700">{firstWeightEntry.weight.toFixed(1)} kg</p>
-                      <p className="text-xs text-gray-500">{format(new Date(firstWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                      <p className="text-2xl font-bold text-purple-700">
+                        {firstWeightEntry && typeof firstWeightEntry.weight === 'number' 
+                          ? firstWeightEntry.weight.toFixed(1) 
+                          : 'N/A'} kg
+                      </p>
+                      {firstWeightEntry && (
+                        <p className="text-xs text-gray-500">{format(new Date(firstWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                      )}
                     </div>
                     <div className="text-center p-4 bg-indigo-50 rounded-lg">
                       <p className="text-sm text-gray-600">Ahora</p>
-                      <p className="text-2xl font-bold text-indigo-700">{latestWeightEntry.weight.toFixed(1)} kg</p>
-                      <p className="text-xs text-gray-500">{format(new Date(latestWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                      <p className="text-2xl font-bold text-indigo-700">
+                        {latestWeightEntry && typeof latestWeightEntry.weight === 'number' 
+                          ? latestWeightEntry.weight.toFixed(1) 
+                          : 'N/A'} kg
+                      </p>
+                      {latestWeightEntry && (
+                        <p className="text-xs text-gray-500">{format(new Date(latestWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                      )}
                     </div>
                   </div>
                   {weightChange !== 0 && (

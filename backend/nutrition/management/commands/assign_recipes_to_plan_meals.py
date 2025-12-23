@@ -112,3 +112,4 @@ class Command(BaseCommand):
         self.stdout.write(f"   Planes actualizados: {plans_updated}")
         self.stdout.write(f"   Total recetas asignadas: {total_recipes_assigned}")
         self.stdout.write("=" * 70)
+

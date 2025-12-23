@@ -172,3 +172,4 @@ COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec b
    - Detener servicios: `docker compose -f docker-compose.prod.yml down`
    - Restaurar backup de BD si es necesario
    - Volver a la versión anterior del código: `git checkout <previous-commit>`
+

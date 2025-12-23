@@ -41,29 +41,103 @@ def profile(request):
         return Response(serializer.data)
     
     elif request.method in ['PUT', 'PATCH']:
-        # Campos que pueden afectar la asignación automática
+        # Campos que pueden afectar la asignación automática de planes
         fields_affecting_assignment = [
             'main_goal', 'training_location', 'activity_level', 'gender',
             'training_days_per_week', 'birth_date', 'age', 'dietary_restrictions',
-            'equipment_available'
+            'equipment_available', 'weight', 'target_weight'
         ]
         
-        # Verificar si se están actualizando campos relevantes
-        old_user = request.user
+        # Campos que solo requieren actualización del plan existente (no reasignación)
+        fields_requiring_plan_update = [
+            'main_goal', 'activity_level', 'weight', 'target_weight'
+        ]
+        
+        # Guardar valores anteriores para comparación
+        old_user = CustomUser.objects.get(pk=request.user.pk)
+        old_weight = old_user.weight
+        old_main_goal = old_user.main_goal
+        old_activity_level = old_user.activity_level
+        
         serializer = UserProfileUpdateSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
             user = serializer.save()
             
-            # Re-evaluar configuración si se actualizaron campos relevantes
+            # Verificar campos actualizados
             updated_fields = set(request.data.keys())
-            if any(field in updated_fields for field in fields_affecting_assignment):
+            
+            # Si se actualizó el peso, crear/actualizar entrada en historial de peso
+            if 'weight' in updated_fields and user.weight is not None:
+                try:
+                    from progress.models import WeightEntry
+                    from django.utils import timezone
+                    from decimal import Decimal
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    
+                    # Buscar si ya existe una entrada para hoy
+                    today = timezone.now().date()
+                    existing_entry = WeightEntry.objects.filter(
+                        user=user,
+                        date=today
+                    ).first()
+                    
+                    if existing_entry:
+                        # Actualizar entrada existente
+                        existing_entry.weight = Decimal(str(user.weight))
+                        existing_entry.notes = existing_entry.notes or "Peso actualizado desde perfil"
+                        existing_entry.save()
+                        logger.info(f"✅ Entrada de peso actualizada: {existing_entry.weight} kg")
+                    else:
+                        # Crear nueva entrada para hoy
+                        weight_entry = WeightEntry.objects.create(
+                            user=user,
+                            weight=Decimal(str(user.weight)),
+                            date=today,
+                            notes="Peso actualizado desde perfil"
+                        )
+                        logger.info(f"✅ Nueva entrada de peso creada: {weight_entry.weight} kg")
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"⚠️ No se pudo crear/actualizar entrada de peso: {str(e)}")
+                    # No fallar la actualización si hay error en la entrada de peso
+            
+            # Si se actualizaron campos que requieren actualización de plan
+            if any(field in updated_fields for field in fields_requiring_plan_update):
+                try:
+                    from nutrition.services import PlanAutoUpdateService
+                    update_service = PlanAutoUpdateService(user)
+                    updated_plan = update_service.update_plan_if_needed(
+                        old_weight=old_weight,
+                        old_goal=old_main_goal,
+                        old_activity_level=old_activity_level,
+                        reason="user_profile_updated"
+                    )
+                    
+                    if updated_plan:
+                        # Agregar mensaje informativo en la respuesta
+                        response_data = serializer.data
+                        response_data['plan_updated'] = True
+                        response_data['plan_update_message'] = f"Tu plan nutricional se ha ajustado automáticamente. Nuevas calorías: {updated_plan.daily_calories} kcal."
+                        return Response(response_data)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error actualizando plan automáticamente: {str(e)}")
+                    # No fallar la actualización si hay error en la actualización del plan
+            
+            # Si se actualizaron otros campos que requieren reasignación completa
+            elif any(field in updated_fields for field in fields_affecting_assignment):
                 try:
                     from accounts.services import DefaultPlanAssignmentService
                     assignment_service = DefaultPlanAssignmentService(user)
                     assignment_service.assign()
                 except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error reasignando planes: {str(e)}")
                     # No fallar la actualización si hay error en la asignación
-                    pass
             
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

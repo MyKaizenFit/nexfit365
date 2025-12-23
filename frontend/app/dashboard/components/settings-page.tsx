@@ -1,21 +1,26 @@
 "use client"
 
-import { useState } from "react"
-import { User, Lock, Bell, Moon, Sun, Palette, Globe, HelpCircle, Settings } from "lucide-react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { User, Lock, Bell, HelpCircle, Settings, BookOpen, MessageCircle, FileText, Mail, ExternalLink, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ProfilePanel } from "./profile-panel"
 import { ChangePasswordPanel } from "./change-password-panel"
 import { NotificationsPanel } from "./notifications-panel"
+import { NutritionPlanHistoryUser } from "@/components/nutrition-plan-history-user"
+import { PushNotificationsSetup } from "./push-notifications-setup"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
+import { helpService, HelpSettings } from "@/lib/help-service"
 
 const SettingsPage = () => {
-  const [isDarkMode, setIsDarkMode] = useState(false)
-  const [language, setLanguage] = useState("es")
+  const router = useRouter()
+  const [helpSettings, setHelpSettings] = useState<HelpSettings | null>(null)
+  const [loadingSettings, setLoadingSettings] = useState(true)
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -23,18 +28,23 @@ const SettingsPage = () => {
     marketing: false,
   })
 
-  const handleDarkModeToggle = (checked: boolean) => {
-    setIsDarkMode(checked)
-    // Aplicar inmediatamente el modo oscuro
-    if (checked) {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
+  useEffect(() => {
+    loadHelpSettings()
+  }, [])
+
+  const loadHelpSettings = async () => {
+    try {
+      setLoadingSettings(true)
+      const settings = await helpService.getHelpSettings()
+      setHelpSettings(settings)
+    } catch (error) {
+      console.error('Error cargando configuración de ayuda:', error)
+      // Usar valores por defecto si falla - ahora getHelpSettings ya devuelve valores por defecto
+      const defaultSettings = await helpService.getHelpSettings()
+      setHelpSettings(defaultSettings)
+    } finally {
+      setLoadingSettings(false)
     }
-    toast({
-      title: checked ? "🌙 Modo oscuro activado" : "☀️ Modo claro activado",
-      description: "El tema se ha aplicado correctamente",
-    })
   }
 
   const handleNotificationChange = (type: string, checked: boolean) => {
@@ -43,6 +53,61 @@ const SettingsPage = () => {
       title: "✅ Configuración actualizada",
       description: `Notificaciones ${type} ${checked ? "activadas" : "desactivadas"}`,
     })
+  }
+
+  const handleHelpAction = (action: string) => {
+    if (!helpSettings) return
+
+    switch (action) {
+      case "faq":
+        if (helpSettings.faq_url) {
+          window.open(helpSettings.faq_url, '_blank')
+        } else if (helpSettings.faq_enabled) {
+          router.push('/dashboard/help/faq')
+        } else {
+          toast({
+            title: "⚠️ No disponible",
+            description: "Las preguntas frecuentes no están disponibles en este momento.",
+            variant: "destructive",
+          })
+        }
+        break
+      case "contact":
+        if (helpSettings.contact_enabled && helpSettings.contact_email) {
+          window.location.href = `mailto:${helpSettings.contact_email}?subject=Soporte NexFit365`
+        } else {
+          toast({
+            title: "⚠️ No disponible",
+            description: "El contacto no está disponible en este momento.",
+            variant: "destructive",
+          })
+        }
+        break
+      case "guides":
+        if (helpSettings.guides_url) {
+          window.open(helpSettings.guides_url, '_blank')
+        } else if (helpSettings.guides_enabled) {
+          router.push('/dashboard/help/guides')
+        } else {
+          toast({
+            title: "⚠️ No disponible",
+            description: "Las guías de usuario no están disponibles en este momento.",
+            variant: "destructive",
+          })
+        }
+        break
+      case "report":
+        if (helpSettings.report_enabled) {
+          router.push('/dashboard/help/report')
+        } else {
+          toast({
+            title: "⚠️ No disponible",
+            description: "El formulario de reporte no está disponible en este momento.",
+            variant: "destructive",
+          })
+        }
+        break
+    }
   }
 
   return (
@@ -71,9 +136,9 @@ const SettingsPage = () => {
             {/* Mensaje informativo */}
             <div className="mt-4 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
               <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
-                <Palette className="h-5 w-5 text-cyan-300 flex-shrink-0" />
+                <Settings className="h-5 w-5 text-cyan-300 flex-shrink-0" />
                 <span>
-                  Ajusta tus preferencias, seguridad y apariencia según tus necesidades
+                  Ajusta tus preferencias, seguridad y configuración según tus necesidades
                 </span>
               </p>
             </div>
@@ -81,7 +146,7 @@ const SettingsPage = () => {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-5 h-auto p-1 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger
               value="profile"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
@@ -96,21 +161,12 @@ const SettingsPage = () => {
               <Lock className="h-4 w-4" />
               <span className="hidden sm:inline">Seguridad</span>
             </TabsTrigger>
-            {/* TODO: Notificaciones - Oculto temporalmente para versiones futuras
             <TabsTrigger
               value="notifications"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white"
             >
               <Bell className="h-4 w-4" />
               <span className="hidden sm:inline">Notificaciones</span>
-            </TabsTrigger>
-            */}
-            <TabsTrigger
-              value="appearance"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-amber-500 data-[state=active]:text-white"
-            >
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Apariencia</span>
             </TabsTrigger>
             <TabsTrigger
               value="help"
@@ -122,8 +178,9 @@ const SettingsPage = () => {
           </TabsList>
 
           {/* Mi Perfil Tab */}
-          <TabsContent value="profile">
+          <TabsContent value="profile" className="space-y-6">
             <ProfilePanel />
+            <NutritionPlanHistoryUser />
           </TabsContent>
 
           {/* Seguridad Tab */}
@@ -131,132 +188,195 @@ const SettingsPage = () => {
             <ChangePasswordPanel />
           </TabsContent>
 
-          {/* TODO: Notificaciones - Oculto temporalmente para versiones futuras
-          <TabsContent value="notifications">
+          {/* Notificaciones Tab */}
+          <TabsContent value="notifications" className="space-y-6">
+            <PushNotificationsSetup />
             <NotificationsPanel />
-          </TabsContent>
-          */}
-
-          {/* Apariencia Tab */}
-          <TabsContent value="appearance" className="space-y-6">
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                  <Palette className="h-5 w-5" />
-                  Personalización de Apariencia
-                </CardTitle>
-                <CardDescription>Configura el tema y la apariencia de la aplicación</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Modo Oscuro */}
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-3">
-                    {isDarkMode ? (
-                      <Moon className="h-5 w-5 text-indigo-600" />
-                    ) : (
-                      <Sun className="h-5 w-5 text-yellow-600" />
-                    )}
-                    <div>
-                      <Label htmlFor="dark-mode" className="text-base font-medium">
-                        Modo Oscuro
-                      </Label>
-                      <p className="text-sm text-gray-600">Cambia entre tema claro y oscuro</p>
-                    </div>
-                  </div>
-                  <Switch id="dark-mode" checked={isDarkMode} onCheckedChange={handleDarkModeToggle} />
-                </div>
-
-                {/* Idioma */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Globe className="h-5 w-5 text-blue-600" />
-                    <Label className="text-base font-medium">Idioma</Label>
-                  </div>
-                  <Select value={language} onValueChange={setLanguage}>
-                    <SelectTrigger className="border-2 border-gray-200 focus:border-orange-400">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="es">Español</SelectItem>
-                      <SelectItem value="en">English</SelectItem>
-                      <SelectItem value="fr">Français</SelectItem>
-                      <SelectItem value="pt">Português</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Configuraciones adicionales */}
-                <div className="space-y-4">
-                  <h4 className="font-medium text-gray-800">Configuraciones de Visualización</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="animations">Animaciones</Label>
-                      <Switch id="animations" defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="sounds">Sonidos de interfaz</Label>
-                      <Switch id="sounds" defaultChecked />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="high-contrast">Alto contraste</Label>
-                      <Switch id="high-contrast" />
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Ayuda Tab */}
           <TabsContent value="help" className="space-y-6">
+            {/* Centro de Ayuda Principal */}
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
                   <HelpCircle className="h-5 w-5" />
                   Centro de Ayuda
                 </CardTitle>
-                <CardDescription>Encuentra respuestas y obtén soporte</CardDescription>
+                <CardDescription>Encuentra respuestas y obtén soporte para cualquier duda</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Button
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-transparent"
-                  >
-                    <div className="font-medium">Preguntas Frecuentes</div>
-                    <div className="text-sm text-gray-600">Encuentra respuestas rápidas</div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-transparent"
-                  >
-                    <div className="font-medium">Contactar Soporte</div>
-                    <div className="text-sm text-gray-600">Habla con nuestro equipo</div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
-                  >
-                    <div className="font-medium">Guías de Usuario</div>
-                    <div className="text-sm text-gray-600">Aprende a usar la app</div>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-transparent"
-                  >
-                    <div className="font-medium">Reportar Problema</div>
-                    <div className="text-sm text-gray-600">Informa errores o bugs</div>
-                  </Button>
-                </div>
+              <CardContent className="space-y-6">
+                {/* Acciones Rápidas */}
+                {loadingSettings ? (
+                  <div className="text-center py-8 text-gray-500">Cargando configuración...</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {helpSettings?.faq_enabled && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleHelpAction("faq")}
+                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-transparent transition-all"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <BookOpen className="h-5 w-5 text-blue-600" />
+                          <div className="font-medium text-left">Preguntas Frecuentes</div>
+                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        </div>
+                        <div className="text-sm text-gray-600 text-left">Encuentra respuestas rápidas a las preguntas más comunes</div>
+                      </Button>
+                    )}
+                    
+                    {helpSettings?.contact_enabled && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleHelpAction("contact")}
+                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-transparent transition-all"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <Mail className="h-5 w-5 text-green-600" />
+                          <div className="font-medium text-left">Contactar Soporte</div>
+                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        </div>
+                        <div className="text-sm text-gray-600 text-left">Habla directamente con nuestro equipo de soporte</div>
+                      </Button>
+                    )}
+                    
+                    {helpSettings?.guides_enabled && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleHelpAction("guides")}
+                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent transition-all"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <FileText className="h-5 w-5 text-purple-600" />
+                          <div className="font-medium text-left">Guías de Usuario</div>
+                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        </div>
+                        <div className="text-sm text-gray-600 text-left">Aprende a usar todas las funciones de la aplicación</div>
+                      </Button>
+                    )}
+                    
+                    {helpSettings?.report_enabled && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleHelpAction("report")}
+                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-transparent transition-all"
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <MessageCircle className="h-5 w-5 text-orange-600" />
+                          <div className="font-medium text-left">Reportar Problema</div>
+                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        </div>
+                        <div className="text-sm text-gray-600 text-left">Informa errores, bugs o problemas técnicos</div>
+                      </Button>
+                    )}
+                  </div>
+                )}
 
-                <div className="pt-4 border-t">
-                  <h4 className="font-medium mb-2">Información de la App</h4>
-                  <div className="text-sm text-gray-600 space-y-1">
-                    <p>Versión: 2.1.0</p>
-                    <p>Última actualización: 20 Enero 2024</p>
-                    <p>Términos de servicio • Política de privacidad</p>
+                {/* Preguntas Frecuentes */}
+                <div className="pt-6 border-t">
+                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 text-blue-600" />
+                    Preguntas Frecuentes
+                  </h4>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo cambio mi contraseña?</h5>
+                      <p className="text-sm text-gray-600">
+                        Ve a la pestaña "Seguridad" en esta misma página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo actualizo mi perfil?</h5>
+                      <p className="text-sm text-gray-600">
+                        En la pestaña "Mi Perfil" puedes editar toda tu información personal, incluyendo nombre, altura, peso, objetivos y más.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo funcionan los planes de entrenamiento?</h5>
+                      <p className="text-sm text-gray-600">
+                        Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección "Entrenamientos" del dashboard.
+                      </p>
+                    </div>
+                    
+                    <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                      <h5 className="font-medium text-gray-900 mb-2">¿Puedo personalizar mi plan nutricional?</h5>
+                      <p className="text-sm text-gray-600">
+                        Sí, los planes nutricionales se adaptan a tus preferencias dietéticas, alergias y objetivos. Actualiza tu perfil para que el plan se ajuste automáticamente.
+                      </p>
+                    </div>
                   </div>
                 </div>
+
+                {/* Información de la App */}
+                <div className="pt-6 border-t">
+                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                    <Info className="h-5 w-5 text-gray-600" />
+                    Información de la Aplicación
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <div className="text-sm font-medium text-gray-700 mb-1">Versión</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {helpSettings?.app_version || '2.1.0'}
+                      </div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-lg">
+                      <div className="text-sm font-medium text-gray-700 mb-1">Última actualización</div>
+                      <div className="text-lg font-semibold text-gray-900">
+                        {helpSettings?.last_update_date || 'Diciembre 2024'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4 flex flex-wrap gap-4">
+                    {helpSettings?.terms_url && (
+                      <>
+                        <Button
+                          variant="link"
+                          className="text-blue-600 hover:text-blue-700 p-0 h-auto"
+                          onClick={() => window.open(helpSettings.terms_url!, '_blank')}
+                        >
+                          Términos de servicio
+                        </Button>
+                        {helpSettings.privacy_url && <span className="text-gray-400">•</span>}
+                      </>
+                    )}
+                    {helpSettings?.privacy_url && (
+                      <Button
+                        variant="link"
+                        className="text-blue-600 hover:text-blue-700 p-0 h-auto"
+                        onClick={() => window.open(helpSettings.privacy_url!, '_blank')}
+                      >
+                        Política de privacidad
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contacto Directo */}
+                {helpSettings?.contact_enabled && (
+                  <div className="pt-6 border-t">
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                      <h4 className="font-semibold text-lg mb-2 flex items-center gap-2">
+                        <Mail className="h-5 w-5 text-blue-600" />
+                        ¿Necesitas más ayuda?
+                      </h4>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Si no encuentras lo que buscas, nuestro equipo está aquí para ayudarte.
+                      </p>
+                      <Button
+                        onClick={() => handleHelpAction("contact")}
+                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                      >
+                        <Mail className="h-4 w-4 mr-2" />
+                        Contactar Soporte
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

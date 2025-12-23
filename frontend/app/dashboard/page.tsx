@@ -68,6 +68,7 @@ const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").t
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
+const ProgressAnalysisPanel = lazy(() => import("./components/progress-analysis-panel").then(module => ({ default: module.ProgressAnalysisPanel })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -196,7 +197,6 @@ function DashboardContent() {
         )
 
       case "progress":
-        // Redirigir a Day 1 (ahora unificado)
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -204,7 +204,15 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <DayOneSheet />
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center p-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                  </div>
+                }>
+                  <ProgressAnalysisPanel />
+                </Suspense>
+              </div>
             </div>
           </div>
         )
@@ -293,15 +301,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-yellow-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Medal className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
-                  Sistema de Recompensas 🎁
-                </h2>
-                <p className="text-sm text-gray-600">Completa objetivos diarios y gana recompensas</p>
-              </div>
               <AchievementsDuolingo />
             </div>
           </div>
@@ -328,14 +327,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-slate-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 rounded-2xl flex items-center justify-center animate-bounce shadow-lg">
-                  <Settings className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                  Configuración ⚙️
-                </h2>
-              </div>
               <SettingsPage />
             </div>
           </div>

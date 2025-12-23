@@ -161,3 +161,4 @@ try {
     Write-Error "Error durante la exportación: $_"
     exit 1
 }
+

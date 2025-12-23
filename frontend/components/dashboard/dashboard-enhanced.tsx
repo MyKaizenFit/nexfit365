@@ -74,6 +74,18 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
 
+  // Refrescar datos cuando se actualiza el peso
+  useEffect(() => {
+    const handleWeightUpdate = async () => {
+      // Refrescar historial de peso y estadísticas
+      if (refreshWeight) await refreshWeight()
+      if (refreshStats) await refreshStats()
+    }
+    
+    window.addEventListener('weightUpdated', handleWeightUpdate)
+    return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
+  }, [refreshWeight, refreshStats])
+
   // Calcular métricas
   const overallProgress = progressStats?.overall_progress || 0
   const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
@@ -367,53 +379,6 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             </div>
           </CardContent>
         </Card>
-      </div>
-
-      {/* Quick Actions - Acciones rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
-        >
-          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-            <Dumbbell className="h-5 w-5 text-gray-700" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-purple-700">Entrenar</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-orange-50 border-2 border-orange-100 hover:border-orange-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
-        >
-          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-            <Utensils className="h-5 w-5 text-gray-700" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-orange-700">Comidas</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-emerald-50 border-2 border-emerald-100 hover:border-emerald-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'day-one' } }))}
-        >
-          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-            <Camera className="h-5 w-5 text-gray-700" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-emerald-700">Progreso</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-2 border-blue-100 hover:border-blue-300 transition-all group"
-          onClick={() => setIsPhotoDialogOpen(true)}
-        >
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-            <Plus className="h-5 w-5 text-gray-700" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-blue-700">Nueva Foto</span>
-        </Button>
       </div>
 
       {/* Resumen de Macros */}

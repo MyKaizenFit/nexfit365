@@ -1,16 +1,20 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, lazy, Suspense } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
+
+const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
+const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
   const { meals, macros, loading, syncing, selectMealOption, getMealOptions } = useDailyMeals()
@@ -118,7 +122,25 @@ export function MealDashboard() {
         </CardHeader>
       </Card>
 
-      {/* Progreso Detallado del Día - Movido a la parte superior */}
+      {/* Tabs para vista diaria, semanal y mensual */}
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="daily" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Vista Diaria
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Vista Semanal
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Vista Mensual
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="daily" className="space-y-6 mt-6">
+          {/* Progreso Detallado del Día - Movido a la parte superior */}
       <div className="space-y-6">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
@@ -263,17 +285,39 @@ export function MealDashboard() {
         </div>
       </div>
 
-      {/* Modal de selección de comidas */}
-      {selectedMeal && (
-        <MealSelectionModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          mealName={selectedMeal.name}
-          mealTime={selectedMeal.time}
-          options={getMealOptions(selectedMeal.name)}
-          onSelectOption={handleSelectOption}
-        />
-      )}
+          {/* Modal de selección de comidas */}
+          {selectedMeal && (
+            <MealSelectionModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              mealName={selectedMeal.name}
+              mealTime={selectedMeal.time}
+              options={getMealOptions(selectedMeal.name)}
+              onSelectOption={handleSelectOption}
+            />
+          )}
+        </TabsContent>
+
+        <TabsContent value="weekly" className="mt-6">
+          <Suspense fallback={
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </div>
+          }>
+            <WeeklyMealPlan />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="monthly" className="mt-6">
+          <Suspense fallback={
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </div>
+          }>
+            <MonthlyMealPlan />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

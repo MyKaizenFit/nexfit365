@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -11,60 +11,160 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/hooks/use-toast"
 import { useUserProfile } from "@/hooks/use-user-profile"
+import { NutritionPreview } from "./nutrition-preview"
+import { calculateNutritionPlan, type CalculatedMacros } from "@/lib/nutrition-calculator"
+import { nutritionService } from "@/lib/nutrition-service"
 
 export function ProfilePanel() {
   const [isEditing, setIsEditing] = useState(false)
+  const [localProfile, setLocalProfile] = useState<any>(null)
+  const [currentPlan, setCurrentPlan] = useState<CalculatedMacros | null>(null)
   const { profile, updateProfile, loading, error, refreshProfile } = useUserProfile()
+
+  // Sincronizar perfil local cuando cambia el perfil del hook
+  useEffect(() => {
+    if (profile) {
+      setLocalProfile(profile)
+    }
+  }, [profile])
+
+  // Cargar plan actual al montar
+  useEffect(() => {
+    if (profile && isEditing) {
+      loadCurrentPlan()
+    }
+  }, [profile, isEditing])
+
+  const loadCurrentPlan = async () => {
+    try {
+      const plan = await nutritionService.getCurrentPlan()
+      if (plan && plan.daily_calories && plan.target_macros) {
+        setCurrentPlan({
+          calories: plan.daily_calories,
+          protein: plan.target_macros.protein || 0,
+          carbs: plan.target_macros.carbs || 0,
+          fat: plan.target_macros.fat || 0,
+          protein_percentage: 0,
+          carbs_percentage: 0,
+          fat_percentage: 0,
+        })
+      } else {
+        // Calcular desde el perfil actual si no hay plan
+        const calculated = calculateNutritionPlan({
+          weight: profile?.weight,
+          height: profile?.height,
+          age: profile?.age || calculateAge(profile?.birth_date || profile?.date_of_birth),
+          gender: profile?.gender as any,
+          activity_level: profile?.activity_level as any,
+          main_goal: profile?.main_goal as any,
+        })
+        setCurrentPlan(calculated)
+      }
+    } catch (error) {
+      console.error('Error cargando plan actual:', error)
+    }
+  }
+
+  const calculateAge = (birthDate: string | null | undefined): number | null => {
+    if (!birthDate) return null
+    const birth = new Date(birthDate)
+    const today = new Date()
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age
+  }
+
+  const handleLocalUpdate = (updates: any) => {
+    setLocalProfile((prev: any) => {
+      const updated = { ...prev, ...updates }
+      // Asegurar que los valores numéricos nunca sean undefined para inputs controlados
+      if (updated.weight === undefined) updated.weight = prev?.weight ?? profile?.weight ?? null
+      if (updated.target_weight === undefined) updated.target_weight = prev?.target_weight ?? profile?.target_weight ?? null
+      if (updated.height === undefined) updated.height = prev?.height ?? profile?.height ?? null
+      if (updated.activity_level === undefined) updated.activity_level = prev?.activity_level ?? profile?.activity_level ?? ''
+      if (updated.main_goal === undefined) updated.main_goal = prev?.main_goal ?? profile?.main_goal ?? ''
+      return updated
+    })
+  }
 
   const handleSave = async () => {
     try {
-      if (profile) {
-        // Crear objeto con solo campos editables
+      if (localProfile) {
+        // Crear objeto con solo campos editables desde localProfile
         const editableFields: any = {}
         
         // Campos básicos editables
-        if (profile.first_name !== undefined) editableFields.first_name = profile.first_name
-        if (profile.last_name !== undefined) editableFields.last_name = profile.last_name
+        if (localProfile.first_name !== undefined) editableFields.first_name = localProfile.first_name
+        if (localProfile.last_name !== undefined) editableFields.last_name = localProfile.last_name
         // phone puede venir como phone o phone_number del backend
-        const phoneValue = profile.phone_number || profile.phone
+        const phoneValue = localProfile.phone_number || localProfile.phone
         if (phoneValue !== undefined) editableFields.phone_number = phoneValue
         // birth_date puede venir como birth_date o date_of_birth
-        const birthDateValue = profile.birth_date || profile.date_of_birth
+        const birthDateValue = localProfile.birth_date || localProfile.date_of_birth
         if (birthDateValue !== undefined) editableFields.birth_date = birthDateValue
-        if (profile.gender !== undefined) editableFields.gender = profile.gender
+        if (localProfile.gender !== undefined) editableFields.gender = localProfile.gender
         
         // Campos físicos
-        if (profile.height !== undefined) editableFields.height = profile.height
-        if (profile.weight !== undefined) editableFields.weight = profile.weight
-        if (profile.target_weight !== undefined) editableFields.target_weight = profile.target_weight
-        if (profile.target_date !== undefined) editableFields.target_date = profile.target_date
+        if (localProfile.height !== undefined) editableFields.height = localProfile.height
+        if (localProfile.weight !== undefined) editableFields.weight = localProfile.weight
+        if (localProfile.target_weight !== undefined) editableFields.target_weight = localProfile.target_weight
         
         // Preferencias
-        if (profile.activity_level !== undefined) editableFields.activity_level = profile.activity_level
-        if (profile.fitness_goals !== undefined) editableFields.fitness_goals = profile.fitness_goals
-        if (profile.dietary_restrictions !== undefined) editableFields.dietary_restrictions = profile.dietary_restrictions
-        if (profile.allergies !== undefined) editableFields.allergies = profile.allergies
-        if (profile.medical_conditions !== undefined) editableFields.medical_conditions = profile.medical_conditions
+        if (localProfile.activity_level !== undefined) editableFields.activity_level = localProfile.activity_level
+        if (localProfile.dietary_restrictions !== undefined) editableFields.dietary_restrictions = localProfile.dietary_restrictions
+        if (localProfile.allergies !== undefined) editableFields.allergies = localProfile.allergies
+        if (localProfile.medical_conditions !== undefined) editableFields.medical_conditions = localProfile.medical_conditions
         
         // Entrenamiento
-        if (profile.training_days_per_week !== undefined) editableFields.training_days_per_week = profile.training_days_per_week
-        if (profile.training_days !== undefined) editableFields.training_days = profile.training_days
-        if (profile.training_location !== undefined) editableFields.training_location = profile.training_location
-        if (profile.main_goal !== undefined) editableFields.main_goal = profile.main_goal
+        if (localProfile.training_days_per_week !== undefined) editableFields.training_days_per_week = localProfile.training_days_per_week
+        if (localProfile.training_days !== undefined) editableFields.training_days = localProfile.training_days
+        if (localProfile.training_location !== undefined) editableFields.training_location = localProfile.training_location
+        if (localProfile.main_goal !== undefined) editableFields.main_goal = localProfile.main_goal
         
         // Otros campos
-        if (profile.previous_obstacles !== undefined) editableFields.previous_obstacles = profile.previous_obstacles
-        if (profile.injuries_or_medical_issues !== undefined) editableFields.injuries_or_medical_issues = profile.injuries_or_medical_issues
-        if (profile.disliked_foods !== undefined) editableFields.disliked_foods = profile.disliked_foods
+        if (localProfile.injuries_or_medical_issues !== undefined) editableFields.injuries_or_medical_issues = localProfile.injuries_or_medical_issues
+        if (localProfile.disliked_foods !== undefined) editableFields.disliked_foods = localProfile.disliked_foods
         
-        await updateProfile(editableFields)
-        toast({
-          title: "✅ Perfil actualizado",
-          description: "Tus cambios han sido guardados correctamente",
-        })
+        const response = await updateProfile(editableFields)
+        
+        // Verificar si el plan fue actualizado automáticamente
+        const planUpdated = (response as any)?.plan_updated || false
+        const planUpdateMessage = (response as any)?.plan_update_message
+        
+        if (planUpdated && planUpdateMessage) {
+          toast({
+            title: "✅ Perfil actualizado",
+            description: planUpdateMessage,
+            duration: 5000,
+          })
+        } else {
+          toast({
+            title: "✅ Perfil actualizado",
+            description: "Tus cambios han sido guardados correctamente",
+          })
+        }
+        
         setIsEditing(false)
         // Refrescar el perfil para obtener los datos actualizados
         await refreshProfile()
+        
+        // Si se actualizó el peso, refrescar también el historial de peso y estadísticas
+        if (editableFields.weight !== undefined) {
+          try {
+            // Disparar evento personalizado para refrescar componentes que muestran peso
+            window.dispatchEvent(new CustomEvent('weightUpdated', { 
+              detail: { weight: editableFields.weight } 
+            }))
+            
+            // Refrescar también los hooks relacionados si están disponibles
+            // Esto se hace a través del evento para evitar dependencias circulares
+          } catch (error) {
+            console.warn('Error refrescando datos de peso:', error)
+          }
+        }
       }
     } catch (error) {
       console.error('Error al actualizar perfil:', error)
@@ -78,7 +178,13 @@ export function ProfilePanel() {
 
   const handleCancel = () => {
     setIsEditing(false)
-    // Aquí podrías revertir los cambios si fuera necesario
+    // Revertir cambios locales al perfil original
+    setLocalProfile(profile)
+  }
+
+  const handleEdit = () => {
+    setIsEditing(true)
+    setLocalProfile(profile)
   }
 
   const progressToGoal = profile?.weight && profile?.target_weight 
@@ -144,7 +250,7 @@ export function ProfilePanel() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+            onClick={() => (isEditing ? handleSave() : handleEdit())}
             className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
           >
             {isEditing ? <Save className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
@@ -253,7 +359,7 @@ export function ProfilePanel() {
               <Input
                 id="email"
                 type="email"
-                value={profile.email}
+                value={profile.email || ''}
                 onChange={(e) => updateProfile({ email: e.target.value })}
                 disabled={!isEditing}
                 className="mt-1"
@@ -331,8 +437,8 @@ export function ProfilePanel() {
               <Input
                 id="height"
                 type="number"
-                value={profile.height || ''}
-                onChange={(e) => updateProfile({ height: parseInt(e.target.value) })}
+                value={profile.height ?? ''}
+                onChange={(e) => updateProfile({ height: e.target.value ? parseInt(e.target.value) : null })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -343,8 +449,8 @@ export function ProfilePanel() {
                 id="weight"
                 type="number"
                 step="0.1"
-                value={profile.weight || ''}
-                onChange={(e) => updateProfile({ weight: parseFloat(e.target.value) })}
+                value={localProfile?.weight ?? profile.weight ?? ''}
+                onChange={(e) => handleLocalUpdate({ weight: e.target.value ? parseFloat(e.target.value) : null })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -355,8 +461,8 @@ export function ProfilePanel() {
                 id="target_weight"
                 type="number"
                 step="0.1"
-                value={profile.target_weight || ''}
-                onChange={(e) => updateProfile({ target_weight: parseFloat(e.target.value) })}
+                value={localProfile?.target_weight ?? profile.target_weight ?? ''}
+                onChange={(e) => handleLocalUpdate({ target_weight: e.target.value ? parseFloat(e.target.value) : null })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -395,8 +501,8 @@ export function ProfilePanel() {
             <div>
               <Label htmlFor="activity_level">Nivel de actividad</Label>
               <Select
-                value={profile.activity_level || ''}
-                onValueChange={(value) => updateProfile({ activity_level: value })}
+                value={localProfile?.activity_level ?? profile?.activity_level ?? ''}
+                onValueChange={(value) => handleLocalUpdate({ activity_level: value })}
                 disabled={!isEditing}
               >
                 <SelectTrigger className="mt-1">
@@ -412,41 +518,48 @@ export function ProfilePanel() {
               </Select>
             </div>
             <div>
-              <Label>Objetivos principales</Label>
-              <div className="mt-2 space-y-2">
-                {["weight_loss", "muscle_gain", "endurance", "flexibility"].map((goal) => (
-                  <label key={goal} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={
-                        Array.isArray(profile.fitness_goals) 
-                          ? profile.fitness_goals.includes(goal)
-                          : false
-                      }
-                      onChange={(e) => {
-                        const currentGoals = Array.isArray(profile.fitness_goals) 
-                          ? profile.fitness_goals 
-                          : []
-                        if (e.target.checked) {
-                          updateProfile({ fitness_goals: [...currentGoals, goal] })
-                        } else {
-                          updateProfile({ fitness_goals: currentGoals.filter((g: string) => g !== goal) })
-                        }
-                      }}
-                      disabled={!isEditing}
-                      className="rounded border-gray-300"
-                    />
-                    <span className="text-sm text-gray-700">
-                      {goal === "weight_loss" && "Pérdida de peso"}
-                      {goal === "muscle_gain" && "Ganancia de músculo"}
-                      {goal === "endurance" && "Resistencia"}
-                      {goal === "flexibility" && "Flexibilidad"}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              <Label htmlFor="main_goal">Objetivo principal</Label>
+              <Select
+                value={localProfile?.main_goal ?? profile?.main_goal ?? ''}
+                onValueChange={(value) => handleLocalUpdate({ main_goal: value })}
+                disabled={!isEditing}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder="Selecciona tu objetivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="lose_weight">Perder peso</SelectItem>
+                  <SelectItem value="gain_muscle">Ganar músculo</SelectItem>
+                  <SelectItem value="body_recomposition">Recomposición corporal</SelectItem>
+                  <SelectItem value="maintain">Mantener</SelectItem>
+                  <SelectItem value="performance">Rendimiento</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
+
+          {/* Preview de cambios nutricionales */}
+          {isEditing && localProfile && (
+            <NutritionPreview
+              currentProfile={{
+                weight: profile?.weight,
+                height: profile?.height,
+                age: profile?.age || calculateAge(profile?.birth_date || profile?.date_of_birth),
+                gender: profile?.gender as any,
+                activity_level: profile?.activity_level as any,
+                main_goal: profile?.main_goal as any,
+              }}
+              proposedProfile={{
+                weight: localProfile?.weight || profile?.weight,
+                height: localProfile?.height || profile?.height,
+                age: localProfile?.age || profile?.age || calculateAge(localProfile?.birth_date || localProfile?.date_of_birth || profile?.birth_date || profile?.date_of_birth),
+                gender: (localProfile?.gender || profile?.gender) as any,
+                activity_level: (localProfile?.activity_level || profile?.activity_level) as any,
+                main_goal: (localProfile?.main_goal || profile?.main_goal) as any,
+              }}
+              currentPlan={currentPlan}
+            />
+          )}
         </CardContent>
       </Card>
 

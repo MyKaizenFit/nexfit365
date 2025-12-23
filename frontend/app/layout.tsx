@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/toaster'
 import { NotificationContainer } from '@/components/ui/notification-toast'
 import { BetaBanner } from '@/components/beta-banner'
+import { RegisterServiceWorker } from './register-sw'
 // import { ThemeProvider } from '@/components/theme-provider'  // Deshabilitado para esta versión
 
 export const metadata: Metadata = {
@@ -28,6 +29,13 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
+        <meta charSet="utf-8" />
+        <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        <meta name="theme-color" content="#14b8a6" />
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icono.png" />
+        <link rel="apple-touch-icon" href="/icono.png" />
         <style>{`
 html {
   font-family: ${GeistSans.style.fontFamily};
@@ -37,6 +45,7 @@ html {
         `}</style>
       </head>
       <body>
+        <RegisterServiceWorker />
         <BetaBanner />
         {/* ThemeProvider deshabilitado para esta versión
         <ThemeProvider
