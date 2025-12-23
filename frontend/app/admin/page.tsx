@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -42,6 +42,7 @@ const NutritionPlanManagement = lazy(() => import("./components/nutrition-plan-m
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
 const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations").then(module => ({ default: module.DefaultPlanConfigurationsPanel })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
+const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").then(module => ({ default: module.HelpSettingsPanel })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
@@ -138,6 +139,7 @@ function AdminPageContent() {
     | 'user-nutrition-plans'
     | 'default-plan-configurations'
     | 'notifications'
+    | 'help-settings'
   >('dashboard')
   const [isLoading, setIsLoading] = useState(false)
   
@@ -737,6 +739,18 @@ function AdminPageContent() {
                       <Bell className="h-4 w-4" />
                       Notificaciones
                     </Button>
+                    <Button
+                      variant={activeSection === 'help-settings' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('help-settings')}
+                      className={`flex items-center gap-2 ${
+                        activeSection === 'help-settings'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                      Config. Ayuda
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -782,6 +796,8 @@ function AdminPageContent() {
             <DefaultPlanConfigurationsPanel />
           ) : activeSection === 'notifications' ? (
             <NotificationsPanel />
+          ) : activeSection === 'help-settings' ? (
+            <HelpSettingsPanel />
           ) : (
           <>
             {/* Stats Cards */}

@@ -173,3 +173,47 @@ class FeedbackMessage(TimeStampedModel):
         self.resolved_at = timezone.now()
         self.admin_response = response
         self.save()
+
+
+class PushSubscription(TimeStampedModel):
+    """
+    Suscripciones push para notificaciones en tiempo real
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='push_subscriptions'
+    )
+    endpoint = models.URLField(max_length=500, help_text="URL del endpoint de push")
+    p256dh = models.CharField(max_length=200, help_text="Clave pública p256dh")
+    auth = models.CharField(max_length=200, help_text="Clave de autenticación")
+    is_active = models.BooleanField(default=True, help_text="Si la suscripción está activa")
+    user_agent = models.TextField(blank=True, help_text="User agent del navegador")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Suscripción Push"
+        verbose_name_plural = "Suscripciones Push"
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['endpoint']),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'endpoint'],
+                name='unique_user_endpoint'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.user.email} - {self.endpoint[:50]}..."
+    
+    def get_subscription_dict(self):
+        """Obtener diccionario con datos de suscripción para webpush"""
+        return {
+            'endpoint': self.endpoint,
+            'keys': {
+                'p256dh': self.p256dh,
+                'auth': self.auth
+            }
+        }

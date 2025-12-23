@@ -8,14 +8,18 @@ from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
-    PlanMealSerializer, MealLogSerializer, FoodSerializer
+    PlanMealSerializer, MealLogSerializer, FoodSerializer,
+    NutritionPlanHistorySerializer
 )
 from .services import PersonalizedNutritionService
 from django.shortcuts import get_object_or_404
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['GET'])
@@ -46,12 +50,21 @@ def plan_meals_for_selection(request):
     Devuelve las comidas del plan actual del usuario organizadas por tipo con recetas sugeridas.
     Las cantidades se personalizan según el perfil del usuario (peso, altura, objetivo, etc.)
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     user = request.user
+    logger.info(f"🍽️ Personalizando comidas para usuario: {user.email} (ID: {user.id})")
+    logger.info(f"📊 Perfil del usuario: peso={user.weight}kg, altura={user.height}cm, edad={user.age}, género={user.gender}, objetivo={user.main_goal}, actividad={user.activity_level}")
+    
     service = PersonalizedNutritionService(user)
     
     # Calcular calorías y macros diarios personalizados
     daily_calories = service.calculate_daily_calories()
     daily_macros = service.calculate_macros(daily_calories)
+    
+    logger.info(f"🔥 Calorías diarias calculadas: {daily_calories} kcal")
+    logger.info(f"📈 Macros diarios: P={daily_macros['protein']:.1f}g, C={daily_macros['carbs']:.1f}g, G={daily_macros['fat']:.1f}g")
     
     # Distribución de calorías por comida (porcentajes del total diario)
     meal_calorie_distribution = {
@@ -88,6 +101,12 @@ def plan_meals_for_selection(request):
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
+        
+        logger.debug(f"🔧 Personalizando receta '{recipe.name}' para {meal_type}: "
+                    f"calorías_originales={recipe_calories_float}, "
+                    f"target={target_calories:.0f}, "
+                    f"factor_escala={scale_factor:.2f}, "
+                    f"porcentaje_comida={meal_percentage*100:.0f}%")
         
         # Calcular macros personalizados (convertir Decimal a float antes de multiplicar)
         recipe_calories = float(recipe.calories) if recipe.calories else None
@@ -341,23 +360,418 @@ def daily_meal_selections(request):
         if not meal_type:
             return Response({'error': 'meal_type es requerido'}, status=status.HTTP_400_BAD_REQUEST)
         
+        # Obtener receta si se proporciona recipe_id
+        recipe = None
+        if recipe_id:
+            try:
+                recipe = Recipe.objects.get(id=recipe_id, is_active=True)
+            except Recipe.DoesNotExist:
+                return Response(
+                    {'error': f'Receta con id {recipe_id} no encontrada'},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+        
         # Crear o actualizar el log de comida
         meal_log, created = MealLog.objects.update_or_create(
             user=user,
             date=date,
             meal_type=meal_type,
             defaults={
-                'recipe_id': recipe_id,
+                'recipe': recipe,
                 'completed': True,
                 'calories': data.get('calories', 0),
                 'protein': data.get('protein', 0),
                 'carbs': data.get('carbs', 0),
                 'fat': data.get('fat', 0),
+                'custom_description': data.get('custom_description', ''),
             }
         )
         
         serializer = MealLogSerializer(meal_log)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def adjust_plan(request):
+    """
+    Ajustar el plan nutricional actual del usuario con un ajuste de calorías específico.
+    POST /api/nutrition/adjust-plan/
+    
+    Body:
+    {
+        "calorie_adjustment": 200,  # Ajuste en calorías (positivo = aumentar, negativo = reducir)
+        "reason": "stalled_progress",  # Razón del ajuste (opcional)
+        "notes": "Ajuste basado en análisis de progreso"  # Notas adicionales (opcional)
+    }
+    """
+    user = request.user
+    
+    # Obtener plan activo del usuario
+    active_plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
+    if not active_plan:
+        return Response(
+            {'error': 'No tienes un plan nutricional activo'},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    # Validar datos
+    calorie_adjustment = request.data.get('calorie_adjustment')
+    if calorie_adjustment is None:
+        return Response(
+            {'error': 'calorie_adjustment es requerido'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        calorie_adjustment = int(calorie_adjustment)
+    except (ValueError, TypeError):
+        return Response(
+            {'error': 'calorie_adjustment debe ser un número entero'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    # Validar rango razonable (-1000 a +1000 calorías)
+    if abs(calorie_adjustment) > 1000:
+        return Response(
+            {'error': 'El ajuste de calorías debe estar entre -1000 y +1000'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        # Aplicar ajuste
+        nutrition_service = PersonalizedNutritionService(user)
+        reason = request.data.get('reason', 'manual_adjustment')
+        notes = request.data.get('notes', f'Ajuste manual de {calorie_adjustment:+d} calorías basado en análisis de progreso')
+        
+        updated_plan = nutrition_service.adjust_plan_calories(
+            plan=active_plan,
+            calorie_adjustment=calorie_adjustment,
+            reason=reason,
+            notes=notes
+        )
+        
+        # Serializar plan actualizado
+        serializer = NutritionPlanSerializer(updated_plan)
+        
+        return Response({
+            'plan': serializer.data,
+            'message': f'Plan ajustado exitosamente. Nuevas calorías: {updated_plan.daily_calories} kcal ({calorie_adjustment:+d} kcal)',
+            'old_calories': active_plan.daily_calories,
+            'new_calories': updated_plan.daily_calories,
+            'adjustment': calorie_adjustment
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        logger.error(f'Error ajustando plan para usuario {user.email}: {str(e)}')
+        import traceback
+        logger.error(traceback.format_exc())
+        return Response(
+            {'error': f'Error al ajustar el plan: {str(e)}'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def plan_history(request):
+    """
+    Obtener historial de cambios de planes nutricionales del usuario.
+    GET /api/nutrition/plan-history/
+    """
+    user = request.user
+    
+    # Obtener historial del usuario ordenado por fecha más reciente
+    history = NutritionPlanHistory.objects.filter(
+        user=user
+    ).select_related('changed_by').order_by('-created_at')[:50]  # Últimos 50 cambios
+    
+    serializer = NutritionPlanHistorySerializer(history, many=True)
+    
+    return Response({
+        'history': serializer.data,
+        'count': len(serializer.data)
+    })
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def monthly_meal_selections(request):
+    """
+    Obtener o crear selecciones de comidas para un mes.
+    GET: Obtener selecciones del mes
+    POST: Guardar selecciones para múltiples días del mes
+    
+    GET params:
+        year: Año (por defecto año actual)
+        month: Mes (1-12, por defecto mes actual)
+    
+    POST body:
+    {
+        "year": 2025,
+        "month": 12,
+        "selections": [
+            {
+                "date": "2025-12-23",
+                "meal_type": "breakfast",
+                "recipe_id": "...",
+                "calories": 500,
+                "protein": 30,
+                "carbs": 50,
+                "fat": 20
+            },
+            ...
+        ]
+    }
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    import calendar
+    
+    user = request.user
+    
+    if request.method == 'GET':
+        # Obtener año y mes (por defecto mes actual)
+        today = timezone.localdate()
+        year = int(request.query_params.get('year', today.year))
+        month = int(request.query_params.get('month', today.month))
+        
+        # Validar mes
+        if month < 1 or month > 12:
+            return Response(
+                {'error': 'month debe estar entre 1 y 12'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Calcular primer y último día del mes
+        first_day = today.replace(year=year, month=month, day=1)
+        last_day_num = calendar.monthrange(year, month)[1]
+        last_day = first_day.replace(day=last_day_num)
+        
+        # Obtener selecciones del mes
+        meal_logs = MealLog.objects.filter(
+            user=user,
+            date__gte=first_day,
+            date__lte=last_day
+        ).order_by('date', 'meal_type')
+        
+        # Organizar por día
+        monthly_selections = {}
+        for log in meal_logs:
+            date_str = log.date.isoformat()
+            if date_str not in monthly_selections:
+                monthly_selections[date_str] = []
+            monthly_selections[date_str].append(MealLogSerializer(log).data)
+        
+        return Response({
+            'year': year,
+            'month': month,
+            'start_date': first_day.isoformat(),
+            'end_date': last_day.isoformat(),
+            'selections': monthly_selections
+        })
+    
+    elif request.method == 'POST':
+        # Guardar selecciones para múltiples días del mes
+        data = request.data
+        selections = data.get('selections', [])
+        
+        if not selections:
+            return Response(
+                {'error': 'selections es requerido y debe ser una lista'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        created_count = 0
+        updated_count = 0
+        errors = []
+        
+        for selection_data in selections:
+            try:
+                date_str = selection_data.get('date')
+                if not date_str:
+                    errors.append({'selection': selection_data, 'error': 'date es requerido'})
+                    continue
+                
+                try:
+                    from datetime import datetime
+                    selection_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    errors.append({'selection': selection_data, 'error': 'date inválido'})
+                    continue
+                
+                meal_type = selection_data.get('meal_type')
+                if not meal_type:
+                    errors.append({'selection': selection_data, 'error': 'meal_type es requerido'})
+                    continue
+                
+                # Crear o actualizar selección
+                meal_log, created = MealLog.objects.update_or_create(
+                    user=user,
+                    date=selection_date,
+                    meal_type=meal_type,
+                    defaults={
+                        'recipe_id': selection_data.get('recipe_id'),
+                        'completed': selection_data.get('completed', True),
+                        'calories': selection_data.get('calories', 0),
+                        'protein': selection_data.get('protein', 0),
+                        'carbs': selection_data.get('carbs', 0),
+                        'fat': selection_data.get('fat', 0),
+                    }
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+                    
+            except Exception as e:
+                errors.append({
+                    'selection': selection_data,
+                    'error': str(e)
+                })
+        
+        return Response({
+            'created': created_count,
+            'updated': updated_count,
+            'errors': errors,
+            'message': f'Se procesaron {created_count + updated_count} selecciones ({created_count} nuevas, {updated_count} actualizadas)'
+        }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def weekly_meal_selections(request):
+    """
+    Obtener o crear selecciones de comidas para una semana.
+    GET: Obtener selecciones de la semana
+    POST: Guardar selecciones para múltiples días
+    
+    POST body:
+    {
+        "start_date": "2025-12-23",
+        "selections": [
+            {
+                "date": "2025-12-23",
+                "meal_type": "breakfast",
+                "recipe_id": "...",
+                "calories": 500,
+                "protein": 30,
+                "carbs": 50,
+                "fat": 20
+            },
+            ...
+        ]
+    }
+    """
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    user = request.user
+    
+    if request.method == 'GET':
+        # Obtener fecha de inicio de semana (por defecto semana actual)
+        start_date_str = request.query_params.get('start_date')
+        if start_date_str:
+            try:
+                from datetime import datetime
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            except ValueError:
+                start_date = timezone.localdate()
+        else:
+            # Semana actual (lunes)
+            today = timezone.localdate()
+            start_date = today - timedelta(days=today.weekday())
+        
+        end_date = start_date + timedelta(days=6)  # Domingo
+        
+        # Obtener selecciones de la semana
+        meal_logs = MealLog.objects.filter(
+            user=user,
+            date__gte=start_date,
+            date__lte=end_date
+        ).order_by('date', 'meal_type')
+        
+        # Organizar por día
+        weekly_selections = {}
+        for log in meal_logs:
+            date_str = log.date.isoformat()
+            if date_str not in weekly_selections:
+                weekly_selections[date_str] = []
+            weekly_selections[date_str].append(MealLogSerializer(log).data)
+        
+        return Response({
+            'start_date': start_date.isoformat(),
+            'end_date': end_date.isoformat(),
+            'selections': weekly_selections
+        })
+    
+    elif request.method == 'POST':
+        # Guardar selecciones para múltiples días
+        data = request.data
+        selections = data.get('selections', [])
+        
+        if not selections:
+            return Response(
+                {'error': 'selections es requerido y debe ser una lista'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        created_count = 0
+        updated_count = 0
+        errors = []
+        
+        for selection_data in selections:
+            try:
+                date_str = selection_data.get('date')
+                if not date_str:
+                    errors.append({'selection': selection_data, 'error': 'date es requerido'})
+                    continue
+                
+                try:
+                    from datetime import datetime
+                    selection_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+                except ValueError:
+                    errors.append({'selection': selection_data, 'error': 'date inválido'})
+                    continue
+                
+                meal_type = selection_data.get('meal_type')
+                if not meal_type:
+                    errors.append({'selection': selection_data, 'error': 'meal_type es requerido'})
+                    continue
+                
+                # Crear o actualizar selección
+                meal_log, created = MealLog.objects.update_or_create(
+                    user=user,
+                    date=selection_date,
+                    meal_type=meal_type,
+                    defaults={
+                        'recipe_id': selection_data.get('recipe_id'),
+                        'completed': selection_data.get('completed', True),
+                        'calories': selection_data.get('calories', 0),
+                        'protein': selection_data.get('protein', 0),
+                        'carbs': selection_data.get('carbs', 0),
+                        'fat': selection_data.get('fat', 0),
+                    }
+                )
+                
+                if created:
+                    created_count += 1
+                else:
+                    updated_count += 1
+                    
+            except Exception as e:
+                errors.append({
+                    'selection': selection_data,
+                    'error': str(e)
+                })
+        
+        return Response({
+            'message': f'Se procesaron {len(selections)} selecciones',
+            'created': created_count,
+            'updated': updated_count,
+            'errors': errors if errors else None
+        }, status=status.HTTP_200_OK)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -400,6 +814,9 @@ class RecipeViewSet(viewsets.ModelViewSet):
         Obtiene cantidades personalizadas de una receta según el perfil del usuario.
         GET /api/nutrition/recipes/{id}/personalized/?meal_type=breakfast
         """
+        import logging
+        logger = logging.getLogger(__name__)
+        
         recipe = get_object_or_404(Recipe, pk=pk, is_active=True)
         meal_type = request.query_params.get('meal_type', 'lunch')
         
@@ -408,9 +825,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
         if meal_type not in valid_meal_types:
             meal_type = 'lunch'
         
+        user = request.user
+        logger.info(f"🍽️ Personalizando receta '{recipe.name}' (ID: {pk}) para usuario: {user.email} (ID: {user.id})")
+        logger.info(f"📊 Perfil: peso={user.weight}kg, altura={user.height}cm, objetivo={user.main_goal}, tipo_comida={meal_type}")
+        
         # Calcular cantidades personalizadas
-        service = PersonalizedNutritionService(request.user)
+        service = PersonalizedNutritionService(user)
         personalized = service.calculate_personalized_recipe_quantities(recipe, meal_type)
+        
+        daily_calories = service.calculate_daily_calories()
+        logger.info(f"🔥 Calorías diarias: {daily_calories} kcal, Factor escala: {personalized['scale_factor']:.2f}, "
+                   f"Calorías personalizadas: {personalized['macros']['calories']} kcal")
         
         # Serializar la receta
         recipe_data = RecipeSerializer(recipe).data
@@ -419,13 +844,13 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'recipe': recipe_data,
             'personalized_quantities': personalized,
             'user_profile': {
-                'weight': request.user.weight,
-                'height': request.user.height,
-                'age': request.user.age,
-                'gender': request.user.gender,
-                'main_goal': request.user.main_goal,
-                'activity_level': request.user.activity_level,
-                'daily_calories_target': service.calculate_daily_calories()
+                'weight': user.weight,
+                'height': user.height,
+                'age': user.age,
+                'gender': user.gender,
+                'main_goal': user.main_goal,
+                'activity_level': user.activity_level,
+                'daily_calories_target': daily_calories
             }
         })
 

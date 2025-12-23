@@ -56,3 +56,4 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR("❌ No se encontró la receta FAJITA 11"))
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"❌ Error: {str(e)}"))
+

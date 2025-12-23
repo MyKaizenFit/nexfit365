@@ -632,3 +632,4 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     </div>
   )
 }
+

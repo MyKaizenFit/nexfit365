@@ -323,3 +323,229 @@ class DefaultPlanConfiguration(TimeStampedModel):
                 return False
         
         return True
+
+
+class HelpSettings(TimeStampedModel):
+    """
+    Configuración del sistema de ayuda.
+    Permite gestionar URLs, correos y contenido desde el panel de administración.
+    """
+    
+    # Configuración de FAQ
+    faq_enabled = models.BooleanField(default=True, help_text="Activar página de FAQ")
+    faq_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de la página de FAQ (si está en otra ubicación)"
+    )
+    faq_content = models.TextField(
+        blank=True,
+        help_text="Contenido HTML de la página FAQ (si se gestiona internamente)"
+    )
+    
+    # Configuración de Contacto
+    contact_email = models.EmailField(
+        default="soporte@nexfit365.com",
+        help_text="Email de contacto para soporte"
+    )
+    contact_enabled = models.BooleanField(default=True, help_text="Activar contacto por email")
+    
+    # Configuración de Guías de Usuario
+    guides_enabled = models.BooleanField(default=True, help_text="Activar página de guías")
+    guides_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de la página de guías (si está en otra ubicación)"
+    )
+    guides_content = models.TextField(
+        blank=True,
+        help_text="Contenido HTML de las guías (si se gestiona internamente)"
+    )
+    
+    # Configuración de Reporte de Problemas
+    report_enabled = models.BooleanField(default=True, help_text="Activar formulario de reporte")
+    report_email = models.EmailField(
+        default="soporte@nexfit365.com",
+        help_text="Email donde se envían los reportes de problemas"
+    )
+    report_redirect_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL a donde redirigir después de enviar el reporte"
+    )
+    
+    # Información de la aplicación
+    app_version = models.CharField(
+        max_length=50,
+        default="2.1.0",
+        help_text="Versión actual de la aplicación"
+    )
+    last_update_date = models.CharField(
+        max_length=100,
+        default="Diciembre 2024",
+        help_text="Fecha de última actualización"
+    )
+    terms_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de términos de servicio"
+    )
+    privacy_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de política de privacidad"
+    )
+    
+    # Configuración general
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Activar esta configuración de ayuda"
+    )
+    
+    class Meta:
+        verbose_name = "Configuración de Ayuda"
+        verbose_name_plural = "Configuraciones de Ayuda"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["is_active"],
+                condition=models.Q(is_active=True),
+                name="unique_active_help_settings"
+            )
+        ]
+    
+    def __str__(self):
+        return f"Configuración de Ayuda (Activa: {self.is_active})"
+    
+    def save(self, *args, **kwargs):
+        # Asegurar que solo haya una configuración activa
+        if self.is_active:
+            HelpSettings.objects.filter(is_active=True).exclude(pk=self.pk).update(is_active=False)
+        super().save(*args, **kwargs)
+    
+    @classmethod
+    def get_active(cls):
+        """Obtener la configuración activa, o crear una por defecto si no existe"""
+        settings = cls.objects.filter(is_active=True).first()
+        if not settings:
+            settings = cls.objects.create()
+        return settings
+
+
+class ProblemReport(TimeStampedModel):
+    """
+    Reportes de problemas enviados por usuarios
+    """
+    
+    class ProblemType(models.TextChoices):
+        BUG = "bug", "Error/Bug"
+        FEATURE = "feature", "Solicitud de Funcionalidad"
+        UI = "ui", "Problema de Interfaz"
+        PERFORMANCE = "performance", "Problema de Rendimiento"
+        OTHER = "other", "Otro"
+    
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        IN_REVIEW = "in_review", "En Revisión"
+        RESOLVED = "resolved", "Resuelto"
+        CLOSED = "closed", "Cerrado"
+    
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="problem_reports",
+        help_text="Usuario que reporta el problema (puede ser anónimo)"
+    )
+    
+    # Información del reporte
+    problem_type = models.CharField(
+        max_length=50,
+        choices=ProblemType.choices,
+        default=ProblemType.OTHER,
+        help_text="Tipo de problema"
+    )
+    subject = models.CharField(
+        max_length=200,
+        help_text="Asunto del problema"
+    )
+    description = models.TextField(
+        help_text="Descripción detallada del problema"
+    )
+    steps_to_reproduce = models.TextField(
+        blank=True,
+        help_text="Pasos para reproducir el problema"
+    )
+    expected_behavior = models.TextField(
+        blank=True,
+        help_text="Comportamiento esperado"
+    )
+    actual_behavior = models.TextField(
+        blank=True,
+        help_text="Comportamiento actual"
+    )
+    
+    # Información adicional
+    browser_info = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Información del navegador"
+    )
+    device_info = models.CharField(
+        max_length=200,
+        blank=True,
+        help_text="Información del dispositivo"
+    )
+    url = models.URLField(
+        blank=True,
+        help_text="URL donde ocurrió el problema"
+    )
+    screenshot_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de captura de pantalla si se adjuntó"
+    )
+    
+    # Contacto
+    contact_email = models.EmailField(
+        blank=True,
+        help_text="Email de contacto (si el usuario no está autenticado)"
+    )
+    
+    # Estado y gestión
+    status = models.CharField(
+        max_length=50,
+        choices=Status.choices,
+        default=Status.PENDING,
+        help_text="Estado del reporte"
+    )
+    admin_notes = models.TextField(
+        blank=True,
+        help_text="Notas del administrador"
+    )
+    resolved_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Fecha de resolución"
+    )
+    resolved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="resolved_reports",
+        help_text="Administrador que resolvió el problema"
+    )
+    
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Reporte de Problema"
+        verbose_name_plural = "Reportes de Problemas"
+        indexes = [
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["user", "created_at"]),
+            models.Index(fields=["problem_type"]),
+        ]
+    
+    def __str__(self):
+        return f"{self.subject} - {self.get_status_display()}"

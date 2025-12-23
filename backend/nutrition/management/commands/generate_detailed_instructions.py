@@ -308,3 +308,4 @@ class Command(BaseCommand):
         if errors > 0:
             self.stdout.write(self.style.ERROR(f"❌ Errores: {errors} recetas"))
         self.stdout.write("=" * 70)
+

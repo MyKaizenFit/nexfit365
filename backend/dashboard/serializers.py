@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import DashboardData, WellnessTip, DefaultPlanConfiguration
+from .models import DashboardData, WellnessTip, DefaultPlanConfiguration, HelpSettings, ProblemReport
 from nutrition.models import NutritionPlan
 from workouts.models import WorkoutProgram
 
@@ -233,3 +233,65 @@ class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer
         
         instance.save()
         return instance
+
+
+class HelpSettingsSerializer(serializers.ModelSerializer):
+    """Serializer para configuración de ayuda"""
+    
+    class Meta:
+        model = HelpSettings
+        fields = [
+            'id', 'faq_enabled', 'faq_url', 'faq_content',
+            'contact_email', 'contact_enabled',
+            'guides_enabled', 'guides_url', 'guides_content',
+            'report_enabled', 'report_email', 'report_redirect_url',
+            'app_version', 'last_update_date', 'terms_url', 'privacy_url',
+            'is_active', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+
+class ProblemReportSerializer(serializers.ModelSerializer):
+    """Serializer para reportes de problemas"""
+    
+    user_email = serializers.EmailField(source='user.email', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    resolved_by_email = serializers.EmailField(source='resolved_by.email', read_only=True)
+    
+    class Meta:
+        model = ProblemReport
+        fields = [
+            'id', 'user', 'user_email', 'user_name',
+            'problem_type', 'subject', 'description',
+            'steps_to_reproduce', 'expected_behavior', 'actual_behavior',
+            'browser_info', 'device_info', 'url', 'screenshot_url',
+            'contact_email', 'status', 'admin_notes',
+            'resolved_at', 'resolved_by', 'resolved_by_email',
+            'created_at', 'updated_at'
+        ]
+        read_only_fields = [
+            'id', 'user', 'user_email', 'user_name',
+            'resolved_by', 'resolved_by_email', 'resolved_at',
+            'created_at', 'updated_at'
+        ]
+
+
+class ProblemReportCreateSerializer(serializers.ModelSerializer):
+    """Serializer para crear reportes de problemas (público)"""
+    
+    class Meta:
+        model = ProblemReport
+        fields = [
+            'problem_type', 'subject', 'description',
+            'steps_to_reproduce', 'expected_behavior', 'actual_behavior',
+            'browser_info', 'device_info', 'url', 'screenshot_url',
+            'contact_email'
+        ]
+    
+    def create(self, validated_data):
+        # Asignar usuario si está autenticado
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            validated_data['user'] = request.user
+        
+        return super().create(validated_data)

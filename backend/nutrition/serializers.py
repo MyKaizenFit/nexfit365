@@ -2,7 +2,7 @@
 # Serializers para la nueva estructura simplificada
 
 from rest_framework import serializers
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -112,3 +112,25 @@ class FoodSerializer(serializers.ModelSerializer):
     class Meta:
         model = Food
         fields = '__all__'
+
+
+class NutritionPlanHistorySerializer(serializers.ModelSerializer):
+    """Serializer para historial de cambios de planes nutricionales"""
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
+    is_admin_change = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = NutritionPlanHistory
+        fields = [
+            'id', 'user', 'old_plan_name', 'new_plan_name',
+            'changed_by', 'changed_by_email', 'reason', 'reason_display',
+            'is_admin_change', 'notes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def get_is_admin_change(self, obj):
+        """Determina si el cambio fue hecho por un administrador"""
+        if obj.changed_by:
+            return obj.changed_by.is_staff or obj.changed_by.is_superuser
+        return False

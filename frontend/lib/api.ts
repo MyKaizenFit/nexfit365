@@ -22,9 +22,9 @@ const getApiBaseUrl = (): string => {
     return 'https://api.nexfit365.dpdns.org'
   }
 
-  // Solo en desarrollo, usar localhost como fallback
-  console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8000 como fallback (solo desarrollo)')
-  return 'http://localhost:8000'
+  // Solo en desarrollo, usar localhost:8001 como fallback (puerto de desarrollo)
+  console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8001 como fallback (solo desarrollo)')
+  return 'http://localhost:8001'
 }
 
 export const API_CONFIG = {
@@ -175,6 +175,13 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
   return headers
 }
 
+// Función helper para parsear JSON con UTF-8 correctamente
+const parseJsonWithUTF8 = async <T>(response: Response): Promise<T> => {
+  const text = await response.text()
+  // El texto ya viene en UTF-8 del servidor, solo necesitamos parsearlo
+  return JSON.parse(text) as T
+}
+
 // Función para manejar respuestas de la API
 export const handleApiResponse = async <T>(response: Response): Promise<{ data: T | null; error: string | null }> => {
   try {
@@ -184,7 +191,8 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         return { data: null, error: null }
       }
 
-      const data = await response.json()
+      // Asegurar que el JSON se parsee con UTF-8
+      const data = await parseJsonWithUTF8<T>(response)
       return { data, error: null }
     } else {
       // Si hay error, intentar obtener el mensaje de error
@@ -203,7 +211,7 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
       }
 
       try {
-        const errorData = await response.json()
+        const errorData = await parseJsonWithUTF8<any>(response)
         if (errorData.detail) {
           errorMessage = errorData.detail
         } else if (errorData.message) {

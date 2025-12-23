@@ -89,6 +89,10 @@ services:
       CSRF_TRUSTED_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001"
       # Logs
       LOG_LEVEL: DEBUG
+      # Push Notifications (VAPID)
+      VAPID_PUBLIC_KEY: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfqnWlIIIdFQjZ0aZ07qt8WYXMlA57a2V4MnBfrg4aKpinObCXZ3VTuyMnK6Sldzwo5dcuyGhd499/MfPwEqRcw"
+      VAPID_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgdYzlgLecndjj9Y26\nE8REPzFxhVj29o6EEfkzLA/v2i6hRANCAAR+qdaUggh0VCNnRpnTuq3xZhcyUDnt\nrZXgycF+uDhoqmKc5sJdndVO7IycrpKV3PCjl1y7IaF3j338x8/ASpFz\n-----END PRIVATE KEY-----\n"
+      VAPID_CLAIM_EMAIL: "no-reply@nex-fit.local"
     command: >
       sh -c "
         echo '🔄 Aplicando migraciones...' &&
@@ -133,6 +137,7 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8001/api
       NEXT_PUBLIC_APP_NAME: NexFit365-DEV
       NEXT_PUBLIC_DEBUG: "true"
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfqnWlIIIdFQjZ0aZ07qt8WYXMlA57a2V4MnBfrg4aKpinObCXZ3VTuyMnK6Sldzwo5dcuyGhd499/MfPwEqRcw"
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:

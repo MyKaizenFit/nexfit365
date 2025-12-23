@@ -105,7 +105,7 @@ export class UserService {
   }
 
   // Obtener perfil del usuario
-  async getUserProfile(): Promise<UserProfile> {
+  async getUserProfile(forceRefresh: boolean = false): Promise<UserProfile> {
     try {
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
@@ -116,11 +116,21 @@ export class UserService {
         throw new Error('No hay token de acceso disponible')
       }
 
+      // Si se fuerza la recarga, limpiar caché primero
+      if (forceRefresh) {
+        const profileCacheKey = generateCacheKey('/me/')
+        apiCache.delete(profileCacheKey)
+        const authCacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)
+        apiCache.delete(authCacheKey)
+      }
+
       const response = await fetch(buildApiUrl('/me/'), {
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
           'Authorization': `Bearer ${token}`,
+          // Agregar header para evitar caché del navegador si se fuerza recarga
+          ...(forceRefresh && { 'Cache-Control': 'no-cache' }),
         },
       })
 
@@ -141,7 +151,7 @@ export class UserService {
   }
 
   // Obtener estadísticas del usuario
-  async getUserStats(): Promise<UserStats> {
+  async getUserStats(): Promise<UserStats | null> {
     const cacheKey = generateCacheKey('/user-stats/')
     
     // Intentar obtener del caché primero
@@ -152,12 +162,14 @@ export class UserService {
 
     try {
       if (!authService.isAuthenticated()) {
-        throw new Error('Usuario no autenticado')
+        // Retornar null en lugar de lanzar error si no está autenticado
+        return null
       }
 
       const token = authService.getAccessToken()
       if (!token) {
-        throw new Error('No hay token de acceso disponible')
+        // Retornar null en lugar de lanzar error si no hay token
+        return null
       }
 
       const result = await requestThrottler.throttle('user-stats', async () => {
@@ -187,6 +199,10 @@ export class UserService {
       
       return result
     } catch (error) {
+      // Si es un error de autenticación, retornar null en lugar de lanzar
+      if (error instanceof Error && (error.message.includes('autenticado') || error.message.includes('token'))) {
+        return null
+      }
       throw handleFetchError(error)
     }
   }
@@ -566,13 +582,13 @@ export class UserService {
         }
       }
 
-      const response = await fetch(buildApiUrl('/me/'), {
+      const response = await fetch(buildApiUrl('profile/'), {
         method: 'PATCH',
         headers,
         body,
       })
 
-      const result = await handleApiResponse<UserProfile>(response)
+      const result = await handleApiResponse<UserProfile & { plan_updated?: boolean; plan_update_message?: string }>(response)
       
       if (result.error) {
         throw new Error(result.error)
@@ -583,14 +599,19 @@ export class UserService {
       }
 
       // Limpiar caché del perfil para forzar actualización
-      const profileCacheKey = generateCacheKey('/me/')
+      const profileCacheKey = generateCacheKey('profile/')
       apiCache.delete(profileCacheKey)
       
       // También limpiar caché de auth-me para que getCurrentUser obtenga datos frescos
       const authCacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)
       apiCache.delete(authCacheKey)
 
-      return result.data
+      // Devolver datos con información de actualización de plan
+      return {
+        ...result.data,
+        plan_updated: (result.data as any).plan_updated,
+        plan_update_message: (result.data as any).plan_update_message
+      } as UserProfile & { plan_updated?: boolean; plan_update_message?: string }
     } catch (error) {
       throw handleFetchError(error)
     }

@@ -29,7 +29,29 @@ export function useUserData() {
 
       // Obtener estadísticas del usuario usando el nuevo servicio
       const data = await userService.getUserStats()
-      setUserStats(data)
+      
+      if (data) {
+        setUserStats(data)
+      } else {
+        // Si no hay datos (usuario no autenticado), usar valores por defecto
+        setUserStats({
+          caloriesToday: 0,
+          caloriesGoal: 2000,
+          currentWeight: null,
+          targetWeight: null,
+          weightChange: 0,
+          workoutsThisWeek: 0,
+          workoutsGoal: 5,
+          nextReview: 'Próximamente',
+          daysInTransformation: 1,
+          proteinToday: 0,
+          proteinGoal: 150,
+          carbsToday: 0,
+          carbsGoal: 220,
+          fatToday: 0,
+          fatGoal: 80
+        })
+      }
     } catch (err) {
       console.error('Error fetching user stats:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')

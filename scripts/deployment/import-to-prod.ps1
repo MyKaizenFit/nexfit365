@@ -221,3 +221,4 @@ Write-Info "Verifica que todo funcione correctamente:"
 Write-Host "  - Backend: http://localhost:8000/api/health/" -ForegroundColor Yellow
 Write-Host "  - Frontend: http://localhost:3000" -ForegroundColor Yellow
 Write-Host ""
+

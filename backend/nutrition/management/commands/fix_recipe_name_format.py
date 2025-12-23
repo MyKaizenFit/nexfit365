@@ -67,3 +67,4 @@ class Command(BaseCommand):
         name = re.sub(r'\s+', ' ', name).strip()
         
         return name
+

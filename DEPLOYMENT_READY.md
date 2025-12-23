@@ -130,3 +130,4 @@ Antes de desplegar, revisa:
 **Última actualización:** $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
 **Rama:** develop
 **Último commit:** $(git rev-parse --short HEAD)
+
