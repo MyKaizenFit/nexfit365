@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.throttling import ScopedRateThrottle
+from rest_framework.renderers import JSONRenderer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -54,6 +55,8 @@ class LoginView(TokenObtainPairView):
     permission_classes = (AllowAny,)
     authentication_classes = ()
     serializer_class = EmailTokenObtainPairSerializer
+    # Asegurar que acepte JSON explícitamente
+    renderer_classes = [JSONRenderer]
 
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"

@@ -1,22 +1,31 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, lazy, Suspense, useMemo, memo } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
-import { NutritionPlanCard } from '@/components/nutrition-plan-card'
-import { NutritionPlanHistoryUser } from '@/components/nutrition-plan-history-user'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, RefreshCw, Cloud, Database, Target } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays } from 'lucide-react'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useUserData } from '@/hooks/use-user-data'
+
+const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
+const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, getMealOptions } = useDailyMeals()
+  const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
     name: string
     time: string
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
   const handleOpenMealOptions = (meal: { id: string; name: string; time: string }) => {
     setSelectedMeal(meal)
@@ -34,10 +43,30 @@ export function MealDashboard() {
     setSelectedMeal(null)
   }
 
-  // Calcular progreso del día
-  const completedMeals = meals.filter(meal => meal.selectedOption).length
-  const totalMeals = meals.length
-  const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
+  // Calcular progreso del día con useMemo
+  const progressData = useMemo(() => {
+    const completedMeals = meals.filter(meal => meal.selectedOption).length
+    const totalMeals = meals.length
+    const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
+    return {
+      completedMeals,
+      totalMeals,
+      progressPercentage,
+      daysInTransformation: userStats?.daysInTransformation || 1
+    }
+  }, [meals, userStats?.daysInTransformation])
+  
+  const { completedMeals, totalMeals, progressPercentage, daysInTransformation } = progressData
+
+  // Función para refrescar datos
+  const handleRefresh = async () => {
+    setIsRefreshing(true)
+    try {
+      await refreshStats()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -55,81 +84,93 @@ export function MealDashboard() {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Header con progreso del día */}
-      <div className="bg-gradient-to-r from-blue-50 via-green-50 to-purple-50 rounded-xl p-6 border border-blue-100 shadow-sm">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Buen día! 🌅</h2>
-            <p className="text-gray-600">Tu plan nutricional personalizado</p>
+    <div className="space-y-8 pb-4">
+      {/* Hero Section - Tarjeta de Nutrición */}
+      <Card className="backdrop-blur-sm bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-0 shadow-xl overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20"></div>
+        <CardHeader className="text-center relative z-10">
+          <div className="flex justify-end mb-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Actualizar
+            </Button>
           </div>
-          <div className="flex items-center gap-3">
-            {syncing && (
-              <div className="flex items-center gap-2 text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg">
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Sincronizando...
+          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse">
+            <ChefHat className="h-12 w-12 text-white" />
+          </div>
+          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
+            Plan Nutricional 🍽️
+          </CardTitle>
+          <CardDescription className="text-base mt-2 text-gray-700">
+            Tu alimentación equilibrada para alcanzar tus objetivos
+          </CardDescription>
+          {daysInTransformation > 0 && (
+            <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+              <Flame className="h-3 w-3 mr-1" />
+              {daysInTransformation} días en tu transformación
+            </Badge>
+          )}
+          {/* Barra de progreso de comidas */}
+          {totalMeals > 0 && (
+            <div className="mt-4 space-y-2">
+              <Progress value={progressPercentage} className="h-3 bg-orange-100" />
+              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
+                <Flame className="h-4 w-4 text-orange-500" />
+                <span className="font-medium">
+                  {completedMeals} de {totalMeals} comidas completadas
+                </span>
               </div>
-            )}
-            <div className="flex items-center gap-2 text-xs text-gray-500 bg-white px-3 py-2 rounded-lg border">
-              <Database className="w-3 h-3" />
-              Backend
             </div>
-          </div>
-        </div>
+          )}
+        </CardHeader>
+      </Card>
 
-        {/* Progreso del día */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">Progreso del día</span>
-            <span className="text-sm text-gray-500">{completedMeals}/{totalMeals} comidas</span>
-          </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-green-400 to-blue-500 h-3 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${progressPercentage}%` }}
-            ></div>
-          </div>
-        </div>
+      {/* Tabs para vista diaria, semanal y mensual */}
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="daily" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Vista Diaria
+          </TabsTrigger>
+          <TabsTrigger value="weekly" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Vista Semanal
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" />
+            Vista Mensual
+          </TabsTrigger>
+        </TabsList>
 
-        {/* Resumen de macros */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-orange-500 mb-1">
-              {macros.caloriesGoal - macros.caloriesConsumed}
-            </div>
-            <div className="text-sm text-gray-600">kcal restantes</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.caloriesConsumed / macros.caloriesGoal) * 100)}% completado
-            </div>
+        <TabsContent value="daily" className="space-y-6 mt-6">
+          {/* Progreso Detallado del Día - Movido a la parte superior */}
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+            <Target className="w-5 h-5 text-white" />
           </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-red-500 mb-1">
-              {macros.proteinGoal - macros.proteinConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g proteína</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.proteinConsumed / macros.proteinGoal) * 100)}% completado
-            </div>
-          </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-green-500 mb-1">
-              {macros.carbsGoal - macros.carbsConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g carbos</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.carbsConsumed / macros.carbsGoal) * 100)}% completado
-            </div>
-          </div>
-          <div className="text-center bg-white rounded-lg p-4 border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-yellow-500 mb-1">
-              {macros.fatGoal - macros.fatConsumed}
-            </div>
-            <div className="text-sm text-gray-600">g grasas</div>
-            <div className="text-xs text-gray-400 mt-1">
-              {Math.round((macros.fatConsumed / macros.fatGoal) * 100)}% completado
-            </div>
+          <div>
+            <h3 className="text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
+            <p className="text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
           </div>
         </div>
+        
+        <DailyMacroTrackerSimple
+          caloriesConsumed={macros.caloriesConsumed}
+          caloriesGoal={macros.caloriesGoal}
+          proteinConsumed={macros.proteinConsumed}
+          proteinGoal={macros.proteinGoal}
+          carbsConsumed={macros.carbsConsumed}
+          carbsGoal={macros.carbsGoal}
+          fatConsumed={macros.fatConsumed}
+          fatGoal={macros.fatGoal}
+        />
       </div>
 
       {/* Comidas del día */}
@@ -192,16 +233,24 @@ export function MealDashboard() {
               {meal.selectedOption ? (
                 <div className="space-y-4">
                   {/* Tarjeta de comida seleccionada */}
-                  <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                  <div className={`bg-white rounded-lg p-4 border shadow-sm ${
+                    meal.isCompleted 
+                      ? 'border-green-200 bg-green-50/30' 
+                      : 'border-blue-200 bg-blue-50/30'
+                  }`}>
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
+                      }`}>
                         <span className="text-lg">{meal.selectedOption.icon}</span>
                       </div>
                       <div className="flex-1">
                         <h5 className="font-semibold text-gray-900 text-sm">
                           {meal.selectedOption.name}
                         </h5>
-                        <p className="text-xs text-gray-500">Opción seleccionada</p>
+                        <p className="text-xs text-gray-500">
+                          {meal.isCompleted ? '✅ Completada' : '📋 Seleccionada'}
+                        </p>
                       </div>
                     </div>
                     
@@ -228,13 +277,30 @@ export function MealDashboard() {
                     </div>
                   </div>
                   
-                  {/* Botón para cambiar */}
-                  <button
-                    onClick={() => handleOpenMealOptions(meal)}
-                    className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
-                  >
-                    ✏️ Cambiar opción
-                  </button>
+                  {/* Botones de acción */}
+                  <div className="flex gap-2">
+                    {!meal.isCompleted && (
+                      <button
+                        onClick={async () => {
+                          await markMealCompleted(meal.id)
+                        }}
+                        className="flex-1 text-sm text-white font-medium bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Marcar como completada
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenMealOptions(meal)}
+                      className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
+                        meal.isCompleted
+                          ? 'text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'
+                          : 'text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      ✏️ Cambiar
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button
@@ -253,47 +319,39 @@ export function MealDashboard() {
         </div>
       </div>
 
-      {/* Tracker de macros detallado */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-            <Target className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
-            <p className="text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
-          </div>
-        </div>
-        
-        <DailyMacroTrackerSimple
-          caloriesConsumed={macros.caloriesConsumed}
-          caloriesGoal={macros.caloriesGoal}
-          proteinConsumed={macros.proteinConsumed}
-          proteinGoal={macros.proteinGoal}
-          carbsConsumed={macros.carbsConsumed}
-          carbsGoal={macros.carbsGoal}
-          fatConsumed={macros.fatConsumed}
-          fatGoal={macros.fatGoal}
-        />
-      </div>
+          {/* Modal de selección de comidas */}
+          {selectedMeal && (
+            <MealSelectionModal
+              isOpen={isModalOpen}
+              onClose={handleCloseModal}
+              mealName={selectedMeal.name}
+              mealTime={selectedMeal.time}
+              options={getMealOptions(selectedMeal.name)}
+              onSelectOption={handleSelectOption}
+            />
+          )}
+        </TabsContent>
 
-      {/* Card del Plan Nutricional */}
-      <NutritionPlanCard />
+        <TabsContent value="weekly" className="mt-6">
+          <Suspense fallback={
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </div>
+          }>
+            <WeeklyMealPlan />
+          </Suspense>
+        </TabsContent>
 
-      {/* Historial de cambios de plan */}
-      <NutritionPlanHistoryUser />
-
-      {/* Modal de selección de comidas */}
-      {selectedMeal && (
-        <MealSelectionModal
-          isOpen={isModalOpen}
-          onClose={handleCloseModal}
-          mealName={selectedMeal.name}
-          mealTime={selectedMeal.time}
-          options={getMealOptions(selectedMeal.name)}
-          onSelectOption={handleSelectOption}
-        />
-      )}
+        <TabsContent value="monthly" className="mt-6">
+          <Suspense fallback={
+            <div className="flex items-center justify-center p-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+            </div>
+          }>
+            <MonthlyMealPlan />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </div>
   )
 }

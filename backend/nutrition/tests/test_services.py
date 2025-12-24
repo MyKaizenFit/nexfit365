@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.contrib.auth import get_user_model
-from nutrition.models import DefaultNutritionPlan, DefaultMeal, NutritionPlan, NutritionPlanHistory
+from nutrition.models import NutritionPlan, NutritionPlanHistory, Recipe
 from nutrition.services import PersonalizedNutritionService
 
 User = get_user_model()

@@ -76,6 +76,12 @@ export function useAchievements() {
         setAchievements(data.results || data || [])
       }
     } catch (err) {
+      // Silenciar errores de autenticación (usuario no autenticado)
+      if (err instanceof Error && err.message.includes('token')) {
+        console.debug('Usuario no autenticado, omitiendo carga de achievements')
+        setAchievements([])
+        return
+      }
       console.error('Error fetching achievements:', err)
       setAchievements([])
     }

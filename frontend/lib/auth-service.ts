@@ -313,8 +313,23 @@ export class AuthService {
 
         if (errorData.detail) {
           errorMessage = errorData.detail
+          // Detectar si el usuario no existe
+          const detailLower = errorData.detail.toLowerCase()
+          if (detailLower.includes('no existe') || detailLower.includes('not found') || detailLower.includes('no encontrado')) {
+            errorMessage = 'El usuario no existe. Puedes crear una nueva cuenta haciendo clic en "Registrarse".'
+          }
         } else if (errorData.message) {
           errorMessage = errorData.message
+          const messageLower = errorData.message.toLowerCase()
+          if (messageLower.includes('no existe') || messageLower.includes('not found') || messageLower.includes('no encontrado')) {
+            errorMessage = 'El usuario no existe. Puedes crear una nueva cuenta haciendo clic en "Registrarse".'
+          }
+        } else if (errorData.non_field_errors && Array.isArray(errorData.non_field_errors)) {
+          errorMessage = errorData.non_field_errors[0]
+          const messageLower = errorMessage.toLowerCase()
+          if (messageLower.includes('no existe') || messageLower.includes('not found') || messageLower.includes('no encontrado')) {
+            errorMessage = 'El usuario no existe. Puedes crear una nueva cuenta haciendo clic en "Registrarse".'
+          }
         }
 
         throw new Error(errorMessage)

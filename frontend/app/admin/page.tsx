@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,11 +40,13 @@ const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-manag
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const NutritionPlanManagement = lazy(() => import("./components/nutrition-plan-management").then(module => ({ default: module.NutritionPlanManagement })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
-const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-improved").then(module => ({ default: module.DefaultPlanConfigurationsImproved })))
+const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations").then(module => ({ default: module.DefaultPlanConfigurationsPanel })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
+const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").then(module => ({ default: module.HelpSettingsPanel })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
+import { fixEncoding } from "@/lib/encoding-fix"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function AdminPage() {
@@ -138,6 +140,7 @@ function AdminPageContent() {
     | 'user-nutrition-plans'
     | 'default-plan-configurations'
     | 'notifications'
+    | 'help-settings'
   >('dashboard')
   const [isLoading, setIsLoading] = useState(false)
   
@@ -268,7 +271,10 @@ function AdminPageContent() {
         first_name: editingUser.first_name,
         last_name: editingUser.last_name,
         role: editingUser.role,
-        is_active: editingUser.is_active
+        is_active: editingUser.is_active,
+        phone_number: editingUser.phone_number,
+        birth_date: editingUser.birth_date,
+        gender: editingUser.gender,
       })
 
       toast({
@@ -338,7 +344,7 @@ function AdminPageContent() {
       await changeUserRole(roleChangeModal.user.id, roleChangeModal.newRole as any)
       toast({
         title: "✅ Rol actualizado",
-        description: `El rol de ${roleChangeModal.user.first_name} ha sido cambiado a ${roleChangeModal.newRole}`,
+        description: `El rol de ${fixEncoding(roleChangeModal.user.first_name)} ha sido cambiado a ${roleChangeModal.newRole}`,
       })
       setRoleChangeModal({ open: false, user: null, newRole: '' })
     } catch (error) {
@@ -376,7 +382,7 @@ function AdminPageContent() {
       await resetUserPassword(passwordResetModal.user.id, passwordResetModal.newPassword)
       toast({
         title: "✅ Contraseña actualizada",
-        description: `La contraseña de ${passwordResetModal.user.first_name} ha sido cambiada`,
+        description: `La contraseña de ${fixEncoding(passwordResetModal.user.first_name)} ha sido cambiada`,
       })
       setPasswordResetModal({ open: false, user: null, newPassword: '' })
     } catch (error) {
@@ -430,21 +436,21 @@ function AdminPageContent() {
           await updateUser(userId, { is_active: false })
           toast({
             title: "✅ Usuario desactivado",
-            description: `${user.first_name} ${user.last_name} ha sido desactivado`,
+            description: `${fixEncoding(user.first_name)} ${fixEncoding(user.last_name)} ha sido desactivado`,
           })
           break
         case "activate":
           await updateUser(userId, { is_active: true })
           toast({
             title: "✅ Usuario activado",
-            description: `${user.first_name} ${user.last_name} ha sido activado`,
+            description: `${fixEncoding(user.first_name)} ${fixEncoding(user.last_name)} ha sido activado`,
           })
           break
         case "delete":
           await bulkDelete([userId])
           toast({
             title: "🗑️ Usuario eliminado",
-            description: `${user.first_name} ${user.last_name} ha sido eliminado`,
+            description: `${fixEncoding(user.first_name)} ${fixEncoding(user.last_name)} ha sido eliminado`,
           })
           break
       }
@@ -737,6 +743,18 @@ function AdminPageContent() {
                       <Bell className="h-4 w-4" />
                       Notificaciones
                     </Button>
+                    <Button
+                      variant={activeSection === 'help-settings' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('help-settings')}
+                      className={`flex items-center gap-2 ${
+                        activeSection === 'help-settings'
+                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <HelpCircle className="h-4 w-4" />
+                      Config. Ayuda
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -782,6 +800,8 @@ function AdminPageContent() {
             <DefaultPlanConfigurationsPanel />
           ) : activeSection === 'notifications' ? (
             <NotificationsPanel />
+          ) : activeSection === 'help-settings' ? (
+            <HelpSettingsPanel />
           ) : (
           <>
             {/* Stats Cards */}
@@ -970,6 +990,7 @@ function AdminPageContent() {
                       <th className="p-3 text-left font-medium">Edad</th>
                       <th className="p-3 text-left font-medium">Fecha de registro</th>
                       <th className="p-3 text-left font-medium">Último acceso</th>
+                      <th className="p-3 text-left font-medium">Última edición</th>
                       <th className="p-3 text-left font-medium">Acciones</th>
                     </tr>
                   </thead>
@@ -987,7 +1008,7 @@ function AdminPageContent() {
                         </td>
                         <td className="p-3">
                           <div>
-                            <div className="font-medium">{user.first_name} {user.last_name}</div>
+                            <div className="font-medium">{fixEncoding(user.first_name)} {fixEncoding(user.last_name)}</div>
                             <div className="text-sm text-muted-foreground">{user.email}</div>
                           </div>
                         </td>
@@ -1006,6 +1027,9 @@ function AdminPageContent() {
                         <td className="p-3 text-sm text-muted-foreground">
                           {user.last_login ? formatDate(user.last_login) : 'Nunca'}
                         </td>
+                        <td className="p-3 text-sm text-muted-foreground">
+                          {user.updated_at ? formatDate(user.updated_at) : '—'}
+                        </td>
                         <td className="p-3">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -1018,6 +1042,14 @@ function AdminPageContent() {
                               className="backdrop-blur-sm bg-white/90 border-0 shadow-xl"
                             >
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/admin/user/${user.id}`)}
+                                className="hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Ver perfil completo
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => handleEditUser(user)}
                                     className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
@@ -1186,6 +1218,44 @@ function AdminPageContent() {
                     />
                   </div>
                   <div className="space-y-2">
+                    <Label htmlFor="edit-phone">Teléfono</Label>
+                    <Input
+                      id="edit-phone"
+                      value={editingUser.phone_number || ""}
+                      onChange={(e) => setEditingUser({ ...editingUser, phone_number: e.target.value })}
+                      className="border-2 border-gray-200 focus:border-purple-400"
+                      placeholder="+34 600 000 000"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-birth">Fecha de nacimiento</Label>
+                    <Input
+                      id="edit-birth"
+                      type="date"
+                      value={editingUser.birth_date ? editingUser.birth_date.split("T")[0] : ""}
+                      onChange={(e) => setEditingUser({ ...editingUser, birth_date: e.target.value })}
+                      className="border-2 border-gray-200 focus:border-purple-400"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-gender">Género</Label>
+                    <Select
+                      value={editingUser.gender || ""}
+                      onValueChange={(value) =>
+                        setEditingUser({ ...editingUser, gender: value })
+                      }
+                    >
+                      <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                        <SelectValue placeholder="Selecciona género" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Masculino</SelectItem>
+                        <SelectItem value="female">Femenino</SelectItem>
+                        <SelectItem value="other">Otro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
                     <Label htmlFor="edit-role">Rol</Label>
                     <Select
                       value={editingUser.role}
@@ -1240,7 +1310,7 @@ function AdminPageContent() {
                 Cambiar Rol de Usuario
               </DialogTitle>
               <DialogDescription>
-                Selecciona el nuevo rol para {roleChangeModal.user?.first_name} {roleChangeModal.user?.last_name}
+                Selecciona el nuevo rol para {fixEncoding(roleChangeModal.user?.first_name || '')} {fixEncoding(roleChangeModal.user?.last_name || '')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -1296,7 +1366,7 @@ function AdminPageContent() {
                 Resetear Contraseña
               </DialogTitle>
               <DialogDescription>
-                Establece una nueva contraseña para {passwordResetModal.user?.first_name} {passwordResetModal.user?.last_name}
+                Establece una nueva contraseña para {fixEncoding(passwordResetModal.user?.first_name || '')} {fixEncoding(passwordResetModal.user?.last_name || '')}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">

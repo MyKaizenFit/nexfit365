@@ -53,8 +53,17 @@ export function useUserProfile() {
     try {
       setError(null)
       
-      const updatedProfile = await userService.updateUserProfile(updates)
-      setProfile(updatedProfile)
+      const response = await userService.updateUserProfile(updates)
+      // Extraer campos de plan si existen
+      const { plan_updated, plan_update_message, ...profileData } = response as any
+      setProfile(profileData as UserProfile)
+      
+      // Devolver respuesta completa incluyendo información de plan
+      return {
+        ...profileData,
+        plan_updated,
+        plan_update_message
+      }
       
       // Actualizar también el contexto de autenticación para que la foto aparezca en todos los lugares
       try {

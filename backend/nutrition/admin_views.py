@@ -4,12 +4,19 @@ from rest_framework.decorators import action, api_view, permission_classes as pe
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from django.db.models import Count, Avg, Sum
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from datetime import datetime, timedelta
 
 from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer
 )
+from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
+
+User = get_user_model()
 
 
 class AdminRecipeViewSet(viewsets.ModelViewSet):
@@ -153,3 +160,165 @@ def admin_default_plans(request):
         'page_size': page_size,
         'total_pages': (total + page_size - 1) // page_size if total > 0 else 0,
     })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_plan(request, user_id: int):
+    """
+    Resumen del plan activo del usuario y consumo reciente de macros.
+    Query params opcionales:
+      - days: ventana en días para sumar macros (por defecto 7)
+      - end_date: fecha fin YYYY-MM-DD (por defecto hoy)
+    """
+    user = get_object_or_404(User, pk=user_id)
+
+    plan = NutritionPlan.objects.filter(user=user).prefetch_related('meals__suggested_recipes').order_by('-is_active', '-created_at').first()
+    plan_data = AdminNutritionPlanSerializer(plan).data if plan else None
+
+    days = max(int(request.query_params.get('days', 7)), 1)
+    end_date_param = request.query_params.get('end_date')
+    if end_date_param:
+        try:
+            end_date = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+        except ValueError:
+            end_date = timezone.localdate()
+    else:
+        end_date = timezone.localdate()
+    start_date = end_date - timedelta(days=days - 1)
+
+    meal_logs = MealLog.objects.filter(user=user, date__range=(start_date, end_date))
+
+    aggregates = meal_logs.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbs'),
+        fat=Sum('fat'),
+    )
+
+    per_day = list(
+        meal_logs.values('date').annotate(
+            calories=Sum('calories'),
+            protein=Sum('protein'),
+            carbs=Sum('carbs'),
+            fat=Sum('fat'),
+        ).order_by('-date')
+    )
+
+    target_calories = None
+    if plan and plan.daily_calories:
+        target_calories = plan.daily_calories
+    elif hasattr(user, 'daily_calories_target'):
+        target_calories = user.daily_calories_target
+
+    macros_target = {
+        'calories': target_calories,
+        'protein': float(plan.protein_grams) if plan and plan.protein_grams else None,
+        'carbs': float(plan.carbs_grams) if plan and plan.carbs_grams else None,
+        'fat': float(plan.fat_grams) if plan and plan.fat_grams else None,
+    }
+
+    return Response({
+        'plan': plan_data,
+        'user_id': user.id,
+        'period': {
+            'start_date': start_date,
+            'end_date': end_date,
+            'days': days,
+        },
+        'macros_target': macros_target,
+        'macro_intake': {
+            'totals': {k: (float(v) if v is not None else 0) for k, v in aggregates.items()},
+            'per_day': per_day,
+        },
+        'logs_count': meal_logs.count(),
+    })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_plan_history(request, user_id: int):
+    """
+    Historial de cambios de planes nutricionales de un usuario (hasta 100 registros más recientes).
+    """
+    user = get_object_or_404(User, pk=user_id)
+    history_qs = user.nutrition_plan_history.select_related('changed_by').order_by('-created_at')[:100]
+    serializer = NutritionPlanHistorySerializer(history_qs, many=True)
+    return Response({
+        'user_id': user.id,
+        'count': len(serializer.data),
+        'history': serializer.data,
+    })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_meal_logs(request, user_id: int):
+    """
+    Logs de comidas de un usuario para revisión/admin.
+    Query params:
+      - start_date / end_date (YYYY-MM-DD) para filtrar rango
+      - limit (por defecto 50, máx 200)
+    """
+    user = get_object_or_404(User, pk=user_id)
+
+    start_param = request.query_params.get('start_date')
+    end_param = request.query_params.get('end_date')
+
+    start_date = None
+    end_date = None
+    if start_param:
+        try:
+            start_date = datetime.strptime(start_param, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = None
+    if end_param:
+        try:
+            end_date = datetime.strptime(end_param, '%Y-%m-%d').date()
+        except ValueError:
+            end_date = None
+
+    logs_qs = MealLog.objects.filter(user=user)
+    if start_date:
+        logs_qs = logs_qs.filter(date__gte=start_date)
+    if end_date:
+        logs_qs = logs_qs.filter(date__lte=end_date)
+
+    logs_qs = logs_qs.order_by('-date', '-created_at')
+    limit = min(int(request.query_params.get('limit', 50)), 200)
+    logs_qs = logs_qs[:limit]
+
+    serializer = MealLogSerializer(logs_qs, many=True)
+
+    aggregates = logs_qs.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbs'),
+        fat=Sum('fat'),
+    )
+
+    return Response({
+        'user_id': user.id,
+        'count': len(serializer.data),
+        'totals': {k: (float(v) if v is not None else 0) for k, v in aggregates.items()},
+        'logs': serializer.data,
+    })
+
+
+@api_view(['PATCH', 'DELETE'])
+@perm_classes([IsAdminUser])
+def admin_user_meal_log_detail(request, user_id: int, log_id):
+    """
+    Editar o eliminar un log de comida del usuario (uso admin/staff).
+    """
+    user = get_object_or_404(User, pk=user_id)
+    log = get_object_or_404(MealLog, pk=log_id, user=user)
+
+    if request.method == 'DELETE':
+        log.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    serializer = MealLogSerializer(log, data=request.data, partial=True, context={'request': request})
+    serializer.is_valid(raise_exception=True)
+    serializer.save()
+    return Response(serializer.data)

@@ -1,0 +1,6103 @@
+{
+  "total_recipes": 114,
+  "export_date": "2025-12-04T23:45:23.840718+00:00",
+  "recipes": [
+    {
+      "id": "8285175d-001f-423a-a003-767879ed788c",
+      "name": "BOWL 10 - Bowl Post-Workout de Salmón  Patata",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 505,
+      "protein": 29.2,
+      "carbs": 47.4,
+      "fat": 23.8,
+      "fiber": 4.74,
+      "sugar": 7.11,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Salmón"
+        },
+        {
+          "raw": "- 200 g de Patata cocida"
+        },
+        {
+          "raw": "- 100 g de Brócoli al vapor"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 10 ml de Zumo de limón"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Corta la patata cocida en cubos y saltéala 2 minutos con una pizca de sal y orégano.\n2. Cocina el pollo en una sartén con 10 g de AOVE, sal y pimienta (4–5 min).\n3. Corta el pimiento, pepino y cebolla en dados pequeños.\n4. Monta el bowl: patata de base  pollo  verduras  aceitunas.",
+      "instructions_length": 284,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.445086+00:00",
+      "updated_at": "2025-12-04T23:45:23.840718+00:00"
+    },
+    {
+      "id": "310b4c55-6f2f-4653-af99-457a920ba178",
+      "name": "BOWL 11 - Bowl de Pavo  Arroz Jazmín",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 499,
+      "protein": 37.7,
+      "carbs": 60.2,
+      "fat": 11.8,
+      "fiber": 6.02,
+      "sugar": 9.03,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pavo"
+        },
+        {
+          "raw": "- 150 g de Arroz jazmín cocido"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 100 g de Espárragos"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Cocina el pavo en una sartén con aceite de oliva, sal y pimienta durante 4-5 minutos hasta que esté dorado y cocido por completo.\n3. Cocina el arroz jazmín cocido según las instrucciones del paquete hasta que esté al dente.\n3. Lava y corta las verduras (pimiento rojo, cebolla morada) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 535,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.445997+00:00",
+      "updated_at": "2025-12-19T09:31:15.587820+00:00"
+    },
+    {
+      "id": "42775416-543e-4e37-b6f1-15384921d330",
+      "name": "BOWL 12 - Bowl Omega de Caballa  Aguacate",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 440,
+      "protein": 22.9,
+      "carbs": 15.3,
+      "fat": 33.3,
+      "fiber": 1.53,
+      "sugar": 2.29,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Caballa"
+        },
+        {
+          "raw": "- 60 g de Aguacate"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 50 g de Espinacas frescas"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 10 ml de Zumo de limón"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Cocina el caballa en una sartén o plancha con aceite de oliva, sal y pimienta durante 3-4 minutos por cada lado.\n2. Prepara la base de carbohidratos si es necesaria.\n3. Lava y corta las verduras (aguacate, tomate cherry, cebolla morada) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 487,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.446794+00:00",
+      "updated_at": "2025-12-19T09:31:15.594670+00:00"
+    },
+    {
+      "id": "dcaa978f-9e84-40d0-b83c-26491b82d27c",
+      "name": "BOWL 13 - Bowl de Sardinas  Patata  Salad Mix",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 497,
+      "protein": 30.5,
+      "carbs": 46.0,
+      "fat": 21.6,
+      "fiber": 4.6,
+      "sugar": 6.9,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 100 g de Sardinas"
+        },
+        {
+          "raw": "- 200 g de Patata cocida"
+        },
+        {
+          "raw": "- 50 g de Lechuga/Salad mix"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 10 ml de Zumo de limón"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Cocina el sardinas en una sartén o plancha con aceite de oliva, sal y pimienta durante 3-4 minutos por cada lado.\n2. Cocina la patata cocida al vapor o en el microondas hasta que esté tierna. Luego córtala en cubos.\n3. Lava y corta las verduras (lechuga/salad mix, tomate cherry, cebolla morada) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 546,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.447525+00:00",
+      "updated_at": "2025-12-19T09:31:15.597217+00:00"
+    },
+    {
+      "id": "63242e3c-9b2a-4b81-8ff3-5db15b9149af",
+      "name": "BOWL 14 - Bowl Vegetariano Proteico de Hummus",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 442,
+      "protein": 13.5,
+      "carbs": 56.5,
+      "fat": 18.7,
+      "fiber": 5.65,
+      "sugar": 8.47,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Hummus"
+        },
+        {
+          "raw": "- 150 g de Quinoa cocida"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 50 g de Espinacas frescas"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Prepara el hummus (si es necesario cocinarlo) o úsalo directamente si ya está listo.\n3. Cocina la quinoa cocida en agua hirviendo durante 12-15 minutos hasta que esté tierna.\n3. Lava y corta las verduras (tomate cherry, pimiento rojo, cebolla morada) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 501,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.448516+00:00",
+      "updated_at": "2025-12-19T09:31:15.599255+00:00"
+    },
+    {
+      "id": "6d74e5ff-cd82-40d2-94e1-3e7947bc0f22",
+      "name": "BOWL 15 - Bowl Vegetariano de Arroz  Queso",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 440,
+      "protein": 16.9,
+      "carbs": 66.7,
+      "fat": 12.8,
+      "fiber": 6.67,
+      "sugar": 10.01,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Arroz blanco cocido"
+        },
+        {
+          "raw": "- 60 g de Queso fresco batido"
+        },
+        {
+          "raw": "- 100 g de Brócoli al vapor"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Prepara los ingredientes principales según sea necesario.\n3. Cocina el arroz blanco cocido según las instrucciones del paquete hasta que esté al dente.\n3. Lava y corta las verduras (tomate cherry, pimiento rojo, cebolla morada) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 478,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.449326+00:00",
+      "updated_at": "2025-12-19T09:31:15.602100+00:00"
+    },
+    {
+      "id": "02e6702f-4a54-4d00-a6a7-8ff0e206e522",
+      "name": "BOWL 16 - Bowl Vegano de Lentejas  Verduras",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 353,
+      "protein": 17.0,
+      "carbs": 49.3,
+      "fat": 11.4,
+      "fiber": 4.93,
+      "sugar": 7.4,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Lentejas cocidas"
+        },
+        {
+          "raw": "- 100 g de Brócoli al vapor"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 50 g de Cebolla morada"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Prepara el lentejas cocidas (si es necesario cocinarlo) o úsalo directamente si ya está listo.\n2. Prepara la base de carbohidratos si es necesaria.\n3. Lava y corta las verduras (pimiento rojo, cebolla morada, tomate cherry) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 474,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.450129+00:00",
+      "updated_at": "2025-12-19T09:31:15.604503+00:00"
+    },
+    {
+      "id": "4136de18-3c55-48a7-a15f-6895ea3fdf6f",
+      "name": "BOWL 17 - Bowl Vegano de Quinoa  Tofu",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 574,
+      "protein": 25.9,
+      "carbs": 53.6,
+      "fat": 31.4,
+      "fiber": 5.36,
+      "sugar": 8.04,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Tofu firme"
+        },
+        {
+          "raw": "- 150 g de Quinoa cocida"
+        },
+        {
+          "raw": "- 100 g de Brócoli al vapor"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 60 g de Aguacate"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Corta el tofu firme en cubos y saltéalo en una sartén con aceite de oliva, sal y pimienta durante 5-6 minutos hasta que esté dorado.\n3. Cocina la quinoa cocida en agua hirviendo durante 12-15 minutos hasta que esté tierna.\n3. Lava y corta las verduras (pimiento rojo, aguacate) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 528,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.450979+00:00",
+      "updated_at": "2025-12-19T09:31:15.606895+00:00"
+    },
+    {
+      "id": "26ef267f-d542-468a-9597-74b769e19b78",
+      "name": "BOWL 18 - Bowl Mediterráneo de",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 708,
+      "protein": 48.0,
+      "carbs": 58.0,
+      "fat": 16.0,
+      "fiber": 4.0,
+      "sugar": 4.0,
+      "sodium": 792.0,
+      "ingredients": [
+        {
+          "raw": "160 g de langostinos pelados"
+        },
+        {
+          "raw": "180 g de boniato cocido"
+        },
+        {
+          "raw": "120 g de aguacate"
+        },
+        {
+          "raw": "100 g de tomate cherry"
+        },
+        {
+          "raw": "60 g de espinacas"
+        },
+        {
+          "raw": "10 g de AOVE"
+        },
+        {
+          "raw": "Sal, pimienta, limón"
+        },
+        {
+          "raw": "Ajo en polvo (opcional)"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Saltea los langostinos 2–3 min con sal, pimienta y un toque de ajo.\n2. Corta el boniato en cubos y colócalo como base.\n3. Añade tomate, espinacas y aguacate.\n4. Coloca los langostinos encima.\n5. Termina con AOVE y limón.",
+      "instructions_length": 223,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.451821+00:00",
+      "updated_at": "2025-12-04T23:45:23.844565+00:00"
+    },
+    {
+      "id": "91110b99-8af1-43f0-b12b-4b3ef3cd99b8",
+      "name": "BOWL 19 - Bowl Black Marisco",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 699,
+      "protein": 36.0,
+      "carbs": 53.0,
+      "fat": 29.0,
+      "fiber": 11.0,
+      "sugar": 18.0,
+      "sodium": 477.0,
+      "ingredients": [
+        {
+          "raw": "200 g de calamares limpios"
+        },
+        {
+          "raw": "160 g de arroz cocido (blanco o jazmín)"
+        },
+        {
+          "raw": "120 g de pimiento rojo"
+        },
+        {
+          "raw": "80 g de cebolla"
+        },
+        {
+          "raw": "10 g de AOVE"
+        },
+        {
+          "raw": "Lima o limón"
+        },
+        {
+          "raw": "Sal, pimienta, cúrcuma"
+        },
+        {
+          "raw": "Perejil"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Corta calamares en anillas y saltéalos 3–4 min con AOVE, sal y cúrcuma.\n2. Añade la cebolla y el pimiento cortados finos.\n3. Cocina 3 minutos más hasta que quede jugoso.\n4. Coloca el arroz de base en el bowl.\n5. Añade la mezcla de calamares.\n6. Termina con perejil picado y un chorrito de lima.",
+      "instructions_length": 297,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.452697+00:00",
+      "updated_at": "2025-12-04T23:45:23.846627+00:00"
+    },
+    {
+      "id": "45f026c5-bba7-45c4-9913-6f6a08138e08",
+      "name": "BOWL 1 - Bowl Mediterráneo de Pollo y Patata",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 5,
+      "servings": 1,
+      "calories": 550,
+      "protein": 35.0,
+      "carbs": 50.0,
+      "fat": 18.0,
+      "fiber": 6.0,
+      "sugar": 5.0,
+      "sodium": 450.0,
+      "ingredients": [
+        {
+          "raw": "- 180 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 200 g de Patata cocida"
+        },
+        {
+          "raw": "- 60 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 50 g de Pepino"
+        },
+        {
+          "raw": "- 30 g de Aceitunas"
+        },
+        {
+          "raw": "- 20 g de Cebolla morada"
+        },
+        {
+          "raw": "- 15 g de AOVE"
+        },
+        {
+          "raw": "- 1 pizca de Sal marina, orégano, pimienta"
+        },
+        {
+          "raw": "- 15 ml de Zumo de 1/2 limón"
+        }
+      ],
+      "ingredients_count": 9,
+      "instructions": "1. Corta la patata cocida en cubos y saltéala 2 minutos con una pizca de sal y orégano.\n2. Cocina el pollo en una sartén con 10 g de AOVE, sal y pimienta (4-5 min).\n3. Corta el pimiento, pepino y cebolla en dados pequeños.\n4. Monta el bowl: patata de base  pollo  verduras  aceitunas.\n5. Aliña con el resto del AOVE y zumo de limón.",
+      "instructions_length": 332,
+      "diet_types": [
+        "normal",
+        "high_protein"
+      ],
+      "meal_types": [
+        "lunch",
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "mediterraneo",
+        "proteico",
+        "completo"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.434420+00:00",
+      "updated_at": "2025-12-04T23:45:23.848944+00:00"
+    },
+    {
+      "id": "8f2a12b4-e455-43b1-9c19-d9a671a16078",
+      "name": "BOWL 20 - Bowl César Saludable con Pollo y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 568,
+      "protein": 43.0,
+      "carbs": 74.0,
+      "fat": 17.0,
+      "fiber": 8.0,
+      "sugar": 12.0,
+      "sodium": 419.0,
+      "ingredients": [
+        {
+          "raw": "180 g de pechuga de pollo"
+        },
+        {
+          "raw": "180 g mezcla de lechugas (romana, iceberg, espinaca)"
+        },
+        {
+          "raw": "100 g tomate cherry"
+        },
+        {
+          "raw": "20 g parmesano rallado (opcional pero MUY recomendado)"
+        },
+        {
+          "raw": "1 huevo cocido"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal, pimienta, orégano"
+        },
+        {
+          "raw": "100 g yogur griego natural entero"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "1 cdita de mostaza"
+        },
+        {
+          "raw": "1 cdita de zumo de limón"
+        },
+        {
+          "raw": "1 diente pequeño de ajo picado muy fino"
+        },
+        {
+          "raw": "1 pizca de sal"
+        },
+        {
+          "raw": "1 pizca de pimienta"
+        },
+        {
+          "raw": "1 cdita de parmesano rallado (opcional)"
+        }
+      ],
+      "ingredients_count": 15,
+      "instructions": "1. Cocina el pollo a la sartén con sal, pimienta y orégano hasta dorar.\n2. En un bol grande, coloca la mezcla de lechugas y los tomates cherry cortados.\n3. Añade el huevo cocido en cuartos y el parmesano.\n4. Para la salsa: mezcla yogur, AOVE, ajo, mostaza, limón, sal, pimienta y parmesano\nhasta obtener textura cremosa.\n5. Monta el bowl: verduras  pollo caliente  huevo  parmesano.\n6. Salsea por encima al gusto y mezcla suavemente.",
+      "instructions_length": 433,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.453636+00:00",
+      "updated_at": "2025-12-04T23:45:23.850771+00:00"
+    },
+    {
+      "id": "b3a024f4-45f8-40de-9877-92baa0364e1d",
+      "name": "BOWL 21 - Poke Bowl con Salsa Especial",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 25,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 584,
+      "protein": 30.0,
+      "carbs": 51.0,
+      "fat": 23.0,
+      "fiber": 7.0,
+      "sugar": 6.0,
+      "sodium": 611.0,
+      "ingredients": [
+        {
+          "raw": "180 g de pechuga de pollo"
+        },
+        {
+          "raw": "1 huevo (para rebozar)"
+        },
+        {
+          "raw": "30 g harina de avena o harina de arroz"
+        },
+        {
+          "raw": "170 g arroz jazmín cocido"
+        },
+        {
+          "raw": "100 g aguacate"
+        },
+        {
+          "raw": "1 huevo pochado"
+        },
+        {
+          "raw": "10 g semillas de sésamo"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        },
+        {
+          "raw": "1 cda de mayonesa light (15 g)"
+        },
+        {
+          "raw": "1 cda de salsa de soja (15 ml)"
+        },
+        {
+          "raw": "1 cda de vinagre de arroz (15 ml)"
+        },
+        {
+          "raw": "1 cdita de miel (opcional para equilibrar)"
+        },
+        {
+          "raw": "Pimienta negra"
+        }
+      ],
+      "ingredients_count": 14,
+      "instructions": "1. Empanado saludable:\n Corta el pollo en tiras.\n Sal y pimienta.\n Pásalo por huevo batido y luego por harina de avena/harina de arroz.\n Cocínalo en sartén con 10 g de AOVE hasta dorar por ambos lados.\n2. Prepara el arroz jazmín si no lo tienes hecho.\n3. Haz un huevo pochado:\n Hierve agua y añade un chorrito de vinagre.\n Remueve creando un remolino.\n Cocina el huevo 2:30–3 min.\n4. Corta el aguacate en láminas o cubos.",
+      "instructions_length": 421,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.454520+00:00",
+      "updated_at": "2025-12-04T23:45:23.852375+00:00"
+    },
+    {
+      "id": "b7387f75-78cf-4ac5-a210-dce87f59c619",
+      "name": "BOWL 22 - Bowl Wok de Pollo",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 25,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 684,
+      "protein": 50.0,
+      "carbs": 64.0,
+      "fat": 26.0,
+      "fiber": 10.0,
+      "sugar": 14.0,
+      "sodium": 165.0,
+      "ingredients": [
+        {
+          "raw": "200 g contramuslo de pollo troceado"
+        },
+        {
+          "raw": "150 g fideos gruesos cocidos (udon o arroz grueso)"
+        },
+        {
+          "raw": "80 g brócoli"
+        },
+        {
+          "raw": "50 g zanahoria rallada"
+        },
+        {
+          "raw": "80 g pimiento rojo o verde lavado"
+        },
+        {
+          "raw": "40 g calabacín"
+        },
+        {
+          "raw": "15 g AOVE"
+        },
+        {
+          "raw": "15 g almendras troceadas"
+        },
+        {
+          "raw": "Sal y pimienta"
+        },
+        {
+          "raw": "1 cda salsa de soja (15 ml)  agua para aligerar"
+        },
+        {
+          "raw": "1 cda vinagre de arroz (15 ml)"
+        },
+        {
+          "raw": "1 cdita miel o sirope natural"
+        },
+        {
+          "raw": "1 cdita jengibre rallado"
+        },
+        {
+          "raw": "1 cdita ajo picado"
+        }
+      ],
+      "ingredients_count": 14,
+      "instructions": "1. Cocina el contramuslo:\n Salpimenta el pollo.\n Saltéalo a fuego medio-alto con AOVE hasta dorar.\n Retira y reserva.\n2. Prepara las verduras:\n Corta brócoli en arbolitos pequeños.\n Corta calabacín y pimiento en tiras finas.\n Saltéalos 3–4 min con AOVE.\n Añade la zanahoria rallada al final.\n3. Incorpora los fideos:\n Agrega los fideos cocidos al wok junto con las verduras.",
+      "instructions_length": 374,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.455317+00:00",
+      "updated_at": "2025-12-04T23:45:23.853692+00:00"
+    },
+    {
+      "id": "5c57323d-fdc8-4fc6-abf3-4b240d19a7d2",
+      "name": "BOWL 23 - Bowl Fuego",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 25,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 723,
+      "protein": 28.0,
+      "carbs": 74.0,
+      "fat": 32.0,
+      "fiber": 7.0,
+      "sugar": 17.0,
+      "sodium": 155.0,
+      "ingredients": [
+        {
+          "raw": "180 g contramuslo de pollo (queda más jugoso que la pechuga)"
+        },
+        {
+          "raw": "200 g boniato en cubos"
+        },
+        {
+          "raw": "100 g aguacate"
+        },
+        {
+          "raw": "80 g espinacas frescas"
+        },
+        {
+          "raw": "60 g pimiento rojo"
+        },
+        {
+          "raw": "10 g almendras laminadas"
+        },
+        {
+          "raw": "15 g AOVE"
+        },
+        {
+          "raw": "Sal, pimienta"
+        },
+        {
+          "raw": "Mezcla de especias: pimentón dulce, cúrcuma, ajo en polvo"
+        },
+        {
+          "raw": "1 huevo"
+        },
+        {
+          "raw": "25 g harina de arroz o avena"
+        },
+        {
+          "raw": "1 cdita pimentón"
+        },
+        {
+          "raw": "1 pizca de sal"
+        },
+        {
+          "raw": "1 cda tahini (15 g)"
+        },
+        {
+          "raw": "1 cda limón"
+        },
+        {
+          "raw": "1 cda agua"
+        },
+        {
+          "raw": "1 pizca de sal"
+        },
+        {
+          "raw": "1 pizca de ajo en polvo"
+        },
+        {
+          "raw": "Chips de ajo (1 diente laminado muy fino  gota de AOVE)"
+        }
+      ],
+      "ingredients_count": 19,
+      "instructions": "1. Asa el boniato:\n En sartén: 8–10 min con 5 g AOVE, sal, pimienta y pimentón.\n Debe quedar tierno por dentro y crujiente por fuera.\n2. Prepara el pollo crujiente:\n Bate el huevo.\n Mezcla la harina con pimentón y sal.\n Pasa el pollo por huevo  harina.\n Saltea en sartén con 10 g AOVE hasta dorar.\n Queda crujiente sin freír.\n3. Crea los chips de ajo:\n Lamina el ajo muy fino.",
+      "instructions_length": 376,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.456275+00:00",
+      "updated_at": "2025-12-04T23:45:23.854854+00:00"
+    },
+    {
+      "id": "f72303ba-9192-45d2-baed-7727508af05e",
+      "name": "BOWL 24 - Bowl Sushi de Atún Tropical",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 738,
+      "protein": 30.0,
+      "carbs": 49.0,
+      "fat": 20.0,
+      "fiber": 7.0,
+      "sugar": 2.0,
+      "sodium": 745.0,
+      "ingredients": [
+        {
+          "raw": "160 g atún fresco calidad sushi (en cubos)"
+        },
+        {
+          "raw": "170 g arroz blanco cocido"
+        },
+        {
+          "raw": "120 g mango en cubos"
+        },
+        {
+          "raw": "80 g pepino"
+        },
+        {
+          "raw": "100 g aguacate"
+        },
+        {
+          "raw": "10 g semillas de sésamo"
+        },
+        {
+          "raw": "10 g AOVE (opcional)"
+        },
+        {
+          "raw": "Salsa de soja baja en sal (15 ml)"
+        },
+        {
+          "raw": "Zumo de limón o lima"
+        },
+        {
+          "raw": "Sal y pimienta"
+        },
+        {
+          "raw": "1 cdita miel (opcional para armonizar sabores)"
+        },
+        {
+          "raw": "1 cda salsa de soja"
+        },
+        {
+          "raw": "1 cdita vinagre de arroz"
+        },
+        {
+          "raw": "½ cdita miel"
+        },
+        {
+          "raw": "1 cdita aceite de sésamo (opcional)"
+        }
+      ],
+      "ingredients_count": 15,
+      "instructions": "1. Corta el atún fresco en cubos y mézclalo con el marinado rápido (soja  vinagre \nmiel).\n2. Corta el mango, pepino y aguacate en cubos medianos.\n3. Coloca el arroz cocido como base del bowl.\n4. Añade el atún marinado, luego el mango, pepino y aguacate.\n5. Termina con sésamo por encima y un chorrito de limón o lima.\n6. Si quieres más brillo y textura, añade 5–10 g de AOVE al final.",
+      "instructions_length": 384,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.457120+00:00",
+      "updated_at": "2025-12-04T23:45:23.856246+00:00"
+    },
+    {
+      "id": "accb61b2-cfd2-428c-9302-141599b54141",
+      "name": "BOWL 25 - Bowl Sushi con Fresas",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 12,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 642,
+      "protein": 44.0,
+      "carbs": 66.0,
+      "fat": 25.0,
+      "fiber": 10.0,
+      "sugar": 16.0,
+      "sodium": 546.0,
+      "ingredients": [
+        {
+          "raw": "160 g atún fresco calidad sushi"
+        },
+        {
+          "raw": "170 g arroz jazmín cocido"
+        },
+        {
+          "raw": "120 g fresas maduras en cubos"
+        },
+        {
+          "raw": "80 g pepino"
+        },
+        {
+          "raw": "100 g aguacate"
+        },
+        {
+          "raw": "10 g semillas de sésamo negro"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "1 cda salsa de soja (15 ml)"
+        },
+        {
+          "raw": "Zumo de ½ lima"
+        },
+        {
+          "raw": "1 cdita jengibre rallado (opcional pero brutal)"
+        },
+        {
+          "raw": "1 cda soja"
+        },
+        {
+          "raw": "1 cda lima"
+        },
+        {
+          "raw": "1 cdita miel"
+        },
+        {
+          "raw": "1 cdita agua"
+        },
+        {
+          "raw": "1 cdita jengibre"
+        }
+      ],
+      "ingredients_count": 15,
+      "instructions": "1. Corta el atún en cubos y déjalo reposar 5 min con salsa soja  lima.\n2. Lava y corta las fresas en cubos uniformes (quedan increíbles con atún).\n3. Corta pepino y aguacate en cubos medianos.\n4. Prepara la salsa mezclando soja  lima  miel  jengibre  un toque de agua.\n5. Monta:\n Base de arroz jazmín\n Atún marinado\n Fresas\n Pepino\n Aguacate\n6. Termina con sésamo negro, la salsa por encima y 5–10 g de AOVE.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.457979+00:00",
+      "updated_at": "2025-12-04T23:45:23.857428+00:00"
+    },
+    {
+      "id": "f0707b31-adf1-4267-8031-d454c9328609",
+      "name": "BOWL 26 - Bowl Proteico Vegetariano",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 737,
+      "protein": 61.0,
+      "carbs": 55.0,
+      "fat": 21.0,
+      "fiber": 6.0,
+      "sugar": 3.0,
+      "sodium": 800.0,
+      "ingredients": [
+        {
+          "raw": "170 g arroz cocido (blanco o jazmín)"
+        },
+        {
+          "raw": "150 g alubias pintas cocidas (lavadas y escurridas)"
+        },
+        {
+          "raw": "2 huevos tipo 0 - 1 (para tortilla francesa)"
+        },
+        {
+          "raw": "100 g aguacate"
+        },
+        {
+          "raw": "80 g espinacas baby"
+        },
+        {
+          "raw": "40 g cebolla (opcional, salteada)"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        },
+        {
+          "raw": "1 chorrito de limón"
+        },
+        {
+          "raw": "Pimentón dulce o cúrcuma (opcional para la tortilla)"
+        }
+      ],
+      "ingredients_count": 10,
+      "instructions": "1. Prepara la tortilla francesa:\n Bate los huevos con sal y pimienta.\n Opcional: añade cúrcuma o pimentón para color y beneficios.\n Cocínala en sartén con 5 g AOVE.\n Córtala en tiras o cuadrados.\n2. Calienta el arroz si no está recién hecho.\n3. Saltea las espinacas baby 1–2 minutos con 5 g AOVE para que queden\nligeramente tiernas.\n4. Monta el bowl:\n Base de arroz\n Añade las alubias pintas",
+      "instructions_length": 391,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.458877+00:00",
+      "updated_at": "2025-12-04T23:45:23.859081+00:00"
+    },
+    {
+      "id": "bf0af260-99a6-4128-81de-7d7228148fcb",
+      "name": "BOWL 27 - Poke Bowl Tropical con PIña",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 12,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 713,
+      "protein": 39.0,
+      "carbs": 70.0,
+      "fat": 22.0,
+      "fiber": 7.0,
+      "sugar": 8.0,
+      "sodium": 315.0,
+      "ingredients": [
+        {
+          "raw": "160 g salmón fresco calidad sushi (en cubos)"
+        },
+        {
+          "raw": "170 g arroz blanco o jazmín cocido"
+        },
+        {
+          "raw": "120 g piña natural en cubos"
+        },
+        {
+          "raw": "80 g pepino"
+        },
+        {
+          "raw": "80 g aguacate"
+        },
+        {
+          "raw": "10 g semillas de sésamo"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "1 cda salsa de soja (15 ml)"
+        },
+        {
+          "raw": "Zumo de ½ lima"
+        },
+        {
+          "raw": "1 cdita miel (opcional para equilibrar)"
+        },
+        {
+          "raw": "Sal y pimienta"
+        },
+        {
+          "raw": "Toque de jengibre (opcional pero queda espectacular)"
+        },
+        {
+          "raw": "1 cda salsa de soja"
+        },
+        {
+          "raw": "1 cdita vinagre de arroz"
+        },
+        {
+          "raw": "1 cdita miel o sirope"
+        },
+        {
+          "raw": "1 cdita lima"
+        },
+        {
+          "raw": "Jengibre rallado"
+        }
+      ],
+      "ingredients_count": 17,
+      "instructions": "1. Corta el salmón en cubos y mézclalo con el marinado rápido (soja  vinagre  miel \nlima).\n2. Corta la piña, pepino y aguacate en cubos medianos.\n3. Coloca el arroz cocido como base del bowl.\n4. Añade el salmón marinado por encima.\n5. Incorpora la piña, el pepino y el aguacate alrededor para crear el efecto poke visual.\n6. Termina con:\n Sésamo\n Chorrito extra de lima\n Toque de AOVE\n Un poco de pimienta",
+      "instructions_length": 405,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.459735+00:00",
+      "updated_at": "2025-12-04T23:45:23.860450+00:00"
+    },
+    {
+      "id": "bff57966-5516-41d4-9f00-db87f04ddac1",
+      "name": "BOWL 2 - Bowl Proteico de Salmón y Boniato",
+      "description": "Receta dinner deliciosa y nutritiva",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 5,
+      "servings": 1,
+      "calories": 520,
+      "protein": 32.0,
+      "carbs": 45.0,
+      "fat": 20.0,
+      "fiber": 7.0,
+      "sugar": 8.0,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 180 g de Salmón fresco"
+        },
+        {
+          "raw": "- 200 g de Boniato"
+        },
+        {
+          "raw": "- 60 g de Espinaca"
+        },
+        {
+          "raw": "- 40 g de Pimiento verde"
+        },
+        {
+          "raw": "- 10 g de AOVE"
+        },
+        {
+          "raw": "- 1 pizca de Cúrcuma, pimienta, ajo en polvo"
+        },
+        {
+          "raw": "- 1 pizca de Sal marina"
+        },
+        {
+          "raw": "- 10 ml de Zumo de 1/4 limón"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Corta el boniato en cubos y cocínalo al vapor o microondas hasta que esté tierno (5-7 min).\n2. En una sartén, cocina el salmón con sal y especias (3-4 min por lado).\n3. Saltea las espinacas y el pimiento 2-3 minutos.\n4. Monta el bowl: boniato de base  espinacas  pimiento  salmón encima.\n5. Termina con AOVE y limón.",
+      "instructions_length": 319,
+      "diet_types": [
+        "normal",
+        "high_protein"
+      ],
+      "meal_types": [
+        "dinner",
+        "post_workout"
+      ],
+      "allergens": [],
+      "tags": [
+        "proteico",
+        "omega3",
+        "post_workout"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.436609+00:00",
+      "updated_at": "2025-12-04T23:45:23.861656+00:00"
+    },
+    {
+      "id": "2f4cc316-1324-4a36-bfaa-6baa6f3c85c0",
+      "name": "BOWL 3 - Bowl Energy de Ternera y Arroz",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 5,
+      "servings": 1,
+      "calories": 580,
+      "protein": 38.0,
+      "carbs": 55.0,
+      "fat": 18.0,
+      "fiber": 5.0,
+      "sugar": 4.0,
+      "sodium": 450.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Carne picada de ternera 90-95 magra"
+        },
+        {
+          "raw": "- 150 g de Arroz cocido"
+        },
+        {
+          "raw": "- 70 g de Calabacín"
+        },
+        {
+          "raw": "- 50 g de Zanahoria"
+        },
+        {
+          "raw": "- 20 g de Cebolla"
+        },
+        {
+          "raw": "- 10 g de AOVE"
+        },
+        {
+          "raw": "- 15 ml de Zumo de 1/2 limón"
+        },
+        {
+          "raw": "- 1 pizca de Orégano o hierbas provenzales"
+        },
+        {
+          "raw": "- 1 pizca de Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 9,
+      "instructions": "1. Cocina la ternera en sartén con sal, pimienta y orégano.\n2. En la misma sartén, añade el calabacín, cebolla y zanahoria en cubos y saltea 3–4\nmin.\n3. Añade el arroz cocido y mezcla todo a fuego medio 1 minuto.\n4. Monta el bowl: mezcla caliente  chorrito de limón  AOVE al final.",
+      "instructions_length": 281,
+      "diet_types": [
+        "normal",
+        "high_protein"
+      ],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [
+        "energy",
+        "proteico",
+        "completo"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.437716+00:00",
+      "updated_at": "2025-12-04T23:45:23.863419+00:00"
+    },
+    {
+      "id": "83197e76-8412-4062-9627-06687facdfb4",
+      "name": "BOWL 4 - Ensalada Mediterránea con Sardinas",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 480,
+      "protein": 28.0,
+      "carbs": 22.0,
+      "fat": 30.0,
+      "fiber": 8.0,
+      "sugar": 6.0,
+      "sodium": 500.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Sardinas en aceite de oliva (escurridas)"
+        },
+        {
+          "raw": "- 100 g de Aguacate"
+        },
+        {
+          "raw": "- 150 g de Tomate cherry o rama"
+        },
+        {
+          "raw": "- 80 g de Lechuga o mezcla verde"
+        },
+        {
+          "raw": "- 60 g de Pepino"
+        },
+        {
+          "raw": "- 15 g de AOVE"
+        },
+        {
+          "raw": "- 15 ml de Zumo de 1/2 limón"
+        },
+        {
+          "raw": "- 50 g de Yogur griego (opcional para salsa)"
+        },
+        {
+          "raw": "- 1 pizca de Sal marina y pimienta negra"
+        }
+      ],
+      "ingredients_count": 9,
+      "instructions": "1. Lava y corta la lechuga, tomates y pepino.\n2. Corta el aguacate en cubos grandes.\n3. Escurre las sardinas y colócalas encima de las verduras.\n4. Mezcla AOVE  limón  salsa  sal  pimienta y vierte por encima.\n5. Remueve ligeramente para no deshacer el pescado y sirve.",
+      "instructions_length": 269,
+      "diet_types": [
+        "mediterranean",
+        "high_protein"
+      ],
+      "meal_types": [
+        "lunch",
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "mediterraneo",
+        "omega3",
+        "rapida"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.438684+00:00",
+      "updated_at": "2025-12-04T23:45:23.864619+00:00"
+    },
+    {
+      "id": "4f20f3f2-7167-42e0-8e5d-351ea3614e34",
+      "name": "BOWL 5 - Ensalada Fresca de Atún y Aguacate",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 460,
+      "protein": 32.0,
+      "carbs": 25.0,
+      "fat": 26.0,
+      "fiber": 7.0,
+      "sugar": 5.0,
+      "sodium": 450.0,
+      "ingredients": [
+        {
+          "raw": "- 160 g de Atún en agua o AOVE (escurrido)"
+        },
+        {
+          "raw": "- 100 g de Aguacate"
+        },
+        {
+          "raw": "- 150 g de Tomate"
+        },
+        {
+          "raw": "- 70 g de Cebolla morada"
+        },
+        {
+          "raw": "- 20 g de Aceitunas"
+        },
+        {
+          "raw": "- 15 g de AOVE"
+        },
+        {
+          "raw": "- 10 ml de Zumo de 1/4 limón"
+        },
+        {
+          "raw": "- 1 pizca de Sal y pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Mezcla en un bol el tomate cortado, la cebolla y las aceitunas.\n2. Añade el atún escurrido.\n3. Incorpora el aguacate en cubos grandes.\n4. Aliña con AOVE  salsa  sal  pimienta\n5. Mezcla suavemente y disfruta",
+      "instructions_length": 209,
+      "diet_types": [
+        "normal",
+        "high_protein"
+      ],
+      "meal_types": [
+        "lunch",
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "rapida",
+        "proteico",
+        "omega3"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.439675+00:00",
+      "updated_at": "2025-12-04T23:45:23.865863+00:00"
+    },
+    {
+      "id": "96c710e3-e174-4292-a82e-c3eb6bd924c5",
+      "name": "BOWL 6 - Ensalada Mediterránea de Caballa y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 538,
+      "protein": 31.0,
+      "carbs": 58.0,
+      "fat": 31.0,
+      "fiber": 5.0,
+      "sugar": 11.0,
+      "sodium": 257.0,
+      "ingredients": [
+        {
+          "raw": "140 g de caballa en AOVE (escurrida)"
+        },
+        {
+          "raw": "100 g de aguacate"
+        },
+        {
+          "raw": "150 g de tomate"
+        },
+        {
+          "raw": "80 g de pepino"
+        },
+        {
+          "raw": "60 g de pimiento rojo"
+        },
+        {
+          "raw": "1 huevo cocido"
+        },
+        {
+          "raw": "15 g de AOVE"
+        },
+        {
+          "raw": "Sal, pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Corta todas las verduras en cubos medianos.\n2. Añade el huevo cocido en cuartos.\n3. Coloca la caballa escurrida encima.\n4. Añade el aguacate en cubos.\n5. Aliña con AOVE  sal  pimienta y mezcla ligeramente.",
+      "instructions_length": 208,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.440700+00:00",
+      "updated_at": "2025-12-04T23:45:23.867062+00:00"
+    },
+    {
+      "id": "71a54615-6ff2-40ab-8348-44f242e64be3",
+      "name": "BOWL 6 - Ensalada Mediterránea de Caballa y Aguacate",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 510,
+      "protein": 26.0,
+      "carbs": 28.0,
+      "fat": 32.0,
+      "fiber": 9.0,
+      "sugar": 7.0,
+      "sodium": 500.0,
+      "ingredients": [
+        {
+          "raw": "- 140 g de Caballa en AOVE"
+        },
+        {
+          "raw": "- 100 g de Aguacate"
+        },
+        {
+          "raw": "- 120 g de Tomate cherry"
+        },
+        {
+          "raw": "- 80 g de Mezcla verde o lechuga"
+        },
+        {
+          "raw": "- 60 g de Pepino"
+        },
+        {
+          "raw": "- 30 g de Cebolla morada"
+        },
+        {
+          "raw": "- 10 g de AOVE extra"
+        },
+        {
+          "raw": "- 15 ml de Zumo de 1/2 limón"
+        },
+        {
+          "raw": "- 1 pizca de Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 9,
+      "instructions": "1. Lava y corta la lechuga, tomates y pepino.\n2. Corta el aguacate en cubos grandes.\n3. Escurre la caballa y colócala encima de las verduras.\n4. Mezcla AOVE  limón  sal  pimienta y vierte por encima.\n5. Remueve ligeramente para no deshacer el pescado y sirve.",
+      "instructions_length": 259,
+      "diet_types": [
+        "mediterranean",
+        "high_protein"
+      ],
+      "meal_types": [
+        "lunch",
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "mediterraneo",
+        "omega3",
+        "rapida"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-12-04T23:25:41.078802+00:00",
+      "updated_at": "2025-12-04T23:45:23.868203+00:00"
+    },
+    {
+      "id": "5d3d61cb-2358-4f69-abd0-932ccbf43fe4",
+      "name": "BOWL 7 - Ensalada Verde con Salmón",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 589,
+      "protein": 35.0,
+      "carbs": 62.0,
+      "fat": 31.0,
+      "fiber": 2.0,
+      "sugar": 7.0,
+      "sodium": 219.0,
+      "ingredients": [
+        {
+          "raw": "150 g de salmón ahumado de buena calidad"
+        },
+        {
+          "raw": "100 g de aguacate"
+        },
+        {
+          "raw": "150 g de mezcla verde: rúcula, canónigos o lechuga"
+        },
+        {
+          "raw": "80 g de tomate cherry"
+        },
+        {
+          "raw": "50 g de pepino"
+        },
+        {
+          "raw": "15 g de AOVE"
+        },
+        {
+          "raw": "Zumo de ½ limón"
+        },
+        {
+          "raw": "Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Mezcla la base de hojas verdes con tomates y pepino.\n2. Añade el aguacate en cubos.\n3. Coloca el salmón ahumado por encima.\n4. Aliña con AOVE  limón  pimienta.\n5. Mezcla y sirve.",
+      "instructions_length": 181,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.441638+00:00",
+      "updated_at": "2025-12-04T23:45:23.869437+00:00"
+    },
+    {
+      "id": "822cb895-4497-4b1d-8761-6104baee5aab",
+      "name": "BOWL 8 - Bowl Power de Pollo hummus y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 525,
+      "protein": 56.0,
+      "carbs": 47.0,
+      "fat": 17.0,
+      "fiber": 10.0,
+      "sugar": 7.0,
+      "sodium": 586.0,
+      "ingredients": [
+        {
+          "raw": "180 g de pollo"
+        },
+        {
+          "raw": "180 g de boniato cocido"
+        },
+        {
+          "raw": "70 g de hummus natural"
+        },
+        {
+          "raw": "60 g de espinacas"
+        },
+        {
+          "raw": "50 g de pepino"
+        },
+        {
+          "raw": "10 g de AOVE"
+        },
+        {
+          "raw": "Sal, pimienta, orégano"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Saltea el pollo con sal y pimienta.\n2. Calienta el boniato.\n3. Monta el bowl con espinacas de base.\n4. Añade pepino, boniato, pollo y hummus.\n5. Termina con AOVE y orégano.",
+      "instructions_length": 175,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.442614+00:00",
+      "updated_at": "2025-12-04T23:45:23.870711+00:00"
+    },
+    {
+      "id": "22772a62-e544-4b95-8d40-a5b13526b87e",
+      "name": "BOWL 9 - Bowl Proteico de Ternera arroz y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 543,
+      "protein": 34.4,
+      "carbs": 59.6,
+      "fat": 19.2,
+      "fiber": 5.96,
+      "sugar": 8.94,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Ternera magra"
+        },
+        {
+          "raw": "- 150 g de Arroz blanco cocido"
+        },
+        {
+          "raw": "- 100 g de Brócoli al vapor"
+        },
+        {
+          "raw": "- 80 g de Tomate cherry"
+        },
+        {
+          "raw": "- 80 g de Pimiento rojo"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva virgen extra"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta negra"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Cocina la ternera magra en una sartén con aceite de oliva, sal y pimienta durante 5-6 minutos hasta que esté bien sellada.\n3. Cocina el arroz blanco cocido según las instrucciones del paquete hasta que esté al dente.\n3. Lava y corta las verduras (tomate cherry, pimiento rojo) en trozos del tamaño deseado.\n4. Monta el bowl: coloca la base de carbohidratos, luego la proteína, y finalmente las verduras.\n5. Aliña con aceite de oliva, sal, pimienta y un toque de limón si lo deseas. Mezcla ligeramente y sirve inmediatamente.",
+      "instructions_length": 527,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.443869+00:00",
+      "updated_at": "2025-12-19T09:31:15.609850+00:00"
+    },
+    {
+      "id": "90a4f217-6383-45b9-9711-552662264400",
+      "name": "CREMA 10 - Crema Blanca de",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 538,
+      "protein": 32.0,
+      "carbs": 42.0,
+      "fat": 7.0,
+      "fiber": 3.0,
+      "sugar": 6.0,
+      "sodium": 639.0,
+      "ingredients": [
+        {
+          "raw": "200 g puerro"
+        },
+        {
+          "raw": "150 g patata"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "Cocina puerro y patata hasta ablandar.\n Tritura con AOVE.\n Ajusta sal y pimienta.",
+      "instructions_length": 81,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.534026+00:00",
+      "updated_at": "2025-12-04T23:45:23.873299+00:00"
+    },
+    {
+      "id": "8f277061-d29c-4f61-b373-d465afe77486",
+      "name": "CREMA 10 - Crema Blanca de",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 339,
+      "protein": 27.0,
+      "carbs": 59.0,
+      "fat": 13.0,
+      "fiber": 8.0,
+      "sugar": 18.0,
+      "sodium": 510.0,
+      "ingredients": [
+        {
+          "raw": "200 g puerro"
+        },
+        {
+          "raw": "150 g patata"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "1. Cocina puerro y patata hasta ablandar.\n2. Tritura con AOVE.\n3. Ajusta sal y pimienta.",
+      "instructions_length": 88,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.510684+00:00",
+      "updated_at": "2025-12-04T23:45:23.872028+00:00"
+    },
+    {
+      "id": "c8c4cc61-0643-495b-aab7-313c3b4a131e",
+      "name": "CREMA 11 - Crema de Patata y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 338,
+      "protein": 31.0,
+      "carbs": 70.0,
+      "fat": 21.0,
+      "fiber": 7.0,
+      "sugar": 10.0,
+      "sodium": 732.0,
+      "ingredients": [
+        {
+          "raw": "150 g patata"
+        },
+        {
+          "raw": "1 calabacín"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "AOVE"
+        },
+        {
+          "raw": "Sal"
+        },
+        {
+          "raw": "300 g patata"
+        },
+        {
+          "raw": "40 g queso fresco batido o 40 g queso fresco normal (para cremosidad sin"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "40–60 ml agua caliente o caldo suave (según textura)"
+        },
+        {
+          "raw": "Sal"
+        },
+        {
+          "raw": "Pimienta blanca (opcional, pero queda delicioso)"
+        }
+      ],
+      "ingredients_count": 11,
+      "instructions": "Cocina todo junto.\n Tritura con AOVE.\n Ajusta de sal.\n Cocina las patatas en agua con sal hasta que estén muy blandas.\n Escúrrelas bien y tritúralas con un tenedor o batidora, según si lo quieres rústico\n Añade el queso fresco batido y mezcla hasta integrar totalmente.\n Agrega 1 cucharadita de AOVE y mezcla de nuevo.\n Ajusta la textura con agua caliente o caldo:\n Termina con sal y pimienta blanca al gusto.\n Cocina el pollo y córtalo en tiras.\n Monta pan  tomate  pollo  aguacate.\n AOVE  orégano.\n Tuesta en sartén.\n Corta el bagel y tuéstalo.\n Añade pepino  lechuga y tomate en rodajas, salmón  huevo.\n Termina con limón y AOVE.\n A la sartén 1 minuto.\n Mezcla atún  limón.\n Monta pan  guacamole  atún  zanahoria.\n Tuesta en sartén.\n Saltea ternera y pimiento.\n Monta el sandwich.\n Tuesta en sartén hasta dorar.\n Haz una tortilla francesa.\n Monta pan  tortilla  aguacate.\n A la sartén hasta que sea crujiente.\n Mezcla la salsa.\n Monta bagel con pavo y pepino.\n Añade salsa.\n Tuesta ligeramente.\n Saltea la berenjena.\n Monta pan  tomate  berenjena  queso.\n Tuesta en sartén.\n Monta la baguette con el atún y huevo duro\n Añade pimiento y rodajas de tomate \n Tuesta hasta crujir.\n Cocina el pollo.\n Monta con guacamole y tomate en rodajas lechuga.\n Tuesta en sartén.\n Marina el tofu 5 min.\n Saltea y monta el bagel con tofu, tomate y aguacate\n Añade las salsas.\n Tuesta en sartén.\n Saltea pimiento.\n Monta baguette con hummus  pavo.\n Tuesta ligeramente.\n Cocina la carne.\n Añade queso para que funda.\n Monta y tuesta en sartén.\n Saltea berenjena  espinacas.\n Monta con tahini.\n Tuesta.\n Mezcla atún  limón.\n Monta con guacamole  zanahoria.\n Tuesta hasta dorar.\n Cocina el pollo con AOVE y cajún.\n Mezcla la salsa miel-mostaza.\n Monta pan  lechuga  pollo  tomate  salsa.\n Tuesta en sartén hasta dorar.\n Haz huevos revueltos cremosos a fuego bajo.\n Tuesta el bagel.\n Monta bagel  aguacate  huevos.\n Pasa un minuto por sartén para sellar.",
+      "instructions_length": 1935,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.511550+00:00",
+      "updated_at": "2025-12-04T23:45:23.875741+00:00"
+    },
+    {
+      "id": "8cccbea0-e888-4131-8055-26425286baa1",
+      "name": "CREMA 11 - Crema de Patata y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 432,
+      "protein": 37.0,
+      "carbs": 59.0,
+      "fat": 10.0,
+      "fiber": 9.0,
+      "sugar": 1.0,
+      "sodium": 247.0,
+      "ingredients": [
+        {
+          "raw": "150 g patata"
+        },
+        {
+          "raw": "1 calabacín"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "AOVE"
+        },
+        {
+          "raw": "Sal"
+        },
+        {
+          "raw": "300 g patata"
+        },
+        {
+          "raw": "40 g queso fresco batido o 40 g queso fresco normal (para cremosidad sin"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "40–60 ml agua caliente o caldo suave (según textura)"
+        },
+        {
+          "raw": "Sal"
+        },
+        {
+          "raw": "Pimienta blanca (opcional, pero queda delicioso)"
+        }
+      ],
+      "ingredients_count": 11,
+      "instructions": "1. Cocina todo junto.\n2. Tritura con AOVE.\n3. Ajusta de sal.",
+      "instructions_length": 60,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.534892+00:00",
+      "updated_at": "2025-12-04T23:45:23.874457+00:00"
+    },
+    {
+      "id": "06968c46-3cdd-4f66-8f42-6d85606b1c53",
+      "name": "CREMA 1 - Crema de Calabaza y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 352,
+      "protein": 33.0,
+      "carbs": 56.0,
+      "fat": 10.0,
+      "fiber": 2.0,
+      "sugar": 5.0,
+      "sodium": 516.0,
+      "ingredients": [
+        {
+          "raw": "300 g calabaza"
+        },
+        {
+          "raw": "100 g zanahoria"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "1 diente ajo"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Cocina calabaza, zanahoria, cebolla y ajo.\n Tritura con AOVE.\n Ajusta sal y pimienta.",
+      "instructions_length": 85,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.525350+00:00",
+      "updated_at": "2025-12-04T23:45:23.877974+00:00"
+    },
+    {
+      "id": "65d225fd-4521-4c6a-a08c-61f2952037fd",
+      "name": "CREMA 1 - Crema de Calabaza y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 468,
+      "protein": 33.0,
+      "carbs": 57.0,
+      "fat": 22.0,
+      "fiber": 6.0,
+      "sugar": 4.0,
+      "sodium": 192.0,
+      "ingredients": [
+        {
+          "raw": "300 g calabaza"
+        },
+        {
+          "raw": "100 g zanahoria"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "1 diente ajo"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Cocina calabaza, zanahoria, cebolla y ajo.\n Tritura con AOVE.\n Ajusta sal y pimienta.",
+      "instructions_length": 85,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.502430+00:00",
+      "updated_at": "2025-12-04T23:45:23.876989+00:00"
+    },
+    {
+      "id": "0f018695-bc7d-4d3a-a2ea-70f02997b23e",
+      "name": "CREMA 1 - Crema de Calabaza y Zanahoria Suave",
+      "description": "Receta dinner deliciosa y nutritiva",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 10,
+      "servings": 1,
+      "calories": 180,
+      "protein": 4.0,
+      "carbs": 25.0,
+      "fat": 8.0,
+      "fiber": 6.0,
+      "sugar": 8.0,
+      "sodium": 350.0,
+      "ingredients": [
+        {
+          "raw": "- 300 g de Calabaza"
+        },
+        {
+          "raw": "- 100 g de Zanahoria"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        },
+        {
+          "raw": "- 1 diente de Ajo"
+        },
+        {
+          "raw": "- 10 g de AOVE"
+        },
+        {
+          "raw": "- 1 pizca de Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Cocina calabaza, zanahoria, cebolla y ajo hasta que estén tiernos.\n2. Tritura con AOVE hasta obtener textura cremosa.\n3. Ajusta sal y pimienta al gusto.",
+      "instructions_length": 155,
+      "diet_types": [
+        "vegetarian",
+        "vegan"
+      ],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "crema",
+        "vegetariano",
+        "suave"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-12-04T23:25:41.082591+00:00",
+      "updated_at": "2025-12-04T23:39:23.169711+00:00"
+    },
+    {
+      "id": "bb7a0acd-685a-4038-9fc0-3e107f19d7e9",
+      "name": "CREMA 2 - Crema de Calabacín con",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 15,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 300,
+      "protein": 45.0,
+      "carbs": 45.0,
+      "fat": 18.0,
+      "fiber": 2.0,
+      "sugar": 4.0,
+      "sodium": 264.0,
+      "ingredients": [
+        {
+          "raw": "2 calabacines"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "60 g queso fresco o de cabra"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina calabacín y cebolla.\n2. Tritura con queso fresco/cabra y AOVE.\n3. Pimienta al gusto.",
+      "instructions_length": 94,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.503428+00:00",
+      "updated_at": "2025-12-04T23:45:23.880433+00:00"
+    },
+    {
+      "id": "cf7c88a8-5065-4df4-bdfd-9b1bd8b48b6e",
+      "name": "CREMA 2 - Crema de Calabacín con",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 381,
+      "protein": 26.0,
+      "carbs": 37.0,
+      "fat": 22.0,
+      "fiber": 5.0,
+      "sugar": 10.0,
+      "sodium": 262.0,
+      "ingredients": [
+        {
+          "raw": "2 calabacines"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "60 g queso fresco o de cabra"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Cocina calabacín y cebolla.\n Tritura con queso fresco/cabra y AOVE.\n Pimienta al gusto.",
+      "instructions_length": 87,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.526204+00:00",
+      "updated_at": "2025-12-04T23:45:23.879064+00:00"
+    },
+    {
+      "id": "20306a58-328d-4ecc-a012-cd233d51c5dc",
+      "name": "CREMA 2 - Crema de Calabacín con Queso",
+      "description": "Receta dinner deliciosa y nutritiva",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 5,
+      "servings": 1,
+      "calories": 220,
+      "protein": 12.0,
+      "carbs": 18.0,
+      "fat": 11.0,
+      "fiber": 4.0,
+      "sugar": 6.0,
+      "sodium": 380.0,
+      "ingredients": [
+        {
+          "raw": "- 200 g de Calabacines"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        },
+        {
+          "raw": "- 60 g de Queso fresco o de cabra"
+        },
+        {
+          "raw": "- 5 g de AOVE"
+        },
+        {
+          "raw": "- 1 pizca de Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina calabacín y cebolla hasta que estén tiernos.\n2. Tritura con queso fresco/cabra y AOVE hasta obtener crema suave.\n3. Añade pimienta al gusto.",
+      "instructions_length": 150,
+      "diet_types": [
+        "vegetarian"
+      ],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [
+        "crema",
+        "vegetariano",
+        "cremosa"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-12-04T23:25:41.086457+00:00",
+      "updated_at": "2025-12-04T23:39:23.170695+00:00"
+    },
+    {
+      "id": "8dd5eea1-be24-41a2-a50e-3a6aec26052f",
+      "name": "CREMA 3 - Puré de Patata y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 387,
+      "protein": 34.0,
+      "carbs": 68.0,
+      "fat": 13.0,
+      "fiber": 2.0,
+      "sugar": 2.0,
+      "sodium": 636.0,
+      "ingredients": [
+        {
+          "raw": "200 g patata"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "1 huevo duro"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina patata y zanahoria.\n\n2. Tritura con AOVE hasta que quede puré.\n3. Añade huevo picado encima.",
+      "instructions_length": 102,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.527117+00:00",
+      "updated_at": "2025-12-04T23:45:23.882645+00:00"
+    },
+    {
+      "id": "c947d335-ce3e-4856-a825-b453882f2ef3",
+      "name": "CREMA 3 - Puré de Patata y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 598,
+      "protein": 47.0,
+      "carbs": 68.0,
+      "fat": 22.0,
+      "fiber": 4.0,
+      "sugar": 9.0,
+      "sodium": 783.0,
+      "ingredients": [
+        {
+          "raw": "200 g patata"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "1 huevo duro"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Cocina patata y zanahoria.\n Tritura con AOVE hasta que quede puré.\n Añade huevo picado encima.",
+      "instructions_length": 94,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.504421+00:00",
+      "updated_at": "2025-12-04T23:45:23.881563+00:00"
+    },
+    {
+      "id": "bfa67f47-9d2f-4f12-9a1a-b3bbb51f2b67",
+      "name": "CREMA 3 - Puré de Patata y Zanahoria con Huevo Picado",
+      "description": "Receta lunch deliciosa y nutritiva",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 10,
+      "servings": 1,
+      "calories": 350,
+      "protein": 15.0,
+      "carbs": 48.0,
+      "fat": 12.0,
+      "fiber": 6.0,
+      "sugar": 7.0,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 200 g de Patata"
+        },
+        {
+          "raw": "- 150 g de Zanahoria"
+        },
+        {
+          "raw": "- 1 unidad de Huevo duro"
+        },
+        {
+          "raw": "- 10 g de AOVE"
+        },
+        {
+          "raw": "- 1 pizca de Sal"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina patata y zanahoria hasta que estén muy blandas.\n2. Tritura con AOVE hasta que quede puré suave.\n3. Añade huevo picado encima al servir.",
+      "instructions_length": 145,
+      "diet_types": [
+        "vegetarian"
+      ],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [
+        "pure",
+        "proteico",
+        "comfort"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-12-04T23:25:41.089846+00:00",
+      "updated_at": "2025-12-04T23:39:23.171706+00:00"
+    },
+    {
+      "id": "5d14e3a8-6bbd-4598-9aa9-e00eef8cceac",
+      "name": "CREMA 4 - Crema de Pimiento Rojo",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 350,
+      "protein": 32.0,
+      "carbs": 67.0,
+      "fat": 25.0,
+      "fiber": 12.0,
+      "sugar": 8.0,
+      "sodium": 314.0,
+      "ingredients": [
+        {
+          "raw": "2 pimientos rojos"
+        },
+        {
+          "raw": "2 tomates"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Asa o saltea pimientos, tomates y cebolla.\n Tritura con AOVE.\n Ajusta de sal.",
+      "instructions_length": 77,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.505375+00:00",
+      "updated_at": "2025-12-04T23:45:23.884936+00:00"
+    },
+    {
+      "id": "372816a5-429d-4399-a73f-cd6dbf8e2529",
+      "name": "CREMA 4 - Crema de Pimiento Rojo",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 533,
+      "protein": 34.0,
+      "carbs": 73.0,
+      "fat": 19.0,
+      "fiber": 10.0,
+      "sugar": 2.0,
+      "sodium": 720.0,
+      "ingredients": [
+        {
+          "raw": "2 pimientos rojos"
+        },
+        {
+          "raw": "2 tomates"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Asa o saltea pimientos, tomates y cebolla.\n2. Tritura con AOVE.\n\n3. Ajusta de sal.",
+      "instructions_length": 85,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.527951+00:00",
+      "updated_at": "2025-12-04T23:45:23.883832+00:00"
+    },
+    {
+      "id": "b99fedb6-23b1-4eac-b89f-8372fe6c4380",
+      "name": "CREMA 5 - Puré de Boniato y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 286,
+      "protein": 37.0,
+      "carbs": 43.0,
+      "fat": 10.0,
+      "fiber": 2.0,
+      "sugar": 7.0,
+      "sodium": 186.0,
+      "ingredients": [
+        {
+          "raw": "250 g boniato"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Pizca de sal"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "1. Cocina boniato y zanahoria.\n2. Tritura con AOVE.\n3. Añade sal.",
+      "instructions_length": 65,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.506230+00:00",
+      "updated_at": "2025-12-04T23:45:23.886082+00:00"
+    },
+    {
+      "id": "74159005-34c3-4cd6-9881-9bd79b8d9521",
+      "name": "CREMA 5 - Puré de Boniato y",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 515,
+      "protein": 32.0,
+      "carbs": 60.0,
+      "fat": 16.0,
+      "fiber": 6.0,
+      "sugar": 10.0,
+      "sodium": 280.0,
+      "ingredients": [
+        {
+          "raw": "250 g boniato"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Pizca de sal"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "Cocina boniato y zanahoria.\n Tritura con AOVE.\n Añade sal.",
+      "instructions_length": 58,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.528981+00:00",
+      "updated_at": "2025-12-04T23:45:23.887146+00:00"
+    },
+    {
+      "id": "ab2a9ec8-658d-497b-8e11-251b0bb169ab",
+      "name": "CREMA 6 - Crema de Verduras",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 25,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 598,
+      "protein": 37.0,
+      "carbs": 66.0,
+      "fat": 23.0,
+      "fiber": 7.0,
+      "sugar": 12.0,
+      "sodium": 244.0,
+      "ingredients": [
+        {
+          "raw": "1 calabacín"
+        },
+        {
+          "raw": "1 zanahoria"
+        },
+        {
+          "raw": "1 pimiento rojo"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Asa las verduras o márcalas en sartén.\n2. Tritura con un poco de agua.\n3. Ajusta sal y pimienta.",
+      "instructions_length": 99,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.507171+00:00",
+      "updated_at": "2025-12-04T23:45:23.889385+00:00"
+    },
+    {
+      "id": "6acbdfd8-a5e4-4a8b-bd65-018bf0e6806d",
+      "name": "CREMA 6 - Crema de Verduras",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 637,
+      "protein": 28.0,
+      "carbs": 74.0,
+      "fat": 13.0,
+      "fiber": 5.0,
+      "sugar": 15.0,
+      "sodium": 800.0,
+      "ingredients": [
+        {
+          "raw": "1 calabacín"
+        },
+        {
+          "raw": "1 zanahoria"
+        },
+        {
+          "raw": "1 pimiento rojo"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "10 g AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Asa las verduras o márcalas en sartén.\n Tritura con un poco de agua.\n Ajusta sal y pimienta.",
+      "instructions_length": 92,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.529905+00:00",
+      "updated_at": "2025-12-04T23:45:23.888337+00:00"
+    },
+    {
+      "id": "c2fefa5c-e5f8-4fe5-acfd-4f91600fd9b6",
+      "name": "CREMA 7 - Crema Suave de Coliflor",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 392,
+      "protein": 28.0,
+      "carbs": 49.0,
+      "fat": 16.0,
+      "fiber": 2.0,
+      "sugar": 3.0,
+      "sodium": 215.0,
+      "ingredients": [
+        {
+          "raw": "250 g coliflor"
+        },
+        {
+          "raw": "100 g patata"
+        },
+        {
+          "raw": "40 g queso fresco (opcional)"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Cocina coliflor y patata.\n Tritura con queso y AOVE.\n Ajusta sal.",
+      "instructions_length": 65,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.530818+00:00",
+      "updated_at": "2025-12-04T23:45:23.890486+00:00"
+    },
+    {
+      "id": "d275f74d-6c6b-4775-97bf-dd8cdb766d81",
+      "name": "CREMA 7 - Crema Suave de Coliflor",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 415,
+      "protein": 37.0,
+      "carbs": 42.0,
+      "fat": 11.0,
+      "fiber": 4.0,
+      "sugar": 9.0,
+      "sodium": 153.0,
+      "ingredients": [
+        {
+          "raw": "250 g coliflor"
+        },
+        {
+          "raw": "100 g patata"
+        },
+        {
+          "raw": "40 g queso fresco (opcional)"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina coliflor y patata.\n2. Tritura con queso y AOVE.\n3. Ajusta sal.",
+      "instructions_length": 72,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.508054+00:00",
+      "updated_at": "2025-12-04T23:45:23.891554+00:00"
+    },
+    {
+      "id": "e68fc0c7-a1fd-48a7-8c7e-36129118c1d8",
+      "name": "CREMA 8 - Crema de Calabacín con",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 440,
+      "protein": 45.0,
+      "carbs": 58.0,
+      "fat": 19.0,
+      "fiber": 7.0,
+      "sugar": 6.0,
+      "sodium": 454.0,
+      "ingredients": [
+        {
+          "raw": "2 calabacines"
+        },
+        {
+          "raw": "1 puerro"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "Sofríe puerro 3 min.\n Añade calabacín  agua.\n Cocina 10–12 min.\n Tritura con AOVE.",
+      "instructions_length": 82,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.508899+00:00",
+      "updated_at": "2025-12-04T23:45:23.894332+00:00"
+    },
+    {
+      "id": "97b20d86-26c8-4e40-9d6a-f59576bd3574",
+      "name": "CREMA 8 - Crema de Calabacín con",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 18,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 466,
+      "protein": 33.0,
+      "carbs": 39.0,
+      "fat": 17.0,
+      "fiber": 12.0,
+      "sugar": 16.0,
+      "sodium": 530.0,
+      "ingredients": [
+        {
+          "raw": "2 calabacines"
+        },
+        {
+          "raw": "1 puerro"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y pimienta"
+        }
+      ],
+      "ingredients_count": 4,
+      "instructions": "1. Sofríe puerro 3 min.\n2. Añade calabacín  agua.\n3. Cocina 10–12 min.\n4. Tritura con AOVE.",
+      "instructions_length": 91,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.531668+00:00",
+      "updated_at": "2025-12-04T23:45:23.892738+00:00"
+    },
+    {
+      "id": "46998dd4-28cb-4620-ae34-1d6066ad19a5",
+      "name": "CREMA 9 - Puré de Lenteja Roja",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 492,
+      "protein": 45.0,
+      "carbs": 52.0,
+      "fat": 22.0,
+      "fiber": 10.0,
+      "sugar": 3.0,
+      "sodium": 459.0,
+      "ingredients": [
+        {
+          "raw": "80 g lenteja roja"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y comino suave"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina lenteja roja, zanahoria y cebolla.\n2. Tritura con AOVE y una pizca de comino.\n3. Ajusta sal.",
+      "instructions_length": 102,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.509778+00:00",
+      "updated_at": "2025-12-04T23:45:23.897206+00:00"
+    },
+    {
+      "id": "f2833710-68fe-40e5-84b9-452f4b53ab59",
+      "name": "CREMA 9 - Puré de Lenteja Roja",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 479,
+      "protein": 34.0,
+      "carbs": 46.0,
+      "fat": 10.0,
+      "fiber": 10.0,
+      "sugar": 15.0,
+      "sodium": 178.0,
+      "ingredients": [
+        {
+          "raw": "80 g lenteja roja"
+        },
+        {
+          "raw": "150 g zanahoria"
+        },
+        {
+          "raw": "½ cebolla"
+        },
+        {
+          "raw": "1 cdita AOVE"
+        },
+        {
+          "raw": "Sal y comino suave"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Cocina lenteja roja, zanahoria y cebolla.\n Tritura con AOVE y una pizca de comino.\n Ajusta sal.",
+      "instructions_length": 95,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.532763+00:00",
+      "updated_at": "2025-12-04T23:45:23.895753+00:00"
+    },
+    {
+      "id": "da2490ca-a34a-42f2-905d-56ab143a3e07",
+      "name": "FAJITA 10 - Fajita Fantasía con Salsa de",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 273,
+      "protein": 6.2,
+      "carbs": 34.3,
+      "fat": 13.0,
+      "fiber": 4.12,
+      "sugar": 3.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Corta las verduras (tomate, pimiento) en tiras finas y saltéalas en la misma sartén durante 2-3 minutos hasta que estén tiernas pero crujientes.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 431,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.486673+00:00",
+      "updated_at": "2025-12-19T09:31:15.612016+00:00"
+    },
+    {
+      "id": "7dc5767d-ef03-4563-96bf-dec517b11e0a",
+      "name": "FAJITA 11 - Kebab de Pollo y Salsa de Yogur",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 757,
+      "protein": 43.0,
+      "carbs": 68.0,
+      "fat": 21.0,
+      "fiber": 11.0,
+      "sugar": 6.0,
+      "sodium": 527.0,
+      "ingredients": [
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        },
+        {
+          "name": "",
+          "amount": "",
+          "unit": ""
+        }
+      ],
+      "ingredients_count": 12,
+      "instructions": "1. Marina el pollo 5 min con comino  cúrcuma  pimentón  pizca sal  AOVE.\n2. Cocina a fuego alto 4–5 min hasta dorar.\n3. Prepara la salsa mezclando yogur  limón  ajo  sal.\n4. Calienta ligeramente la tortilla.\n5. Monta: base de salsa  verduras frescas  pollo caliente.\n6. Añade 10 g de AOVE crudo para máxima absorción vitamínica.\n7. Enrolla estilo kebab.\n\nPOTAJE de Pollo y Garbanzos Mediterráneo\n(COMIDA – CENA)\nBLOQUE 2",
+      "instructions_length": 420,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.487462+00:00",
+      "updated_at": "2025-12-19T09:51:06.036860+00:00"
+    },
+    {
+      "id": "b63f81c2-5a9a-4436-8fe2-d0bf9b6ce3bd",
+      "name": "FAJITA 1 - Fajita de Pollo Clásica",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 378,
+      "protein": 35.1,
+      "carbs": 20.6,
+      "fat": 16.1,
+      "fiber": 2.47,
+      "sugar": 2.06,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Corta el pechuga de pollo en tiras y saltéalo en una sartén con aceite de oliva, sal y pimienta durante 4-5 minutos hasta que esté cocido.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 425,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.479148+00:00",
+      "updated_at": "2025-12-19T09:31:15.614286+00:00"
+    },
+    {
+      "id": "fa03f8b7-78f1-4a3c-85f5-7eda5943bca9",
+      "name": "FAJITA 2 - Fajita de Pollo No tan Clásica",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 378,
+      "protein": 35.1,
+      "carbs": 20.6,
+      "fat": 16.1,
+      "fiber": 2.47,
+      "sugar": 2.06,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Corta el pechuga de pollo en tiras y saltéalo en una sartén con aceite de oliva, sal y pimienta durante 4-5 minutos hasta que esté cocido.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 425,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.479942+00:00",
+      "updated_at": "2025-12-19T09:31:15.616560+00:00"
+    },
+    {
+      "id": "4cbd8ebe-9c7b-4bd8-ba7e-9c0d4d137dd6",
+      "name": "FAJITA 3 - Fajita de Carne con Queso",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 443,
+      "protein": 36.1,
+      "carbs": 22.6,
+      "fat": 22.5,
+      "fiber": 2.71,
+      "sugar": 2.26,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Carne de res"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 40 g de Queso fresco"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Cocina la carne de res en una sartén con aceite de oliva, sal y pimienta durante 5-6 minutos hasta que esté bien sellada.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.480740+00:00",
+      "updated_at": "2025-12-19T09:31:15.618904+00:00"
+    },
+    {
+      "id": "66e30ddc-ff99-4c12-b748-20e6c232c003",
+      "name": "FAJITA 4 - Fajita de Atún con Zanahoria",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 358,
+      "protein": 30.7,
+      "carbs": 26.6,
+      "fat": 13.6,
+      "fiber": 3.19,
+      "sugar": 2.66,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 60 g de Zanahoria"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Cocina el atún al natural en una sartén con aceite de oliva, sal y pimienta durante 2-3 minutos por cada lado.\n2. Corta las verduras (zanahoria) en tiras finas y saltéalas en la misma sartén durante 2-3 minutos hasta que estén tiernas pero crujientes.\n3. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n4. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n5. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 538,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.481516+00:00",
+      "updated_at": "2025-12-19T09:31:15.620904+00:00"
+    },
+    {
+      "id": "fe24cb85-1b45-4180-bdd3-570435a97547",
+      "name": "FAJITA 5 - Fajita de Berenjena",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 238,
+      "protein": 5.1,
+      "carbs": 26.6,
+      "fat": 12.7,
+      "fiber": 3.19,
+      "sugar": 2.66,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 100 g de Berenjena"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Corta la berenjena en tiras y saltéala en una sartén con aceite de oliva, sal y pimienta durante 6-8 minutos hasta que esté tierna.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 418,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.482314+00:00",
+      "updated_at": "2025-12-19T09:31:15.623427+00:00"
+    },
+    {
+      "id": "37b1f2a1-01ab-42f5-ba51-065226db0d9d",
+      "name": "FAJITA 6 - Fajita de Pollo al Limón",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 381,
+      "protein": 35.1,
+      "carbs": 21.4,
+      "fat": 16.1,
+      "fiber": 2.57,
+      "sugar": 2.14,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Limón"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Corta el pechuga de pollo en tiras y saltéalo en una sartén con aceite de oliva, sal y pimienta durante 4-5 minutos hasta que esté cocido.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 425,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.483114+00:00",
+      "updated_at": "2025-12-19T09:31:15.626572+00:00"
+    },
+    {
+      "id": "7a232603-08fa-4e9a-b572-2aaee3cbe0f8",
+      "name": "FAJITA 7 - Fajita Vegetal con Salsa de Yogur",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 272,
+      "protein": 14.1,
+      "carbs": 24.2,
+      "fat": 12.9,
+      "fiber": 2.9,
+      "sugar": 2.42,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 100 g de Yogur griego"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Prepara la salsa de yogur mezclando el yogur griego con un poco de aceite de oliva, sal, pimienta y hierbas al gusto.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 404,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.484294+00:00",
+      "updated_at": "2025-12-19T09:31:15.629116+00:00"
+    },
+    {
+      "id": "056a5cb2-fbfd-44cd-9d48-72a3ae0ca520",
+      "name": "FAJITA 8 - Fajita de Carne Picada Mex",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 393,
+      "protein": 30.1,
+      "carbs": 20.6,
+      "fat": 20.5,
+      "fiber": 2.47,
+      "sugar": 2.06,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Carne de res"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina la carne de res en una sartén con aceite de oliva, sal y pimienta durante 5-6 minutos hasta que esté bien sellada.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.485058+00:00",
+      "updated_at": "2025-12-19T09:31:15.631745+00:00"
+    },
+    {
+      "id": "0f0c54e6-c2e8-4feb-8adb-6e69e8654cc8",
+      "name": "FAJITA 9 - Fajita de Atún",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 333,
+      "protein": 30.1,
+      "carbs": 20.6,
+      "fat": 13.5,
+      "fiber": 2.47,
+      "sugar": 2.06,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 1 unidad de Tortilla integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Cocina el atún al natural en una sartén con aceite de oliva, sal y pimienta durante 2-3 minutos por cada lado.\n2. Calienta la tortilla integral en una sartén o en el microondas durante 20-30 segundos hasta que esté caliente y flexible.\n3. Coloca el relleno en el centro de la tortilla, añade la salsa si la tienes, y enrolla la fajita firmemente.\n4. Sirve inmediatamente mientras está caliente.",
+      "instructions_length": 397,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.485813+00:00",
+      "updated_at": "2025-12-19T09:31:15.634487+00:00"
+    },
+    {
+      "id": "80940774-ce60-48e1-8861-e8b15ab533e9",
+      "name": "PURÉ DE PATATA CREMOSO",
+      "description": "Receta dinner deliciosa y nutritiva",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 10,
+      "servings": 1,
+      "calories": 380,
+      "protein": 10.0,
+      "carbs": 52.0,
+      "fat": 14.0,
+      "fiber": 5.0,
+      "sugar": 4.0,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 300 g de Patata"
+        },
+        {
+          "raw": "- 40 g de Queso fresco batido"
+        },
+        {
+          "raw": "- 5 g de AOVE"
+        },
+        {
+          "raw": "- 50 ml de Agua caliente o caldo"
+        },
+        {
+          "raw": "- 1 pizca de Sal"
+        },
+        {
+          "raw": "- 1 pizca de Pimienta blanca"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Cocina las patatas en agua con sal hasta que estén muy blandas.\n2. Escúrrelas bien y tritúralas con un tenedor o batidora, según si lo quieres rústico\no cremoso.\n3. Añade el queso fresco batido y mezcla hasta integrar totalmente.\n4. Agrega 1 cucharadita de AOVE y mezcla de nuevo.\n5. Ajusta la textura con agua caliente o caldo:\n Más líquido  más cremoso\n Menos líquido  más compacto\n6. Termina con sal y pimienta blanca al gusto.",
+      "instructions_length": 433,
+      "diet_types": [
+        "vegetarian"
+      ],
+      "meal_types": [
+        "dinner",
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [
+        "pure",
+        "comfort",
+        "cremoso"
+      ],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-12-04T23:25:41.092773+00:00",
+      "updated_at": "2025-12-04T23:45:23.901115+00:00"
+    },
+    {
+      "id": "bd62a75e-2a4b-461c-9245-ed9f8e13c7b9",
+      "name": "TABLA 10 - Tabla Vegana Alta en Fibra",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Cocina el pollo\n Sazona con sal y pimienta.\n Cocina a la plancha y córtalo en tiras una vez repose\n Lava las verduras y córtalas en tiras finas.\n Tuesta ligeramente el pan en sartén para darle textura.\n Coloca el pollo en un extremo, pimiento y pepino en el centro, aguacate a un lado y\npan al final.\n Rocía un poquito de AOVE.\n Añade limón y un toque de pimienta negra.",
+      "instructions_length": 370,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.468960+00:00",
+      "updated_at": "2025-12-04T23:45:23.902589+00:00"
+    },
+    {
+      "id": "7655741c-bccc-4ac5-b901-dd24cf98e41b",
+      "name": "TABLA 11 - Tabla TESTO BOOSTER A",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.469741+00:00",
+      "updated_at": "2025-12-19T09:31:15.636993+00:00"
+    },
+    {
+      "id": "34d7812f-7bb6-4581-9b6a-a2b01a5e0adf",
+      "name": "TABLA 12 - Tabla TESTO BOOSTER B",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.470545+00:00",
+      "updated_at": "2025-12-19T09:31:15.639452+00:00"
+    },
+    {
+      "id": "94b36a8a-e823-44e8-9aa2-26230190f0c9",
+      "name": "TABLA 13 - Tabla Pro Digestiva",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.471425+00:00",
+      "updated_at": "2025-12-19T09:31:15.642883+00:00"
+    },
+    {
+      "id": "364f67fc-b6bd-4c24-80b1-32ff10eb1543",
+      "name": "TABLA 14 - Tabla Anti-Inflamatoria",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.472260+00:00",
+      "updated_at": "2025-12-19T09:31:15.645670+00:00"
+    },
+    {
+      "id": "fcbd9cd8-c912-4219-abfd-354ee4f941df",
+      "name": "TABLA 15 - Tabla Azul Mediterránea",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.473046+00:00",
+      "updated_at": "2025-12-19T09:31:15.648846+00:00"
+    },
+    {
+      "id": "74049065-5528-43d3-8147-1179ff151de0",
+      "name": "TABLA 16 - Tabla Pescado Blanco",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.473825+00:00",
+      "updated_at": "2025-12-19T09:31:15.651256+00:00"
+    },
+    {
+      "id": "f7e220c8-48a2-4d6e-9f50-c17b1731b2af",
+      "name": "TABLA 17 - Tabla Carne Roja Power",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 333,
+      "protein": 28.2,
+      "carbs": 14.3,
+      "fat": 18.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Carne de res"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.474584+00:00",
+      "updated_at": "2025-12-19T09:31:15.653231+00:00"
+    },
+    {
+      "id": "cc7490d8-9079-4836-9903-ce68d5f89bfd",
+      "name": "TABLA 18 - Tabla Clásica",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.475327+00:00",
+      "updated_at": "2025-12-19T09:31:15.655481+00:00"
+    },
+    {
+      "id": "ef2d2961-ad54-4bcb-bdcd-4f71c87776d4",
+      "name": "TABLA 19 - Tabla de Pulpo a la Gallega",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 245,
+      "protein": 21.2,
+      "carbs": 16.3,
+      "fat": 11.5,
+      "fiber": 1.96,
+      "sugar": 1.63,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Pulpo cocido"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara las proteínas: si es necesario cocinar (pollo, pavo, ternera), hazlo con sal y pimienta. Si es pescado en conserva o jamón, úsalo directamente.\n2. Corta las verduras y acompañamientos en trozos del tamaño de bocado.\n3. Si incluye queso, córtalo en cubos o láminas según el tipo.\n4. Disponer todos los ingredientes de forma equilibrada en una tabla o plato grande.\n5. Aliña con aceite de oliva, sal marina y hierbas al gusto.\n6. Sirve a temperatura ambiente o ligeramente frío.",
+      "instructions_length": 487,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.476106+00:00",
+      "updated_at": "2025-12-19T09:31:15.658600+00:00"
+    },
+    {
+      "id": "382141c2-6b79-4500-8090-12e84af7c9fd",
+      "name": "TABLA 1 - Tabla Mediterránea Clásica",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 547,
+      "protein": 37.0,
+      "carbs": 42.0,
+      "fat": 24.0,
+      "fiber": 3.0,
+      "sugar": 10.0,
+      "sodium": 649.0,
+      "ingredients": [
+        {
+          "raw": "140 g salmón (o salmón ahumado)"
+        },
+        {
+          "raw": "60 g aceitunas"
+        },
+        {
+          "raw": "120 g tomate cherry"
+        },
+        {
+          "raw": "100 g pepino"
+        },
+        {
+          "raw": "40 g queso feta"
+        },
+        {
+          "raw": "30 g pan de masa madre"
+        },
+        {
+          "raw": "15 g AOVE"
+        },
+        {
+          "raw": "Orégano y pimienta"
+        }
+      ],
+      "ingredients_count": 8,
+      "instructions": "1. Prepara las proteínas: si es necesario cocinar (pollo, pavo, ternera), hazlo con sal y pimienta. Si es pescado en conserva o jamón, úsalo directamente.\n2. Corta las verduras y acompañamientos en trozos del tamaño de bocado.\n3. Si incluye queso, córtalo en cubos o láminas según el tipo.\n4. Disponer todos los ingredientes de forma equilibrada en una tabla o plato grande.\n5. Aliña con aceite de oliva, sal marina y hierbas al gusto.\n6. Sirve a temperatura ambiente o ligeramente frío.",
+      "instructions_length": 487,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.460577+00:00",
+      "updated_at": "2025-12-19T09:31:15.661483+00:00"
+    },
+    {
+      "id": "29357af9-0e2b-4afd-b95c-76895eaa9130",
+      "name": "TABLA 20 - Tabla Pulpo Mediterránea",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 245,
+      "protein": 21.2,
+      "carbs": 16.3,
+      "fat": 11.5,
+      "fiber": 1.96,
+      "sugar": 1.63,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Pulpo cocido"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara las proteínas: si es necesario cocinar (pollo, pavo, ternera), hazlo con sal y pimienta. Si es pescado en conserva o jamón, úsalo directamente.\n2. Corta las verduras y acompañamientos en trozos del tamaño de bocado.\n3. Si incluye queso, córtalo en cubos o láminas según el tipo.\n4. Disponer todos los ingredientes de forma equilibrada en una tabla o plato grande.\n5. Aliña con aceite de oliva, sal marina y hierbas al gusto.\n6. Sirve a temperatura ambiente o ligeramente frío.",
+      "instructions_length": 487,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.476888+00:00",
+      "updated_at": "2025-12-19T09:31:15.663807+00:00"
+    },
+    {
+      "id": "c83c9f55-a81d-4ad2-bb76-3ac45efd5ce5",
+      "name": "TABLA 21 - Tabla Dorada con Uvas",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 249,
+      "protein": 20.5,
+      "carbs": 11.6,
+      "fat": 13.9,
+      "fiber": 1.39,
+      "sugar": 1.16,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Dorada"
+        },
+        {
+          "raw": "- 60 g de Uvas"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Prepara los ingredientes dulces: corta las frutas en trozos del tamaño deseado.\n2. Si incluye frutos secos o semillas, tóstalos ligeramente si lo deseas para realzar su sabor.\n3. Disponer todos los ingredientes de forma atractiva en una tabla o plato plano.\n4. Añade un toque de miel, sirope o crema si la receta lo incluye.\n5. Sirve a temperatura ambiente y disfruta como snack o postre.",
+      "instructions_length": 391,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.478134+00:00",
+      "updated_at": "2025-12-19T09:31:15.665941+00:00"
+    },
+    {
+      "id": "ab77a664-a676-43a6-8dbb-aa53895e8b8a",
+      "name": "TABLA 2 - Tabla Mediterránea con",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.461387+00:00",
+      "updated_at": "2025-12-19T09:31:15.668119+00:00"
+    },
+    {
+      "id": "f63b688d-fcf4-4be6-a7a4-ec90831c591b",
+      "name": "TABLA 3 - Tabla Post-Entreno DulceSalada",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 161,
+      "protein": 2.8,
+      "carbs": 15.8,
+      "fat": 10.6,
+      "fiber": 1.9,
+      "sugar": 1.58,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 50 g de Lechuga"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara los ingredientes dulces: corta las frutas en trozos del tamaño deseado.\n2. Si incluye frutos secos o semillas, tóstalos ligeramente si lo deseas para realzar su sabor.\n3. Disponer todos los ingredientes de forma atractiva en una tabla o plato plano.\n4. Añade un toque de miel, sirope o crema si la receta lo incluye.\n5. Sirve a temperatura ambiente y disfruta como snack o postre.",
+      "instructions_length": 391,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.462509+00:00",
+      "updated_at": "2025-12-19T09:31:15.670369+00:00"
+    },
+    {
+      "id": "9eaefef4-24f5-4e13-95e5-d5245c2d72ef",
+      "name": "TABLA 4 - Tabla Post-Entreno Proteica",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.463667+00:00",
+      "updated_at": "2025-12-19T09:31:15.672437+00:00"
+    },
+    {
+      "id": "cdba35d1-1eda-41ff-b8db-5d0155ffa4f1",
+      "name": "TABLA 5 - Tabla Dulce  Crema",
+      "description": "Receta snack",
+      "category": "snack",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 153,
+      "protein": 2.2,
+      "carbs": 14.3,
+      "fat": 10.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Prepara los ingredientes dulces: corta las frutas en trozos del tamaño deseado.\n2. Si incluye frutos secos o semillas, tóstalos ligeramente si lo deseas para realzar su sabor.\n3. Disponer todos los ingredientes de forma atractiva en una tabla o plato plano.\n4. Añade un toque de miel, sirope o crema si la receta lo incluye.\n5. Sirve a temperatura ambiente y disfruta como snack o postre.",
+      "instructions_length": 391,
+      "diet_types": [],
+      "meal_types": [
+        "snack"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.464606+00:00",
+      "updated_at": "2025-12-19T09:31:15.675205+00:00"
+    },
+    {
+      "id": "8b05762e-c31e-4ed6-92b1-623fda96543a",
+      "name": "TABLA 6 - Tabla Dulce con Dátiles",
+      "description": "Receta snack",
+      "category": "snack",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 238,
+      "protein": 2.8,
+      "carbs": 37.3,
+      "fat": 10.6,
+      "fiber": 4.48,
+      "sugar": 3.73,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 30 g de Dátiles"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara los ingredientes dulces: corta las frutas en trozos del tamaño deseado.\n2. Si incluye frutos secos o semillas, tóstalos ligeramente si lo deseas para realzar su sabor.\n3. Disponer todos los ingredientes de forma atractiva en una tabla o plato plano.\n4. Añade un toque de miel, sirope o crema si la receta lo incluye.\n5. Sirve a temperatura ambiente y disfruta como snack o postre.",
+      "instructions_length": 391,
+      "diet_types": [],
+      "meal_types": [
+        "snack"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.465532+00:00",
+      "updated_at": "2025-12-19T09:31:15.677978+00:00"
+    },
+    {
+      "id": "421c74e9-8862-49f7-9fd3-af1817ce034d",
+      "name": "TABLA 7 - Tabla Salada",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 161,
+      "protein": 2.8,
+      "carbs": 15.8,
+      "fat": 10.6,
+      "fiber": 1.9,
+      "sugar": 1.58,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 50 g de Lechuga"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.466379+00:00",
+      "updated_at": "2025-12-19T09:31:15.680135+00:00"
+    },
+    {
+      "id": "e7a93f5f-a907-40df-ba52-7e0f29bf8ce5",
+      "name": "TABLA 8 - Tabla Mediterránea con Pavo",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 288,
+      "protein": 32.2,
+      "carbs": 14.3,
+      "fat": 11.5,
+      "fiber": 1.72,
+      "sugar": 1.43,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pavo"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara las proteínas: si es necesario cocinar (pollo, pavo, ternera), hazlo con sal y pimienta. Si es pescado en conserva o jamón, úsalo directamente.\n2. Corta las verduras y acompañamientos en trozos del tamaño de bocado.\n3. Si incluye queso, córtalo en cubos o láminas según el tipo.\n4. Disponer todos los ingredientes de forma equilibrada en una tabla o plato grande.\n5. Aliña con aceite de oliva, sal marina y hierbas al gusto.\n6. Sirve a temperatura ambiente o ligeramente frío.",
+      "instructions_length": 487,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.467317+00:00",
+      "updated_at": "2025-12-19T09:31:15.682204+00:00"
+    },
+    {
+      "id": "3eae8336-9135-41ea-9334-db6ed7dba3a3",
+      "name": "TABLA 9 - Tabla Veggie con Hummus y",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 253,
+      "protein": 6.2,
+      "carbs": 23.3,
+      "fat": 15.5,
+      "fiber": 2.8,
+      "sugar": 2.33,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Hummus"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 80 g de Pimiento"
+        },
+        {
+          "raw": "- 50 g de Cebolla"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Prepara todos los ingredientes: lava y corta las verduras en trozos del tamaño deseado.\n2. Si incluye proteínas, prepáralas según sea necesario (cocidas, a la plancha, etc.).\n3. Disponer todos los ingredientes de forma atractiva y equilibrada en una tabla o plato grande.\n4. Aliña con aceite de oliva, sal, pimienta y hierbas al gusto.\n5. Sirve a temperatura ambiente y disfruta.",
+      "instructions_length": 382,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.468159+00:00",
+      "updated_at": "2025-12-19T09:31:15.684298+00:00"
+    },
+    {
+      "id": "7d7e5b5e-9a4f-418e-bddc-02729caa461c",
+      "name": "TOSTADA 10 - Ricotta  Fresas  Miel",
+      "description": "Receta snack",
+      "category": "snack",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 399,
+      "protein": 13.6,
+      "carbs": 46.6,
+      "fat": 18.2,
+      "fiber": 5.59,
+      "sugar": 4.66,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Queso ricotta"
+        },
+        {
+          "raw": "- 80 g de Fresas"
+        },
+        {
+          "raw": "- 10 g de Miel"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Lava y corta las frutas (fresas, etc.) en rodajas o trozos.\n3. Unta la tostada con ricotta o queso fresco si la receta lo incluye.\n4. Coloca las frutas encima y añade un toque de miel.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 345,
+      "diet_types": [],
+      "meal_types": [
+        "snack"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.496063+00:00",
+      "updated_at": "2025-12-19T09:31:15.688207+00:00"
+    },
+    {
+      "id": "65b5a27c-e2fa-41dc-92a9-1cca27a25b47",
+      "name": "TOSTADA 10 - Ricotta  Fresas  Miel",
+      "description": "Receta snack",
+      "category": "snack",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 399,
+      "protein": 13.6,
+      "carbs": 46.6,
+      "fat": 18.2,
+      "fiber": 5.59,
+      "sugar": 4.66,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Queso ricotta"
+        },
+        {
+          "raw": "- 80 g de Fresas"
+        },
+        {
+          "raw": "- 10 g de Miel"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Lava y corta las frutas (fresas, etc.) en rodajas o trozos.\n3. Unta la tostada con ricotta o queso fresco si la receta lo incluye.\n4. Coloca las frutas encima y añade un toque de miel.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 345,
+      "diet_types": [],
+      "meal_types": [
+        "snack"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.519876+00:00",
+      "updated_at": "2025-12-19T09:31:15.686122+00:00"
+    },
+    {
+      "id": "4a3bc766-b533-4377-8d24-cfa515bc01a4",
+      "name": "TOSTADA 11 - Burrata Light Pesto",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 7,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 446,
+      "protein": 28.0,
+      "carbs": 67.0,
+      "fat": 27.0,
+      "fiber": 6.0,
+      "sugar": 13.0,
+      "sodium": 651.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada de pan de masa madre o centeno"
+        },
+        {
+          "raw": "70–90 g burrata ligera (o mozzarella si prefieres más light)"
+        },
+        {
+          "raw": "80 g tomate cherry"
+        },
+        {
+          "raw": "1 cdita pesto casero: albahaca  AOVE  limón"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional)"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan hasta que quede crujiente.\n2. Coloca la burrata ligeramente rota encima (o mozzarella en rodajas).\n3. Añade los tomates cherry partidos por la mitad.\n4. Agrega una cucharadita de pesto casero.\n5. Termina con pimienta negra y, si quieres, un chorrito de AOVE.",
+      "instructions_length": 275,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.520758+00:00",
+      "updated_at": "2025-12-04T23:45:23.905368+00:00"
+    },
+    {
+      "id": "915b0adf-86cf-4ac3-861f-c7987c8748f4",
+      "name": "TOSTADA 11 - Burrata Light Pesto",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 584,
+      "protein": 39.0,
+      "carbs": 64.0,
+      "fat": 11.0,
+      "fiber": 5.0,
+      "sugar": 9.0,
+      "sodium": 289.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada de pan de masa madre o centeno"
+        },
+        {
+          "raw": "70–90 g burrata ligera (o mozzarella si prefieres más light)"
+        },
+        {
+          "raw": "80 g tomate cherry"
+        },
+        {
+          "raw": "1 cdita pesto casero: albahaca  AOVE  limón"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional)"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Tuesta el pan hasta que quede crujiente.\n Coloca la burrata ligeramente rota encima (o mozzarella en rodajas).\n Añade los tomates cherry partidos por la mitad.\n Agrega una cucharadita de pesto casero.\n Termina con pimienta negra y, si quieres, un chorrito de AOVE.",
+      "instructions_length": 264,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.496893+00:00",
+      "updated_at": "2025-12-04T23:45:23.906554+00:00"
+    },
+    {
+      "id": "d10cc3e6-0bdd-4f5d-8fc1-2b911673e9d9",
+      "name": "TOSTADA 12 - Bonito del Norte",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "easy",
+      "prep_time_minutes": 5,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 543,
+      "protein": 37.0,
+      "carbs": 59.0,
+      "fat": 21.0,
+      "fiber": 4.0,
+      "sugar": 9.0,
+      "sodium": 550.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada pan integral o masa madre"
+        },
+        {
+          "raw": "1 lata de bonito del norte"
+        },
+        {
+          "raw": "80 g queso fresco (tipo crema o en láminas)"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional)"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan hasta que quede crujiente.\n2. Unta o coloca el queso fresco como base.\n3. Añade el bonito del norte desmenuzado encima.\n4. Termina con pimienta negra.\n5. Si quieres más sabor, agrega un chorrito de AOVE.",
+      "instructions_length": 220,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.497791+00:00",
+      "updated_at": "2025-12-04T23:45:23.907805+00:00"
+    },
+    {
+      "id": "143c273f-72f3-4594-a6e0-2d847f8159fe",
+      "name": "TOSTADA 12 - Bonito del Norte",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 588,
+      "protein": 45.0,
+      "carbs": 44.0,
+      "fat": 24.0,
+      "fiber": 8.0,
+      "sugar": 5.0,
+      "sodium": 222.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada pan integral o masa madre"
+        },
+        {
+          "raw": "1 lata de bonito del norte"
+        },
+        {
+          "raw": "80 g queso fresco (tipo crema o en láminas)"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional)"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "Tuesta el pan hasta que quede crujiente.\n Unta o coloca el queso fresco como base.\n Añade el bonito del norte desmenuzado encima.\n Termina con pimienta negra.\n Si quieres más sabor, agrega un chorrito de AOVE.",
+      "instructions_length": 209,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.521638+00:00",
+      "updated_at": "2025-12-04T23:45:23.908952+00:00"
+    },
+    {
+      "id": "d1500309-5448-472b-bbfc-7e0e6045fdcd",
+      "name": "TOSTADA 13 - Pollo BBQ Healthy",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 408,
+      "protein": 37.1,
+      "carbs": 28.6,
+      "fat": 15.6,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Cocina el pechuga de pollo en una sartén con sal y pimienta hasta que esté dorado.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.522544+00:00",
+      "updated_at": "2025-12-19T09:31:15.693728+00:00"
+    },
+    {
+      "id": "f4091489-02c0-4d2d-8141-943e6ea54848",
+      "name": "TOSTADA 13 - Pollo BBQ Healthy",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 408,
+      "protein": 37.1,
+      "carbs": 28.6,
+      "fat": 15.6,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Cocina el pechuga de pollo en una sartén con sal y pimienta hasta que esté dorado.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.498681+00:00",
+      "updated_at": "2025-12-19T09:31:15.690590+00:00"
+    },
+    {
+      "id": "cb8dc9f3-cb7f-416b-8cec-f7ee92e8ad3d",
+      "name": "TOSTADA 14 - Huevo Poché",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 383,
+      "protein": 18.1,
+      "carbs": 29.6,
+      "fat": 22.0,
+      "fiber": 3.55,
+      "sugar": 2.96,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 2 unidades de Huevo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el huevo pochado: hierve agua con vinagre, remueve para crear un remolino y añade el huevo. Cocina 3-4 minutos.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 445,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.523553+00:00",
+      "updated_at": "2025-12-19T09:31:15.697858+00:00"
+    },
+    {
+      "id": "b279599c-c20f-49cc-9fd3-9107e3dbcf8c",
+      "name": "TOSTADA 14 - Huevo Poché",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 383,
+      "protein": 18.1,
+      "carbs": 29.6,
+      "fat": 22.0,
+      "fiber": 3.55,
+      "sugar": 2.96,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 2 unidades de Huevo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el huevo pochado: hierve agua con vinagre, remueve para crear un remolino y añade el huevo. Cocina 3-4 minutos.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 445,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.499975+00:00",
+      "updated_at": "2025-12-19T09:31:15.695833+00:00"
+    },
+    {
+      "id": "687d5807-9909-4f42-9b5c-a0bdd486093b",
+      "name": "TOSTADA 15 - Atún  Ricotta",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 463,
+      "protein": 39.1,
+      "carbs": 32.6,
+      "fat": 19.0,
+      "fiber": 3.91,
+      "sugar": 3.26,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Queso ricotta"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el atún al natural (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Lava y corta las frutas (fresas, etc.) en rodajas o trozos.\n4. Unta la tostada con ricotta o queso fresco si la receta lo incluye.\n5. Coloca las frutas encima y añade un toque de miel.\n6. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 449,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.524497+00:00",
+      "updated_at": "2025-12-19T09:31:15.702066+00:00"
+    },
+    {
+      "id": "b15d04c5-188f-4499-a20e-8364bd529e5c",
+      "name": "TOSTADA 15 - Atún  Ricotta",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 463,
+      "protein": 39.1,
+      "carbs": 32.6,
+      "fat": 19.0,
+      "fiber": 3.91,
+      "sugar": 3.26,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Queso ricotta"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el atún al natural (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Lava y corta las frutas (fresas, etc.) en rodajas o trozos.\n4. Unta la tostada con ricotta o queso fresco si la receta lo incluye.\n5. Coloca las frutas encima y añade un toque de miel.\n6. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 449,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.501418+00:00",
+      "updated_at": "2025-12-19T09:31:15.699669+00:00"
+    },
+    {
+      "id": "8eac2170-f587-468f-8961-765d6fb5ee01",
+      "name": "TOSTADA 1 - Tostada de Aguacate",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 339,
+      "protein": 7.3,
+      "carbs": 33.6,
+      "fat": 20.8,
+      "fiber": 4.03,
+      "sugar": 3.36,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Aguacate"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Coloca los ingredientes principales sobre la tostada caliente.\n3. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n4. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 322,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.489033+00:00",
+      "updated_at": "2025-12-19T09:31:15.706417+00:00"
+    },
+    {
+      "id": "b454fa7b-bf9e-433d-abe9-6b8b22e2441e",
+      "name": "TOSTADA 1 - Tostada de Aguacate",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 339,
+      "protein": 7.3,
+      "carbs": 33.6,
+      "fat": 20.8,
+      "fiber": 4.03,
+      "sugar": 3.36,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 60 g de Aguacate"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Coloca los ingredientes principales sobre la tostada caliente.\n3. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n4. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 322,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.512744+00:00",
+      "updated_at": "2025-12-19T09:31:15.703905+00:00"
+    },
+    {
+      "id": "76058a42-a961-42bd-a1d8-e423816929d2",
+      "name": "TOSTADA 2 - Salmón Ahumado",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 449,
+      "protein": 28.1,
+      "carbs": 28.6,
+      "fat": 25.0,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Salmón fresco"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el salmón fresco (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 424,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.489811+00:00",
+      "updated_at": "2025-12-19T09:31:15.709643+00:00"
+    },
+    {
+      "id": "f41d40c5-e612-4400-a2d1-43b3158efabe",
+      "name": "TOSTADA 2 - Salmón Ahumado",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 449,
+      "protein": 28.1,
+      "carbs": 28.6,
+      "fat": 25.0,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Salmón fresco"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el salmón fresco (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 424,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.513588+00:00",
+      "updated_at": "2025-12-19T09:31:15.712225+00:00"
+    },
+    {
+      "id": "17b68288-1327-453e-98d6-20fd059133cf",
+      "name": "TOSTADA 3 - Atún  Tomate  AOVE",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 377,
+      "protein": 32.8,
+      "carbs": 31.6,
+      "fat": 13.2,
+      "fiber": 3.79,
+      "sugar": 3.16,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el atún al natural (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 426,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.490651+00:00",
+      "updated_at": "2025-12-19T09:31:15.716459+00:00"
+    },
+    {
+      "id": "6b86e0c5-26c9-45e0-9dc3-ee48f0196e82",
+      "name": "TOSTADA 3 - Atún  Tomate  AOVE",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 377,
+      "protein": 32.8,
+      "carbs": 31.6,
+      "fat": 13.2,
+      "fiber": 3.79,
+      "sugar": 3.16,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Atún al natural"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 80 g de Tomate"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el atún al natural (si es en conserva, escúrrelo bien; si es fresco, cocínalo a la plancha).\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 426,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.514457+00:00",
+      "updated_at": "2025-12-19T09:31:15.714285+00:00"
+    },
+    {
+      "id": "49165889-b10a-4032-a47f-9e1194df5847",
+      "name": "TOSTADA 4 - Aguacate Queso",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "easy",
+      "prep_time_minutes": 10,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 652,
+      "protein": 41.0,
+      "carbs": 50.0,
+      "fat": 32.0,
+      "fiber": 9.0,
+      "sugar": 1.0,
+      "sodium": 477.0,
+      "ingredients": [
+        {
+          "raw": "Pan de chía o centeno"
+        },
+        {
+          "raw": "60 g queso fresco (o ricotta si quieres más cremosidad)"
+        },
+        {
+          "raw": "60 g aguacate"
+        },
+        {
+          "raw": "40 g pimiento rojo asado"
+        },
+        {
+          "raw": "AOVE"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "Opcional: semillas de sésamo"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "1. Tuesta el pan hasta que esté crujiente.\n2. Unta el queso fresco en la base.\n3. Añade el aguacate en láminas.\n4. Coloca el pimiento asado encima.\n5. Termina con AOVE, pimienta y semillas si las usas.",
+      "instructions_length": 201,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.491449+00:00",
+      "updated_at": "2025-12-04T23:45:23.910279+00:00"
+    },
+    {
+      "id": "4b870a4b-cd78-4035-918e-604950809a1a",
+      "name": "TOSTADA 4 - Aguacate Queso",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 573,
+      "protein": 29.0,
+      "carbs": 66.0,
+      "fat": 37.0,
+      "fiber": 4.0,
+      "sugar": 13.0,
+      "sodium": 232.0,
+      "ingredients": [
+        {
+          "raw": "Pan de chía o centeno"
+        },
+        {
+          "raw": "60 g queso fresco (o ricotta si quieres más cremosidad)"
+        },
+        {
+          "raw": "60 g aguacate"
+        },
+        {
+          "raw": "40 g pimiento rojo asado"
+        },
+        {
+          "raw": "AOVE"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "Opcional: semillas de sésamo"
+        }
+      ],
+      "ingredients_count": 7,
+      "instructions": "Tuesta el pan hasta que esté crujiente.\n Unta el queso fresco en la base.\n Añade el aguacate en láminas.\n Coloca el pimiento asado encima.\n Termina con AOVE, pimienta y semillas si las usas.",
+      "instructions_length": 190,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.515293+00:00",
+      "updated_at": "2025-12-04T23:45:23.911426+00:00"
+    },
+    {
+      "id": "e98cd2ff-3c7b-4768-b338-bc1039ede821",
+      "name": "TOSTADA 5 - Jamón Serrano",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 303,
+      "protein": 16.1,
+      "carbs": 28.6,
+      "fat": 14.0,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 40 g de Jamón serrano"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el jamón serrano según sea necesario.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 371,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.492292+00:00",
+      "updated_at": "2025-12-19T09:31:15.720240+00:00"
+    },
+    {
+      "id": "78d2d398-4357-43f4-96e8-b7a4af98454d",
+      "name": "TOSTADA 5 - Jamón Serrano",
+      "description": "Receta breakfast",
+      "category": "breakfast",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 303,
+      "protein": 16.1,
+      "carbs": 28.6,
+      "fat": 14.0,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 40 g de Jamón serrano"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Prepara el jamón serrano según sea necesario.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 371,
+      "diet_types": [],
+      "meal_types": [
+        "breakfast"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.516170+00:00",
+      "updated_at": "2025-12-19T09:31:15.718294+00:00"
+    },
+    {
+      "id": "0122b0f4-80b2-4c9c-810e-787606d772f6",
+      "name": "TOSTADA 6 - Tofu Crujiente",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 448,
+      "protein": 30.0,
+      "carbs": 57.0,
+      "fat": 28.0,
+      "fiber": 5.0,
+      "sugar": 2.0,
+      "sodium": 734.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada pan integral de masa madre"
+        },
+        {
+          "raw": "120 g cottage cheese (muy alto en proteína)"
+        },
+        {
+          "raw": "1 huevo cocido o a la plancha (tú eliges)"
+        },
+        {
+          "raw": "40 g pimiento rojo asado"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional, 1 cdita)"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Tuesta el pan hasta que quede bien crujiente.\n Unta el cottage cheese como base (queda cremoso pero ligero).\n Añade el huevo en rodajas o entero en plan huevo a la plancha.\n Coloca el pimiento asado encima.\n Termina con un toque de pimienta negra y una pizca de AOVE si quieres más sabor.",
+      "instructions_length": 288,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.493151+00:00",
+      "updated_at": "2025-12-04T23:45:23.912657+00:00"
+    },
+    {
+      "id": "a06ef438-df79-479e-9a06-6efaef8c3d5b",
+      "name": "TOSTADA 6 - Tofu Crujiente",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 489,
+      "protein": 34.0,
+      "carbs": 60.0,
+      "fat": 24.0,
+      "fiber": 7.0,
+      "sugar": 17.0,
+      "sodium": 733.0,
+      "ingredients": [
+        {
+          "raw": "1 rebanada pan integral de masa madre"
+        },
+        {
+          "raw": "120 g cottage cheese (muy alto en proteína)"
+        },
+        {
+          "raw": "1 huevo cocido o a la plancha (tú eliges)"
+        },
+        {
+          "raw": "40 g pimiento rojo asado"
+        },
+        {
+          "raw": "Pimienta negra"
+        },
+        {
+          "raw": "AOVE (opcional, 1 cdita)"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "Tuesta el pan hasta que quede bien crujiente.\n Unta el cottage cheese como base (queda cremoso pero ligero).\n Añade el huevo en rodajas o entero en plan huevo a la plancha.\n Coloca el pimiento asado encima.\n Termina con un toque de pimienta negra y una pizca de AOVE si quieres más sabor.",
+      "instructions_length": 288,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.517100+00:00",
+      "updated_at": "2025-12-04T23:45:23.913766+00:00"
+    },
+    {
+      "id": "c7e7720b-7525-47b2-932c-b96b41539372",
+      "name": "TOSTADA 8 - Pollo Especiado",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 408,
+      "protein": 37.1,
+      "carbs": 28.6,
+      "fat": 15.6,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Cocina el pechuga de pollo en una sartén con sal y pimienta hasta que esté dorado.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.518078+00:00",
+      "updated_at": "2025-12-19T09:31:15.722485+00:00"
+    },
+    {
+      "id": "59f6f1b2-32a0-4832-8514-158a7603adc9",
+      "name": "TOSTADA 8 - Pollo Especiado",
+      "description": "Receta lunch",
+      "category": "lunch",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 408,
+      "protein": 37.1,
+      "carbs": 28.6,
+      "fat": 15.6,
+      "fiber": 3.43,
+      "sugar": 2.86,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 150 g de Pechuga de pollo"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 5,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Cocina el pechuga de pollo en una sartén con sal y pimienta hasta que esté dorado.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 408,
+      "diet_types": [],
+      "meal_types": [
+        "lunch"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.494043+00:00",
+      "updated_at": "2025-12-19T09:31:15.725585+00:00"
+    },
+    {
+      "id": "8bd91fe0-4e8a-45e1-85e9-68d29e731cc8",
+      "name": "TOSTADA 9 - Pulpo  Pimentón",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 341,
+      "protein": 25.4,
+      "carbs": 31.8,
+      "fat": 13.3,
+      "fiber": 3.82,
+      "sugar": 3.18,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Pulpo cocido"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 2 g de Pimentón"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Si el pulpo cocido no está cocido, cocínalo previamente. Si ya está listo, córtalo en rodajas.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 420,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.518968+00:00",
+      "updated_at": "2025-12-19T09:31:15.728434+00:00"
+    },
+    {
+      "id": "21f68928-3676-428d-b78d-a77cc55ebc31",
+      "name": "TOSTADA 9 - Pulpo  Pimentón",
+      "description": "Receta dinner",
+      "category": "dinner",
+      "difficulty": "medium",
+      "prep_time_minutes": 20,
+      "cook_time_minutes": 0,
+      "servings": 1,
+      "calories": 341,
+      "protein": 25.4,
+      "carbs": 31.8,
+      "fat": 13.3,
+      "fiber": 3.82,
+      "sugar": 3.18,
+      "sodium": 400.0,
+      "ingredients": [
+        {
+          "raw": "- 120 g de Pulpo cocido"
+        },
+        {
+          "raw": "- 60 g de Pan integral"
+        },
+        {
+          "raw": "- 2 g de Pimentón"
+        },
+        {
+          "raw": "- 10 ml de Aceite de oliva"
+        },
+        {
+          "raw": "- 2 g de Sal"
+        },
+        {
+          "raw": "- 1 g de Pimienta"
+        }
+      ],
+      "ingredients_count": 6,
+      "instructions": "1. Tuesta el pan integral en una tostadora o sartén hasta que esté dorado y crujiente.\n2. Si el pulpo cocido no está cocido, cocínalo previamente. Si ya está listo, córtalo en rodajas.\n3. Coloca los ingredientes principales sobre la tostada caliente.\n4. Añade los acompañamientos (tomate, aguacate, etc.) y aliña con aceite de oliva, sal y pimienta.\n5. Sirve inmediatamente mientras la tostada está caliente y crujiente.",
+      "instructions_length": 420,
+      "diet_types": [],
+      "meal_types": [
+        "dinner"
+      ],
+      "allergens": [],
+      "tags": [],
+      "is_system": true,
+      "is_featured": false,
+      "created_at": "2025-11-30T04:23:55.495183+00:00",
+      "updated_at": "2025-12-19T09:31:15.730905+00:00"
+    }
+  ]
+}

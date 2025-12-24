@@ -38,26 +38,47 @@ class AdminUserSerializer(serializers.ModelSerializer):
     """Serializer para administración de usuarios con información completa"""
     
     bmi = serializers.ReadOnlyField()
+    age = serializers.ReadOnlyField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     gender_display = serializers.CharField(source='get_gender_display', read_only=True)
+    main_goal_display = serializers.CharField(source='get_main_goal_display', read_only=True)
+    activity_level_display = serializers.CharField(source='get_activity_level_display', read_only=True)
+    training_location_display = serializers.CharField(source='get_training_location_display', read_only=True)
     is_staff_display = serializers.SerializerMethodField()
     is_superuser_display = serializers.SerializerMethodField()
     last_login_formatted = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
-            'is_active', 'is_staff', 'is_staff_display', 'is_superuser', 'is_superuser_display',
-            'is_verified', 'birth_date', 'gender', 'gender_display',
-            'height', 'weight', 'target_weight', 'bmi',
-            'activity_level', 'dietary_restrictions', 'allergies',
-            'medical_conditions', 'workout_preferences', 'equipment_available',
-            'notification_preferences', 'date_joined', 'created_at_formatted',
-            'last_login', 'last_login_formatted', 'created_at', 'updated_at'
+            # Información básica
+            'id', 'email', 'first_name', 'last_name', 'phone_number', 'profile_picture', 'profile_picture_url',
+            # Rol y permisos
+            'role', 'role_display', 'is_active', 'is_staff', 'is_staff_display', 
+            'is_superuser', 'is_superuser_display', 'is_verified',
+            # Datos físicos
+            'birth_date', 'age', 'gender', 'gender_display', 'height', 'weight', 'target_weight', 'bmi',
+            # Objetivos y preferencias de fitness
+            'main_goal', 'main_goal_display', 'activity_level', 'activity_level_display',
+            'training_location', 'training_location_display', 'training_days_per_week', 'training_days',
+            'equipment_available', 'workout_preferences',
+            # Información dietética
+            'dietary_restrictions', 'allergies', 'disliked_foods',
+            # Información médica
+            'medical_conditions', 'injuries_or_medical_issues',
+            # Gamificación
+            'daily_streak', 'longest_streak', 'last_completed_day',
+            # Configuración
+            'notification_preferences',
+            # Onboarding
+            'onboarding_completed', 'onboarding_step',
+            # Timestamps
+            'date_joined', 'created_at_formatted', 'last_login', 'last_login_formatted', 
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age']
     
     def update(self, instance, validated_data):
         """Sobrescribir update para manejar el mapeo de roles"""
@@ -79,6 +100,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
         if obj.date_joined:
             return obj.date_joined.strftime('%d/%m/%Y %H:%M')
         return 'N/A'
+    
+    def get_profile_picture_url(self, obj):
+        if obj.profile_picture:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+            return obj.profile_picture.url
+        return None
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""
@@ -87,11 +116,12 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = [
             'first_name', 'last_name', 'birth_date', 'gender',
-            'height', 'weight', 'target_weight', 'target_date',
-            'fitness_goals', 'activity_level', 'training_days_per_week', 'training_days',
+            'height', 'weight', 'target_weight',
+            'main_goal', 'activity_level', 'training_days_per_week', 'training_days',
             'training_location', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
-            'notification_preferences', 'profile_picture'
+            'notification_preferences', 'profile_picture', 'disliked_foods',
+            'injuries_or_medical_issues'
         ]
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -168,7 +198,7 @@ class UserGoalsSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ['fitness_goals', 'activity_level', 'target_weight', 'target_date']
+        fields = ['main_goal', 'activity_level', 'target_weight']
 
 class InitialRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para el formulario de registro inicial completo"""
@@ -179,7 +209,7 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'email', 'phone_number', 'birth_date', 'gender',
             'height', 'weight', 'target_weight', 'activity_level', 'training_days_per_week', 'training_days',
             'training_location', 'allergies', 'medical_conditions', 'disliked_foods',
-            'main_goal', 'previous_obstacles', 'injuries_or_medical_issues'
+            'main_goal', 'injuries_or_medical_issues'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
@@ -210,8 +240,8 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
         return value
     
     def validate_height(self, value):
-        if value < 50 or value > 250:
-            raise serializers.ValidationError("La altura debe estar entre 50 y 250 cm")
+        if value < 50 or value > 210:
+            raise serializers.ValidationError("La altura debe estar entre 50 y 210 cm")
         return value
     
     def validate_weight(self, value):
@@ -261,25 +291,13 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
                 # Si está vacío, usar lista vacía
                 self.validated_data['medical_conditions'] = []
         
-        # Añadir main_goal a fitness_goals si está presente
-        if 'main_goal' in self.validated_data and self.validated_data['main_goal']:
-            main_goal = self.validated_data['main_goal']
-            # Obtener fitness_goals actual o crear lista vacía
-            instance = self.instance
-            current_fitness_goals = []
-            if instance and instance.fitness_goals:
-                current_fitness_goals = list(instance.fitness_goals) if isinstance(instance.fitness_goals, list) else []
-            
-            # Añadir main_goal a fitness_goals si no está ya presente
-            if main_goal not in current_fitness_goals:
-                current_fitness_goals.append(main_goal)
-                self.validated_data['fitness_goals'] = current_fitness_goals
+        # main_goal se guarda directamente en el campo main_goal del modelo
+        # No hay necesidad de añadirlo a fitness_goals ya que ese campo no existe en el modelo
         
-        # Calcular age desde birth_date si no está presente
+        # Convertir birth_date de string a date si es necesario
         if 'birth_date' in self.validated_data and self.validated_data['birth_date']:
             from datetime import date
             birth_date = self.validated_data['birth_date']
-            # Convertir string a date si es necesario
             if isinstance(birth_date, str):
                 from datetime import datetime
                 try:
@@ -287,16 +305,8 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
                     self.validated_data['birth_date'] = birth_date
                 except ValueError:
                     pass
-            
-            if isinstance(birth_date, date):
-                today = date.today()
-                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
-                if age >= 13 and age <= 120:
-                    self.validated_data['age'] = age
         
-        # Actualizar versión del formulario
-        from accounts.views import INITIAL_REGISTRATION_FORM_VERSION
-        self.validated_data['initial_registration_form_version'] = INITIAL_REGISTRATION_FORM_VERSION
+        # Nota: age es una propiedad calculada en el modelo, no se debe asignar directamente
         
         # Forzar guardado de todos los campos, incluso si partial=True
         user = super().save(**kwargs)
@@ -308,8 +318,6 @@ class InitialRegistrationSerializer(serializers.ModelSerializer):
             user.phone_number = self.validated_data['phone_number']
         if 'main_goal' in self.validated_data:
             user.main_goal = self.validated_data['main_goal']
-        if 'fitness_goals' in self.validated_data:
-            user.fitness_goals = self.validated_data['fitness_goals']
         
         user.save()
         return user

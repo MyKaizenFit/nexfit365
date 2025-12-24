@@ -8,10 +8,11 @@ from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Notification
+from .models import Notification, PushSubscription
 from .serializers import (
     NotificationSerializer, NotificationCreateSerializer, 
-    NotificationUpdateSerializer, NotificationSummarySerializer
+    NotificationUpdateSerializer, NotificationSummarySerializer,
+    PushSubscriptionSerializer
 )
 from .permissions import (
     NotificationPermission, NotificationCreatePermission, NotificationBulkPermission
@@ -33,9 +34,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
+        queryset = Notification.objects.select_related('user')
         if user_id:
-            return Notification.objects.filter(user_id=user_id)
-        return Notification.objects.filter(user=self.request.user)
+            return queryset.filter(user_id=user_id)
+        return queryset.filter(user=self.request.user)
     
     def get_serializer_class(self):
         if self.action == "create":
@@ -151,4 +153,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset().filter(type=notification_type)
         
         serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data) 
+        return Response(serializer.data)
+
+
+class PushSubscriptionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para gestionar suscripciones push
+    """
+    queryset = PushSubscription.objects.all()
+    serializer_class = PushSubscriptionSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_queryset(self):
+        """Solo suscripciones del usuario autenticado"""
+        return PushSubscription.objects.filter(user=self.request.user, is_active=True)
+    
+    def perform_create(self, serializer):
+        """Asociar suscripción al usuario autenticado"""
+        serializer.save(user=self.request.user)
+    
+    def perform_destroy(self, instance):
+        """Marcar como inactiva en lugar de eliminar"""
+        instance.is_active = False
+        instance.save() 

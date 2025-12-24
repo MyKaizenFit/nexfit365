@@ -8,10 +8,10 @@ from django.db.models import Q, Count, Avg, Max, Min
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import ProgressPhoto, WeightEntry, BodyMeasurement
+from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 from .serializers import (
     ProgressPhotoSerializer, WeightEntrySerializer, BodyMeasurementSerializer,
-    ProgressSummarySerializer
+    ProgressSummarySerializer, DailyWellnessSerializer
 )
 from workouts.models import WorkoutLog
 from nutrition.models import MealLog  # Modelo eliminado
@@ -269,6 +269,36 @@ class ProgressStatsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     
     @action(detail=False, methods=["get"])
+    def analysis(self, request):
+        """
+        Obtener análisis completo de progreso con recomendaciones automáticas.
+        GET /api/progress/progress-stats/analysis/?weeks=4
+        """
+        from progress.services import ProgressAnalysisService
+        
+        weeks = int(request.query_params.get('weeks', 4))
+        weeks = max(1, min(weeks, 12))  # Limitar entre 1 y 12 semanas
+        
+        try:
+            analysis_service = ProgressAnalysisService(request.user)
+            analysis = analysis_service.get_comprehensive_analysis(weeks=weeks)
+            
+            # Verificar si se debe sugerir ajuste de plan
+            should_adjust, suggestion = analysis_service.should_suggest_plan_adjustment()
+            if should_adjust:
+                analysis['plan_adjustment_suggestion'] = suggestion
+            
+            return Response(analysis)
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error en análisis de progreso: {str(e)}")
+            return Response(
+                {'error': 'Error al analizar progreso'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+    
+    @action(detail=False, methods=["get"])
     def dashboard(self, request):
         """Obtener estadísticas para el dashboard de progreso"""
         import logging
@@ -433,3 +463,41 @@ class BodyMeasurementViewSet(viewsets.ModelViewSet):
         }
         
         return Response(data)
+
+
+class DailyWellnessViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para registros diarios de bienestar (sueño y motivación)
+    """
+    serializer_class = DailyWellnessSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_fields = ["date"]
+    ordering_fields = ["date", "created_at"]
+    ordering = ["-date", "-created_at"]
+    
+    def get_queryset(self):
+        """Filtrar registros por usuario autenticado"""
+        return DailyWellness.objects.filter(user=self.request.user)
+    
+    def get_serializer_context(self):
+        """Agregar el request al contexto del serializer"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+    
+    def perform_create(self, serializer):
+        """Crear registro con usuario autenticado"""
+        serializer.save(user=self.request.user)
+    
+    @action(detail=False, methods=["get"])
+    def today(self, request):
+        """Obtener registro de hoy"""
+        today = timezone.now().date()
+        entry = DailyWellness.objects.filter(user=request.user, date=today).first()
+        
+        if entry:
+            serializer = self.get_serializer(entry)
+            return Response(serializer.data)
+        else:
+            return Response({"detail": "No hay registro para hoy"}, status=status.HTTP_404_NOT_FOUND)

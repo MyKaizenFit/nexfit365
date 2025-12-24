@@ -54,8 +54,16 @@ export default function InitialRegistrationPage() {
       setTimeout(() => {
         router.push('/dashboard');
       }, 3000); // Dar tiempo para mostrar las recomendaciones
-    } catch (error) {
-      // El error ya se maneja en el hook
+    } catch (error: any) {
+      // El error ya se maneja en el hook, pero podemos agregar más información aquí si es necesario
+      console.error('Error al completar el registro:', error);
+      
+      // Si es un error de conexión, mostrar mensaje adicional
+      if (error?.message?.includes('Failed to fetch') || error?.message?.includes('No se pudo conectar')) {
+        // El hook ya muestra el error, pero podemos agregar un mensaje más visible
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
+        console.error(`⚠️ El backend no está disponible. Verifica que esté corriendo en ${apiUrl}`);
+      }
     }
   };
 

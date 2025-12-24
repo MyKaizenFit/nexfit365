@@ -50,6 +50,7 @@ import {
 import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { fixEncoding } from "@/lib/encoding-fix"
 
 export function WorkoutPlanManagement() {
   const {
@@ -137,8 +138,8 @@ export function WorkoutPlanManagement() {
   const filteredPlans = plans.filter((plan) => {
     // Filtro de ubicación (cliente porque no está en el backend)
     if (locationFilter !== "all") {
-      const isHome = plan.name.toLowerCase().includes('casa')
-      const isGym = plan.name.toLowerCase().includes('gimnasio')
+      const isHome = fixEncoding(plan.name).toLowerCase().includes('casa')
+      const isGym = fixEncoding(plan.name).toLowerCase().includes('gimnasio')
       if (locationFilter === "home" && !isHome) return false
       if (locationFilter === "gym" && !isGym) return false
     }
@@ -637,8 +638,8 @@ export function WorkoutPlanManagement() {
       if (planDetail) {
         // Cargar datos del formulario
         setFormData({
-          name: planDetail.name || '',
-          description: planDetail.description || '',
+          name: fixEncoding(planDetail.name || ''),
+          description: fixEncoding(planDetail.description || ''),
           difficulty: planDetail.difficulty || 'beginner',
           duration_weeks: planDetail.duration_weeks || 4,
           min_role_required: planDetail.min_role_required || 'basic',
@@ -1004,7 +1005,7 @@ export function WorkoutPlanManagement() {
                           />
                           <div>
                             <div className="flex items-center gap-2">
-                              <div className="font-medium">{plan.name}</div>
+                              <div className="font-medium">{fixEncoding(plan.name)}</div>
                               {plan.is_default && (
                                 <Badge className="bg-yellow-100 text-yellow-800 border-0" title="Plan por defecto">
                                   <Star className="h-3 w-3 mr-1" />
@@ -1014,9 +1015,9 @@ export function WorkoutPlanManagement() {
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {plan.description 
-                                ? (plan.description.length > 50 
-                                    ? `${plan.description.substring(0, 50)}...` 
-                                    : plan.description)
+                                ? (fixEncoding(plan.description).length > 50 
+                                    ? `${fixEncoding(plan.description).substring(0, 50)}...` 
+                                    : fixEncoding(plan.description))
                                 : 'Sin descripción'}
                             </div>
                             {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (

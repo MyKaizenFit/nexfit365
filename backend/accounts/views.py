@@ -32,7 +32,7 @@ def register(request):
     
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET', 'PUT'])
+@api_view(['GET', 'PUT', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def profile(request):
     """Obtener o actualizar perfil del usuario"""
@@ -40,30 +40,111 @@ def profile(request):
         serializer = UserProfileSerializer(request.user)
         return Response(serializer.data)
     
-    elif request.method == 'PUT':
-        # Campos que pueden afectar la asignación automática
+    elif request.method in ['PUT', 'PATCH']:
+        from .admin_views import record_profile_audit, PROFILE_AUDIT_FIELDS
+        from django.forms.models import model_to_dict
+        # Campos que pueden afectar la asignación automática de planes
         fields_affecting_assignment = [
             'main_goal', 'training_location', 'activity_level', 'gender',
             'training_days_per_week', 'birth_date', 'age', 'dietary_restrictions',
-            'equipment_available'
+            'equipment_available', 'weight', 'target_weight'
         ]
         
-        # Verificar si se están actualizando campos relevantes
-        old_user = request.user
+        # Campos que solo requieren actualización del plan existente (no reasignación)
+        fields_requiring_plan_update = [
+            'main_goal', 'activity_level', 'weight', 'target_weight'
+        ]
+        
+        # Guardar valores anteriores para comparación
+        old_user = CustomUser.objects.get(pk=request.user.pk)
+        old_weight = old_user.weight
+        old_main_goal = old_user.main_goal
+        old_activity_level = old_user.activity_level
+        
         serializer = UserProfileUpdateSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
+            old_snapshot = model_to_dict(request.user, fields=PROFILE_AUDIT_FIELDS)
             user = serializer.save()
             
-            # Re-evaluar configuración si se actualizaron campos relevantes
+            # Verificar campos actualizados
             updated_fields = set(request.data.keys())
-            if any(field in updated_fields for field in fields_affecting_assignment):
+            
+            # Si se actualizó el peso, crear/actualizar entrada en historial de peso
+            if 'weight' in updated_fields and user.weight is not None:
+                try:
+                    from progress.models import WeightEntry
+                    from django.utils import timezone
+                    from decimal import Decimal
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    
+                    # Buscar si ya existe una entrada para hoy
+                    today = timezone.now().date()
+                    existing_entry = WeightEntry.objects.filter(
+                        user=user,
+                        date=today
+                    ).first()
+                    
+                    if existing_entry:
+                        # Actualizar entrada existente
+                        existing_entry.weight = Decimal(str(user.weight))
+                        existing_entry.notes = existing_entry.notes or "Peso actualizado desde perfil"
+                        existing_entry.save()
+                        logger.info(f"✅ Entrada de peso actualizada: {existing_entry.weight} kg")
+                    else:
+                        # Crear nueva entrada para hoy
+                        weight_entry = WeightEntry.objects.create(
+                            user=user,
+                            weight=Decimal(str(user.weight)),
+                            date=today,
+                            notes="Peso actualizado desde perfil"
+                        )
+                        logger.info(f"✅ Nueva entrada de peso creada: {weight_entry.weight} kg")
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.warning(f"⚠️ No se pudo crear/actualizar entrada de peso: {str(e)}")
+                    # No fallar la actualización si hay error en la entrada de peso
+            
+            # Si se actualizaron campos que requieren actualización de plan
+            if any(field in updated_fields for field in fields_requiring_plan_update):
+                try:
+                    from nutrition.services import PlanAutoUpdateService
+                    update_service = PlanAutoUpdateService(user)
+                    updated_plan = update_service.update_plan_if_needed(
+                        old_weight=old_weight,
+                        old_goal=old_main_goal,
+                        old_activity_level=old_activity_level,
+                        reason="user_profile_updated"
+                    )
+                    
+                    if updated_plan:
+                        # Agregar mensaje informativo en la respuesta
+                        response_data = serializer.data
+                        response_data['plan_updated'] = True
+                        response_data['plan_update_message'] = f"Tu plan nutricional se ha ajustado automáticamente. Nuevas calorías: {updated_plan.daily_calories} kcal."
+                        return Response(response_data)
+                except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error actualizando plan automáticamente: {str(e)}")
+                    # No fallar la actualización si hay error en la actualización del plan
+            
+            # Si se actualizaron otros campos que requieren reasignación completa
+            elif any(field in updated_fields for field in fields_affecting_assignment):
                 try:
                     from accounts.services import DefaultPlanAssignmentService
                     assignment_service = DefaultPlanAssignmentService(user)
                     assignment_service.assign()
                 except Exception as e:
+                    import logging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Error reasignando planes: {str(e)}")
                     # No fallar la actualización si hay error en la asignación
-                    pass
+            
+            # Registrar auditoría de perfil para cambios hechos por el usuario
+            new_snapshot = model_to_dict(user, fields=PROFILE_AUDIT_FIELDS)
+            record_profile_audit(user, request.user, old_snapshot, new_snapshot)
             
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -100,80 +181,96 @@ def profile_summary(request):
 @permission_classes([IsAuthenticated])
 def complete_initial_registration(request):
     """Completar el formulario de registro inicial y asignar planes automáticamente"""
-    serializer = InitialRegistrationSerializer(request.user, data=request.data, partial=True)
-    if serializer.is_valid():
-        user = serializer.save()
-        
-        # Si el usuario tenía age pero no birth_date, calcular birth_date desde age
-        if not user.birth_date and hasattr(user, 'age') and user.age:
-            from datetime import date, timedelta
-            # Aproximar birth_date desde age (asumir cumpleaños hoy)
-            user.birth_date = date.today() - timedelta(days=user.age * 365)
-            user.save()
-        
-        # Calcular age desde birth_date si no existe
-        if user.birth_date and (not hasattr(user, 'age') or not user.age):
-            user.age = user.calculated_age
-            if user.age:
-                user.save()
-        
-        # Asignar planes automáticamente usando el nuevo servicio de configuraciones
-        from accounts.services import DefaultPlanAssignmentService
-        assigned_nutrition_plan = None
-        assigned_workout_program = None
-        configuration_name = None
-        plan_message = ""
-        workout_message = ""
-        
-        try:
-            assignment_service = DefaultPlanAssignmentService(user)
-            result = assignment_service.assign()
+    try:
+        serializer = InitialRegistrationSerializer(request.user, data=request.data, partial=True)
+        if serializer.is_valid():
+            user = serializer.save()
             
-            if result.configuration:
-                configuration_name = result.configuration.name
-                assigned_nutrition_plan = result.nutrition_plan
-                assigned_workout_program = result.workout_program
+            # Si el usuario tenía age pero no birth_date, calcular birth_date desde age
+            if not user.birth_date and hasattr(user, 'age') and user.age:
+                from datetime import date, timedelta
+                # Aproximar birth_date desde age (asumir cumpleaños hoy)
+                user.birth_date = date.today() - timedelta(days=user.age * 365)
+                user.save()
+            
+            # Calcular age desde birth_date si no existe
+            if user.birth_date and (not hasattr(user, 'age') or not user.age):
+                user.age = user.calculated_age
+                if user.age:
+                    user.save()
+            
+            # Asignar planes automáticamente usando el nuevo servicio de configuraciones
+            from accounts.services import DefaultPlanAssignmentService
+            assigned_nutrition_plan = None
+            assigned_workout_program = None
+            configuration_name = None
+            plan_message = ""
+            workout_message = ""
+            
+            try:
+                assignment_service = DefaultPlanAssignmentService(user)
+                result = assignment_service.assign()
                 
-                if assigned_nutrition_plan:
-                    plan_message = f"Plan nutricional '{assigned_nutrition_plan.name.split(' - ')[0]}' asignado automáticamente"
+                if result.configuration:
+                    configuration_name = result.configuration.name
+                    assigned_nutrition_plan = result.nutrition_plan
+                    assigned_workout_program = result.workout_program
+                    
+                    if assigned_nutrition_plan:
+                        plan_message = f"Plan nutricional '{assigned_nutrition_plan.name.split(' - ')[0]}' asignado automáticamente"
+                    else:
+                        plan_message = "No se asignó plan nutricional (la configuración no incluye uno)"
+                    
+                    if assigned_workout_program:
+                        workout_message = f"Plan de entrenamiento '{assigned_workout_program.name.split(' - ')[0]}' asignado automáticamente"
+                    else:
+                        workout_message = "No se asignó plan de entrenamiento (la configuración no incluye uno)"
                 else:
-                    plan_message = "No se asignó plan nutricional (la configuración no incluye uno)"
-                
-                if assigned_workout_program:
-                    workout_message = f"Plan de entrenamiento '{assigned_workout_program.name.split(' - ')[0]}' asignado automáticamente"
-                else:
-                    workout_message = "No se asignó plan de entrenamiento (la configuración no incluye uno)"
-            else:
-                plan_message = "No se encontró una configuración que coincida con tu perfil"
-                workout_message = "No se encontró una configuración que coincida con tu perfil"
-        except Exception as e:
-            plan_message = f"Error al asignar planes: {str(e)}"
-            workout_message = f"Error al asignar planes: {str(e)}"
-        
-        response_data = {
-            'message': 'Formulario de registro inicial completado exitosamente',
-            'profile': UserProfileSerializer(user).data,
-            'form_version': INITIAL_REGISTRATION_FORM_VERSION,
-            'configuration': {
-                'name': configuration_name,
-                'found': configuration_name is not None
-            },
-            'nutrition_plan': {
-                'assigned': assigned_nutrition_plan is not None,
-                'message': plan_message,
-                'plan_id': str(assigned_nutrition_plan.id) if assigned_nutrition_plan else None,
-                'plan_name': assigned_nutrition_plan.name if assigned_nutrition_plan else None
-            },
-            'workout_plan': {
-                'assigned': assigned_workout_program is not None,
-                'message': workout_message,
-                'plan_id': str(assigned_workout_program.id) if assigned_workout_program else None,
-                'plan_name': assigned_workout_program.name if assigned_workout_program else None
+                    plan_message = "No se encontró una configuración que coincida con tu perfil"
+                    workout_message = "No se encontró una configuración que coincida con tu perfil"
+            except Exception as e:
+                plan_message = f"Error al asignar planes: {str(e)}"
+                workout_message = f"Error al asignar planes: {str(e)}"
+            
+            response_data = {
+                'message': 'Formulario de registro inicial completado exitosamente',
+                'profile': UserProfileSerializer(user).data,
+                'form_version': INITIAL_REGISTRATION_FORM_VERSION,
+                'configuration': {
+                    'name': configuration_name,
+                    'found': configuration_name is not None
+                },
+                'nutrition_plan': {
+                    'assigned': assigned_nutrition_plan is not None,
+                    'message': plan_message,
+                    'plan_id': str(assigned_nutrition_plan.id) if assigned_nutrition_plan else None,
+                    'plan_name': assigned_nutrition_plan.name if assigned_nutrition_plan else None
+                },
+                'workout_plan': {
+                    'assigned': assigned_workout_program is not None,
+                    'message': workout_message,
+                    'plan_id': str(assigned_workout_program.id) if assigned_workout_program else None,
+                    'plan_name': assigned_workout_program.name if assigned_workout_program else None
+                }
             }
-        }
-        
-        return Response(response_data, status=status.HTTP_200_OK)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+            return Response(response_data, status=status.HTTP_200_OK)
+        else:
+            # Si hay errores de validación, devolverlos con más detalle
+            error_response = {
+                'detail': 'Error de validación en el formulario',
+                'errors': serializer.errors
+            }
+            return Response(error_response, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        # Capturar cualquier excepción inesperada
+        import traceback
+        error_detail = str(e)
+        traceback.print_exc()
+        return Response({
+            'detail': f'Error al procesar el registro: {error_detail}',
+            'error': error_detail
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 # Versión actual del formulario de registro inicial
 INITIAL_REGISTRATION_FORM_VERSION = 2  # Incrementar esto cuando se agreguen/modifiquen campos

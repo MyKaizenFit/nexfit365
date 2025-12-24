@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { 
   TrendingUp, 
   Target, 
@@ -45,6 +45,7 @@ import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { useWeightHistory } from "@/hooks/use-weight-history"
+import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
 
 interface DashboardEnhancedProps {
@@ -59,6 +60,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const { workoutLogs, loading: workoutLoading } = useWorkouts()
   const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
   const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
+  const { profile } = useUserProfile()
 
   // Estados locales
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
@@ -72,39 +74,97 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
 
-  // Calcular métricas
-  const overallProgress = progressStats?.overall_progress || 0
-  const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
-  const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
-  const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
-  const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
-  const weightChange = (latestWeightEntry && firstWeightEntry) 
-    ? latestWeightEntry.weight - firstWeightEntry.weight 
-    : (progressStats?.weight?.change || userStats?.weightChange || 0)
-  const daysInTransformation = userStats?.daysInTransformation || 1
+  // Refrescar datos cuando se actualiza el peso
+  useEffect(() => {
+    const handleWeightUpdate = async () => {
+      // Refrescar historial de peso y estadísticas
+      if (refreshWeight) await refreshWeight()
+      if (refreshStats) await refreshStats()
+    }
+    
+    window.addEventListener('weightUpdated', handleWeightUpdate)
+    return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
+  }, [refreshWeight, refreshStats])
 
-  // Calcular calorías del día
-  const caloriesConsumed = macros.caloriesConsumed || 0
-  const caloriesGoal = macros.caloriesGoal || 2000
-  const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+  // Calcular métricas con useMemo para evitar recálculos innecesarios
+  const metrics = useMemo(() => {
+    const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
+    const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
+    const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
+    const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
+    const weightChange = (latestWeightEntry && firstWeightEntry) 
+      ? latestWeightEntry.weight - firstWeightEntry.weight 
+      : (progressStats?.weight?.change || userStats?.weightChange || 0)
+    
+    return {
+      overallProgress: progressStats?.overall_progress || 0,
+      latestWeightEntry,
+      firstWeightEntry,
+      currentWeight,
+      targetWeight,
+      weightChange,
+      daysInTransformation: userStats?.daysInTransformation || 1
+    }
+  }, [weightEntries, progressStats, user, userStats])
+  
+  const { overallProgress, latestWeightEntry, firstWeightEntry, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
 
-  // Calcular macros
-  const proteinConsumed = macros.proteinConsumed || 0
-  const proteinGoal = macros.proteinGoal || 150
-  const carbsConsumed = macros.carbsConsumed || 0
-  const carbsGoal = macros.carbsGoal || 200
-  const fatConsumed = macros.fatConsumed || 0
-  const fatGoal = macros.fatGoal || 70
+  // Calcular calorías y macros con useMemo
+  const nutritionData = useMemo(() => {
+    const caloriesConsumed = macros.caloriesConsumed || 0
+    const caloriesGoal = macros.caloriesGoal || 2000
+    const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+    
+    return {
+      caloriesConsumed,
+      caloriesGoal,
+      caloriesProgress,
+      proteinConsumed: macros.proteinConsumed || 0,
+      proteinGoal: macros.proteinGoal || 150,
+      carbsConsumed: macros.carbsConsumed || 0,
+      carbsGoal: macros.carbsGoal || 200,
+      fatConsumed: macros.fatConsumed || 0,
+      fatGoal: macros.fatGoal || 70,
+    }
+  }, [macros])
+  
+  const { caloriesConsumed, caloriesGoal, caloriesProgress, proteinConsumed, proteinGoal, carbsConsumed, carbsGoal, fatConsumed, fatGoal } = nutritionData
 
-  // Estadísticas de entrenamientos
-  const workoutsThisWeek = workoutLogs.filter(log => {
-    const logDate = new Date(log.date)
+  // Estadísticas de entrenamientos con useMemo
+  const workoutStats = useMemo(() => {
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    return logDate >= weekAgo
-  }).length
-  const workoutsGoal = 5
-  const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
+    const workoutsThisWeek = workoutLogs.filter(log => {
+      const logDate = new Date(log.date)
+      return logDate >= weekAgo
+    }).length
+    
+    return { workoutsThisWeek, weekAgo }
+  }, [workoutLogs])
+  
+  const { workoutsThisWeek } = workoutStats
+  
+  // Usar los días de entrenamiento del perfil del usuario como objetivo semanal con useMemo
+  const trainingData = useMemo(() => {
+    const trainingDays = profile?.training_days || []
+    const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
+    const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
+    
+    // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
+    const getRemainingTrainingDays = () => {
+      const today = new Date()
+      const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
+      
+      // Contar cuántos días de entrenamiento quedan en la semana (incluyendo hoy)
+      const remainingDays = trainingDays.filter((day: number) => day >= todayDayNumber).length
+      return remainingDays
+    }
+    
+    return { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays }
+  }, [profile, workoutsThisWeek])
+  
+  const { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays } = trainingData
+  const remainingTrainingSessions = Math.max(0, getRemainingTrainingDays() - workoutsThisWeek)
 
   // Estadísticas de fotos
   const totalPhotos = progressStats?.photos.total || photos.length || 0
@@ -353,53 +413,6 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         </Card>
       </div>
 
-      {/* Quick Actions - Acciones rápidas */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-purple-50 border-2 border-purple-100 hover:border-purple-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
-        >
-          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center group-hover:bg-purple-200 transition-colors">
-            <Dumbbell className="h-5 w-5 text-purple-600" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-purple-700">Entrenar</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-orange-50 border-2 border-orange-100 hover:border-orange-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
-        >
-          <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center group-hover:bg-orange-200 transition-colors">
-            <Utensils className="h-5 w-5 text-orange-600" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-orange-700">Comidas</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-emerald-50 border-2 border-emerald-100 hover:border-emerald-300 transition-all group"
-          onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'day-one' } }))}
-        >
-          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center group-hover:bg-emerald-200 transition-colors">
-            <Camera className="h-5 w-5 text-emerald-600" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-emerald-700">Progreso</span>
-        </Button>
-
-        <Button 
-          variant="outline" 
-          className="h-auto py-4 sm:py-5 flex flex-col items-center gap-2 bg-white hover:bg-blue-50 border-2 border-blue-100 hover:border-blue-300 transition-all group"
-          onClick={() => setIsPhotoDialogOpen(true)}
-        >
-          <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center group-hover:bg-blue-200 transition-colors">
-            <Plus className="h-5 w-5 text-blue-600" />
-          </div>
-          <span className="text-xs sm:text-sm font-medium text-blue-700">Nueva Foto</span>
-        </Button>
-      </div>
-
       {/* Resumen de Macros */}
       <Card className="border-0 bg-gradient-to-br from-gray-50 to-white shadow-lg">
         <CardHeader className="pb-2">
@@ -482,8 +495,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                   {workoutsThisWeek < workoutsGoal ? '¡A entrenar!' : '¡Meta cumplida!'}
                 </h3>
                 <p className="text-white/80 text-sm">
-                  {workoutsGoal - workoutsThisWeek > 0 
-                    ? `Te faltan ${workoutsGoal - workoutsThisWeek} sesiones esta semana`
+                  {remainingTrainingSessions > 0 
+                    ? `Te ${remainingTrainingSessions === 1 ? 'falta' : 'faltan'} ${remainingTrainingSessions} ${remainingTrainingSessions === 1 ? 'sesión' : 'sesiones'} esta semana`
                     : 'Has completado tu objetivo semanal 🎉'}
                 </p>
                 <Button 
@@ -544,7 +557,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <Camera className="h-5 w-5 text-emerald-600" />
+              <Camera className="h-5 w-5 text-gray-700" />
               Nueva Foto de Progreso
             </DialogTitle>
             <DialogDescription className="text-sm">

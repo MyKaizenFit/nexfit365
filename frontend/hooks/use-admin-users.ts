@@ -10,6 +10,7 @@ export interface AdminUser {
   email: string
   first_name: string
   last_name: string
+  phone_number?: string
   role: 'basic' | 'pro' | 'premium' | 'admin'
   role_display: string
   is_active: boolean
@@ -32,6 +33,8 @@ export interface AdminUser {
   last_login_formatted: string
   created_at: string
   updated_at: string
+  birth_date?: string
+  gender?: string
 }
 
 export interface UserStats {
@@ -205,7 +208,7 @@ export function useAdminUsers() {
   const bulkUpdateStatus = async (userIds: number[], isActive: boolean) => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl('admin/users/bulk_update_status/'), {
+      const response = await fetch(buildApiUrl('admin/users/bulk_action/'), {
         method: 'POST',
         headers: {
           ...headers,
@@ -213,7 +216,7 @@ export function useAdminUsers() {
         },
         body: JSON.stringify({
           user_ids: userIds,
-          is_active: isActive
+          action: isActive ? 'activate' : 'deactivate'
         })
       })
 
@@ -238,14 +241,15 @@ export function useAdminUsers() {
   const bulkDelete = async (userIds: number[]) => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl('admin/users/bulk_delete/'), {
+      const response = await fetch(buildApiUrl('admin/users/bulk_action/'), {
         method: 'POST',
         headers: {
           ...headers,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          user_ids: userIds
+          user_ids: userIds,
+          action: 'delete'
         })
       })
 

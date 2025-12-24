@@ -1,7 +1,7 @@
 // lib/nutrition-service.ts
 // Servicio para gestionar planes de nutrición y comidas
 
-import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, buildApiUrl } from './api'
+import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, buildApiUrl, authenticatedFetch } from './api'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 
@@ -84,11 +84,11 @@ export interface MealOption {
   icon?: string  // Permitir cualquier emoji
   description: string
   cookTime?: string
-  recipeId?: number  // ID de la receta si está asociada
+  recipeId?: number | string  // ID de la receta si está asociada (puede ser número o UUID)
 }
 
 export interface Recipe {
-  id: number
+  id: number | string  // Puede ser número o UUID (string)
   name: string
   description: string
   category: string
@@ -205,6 +205,51 @@ class NutritionService {
     }
   }
 
+  // Ajustar el plan nutricional actual con un ajuste de calorías
+  async adjustPlan(calorieAdjustment: number, reason?: string, notes?: string): Promise<NutritionPlan | null> {
+    try {
+      const headers = await getAuthHeaders()
+      
+      const response = await fetch(buildApiUrl('nutrition/adjust-plan/'), {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          calorie_adjustment: calorieAdjustment,
+          reason: reason || 'manual_adjustment',
+          notes: notes || `Ajuste manual de ${calorieAdjustment > 0 ? '+' : ''}${calorieAdjustment} calorías`,
+        }),
+      })
+
+      const result = await handleApiResponse<{
+        plan: NutritionPlan
+        message: string
+        old_calories: number
+        new_calories: number
+        adjustment: number
+      }>(response)
+
+      if (result.error) {
+        throw new Error(result.error)
+      }
+
+      if (!result.data || !result.data.plan) {
+        throw new Error('No se recibió confirmación del ajuste')
+      }
+
+      // Limpiar caché del plan actual
+      const cacheKey = generateCacheKey(NUTRITION_ENDPOINTS.CURRENT_PLAN)
+      apiCache.delete(cacheKey)
+
+      return result.data.plan
+    } catch (error) {
+      console.error('Error ajustando plan:', error)
+      throw handleFetchError(error)
+    }
+  }
+
   // Cambiar el plan nutricional del usuario
   async changePlan(defaultPlanId: string): Promise<NutritionPlan | null> {
     try {
@@ -314,7 +359,7 @@ class NutritionService {
       const result = await requestThrottler.throttle('default-nutrition-plans', async () => {
         // Intentar obtener el plan por defecto del backend
         const headers = await getAuthHeaders()
-        const response = await fetch(`${buildApiUrl('default-nutrition-plans/')}?is_default=true`, {
+        const response = await fetch(`${buildApiUrl('nutrition/default-nutrition-plans/')}?is_default=true`, {
           headers,
           method: 'GET',
         })
@@ -664,7 +709,7 @@ class NutritionService {
   }
 
   // Obtener receta personalizada con cantidades ajustadas según perfil
-  async getPersonalizedRecipe(recipeId: number, mealType: string): Promise<{
+  async getPersonalizedRecipe(recipeId: number | string, mealType: string): Promise<{
     recipe: Recipe
     personalized_quantities: PersonalizedRecipeQuantities
     user_profile: {
@@ -679,31 +724,64 @@ class NutritionService {
   } | null> {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(
-        `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`,
-        {
-          headers,
-          method: 'GET',
-        }
-      )
+      const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`
+      console.log('📡 Llamando a endpoint:', url)
+      
+      const response = await fetch(url, {
+        headers,
+        method: 'GET',
+      })
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`❌ Error ${response.status} al obtener receta personalizada:`, errorText)
+        throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
       }
 
-      return await response.json()
-    } catch (error) {
-      console.error('Error obteniendo receta personalizada:', error)
-      return null
+      // Parsear JSON asegurando UTF-8
+      const text = await response.text()
+      const data = JSON.parse(text)
+      console.log('✅ Respuesta recibida:', data)
+      return data
+    } catch (error: any) {
+      console.error('❌ Error obteniendo receta personalizada:', error)
+      throw error // Re-lanzar el error para que el componente pueda manejarlo
     }
   }
 
   // Obtener receta por ID
-  async getRecipe(recipeId: number): Promise<Recipe | null> {
+  async getRecipe(recipeId: number | string): Promise<Recipe | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`
+      console.log('📡 Llamando a endpoint de receta básica:', url)
+      
+      const response = await fetch(url, {
+        headers,
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ Error ${response.status} al obtener receta:`, errorText)
+        throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
+      }
+
+      const data = await response.json()
+      console.log('✅ Receta básica recibida:', data.name)
+      return data
+    } catch (error: any) {
+      console.error('❌ Error obteniendo receta:', error)
+      throw error // Re-lanzar el error para que el componente pueda manejarlo
+    }
+  }
+
+  // Buscar recetas por nombre
+  async searchRecipes(query: string): Promise<Recipe[]> {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(
-        `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`,
+        `${buildApiUrl(`nutrition/recipes/?search=${encodeURIComponent(query)}`)}`,
         {
           headers,
           method: 'GET',
@@ -711,15 +789,228 @@ class NutritionService {
       )
 
       if (!response.ok) {
+        // Si el endpoint no existe, devolver array vacío
+        if (response.status === 404) {
+          return []
+        }
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
-      return await response.json()
+      const data = await response.json()
+      return Array.isArray(data) ? data : (data.results || data.recipes || [])
     } catch (error) {
-      console.error('Error obteniendo receta:', error)
-      return null
+      console.error('Error buscando recetas:', error)
+      return []
     }
   }
+
+  // Listar todas las recetas
+  async listRecipes(): Promise<Recipe[]> {
+    try {
+      const headers = await getAuthHeaders()
+      
+      // Intentar primero con el endpoint estándar
+      let response = await fetch(
+        `${buildApiUrl('nutrition/recipes/')}`,
+        {
+          headers,
+          method: 'GET',
+        }
+      )
+
+      // Si recibimos 401, intentar refrescar el token
+      if (response.status === 401) {
+        const { authService } = await import('./auth-service')
+        const refreshResult = await authService.refreshAccessToken()
+        if (refreshResult.success && refreshResult.newToken) {
+          headers['Authorization'] = `Bearer ${refreshResult.newToken}`
+          response = await fetch(
+            `${buildApiUrl('nutrition/recipes/')}`,
+            {
+              headers,
+              method: 'GET',
+            }
+          )
+        }
+      }
+
+      // Si aún falla con 404, intentar con el endpoint de admin
+      if (response.status === 404) {
+        console.warn('⚠️ Endpoint /api/nutrition/recipes/ no encontrado, intentando con endpoint de admin...')
+        response = await fetch(
+          `${buildApiUrl('admin/nutrition/recipes/')}`,
+          {
+            headers,
+            method: 'GET',
+          }
+        )
+      }
+
+      if (!response.ok) {
+        console.error(`❌ Error ${response.status} al listar recetas:`, response.statusText)
+        // Si falla, devolver array vacío en lugar de lanzar error
+        return []
+      }
+
+      const data = await response.json()
+      const recipes = Array.isArray(data) ? data : (data.results || data.recipes || [])
+      console.log(`✅ ${recipes.length} recetas cargadas`)
+      return recipes
+    } catch (error) {
+      console.error('❌ Error listando recetas:', error)
+      return []
+    }
+  }
+
+  /**
+   * Obtener selecciones de comidas para una semana
+   */
+  async getWeeklyMealSelections(startDate?: string): Promise<Record<string, any[]>> {
+    // Esta función ahora devuelve todas las selecciones (completadas y no completadas)
+    try {
+      const headers = await getAuthHeaders()
+      const url = startDate 
+        ? `nutrition/weekly-meal-selections/?start_date=${startDate}`
+        : 'nutrition/weekly-meal-selections/'
+      const response = await authenticatedFetch(
+        url,
+        {
+          headers,
+          method: 'GET'
+        }
+      )
+
+      if (!response.ok) {
+        console.error(`Error obteniendo selecciones semanales: ${response.status}`)
+        return {}
+      }
+
+      const data = await response.json()
+      return data.selections || {}
+    } catch (error) {
+      console.error('Error obteniendo selecciones semanales:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Obtener selecciones de comidas para un mes
+   */
+  async getMonthlyMealSelections(year?: number, month?: number): Promise<Record<string, any[]>> {
+    try {
+      const headers = await getAuthHeaders()
+      const today = new Date()
+      const urlYear = year || today.getFullYear()
+      const urlMonth = month || (today.getMonth() + 1)
+      
+      const url = `nutrition/monthly-meal-selections/?year=${urlYear}&month=${urlMonth}`
+      const response = await authenticatedFetch(
+        url,
+        {
+          headers,
+          method: 'GET'
+        }
+      )
+
+      if (!response.ok) {
+        console.error(`Error obteniendo selecciones mensuales: ${response.status}`)
+        return {}
+      }
+
+      const data = await response.json()
+      return data.selections || {}
+    } catch (error) {
+      console.error('Error obteniendo selecciones mensuales:', error)
+      return {}
+    }
+  }
+
+  /**
+   * Guardar selecciones de comidas para múltiples días
+   */
+  async saveWeeklyMealSelections(selections: Array<{
+    date: string
+    meal_type: string
+    recipe_id?: string
+    calories?: number
+    protein?: number
+    carbs?: number
+    fat?: number
+    custom_description?: string
+  }>): Promise<{ created: number; updated: number; errors?: any[] }> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(
+        'nutrition/weekly-meal-selections/',
+        {
+          headers,
+          method: 'POST',
+          body: JSON.stringify({ selections })
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Error ${response.status}`)
+      }
+
+      const data = await response.json()
+      return {
+        created: data.created || 0,
+        updated: data.updated || 0,
+        errors: data.errors || null
+      }
+    } catch (error) {
+      console.error('Error guardando selecciones semanales:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Guardar selecciones de comidas para múltiples días del mes
+   */
+  async saveMonthlyMealSelections(
+    year: number,
+    month: number,
+    selections: Array<{
+      date: string
+      meal_type: string
+      recipe_id?: string
+      calories?: number
+      protein?: number
+      carbs?: number
+      fat?: number
+      custom_description?: string
+    }>
+  ): Promise<{ created: number; updated: number; errors?: any[] }> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(
+        'nutrition/monthly-meal-selections/',
+        {
+          headers,
+          method: 'POST',
+          body: JSON.stringify({ year, month, selections })
+        }
+      )
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `Error ${response.status}`)
+      }
+
+      const data = await response.json()
+      return {
+        created: data.created || 0,
+        updated: data.updated || 0,
+        errors: data.errors || null
+      }
+    } catch (error) {
+      console.error('Error guardando selecciones mensuales:', error)
+      throw error
+    }
+  }
+
 }
 
 // Exportar instancia singleton

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { nutritionService, MealOption, MealLog } from '@/lib/nutrition-service'
 import { dailyMealSelectionsService } from '@/lib/daily-meal-selections-service'
 import { useNutrition } from '@/hooks/use-nutrition'
+import { getAuthHeaders, buildApiUrl } from '@/lib/api'
 
 interface DailyMeal {
   id: string
@@ -219,15 +220,17 @@ export function useDailyMeals() {
     return icons[mealName] || "🍽️"
   }
 
-  // Calcular macros totales
+  // Calcular macros totales (solo de comidas completadas)
   const calculateTotalMacros = useCallback((meals: DailyMeal[], goalMacros?: DailyMacros) => {
-    const totalCalories = meals.reduce((sum, meal) => 
+    // Solo contar calorías de comidas completadas
+    const completedMeals = meals.filter(meal => meal.isCompleted)
+    const totalCalories = completedMeals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.calories || 0), 0)
-    const totalProtein = meals.reduce((sum, meal) => 
+    const totalProtein = completedMeals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.protein || 0), 0)
-    const totalCarbs = meals.reduce((sum, meal) => 
+    const totalCarbs = completedMeals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.carbs || 0), 0)
-    const totalFat = meals.reduce((sum, meal) => 
+    const totalFat = completedMeals.reduce((sum, meal) => 
       sum + (meal.selectedOption?.fat || 0), 0)
 
     // Usar macros personalizados si están disponibles, sino usar los del estado
@@ -291,26 +294,26 @@ export function useDailyMeals() {
     return meals
   }, [])
 
-  // Seleccionar opción de comida
+  // Seleccionar opción de comida (solo planificación, no completada)
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
     console.log('🚀 Seleccionando opción:', { mealId, option })
     
-    // Actualizar estado inmediatamente
+    // Actualizar estado inmediatamente (marcar como no completada por defecto)
     setMeals(prevMeals => {
       console.log('📝 Estado anterior de comidas:', prevMeals.map(m => ({ id: m.id, name: m.name, selected: m.selectedOption?.name })))
       
       const updatedMeals = prevMeals.map(meal => 
         meal.id === mealId 
-          ? { ...meal, selectedOption: option, isCompleted: true }
+          ? { ...meal, selectedOption: option, isCompleted: false } // No completada por defecto
           : meal
       )
       
-      console.log('📝 Estado actualizado de comidas:', updatedMeals.map(m => ({ id: m.id, name: m.name, selected: m.selectedOption?.name })))
+      console.log('📝 Estado actualizado de comidas:', updatedMeals.map(m => ({ id: m.id, name: m.name, selected: m.selectedOption?.name, completed: m.isCompleted })))
       
       // Guardar en localStorage como backup
       saveSelectionsToStorage(updatedMeals)
       
-      // Actualizar macros
+      // Actualizar macros (solo de comidas completadas)
       const newMacros = calculateTotalMacros(updatedMeals)
       console.log('📊 Nuevos macros calculados:', newMacros)
       setMacros(newMacros)
@@ -338,28 +341,59 @@ export function useDailyMeals() {
         if (meal) {
           const mealType = mealTypeMapping[meal.name]
           if (mealType) {
-            console.log(`💾 Guardando en backend: ${meal.name} -> ${mealType}`)
-            const result = await dailyMealSelectionsService.saveMealSelection({
+            console.log(`💾 Guardando selección en backend: ${meal.name} -> ${mealType} (no completada)`)
+            
+            // Guardar como MealLog con completed=False
+            const headers = await getAuthHeaders()
+            
+            // Preparar datos para enviar
+            const requestData: any = {
               date: today,
               meal_type: mealType,
-              selected_option: option,
-              notes: `Seleccionado: ${option.name}`
+              calories: option.calories || 0,
+              protein: option.protein || 0,
+              carbs: option.carbs || 0,
+              fat: option.fat || 0,
+              completed: false // Solo planificación, no completada
+            }
+            
+            // Solo incluir recipe_id si existe y es válido
+            if (option.id && option.id !== 'undefined' && option.id !== 'null') {
+              // Si el ID contiene "recipe-" o es un UUID, usarlo directamente
+              // Si es un ID numérico, convertirlo a string
+              requestData.recipe_id = String(option.id).replace('recipe-', '')
+            } else if (option.recipeId) {
+              requestData.recipe_id = String(option.recipeId).replace('recipe-', '')
+            } else {
+              // Si no hay recipe_id, usar custom_description
+              requestData.custom_description = option.name || 'Comida seleccionada'
+            }
+            
+            console.log('📤 Enviando datos al backend:', requestData)
+            
+            const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+              headers: {
+                ...headers,
+                'Content-Type': 'application/json; charset=utf-8'
+              },
+              method: 'POST',
+              body: JSON.stringify(requestData)
             })
 
-            if (result) {
-              console.log('✅ Selección guardada exitosamente en backend:', result)
+            if (response.ok) {
+              console.log('✅ Selección guardada exitosamente en backend (no completada)')
             } else {
-              console.error('❌ Error guardando selección en backend')
+              const errorText = await response.text()
+              console.error('❌ Error guardando selección en backend:', response.status, errorText)
+              try {
+                const errorData = JSON.parse(errorText)
+                console.error('Detalles del error:', errorData)
+              } catch (e) {
+                console.error('Error no es JSON:', errorText)
+              }
             }
           }
         }
-
-        // También crear un MealLog para compatibilidad
-        await nutritionService.createMealLog({
-          date: today,
-          completed: true,
-          notes: `Seleccionado: ${option.name}`,
-        })
 
       } catch (error) {
         console.error('❌ Error sincronizando con backend:', error)
@@ -370,46 +404,207 @@ export function useDailyMeals() {
 
   }, [calculateTotalMacros, saveSelectionsToStorage, meals])
 
-  // Marcar comida como completada
-  const markMealCompleted = useCallback((mealId: string) => {
+  // Marcar comida como completada (solo en vista diaria)
+  const markMealCompleted = useCallback(async (mealId: string) => {
+    const meal = meals.find(m => m.id === mealId)
+    if (!meal || !meal.selectedOption) {
+      console.warn('No se puede marcar como completada: no hay opción seleccionada')
+      return
+    }
+
+    // Actualizar estado inmediatamente
     setMeals(prevMeals => {
-      const updatedMeals = prevMeals.map(meal => 
-        meal.id === mealId 
-          ? { ...meal, isCompleted: true }
-          : meal
+      const updatedMeals = prevMeals.map(m => 
+        m.id === mealId 
+          ? { ...m, isCompleted: true }
+          : m
       )
       
-      // Actualizar macros si no hay opción seleccionada
+      // Actualizar macros (ahora incluye esta comida completada)
       const newMacros = calculateTotalMacros(updatedMeals)
       setMacros(newMacros)
       
       return updatedMeals
     })
-  }, [calculateTotalMacros])
 
-  // Cargar selecciones del backend
+    // Actualizar en el backend
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const mealTypeMapping: Record<string, string> = {
+        'Desayuno': 'breakfast',
+        'Snack Mañana': 'morning_snack',
+        'Almuerzo': 'lunch',
+        'Snack Tarde': 'afternoon_snack',
+        'Cena': 'dinner'
+      }
+
+      const mealType = mealTypeMapping[meal.name]
+      if (mealType) {
+        const headers = await getAuthHeaders()
+        const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+          headers,
+          method: 'POST',
+          body: JSON.stringify({
+            date: today,
+            meal_type: mealType,
+            recipe_id: meal.selectedOption.id,
+            calories: meal.selectedOption.calories || 0,
+            protein: meal.selectedOption.protein || 0,
+            carbs: meal.selectedOption.carbs || 0,
+            fat: meal.selectedOption.fat || 0,
+            completed: true // Ahora sí está completada
+          })
+        })
+
+        if (response.ok) {
+          console.log('✅ Comida marcada como completada en backend')
+        } else {
+          console.error('❌ Error marcando comida como completada')
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error actualizando estado de completado:', error)
+    }
+  }, [calculateTotalMacros, meals])
+
+  // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
   const loadSelectionsFromBackend = useCallback(async (date: string) => {
     try {
-      const backendSelections = await dailyMealSelectionsService.loadSelectionsFromBackend(date)
-      
-      if (Object.keys(backendSelections).length > 0) {
-        return backendSelections
-      } else {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        headers,
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        console.error('Error obteniendo selecciones:', response.status)
         return null
       }
+
+      const data = await response.json()
+      const selections = data.selections || []
+      
+      // Mapeo de tipos de comida del backend a nombres en español
+      const mealTypeMapping: Record<string, string> = {
+        'breakfast': 'Desayuno',
+        'morning_snack': 'Snack Mañana',
+        'lunch': 'Almuerzo',
+        'afternoon_snack': 'Snack Tarde',
+        'dinner': 'Cena'
+      }
+
+      // Convertir selecciones a formato MealOption
+      const selectionsMap: Record<string, MealOption> = {}
+      
+      selections.forEach((log: any) => {
+        const mealName = mealTypeMapping[log.meal_type]
+        if (mealName) {
+          // Determinar el nombre de la comida - priorizar recipe_name, luego recipe.name, luego custom_description
+          let mealNameToShow = 'Sin nombre'
+          
+          // Primero intentar con recipe_name (viene del serializer)
+          if (log.recipe_name) {
+            mealNameToShow = log.recipe_name
+          }
+          // Luego intentar con recipe.name (si recipe es un objeto)
+          else if (log.recipe) {
+            if (typeof log.recipe === 'object' && log.recipe.name) {
+              mealNameToShow = log.recipe.name
+            }
+          }
+          // Finalmente usar custom_description
+          if (mealNameToShow === 'Sin nombre' && log.custom_description) {
+            mealNameToShow = log.custom_description
+          }
+          
+          console.log(`📋 Cargando selección para ${mealName}:`, {
+            recipe_name: log.recipe_name,
+            recipe: log.recipe,
+            custom_description: log.custom_description,
+            nombre_final: mealNameToShow
+          })
+          
+          // Crear MealOption con el nombre correcto
+          selectionsMap[mealName] = {
+            id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
+            name: mealNameToShow,
+            calories: log.calories || (log.recipe?.calories) || 0,
+            protein: log.protein || (log.recipe?.protein) || 0,
+            carbs: log.carbs || (log.recipe?.carbs) || 0,
+            fat: log.fat || (log.recipe?.fat) || 0,
+            category: 'balanced',
+            icon: '🍽️',
+            description: log.recipe?.description || log.custom_description || '',
+            cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
+            recipeId: log.recipe?.id || log.recipe
+          }
+        }
+      })
+
+      return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
     } catch (error) {
       console.error('Error cargando selecciones del backend:', error)
       return null
     }
   }, [])
 
-  // Aplicar selecciones a las comidas
-  const applySelectionsToMeals = useCallback((meals: DailyMeal[], selections: Record<string, MealOption> | null) => {
+  // Aplicar selecciones a las comidas (incluye completadas y no completadas)
+  const applySelectionsToMeals = useCallback(async (meals: DailyMeal[], selections: Record<string, MealOption> | null, date: string) => {
     if (selections) {
+      // Cargar estado de completado desde el backend
+      try {
+        const headers = await getAuthHeaders()
+        const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+          headers,
+          method: 'GET',
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          const logs = data.selections || []
+          
+          const mealTypeMapping: Record<string, string> = {
+            'breakfast': 'Desayuno',
+            'morning_snack': 'Snack Mañana',
+            'lunch': 'Almuerzo',
+            'afternoon_snack': 'Snack Tarde',
+            'dinner': 'Cena'
+          }
+
+          const completedMap: Record<string, boolean> = {}
+          logs.forEach((log: any) => {
+            const mealName = mealTypeMapping[log.meal_type]
+            if (mealName) {
+              completedMap[mealName] = log.completed || false
+            }
+          })
+
+          return meals.map(meal => {
+            const selection = selections[meal.name]
+            if (selection) {
+              return { 
+                ...meal, 
+                selectedOption: selection, 
+                isCompleted: completedMap[meal.name] || false 
+              }
+            }
+            return meal
+          })
+        }
+      } catch (error) {
+        console.error('Error cargando estado de completado:', error)
+      }
+
+      // Fallback: mostrar selecciones pero marcarlas como no completadas
       return meals.map(meal => {
         const selection = selections[meal.name]
         if (selection) {
-          return { ...meal, selectedOption: selection, isCompleted: true }
+          // Asegurarse de que el nombre esté presente
+          const mealOption = {
+            ...selection,
+            name: selection.name || 'Sin nombre'
+          }
+          return { ...meal, selectedOption: mealOption, isCompleted: false }
         }
         return meal
       })
@@ -487,12 +682,13 @@ export function useDailyMeals() {
         if (!isMounted) return
         
         if (backendSelections) {
-          // Usar selecciones del backend
-          const mealsWithBackendSelections = applySelectionsToMeals(dailyMeals, backendSelections)
+          // Usar selecciones del backend (incluye completadas y no completadas)
+          const mealsWithBackendSelections = await applySelectionsToMeals(dailyMeals, backendSelections, today)
           setMeals(mealsWithBackendSelections)
           
-          // Calcular macros
-          const initialMacros = calculateTotalMacros(mealsWithBackendSelections)
+          // Calcular macros solo de comidas completadas
+          const completedMeals = mealsWithBackendSelections.filter(m => m.isCompleted)
+          const initialMacros = calculateTotalMacros(completedMeals)
           setMacros(initialMacros)
           
           // Sincronizar localStorage con backend
@@ -566,7 +762,7 @@ export function useDailyMeals() {
         
         // Cargar desde backend
         const backendSelections = await loadSelectionsFromBackend(today)
-        const mealsWithSelections = applySelectionsToMeals(dailyMeals, backendSelections)
+        const mealsWithSelections = await applySelectionsToMeals(dailyMeals, backendSelections, today)
         
         setMeals(mealsWithSelections)
         const initialMacros = calculateTotalMacros(mealsWithSelections)

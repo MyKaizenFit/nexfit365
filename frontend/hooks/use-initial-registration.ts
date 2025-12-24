@@ -20,7 +20,6 @@ interface InitialRegistrationData {
   medical_conditions?: string;
   disliked_foods?: string;
   main_goal: 'lose_weight' | 'gain_muscle' | 'body_recomposition';
-  previous_obstacles?: string;
   injuries_or_medical_issues?: string;
 }
 
@@ -176,29 +175,99 @@ export function useInitialRegistration() {
       if (processedData.country_code && processedData.phone_number) {
         processedData.phone_number = `${processedData.country_code}${processedData.phone_number}`;
       }
-      // Eliminar country_code ya que no es un campo del modelo
+      // Eliminar campos que no existen en el modelo
       delete (processedData as any).country_code;
+      delete (processedData as any).previous_obstacles; // Campo no existe en el modelo
       
-      console.log('📤 Enviando datos del formulario al backend:', processedData);
+      // Asegurar que phone_number sea string y tenga formato correcto
+      if (processedData.phone_number) {
+        processedData.phone_number = String(processedData.phone_number).replace(/\D/g, '');
+      }
+      
+      console.log('📤 Enviando datos del formulario al backend:', JSON.stringify(processedData, null, 2));
       console.log('📤 URL:', buildApiUrl(USER_ENDPOINTS.COMPLETE_INITIAL_REGISTRATION));
       console.log('📤 Headers:', getAuthHeaders());
       
       // Llamar al endpoint del backend
-      const response = await fetch(
-        buildApiUrl(USER_ENDPOINTS.COMPLETE_INITIAL_REGISTRATION),
-        {
+      const apiUrl = buildApiUrl(USER_ENDPOINTS.COMPLETE_INITIAL_REGISTRATION);
+      const headers = getAuthHeaders();
+      
+      console.log('📤 URL completa:', apiUrl);
+      console.log('📤 Headers completos:', headers);
+      
+      let response: Response;
+      try {
+        response = await fetch(apiUrl, {
           method: 'POST',
-          headers: getAuthHeaders(),
+          headers: headers,
           body: JSON.stringify(processedData),
-        }
-      );
+        });
+      } catch (fetchError) {
+        // Capturar errores de red (Failed to fetch)
+        console.error('❌ Error de red al conectar con el servidor:', fetchError);
+        const errorMessage = fetchError instanceof Error 
+          ? `No se pudo conectar con el servidor: ${fetchError.message}. Verifica que el backend esté corriendo en ${apiUrl}`
+          : 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
+        throw new Error(errorMessage);
+      }
       
       console.log('📥 Respuesta del servidor:', response.status, response.statusText);
       
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: 'Error al completar el registro' }));
-        console.error('❌ Error del servidor:', errorData);
-        throw new Error(errorData.detail || errorData.message || errorData.error || 'Error al completar el registro');
+        let errorData: any = {};
+        const contentType = response.headers.get('content-type');
+        
+        try {
+          if (contentType && contentType.includes('application/json')) {
+            errorData = await response.json();
+          } else {
+            // Si no es JSON, intentar leer como texto
+            const text = await response.text();
+            console.error('❌ Respuesta del servidor (texto):', text);
+            errorData = { detail: text || 'Error al completar el registro' };
+          }
+        } catch (parseError) {
+          console.error('❌ Error al parsear respuesta del servidor:', parseError);
+          errorData = { detail: 'Error al completar el registro' };
+        }
+        
+        console.error('❌ Error del servidor completo:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          contentType
+        });
+        
+        // Construir mensaje de error más detallado
+        let errorMessage = 'Error al completar el registro';
+        
+        // Si hay errores de validación por campo (formato del backend)
+        if (errorData.errors && typeof errorData.errors === 'object') {
+          const fieldErrors = Object.entries(errorData.errors)
+            .map(([field, errors]: [string, any]) => {
+              const errorList = Array.isArray(errors) ? errors : [errors];
+              return `${field}: ${errorList.join(', ')}`;
+            })
+            .join('; ');
+          errorMessage = errorData.detail || `Errores de validación: ${fieldErrors}`;
+        } else if (errorData.detail) {
+          errorMessage = errorData.detail;
+        } else if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        } else if (typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+          // Si hay errores de validación por campo (formato directo)
+          const fieldErrors = Object.entries(errorData)
+            .map(([field, errors]: [string, any]) => {
+              const errorList = Array.isArray(errors) ? errors : [errors];
+              return `${field}: ${errorList.join(', ')}`;
+            })
+            .join('; ');
+          errorMessage = `Errores de validación: ${fieldErrors}`;
+        }
+        
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
@@ -236,9 +305,20 @@ export function useInitialRegistration() {
       return result;
     } catch (error) {
       console.error('Error completing registration:', error);
+      
+      // Mensaje de error más descriptivo
+      let errorMessage = 'Error al completar el registro';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        // Si es un error de red, proporcionar más contexto
+        if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+          errorMessage = 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo y accesible.';
+        }
+      }
+      
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Error al completar el registro',
+        description: errorMessage,
         variant: 'destructive',
       });
       throw error;

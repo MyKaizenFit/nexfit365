@@ -5,6 +5,9 @@ from django.utils import timezone
 from accounts.models import CustomUser
 from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe
 import math
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PersonalizedNutritionService:
     """Servicio para generar planes nutricionales personalizados basados en el perfil del usuario"""
@@ -12,9 +15,19 @@ class PersonalizedNutritionService:
     def __init__(self, user: CustomUser):
         self.user = user
     
-    def calculate_daily_calories(self) -> int:
-        """Calcula las calorías diarias basadas en el perfil del usuario"""
+    def calculate_daily_calories(self, previous_calories: Optional[int] = None) -> int:
+        """
+        Calcula las calorías diarias basadas en el perfil del usuario y objetivo.
+        Respetando siempre el objetivo del usuario y haciendo transiciones graduales.
+        
+        Args:
+            previous_calories: Calorías anteriores del plan para transición gradual (opcional)
+        """
+        logger.info(f"📊 Calculando calorías para usuario ID: {self.user.id}, email: {self.user.email}")
+        logger.info(f"   Datos: peso={self.user.weight}, altura={self.user.height}, edad={self.user.age}, género={self.user.gender}, objetivo={self.user.main_goal}")
+        
         if not all([self.user.age, self.user.gender, self.user.height, self.user.weight]):
+            logger.warning(f"⚠️ Datos incompletos del usuario, usando valor por defecto 2000 kcal")
             return 2000  # Valor por defecto
         
         # Fórmula de Harris-Benedict
@@ -22,6 +35,8 @@ class PersonalizedNutritionService:
             bmr = 88.362 + (13.397 * self.user.weight) + (4.799 * self.user.height) - (5.677 * self.user.age)
         else:  # female
             bmr = 447.593 + (9.247 * self.user.weight) + (3.098 * self.user.height) - (4.330 * self.user.age)
+        
+        logger.info(f"   BMR calculado: {bmr:.0f} kcal")
         
         # Factor de actividad
         activity_factors = {
@@ -34,14 +49,36 @@ class PersonalizedNutritionService:
         
         activity_factor = activity_factors.get(self.user.activity_level, 1.55)
         tdee = bmr * activity_factor
+        logger.info(f"   TDEE (con actividad {self.user.activity_level}): {tdee:.0f} kcal")
         
-        # Ajustar según objetivo
+        # Ajustar según objetivo - SIEMPRE respetar el objetivo del usuario
         if self.user.main_goal == 'lose_weight':
-            return int(tdee * 0.8)  # Déficit del 20%
+            # Déficit del 20% para pérdida de peso (mantener déficit incluso con nuevo peso)
+            result = int(tdee * 0.8)
+            logger.info(f"   Objetivo: perder peso → {result} kcal (déficit 20% del TDEE)")
         elif self.user.main_goal == 'gain_muscle':
-            return int(tdee * 1.1)  # Superávit del 10%
-        else:  # body_recomposition
-            return int(tdee)  # Mantenimiento
+            result = int(tdee * 1.1)  # Superávit del 10%
+            logger.info(f"   Objetivo: ganar músculo → {result} kcal (superávit 10%)")
+        elif self.user.main_goal == 'maintain':
+            result = int(tdee)  # Mantenimiento exacto
+            logger.info(f"   Objetivo: mantener → {result} kcal (mantenimiento)")
+        else:  # body_recomposition o performance
+            result = int(tdee)  # Mantenimiento
+            logger.info(f"   Objetivo: {self.user.main_goal} → {result} kcal (mantenimiento)")
+        
+        # Si hay calorías anteriores, hacer transición gradual (máximo ±300 kcal por ajuste)
+        if previous_calories:
+            difference = result - previous_calories
+            if abs(difference) > 300:
+                # Limitar el cambio a máximo 300 kcal por ajuste
+                if difference > 0:
+                    result = previous_calories + 300
+                    logger.info(f"   Transición gradual: limitando aumento a +300 kcal → {result} kcal")
+                else:
+                    result = max(1200, previous_calories - 300)  # Mínimo 1200 kcal
+                    logger.info(f"   Transición gradual: limitando disminución a -300 kcal → {result} kcal")
+        
+        return result
     
     def calculate_macros(self, daily_calories: int) -> Dict[str, float]:
         """Calcula la distribución de macronutrientes basada en el perfil del usuario"""
@@ -169,7 +206,7 @@ class PersonalizedNutritionService:
             )
         except Exception as e:
             # No fallar la operación principal si falla el registro del historial
-            print(f'Error registrando cambio de plan en historial: {str(e)}')
+            logger.error(f'Error registrando cambio de plan en historial: {str(e)}')
     
     def create_personalized_plan(self) -> NutritionPlan:
         """Crea un plan nutricional personalizado para el usuario"""
@@ -220,7 +257,7 @@ class PersonalizedNutritionService:
             meal_carbs = macros['carbs'] * percentage
             meal_fat = macros['fat'] * percentage
             
-            Meal.objects.create(
+            PlanMeal.objects.create(
                 plan=plan,
                 name=meal_name,
                 time=meal_times[meal_name],
@@ -283,6 +320,9 @@ class PersonalizedNutritionService:
         Returns:
             Dict con ingredientes escalados, macros y factor de escala
         """
+        logger.info(f"🔧 Calculando cantidades personalizadas para receta '{recipe.name}' (ID: {recipe.id})")
+        logger.info(f"   Usuario ID: {self.user.id}, email: {self.user.email}, Tipo comida: {meal_type}")
+        
         # Calcular calorías objetivo para esta comida específica
         daily_calories = self.calculate_daily_calories()
         
@@ -317,6 +357,10 @@ class PersonalizedNutritionService:
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
         
+        logger.info(f"   Receta original: {recipe.calories} kcal")
+        logger.info(f"   Target calorías ({meal_type}): {target_calories:.0f} kcal ({meal_percentage*100:.0f}% del día)")
+        logger.info(f"   Factor de escala: {scale_factor:.2f}x")
+        
         # Calcular ingredientes escalados
         scaled_ingredients = []
         if recipe.ingredients and isinstance(recipe.ingredients, list):
@@ -329,6 +373,7 @@ class PersonalizedNutritionService:
                         'amount': round(scaled_amount, 1),
                         'unit': ingredient.get('unit', 'g')
                     })
+                    logger.debug(f"      Ingrediente: {ingredient.get('name')} - {original_amount} → {round(scaled_amount, 1)} {ingredient.get('unit', 'g')}")
                 elif isinstance(ingredient, str):
                     # Si es solo un string, mantenerlo pero agregar nota
                     scaled_ingredients.append({
@@ -398,7 +443,7 @@ class PersonalizedNutritionService:
             return None
         
         return self._assign_plan_from_default(best_plan, changed_by=self.user)
-
+    
     def assign_plan_from_default(
         self,
         default_plan: NutritionPlan,
@@ -521,14 +566,13 @@ class PersonalizedNutritionService:
             name=f"{best_plan.name} - {self.user.get_full_name()}",
             description=f"Plan nutricional asignado automáticamente basado en: {best_plan.description}",
             daily_calories=plan_calories,
-            target_macros={
-                'protein': macros['protein'],
-                'carbs': macros['carbs'],
-                'fat': macros['fat'],
-                'protein_percentage': macros['protein_percentage'],
-                'carbs_percentage': macros['carbs_percentage'],
-                'fat_percentage': macros['fat_percentage']
-            },
+            protein_grams=int(macros['protein']),
+            carbs_grams=int(macros['carbs']),
+            fat_grams=int(macros['fat']),
+            goal=best_plan.goal,
+            diet_type=best_plan.diet_type,
+            meals_per_day=best_plan.meals_per_day,
+            duration_weeks=best_plan.duration_weeks,
             start_date=timezone.now().date(),
             is_active=True
         )
@@ -546,6 +590,248 @@ class PersonalizedNutritionService:
 
         return user_plan
 
+    def update_existing_plan(self, plan: NutritionPlan, reason: str = "auto_updated", notes: Optional[str] = None, 
+                            old_weight: Optional[float] = None) -> NutritionPlan:
+        """
+        Actualiza un plan nutricional existente con transición gradual.
+        Respeta el objetivo del usuario y hace ajustes graduales.
+        
+        Args:
+            plan: Plan nutricional a actualizar
+            reason: Razón del cambio
+            notes: Notas adicionales
+            old_weight: Peso anterior para incluir en las notas (opcional)
+        
+        Returns:
+            Plan actualizado
+        """
+        if not plan or plan.user != self.user:
+            logger.warning(f"Intento de actualizar plan que no pertenece al usuario {self.user.email}")
+            return plan
+        
+        # Calcular nuevos valores considerando calorías actuales para transición gradual
+        old_calories = plan.daily_calories or 2000
+        new_daily_calories = self.calculate_daily_calories(previous_calories=old_calories)
+        new_macros = self.calculate_macros(new_daily_calories)
+        
+        # Calcular diferencia porcentual
+        calorie_change_pct = abs((new_daily_calories - old_calories) / old_calories * 100) if old_calories > 0 else 0
+        
+        # Solo actualizar si el cambio es significativo (>3% o >50 calorías)
+        if calorie_change_pct < 3 and abs(new_daily_calories - old_calories) < 50:
+            logger.info(f"Cambio de calorías muy pequeño ({calorie_change_pct:.1f}%), no se actualiza el plan")
+            return plan
+        
+        # Guardar valores antiguos para el historial
+        old_protein = plan.protein_grams
+        old_carbs = plan.carbs_grams
+        old_fat = plan.fat_grams
+        
+        # Actualizar valores del plan
+        plan.daily_calories = new_daily_calories
+        plan.protein_grams = int(new_macros['protein'])
+        plan.carbs_grams = int(new_macros['carbs'])
+        plan.fat_grams = int(new_macros['fat'])
+        plan.updated_at = timezone.now()
+        plan.save()
+        
+        # Actualizar calorías de las comidas proporcionalmente
+        if plan.meals.exists():
+            total_old_calories = sum(meal.calories or 0 for meal in plan.meals.all())
+            if total_old_calories > 0:
+                calorie_ratio = new_daily_calories / total_old_calories
+                
+                for meal in plan.meals.all():
+                    if meal.calories:
+                        meal.calories = int(meal.calories * calorie_ratio)
+                        meal.protein = round(meal.protein * calorie_ratio, 1) if meal.protein else None
+                        meal.carbs = round(meal.carbs * calorie_ratio, 1) if meal.carbs else None
+                        meal.fat = round(meal.fat * calorie_ratio, 1) if meal.fat else None
+                        meal.save()
+        
+        # Crear nota descriptiva
+        weight_note = ""
+        if old_weight and self.user.weight:
+            weight_change = self.user.weight - old_weight
+            if abs(weight_change) > 0.1:
+                weight_note = f" Peso: {old_weight:.1f} → {self.user.weight:.1f} kg ({weight_change:+.1f} kg)."
+        
+        goal_display = dict(self.user.MAIN_GOAL_CHOICES).get(self.user.main_goal, self.user.main_goal) if hasattr(self.user, 'MAIN_GOAL_CHOICES') else self.user.main_goal
+        
+        notes_text = notes or f'Plan actualizado automáticamente.{weight_note} Calorías: {old_calories} → {new_daily_calories} kcal ({calorie_change_pct:.1f}% cambio). Objetivo: {goal_display}.'
+        
+        # Registrar cambio en historial
+        self.record_plan_change(
+            user=self.user,
+            old_plan=plan,
+            new_plan=plan,
+            changed_by=self.user,
+            reason=reason,
+            notes=notes_text,
+        )
+        
+        logger.info(f"Plan {plan.id} actualizado para usuario {self.user.email}: {old_calories} → {new_daily_calories} kcal")
+        
+        return plan
+    
+    def adjust_plan_calories(self, plan: NutritionPlan, calorie_adjustment: int, reason: str = "manual_adjustment", notes: Optional[str] = None) -> NutritionPlan:
+        """
+        Ajusta las calorías de un plan nutricional existente sumando/restando un valor específico.
+        Recalcula macros proporcionalmente y actualiza las comidas.
+        
+        Args:
+            plan: Plan nutricional a ajustar
+            calorie_adjustment: Ajuste de calorías (positivo = aumentar, negativo = reducir)
+            reason: Razón del ajuste
+            notes: Notas adicionales
+        
+        Returns:
+            Plan ajustado
+        """
+        if not plan or plan.user != self.user:
+            logger.warning(f"Intento de ajustar plan que no pertenece al usuario {self.user.email}")
+            return plan
+        
+        # Calcular nuevas calorías
+        old_calories = plan.daily_calories or 2000
+        new_daily_calories = max(1200, min(5000, old_calories + calorie_adjustment))  # Limitar entre 1200 y 5000 kcal
+        
+        # Calcular nuevos macros manteniendo la misma distribución porcentual
+        old_total_macros_calories = (plan.protein_grams or 0) * 4 + (plan.carbs_grams or 0) * 4 + (plan.fat_grams or 0) * 9
+        
+        if old_total_macros_calories > 0:
+            # Calcular porcentajes actuales
+            protein_pct = ((plan.protein_grams or 0) * 4) / old_total_macros_calories
+            carbs_pct = ((plan.carbs_grams or 0) * 4) / old_total_macros_calories
+            fat_pct = ((plan.fat_grams or 0) * 9) / old_total_macros_calories
+            
+            # Aplicar porcentajes a nuevas calorías
+            new_protein = int((new_daily_calories * protein_pct) / 4)
+            new_carbs = int((new_daily_calories * carbs_pct) / 4)
+            new_fat = int((new_daily_calories * fat_pct) / 9)
+        else:
+            # Si no hay macros previos, calcular desde cero
+            new_macros = self.calculate_macros(new_daily_calories)
+            new_protein = int(new_macros['protein'])
+            new_carbs = int(new_macros['carbs'])
+            new_fat = int(new_macros['fat'])
+        
+        # Guardar valores antiguos para el historial
+        old_protein = plan.protein_grams
+        old_carbs = plan.carbs_grams
+        old_fat = plan.fat_grams
+        
+        # Actualizar valores del plan
+        plan.daily_calories = new_daily_calories
+        plan.protein_grams = new_protein
+        plan.carbs_grams = new_carbs
+        plan.fat_grams = new_fat
+        plan.updated_at = timezone.now()
+        plan.save()
+        
+        # Actualizar calorías de las comidas proporcionalmente
+        if plan.meals.exists():
+            calorie_ratio = new_daily_calories / old_calories if old_calories > 0 else 1
+            
+            for meal in plan.meals.all():
+                if meal.calories:
+                    meal.calories = int(meal.calories * calorie_ratio)
+                    meal.protein = round(meal.protein * calorie_ratio, 1) if meal.protein else None
+                    meal.carbs = round(meal.carbs * calorie_ratio, 1) if meal.carbs else None
+                    meal.fat = round(meal.fat * calorie_ratio, 1) if meal.fat else None
+                    meal.save()
+        
+        # Registrar cambio en historial
+        adjustment_text = f"{calorie_adjustment:+d}" if calorie_adjustment != 0 else "0"
+        self.record_plan_change(
+            user=self.user,
+            old_plan=plan,
+            new_plan=plan,
+            changed_by=self.user,
+            reason=reason,
+            notes=notes or f'Ajuste manual de calorías: {old_calories} → {new_daily_calories} kcal ({adjustment_text} kcal). Proteína: {old_protein} → {new_protein}g, Carbohidratos: {old_carbs} → {new_carbs}g, Grasas: {old_fat} → {new_fat}g',
+        )
+        
+        logger.info(f"Plan {plan.id} ajustado para usuario {self.user.email}: {old_calories} → {new_daily_calories} kcal ({adjustment_text} kcal)")
+        
+        return plan
+
+
+class PlanAutoUpdateService:
+    """
+    Servicio para actualizar automáticamente planes nutricionales cuando cambian
+    datos del usuario (peso, objetivos, nivel de actividad, etc.)
+    """
+    
+    def __init__(self, user: CustomUser):
+        self.user = user
+        self.nutrition_service = PersonalizedNutritionService(user)
+    
+    def should_update_plan(self, old_weight: Optional[float] = None, old_goal: Optional[str] = None, 
+                          old_activity_level: Optional[str] = None) -> Tuple[bool, str]:
+        """
+        Determina si se debe actualizar el plan basado en los cambios detectados.
+        Umbrales más bajos para ajustes más frecuentes y graduales.
+        
+        Returns:
+            Tuple (debe_actualizar: bool, razón: str)
+        """
+        # Verificar si el usuario tiene un plan activo
+        active_plan = NutritionPlan.objects.filter(user=self.user, is_active=True).first()
+        if not active_plan:
+            return False, "Usuario no tiene plan activo"
+        
+        # Verificar cambios en peso (umbral más bajo: >1kg o >2% para ajustes más frecuentes)
+        if old_weight is not None and self.user.weight:
+            weight_change = abs(self.user.weight - old_weight)
+            weight_change_pct = (weight_change / old_weight * 100) if old_weight > 0 else 0
+            
+            # Actualizar si cambio > 1kg o > 2% del peso (más sensible para ajustes graduales)
+            if weight_change >= 1.0 or weight_change_pct >= 2:
+                return True, f"Cambio de peso: {old_weight:.1f} → {self.user.weight:.1f} kg ({weight_change_pct:.1f}%)"
+        
+        # Verificar cambios en objetivo (siempre actualizar si cambia el objetivo)
+        if old_goal and old_goal != self.user.main_goal:
+            return True, f"Cambio de objetivo: {old_goal} → {self.user.main_goal}"
+        
+        # Verificar cambios en nivel de actividad (siempre actualizar si cambia)
+        if old_activity_level and old_activity_level != self.user.activity_level:
+            return True, f"Cambio de nivel de actividad: {old_activity_level} → {self.user.activity_level}"
+        
+        return False, "No hay cambios significativos"
+    
+    def update_plan_if_needed(self, old_weight: Optional[float] = None, old_goal: Optional[str] = None,
+                             old_activity_level: Optional[str] = None, reason: str = "auto_updated") -> Optional[NutritionPlan]:
+        """
+        Actualiza el plan nutricional si es necesario basado en los cambios del usuario.
+        
+        Returns:
+            Plan actualizado o None si no se actualizó
+        """
+        should_update, update_reason = self.should_update_plan(old_weight, old_goal, old_activity_level)
+        
+        if not should_update:
+            logger.info(f"No se actualiza plan para {self.user.email}: {update_reason}")
+            return None
+        
+        active_plan = NutritionPlan.objects.filter(user=self.user, is_active=True).first()
+        if not active_plan:
+            logger.warning(f"Usuario {self.user.email} no tiene plan activo para actualizar")
+            return None
+        
+        # Actualizar el plan existente con transición gradual
+        updated_plan = self.nutrition_service.update_existing_plan(
+            plan=active_plan,
+            reason=reason,
+            notes=f"Actualización automática: {update_reason}",
+            old_weight=old_weight
+        )
+        
+        logger.info(f"Plan actualizado automáticamente para {self.user.email}: {update_reason}")
+        
+        return updated_plan
+
+
 def get_personalized_nutrition_plan(user: CustomUser) -> Dict[str, any]:
     """Función helper para obtener un plan nutricional personalizado"""
     service = PersonalizedNutritionService(user)
@@ -555,8 +841,3 @@ def assign_nutrition_plan_to_user(user: CustomUser) -> Optional[NutritionPlan]:
     """Función helper para asignar automáticamente un plan nutricional a un usuario"""
     service = PersonalizedNutritionService(user)
     return service.assign_best_plan()
-
-
-
-
-

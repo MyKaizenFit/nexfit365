@@ -18,7 +18,7 @@
 #
 # BASE DE DATOS SEPARADA:
 #   - Nombre: mykaizenfit_dev (prod: mykaizenfit)
-#   - Datos en: /srv/mykaizenfit/pro/data-dev/
+#   - Datos en volúmenes nombrados de Docker (compatible Windows/Linux)
 
 services:
   # ============================================
@@ -30,11 +30,11 @@ services:
     environment:
       POSTGRES_DB: mykaizenfit_dev
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_PASSWORD: postgres
     ports:
       - "0.0.0.0:5434:5432"
     volumes:
-      - /srv/mykaizenfit/pro/data-dev/postgres:/var/lib/postgresql/data
+      - nexfit-dev-postgres:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -52,7 +52,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     # Sin password en desarrollo para simplicidad
     volumes:
-      - /srv/mykaizenfit/pro/data-dev/redis:/data
+      - nexfit-dev-redis:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -78,7 +78,7 @@ services:
       # Base de datos
       DB_NAME: mykaizenfit_dev
       DB_USER: postgres
-      DB_PASSWORD: dev_password_123
+      DB_PASSWORD: postgres
       DB_HOST: db
       DB_PORT: "5432"
       # Redis (sin password en dev)
@@ -89,6 +89,10 @@ services:
       CSRF_TRUSTED_ORIGINS: "http://localhost:3001,http://127.0.0.1:3001"
       # Logs
       LOG_LEVEL: DEBUG
+      # Push Notifications (VAPID)
+      VAPID_PUBLIC_KEY: "CHANGE_ME_VAPID_PUBLIC_KEY"
+      VAPID_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nCHANGE_ME_VAPID_PRIVATE_KEY\nCHANGE_ME_VAPID_PRIVATE_KEY\nCHANGE_ME_VAPID_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
+      VAPID_CLAIM_EMAIL: "no-reply@nex-fit.local"
     command: >
       sh -c "
         echo '🔄 Aplicando migraciones...' &&
@@ -102,8 +106,9 @@ services:
       - "0.0.0.0:8001:8000"
     volumes:
       - ./backend:/app
-      - /srv/mykaizenfit/pro/data-dev/staticfiles:/app/staticfiles
-      - /srv/mykaizenfit/pro/data-dev/media:/app/media
+      # Volúmenes nombrados para Windows (más rápido que bind mounts a rutas Linux)
+      - nexfit-dev-staticfiles:/app/staticfiles
+      - nexfit-dev-media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -132,7 +137,9 @@ services:
       NEXT_PUBLIC_API_URL: http://localhost:8001/api
       NEXT_PUBLIC_APP_NAME: NexFit365-DEV
       NEXT_PUBLIC_DEBUG: "true"
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: "CHANGE_ME_VAPID_PUBLIC_KEY"
       WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     ports:
       - "0.0.0.0:3001:3000"
     volumes:
@@ -144,6 +151,19 @@ services:
         condition: service_healthy
     networks:
       - web
+
+# ============================================
+# VOLÚMENES
+# ============================================
+volumes:
+  nexfit-dev-postgres:
+    name: nexfit-dev-postgres
+  nexfit-dev-redis:
+    name: nexfit-dev-redis
+  nexfit-dev-staticfiles:
+    name: nexfit-dev-staticfiles
+  nexfit-dev-media:
+    name: nexfit-dev-media
 
 # ============================================
 # REDES
