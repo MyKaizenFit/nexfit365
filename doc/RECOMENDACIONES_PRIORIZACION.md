@@ -151,3 +151,4 @@
 **Funcionalidades Importantes**: ✅ **75% Completadas** (suficiente para V1.0)  
 **Funcionalidades Complementarias**: ⏭️ **V2.0**
 
+
