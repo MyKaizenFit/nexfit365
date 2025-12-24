@@ -2,7 +2,7 @@
 # Serializers para la nueva estructura simplificada
 
 from rest_framework import serializers
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
 
 
 class RecipeSerializer(serializers.ModelSerializer):
@@ -31,7 +31,12 @@ class RecipeMinimalSerializer(serializers.ModelSerializer):
     """Serializer minimal para listas"""
     class Meta:
         model = Recipe
-        fields = ["id", "name", "category", "calories", "prep_time_minutes", "difficulty"]
+        fields = [
+            "id", "name", "category", "description",
+            "calories", "protein", "carbs", "fat",
+            "prep_time_minutes", "cook_time_minutes", "difficulty",
+            "servings", "image_url"
+        ]
 
 
 class PlanMealSerializer(serializers.ModelSerializer):
@@ -89,6 +94,7 @@ class NutritionPlanMinimalSerializer(serializers.ModelSerializer):
 class MealLogSerializer(serializers.ModelSerializer):
     """Serializer para logs de comidas"""
     recipe_name = serializers.CharField(source='recipe.name', read_only=True, allow_null=True)
+    recipe = serializers.SerializerMethodField()
     
     class Meta:
         model = MealLog
@@ -100,6 +106,22 @@ class MealLogSerializer(serializers.ModelSerializer):
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "user", "recipe_name", "created_at", "updated_at"]
+    
+    def get_recipe(self, obj):
+        """Incluir información completa de la receta si existe"""
+        if obj.recipe:
+            return {
+                'id': str(obj.recipe.id),
+                'name': obj.recipe.name,
+                'calories': obj.recipe.calories,
+                'protein': float(obj.recipe.protein),
+                'carbs': float(obj.recipe.carbs),
+                'fat': float(obj.recipe.fat),
+                'description': obj.recipe.description or '',
+                'prep_time_minutes': obj.recipe.prep_time_minutes or 0,
+                'cook_time_minutes': obj.recipe.cook_time_minutes or 0,
+            }
+        return None
 
 
 class FoodSerializer(serializers.ModelSerializer):
@@ -107,3 +129,25 @@ class FoodSerializer(serializers.ModelSerializer):
     class Meta:
         model = Food
         fields = '__all__'
+
+
+class NutritionPlanHistorySerializer(serializers.ModelSerializer):
+    """Serializer para historial de cambios de planes nutricionales"""
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
+    is_admin_change = serializers.SerializerMethodField()
+    
+    class Meta:
+        model = NutritionPlanHistory
+        fields = [
+            'id', 'user', 'old_plan_name', 'new_plan_name',
+            'changed_by', 'changed_by_email', 'reason', 'reason_display',
+            'is_admin_change', 'notes', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'created_at', 'updated_at']
+    
+    def get_is_admin_change(self, obj):
+        """Determina si el cambio fue hecho por un administrador"""
+        if obj.changed_by:
+            return obj.changed_by.is_staff or obj.changed_by.is_superuser
+        return False

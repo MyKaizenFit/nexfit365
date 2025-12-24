@@ -1,16 +1,42 @@
 # accounts/admin_views.py
 from rest_framework import viewsets, status, permissions
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django.forms.models import model_to_dict
 
 from .serializers import UserProfileSerializer, UserRegistrationSerializer, AdminUserSerializer
 from .permissions import IsAdminOrStaff
+from .models import CustomUser, ProfileAuditLog
+from django.db import models
 
 User = get_user_model()
+
+PROFILE_AUDIT_FIELDS = [
+    'first_name', 'last_name', 'phone_number', 'birth_date', 'gender',
+    'height', 'weight', 'target_weight',
+    'main_goal', 'activity_level', 'training_location', 'training_days_per_week', 'training_days',
+    'dietary_restrictions', 'allergies', 'medical_conditions', 'equipment_available',
+]
+
+
+def record_profile_audit(user: CustomUser, changed_by: CustomUser | None, old_data: dict, new_data: dict):
+    """Registra cambios en campos relevantes del perfil."""
+    diffs = {}
+    for field in PROFILE_AUDIT_FIELDS:
+        old_val = old_data.get(field)
+        new_val = new_data.get(field)
+        if old_val != new_val:
+            diffs[field] = {'old': old_val, 'new': new_val}
+    if diffs:
+        ProfileAuditLog.objects.create(
+            user=user,
+            changed_by=changed_by,
+            changes=diffs,
+        )
 
 class AdminUserViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de usuarios por administradores"""
@@ -42,6 +68,7 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         """Sobrescribir update para manejar el mapeo de roles"""
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
+        old_snapshot = model_to_dict(instance, fields=PROFILE_AUDIT_FIELDS)
         
         # El modelo ahora acepta directamente basic, pro, premium, admin
         # Mapear valores antiguos y variantes para compatibilidad
@@ -64,6 +91,9 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial, context={'request': request})
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+        # Registrar cambios de perfil
+        updated_snapshot = model_to_dict(self.get_object(), fields=PROFILE_AUDIT_FIELDS)
+        record_profile_audit(self.get_object(), request.user, old_snapshot, updated_snapshot)
         
         return Response(serializer.data)
     
@@ -239,6 +269,31 @@ class AdminUserViewSet(viewsets.ModelViewSet):
         }
         
         return Response(stats)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrStaff])
+def admin_user_profile_history(request, user_id: int):
+    """
+    Historial de cambios relevantes del perfil del usuario (campos críticos).
+    Retorna los últimos 100 cambios con diffs simples.
+    """
+    user = get_object_or_404(User, pk=user_id)
+    logs = ProfileAuditLog.objects.filter(user=user).select_related('changed_by')[:100]
+    history = []
+    for log in logs:
+        history.append({
+            "id": log.id,
+            "user_id": user.id,
+            "changed_by_email": log.changed_by.email if log.changed_by else None,
+            "created_at": log.created_at,
+            "changes": log.changes,
+        })
+
+    return Response({
+        "count": len(history),
+        "history": history
+    })
     
     @action(detail=True, methods=['post'])
     def toggle_verification(self, request, pk=None):

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo, memo } from "react"
 import {
   Dumbbell,
   Play,
@@ -29,7 +29,7 @@ interface WorkoutSummaryEnhancedProps {
   className?: string
 }
 
-export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProps) {
+export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProps) {
   const {
     workoutLogs,
     loading,
@@ -41,45 +41,50 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
   const [selectedWorkout, setSelectedWorkout] = useState<WorkoutLog | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
-  // Calcular estadísticas manualmente
-  const stats = {
-    totalWorkouts: workoutLogs.length,
-    completedThisWeek: workoutLogs.filter(log => {
+  // Calcular estadísticas manualmente con useMemo
+  const stats = useMemo(() => {
+    const now = new Date()
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+    
+    const completedThisWeek = workoutLogs.filter(log => {
       const logDate = new Date(log.date)
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
       return logDate >= weekAgo
-    }).length,
-    weeklyGoal: 5,
-    averageRating: workoutLogs.length > 0
-      ? workoutLogs.reduce((sum, log) => sum + (log.rating || 0), 0) / workoutLogs.length
-      : 0,
-    totalMinutes: workoutLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0),
-    // Propiedades adicionales para compatibilidad
-    current_streak: 0,
-    this_week: workoutLogs.filter(log => {
-      const logDate = new Date(log.date)
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      return logDate >= weekAgo
-    }).length,
-    goal_per_week: 5,
-    progress: 0,
-    total_time_month: workoutLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0),
-    longest_streak: 0
-  }
+    }).length
+    
+    return {
+      totalWorkouts: workoutLogs.length,
+      completedThisWeek,
+      weeklyGoal: 5,
+      averageRating: workoutLogs.length > 0
+        ? workoutLogs.reduce((sum, log) => sum + (log.rating || 0), 0) / workoutLogs.length
+        : 0,
+      totalMinutes: workoutLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0),
+      // Propiedades adicionales para compatibilidad
+      current_streak: 0,
+      this_week: completedThisWeek,
+      goal_per_week: 5,
+      progress: 0,
+      total_time_month: workoutLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0),
+      longest_streak: 0
+    }
+  }, [workoutLogs])
 
-  // Obtener entrenamientos recientes (últimos 7 días)
-  const recentWorkouts = Array.isArray(workoutLogs) ? workoutLogs
-    .filter(log => {
-      if (!log || !log.date) return false
-      const logDate = new Date(log.date)
-      const weekAgo = new Date()
-      weekAgo.setDate(weekAgo.getDate() - 7)
-      return logDate >= weekAgo
-    })
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    .slice(0, 5) : []
+  // Obtener entrenamientos recientes (últimos 7 días) con useMemo
+  const recentWorkouts = useMemo(() => {
+    if (!Array.isArray(workoutLogs)) return []
+    
+    const weekAgo = new Date()
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    
+    return workoutLogs
+      .filter(log => {
+        if (!log || !log.date) return false
+        const logDate = new Date(log.date)
+        return logDate >= weekAgo
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 5)
+  }, [workoutLogs])
 
   const handleViewWorkoutDetails = (workout: WorkoutLog) => {
     setSelectedWorkout(workout)
@@ -427,4 +432,4 @@ export function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProp
       </Dialog>
     </Card>
   )
-}
+})

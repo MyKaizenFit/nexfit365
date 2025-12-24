@@ -20,7 +20,7 @@ urlpatterns = [
     path("api/", include("dashboard.urls")),
     path("api/", include("progress.urls")),
     path("api/", include("workouts.urls")),
-    path("api/", include("nutrition.urls")),
+    path("api/nutrition/", include("nutrition.urls")),  # Prefijo nutrition/ para las URLs
     path("api/", include("achievements.urls")),
     path("api/", include("notifications.urls")),
     
@@ -32,6 +32,7 @@ urlpatterns = [
             path("api/admin/nutrition/", include("nutrition.admin_recipe_urls")),
     path("api/admin/notifications/", include("notifications.admin_urls")),
     path("api/admin/dashboard/", include("dashboard.admin_urls")),
+    path("api/admin/progress/", include("progress.admin_urls")),
 
     # OpenAPI schema & Swagger UI
     path("api/schema/", SpectacularAPIView.as_view(), name="schema"),

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo } from "react"
+import { useMemo, useEffect, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,15 +17,25 @@ interface WeightHistoryProps {
   className?: string
 }
 
-export function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProps) {
+export const WeightHistory = memo(function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProps) {
   // Obtener datos de múltiples fuentes
   const { user } = useAuth()
-  const { entries: weightEntries, loading: weightLoading } = useWeightHistory()
+  const { entries: weightEntries, loading: weightLoading, refresh } = useWeightHistory()
   const { userStats, loading: statsLoading } = useUserData()
   const { profile, loading: profileLoading } = useUserProfile()
   const { stats: progressStats, loading: progressStatsLoading } = useProgressStats()
 
   const loading = weightLoading || statsLoading || profileLoading || progressStatsLoading
+
+  // Escuchar actualizaciones de peso desde otros componentes
+  useEffect(() => {
+    const handleWeightUpdate = async () => {
+      await refresh()
+    }
+    
+    window.addEventListener('weightUpdated', handleWeightUpdate)
+    return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
+  }, [refresh])
 
   // Calcular peso actual desde múltiples fuentes (prioridad: historial > perfil > stats > user)
   const currentWeight = useMemo(() => {
@@ -328,4 +338,4 @@ export function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProp
       </CardContent>
     </Card>
   )
-}
+})

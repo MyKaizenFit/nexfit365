@@ -22,9 +22,9 @@ const getApiBaseUrl = (): string => {
     return 'https://api.nexfit365.dpdns.org'
   }
 
-  // Solo en desarrollo, usar localhost como fallback
-  console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8000 como fallback (solo desarrollo)')
-  return 'http://localhost:8000'
+  // Solo en desarrollo, usar localhost:8001 como fallback (puerto de desarrollo)
+  console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8001 como fallback (solo desarrollo)')
+  return 'http://localhost:8001'
 }
 
 export const API_CONFIG = {
@@ -38,8 +38,8 @@ export const API_CONFIG = {
 
   // Headers por defecto
   DEFAULT_HEADERS: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Accept': 'application/json; charset=utf-8',
   }
 }
 
@@ -71,17 +71,18 @@ export const WORKOUT_ENDPOINTS = {
   EXERCISES: 'exercises/',
 }
 
-// Endpoints de nutrición
+// Endpoints de nutrición (todos con prefijo nutrition/)
 export const NUTRITION_ENDPOINTS = {
-  PLANS: 'nutrition-plans/',
-  MEALS: 'meal-logs/',
-  FOODS: 'foods/',
-  DEFAULT_PLANS: 'default-plans/',
-  CURRENT_PLAN: 'current-plan/',
-  CHANGE_PLAN: 'change-plan/',
-  SUITABLE_PLANS: 'personalized/suitable-plans/',
-  PLAN_MEALS_FOR_SELECTION: 'plan-meals-for-selection/',
-  PLAN_HISTORY: 'plan-history/',
+  PLANS: 'nutrition/plans/',
+  MEALS: 'nutrition/meal-logs/',
+  FOODS: 'nutrition/foods/',
+  DEFAULT_PLANS: 'nutrition/default-plans/',
+  CURRENT_PLAN: 'nutrition/current-plan/',
+  CHANGE_PLAN: 'nutrition/change-plan/',
+  SUITABLE_PLANS: 'nutrition/personalized/suitable-plans/',
+  PLAN_MEALS_FOR_SELECTION: 'nutrition/plan-meals-for-selection/',
+  PLAN_HISTORY: 'nutrition/plan-history/',
+  RECIPES: 'nutrition/recipes/',
 }
 
 // Endpoints de progreso
@@ -114,7 +115,7 @@ export const TIPS_ENDPOINTS = {
 
 // Endpoints de configuraciones
 export const CONFIGURATION_ENDPOINTS = {
-  DEFAULT_PLAN_CONFIGURATIONS: 'default-plan-configurations/',
+  DEFAULT_PLAN_CONFIGURATIONS: 'nutrition/default-plan-configurations/',
 }
 
 // Función para construir URLs completas
@@ -174,6 +175,13 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
   return headers
 }
 
+// Función helper para parsear JSON con UTF-8 correctamente
+const parseJsonWithUTF8 = async <T>(response: Response): Promise<T> => {
+  const text = await response.text()
+  // El texto ya viene en UTF-8 del servidor, solo necesitamos parsearlo
+  return JSON.parse(text) as T
+}
+
 // Función para manejar respuestas de la API
 export const handleApiResponse = async <T>(response: Response): Promise<{ data: T | null; error: string | null }> => {
   try {
@@ -183,7 +191,8 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         return { data: null, error: null }
       }
 
-      const data = await response.json()
+      // Asegurar que el JSON se parsee con UTF-8
+      const data = await parseJsonWithUTF8<T>(response)
       return { data, error: null }
     } else {
       // Si hay error, intentar obtener el mensaje de error
@@ -202,7 +211,7 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
       }
 
       try {
-        const errorData = await response.json()
+        const errorData = await parseJsonWithUTF8<any>(response)
         if (errorData.detail) {
           errorMessage = errorData.detail
         } else if (errorData.message) {

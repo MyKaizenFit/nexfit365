@@ -31,7 +31,7 @@ export function NutritionPlanHistoryUser() {
     setLoading(true)
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLAN_HISTORY || 'plan-history/'), {
+      const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLAN_HISTORY || 'nutrition/plan-history/'), {
         headers
       })
       

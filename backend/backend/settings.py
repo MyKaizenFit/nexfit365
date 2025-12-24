@@ -88,6 +88,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "api.middleware.UTF8ResponseMiddleware",  # Asegurar UTF-8 en respuestas JSON
 ]
 
 # ---------------------------------
@@ -100,6 +101,15 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+    "DEFAULT_RENDERER_CLASSES": [
+        "rest_framework.renderers.JSONRenderer",  # Renderer estándar primero
+        "api.renderers.UTF8JSONRenderer",  # Renderer UTF-8 personalizado
+        "rest_framework.renderers.BrowsableAPIRenderer",  # Para desarrollo y debugging
+    ],
+    "UNICODE_JSON": True,  # Asegurar que JSON use Unicode (UTF-8)
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+    ],
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 100,  # Aumentado de 20 a 100 para mostrar más elementos
     "DEFAULT_FILTER_BACKENDS": [
@@ -235,7 +245,17 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT", "5432"),
-        "OPTIONS": {"sslmode": os.getenv("DB_SSLMODE", "prefer")},
+        "OPTIONS": {
+            "sslmode": os.getenv("DB_SSLMODE", "prefer"),
+            "client_encoding": "UTF8",  # Asegurar UTF-8 en la conexión a PostgreSQL
+            "options": "-c client_encoding=UTF8 -c lc_messages=en_US.UTF-8",  # Forzar UTF-8 en la conexión
+        },
+        "CONN_MAX_AGE": 600,  # Mantener conexiones abiertas por 10 minutos
+        # Asegurar que todas las conexiones usen UTF-8
+        "TEST": {
+            "CHARSET": "utf8",
+            "COLLATION": "utf8_general_ci",
+        },
     }
 }
 
@@ -270,13 +290,21 @@ else:
 # ---------------------------------
 # Email
 # ---------------------------------
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-EMAIL_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
-EMAIL_HOST_USER = os.getenv("SMTP_USER", "")
-EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-EMAIL_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "Nex-Fit <no-reply@nexfit.local>")
+# Configuración de Email
+# En desarrollo, usar consola si no hay configuración SMTP
+if DEBUG and not os.getenv("SMTP_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+    # Los emails se mostrarán en la consola en desarrollo
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
+    EMAIL_HOST_USER = os.getenv("SMTP_USER", "")
+    EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    EMAIL_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
+    EMAIL_TIMEOUT = 10  # Timeout de 10 segundos para conexiones SMTP
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "NexFit365 <no-reply@nex-fit.local>")
 
 # ---------------------------------
 # Media files
@@ -318,7 +346,14 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Google Drive API (para videos de ejercicios)
 # ---------------------------------
 # ID de la carpeta de Google Drive donde están los videos
-GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG")
+GOOGLE_DRIVE_FOLDER_ID = os.getenv("GOOGLE_DRIVE_FOLDER_ID", "")
+
+# ---------------------------------
+# Push Notifications (VAPID)
+# ---------------------------------
+VAPID_PUBLIC_KEY = os.getenv("VAPID_PUBLIC_KEY", "")
+VAPID_PRIVATE_KEY = os.getenv("VAPID_PRIVATE_KEY", "")
+VAPID_CLAIM_EMAIL = os.getenv("VAPID_CLAIM_EMAIL", DEFAULT_FROM_EMAIL)
 
 # Opción 1: Service Account (recomendado para backend)
 # Ruta al archivo JSON de credenciales de Service Account

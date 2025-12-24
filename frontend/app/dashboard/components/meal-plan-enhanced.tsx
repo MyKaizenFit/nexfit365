@@ -106,7 +106,7 @@ export function MealPlanEnhanced() {
       setIsLoading(true)
       const today = new Date().toISOString().split('T')[0]
       
-      const response = await authenticatedFetch('daily-meal-selections/today/', {
+      const response = await authenticatedFetch('nutrition/daily-meal-selections/today/', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json'
@@ -159,7 +159,7 @@ export function MealPlanEnhanced() {
         snacks: []
       }
 
-      const response = await authenticatedFetch('daily-meal-selections/', {
+      const response = await authenticatedFetch('nutrition/daily-meal-selections/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -205,7 +205,7 @@ export function MealPlanEnhanced() {
       
       if (selection) {
         // Actualizar la selección existente
-        const response = await authenticatedFetch(buildApiUrl(`daily-meal-selections/${selection.id}/`), {
+        const response = await authenticatedFetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/`), {
           method: 'PATCH',
           headers: {
             'Authorization': `Bearer ${authService.getAccessToken()}`,
@@ -246,7 +246,7 @@ export function MealPlanEnhanced() {
 
   const handleMarkCompleted = async (selection: DailyMealSelection) => {
     try {
-      const response = await fetch(buildApiUrl(`daily-meal-selections/${selection.id}/mark_completed/`), {
+      const response = await fetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${authService.getAccessToken()}`,

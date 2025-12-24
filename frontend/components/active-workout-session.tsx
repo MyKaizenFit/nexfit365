@@ -547,13 +547,32 @@ export function ActiveWorkoutSession({
     try {
       const exercisesData = exercises.map((ex: any) => {
         const exerciseId = ex.id || ex.exercise?.id
+        const sets = exerciseSets[exerciseId] || []
+        
+        // Filtrar y limpiar sets para asegurar que solo se envíen sets completados con datos válidos
+        const validSets = sets
+          .map((set: any, index: number) => ({
+            set_number: index + 1,
+            completed: set.completed || false,
+            reps: set.reps !== undefined && set.reps !== null ? Number(set.reps) : null,
+            weight: set.weight !== undefined && set.weight !== null ? Number(set.weight) : null,
+            duration: set.duration !== undefined && set.duration !== null ? Number(set.duration) : null,
+            rest_seconds: set.rest_seconds || null
+          }))
+          .filter((set: any) => set.completed && (set.reps !== null || set.weight !== null)) // Solo sets completados con al menos reps o weight
+        
         return {
           exercise_id: ex.exercise?.id || ex.id,
           exercise_name: ex.exercise?.name || ex.name,
-          sets: exerciseSets[exerciseId] || [],
+          sets: validSets,
           completed: completedExercises.has(exerciseId)
         }
       })
+      
+      // Log para depuración
+      console.log('📊 Datos de ejercicios a enviar:', JSON.stringify(exercisesData, null, 2))
+      console.log('📊 Total de ejercicios:', exercisesData.length)
+      console.log('📊 Total de sets válidos:', exercisesData.reduce((sum, ex) => sum + ex.sets.length, 0))
 
       await onComplete({
         duration_minutes: Math.ceil(elapsedSeconds / 60),

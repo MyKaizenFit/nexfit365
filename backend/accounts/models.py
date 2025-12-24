@@ -6,6 +6,7 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
+from django.forms.models import model_to_dict
 
 
 class CustomUserManager(BaseUserManager):
@@ -87,7 +88,7 @@ class CustomUser(AbstractUser):
     height = models.FloatField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(50), MaxValueValidator(250)],
+        validators=[MinValueValidator(50), MaxValueValidator(210)],
         help_text="Altura en centímetros"
     )
     weight = models.FloatField(
@@ -99,7 +100,7 @@ class CustomUser(AbstractUser):
     target_weight = models.FloatField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(20), MaxValueValidator(300)],
+        validators=[MinValueValidator(50), MaxValueValidator(100)],
         help_text="Peso objetivo en kg"
     )
     
@@ -315,3 +316,22 @@ class CustomUser(AbstractUser):
         }
         
         return round(tdee + goal_adjustments.get(self.main_goal, 0))
+
+
+class ProfileAuditLog(models.Model):
+    """
+    Historial simple de cambios de perfil realizados por usuario o admin.
+    Guarda los diffs de campos relevantes.
+    """
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='profile_audit_logs')
+    changed_by = models.ForeignKey(CustomUser, null=True, blank=True, on_delete=models.SET_NULL, related_name='profile_changes_made')
+    changes = models.JSONField(default=dict)
+    created_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Cambio de perfil"
+        verbose_name_plural = "Cambios de perfil"
+
+    def __str__(self):
+        return f"Perfil {self.user.email} cambiado por {self.changed_by.email if self.changed_by else 'sistema'}"

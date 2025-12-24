@@ -256,6 +256,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Mostrar notificación de error
       authNotifications.showLoginError(errorMessage)
 
+      // NO redirigir cuando hay un error de login
+      // El usuario debe quedarse en la página de login para ver el error
+      // y poder intentar de nuevo o crear una cuenta nueva
+      
       throw error
     }
   }

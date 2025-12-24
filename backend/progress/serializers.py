@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ProgressPhoto, WeightEntry, BodyMeasurement
+from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 
 
 class ProgressPhotoSerializer(serializers.ModelSerializer):
@@ -319,4 +319,22 @@ class ProgressSummarySerializer(serializers.Serializer):
     weight_change = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
     weight_change_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, allow_null=True)
     photos_this_month = serializers.IntegerField()
-    weight_entries_this_month = serializers.IntegerField() 
+    weight_entries_this_month = serializers.IntegerField()
+
+
+class DailyWellnessSerializer(serializers.ModelSerializer):
+    """Serializer para registro diario de bienestar (sueño y motivación)"""
+    user = serializers.ReadOnlyField(source="user.email")
+    
+    class Meta:
+        model = DailyWellness
+        fields = [
+            "id", "user", "date", "sleep_hours", "motivation_score", 
+            "notes", "created_at", "updated_at"
+        ]
+        read_only_fields = ["id", "user", "created_at", "updated_at"]
+    
+    def create(self, validated_data):
+        """Crear registro de bienestar con usuario del request"""
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data) 

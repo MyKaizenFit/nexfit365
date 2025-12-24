@@ -92,6 +92,7 @@ export interface WorkoutLog {
   total_sets: number
   duration_minutes?: number
   rating?: number  // Calificación del entrenamiento (1-5)
+  exercises_data?: any[]  // Datos de ejercicios realizados con sets/reps/peso
   created_at?: string
   updated_at?: string
 }
@@ -273,7 +274,21 @@ export function useWorkouts() {
       const data = await response.json()
 
       if (response.ok) {
-        setWorkoutLogs(data.results || data)
+        const logs = data.results || data
+        setWorkoutLogs(logs)
+        
+        // Log para depuración
+        console.log('📊 Logs cargados:', logs.length)
+        if (logs.length > 0) {
+          const lastLog = logs[0] // El más reciente
+          console.log('📊 Último log:', {
+            id: lastLog.id,
+            date: lastLog.date,
+            completed: lastLog.completed,
+            has_exercises_data: !!lastLog.exercises_data,
+            exercises_data_length: lastLog.exercises_data?.length || 0
+          })
+        }
       } else {
         throw new Error(data.detail || 'Error al obtener logs de entrenamiento')
       }
@@ -339,7 +354,13 @@ export function useWorkouts() {
       }
     } catch (err) {
       console.error('Error activating program:', err)
-      throw err
+      // Asegurarse de lanzar un Error con mensaje de string
+      if (err instanceof Error) {
+        throw err
+      } else {
+        const errorMessage = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Error desconocido al activar programa')
+        throw new Error(errorMessage)
+      }
     }
   }
 
@@ -378,7 +399,8 @@ export function useWorkouts() {
         text = await response.text()
       } catch (textError) {
         console.error('Error reading response text:', textError)
-        throw new Error('No se pudo leer la respuesta del servidor')
+        const textErrorMsg = textError instanceof Error ? textError.message : String(textError)
+        throw new Error(`No se pudo leer la respuesta del servidor: ${textErrorMsg}`)
       }
 
       // Limpiar el texto de posibles caracteres no válidos al inicio
@@ -422,8 +444,8 @@ export function useWorkouts() {
             await fetchWorkoutStatistics()
             return {}
           }
-
-          // Si hay error, usar el texto como mensaje
+          
+          // Si no es exitosa, lanzar un error con el texto de la respuesta
           const errorMsg = cleanedText || 'Error desconocido del servidor'
           throw new Error(`Error del servidor: ${errorMsg.substring(0, 200)}`)
         }
@@ -457,27 +479,141 @@ export function useWorkouts() {
         if (data) {
           if (typeof data === 'string') {
             errorMessage = data
-          } else if (data.detail) {
-            errorMessage = data.detail
-          } else if (data.message) {
-            errorMessage = data.message
-          } else if (Array.isArray(data) && data.length > 0) {
-            errorMessage = data[0]
-          } else {
-            errorMessage = JSON.stringify(data)
+          } else if (typeof data === 'object' && data !== null) {
+            // Si es un objeto, extraer el mensaje de error de forma segura
+            if (data.detail) {
+              const detail = data.detail
+              if (typeof detail === 'string' && detail !== '[object Object]') {
+                errorMessage = detail
+              } else if (typeof detail === 'object') {
+                try {
+                  errorMessage = JSON.stringify(detail)
+                } catch (e) {
+                  errorMessage = 'Error al crear log de entrenamiento'
+                }
+              } else {
+                const detailStr = String(detail)
+                errorMessage = detailStr !== '[object Object]' ? detailStr : 'Error al crear log de entrenamiento'
+              }
+            } else if (data.message) {
+              const msg = data.message
+              if (typeof msg === 'string' && msg !== '[object Object]') {
+                errorMessage = msg
+              } else if (typeof msg === 'object') {
+                try {
+                  errorMessage = JSON.stringify(msg)
+                } catch (e) {
+                  errorMessage = 'Error al crear log de entrenamiento'
+                }
+              } else {
+                const msgStr = String(msg)
+                errorMessage = msgStr !== '[object Object]' ? msgStr : 'Error al crear log de entrenamiento'
+              }
+            } else if (data.error) {
+              const err = data.error
+              if (typeof err === 'string' && err !== '[object Object]') {
+                errorMessage = err
+              } else if (typeof err === 'object') {
+                try {
+                  errorMessage = JSON.stringify(err)
+                } catch (e) {
+                  errorMessage = 'Error al crear log de entrenamiento'
+                }
+              } else {
+                const errStr = String(err)
+                errorMessage = errStr !== '[object Object]' ? errStr : 'Error al crear log de entrenamiento'
+              }
+            } else if (Array.isArray(data) && data.length > 0) {
+              // Si es un array de errores, tomar el primero
+              const firstError = data[0]
+              if (typeof firstError === 'string') {
+                errorMessage = firstError
+              } else {
+                try {
+                  errorMessage = JSON.stringify(firstError)
+                } catch (e) {
+                  errorMessage = 'Error al crear log de entrenamiento'
+                }
+              }
+            } else {
+              // Como último recurso, convertir a string
+              try {
+                const jsonStr = JSON.stringify(data)
+                if (jsonStr !== '{}' && jsonStr !== 'null' && !jsonStr.includes('[object Object]')) {
+                  errorMessage = jsonStr
+                }
+              } catch (e) {
+                errorMessage = 'Error desconocido al crear log de entrenamiento'
+              }
+            }
           }
+        }
+
+        // Asegurarse de que el mensaje no sea [object Object]
+        if (errorMessage === '[object Object]' || errorMessage.includes('[object Object]')) {
+          errorMessage = 'Error desconocido al crear log de entrenamiento'
         }
 
         throw new Error(errorMessage)
       }
     } catch (err) {
       console.error('Error creating workout log:', err)
-      // Si el error ya es un Error con mensaje, lanzarlo tal cual
+      
+      // Extraer el mensaje de error de forma segura
+      let errorMessage = 'Error desconocido al crear log de entrenamiento'
+      
       if (err instanceof Error) {
+        // Si el mensaje está vacío o es [object Object], crear uno nuevo
+        if (!err.message || err.message === '[object Object]' || err.message.includes('[object Object]')) {
+          errorMessage = 'Error desconocido al crear log de entrenamiento'
+          throw new Error(errorMessage)
+        }
+        // Si el mensaje es válido, lanzar el error original
         throw err
+      } else if (typeof err === 'string') {
+        errorMessage = err
+      } else if (err && typeof err === 'object') {
+        // Intentar extraer mensaje del objeto
+        if ('message' in err) {
+          const msg = err.message
+          if (typeof msg === 'string' && msg !== '[object Object]') {
+            errorMessage = msg
+          } else if (typeof msg === 'object') {
+            try {
+              errorMessage = JSON.stringify(msg)
+            } catch (e) {
+              errorMessage = 'Error desconocido al crear log de entrenamiento'
+            }
+          }
+        } else if ('detail' in err) {
+          const detail = err.detail
+          if (typeof detail === 'string' && detail !== '[object Object]') {
+            errorMessage = detail
+          } else if (typeof detail === 'object') {
+            try {
+              errorMessage = JSON.stringify(detail)
+            } catch (e) {
+              errorMessage = 'Error desconocido al crear log de entrenamiento'
+            }
+          }
+        } else {
+          try {
+            const jsonStr = JSON.stringify(err)
+            if (jsonStr !== '{}' && jsonStr !== 'null') {
+              errorMessage = jsonStr
+            }
+          } catch (e) {
+            errorMessage = 'Error desconocido al crear log de entrenamiento'
+          }
+        }
+      } else {
+        const strErr = String(err)
+        if (strErr !== '[object Object]') {
+          errorMessage = strErr
+        }
       }
-      // Si no, crear un nuevo Error
-      throw new Error(err instanceof Error ? err.message : 'Error desconocido al crear log de entrenamiento')
+      
+      throw new Error(errorMessage)
     }
   }
 

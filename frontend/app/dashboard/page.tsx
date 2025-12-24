@@ -18,6 +18,7 @@ import {
   LogOut,
   Sparkles,
   Heart,
+  Moon,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -66,6 +67,8 @@ const WorkoutPlansDashboard = lazy(() => import("@/components/workout-plans-dash
 const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").then(module => ({ default: module.TipsShowcase })))
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
+const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
+const ProgressAnalysisPanel = lazy(() => import("./components/progress-analysis-panel").then(module => ({ default: module.ProgressAnalysisPanel })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -74,10 +77,12 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 const menuItems = [
   { title: "Dashboard", icon: Home, url: "dashboard", isActive: true },
   { title: "Day 1", icon: Target, url: "day-one" },
-  { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
-  { title: "Consejos", icon: Heart, url: "tips" },
+  // TODO: Activar en versiones posteriores
+  // { title: "Recomendaciones", icon: Sparkles, url: "recommendations", disabled: true },
+  // { title: "Consejos", icon: Heart, url: "tips", disabled: true },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
+  { title: "Bienestar", icon: Moon, url: "wellness" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
   { title: "Configuración", icon: Settings, url: "settings" },
@@ -170,12 +175,13 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                <Suspense fallback={null}>
+                {/* TODO: Activar en versiones posteriores */}
+                {/* <Suspense fallback={null}>
                   <RecommendationsSection />
                 </Suspense>
                 <Suspense fallback={null}>
                   <TipsShowcase />
-                </Suspense>
+                </Suspense> */}
               </div>
 
               {/* Elementos móviles al final */}
@@ -191,7 +197,6 @@ function DashboardContent() {
         )
 
       case "progress":
-        // Redirigir a Day 1 (ahora unificado)
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -199,12 +204,21 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <DayOneSheet />
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <Suspense fallback={
+                  <div className="flex items-center justify-center p-12">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
+                  </div>
+                }>
+                  <ProgressAnalysisPanel />
+                </Suspense>
+              </div>
             </div>
           </div>
         )
 
-      case "recommendations":
+      // TODO: Activar en versiones posteriores
+      /* case "recommendations":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -232,7 +246,7 @@ function DashboardContent() {
               </Suspense>
             </div>
           </div>
-        )
+        ) */
 
       case "meals":
         return (
@@ -242,15 +256,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-yellow-200/20 to-orange-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-400 to-red-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <ChefHat className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-                  Tu Plan Nutricional 🍽️
-                </h2>
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <MealDashboard />
               </div>
-              <MealDashboard />
             </div>
           </div>
         )
@@ -263,21 +271,27 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Dumbbell className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
-                  Entrenamientos 💪
-                </h2>
-                <p className="text-sm text-gray-600">Rutina completa con seguimiento y estadísticas</p>
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <WorkoutDashboardEnhanced />
               </div>
-              <WorkoutDashboardEnhanced />
             </div>
           </div>
         )
 
-
+      case "wellness":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-pink-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <WellnessTracker />
+              </div>
+            </div>
+          </div>
+        )
 
       case "achievements":
         return (
@@ -287,15 +301,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-yellow-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-yellow-400 to-amber-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Medal className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
-                  Sistema de Recompensas 🎁
-                </h2>
-                <p className="text-sm text-gray-600">Completa objetivos diarios y gana recompensas</p>
-              </div>
               <AchievementsDuolingo />
             </div>
           </div>
@@ -309,14 +314,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-emerald-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-green-500 rounded-2xl flex items-center justify-center animate-bounce">
-                  <Target className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent">
-                  Day 1 🎯
-                </h2>
-              </div>
               <DayOneSheet />
             </div>
           </div>
@@ -330,14 +327,6 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-slate-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-                <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 rounded-2xl flex items-center justify-center animate-bounce shadow-lg">
-                  <Settings className="w-8 h-8 text-white" />
-                </div>
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                  Configuración ⚙️
-                </h2>
-              </div>
               <SettingsPage />
             </div>
           </div>
@@ -631,7 +620,7 @@ function DashboardContent() {
         </Suspense>
 
         {/* Mobile Main Content */}
-        <main className="flex-1 min-h-0 w-full pb-20">
+        <main className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">
