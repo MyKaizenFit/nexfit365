@@ -866,6 +866,7 @@ class NutritionService {
    * Obtener selecciones de comidas para una semana
    */
   async getWeeklyMealSelections(startDate?: string): Promise<Record<string, any[]>> {
+    // Esta función ahora devuelve todas las selecciones (completadas y no completadas)
     try {
       const headers = await getAuthHeaders()
       const url = startDate 

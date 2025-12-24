@@ -94,6 +94,7 @@ class NutritionPlanMinimalSerializer(serializers.ModelSerializer):
 class MealLogSerializer(serializers.ModelSerializer):
     """Serializer para logs de comidas"""
     recipe_name = serializers.CharField(source='recipe.name', read_only=True, allow_null=True)
+    recipe = serializers.SerializerMethodField()
     
     class Meta:
         model = MealLog
@@ -105,6 +106,22 @@ class MealLogSerializer(serializers.ModelSerializer):
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "user", "recipe_name", "created_at", "updated_at"]
+    
+    def get_recipe(self, obj):
+        """Incluir información completa de la receta si existe"""
+        if obj.recipe:
+            return {
+                'id': str(obj.recipe.id),
+                'name': obj.recipe.name,
+                'calories': obj.recipe.calories,
+                'protein': float(obj.recipe.protein),
+                'carbs': float(obj.recipe.carbs),
+                'fat': float(obj.recipe.fat),
+                'description': obj.recipe.description or '',
+                'prep_time_minutes': obj.recipe.prep_time_minutes or 0,
+                'cook_time_minutes': obj.recipe.cook_time_minutes or 0,
+            }
+        return None
 
 
 class FoodSerializer(serializers.ModelSerializer):

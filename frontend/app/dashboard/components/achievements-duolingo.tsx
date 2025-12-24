@@ -53,9 +53,27 @@ export function AchievementsDuolingo() {
 
   // Detectar si hoy es día de descanso según el perfil del usuario
   const isRestDay = () => {
-    const trainingDays = profile?.training_days || []
-    if (trainingDays.length === 0) return false // Si no hay días configurados, asumimos que no es descanso
+    const trainingDaysRaw = profile?.training_days || []
+    if (trainingDaysRaw.length === 0) return false // Si no hay días configurados, asumimos que no es descanso
     
+    // Convertir training_days a números si es necesario
+    const trainingDays = trainingDaysRaw.map((day: string | number) => {
+      if (typeof day === 'string') {
+        const dayMap: Record<string, number> = {
+          'monday': 1,
+          'tuesday': 2,
+          'wednesday': 3,
+          'thursday': 4,
+          'friday': 5,
+          'saturday': 6,
+          'sunday': 7
+        }
+        return dayMap[day.toLowerCase()] || day
+      }
+      return day
+    }).filter((d: any) => typeof d === 'number') as number[]
+    
+    // Obtener el día actual (1-7, donde 1 = Lunes, 7 = Domingo)
     const today = new Date()
     const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
     

@@ -42,9 +42,25 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
 
   // Filtrar logs completados y ordenar por fecha
   const completedLogs = useMemo(() => {
-    return workoutLogs
+    const logs = workoutLogs
       .filter(log => log.completed)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    
+    // Log para depuración
+    console.log('📊 Logs completados para historial:', logs.length)
+    logs.forEach((log, index) => {
+      if (index < 3) { // Solo los primeros 3 para no saturar
+        console.log(`📊 Log ${index + 1}:`, {
+          id: log.id,
+          date: log.date,
+          has_exercises_data: !!(log as any).exercises_data,
+          exercises_data_length: (log as any).exercises_data?.length || 0,
+          exercises_data: (log as any).exercises_data
+        })
+      }
+    })
+    
+    return logs
   }, [workoutLogs])
 
   // Calcular PR y REM por ejercicio
@@ -55,9 +71,14 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       // Usar exercises_data si está disponible
       const exercisesData = (log as any).exercises_data || []
       
+      if (exercisesData.length === 0) {
+        console.warn('⚠️ Log sin exercises_data:', log.id, log.date)
+        return
+      }
+      
       exercisesData.forEach((exerciseData: any) => {
-        const exerciseId = exerciseData.exercise_id || exerciseData.exercise?.id || 'unknown'
-        const exerciseName = exerciseData.exercise_name || exerciseData.exercise?.name || 'Ejercicio desconocido'
+        const exerciseId = exerciseData.exercise_id || exerciseData.exercise?.id || exerciseData.id || 'unknown'
+        const exerciseName = exerciseData.exercise_name || exerciseData.exercise?.name || exerciseData.name || 'Ejercicio desconocido'
         const sets = exerciseData.sets || []
 
         if (!stats[exerciseId]) {
@@ -78,10 +99,11 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         let volume = 0
 
         sets.forEach((set: any) => {
-          if (set.completed && set.weight && set.reps) {
-            const weight = parseFloat(set.weight) || 0
-            const reps = parseInt(set.reps) || 0
-            
+          // Aceptar sets completados con weight y reps (pueden ser números o strings)
+          const weight = set.weight !== null && set.weight !== undefined ? parseFloat(String(set.weight)) : null
+          const reps = set.reps !== null && set.reps !== undefined ? parseInt(String(set.reps)) : null
+          
+          if (set.completed && weight !== null && reps !== null && !isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
             if (weight > maxWeight) maxWeight = weight
             if (reps > maxReps) maxReps = reps
             
@@ -90,17 +112,21 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           }
         })
 
-        stats[exerciseId].pr = maxWeight
-        stats[exerciseId].rem = maxReps
-        stats[exerciseId].totalVolume += volume
-        stats[exerciseId].occurrences += 1
-        if (new Date(log.date) > new Date(stats[exerciseId].lastDate)) {
-          stats[exerciseId].lastDate = log.date
+        if (maxWeight > 0 || maxReps > 0 || volume > 0) {
+          stats[exerciseId].pr = maxWeight
+          stats[exerciseId].rem = maxReps
+          stats[exerciseId].totalVolume += volume
+          stats[exerciseId].occurrences += 1
+          if (new Date(log.date) > new Date(stats[exerciseId].lastDate)) {
+            stats[exerciseId].lastDate = log.date
+          }
         }
       })
     })
 
-    return Object.values(stats).sort((a, b) => b.totalVolume - a.totalVolume)
+    const result = Object.values(stats).sort((a, b) => b.totalVolume - a.totalVolume)
+    console.log('📊 Estadísticas de ejercicios calculadas:', result.length, result)
+    return result
   }, [completedLogs])
 
   // Calcular datos de tonelaje para gráficas
@@ -632,5 +658,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     </div>
   )
 }
+
 
 

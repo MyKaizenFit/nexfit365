@@ -32,6 +32,7 @@ interface MonthlyMealSelection {
     carbs: number
     fat: number
   }
+  recipe_name?: string
   custom_description?: string
   completed?: boolean
 }
@@ -128,7 +129,7 @@ export function MonthlyMealPlan() {
     }
   }
 
-  // Guardar selección
+  // Guardar selección (solo planificación, no completada)
   const handleSaveSelection = async (option: any) => {
     if (!selectedMeal) return
 
@@ -137,11 +138,12 @@ export function MonthlyMealPlan() {
       const selections = [{
         date: selectedMeal.date,
         meal_type: selectedMeal.meal_type,
-        recipe_id: option.id,
+        recipe_id: option.id || option.recipeId,
         calories: option.calories || 0,
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
+        completed: false // Solo planificación, no completada
       }]
 
       const year = currentMonth.getFullYear()
@@ -214,6 +216,7 @@ export function MonthlyMealPlan() {
             carbs: selection.recipe?.carbs || 0,
             fat: selection.recipe?.fat || 0,
             custom_description: selection.custom_description,
+            completed: false // Solo planificación al copiar
           })
         })
       }
@@ -275,6 +278,7 @@ export function MonthlyMealPlan() {
             carbs: selection.recipe?.carbs || 0,
             fat: selection.recipe?.fat || 0,
             custom_description: selection.custom_description,
+            completed: false // Solo planificación al aplicar
           })
         })
       })
@@ -304,9 +308,16 @@ export function MonthlyMealPlan() {
   }
 
   // Obtener selección para un día y tipo de comida
-  const getSelectionForMeal = (dateStr: string, mealType: string): MonthlyMealSelection | null => {
+  const getSelectionForMeal = (dateStr: string, mealType: string): any | null => {
     const daySelections = monthlySelections[dateStr] || []
-    return daySelections.find(s => s.meal_type === mealType) || null
+    // Buscar selección que coincida con el meal_type
+    const selection = daySelections.find((s: any) => {
+      if (typeof s === 'object' && s !== null) {
+        return s.meal_type === mealType
+      }
+      return false
+    })
+    return selection || null
   }
 
   const monthDays = getMonthDays()
@@ -462,6 +473,9 @@ export function MonthlyMealPlan() {
                     <CardContent className="p-2 space-y-1">
                       {isCurrentMonth && MEAL_TYPES.map((meal) => {
                         const selection = getSelectionForMeal(dateStr, meal.type)
+                        // Verificar si está completada (por defecto false si no se especifica)
+                        const isCompleted = selection?.completed === true
+                        const hasSelection = !!selection
                         
                         return (
                           <div
@@ -469,27 +483,60 @@ export function MonthlyMealPlan() {
                             className="relative group"
                           >
                             <Button
-                              variant={selection ? "secondary" : "outline"}
-                              className="w-full justify-start h-auto p-1 text-[10px]"
+                              variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
+                              className={`w-full justify-start h-auto p-1.5 text-[9px] ${
+                                hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100' : ''
+                              } ${hasSelection ? 'min-h-[85px]' : 'min-h-[40px]'}`}
                               onClick={() => handleSelectMeal(dateStr, meal.type)}
                               disabled={saving || !isCurrentMonth}
                             >
-                              <div className="flex items-center gap-1 w-full">
-                                <span className="text-xs">{meal.icon}</span>
-                                <div className="flex-1 text-left min-w-0">
-                                  <div className="font-medium truncate">{meal.name}</div>
-                                  {selection ? (
-                                    <div className="text-[8px] text-muted-foreground truncate">
-                                      {selection.recipe?.name || selection.custom_description}
-                                    </div>
-                                  ) : (
-                                    <div className="text-[8px] text-muted-foreground">
-                                      {meal.time}
-                                    </div>
+                              <div className="flex flex-col gap-1 w-full text-left">
+                                {/* Header: Icono, nombre de comida */}
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[11px] flex-shrink-0">{meal.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-medium text-[9px] leading-tight">{meal.name}</div>
+                                    {!hasSelection && (
+                                      <div className="text-[7px] text-muted-foreground">{meal.time}</div>
+                                    )}
+                                  </div>
+                                  {hasSelection && (
+                                    <Check className={`h-2.5 w-2.5 flex-shrink-0 ${
+                                      isCompleted ? 'text-teal-600' : 'text-blue-500'
+                                    }`} />
                                   )}
                                 </div>
-                                {selection && (
-                                  <Check className="h-2 w-2 text-teal-600 flex-shrink-0" />
+                                
+                                {/* Selección: Nombre completo de la receta con macros */}
+                                {hasSelection && (
+                                  <div className="mt-0.5 pt-1 border-t border-gray-200/60 space-y-1">
+                                    <div className="text-[9px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
+                                      {selection.recipe?.name || selection.recipe_name || selection.custom_description || 'Sin nombre'}
+                                    </div>
+                                    
+                                    {/* Estado: Seleccionada o Completada */}
+                                    <div className="flex items-center gap-1">
+                                      {!isCompleted && (
+                                        <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-blue-300 text-blue-600 bg-blue-50">
+                                          📋 Seleccionada
+                                        </Badge>
+                                      )}
+                                      {isCompleted && (
+                                        <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-teal-300 text-teal-600 bg-teal-50">
+                                          ✅ Completada
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Macros nutricionales (solo calorías en vista mensual por espacio) */}
+                                    {(selection.recipe?.calories || selection.calories) && (
+                                      <div className="text-center bg-orange-50 rounded p-0.5">
+                                        <div className="font-bold text-orange-600 text-[8px]">
+                                          {selection.recipe?.calories || selection.calories || 0} kcal
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                             </Button>

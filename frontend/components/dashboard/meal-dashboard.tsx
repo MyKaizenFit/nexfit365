@@ -17,7 +17,7 @@ const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal
 const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, getMealOptions } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -233,16 +233,24 @@ export function MealDashboard() {
               {meal.selectedOption ? (
                 <div className="space-y-4">
                   {/* Tarjeta de comida seleccionada */}
-                  <div className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                  <div className={`bg-white rounded-lg p-4 border shadow-sm ${
+                    meal.isCompleted 
+                      ? 'border-green-200 bg-green-50/30' 
+                      : 'border-blue-200 bg-blue-50/30'
+                  }`}>
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
+                      }`}>
                         <span className="text-lg">{meal.selectedOption.icon}</span>
                       </div>
                       <div className="flex-1">
                         <h5 className="font-semibold text-gray-900 text-sm">
                           {meal.selectedOption.name}
                         </h5>
-                        <p className="text-xs text-gray-500">Opción seleccionada</p>
+                        <p className="text-xs text-gray-500">
+                          {meal.isCompleted ? '✅ Completada' : '📋 Seleccionada'}
+                        </p>
                       </div>
                     </div>
                     
@@ -269,13 +277,30 @@ export function MealDashboard() {
                     </div>
                   </div>
                   
-                  {/* Botón para cambiar */}
-                  <button
-                    onClick={() => handleOpenMealOptions(meal)}
-                    className="w-full text-sm text-blue-600 hover:text-blue-700 font-medium bg-blue-50 hover:bg-blue-100 px-4 py-2 rounded-lg transition-colors"
-                  >
-                    ✏️ Cambiar opción
-                  </button>
+                  {/* Botones de acción */}
+                  <div className="flex gap-2">
+                    {!meal.isCompleted && (
+                      <button
+                        onClick={async () => {
+                          await markMealCompleted(meal.id)
+                        }}
+                        className="flex-1 text-sm text-white font-medium bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Check className="w-4 h-4" />
+                        Marcar como completada
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleOpenMealOptions(meal)}
+                      className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
+                        meal.isCompleted
+                          ? 'text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'
+                          : 'text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      ✏️ Cambiar
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <button

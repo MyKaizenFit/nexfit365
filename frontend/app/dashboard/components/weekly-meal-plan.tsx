@@ -70,6 +70,7 @@ export function WeeklyMealPlan() {
     try {
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd')
       const selections = await nutritionService.getWeeklyMealSelections(startDateStr)
+      console.log('📋 Selecciones cargadas de la semana:', startDateStr, selections)
       setWeeklySelections(selections)
     } catch (error) {
       console.error('Error cargando selecciones semanales:', error)
@@ -142,7 +143,7 @@ export function WeeklyMealPlan() {
     }
   }
 
-  // Guardar selección
+  // Guardar selección (solo planificación, no completada)
   const handleSaveSelection = async (option: any) => {
     if (!selectedMeal) return
 
@@ -151,14 +152,17 @@ export function WeeklyMealPlan() {
       const selections = [{
         date: selectedMeal.date,
         meal_type: selectedMeal.meal_type,
-        recipe_id: option.id,
+        recipe_id: option.id || option.recipeId,
         calories: option.calories || 0,
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
+        completed: false // Solo planificación, no completada
       }]
 
       const result = await nutritionService.saveWeeklyMealSelections(selections)
+      
+      console.log('✅ Selección guardada:', result)
       
       toast({
         title: "✅ Comida seleccionada",
@@ -167,6 +171,8 @@ export function WeeklyMealPlan() {
 
       setIsModalOpen(false)
       setSelectedMeal(null)
+      
+      // Recargar selecciones después de guardar
       await loadWeeklySelections()
     } catch (error) {
       console.error('Error guardando selección:', error)
@@ -204,6 +210,7 @@ export function WeeklyMealPlan() {
         carbs: selection.recipe?.carbs || 0,
         fat: selection.recipe?.fat || 0,
         custom_description: selection.custom_description,
+        completed: false // Solo planificación al copiar
       }))
 
       await nutritionService.saveWeeklyMealSelections(selectionsToSave)
@@ -259,6 +266,7 @@ export function WeeklyMealPlan() {
             carbs: selection.recipe?.carbs || 0,
             fat: selection.recipe?.fat || 0,
             custom_description: selection.custom_description,
+            completed: false // Solo planificación al aplicar
           })
         })
       })
@@ -288,7 +296,14 @@ export function WeeklyMealPlan() {
   // Obtener selección para un día y tipo de comida
   const getSelectionForMeal = (dateStr: string, mealType: string): WeeklyMealSelection | null => {
     const daySelections = weeklySelections[dateStr] || []
-    return daySelections.find(s => s.meal_type === mealType) || null
+    // Buscar por meal_type, puede venir como objeto o como string en el array
+    const selection = daySelections.find((s: any) => {
+      if (typeof s === 'object') {
+        return s.meal_type === mealType
+      }
+      return false
+    })
+    return selection || null
   }
 
   const weekDays = getWeekDays()
@@ -391,55 +406,88 @@ export function WeeklyMealPlan() {
                 <CardContent className="space-y-2">
                   {MEAL_TYPES.map((meal, mealIndex) => {
                     const selection = getSelectionForMeal(dateStr, meal.type)
+                    // Verificar si está completada (por defecto false si no se especifica)
+                    const isCompleted = selection?.completed === true
+                    const hasSelection = !!selection
                     
                     return (
                       <div
                         key={meal.type}
                         className="relative group"
                       >
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant={selection ? "secondary" : "outline"}
-                            className="flex-1 justify-start h-auto p-2 text-xs"
-                            onClick={() => handleSelectMeal(dateStr, meal.type)}
-                            disabled={saving}
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <span className="text-lg">{meal.icon}</span>
-                              <div className="flex-1 text-left min-w-0">
-                                <div className="font-medium truncate">{meal.name}</div>
-                                {selection ? (
-                                  <div className="text-[10px] text-muted-foreground truncate">
-                                    {selection.recipe?.name || selection.custom_description}
-                                  </div>
-                                ) : (
-                                  <div className="text-[10px] text-muted-foreground">
-                                    {meal.time}
+                        <Button
+                          variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
+                          className={`w-full justify-start h-auto p-2 text-xs ${
+                            hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100' : ''
+                          } ${hasSelection ? 'min-h-[110px]' : 'min-h-[45px]'}`}
+                          onClick={() => handleSelectMeal(dateStr, meal.type)}
+                          disabled={saving}
+                        >
+                          <div className="flex flex-col gap-1.5 w-full text-left">
+                            {/* Header: Icono, nombre de comida y hora */}
+                            <div className="flex items-center gap-2">
+                              <span className="text-base flex-shrink-0">{meal.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium text-xs leading-tight">{meal.name}</div>
+                                {!hasSelection && (
+                                  <div className="text-[10px] text-muted-foreground">{meal.time}</div>
+                                )}
+                              </div>
+                              {hasSelection && (
+                                <Check className={`h-3.5 w-3.5 flex-shrink-0 ${
+                                  isCompleted ? 'text-teal-600' : 'text-blue-500'
+                                }`} />
+                              )}
+                            </div>
+                            
+                            {/* Selección: Nombre completo de la receta con macros */}
+                            {hasSelection && (
+                              <div className="mt-0.5 pt-1.5 border-t border-gray-200/60 space-y-1.5">
+                                <div className="text-[11px] font-semibold text-gray-800 leading-tight break-words">
+                                  {selection.recipe?.name || selection.recipe_name || selection.custom_description || 'Sin nombre'}
+                                </div>
+                                
+                                {/* Estado: Seleccionada o Completada */}
+                                <div className="flex items-center gap-1.5">
+                                  {!isCompleted && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50">
+                                      📋 Seleccionada
+                                    </Badge>
+                                  )}
+                                  {isCompleted && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-teal-300 text-teal-600 bg-teal-50">
+                                      ✅ Completada
+                                    </Badge>
+                                  )}
+                                </div>
+                                
+                                {/* Macros nutricionales */}
+                                {(selection.recipe?.calories || selection.calories) && (
+                                  <div className="grid grid-cols-3 gap-1.5 pt-1">
+                                    <div className="text-center bg-orange-50 rounded p-1">
+                                      <div className="font-bold text-orange-600 text-[10px]">
+                                        {selection.recipe?.calories || selection.calories || 0}
+                                      </div>
+                                      <div className="text-[8px] text-orange-500">kcal</div>
+                                    </div>
+                                    <div className="text-center bg-blue-50 rounded p-1">
+                                      <div className="font-bold text-blue-600 text-[10px]">
+                                        {selection.recipe?.protein || selection.protein || 0}
+                                      </div>
+                                      <div className="text-[8px] text-blue-500">prot</div>
+                                    </div>
+                                    <div className="text-center bg-green-50 rounded p-1">
+                                      <div className="font-bold text-green-600 text-[10px]">
+                                        {selection.recipe?.carbs || selection.carbs || 0}
+                                      </div>
+                                      <div className="text-[8px] text-green-500">carb</div>
+                                    </div>
                                   </div>
                                 )}
                               </div>
-                              {selection && (
-                                <Check className="h-3 w-3 text-teal-600 flex-shrink-0" />
-                              )}
-                            </div>
-                          </Button>
-                          {hasSelections && dayIndex > 0 && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                              onClick={() => {
-                                const previousDay = weekDays[dayIndex - 1]
-                                const previousDateStr = format(previousDay, 'yyyy-MM-dd')
-                                handleCopyDay(previousDateStr, dateStr)
-                              }}
-                              disabled={saving}
-                              title={`Copiar ${format(weekDays[dayIndex - 1], 'EEEE', { locale: es })}`}
-                            >
-                              <Copy className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
+                            )}
+                          </div>
+                        </Button>
                       </div>
                     )
                   })}
