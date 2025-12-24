@@ -193,3 +193,4 @@ DATABASES = {
 - [ ] Frontend configurado para usar UTF-8
 - [ ] Nuevos datos se insertan correctamente con caracteres especiales
 
+

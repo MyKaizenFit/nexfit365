@@ -95,3 +95,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Planes nutricionales asignados: {assigned_nutrition}'))
         self.stdout.write(f'Usuarios omitidos (ya tienen planes): {skipped}')
 
+

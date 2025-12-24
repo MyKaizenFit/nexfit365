@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,7 +15,7 @@ import { NutritionPreview } from "./nutrition-preview"
 import { calculateNutritionPlan, type CalculatedMacros } from "@/lib/nutrition-calculator"
 import { nutritionService } from "@/lib/nutrition-service"
 
-export function ProfilePanel() {
+export const ProfilePanel = memo(function ProfilePanel() {
   const [isEditing, setIsEditing] = useState(false)
   const [localProfile, setLocalProfile] = useState<any>(null)
   const [currentPlan, setCurrentPlan] = useState<CalculatedMacros | null>(null)
@@ -578,4 +578,4 @@ export function ProfilePanel() {
       )}
     </div>
   )
-}
+})

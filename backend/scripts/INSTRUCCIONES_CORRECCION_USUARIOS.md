@@ -122,3 +122,4 @@ Si después de seguir estos pasos el problema persiste, verifica:
 - La configuración del servidor web (nginx/apache) para UTF-8
 - La configuración del cliente de base de datos
 
+

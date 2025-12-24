@@ -34,9 +34,10 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
+        queryset = Notification.objects.select_related('user')
         if user_id:
-            return Notification.objects.filter(user_id=user_id)
-        return Notification.objects.filter(user=self.request.user)
+            return queryset.filter(user_id=user_id)
+        return queryset.filter(user=self.request.user)
     
     def get_serializer_class(self):
         if self.action == "create":

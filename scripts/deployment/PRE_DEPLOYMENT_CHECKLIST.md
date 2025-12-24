@@ -173,3 +173,4 @@ COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec b
    - Restaurar backup de BD si es necesario
    - Volver a la versión anterior del código: `git checkout <previous-commit>`
 
+

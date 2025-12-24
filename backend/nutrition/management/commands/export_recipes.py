@@ -204,3 +204,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("✅ Exportación completada"))
         self.stdout.write("=" * 70)
 
+

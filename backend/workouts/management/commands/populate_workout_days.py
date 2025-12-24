@@ -145,12 +145,29 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'  ✅ Creado día: {workout_day.name}')
                 
-                # Agregar ejercicios para cada grupo muscular
+                # Agregar ejercicios para cada grupo muscular (evitando duplicados)
                 order = 1
+                used_exercises_in_day = set()  # Rastrear ejercicios ya usados en este día
+                
                 for group in day_config['groups']:
                     group_exercises = get_exercises_for_group(group, count=2)
                     
-                    for exercise in group_exercises:
+                    # Filtrar ejercicios ya usados en este día
+                    available_exercises = [ex for ex in group_exercises if ex.id not in used_exercises_in_day]
+                    
+                    # Si no hay suficientes, buscar más ejercicios del grupo
+                    if len(available_exercises) < 2:
+                        additional = get_exercises_for_group(group, count=4)
+                        available_exercises.extend([ex for ex in additional if ex.id not in used_exercises_in_day])
+                        # Eliminar duplicados manteniendo orden
+                        seen = set()
+                        available_exercises = [ex for ex in available_exercises if ex.id not in seen and not seen.add(ex.id)]
+                    
+                    # Tomar máximo 2 ejercicios por grupo
+                    for exercise in available_exercises[:2]:
+                        if exercise.id in used_exercises_in_day:
+                            continue
+                        
                         # Determinar sets y reps según el tipo de plan
                         if 'fuerza' in program_name_lower:
                             sets, reps = 4, '6-8'
@@ -169,6 +186,7 @@ class Command(BaseCommand):
                             notes=f"Enfocado en {group}"
                         )
                         order += 1
+                        used_exercises_in_day.add(exercise.id)  # Marcar como usado
                 
                 exercises_count = WorkoutDayExercise.objects.filter(workout_day=workout_day).count()
                 self.stdout.write(f'      → {exercises_count} ejercicios agregados')
@@ -184,4 +202,6 @@ class Command(BaseCommand):
                 for d in days
             )
             self.stdout.write(f'{program.name}: {days.count()} días, {total_exercises} ejercicios')
+
+
 

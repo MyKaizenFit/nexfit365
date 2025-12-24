@@ -51,19 +51,21 @@ class DashboardViewSet(viewsets.ModelViewSet):
         
         # Datos de nutrición del día
         from nutrition.models import MealLog, NutritionPlan
-        active_plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
+        active_plan = NutritionPlan.objects.filter(
+            user=user, is_active=True
+        ).select_related('user').prefetch_related('meals').first()
         
         if active_plan:
             meals_planned = active_plan.meals.count()
             meals_completed = MealLog.objects.filter(
                 user=user, date=today, completed=True
-            ).count()
+            ).select_related('user', 'recipe').count()
             
             # Calorías consumidas (de logs del día)
             calories_consumed = MealLog.objects.filter(
                 user=user, date=today
-            ).aggregate(
-                total_calories=Sum("meal__calories")
+            ).select_related('user', 'recipe').aggregate(
+                total_calories=Sum("calories")
             )["total_calories"] or 0
             
             calories_target = active_plan.daily_calories or 0
@@ -84,7 +86,9 @@ class DashboardViewSet(viewsets.ModelViewSet):
             ).first()
             
             workout_planned = workout_day is not None and not workout_day.is_rest_day
-            workout_log = WorkoutLog.objects.filter(
+            workout_log = WorkoutLog.objects.select_related(
+                'user', 'workout_program'
+            ).filter(
                 user=user, date=today, workout_day=workout_day
             ).first() if workout_day else None
             
@@ -102,7 +106,7 @@ class DashboardViewSet(viewsets.ModelViewSet):
         ).order_by("-date").values_list("weight", flat=True).first()
         
         # Cambio de peso desde ayer
-        yesterday_weight = WeightEntry.objects.filter(
+        yesterday_weight = WeightEntry.objects.select_related('user').filter(
             user=user, date=today - timedelta(days=1)
         ).values_list("weight", flat=True).first()
         
@@ -164,7 +168,9 @@ class DashboardViewSet(viewsets.ModelViewSet):
         
         # Datos de nutrición semanal
         from nutrition.models import MealLog, NutritionPlan
-        active_plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
+        active_plan = NutritionPlan.objects.filter(
+            user=user, is_active=True
+        ).select_related('user').prefetch_related('meals').first()
         
         if active_plan:
             meals_planned_week = active_plan.meals.count() * 7

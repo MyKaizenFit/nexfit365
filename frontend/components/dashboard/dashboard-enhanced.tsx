@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo, memo } from "react"
 import { 
   TrendingUp, 
   Target, 
@@ -86,52 +86,84 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
   }, [refreshWeight, refreshStats])
 
-  // Calcular métricas
-  const overallProgress = progressStats?.overall_progress || 0
-  const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
-  const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
-  const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
-  const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
-  const weightChange = (latestWeightEntry && firstWeightEntry) 
-    ? latestWeightEntry.weight - firstWeightEntry.weight 
-    : (progressStats?.weight?.change || userStats?.weightChange || 0)
-  const daysInTransformation = userStats?.daysInTransformation || 1
+  // Calcular métricas con useMemo para evitar recálculos innecesarios
+  const metrics = useMemo(() => {
+    const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
+    const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
+    const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
+    const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
+    const weightChange = (latestWeightEntry && firstWeightEntry) 
+      ? latestWeightEntry.weight - firstWeightEntry.weight 
+      : (progressStats?.weight?.change || userStats?.weightChange || 0)
+    
+    return {
+      overallProgress: progressStats?.overall_progress || 0,
+      latestWeightEntry,
+      firstWeightEntry,
+      currentWeight,
+      targetWeight,
+      weightChange,
+      daysInTransformation: userStats?.daysInTransformation || 1
+    }
+  }, [weightEntries, progressStats, user, userStats])
+  
+  const { overallProgress, latestWeightEntry, firstWeightEntry, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
 
-  // Calcular calorías del día
-  const caloriesConsumed = macros.caloriesConsumed || 0
-  const caloriesGoal = macros.caloriesGoal || 2000
-  const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+  // Calcular calorías y macros con useMemo
+  const nutritionData = useMemo(() => {
+    const caloriesConsumed = macros.caloriesConsumed || 0
+    const caloriesGoal = macros.caloriesGoal || 2000
+    const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+    
+    return {
+      caloriesConsumed,
+      caloriesGoal,
+      caloriesProgress,
+      proteinConsumed: macros.proteinConsumed || 0,
+      proteinGoal: macros.proteinGoal || 150,
+      carbsConsumed: macros.carbsConsumed || 0,
+      carbsGoal: macros.carbsGoal || 200,
+      fatConsumed: macros.fatConsumed || 0,
+      fatGoal: macros.fatGoal || 70,
+    }
+  }, [macros])
+  
+  const { caloriesConsumed, caloriesGoal, caloriesProgress, proteinConsumed, proteinGoal, carbsConsumed, carbsGoal, fatConsumed, fatGoal } = nutritionData
 
-  // Calcular macros
-  const proteinConsumed = macros.proteinConsumed || 0
-  const proteinGoal = macros.proteinGoal || 150
-  const carbsConsumed = macros.carbsConsumed || 0
-  const carbsGoal = macros.carbsGoal || 200
-  const fatConsumed = macros.fatConsumed || 0
-  const fatGoal = macros.fatGoal || 70
-
-  // Estadísticas de entrenamientos
-  const workoutsThisWeek = workoutLogs.filter(log => {
-    const logDate = new Date(log.date)
+  // Estadísticas de entrenamientos con useMemo
+  const workoutStats = useMemo(() => {
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    return logDate >= weekAgo
-  }).length
-  
-  // Usar los días de entrenamiento del perfil del usuario como objetivo semanal
-  const trainingDays = profile?.training_days || []
-  const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
-  const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
-  
-  // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
-  const getRemainingTrainingDays = () => {
-    const today = new Date()
-    const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
+    const workoutsThisWeek = workoutLogs.filter(log => {
+      const logDate = new Date(log.date)
+      return logDate >= weekAgo
+    }).length
     
-    // Contar cuántos días de entrenamiento quedan en la semana (incluyendo hoy)
-    const remainingDays = trainingDays.filter((day: number) => day >= todayDayNumber).length
-    return remainingDays
-  }
+    return { workoutsThisWeek, weekAgo }
+  }, [workoutLogs])
+  
+  const { workoutsThisWeek } = workoutStats
+  
+  // Usar los días de entrenamiento del perfil del usuario como objetivo semanal con useMemo
+  const trainingData = useMemo(() => {
+    const trainingDays = profile?.training_days || []
+    const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
+    const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
+    
+    // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
+    const getRemainingTrainingDays = () => {
+      const today = new Date()
+      const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
+      
+      // Contar cuántos días de entrenamiento quedan en la semana (incluyendo hoy)
+      const remainingDays = trainingDays.filter((day: number) => day >= todayDayNumber).length
+      return remainingDays
+    }
+    
+    return { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays }
+  }, [profile, workoutsThisWeek])
+  
+  const { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays } = trainingData
   const remainingTrainingSessions = Math.max(0, getRemainingTrainingDays() - workoutsThisWeek)
 
   // Estadísticas de fotos

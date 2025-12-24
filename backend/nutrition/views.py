@@ -32,7 +32,10 @@ def current_plan(request):
     plan = NutritionPlan.objects.filter(
         user=request.user,
         is_active=True
-    ).prefetch_related('meals__suggested_recipes').order_by('-created_at').first()
+    ).select_related('user').prefetch_related(
+        'meals',
+        'meals__suggested_recipes'
+    ).order_by('-created_at').first()
     
     if plan:
         serializer = NutritionPlanSerializer(plan)
@@ -408,7 +411,9 @@ def adjust_plan(request):
     user = request.user
     
     # Obtener plan activo del usuario
-    active_plan = NutritionPlan.objects.filter(user=user, is_active=True).first()
+    active_plan = NutritionPlan.objects.filter(
+        user=user, is_active=True
+    ).select_related('user').prefetch_related('meals').first()
     if not active_plan:
         return Response(
             {'error': 'No tienes un plan nutricional activo'},
@@ -871,7 +876,10 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
             is_active=True
         ).filter(
             models.Q(is_system=True) | models.Q(user=user)
-        ).prefetch_related('meals__suggested_recipes')
+        ).select_related('user').prefetch_related(
+            'meals',
+            'meals__suggested_recipes'
+        )
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -901,7 +909,9 @@ class MealLogViewSet(viewsets.ModelViewSet):
     ordering = ['-date', '-time']
     
     def get_queryset(self):
-        return MealLog.objects.filter(user=self.request.user)
+        return MealLog.objects.filter(
+            user=self.request.user
+        ).select_related('user', 'recipe')
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -911,7 +921,9 @@ class MealLogViewSet(viewsets.ModelViewSet):
         """Logs de hoy"""
         from django.utils import timezone
         today = timezone.localdate()
-        logs = MealLog.objects.filter(user=request.user, date=today)
+        logs = MealLog.objects.filter(
+            user=request.user, date=today
+        ).select_related('user', 'recipe')
         return Response(MealLogSerializer(logs, many=True).data)
     
     @action(detail=False, methods=['get'])
