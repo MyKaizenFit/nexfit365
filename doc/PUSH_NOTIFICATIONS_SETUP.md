@@ -169,3 +169,4 @@ El Service Worker (`/public/sw.js`) está optimizado con:
 - [ ] Implementar preferencias de usuario por tipo de notificación
 - [ ] Agregar soporte para notificaciones silenciosas
 
+

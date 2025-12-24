@@ -90,3 +90,4 @@ Para evitar problemas futuros:
 2. **Verifica que el frontend siempre use UTF-8 al enviar datos**
 3. **Configura el servidor web (nginx/apache) para usar UTF-8**
 
+

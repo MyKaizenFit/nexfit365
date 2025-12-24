@@ -178,3 +178,4 @@ class EmailNotificationService:
 # Instancia global del servicio
 email_service = EmailNotificationService()
 
+

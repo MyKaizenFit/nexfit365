@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, lazy, Suspense } from 'react'
+import React, { useState, lazy, Suspense, useMemo, memo } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
@@ -43,11 +43,20 @@ export function MealDashboard() {
     setSelectedMeal(null)
   }
 
-  // Calcular progreso del día
-  const completedMeals = meals.filter(meal => meal.selectedOption).length
-  const totalMeals = meals.length
-  const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
-  const daysInTransformation = userStats?.daysInTransformation || 1
+  // Calcular progreso del día con useMemo
+  const progressData = useMemo(() => {
+    const completedMeals = meals.filter(meal => meal.selectedOption).length
+    const totalMeals = meals.length
+    const progressPercentage = totalMeals > 0 ? (completedMeals / totalMeals) * 100 : 0
+    return {
+      completedMeals,
+      totalMeals,
+      progressPercentage,
+      daysInTransformation: userStats?.daysInTransformation || 1
+    }
+  }, [meals, userStats?.daysInTransformation])
+  
+  const { completedMeals, totalMeals, progressPercentage, daysInTransformation } = progressData
 
   // Función para refrescar datos
   const handleRefresh = async () => {

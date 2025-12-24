@@ -38,8 +38,8 @@ export const API_CONFIG = {
 
   // Headers por defecto
   DEFAULT_HEADERS: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=utf-8',
+    'Accept': 'application/json; charset=utf-8',
   }
 }
 

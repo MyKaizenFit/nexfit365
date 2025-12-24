@@ -185,3 +185,4 @@ class Command(BaseCommand):
         for user in all_users:
             self.stdout.write(f"   - {user.email}: {user.first_name} {user.last_name}")
 
+

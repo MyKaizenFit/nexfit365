@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useEffect } from "react"
+import { useMemo, useEffect, memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -17,7 +17,7 @@ interface WeightHistoryProps {
   className?: string
 }
 
-export function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProps) {
+export const WeightHistory = memo(function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProps) {
   // Obtener datos de múltiples fuentes
   const { user } = useAuth()
   const { entries: weightEntries, loading: weightLoading, refresh } = useWeightHistory()
@@ -338,4 +338,4 @@ export function WeightHistory({ onAddWeight, className = "" }: WeightHistoryProp
       </CardContent>
     </Card>
   )
-}
+})

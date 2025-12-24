@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
@@ -22,7 +23,7 @@ interface NutritionSummaryEnhancedProps {
   className?: string
 }
 
-export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhancedProps) {
+export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhancedProps) {
   const { meals: dailyMeals, macros, loading: mealsLoading } = useDailyMeals()
   const { dailyStats, isLoading: nutritionLoading } = useNutrition()
 
@@ -294,4 +295,4 @@ export function NutritionSummaryEnhanced({ className }: NutritionSummaryEnhanced
       </CardContent>
     </Card>
   )
-}
+})

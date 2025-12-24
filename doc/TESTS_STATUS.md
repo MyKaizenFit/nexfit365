@@ -87,3 +87,4 @@
 - Algunos tests necesitan actualización de endpoints y permisos
 - Los errores en dashboard parecen ser de configuración de tests
 
+

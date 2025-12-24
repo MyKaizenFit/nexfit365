@@ -210,3 +210,4 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("✅ Proceso completado"))
         self.stdout.write("=" * 70)
 
+

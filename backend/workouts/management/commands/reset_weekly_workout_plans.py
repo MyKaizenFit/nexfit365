@@ -76,3 +76,4 @@ class Command(BaseCommand):
                 "usando cron (Linux) o Task Scheduler (Windows)"
             ))
 
+

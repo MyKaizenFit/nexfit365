@@ -160,8 +160,55 @@ class PersonalizedWorkoutService:
         
         return program
     
+    def _get_muscle_group_category(self, muscle_groups: List[str]) -> str:
+        """Categoriza grupos musculares en Push, Pull, Legs o Full Body"""
+        if not muscle_groups:
+            return 'full_body'
+        
+        # Normalizar grupos musculares a minúsculas
+        groups = [str(mg).lower() for mg in muscle_groups]
+        
+        # Grupos Push (empujar): pecho, tríceps, hombros
+        push_groups = ['pecho', 'pectorales', 'tríceps', 'triceps', 'hombros', 'deltoides', 'deltoides anteriores', 'deltoides laterales']
+        
+        # Grupos Pull (tirar): espalda, bíceps, trapecio, romboides
+        pull_groups = ['espalda', 'dorsales', 'bíceps', 'biceps', 'trapecio', 'romboides', 'deltoides posteriores']
+        
+        # Grupos Legs (piernas): piernas, glúteos, cuádriceps, isquiotibiales, gemelos
+        legs_groups = ['piernas', 'glúteos', 'gluteos', 'cuádriceps', 'cuadriceps', 'isquiotibiales', 'gemelos', 'sóleo', 'soleo', 'abductores', 'aductores']
+        
+        # Contar coincidencias
+        push_count = sum(1 for mg in groups if any(pg in mg for pg in push_groups))
+        pull_count = sum(1 for mg in groups if any(plg in mg for plg in pull_groups))
+        legs_count = sum(1 for mg in groups if any(lg in mg for lg in legs_groups))
+        
+        # Determinar categoría principal
+        if legs_count > 0 and (push_count == 0 and pull_count == 0):
+            return 'legs'
+        elif push_count > pull_count and legs_count == 0:
+            return 'push'
+        elif pull_count > push_count and legs_count == 0:
+            return 'pull'
+        elif push_count > 0 and pull_count > 0 and legs_count == 0:
+            return 'upper_body'
+        elif legs_count > 0 and (push_count > 0 or pull_count > 0):
+            return 'full_body'
+        else:
+            return 'full_body'
+    
+    def _get_exercises_by_category(self, category: str, all_exercises: List[Exercise], used_exercises: set) -> List[Exercise]:
+        """Obtiene ejercicios de una categoría específica que no hayan sido usados"""
+        available = []
+        for exercise in all_exercises:
+            if exercise.id in used_exercises:
+                continue
+            exercise_category = self._get_muscle_group_category(exercise.muscle_groups or [])
+            if exercise_category == category:
+                available.append(exercise)
+        return available
+    
     def _create_workout_days(self, program: WorkoutProgram, workout_duration: int):
-        """Crea los días de entrenamiento del programa"""
+        """Crea los días de entrenamiento del programa con lógica mejorada"""
         days_per_week = program.days_per_week or 3
         workout_goal = program.goal
         workout_level = self.determine_workout_level()
@@ -196,13 +243,49 @@ class PersonalizedWorkoutService:
             'sunday': 7
         }
         
-        # Obtener ejercicios recomendados
-        recommended_exercises = self.get_exercise_recommendations()
+        # Obtener todos los ejercicios disponibles
+        all_exercises = list(Exercise.objects.filter(is_active=True))
+        if not all_exercises:
+            return
+        
+        # Definir rutinas según días por semana
+        # Para 3 días: Push, Pull, Legs
+        # Para 4 días: Push, Pull, Legs, Upper Body
+        # Para 5 días: Push, Pull, Legs, Upper Body, Full Body
+        # Para 6+ días: Push, Pull, Legs (repetir)
+        routine_templates = {
+            1: ['full_body'],
+            2: ['upper_body', 'legs'],
+            3: ['push', 'pull', 'legs'],
+            4: ['push', 'pull', 'legs', 'upper_body'],
+            5: ['push', 'pull', 'legs', 'upper_body', 'full_body'],
+            6: ['push', 'pull', 'legs', 'push', 'pull', 'legs'],
+            7: ['push', 'pull', 'legs', 'upper_body', 'full_body', 'push', 'pull']
+        }
+        
+        # Obtener template de rutina
+        routine = routine_templates.get(days_per_week, ['push', 'pull', 'legs'] * ((days_per_week // 3) + 1))
+        routine = routine[:days_per_week]  # Asegurar que no exceda
+        
+        # Rastrear ejercicios usados para evitar duplicados
+        used_exercises = set()
         
         # Crear días de entrenamiento
         for i, day in enumerate(selected_days):
             is_rest_day = False
-            day_name = self._get_day_name(day, workout_goal, i + 1)
+            
+            # Determinar categoría del día
+            day_category = routine[i] if i < len(routine) else 'full_body'
+            
+            # Generar nombre del día basado en categoría
+            category_names = {
+                'push': 'Pecho, Tríceps y Hombros',
+                'pull': 'Espalda y Bíceps',
+                'legs': 'Piernas y Glúteos',
+                'upper_body': 'Tren Superior',
+                'full_body': 'Cuerpo Completo'
+            }
+            day_name = f"{self._get_day_name(day, workout_goal, i + 1)} - {category_names.get(day_category, 'Entrenamiento')}"
             
             # Marcar algunos días como descanso si hay muchos días de entrenamiento
             if days_per_week >= 6 and i % 2 == 1:
@@ -211,31 +294,72 @@ class PersonalizedWorkoutService:
             
             workout_day = WorkoutDay.objects.create(
                 program=program,
-                day=day,
+                day_of_week=day,
                 name=day_name,
                 day_number=day_to_number.get(day),
                 duration_minutes=workout_duration if not is_rest_day else 0,
                 is_rest_day=is_rest_day,
+                focus=category_names.get(day_category, 'Entrenamiento'),
                 notes=f"Entrenamiento personalizado para {workout_goal}",
                 order_index=i + 1
             )
             
             # Añadir ejercicios solo si no es día de descanso
-            if not is_rest_day and recommended_exercises:
-                # Seleccionar 4-6 ejercicios aleatorios para cada día
-                num_exercises = min(6, len(recommended_exercises), random.randint(4, 6))
-                day_exercises = random.sample(list(recommended_exercises), num_exercises)
+            if not is_rest_day:
+                # Obtener ejercicios de la categoría del día
+                category_exercises = self._get_exercises_by_category(day_category, all_exercises, used_exercises)
                 
+                # Si no hay suficientes ejercicios de la categoría, usar ejercicios complementarios
+                if len(category_exercises) < 4:
+                    # Para push, también buscar ejercicios de upper_body
+                    if day_category == 'push':
+                        category_exercises.extend(self._get_exercises_by_category('upper_body', all_exercises, used_exercises))
+                    # Para pull, también buscar ejercicios de upper_body
+                    elif day_category == 'pull':
+                        category_exercises.extend(self._get_exercises_by_category('upper_body', all_exercises, used_exercises))
+                    # Para legs, también buscar ejercicios de full_body que incluyan piernas
+                    elif day_category == 'legs':
+                        category_exercises.extend(self._get_exercises_by_category('full_body', all_exercises, used_exercises))
+                
+                # Eliminar duplicados manteniendo el orden
+                seen = set()
+                unique_exercises = []
+                for ex in category_exercises:
+                    if ex.id not in seen:
+                        seen.add(ex.id)
+                        unique_exercises.append(ex)
+                
+                # Seleccionar 4-6 ejercicios (priorizar ejercicios compuestos)
+                # Separar ejercicios compuestos (múltiples grupos musculares) de aislamiento
+                compound_exercises = [ex for ex in unique_exercises if len(ex.muscle_groups or []) >= 2]
+                isolation_exercises = [ex for ex in unique_exercises if len(ex.muscle_groups or []) < 2]
+                
+                # Seleccionar ejercicios: 3-4 compuestos + 1-2 de aislamiento
+                num_exercises = min(6, max(4, len(unique_exercises)))
+                num_compound = min(4, len(compound_exercises), num_exercises - 1)
+                num_isolation = min(2, len(isolation_exercises), num_exercises - num_compound)
+                
+                selected_compound = random.sample(compound_exercises, num_compound) if compound_exercises else []
+                selected_isolation = random.sample(isolation_exercises, num_isolation) if isolation_exercises else []
+                
+                # Combinar: primero compuestos, luego aislamiento
+                day_exercises = selected_compound + selected_isolation
+                
+                # Si aún no hay suficientes, completar con cualquier ejercicio disponible
+                if len(day_exercises) < num_exercises:
+                    remaining = [ex for ex in unique_exercises if ex not in day_exercises]
+                    needed = num_exercises - len(day_exercises)
+                    day_exercises.extend(random.sample(remaining, min(needed, len(remaining))))
+                
+                # Crear ejercicios en el día
                 for j, exercise in enumerate(day_exercises):
                     sets = 3 if workout_level == 'beginner' else 4
                     reps = "12-15" if workout_level == 'beginner' else "8-12"
                     rest_time = 60 if workout_level == 'beginner' else 90
                     
                     WorkoutDayExercise.objects.create(
-                        day=workout_day,
+                        workout_day=workout_day,
                         exercise=exercise,
-                        category=exercise.category or "",
-                        muscle_groups=exercise.muscle_groups or [],
                         sets=sets,
                         reps=reps,
                         weight="",
@@ -243,6 +367,9 @@ class PersonalizedWorkoutService:
                         notes="",
                         order_index=j + 1
                     )
+                    
+                    # Marcar ejercicio como usado
+                    used_exercises.add(exercise.id)
     
     def _get_day_name(self, day: str, goal: str, day_number: int) -> str:
         """Genera nombres descriptivos para los días de entrenamiento"""
@@ -271,15 +398,46 @@ class PersonalizedWorkoutService:
     
     def get_exercise_recommendations(self) -> List[Exercise]:
         """Obtiene recomendaciones de ejercicios basadas en el perfil del usuario"""
-        exercises = Exercise.objects.all()
+        exercises = Exercise.objects.filter(is_active=True)
         
         # Si no hay ejercicios, retornar lista vacía
         if not exercises.exists():
             return list(exercises)
         
-        # Simplemente retornar ejercicios aleatorios
-        # TODO: Implementar filtrado por objetivo y lugar cuando el modelo Exercise se amplíe
-        return list(exercises.order_by('?')[:20])
+        # Filtrar por lugar de entrenamiento si está especificado
+        if self.user.training_location:
+            if self.user.training_location == 'home':
+                # Priorizar ejercicios de peso corporal o con equipamiento mínimo
+                exercises = exercises.filter(
+                    Q(category='bodyweight') | 
+                    Q(equipment__contains=['bodyweight']) |
+                    Q(equipment__contains=['dumbbells']) |
+                    Q(equipment__contains=['resistance_bands'])
+                )
+            elif self.user.training_location == 'gym':
+                # Priorizar ejercicios con equipamiento de gimnasio
+                exercises = exercises.exclude(
+                    Q(category='bodyweight') & 
+                    ~Q(equipment__contains=['multipower']) &
+                    ~Q(equipment__contains=['polea']) &
+                    ~Q(equipment__contains=['máquina'])
+                )
+        
+        # Filtrar por nivel de dificultad
+        workout_level = self.determine_workout_level()
+        if workout_level == 'beginner':
+            exercises = exercises.filter(difficulty__in=['beginner', 'intermediate'])
+        elif workout_level == 'intermediate':
+            exercises = exercises.filter(difficulty__in=['beginner', 'intermediate', 'advanced'])
+        # advanced puede usar todos
+        
+        # Priorizar ejercicios compuestos (múltiples grupos musculares)
+        # Ordenar por número de grupos musculares (más grupos = más compuesto)
+        exercises_list = list(exercises)
+        exercises_list.sort(key=lambda x: len(x.muscle_groups or []), reverse=True)
+        
+        # Retornar hasta 50 ejercicios para tener variedad
+        return exercises_list[:50]
     
     def get_recommendations(self) -> Dict[str, any]:
         """Obtiene recomendaciones de entrenamiento basadas en el perfil del usuario"""
