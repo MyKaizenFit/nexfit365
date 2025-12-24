@@ -367,26 +367,67 @@ def daily_meal_selections(request):
         recipe = None
         if recipe_id:
             try:
-                recipe = Recipe.objects.get(id=recipe_id, is_active=True)
+                # Intentar convertir a UUID si es necesario
+                from uuid import UUID
+                try:
+                    # Si es un UUID válido, usarlo directamente
+                    recipe_uuid = UUID(str(recipe_id))
+                    recipe = Recipe.objects.get(id=recipe_uuid, is_active=True)
+                except (ValueError, TypeError):
+                    # Si no es UUID, intentar como string o número
+                    recipe = Recipe.objects.get(id=recipe_id, is_active=True)
             except Recipe.DoesNotExist:
-                return Response(
-                    {'error': f'Receta con id {recipe_id} no encontrada'},
-                    status=status.HTTP_404_NOT_FOUND
-                )
+                # Si no se encuentra la receta, no es un error fatal - usar custom_description
+                logger.warning(f'Receta con id {recipe_id} no encontrada, usando custom_description')
+                recipe = None
+            except Exception as e:
+                logger.warning(f'Error obteniendo receta {recipe_id}: {e}, usando custom_description')
+                recipe = None
         
         # Crear o actualizar el log de comida
+        # Si es una selección (no completada), guardar con completed=False
+        # Si es una comida consumida, guardar con completed=True
+        is_completed = data.get('completed', False)
+        if isinstance(is_completed, str):
+            is_completed = is_completed.lower() in ('true', '1', 'yes')
+        
+        # Si hay receta, usar sus valores nutricionales; si no, usar los proporcionados
+        calories = data.get('calories', 0)
+        protein = data.get('protein', 0)
+        carbs = data.get('carbs', 0)
+        fat = data.get('fat', 0)
+        
+        # Si hay receta y no se proporcionaron valores, usar los de la receta
+        if recipe and not calories:
+            calories = recipe.calories or 0
+            protein = float(recipe.protein) if recipe.protein else 0
+            carbs = float(recipe.carbs) if recipe.carbs else 0
+            fat = float(recipe.fat) if recipe.fat else 0
+        
+        # Solo contar calorías si está completada
+        if not is_completed:
+            calories = 0
+            protein = 0
+            carbs = 0
+            fat = 0
+        
+        # Obtener custom_description o usar el nombre de la receta
+        custom_description = data.get('custom_description', '')
+        if not custom_description and recipe:
+            custom_description = recipe.name
+        
         meal_log, created = MealLog.objects.update_or_create(
             user=user,
             date=date,
             meal_type=meal_type,
             defaults={
                 'recipe': recipe,
-                'completed': True,
-                'calories': data.get('calories', 0),
-                'protein': data.get('protein', 0),
-                'carbs': data.get('carbs', 0),
-                'fat': data.get('fat', 0),
-                'custom_description': data.get('custom_description', ''),
+                'completed': is_completed,
+                'calories': int(calories) if calories else 0,
+                'protein': float(protein) if protein else 0,
+                'carbs': float(carbs) if carbs else 0,
+                'fat': float(fat) if fat else 0,
+                'custom_description': custom_description,
             }
         )
         
@@ -611,17 +652,24 @@ def monthly_meal_selections(request):
                     continue
                 
                 # Crear o actualizar selección
+                # Por defecto, las selecciones se guardan como no completadas (solo planificación)
+                is_completed = selection_data.get('completed', False)
+                if isinstance(is_completed, str):
+                    is_completed = is_completed.lower() in ('true', '1', 'yes')
+                
                 meal_log, created = MealLog.objects.update_or_create(
                     user=user,
                     date=selection_date,
                     meal_type=meal_type,
                     defaults={
                         'recipe_id': selection_data.get('recipe_id'),
-                        'completed': selection_data.get('completed', True),
-                        'calories': selection_data.get('calories', 0),
-                        'protein': selection_data.get('protein', 0),
-                        'carbs': selection_data.get('carbs', 0),
-                        'fat': selection_data.get('fat', 0),
+                        'completed': is_completed,
+                        # Solo contar calorías si está completada
+                        'calories': selection_data.get('calories', 0) if is_completed else 0,
+                        'protein': selection_data.get('protein', 0) if is_completed else 0,
+                        'carbs': selection_data.get('carbs', 0) if is_completed else 0,
+                        'fat': selection_data.get('fat', 0) if is_completed else 0,
+                        'custom_description': selection_data.get('custom_description', ''),
                     }
                 )
                 
@@ -746,17 +794,24 @@ def weekly_meal_selections(request):
                     continue
                 
                 # Crear o actualizar selección
+                # Por defecto, las selecciones se guardan como no completadas (solo planificación)
+                is_completed = selection_data.get('completed', False)
+                if isinstance(is_completed, str):
+                    is_completed = is_completed.lower() in ('true', '1', 'yes')
+                
                 meal_log, created = MealLog.objects.update_or_create(
                     user=user,
                     date=selection_date,
                     meal_type=meal_type,
                     defaults={
                         'recipe_id': selection_data.get('recipe_id'),
-                        'completed': selection_data.get('completed', True),
-                        'calories': selection_data.get('calories', 0),
-                        'protein': selection_data.get('protein', 0),
-                        'carbs': selection_data.get('carbs', 0),
-                        'fat': selection_data.get('fat', 0),
+                        'completed': is_completed,
+                        # Solo contar calorías si está completada
+                        'calories': selection_data.get('calories', 0) if is_completed else 0,
+                        'protein': selection_data.get('protein', 0) if is_completed else 0,
+                        'carbs': selection_data.get('carbs', 0) if is_completed else 0,
+                        'fat': selection_data.get('fat', 0) if is_completed else 0,
+                        'custom_description': selection_data.get('custom_description', ''),
                     }
                 )
                 

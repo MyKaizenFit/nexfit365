@@ -155,6 +155,11 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         from django.db import IntegrityError
         from rest_framework.exceptions import ValidationError
         
+        # Log para depuración
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f'📊 Creando workout log - exercises_data recibido: {request.data.get("exercises_data", [])}')
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -177,9 +182,21 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                 )
         
         try:
-            self.perform_create(serializer)
-            # Asegurar que serializer.data sea serializable
-            response_data = serializer.data
+            # Guardar el log
+            workout_log = serializer.save(user=self.request.user)
+            
+            # Verificar que exercises_data se guardó correctamente
+            workout_log.refresh_from_db()
+            
+            # Log para depuración
+            logger.info(f'✅ Workout log creado - ID: {workout_log.id}, completed: {workout_log.completed}')
+            logger.info(f'📊 exercises_data guardado: {workout_log.exercises_data}')
+            logger.info(f'📊 Tipo de exercises_data: {type(workout_log.exercises_data)}')
+            logger.info(f'📊 Longitud de exercises_data: {len(workout_log.exercises_data) if isinstance(workout_log.exercises_data, list) else "No es lista"}')
+            
+            # Serializar el log guardado para la respuesta (usar el objeto guardado, no serializer.data)
+            response_data = WorkoutLogSerializer(workout_log).data
+            
             headers = self.get_success_headers(response_data)
             return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
         except IntegrityError as e:
@@ -349,9 +366,16 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
                 prev_date = log_date
             longest_streak = max(longest_streak, current_streak_count)
         
-        # Objetivo semanal (puede venir del perfil del usuario o ser un valor por defecto)
-        # Por ahora usamos 5 como valor por defecto
-        weekly_goal = 5
+        # Objetivo semanal basado en los días de entrenamiento del usuario
+        # Obtener los días de entrenamiento directamente del usuario (CustomUser)
+        training_days = user.training_days if hasattr(user, 'training_days') and user.training_days else []
+        
+        # Calcular weekly_goal basándose en training_days
+        if training_days and len(training_days) > 0:
+            weekly_goal = len(training_days)
+        else:
+            # Si no hay training_days configurado, usar training_days_per_week o 5 por defecto
+            weekly_goal = user.training_days_per_week if hasattr(user, 'training_days_per_week') and user.training_days_per_week else 5
         
         # Calcular progreso semanal
         progress_percentage = round((completed_this_week / weekly_goal * 100)) if weekly_goal > 0 else 0
