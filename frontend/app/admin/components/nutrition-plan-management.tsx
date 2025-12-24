@@ -48,6 +48,7 @@ import {
 import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { fixEncoding } from "@/lib/encoding-fix"
 
 export function NutritionPlanManagement() {
   const {
@@ -98,7 +99,7 @@ export function NutritionPlanManagement() {
       if (planDetail) {
         setFormData({
           name: planDetail.name || '',
-          description: planDetail.description || '',
+          description: fixEncoding(planDetail.description || ''),
           daily_calories: planDetail.daily_calories || 2000,
           target_macros: {
             protein_percentage: planDetail.protein_percentage || 30,
@@ -372,9 +373,9 @@ export function NutritionPlanManagement() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
+                  <CardTitle className="text-lg">{fixEncoding(plan.name)}</CardTitle>
                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                    {plan.description}
+                    {fixEncoding(plan.description || '')}
                   </p>
                 </div>
                 <DropdownMenu>

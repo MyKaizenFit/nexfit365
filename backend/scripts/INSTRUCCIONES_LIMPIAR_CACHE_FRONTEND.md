@@ -91,3 +91,5 @@ Para evitar problemas futuros:
 3. **Configura el servidor web (nginx/apache) para usar UTF-8**
 
 
+
+

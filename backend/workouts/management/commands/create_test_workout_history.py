@@ -167,3 +167,5 @@ class Command(BaseCommand):
         self.stdout.write(f'   - Tonelaje promedio: {int(total_tonnage / max(total_logs, 1)):,} kg por entrenamiento')
 
 
+
+

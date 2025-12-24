@@ -186,3 +186,5 @@ class Command(BaseCommand):
             self.stdout.write(f"   - {user.email}: {user.first_name} {user.last_name}")
 
 
+
+

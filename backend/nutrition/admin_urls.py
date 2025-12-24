@@ -12,4 +12,9 @@ router.register(r'foods', admin_views.AdminFoodViewSet, basename='admin-foods')
 urlpatterns = [
     path('', include(router.urls)),
     path('default-plans/', admin_views.admin_default_plans, name='admin-default-plans'),
+    # Gestión directa de planes y logs de usuarios
+    path('users/<int:user_id>/plan/', admin_views.admin_user_plan, name='admin-user-plan'),
+    path('users/<int:user_id>/plan-history/', admin_views.admin_user_plan_history, name='admin-user-plan-history'),
+    path('users/<int:user_id>/meal-logs/', admin_views.admin_user_meal_logs, name='admin-user-meal-logs'),
+    path('users/<int:user_id>/meal-logs/<uuid:log_id>/', admin_views.admin_user_meal_log_detail, name='admin-user-meal-log-detail'),
 ]

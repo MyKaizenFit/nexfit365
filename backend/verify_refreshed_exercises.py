@@ -60,3 +60,5 @@ print("\n" + "=" * 70)
 print("✅ Verificación completada")
 print("=" * 70)
 
+
+
