@@ -72,3 +72,4 @@ class AdminWellnessService {
 export const adminWellnessService = new AdminWellnessService()
 
 
+

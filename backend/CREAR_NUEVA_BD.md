@@ -132,3 +132,4 @@ Si tienes problemas, verifica:
 3. Que tengas permisos para crear bases de datos en PostgreSQL
 
 
+

@@ -217,3 +217,4 @@ docker compose -f docker-compose.dev.yml logs backend | grep -i "email\|notifica
 
 
 
+
