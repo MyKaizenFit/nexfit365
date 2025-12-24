@@ -194,3 +194,5 @@ DATABASES = {
 - [ ] Nuevos datos se insertan correctamente con caracteres especiales
 
 
+
+

@@ -96,3 +96,5 @@ class Command(BaseCommand):
         self.stdout.write(f'Usuarios omitidos (ya tienen planes): {skipped}')
 
 
+
+

@@ -40,6 +40,7 @@ import {
 import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { fixEncoding, fixEncodingArray } from "@/lib/encoding-fix"
 
 export function ExerciseManagement() {
   const {
@@ -94,7 +95,7 @@ export function ExerciseManagement() {
   // Obtener categorías únicas para el filtro
   const uniqueCategories = Array.from(new Set(exercises.map(exercise => exercise.category).filter(Boolean)))
   const uniqueMuscleGroups = Array.from(new Set(
-    exercises.flatMap(exercise => exercise.muscle_groups || [])
+    exercises.flatMap(exercise => fixEncodingArray(exercise.muscle_groups || []))
   ))
 
   const filteredExercises = exercises.filter((exercise) => {
@@ -330,13 +331,13 @@ export function ExerciseManagement() {
   const openEditDialog = (exercise: Exercise) => {
     setEditingExercise(exercise)
     setFormData({
-      name: exercise.name,
-      description: exercise.description || '',
+      name: fixEncoding(exercise.name),
+      description: fixEncoding(exercise.description || ''),
       category: exercise.category || '',
-      muscle_groups: (exercise.muscle_groups || []).join(', '),
-      equipment: (exercise.equipment || []).join(', '),
+      muscle_groups: fixEncodingArray(exercise.muscle_groups || []).join(', '),
+      equipment: fixEncodingArray(exercise.equipment || []).join(', '),
       difficulty: exercise.difficulty || '',
-      instructions: exercise.instructions || '',
+      instructions: fixEncoding(exercise.instructions || ''),
       video_url: exercise.video_url || '',
       image_url: exercise.image_url || ''
     })
@@ -518,10 +519,10 @@ export function ExerciseManagement() {
                       />
                     </td>
                     <td className="p-3">
-                      <div className="font-medium">{exercise.name}</div>
+                      <div className="font-medium">{fixEncoding(exercise.name)}</div>
                       {exercise.description && (
-                        <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={exercise.description}>
-                          {exercise.description}
+                        <div className="text-xs text-muted-foreground truncate max-w-[200px]" title={fixEncoding(exercise.description)}>
+                          {fixEncoding(exercise.description)}
                         </div>
                       )}
                     </td>
@@ -546,7 +547,7 @@ export function ExerciseManagement() {
                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {(exercise.muscle_groups || []).slice(0, 2).map((group, idx) => (
+                        {fixEncodingArray(exercise.muscle_groups || []).slice(0, 2).map((group, idx) => (
                           <Badge key={idx} variant="secondary" className="text-xs">
                             {group}
                           </Badge>
@@ -561,7 +562,7 @@ export function ExerciseManagement() {
                     </td>
                     <td className="p-3">
                       <div className="flex flex-wrap gap-1">
-                        {(exercise.equipment || []).slice(0, 2).map((item, idx) => (
+                        {fixEncodingArray(exercise.equipment || []).slice(0, 2).map((item, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
                             {item}
                           </Badge>

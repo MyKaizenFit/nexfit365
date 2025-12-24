@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus } from "lucide-react"
+import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus, Columns } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -38,6 +38,7 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAddPhoto, setShowAddPhoto] = useState(false)
   const [selectedPhoto, setSelectedPhoto] = useState<ProgressPhoto | null>(null)
+  const [compareIds, setCompareIds] = useState<string[]>([])
   const [newPhoto, setNewPhoto] = useState({
     date: new Date().toISOString().split("T")[0],
     type: "front" as const,
@@ -160,6 +161,18 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
       description: "La foto ha sido eliminada correctamente",
     })
   }
+
+  const toggleCompare = (id: string) => {
+    setCompareIds((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id)
+      if (prev.length >= 2) return [prev[1], id]
+      return [...prev, id]
+    })
+  }
+
+  const comparePhotos = compareIds
+    .map((id) => photos.find((p) => p.id === id))
+    .filter(Boolean) as ProgressPhoto[]
 
   const currentPhoto = photos[currentIndex]
 
@@ -327,8 +340,17 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
                       <span className="font-medium">{new Date(photo.date).toLocaleDateString("es-ES")}</span>
                       {getTypeBadge(photo.type)}
                     </div>
-                    {photo.weight && <p className="text-sm text-gray-600">Peso: {photo.weight} kg</p>}
-                    {photo.notes && <p className="text-sm text-gray-700 truncate">{photo.notes}</p>}
+                  {photo.weight && <p className="text-sm text-gray-600">Peso: {photo.weight} kg</p>}
+                  {photo.notes && <p className="text-sm text-gray-700 truncate">{photo.notes}</p>}
+                  <div className="flex items-center gap-2 text-xs">
+                    <Badge
+                      variant={compareIds.includes(photo.id) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => toggleCompare(photo.id)}
+                    >
+                      {compareIds.includes(photo.id) ? "Comparando" : "Comparar"}
+                    </Badge>
+                  </div>
                   </div>
                   <div className="text-sm text-gray-500">#{index + 1}</div>
                 </div>
@@ -336,6 +358,35 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
             </div>
           </CardContent>
         </Card>
+
+      {comparePhotos.length === 2 && (
+        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Columns className="h-4 w-4" />
+              Comparación lado a lado
+            </CardTitle>
+            <CardDescription>Selecciona hasta 2 fotos para comparar</CardDescription>
+          </CardHeader>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {comparePhotos.map((photo, idx) => (
+              <div key={photo.id} className="space-y-2">
+                <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden">
+                  <img src={photo.url || "/placeholder.svg"} alt={`Comparar ${idx}`} className="w-full h-full object-cover" />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4 text-gray-500" />
+                    <span>{new Date(photo.date).toLocaleDateString("es-ES")}</span>
+                  </div>
+                  {photo.weight && <Badge variant="outline">{photo.weight} kg</Badge>}
+                </div>
+                {photo.notes && <p className="text-xs text-muted-foreground">{photo.notes}</p>}
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
       )}
 
       {/* Dialog para añadir foto */}

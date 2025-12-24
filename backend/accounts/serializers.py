@@ -38,26 +38,47 @@ class AdminUserSerializer(serializers.ModelSerializer):
     """Serializer para administración de usuarios con información completa"""
     
     bmi = serializers.ReadOnlyField()
+    age = serializers.ReadOnlyField()
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     gender_display = serializers.CharField(source='get_gender_display', read_only=True)
+    main_goal_display = serializers.CharField(source='get_main_goal_display', read_only=True)
+    activity_level_display = serializers.CharField(source='get_activity_level_display', read_only=True)
+    training_location_display = serializers.CharField(source='get_training_location_display', read_only=True)
     is_staff_display = serializers.SerializerMethodField()
     is_superuser_display = serializers.SerializerMethodField()
     last_login_formatted = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
+    profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomUser
         fields = [
-            'id', 'email', 'first_name', 'last_name', 'role', 'role_display',
-            'is_active', 'is_staff', 'is_staff_display', 'is_superuser', 'is_superuser_display',
-            'is_verified', 'birth_date', 'gender', 'gender_display',
-            'height', 'weight', 'target_weight', 'bmi',
-            'activity_level', 'dietary_restrictions', 'allergies',
-            'medical_conditions', 'workout_preferences', 'equipment_available',
-            'notification_preferences', 'date_joined', 'created_at_formatted',
-            'last_login', 'last_login_formatted', 'created_at', 'updated_at'
+            # Información básica
+            'id', 'email', 'first_name', 'last_name', 'phone_number', 'profile_picture', 'profile_picture_url',
+            # Rol y permisos
+            'role', 'role_display', 'is_active', 'is_staff', 'is_staff_display', 
+            'is_superuser', 'is_superuser_display', 'is_verified',
+            # Datos físicos
+            'birth_date', 'age', 'gender', 'gender_display', 'height', 'weight', 'target_weight', 'bmi',
+            # Objetivos y preferencias de fitness
+            'main_goal', 'main_goal_display', 'activity_level', 'activity_level_display',
+            'training_location', 'training_location_display', 'training_days_per_week', 'training_days',
+            'equipment_available', 'workout_preferences',
+            # Información dietética
+            'dietary_restrictions', 'allergies', 'disliked_foods',
+            # Información médica
+            'medical_conditions', 'injuries_or_medical_issues',
+            # Gamificación
+            'daily_streak', 'longest_streak', 'last_completed_day',
+            # Configuración
+            'notification_preferences',
+            # Onboarding
+            'onboarding_completed', 'onboarding_step',
+            # Timestamps
+            'date_joined', 'created_at_formatted', 'last_login', 'last_login_formatted', 
+            'created_at', 'updated_at'
         ]
-        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age']
     
     def update(self, instance, validated_data):
         """Sobrescribir update para manejar el mapeo de roles"""
@@ -79,6 +100,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
         if obj.date_joined:
             return obj.date_joined.strftime('%d/%m/%Y %H:%M')
         return 'N/A'
+    
+    def get_profile_picture_url(self, obj):
+        if obj.profile_picture:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.profile_picture.url)
+            return obj.profile_picture.url
+        return None
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""

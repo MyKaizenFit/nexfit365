@@ -113,3 +113,5 @@ COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec b
 - Ver `PRE_DEPLOYMENT_CHECKLIST.md` para el checklist completo
 
 
+
+

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
+import { fixEncoding } from "@/lib/encoding-fix"
 
 interface Exercise {
   id: string
@@ -354,9 +355,9 @@ export function WorkoutPlanTemplates() {
             <CardHeader>
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
-                  <CardTitle className="text-lg">{template.name}</CardTitle>
+                  <CardTitle className="text-lg">{fixEncoding(template.name)}</CardTitle>
                   <CardDescription className="line-clamp-2">
-                    {template.description || "Sin descripción"}
+                    {fixEncoding(template.description || "Sin descripción")}
                   </CardDescription>
                 </div>
                 <div className="flex items-center gap-1">
@@ -661,7 +662,7 @@ function TemplateDetails({ template }: { template: WorkoutPlanTemplate }) {
       {template.description && (
         <div className="space-y-2">
           <Label className="text-sm font-medium">Descripción</Label>
-          <p className="text-sm text-muted-foreground">{template.description}</p>
+          <p className="text-sm text-muted-foreground">{fixEncoding(template.description)}</p>
         </div>
       )}
 

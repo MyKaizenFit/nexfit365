@@ -41,6 +41,8 @@ def profile(request):
         return Response(serializer.data)
     
     elif request.method in ['PUT', 'PATCH']:
+        from .admin_views import record_profile_audit, PROFILE_AUDIT_FIELDS
+        from django.forms.models import model_to_dict
         # Campos que pueden afectar la asignación automática de planes
         fields_affecting_assignment = [
             'main_goal', 'training_location', 'activity_level', 'gender',
@@ -61,6 +63,7 @@ def profile(request):
         
         serializer = UserProfileUpdateSerializer(request.user, data=request.data, partial=True)
         if serializer.is_valid():
+            old_snapshot = model_to_dict(request.user, fields=PROFILE_AUDIT_FIELDS)
             user = serializer.save()
             
             # Verificar campos actualizados
@@ -138,6 +141,10 @@ def profile(request):
                     logger = logging.getLogger(__name__)
                     logger.error(f"Error reasignando planes: {str(e)}")
                     # No fallar la actualización si hay error en la asignación
+            
+            # Registrar auditoría de perfil para cambios hechos por el usuario
+            new_snapshot = model_to_dict(user, fields=PROFILE_AUDIT_FIELDS)
+            record_profile_audit(user, request.user, old_snapshot, new_snapshot)
             
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

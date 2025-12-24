@@ -97,3 +97,5 @@ if __name__ == '__main__':
     print(f"   Total de ejercicios corregidos: {total_fixed}")
     print("="*70)
 
+
+
