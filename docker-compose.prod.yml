@@ -39,6 +39,11 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mykaizenfit}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # Configuración de encoding UTF-8
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=es_ES.UTF-8"
+      LC_ALL: "es_ES.UTF-8"
+      LANG: "es_ES.UTF-8"
+      PGCLIENTENCODING: "UTF8"
     ports:
       - "0.0.0.0:5433:5432"  # Puerto 5433 para producción (acceso externo)
     volumes:
@@ -122,7 +127,18 @@ services:
       dockerfile: Dockerfile
       args:
         - NODE_ENV=production
+        - BUILDKIT_INLINE_CACHE=1
+      shm_size: '256m'  # Limitar memoria compartida durante el build
     restart: unless-stopped
+    # Límites de recursos para evitar que el build cuelgue el servidor
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'      # Máximo 1.5 CPUs durante build y runtime
+          memory: 2G       # Máximo 2GB RAM durante build y runtime
+        reservations:
+          cpus: '0.25'     # Mínimo 0.25 CPU garantizado
+          memory: 256M     # Mínimo 256MB RAM garantizado
     env_file:
       - ./frontend/docker.env.production
     ports:
@@ -152,7 +168,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-mykaizenfit}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_EXTRA_OPTS: -Z6 --schema=public
+      POSTGRES_EXTRA_OPTS: -Z6 --schema=public --encoding=UTF8
+      PGCLIENTENCODING: UTF8
       SCHEDULE: "0 3 * * *"  # Diario a las 3 AM
       BACKUP_DIR: /backups
       BACKUP_KEEP_DAYS: 7

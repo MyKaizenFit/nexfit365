@@ -21,8 +21,10 @@ COPY --from=deps /app/node_modules ./node_modules
 # Variables de entorno para build (ANTES de copiar código)
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
-# Limitar memoria de Node.js durante el build (1.5GB máximo para evitar colgar el servidor)
-ENV NODE_OPTIONS="--max-old-space-size=1536"
+# Limitar memoria de Node.js durante el build (1GB máximo para evitar colgar el servidor)
+ENV NODE_OPTIONS="--max-old-space-size=1024"
+# Limitar workers de Next.js durante el build (reduce CPU y memoria)
+ENV NEXT_BUILD_WORKERS=1
 
 # Build arg para el archivo de entorno (por defecto producción)
 ARG ENV_FILE=docker.env.production
@@ -51,7 +53,8 @@ RUN set -e; \
 RUN chmod +x node_modules/.bin/next || true
 # Limpiar caché de npm antes del build para ahorrar memoria
 RUN npm cache clean --force || true
-# Build con menos workers para reducir consumo de CPU/memoria
+# Build con recursos limitados (workers ya limitados por NEXT_BUILD_WORKERS=1)
+# Usar --no-lint para reducir consumo durante build
 RUN npm run build || (echo "Build failed, cleaning up..." && rm -rf .next && exit 1)
 
 # Imagen de producción, copiar todos los archivos y ejecutar next

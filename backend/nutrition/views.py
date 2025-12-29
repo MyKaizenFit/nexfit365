@@ -405,11 +405,19 @@ def daily_meal_selections(request):
             fat = float(recipe.fat) if recipe.fat else 0
         
         # Solo contar calorías si está completada
+        # Si está completada, usar los valores proporcionados o de la receta
+        # Si no está completada, poner a 0 para que no cuente en los macros
         if not is_completed:
             calories = 0
             protein = 0
             carbs = 0
             fat = 0
+        # Si está completada pero no hay valores, intentar obtenerlos de la receta
+        elif is_completed and not calories and recipe:
+            calories = recipe.calories or 0
+            protein = float(recipe.protein) if recipe.protein else 0
+            carbs = float(recipe.carbs) if recipe.carbs else 0
+            fat = float(recipe.fat) if recipe.fat else 0
         
         # Obtener custom_description o usar el nombre de la receta
         custom_description = data.get('custom_description', '')

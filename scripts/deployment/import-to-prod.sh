@@ -157,7 +157,10 @@ mkdir -p "$BACKUP_DIR"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 PROD_BACKUP_FILE="${BACKUP_DIR}/prod_backup_before_import_${TIMESTAMP}.sql"
 
-if docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" --clean --if-exists > "$PROD_BACKUP_FILE" 2>&1; then
+# Establecer encoding UTF-8 para el backup
+export PGCLIENTENCODING=UTF8
+
+if docker exec -e PGCLIENTENCODING=UTF8 "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" --clean --if-exists --encoding=UTF8 > "$PROD_BACKUP_FILE" 2>&1; then
     print_success "Backup de producción creado: $PROD_BACKUP_FILE"
 else
     print_warning "No se pudo crear backup de producción, pero continuando..."
@@ -185,14 +188,14 @@ elif [[ "$BACKUP_FILE" == *.zip ]]; then
     exit 1
 fi
 
-# 8. Eliminar y recrear la base de datos
+# 8. Eliminar y recrear la base de datos con UTF-8
 print_info "Eliminando base de datos existente..."
 if docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "DROP DATABASE IF EXISTS $DB_NAME;" > /dev/null 2>&1; then
     print_success "Base de datos eliminada"
     
-    print_info "Creando nueva base de datos..."
-    if docker exec "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME;" > /dev/null 2>&1; then
-        print_success "Base de datos creada"
+    print_info "Creando nueva base de datos con encoding UTF-8..."
+    if docker exec -e PGCLIENTENCODING=UTF8 "$DB_CONTAINER" psql -U "$DB_USER" -d postgres -c "CREATE DATABASE $DB_NAME WITH ENCODING 'UTF8' LC_COLLATE='es_ES.UTF-8' LC_CTYPE='es_ES.UTF-8' TEMPLATE template0;" > /dev/null 2>&1; then
+        print_success "Base de datos creada con UTF-8"
     else
         print_error "Error al crear la base de datos"
         exit 1
@@ -202,11 +205,14 @@ else
     exit 1
 fi
 
-# 9. Importar datos
-print_info "Importando datos..."
+# 9. Importar datos con encoding UTF-8
+print_info "Importando datos con encoding UTF-8..."
 print_info "Esto puede tomar varios minutos dependiendo del tamaño de la BD..."
 
-if cat "$TEMP_FILE" | docker exec -i "$DB_CONTAINER" psql -U "$DB_USER" -d "$DB_NAME" > /dev/null 2>&1; then
+# Establecer encoding UTF-8 para la importación
+export PGCLIENTENCODING=UTF8
+
+if docker exec -i -e PGCLIENTENCODING=UTF8 "$DB_CONTAINER" bash -c "export PGCLIENTENCODING=UTF8 && psql -U $DB_USER -d $DB_NAME" < "$TEMP_FILE" > /dev/null 2>&1; then
     print_success "Importación completada"
 else
     print_error "Error durante la importación"

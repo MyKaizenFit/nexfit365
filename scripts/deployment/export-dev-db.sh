@@ -98,10 +98,13 @@ OUTPUT_PATH="${OUTPUT_DIR}/${FILENAME}"
 OUTPUT_PATH_GZ="${OUTPUT_PATH}.gz"
 
 # 5. Exportar base de datos
-print_info "Exportando base de datos..."
+print_info "Exportando base de datos con encoding UTF-8..."
 print_info "Esto puede tomar varios minutos dependiendo del tamaño de la BD..."
 
-if docker exec "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" --clean --if-exists --no-owner --no-acl > "$OUTPUT_PATH" 2>&1; then
+# Establecer encoding UTF-8 para la exportación
+export PGCLIENTENCODING=UTF8
+
+if docker exec -e PGCLIENTENCODING=UTF8 "$DB_CONTAINER" pg_dump -U "$DB_USER" -d "$DB_NAME" --clean --if-exists --no-owner --no-acl --encoding=UTF8 > "$OUTPUT_PATH" 2>&1; then
     print_success "Exportación completada: $OUTPUT_PATH"
     
     # Verificar tamaño del archivo

@@ -224,14 +224,22 @@ export function useDailyMeals() {
   const calculateTotalMacros = useCallback((meals: DailyMeal[], goalMacros?: DailyMacros) => {
     // Solo contar calorías de comidas completadas
     const completedMeals = meals.filter(meal => meal.isCompleted)
-    const totalCalories = completedMeals.reduce((sum, meal) => 
-      sum + (meal.selectedOption?.calories || 0), 0)
-    const totalProtein = completedMeals.reduce((sum, meal) => 
-      sum + (meal.selectedOption?.protein || 0), 0)
-    const totalCarbs = completedMeals.reduce((sum, meal) => 
-      sum + (meal.selectedOption?.carbs || 0), 0)
-    const totalFat = completedMeals.reduce((sum, meal) => 
-      sum + (meal.selectedOption?.fat || 0), 0)
+    const totalCalories = completedMeals.reduce((sum, meal) => {
+      const calories = Number(meal.selectedOption?.calories) || 0
+      return sum + calories
+    }, 0)
+    const totalProtein = completedMeals.reduce((sum, meal) => {
+      const protein = Number(meal.selectedOption?.protein) || 0
+      return sum + protein
+    }, 0)
+    const totalCarbs = completedMeals.reduce((sum, meal) => {
+      const carbs = Number(meal.selectedOption?.carbs) || 0
+      return sum + carbs
+    }, 0)
+    const totalFat = completedMeals.reduce((sum, meal) => {
+      const fat = Number(meal.selectedOption?.fat) || 0
+      return sum + fat
+    }, 0)
 
     // Usar macros personalizados si están disponibles, sino usar los del estado
     const targetMacros = goalMacros || macros
@@ -458,6 +466,58 @@ export function useDailyMeals() {
 
         if (response.ok) {
           console.log('✅ Comida marcada como completada en backend')
+          // Recargar selecciones del backend para actualizar los macros
+          const selections = await loadSelectionsFromBackend(today)
+          if (selections) {
+            // Cargar estado de completado desde el backend
+            const headers = await getAuthHeaders()
+            const statusResponse = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
+              headers,
+              method: 'GET',
+            })
+            
+            if (statusResponse.ok) {
+              const data = await statusResponse.json()
+              const logs = data.selections || []
+              
+              const mealTypeMapping: Record<string, string> = {
+                'breakfast': 'Desayuno',
+                'morning_snack': 'Snack Mañana',
+                'lunch': 'Almuerzo',
+                'afternoon_snack': 'Snack Tarde',
+                'dinner': 'Cena'
+              }
+              
+              const completedMap: Record<string, boolean> = {}
+              logs.forEach((log: any) => {
+                const mealName = mealTypeMapping[log.meal_type]
+                if (mealName) {
+                  completedMap[mealName] = log.completed || false
+                }
+              })
+              
+              // Actualizar meals con las selecciones y estado de completado
+              setMeals(currentMeals => {
+                const updatedMeals = currentMeals.map(meal => {
+                  const selection = selections[meal.name]
+                  if (selection) {
+                    return { 
+                      ...meal, 
+                      selectedOption: selection, 
+                      isCompleted: completedMap[meal.name] || false 
+                    }
+                  }
+                  return meal
+                })
+                
+                // Recalcular macros con todas las comidas completadas
+                const newMacros = calculateTotalMacros(updatedMeals)
+                setMacros(newMacros)
+                
+                return updatedMeals
+              })
+            }
+          }
         } else {
           console.error('❌ Error marcando comida como completada')
         }
@@ -465,7 +525,7 @@ export function useDailyMeals() {
     } catch (error) {
       console.error('❌ Error actualizando estado de completado:', error)
     }
-  }, [calculateTotalMacros, meals])
+  }, [calculateTotalMacros, meals, loadSelectionsFromBackend])
 
   // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
   const loadSelectionsFromBackend = useCallback(async (date: string) => {
@@ -503,18 +563,23 @@ export function useDailyMeals() {
           let mealNameToShow = 'Sin nombre'
           
           // Primero intentar con recipe_name (viene del serializer)
-          if (log.recipe_name) {
+          if (log.recipe_name && log.recipe_name.trim() !== '') {
             mealNameToShow = log.recipe_name
           }
           // Luego intentar con recipe.name (si recipe es un objeto)
           else if (log.recipe) {
-            if (typeof log.recipe === 'object' && log.recipe.name) {
+            if (typeof log.recipe === 'object' && log.recipe.name && log.recipe.name.trim() !== '') {
               mealNameToShow = log.recipe.name
             }
           }
           // Finalmente usar custom_description
-          if (mealNameToShow === 'Sin nombre' && log.custom_description) {
+          if (mealNameToShow === 'Sin nombre' && log.custom_description && log.custom_description.trim() !== '') {
             mealNameToShow = log.custom_description
+          }
+          
+          // Si aún no hay nombre, usar un nombre genérico basado en el tipo de comida
+          if (mealNameToShow === 'Sin nombre') {
+            mealNameToShow = `${mealName} - Comida personalizada`
           }
           
           console.log(`📋 Cargando selección para ${mealName}:`, {
@@ -525,13 +590,19 @@ export function useDailyMeals() {
           })
           
           // Crear MealOption con el nombre correcto
+          // Asegurar que los valores nutricionales sean números, no null/undefined
+          const calories = Number(log.calories) || Number(log.recipe?.calories) || 0
+          const protein = Number(log.protein) || Number(log.recipe?.protein) || 0
+          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || 0
+          const fat = Number(log.fat) || Number(log.recipe?.fat) || 0
+          
           selectionsMap[mealName] = {
             id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
             name: mealNameToShow,
-            calories: log.calories || (log.recipe?.calories) || 0,
-            protein: log.protein || (log.recipe?.protein) || 0,
-            carbs: log.carbs || (log.recipe?.carbs) || 0,
-            fat: log.fat || (log.recipe?.fat) || 0,
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
             category: 'balanced',
             icon: '🍽️',
             description: log.recipe?.description || log.custom_description || '',

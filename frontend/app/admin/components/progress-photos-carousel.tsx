@@ -358,6 +358,7 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
             </div>
           </CardContent>
         </Card>
+      )}
 
       {comparePhotos.length === 2 && (
         <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
@@ -386,7 +387,6 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
             ))}
           </CardContent>
         </Card>
-      )}
       )}
 
       {/* Dialog para añadir foto */}
