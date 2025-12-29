@@ -1022,41 +1022,8 @@ class FoodViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'brand']
 
 
-@api_view(['GET', 'POST', 'PUT', 'DELETE'])
+@api_view(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
 @permission_classes([IsAuthenticated])
-def default_plan_configurations(request):
-    """
-    Configuraciones de planes por defecto.
-    Este endpoint gestiona las configuraciones que determinan qué planes
-    de nutrición y entrenamiento se asignan por defecto según el perfil del usuario.
-    """
-    if request.method == 'GET':
-        # Devolver configuraciones vacías por ahora
-        # En el futuro esto puede expandirse para gestionar configuraciones reales
-        return Response({
-            'results': [],
-            'count': 0,
-            'page': 1,
-            'page_size': 50,
-            'total_pages': 0,
-        })
-    
-    elif request.method == 'POST':
-        # Crear nueva configuración (placeholder)
-        return Response({
-            'message': 'Configuración creada',
-            'id': None
-        }, status=status.HTTP_201_CREATED)
-    
-    elif request.method == 'PUT':
-        # Actualizar configuración (placeholder)
-        return Response({'message': 'Configuración actualizada'})
-    
-    elif request.method == 'DELETE':
-        # Eliminar configuración (placeholder)
-        return Response({'message': 'Configuración eliminada'})
-
-
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def list_recipes(request):

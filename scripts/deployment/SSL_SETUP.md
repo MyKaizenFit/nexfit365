@@ -193,3 +193,4 @@ La configuración incluye headers de seguridad:
 - [ ] Headers de seguridad funcionando
 - [ ] Verificado en navegador (candado verde)
 
+

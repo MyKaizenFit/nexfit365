@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { CONFIGURATION_ENDPOINTS, buildApiUrl } from "@/lib/api"
 import { DefaultPlanConfiguration, PlanOption, UpsertDefaultPlanConfigurationPayload } from "@/types"
@@ -73,14 +73,33 @@ const toOptions = (items: unknown): PlanOption[] => {
 }
 
 const extractResults = (payload: any): DefaultPlanConfiguration[] => {
-  if (!payload) return []
-  if (Array.isArray(payload)) return payload
-  if (Array.isArray(payload.results)) return payload.results
+  console.log("[useDefaultPlanConfigurations] 🔵 extractResults - payload:", {
+    isNull: payload === null,
+    isUndefined: payload === undefined,
+    type: typeof payload,
+    isArray: Array.isArray(payload),
+    hasResults: payload && typeof payload === "object" && "results" in payload,
+    keys: payload && typeof payload === "object" ? Object.keys(payload) : "N/A"
+  })
+  
+  if (!payload) {
+    console.log("[useDefaultPlanConfigurations] ⚠️ extractResults - payload vacío")
+    return []
+  }
+  if (Array.isArray(payload)) {
+    console.log("[useDefaultPlanConfigurations] ✅ extractResults - payload es array, devolviendo", payload.length, "items")
+    return payload
+  }
+  if (Array.isArray(payload.results)) {
+    console.log("[useDefaultPlanConfigurations] ✅ extractResults - payload.results es array, devolviendo", payload.results.length, "items")
+    return payload.results
+  }
+  console.log("[useDefaultPlanConfigurations] ⚠️ extractResults - formato no reconocido, devolviendo array vacío")
   return []
 }
 
 export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResult {
-  const { getAuthHeaders } = useAuth()
+  const { getAuthHeaders, isAuthenticated } = useAuth()
 
   const [configurations, setConfigurations] = useState<DefaultPlanConfiguration[]>([])
   const [nutritionPlans, setNutritionPlans] = useState<PlanOption[]>([])
@@ -91,6 +110,11 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
   const [loadingWorkoutPrograms, setLoadingWorkoutPrograms] = useState<boolean>(true)
   const [saving, setSaving] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
+  
+  // Referencia para rastrear si ya se cargaron los datos inicialmente
+  const hasLoadedInitially = useRef(false)
+  // Referencia para evitar recargas múltiples simultáneas
+  const isLoadingRef = useRef(false)
 
   const handleError = useCallback((message: string) => {
     setError(message)
@@ -101,45 +125,141 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
     })
   }, [])
 
-  const fetchConfigurations = useCallback(async () => {
+  const fetchConfigurations = useCallback(async (forceReload = false) => {
+    // Evitar recargas múltiples simultáneas (excepto si es forzada)
+    if (isLoadingRef.current && !forceReload) {
+      console.log("[useDefaultPlanConfigurations] ⏭️ fetchConfigurations ya en progreso, saltando...")
+      return
+    }
+    
+    console.log("[useDefaultPlanConfigurations] 🔵 fetchConfigurations INICIADO", forceReload ? "(forzado)" : "")
+    isLoadingRef.current = true
     setState("loading")
-    setLoading(true)
+    // Solo mostrar loading si no hay datos o si es una recarga forzada
+    // Usar función de actualización para obtener el estado actual
+    setLoading(prev => {
+      // Si ya hay datos y no es forzado, no mostrar loading para evitar flickering
+      if (!forceReload && prev === false) {
+        return false
+      }
+      return true
+    })
     setError(null)
 
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(
-        buildApiUrl(CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS),
-        { headers },
-      )
+      const url = buildApiUrl(CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS)
+      console.log("[useDefaultPlanConfigurations] 🔵 Cargando configuraciones desde:", url)
+      console.log("[useDefaultPlanConfigurations] 🔵 Headers:", Object.keys(headers))
+      
+      const response = await fetch(url, { headers })
+
+      console.log("[useDefaultPlanConfigurations] 🔵 Respuesta recibida:", response.status, response.statusText)
+      console.log("[useDefaultPlanConfigurations] 🔵 URL completa:", url)
 
       const contentType = response.headers.get("content-type") ?? ""
       const payload = contentType.includes("application/json") ? await response.json() : await response.text()
 
+      console.log("[useDefaultPlanConfigurations] 🔵 Payload recibido:", {
+        isArray: Array.isArray(payload),
+        hasResults: payload && typeof payload === "object" && "results" in payload,
+        type: typeof payload,
+        keys: payload && typeof payload === "object" ? Object.keys(payload) : "N/A",
+        payload: payload && typeof payload === "object" ? JSON.stringify(payload).substring(0, 200) : String(payload).substring(0, 200)
+      })
+
       if (!response.ok) {
         const message =
           (payload && typeof payload === "object" && "detail" in payload && (payload as any).detail) ||
+          (payload && typeof payload === "object" && "message" in payload && (payload as any).message) ||
           response.statusText ||
           "No se pudieron cargar las configuraciones."
+        console.error("[useDefaultPlanConfigurations] ❌ Error en respuesta:", message)
+        console.error("[useDefaultPlanConfigurations] ❌ Status:", response.status)
+        console.error("[useDefaultPlanConfigurations] ❌ Payload completo:", payload)
         throw new Error(String(message))
       }
 
+      // Si la respuesta es OK pero el payload tiene un error, manejarlo
+      if (payload && typeof payload === "object" && "detail" in payload && !Array.isArray(payload) && !("results" in payload)) {
+        const errorMessage = (payload as any).detail || "Error desconocido"
+        console.error("[useDefaultPlanConfigurations] ❌ Error en payload (aunque response.ok):", errorMessage)
+        // Si es un 404 o similar, devolver array vacío en lugar de error
+        if (response.status === 404 || String(errorMessage).toLowerCase().includes("no encontrado")) {
+          console.warn("[useDefaultPlanConfigurations] ⚠️ Endpoint no encontrado, devolviendo array vacío")
+          setConfigurations([])
+          setState("success")
+          return
+        }
+        throw new Error(String(errorMessage))
+      }
+
       const data = extractResults(payload)
-      setConfigurations(data)
+      console.log("[useDefaultPlanConfigurations] ✅ Configuraciones extraídas:", data.length)
+      console.log("[useDefaultPlanConfigurations] 🔵 Datos:", data)
+      
+      // Eliminar duplicados por ID antes de actualizar (usando Map para mejor rendimiento)
+      const uniqueMap = new Map<string, DefaultPlanConfiguration>()
+      for (const config of data) {
+        if (config && config.id) {
+          const id = String(config.id)
+          if (!uniqueMap.has(id)) {
+            uniqueMap.set(id, config)
+          } else {
+            console.warn(`[useDefaultPlanConfigurations] ⚠️ Duplicado encontrado: ID ${id}`)
+          }
+        }
+      }
+      
+      const uniqueData = Array.from(uniqueMap.values())
+      
+      if (uniqueData.length !== data.length) {
+        console.warn(`[useDefaultPlanConfigurations] ⚠️ Se encontraron ${data.length - uniqueData.length} duplicados, eliminados`)
+      }
+      
+      // Solo actualizar si hay datos nuevos o si es una recarga forzada
+      if (uniqueData.length > 0 || forceReload) {
+        setConfigurations(prev => {
+          // Combinar con datos existentes y eliminar duplicados
+          const combined = [...prev, ...uniqueData]
+          const finalMap = new Map<string, DefaultPlanConfiguration>()
+          for (const config of combined) {
+            if (config && config.id) {
+              const id = String(config.id)
+              // Mantener el más reciente (último en el array)
+              finalMap.set(id, config)
+            }
+          }
+          const final = Array.from(finalMap.values())
+          console.log(`[useDefaultPlanConfigurations] 🔵 Actualizando estado: ${prev.length} -> ${final.length} configuraciones`)
+          return final
+        })
+      }
       setState("success")
     } catch (err) {
-      console.error("[useDefaultPlanConfigurations] fetchConfigurations error:", err)
+      console.error("[useDefaultPlanConfigurations] ❌ fetchConfigurations error:", err)
       setState("error")
       const message =
         err instanceof Error ? err.message : "Error desconocido al cargar configuraciones"
       handleError(message)
     } finally {
       setLoading(false)
+      isLoadingRef.current = false
+      console.log("[useDefaultPlanConfigurations] 🔵 fetchConfigurations FINALIZADO")
     }
   }, [getAuthHeaders, handleError])
 
-  const fetchNutritionPlans = useCallback(async () => {
-    setLoadingNutritionPlans(true)
+  const fetchNutritionPlans = useCallback(async (forceReload = false) => {
+    // Si ya hay datos y no es una recarga forzada, no hacer nada
+    if (nutritionPlans.length > 0 && !forceReload) {
+      console.log(`[useDefaultPlanConfigurations] ⏭️ fetchNutritionPlans saltado (ya hay ${nutritionPlans.length} planes, no es recarga forzada)`)
+      return
+    }
+    
+    // Solo mostrar loading si no hay datos cargados o si es una recarga forzada
+    if (nutritionPlans.length === 0 || forceReload) {
+      setLoadingNutritionPlans(true)
+    }
     try {
       const headers = await getAuthHeaders()
       let allPlans: PlanOption[] = []
@@ -178,18 +298,30 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
         }
       }
       
-      setNutritionPlans(allPlans)
-      console.log(`[useDefaultPlanConfigurations] ✅ Total cargado: ${allPlans.length} planes de nutrición`)
+      // Solo actualizar si hay datos nuevos
+      if (allPlans.length > 0) {
+        setNutritionPlans(allPlans)
+        console.log(`[useDefaultPlanConfigurations] ✅ Total cargado: ${allPlans.length} planes de nutrición`)
+      }
     } catch (err) {
       console.warn("[useDefaultPlanConfigurations] fetchNutritionPlans error:", err)
     } finally {
       setLoadingNutritionPlans(false)
     }
-  }, [getAuthHeaders])
+  }, [getAuthHeaders, nutritionPlans.length])
 
-  const fetchWorkoutPrograms = useCallback(async () => {
-    console.log(`[useDefaultPlanConfigurations] 🔵 fetchWorkoutPrograms INICIADO`)
-    setLoadingWorkoutPrograms(true)
+  const fetchWorkoutPrograms = useCallback(async (forceReload = false) => {
+    // Si ya hay datos y no es una recarga forzada, no hacer nada
+    if (workoutPrograms.length > 0 && !forceReload) {
+      console.log(`[useDefaultPlanConfigurations] ⏭️ fetchWorkoutPrograms saltado (ya hay ${workoutPrograms.length} programas, no es recarga forzada)`)
+      return
+    }
+    
+    // Solo mostrar loading si no hay datos cargados o si es una recarga forzada
+    if (workoutPrograms.length === 0 || forceReload) {
+      console.log(`[useDefaultPlanConfigurations] 🔵 fetchWorkoutPrograms INICIADO`, forceReload ? "(forzado)" : "")
+      setLoadingWorkoutPrograms(true)
+    }
     try {
       console.log(`[useDefaultPlanConfigurations] 🔵 Obteniendo headers...`)
       const headers = await getAuthHeaders()
@@ -229,6 +361,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       
       if (programs.length === 0) {
         console.warn(`[useDefaultPlanConfigurations] ⚠️ No se encontraron programas en la respuesta`)
+        // No limpiar los datos existentes si no hay nuevos datos
         return
       }
       
@@ -237,11 +370,15 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       
       if (converted.length === 0) {
         console.warn(`[useDefaultPlanConfigurations] ⚠️ No se pudieron convertir los programas. Primer programa:`, programs[0])
+        // No limpiar los datos existentes si no se pudieron convertir
         return
       }
       
-      setWorkoutPrograms(converted)
-      console.log(`[useDefaultPlanConfigurations] ✅ Estado actualizado con ${converted.length} programas de entrenamiento`)
+      // Solo actualizar si hay datos nuevos
+      if (converted.length > 0) {
+        setWorkoutPrograms(converted)
+        console.log(`[useDefaultPlanConfigurations] ✅ Estado actualizado con ${converted.length} programas de entrenamiento`)
+      }
       
       // Si hay más páginas (aunque con page_size=1000 no debería haber), cargarlas
       if (payload.next && payload.count > programs.length) {
@@ -279,16 +416,36 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       setLoadingWorkoutPrograms(false)
       console.log(`[useDefaultPlanConfigurations] 🔵 fetchWorkoutPrograms FINALIZADO`)
     }
-  }, [getAuthHeaders])
+  }, [getAuthHeaders, workoutPrograms.length])
 
+  // Cargar datos solo una vez cuando el usuario está autenticado
   useEffect(() => {
-    console.log(`[useDefaultPlanConfigurations] 🔵 useEffect ejecutado, llamando funciones...`)
-    fetchConfigurations()
-    fetchNutritionPlans()
-    console.log(`[useDefaultPlanConfigurations] 🔵 Llamando fetchWorkoutPrograms...`)
-    fetchWorkoutPrograms()
-    console.log(`[useDefaultPlanConfigurations] 🔵 fetchWorkoutPrograms llamado`)
-  }, [fetchConfigurations, fetchNutritionPlans, fetchWorkoutPrograms])
+    // Solo cargar si está autenticado y no se han cargado los datos inicialmente
+    if (!isAuthenticated) {
+      console.log(`[useDefaultPlanConfigurations] ⏭️ Usuario no autenticado, saltando carga`)
+      // Resetear el flag si el usuario se desautentica
+      hasLoadedInitially.current = false
+      setConfigurations([])
+      setNutritionPlans([])
+      setWorkoutPrograms([])
+      return
+    }
+    
+    // Solo cargar la primera vez
+    if (hasLoadedInitially.current) {
+      console.log(`[useDefaultPlanConfigurations] ⏭️ Datos ya cargados inicialmente, saltando recarga automática`)
+      return
+    }
+    
+    console.log(`[useDefaultPlanConfigurations] 🔵 useEffect ejecutado, cargando datos iniciales...`)
+    hasLoadedInitially.current = true
+    
+    // Cargar datos iniciales sin forzar recarga
+    fetchConfigurations(false)
+    fetchNutritionPlans(false)
+    fetchWorkoutPrograms(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]) // Solo depender de isAuthenticated para evitar recargas innecesarias
 
   // Debug: Log cuando cambian los estados
   useEffect(() => {
@@ -333,7 +490,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
           throw new Error(String(message))
         }
 
-        await fetchConfigurations()
+        await fetchConfigurations(true) // Forzar recarga después de mutación
         return responseData as DefaultPlanConfiguration
       } catch (err) {
         console.error("[useDefaultPlanConfigurations] performMutation error:", err)
@@ -392,6 +549,17 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
     [getAuthHeaders, handleError],
   )
 
+  // Función de refetch que permite forzar recarga
+  const refetch = useCallback(async () => {
+    console.log(`[useDefaultPlanConfigurations] 🔄 Refetch manual solicitado`)
+    // Forzar recarga de todos los datos
+    await Promise.all([
+      fetchConfigurations(true), // Forzar recarga
+      fetchNutritionPlans(true), // Forzar recarga
+      fetchWorkoutPrograms(true), // Forzar recarga
+    ])
+  }, [fetchConfigurations, fetchNutritionPlans, fetchWorkoutPrograms])
+
   const value = useMemo(
     () => ({
       configurations,
@@ -403,7 +571,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       saving,
       state,
       error,
-      refetch: fetchConfigurations,
+      refetch,
       createConfiguration,
       updateConfiguration,
       deleteConfiguration,
@@ -418,7 +586,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       saving,
       state,
       error,
-      fetchConfigurations,
+      refetch,
       createConfiguration,
       updateConfiguration,
       deleteConfiguration,
