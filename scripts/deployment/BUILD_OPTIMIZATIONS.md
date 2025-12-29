@@ -189,3 +189,4 @@ cpus: '1.0'
 NODE_OPTIONS="--max-old-space-size=768"  # 768MB
 ```
 
+

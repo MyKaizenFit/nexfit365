@@ -147,3 +147,4 @@ echo -e "${YELLOW}3. Verifica la renovación automática:${NC}"
 echo "   sudo certbot renew --dry-run"
 echo ""
 
+

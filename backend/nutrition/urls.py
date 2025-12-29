@@ -4,7 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet, 
     current_plan, plan_meals_for_selection, daily_meal_selections, daily_meal_selections_today,
-    weekly_meal_selections, monthly_meal_selections, default_plan_configurations, default_nutrition_plans, list_recipes,
+    weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
     adjust_plan, plan_history
 )
 
@@ -24,7 +24,6 @@ urlpatterns = [
     path('daily-meal-selections/', daily_meal_selections, name='daily-meal-selections'),
     path('weekly-meal-selections/', weekly_meal_selections, name='weekly-meal-selections'),
     path('monthly-meal-selections/', monthly_meal_selections, name='monthly-meal-selections'),
-    path('default-plan-configurations/', default_plan_configurations, name='default-plan-configurations'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
     # Endpoint explícito para listar recetas (tiene prioridad sobre el router)
     path('recipes/', list_recipes, name='recipes-list'),

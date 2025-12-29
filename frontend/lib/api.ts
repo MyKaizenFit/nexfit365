@@ -115,7 +115,7 @@ export const TIPS_ENDPOINTS = {
 
 // Endpoints de configuraciones
 export const CONFIGURATION_ENDPOINTS = {
-  DEFAULT_PLAN_CONFIGURATIONS: 'nutrition/default-plan-configurations/',
+  DEFAULT_PLAN_CONFIGURATIONS: 'default-plan-configurations/',
 }
 
 // Función para construir URLs completas

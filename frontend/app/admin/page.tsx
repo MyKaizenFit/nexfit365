@@ -40,7 +40,7 @@ const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-manag
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const NutritionPlanManagement = lazy(() => import("./components/nutrition-plan-management").then(module => ({ default: module.NutritionPlanManagement })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
-const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations").then(module => ({ default: module.DefaultPlanConfigurationsPanel })))
+const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-v2").then(module => ({ default: module.DefaultPlanConfigurationsPanelV2 })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
 const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").then(module => ({ default: module.HelpSettingsPanel })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))

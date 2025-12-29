@@ -1,6 +1,15 @@
 "use client"
 
-import { ProgressDashboard } from "@/components/dashboard/progress-dashboard"
+import dynamicImport from 'next/dynamic'
+
+// Cargar ProgressDashboard de forma dinámica para evitar errores de build
+const ProgressDashboard = dynamicImport(
+  () => import("@/components/dashboard/progress-dashboard").then(mod => ({ default: mod.ProgressDashboard })),
+  { ssr: false }
+)
+
+// Forzar renderizado dinámico para evitar errores de build
+export const dynamic = 'force-dynamic'
 
 export default function ProgressPage() {
   return (

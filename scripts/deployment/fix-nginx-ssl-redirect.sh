@@ -297,3 +297,4 @@ echo "  - https://nexfit365.dpdns.org"
 echo "  - https://api.nexfit365.dpdns.org"
 echo ""
 
+
