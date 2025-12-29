@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "build": "next build",
+    "build:low-resource": "NEXT_BUILD_WORKERS=1 next build",
     "dev": "next dev -H 0.0.0.0",
     "lint": "next lint",
     "start": "next start",

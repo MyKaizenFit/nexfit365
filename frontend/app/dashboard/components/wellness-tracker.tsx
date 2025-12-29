@@ -38,7 +38,7 @@ export function WellnessTracker() {
   const loadTodayEntry = async () => {
     setLoading(true)
     try {
-      const response = await authenticatedFetch("progress/daily-wellness/today/")
+      const response = await authenticatedFetch("daily-wellness/today/")
       if (response.ok) {
         const data = await response.json()
         setTodayEntry(data)
@@ -79,7 +79,7 @@ export function WellnessTracker() {
       if (todayEntry?.id) {
         // Actualizar registro existente
         response = await authenticatedFetch(
-          `progress/daily-wellness/${todayEntry.id}/`,
+          `daily-wellness/${todayEntry.id}/`,
           {
             method: "PUT",
             headers: {
@@ -90,7 +90,7 @@ export function WellnessTracker() {
         )
       } else {
         // Crear nuevo registro
-        response = await authenticatedFetch("progress/daily-wellness/", {
+        response = await authenticatedFetch("daily-wellness/", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
