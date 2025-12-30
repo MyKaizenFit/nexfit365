@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Calendar, ChevronLeft, ChevronRight, ChefHat, Check, Clock, Loader2, Copy, ArrowRight } from "lucide-react"
+import { Calendar, ChefHat, Check, Clock, Loader2, Copy, ArrowRight } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -32,7 +32,13 @@ interface WeeklyMealSelection {
     carbs: number
     fat: number
   }
+  recipe_id?: string
+  recipe_name?: string
   custom_description?: string
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
   completed?: boolean
 }
 
@@ -88,26 +94,7 @@ export function WeeklyMealPlan() {
     loadWeeklySelections()
   }, [loadWeeklySelections])
 
-  // Navegar semanas
-  const goToPreviousWeek = () => {
-    const newStart = new Date(currentWeekStart)
-    newStart.setDate(newStart.getDate() - 7)
-    setCurrentWeekStart(newStart)
-  }
-
-  const goToNextWeek = () => {
-    const newStart = new Date(currentWeekStart)
-    newStart.setDate(newStart.getDate() + 7)
-    setCurrentWeekStart(newStart)
-  }
-
-  const goToCurrentWeek = () => {
-    const today = new Date()
-    const monday = new Date(today)
-    monday.setDate(today.getDate() - today.getDay() + 1)
-    monday.setHours(0, 0, 0, 0)
-    setCurrentWeekStart(monday)
-  }
+  // Navegación de semana eliminada - siempre muestra la semana actual
 
   // Abrir modal de selección
   const handleSelectMeal = async (date: string, mealType: string) => {
@@ -157,6 +144,7 @@ export function WeeklyMealPlan() {
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
+        custom_description: option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
         completed: false // Solo planificación, no completada
       }]
 
@@ -186,6 +174,54 @@ export function WeeklyMealPlan() {
     }
   }
 
+  // Marcar comida como completada directamente desde la vista
+  const handleToggleCompleted = async (dateStr: string, mealType: string) => {
+    const selection = getSelectionForMeal(dateStr, mealType)
+    if (!selection) {
+      // Si no hay selección, abrir modal para seleccionar
+      handleSelectMeal(dateStr, mealType)
+      return
+    }
+
+    setSaving(true)
+    try {
+      const newCompletedStatus = !selection.completed
+      
+      const selections = [{
+        date: dateStr,
+        meal_type: mealType,
+        recipe_id: selection.recipe?.id || selection.recipe_id,
+        calories: selection.recipe?.calories || selection.calories || 0,
+        protein: selection.recipe?.protein || selection.protein || 0,
+        carbs: selection.recipe?.carbs || selection.carbs || 0,
+        fat: selection.recipe?.fat || selection.fat || 0,
+        custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
+        completed: newCompletedStatus
+      }]
+
+      const result = await nutritionService.saveWeeklyMealSelections(selections)
+      
+      console.log('✅ Estado de completado actualizado:', result)
+      
+      toast({
+        title: newCompletedStatus ? "✅ Comida completada" : "📋 Comida desmarcada",
+        description: `Estado actualizado para ${format(new Date(dateStr), 'EEEE d', { locale: es })}`,
+      })
+      
+      // Recargar selecciones después de actualizar
+      await loadWeeklySelections()
+    } catch (error) {
+      console.error('Error actualizando estado de completado:', error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el estado de la comida",
+        variant: "destructive"
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Copiar día completo a otro día
   const handleCopyDay = async (sourceDate: string, targetDate: string) => {
     setSaving(true)
@@ -204,12 +240,12 @@ export function WeeklyMealPlan() {
       const selectionsToSave = sourceSelections.map(selection => ({
         date: targetDate,
         meal_type: selection.meal_type,
-        recipe_id: selection.recipe?.id,
-        calories: selection.recipe?.calories || 0,
-        protein: selection.recipe?.protein || 0,
-        carbs: selection.recipe?.carbs || 0,
-        fat: selection.recipe?.fat || 0,
-        custom_description: selection.custom_description,
+        recipe_id: selection.recipe?.id || (selection as any).recipe_id,
+        calories: selection.recipe?.calories || selection.calories || 0,
+        protein: selection.recipe?.protein || selection.protein || 0,
+        carbs: selection.recipe?.carbs || selection.carbs || 0,
+        fat: selection.recipe?.fat || selection.fat || 0,
+        custom_description: selection.custom_description || selection.recipe?.name || (selection as any).recipe_name || '',
         completed: false // Solo planificación al copiar
       }))
 
@@ -260,12 +296,12 @@ export function WeeklyMealPlan() {
           selectionsToSave.push({
             date: targetDateStr,
             meal_type: selection.meal_type,
-            recipe_id: selection.recipe?.id,
-            calories: selection.recipe?.calories || 0,
-            protein: selection.recipe?.protein || 0,
-            carbs: selection.recipe?.carbs || 0,
-            fat: selection.recipe?.fat || 0,
-            custom_description: selection.custom_description,
+            recipe_id: selection.recipe?.id || (selection as any).recipe_id,
+            calories: selection.recipe?.calories || selection.calories || 0,
+            protein: selection.recipe?.protein || selection.protein || 0,
+            carbs: selection.recipe?.carbs || selection.carbs || 0,
+            fat: selection.recipe?.fat || selection.fat || 0,
+            custom_description: selection.custom_description || selection.recipe?.name || (selection as any).recipe_name || '',
             completed: false // Solo planificación al aplicar
           })
         })
@@ -306,54 +342,59 @@ export function WeeklyMealPlan() {
     return selection || null
   }
 
+  // Obtener el nombre de la comida con mejor manejo de casos
+  const getMealName = (selection: WeeklyMealSelection | null): string => {
+    if (!selection) return 'Sin nombre'
+    
+    // Prioridad 1: recipe.name (si recipe es un objeto con name)
+    if (selection.recipe?.name && selection.recipe.name.trim() !== '') {
+      return selection.recipe.name
+    }
+    
+    // Prioridad 2: recipe_name (viene del serializer)
+    if (selection.recipe_name && selection.recipe_name.trim() !== '') {
+      return selection.recipe_name
+    }
+    
+    // Prioridad 3: custom_description
+    if (selection.custom_description && selection.custom_description.trim() !== '') {
+      return selection.custom_description
+    }
+    
+    // Si no hay nombre, devolver un texto descriptivo en lugar de "Sin nombre"
+    const mealTypeNames: Record<string, string> = {
+      'breakfast': 'Desayuno',
+      'morning_snack': 'Snack Mañana',
+      'lunch': 'Almuerzo',
+      'afternoon_snack': 'Snack Tarde',
+      'dinner': 'Cena'
+    }
+    const mealTypeName = mealTypeNames[selection.meal_type] || 'Comida'
+    return `${mealTypeName} - Seleccionada`
+  }
+
   const weekDays = getWeekDays()
 
   return (
-    <div className="space-y-6">
-      {/* Header con navegación */}
+    <div className="space-y-4 md:space-y-6">
+      {/* Header sin navegación - solo información */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3 md:pb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                <Calendar className="h-4 w-4 md:h-5 md:w-5" />
                 Planificación Semanal
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 Planifica tus comidas para toda la semana
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToPreviousWeek}
-                disabled={loading}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToCurrentWeek}
-                disabled={loading}
-              >
-                Hoy
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToNextWeek}
-                disabled={loading}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-xs md:text-sm text-muted-foreground">
               {format(weekDays[0], "d 'de' MMMM", { locale: es })} - {format(weekDays[6], "d 'de' MMMM, yyyy", { locale: es })}
             </p>
           </div>
@@ -403,7 +444,7 @@ export function WeeklyMealPlan() {
                     )}
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-2">
+                <CardContent className="p-2 md:p-6 space-y-1.5 md:space-y-2">
                   {MEAL_TYPES.map((meal, mealIndex) => {
                     const selection = getSelectionForMeal(dateStr, meal.type)
                     // Verificar si está completada (por defecto false si no se especifica)
@@ -417,9 +458,9 @@ export function WeeklyMealPlan() {
                       >
                         <Button
                           variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
-                          className={`w-full justify-start h-auto p-2 text-xs ${
-                            hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100' : ''
-                          } ${hasSelection ? 'min-h-[110px]' : 'min-h-[45px]'}`}
+                          className={`w-full justify-start h-auto p-1.5 md:p-2 text-[10px] md:text-xs touch-manipulation ${
+                            hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200' : ''
+                          } ${hasSelection ? 'min-h-[90px] md:min-h-[110px]' : 'min-h-[40px] md:min-h-[45px]'}`}
                           onClick={() => handleSelectMeal(dateStr, meal.type)}
                           disabled={saving}
                         >
@@ -434,28 +475,43 @@ export function WeeklyMealPlan() {
                                 )}
                               </div>
                               {hasSelection && (
-                                <Check className={`h-3.5 w-3.5 flex-shrink-0 ${
-                                  isCompleted ? 'text-teal-600' : 'text-blue-500'
-                                }`} />
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className={`flex-shrink-0 h-6 w-6 md:h-7 md:w-7 p-0 rounded-full hover:bg-teal-50 active:bg-teal-100 transition-colors touch-manipulation ${
+                                    isCompleted ? 'bg-teal-100' : 'bg-blue-100 hover:bg-blue-200 active:bg-blue-300'
+                                  }`}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleToggleCompleted(dateStr, meal.type)
+                                  }}
+                                  disabled={saving}
+                                  title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+                                >
+                                  <Check className={`h-3.5 w-3.5 md:h-4 md:w-4 ${
+                                    isCompleted ? 'text-teal-600' : 'text-blue-500'
+                                  }`} />
+                                </Button>
                               )}
                             </div>
                             
                             {/* Selección: Nombre completo de la receta con macros */}
                             {hasSelection && (
-                              <div className="mt-0.5 pt-1.5 border-t border-gray-200/60 space-y-1.5">
-                                <div className="text-[11px] font-semibold text-gray-800 leading-tight break-words">
-                                  {selection.recipe?.name || selection.recipe_name || selection.custom_description || 'Sin nombre'}
+                              <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-gray-200/60 space-y-1 md:space-y-1.5">
+                                <div className="text-[10px] md:text-[11px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
+                                  {getMealName(selection)}
                                 </div>
                                 
                                 {/* Estado: Seleccionada o Completada */}
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1 md:gap-1.5">
                                   {!isCompleted && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-blue-300 text-blue-600 bg-blue-50">
+                                    <Badge variant="outline" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-3.5 md:h-4 border-blue-300 text-blue-600 bg-blue-50">
                                       📋 Seleccionada
                                     </Badge>
                                   )}
                                   {isCompleted && (
-                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 border-teal-300 text-teal-600 bg-teal-50">
+                                    <Badge variant="outline" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-3.5 md:h-4 border-teal-300 text-teal-600 bg-teal-50">
                                       ✅ Completada
                                     </Badge>
                                   )}

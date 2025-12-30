@@ -143,6 +143,7 @@ export function MonthlyMealPlan() {
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
+        custom_description: option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
         completed: false // Solo planificación, no completada
       }]
 
@@ -210,12 +211,12 @@ export function MonthlyMealPlan() {
           selectionsToSave.push({
             date: targetDayStr,
             meal_type: selection.meal_type,
-            recipe_id: selection.recipe?.id,
-            calories: selection.recipe?.calories || 0,
-            protein: selection.recipe?.protein || 0,
-            carbs: selection.recipe?.carbs || 0,
-            fat: selection.recipe?.fat || 0,
-            custom_description: selection.custom_description,
+            recipe_id: selection.recipe?.id || (selection as any).recipe_id,
+            calories: selection.recipe?.calories || selection.calories || 0,
+            protein: selection.recipe?.protein || selection.protein || 0,
+            carbs: selection.recipe?.carbs || selection.carbs || 0,
+            fat: selection.recipe?.fat || selection.fat || 0,
+            custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
             completed: false // Solo planificación al copiar
           })
         })
@@ -272,12 +273,12 @@ export function MonthlyMealPlan() {
           selectionsToSave.push({
             date: targetDateStr,
             meal_type: selection.meal_type,
-            recipe_id: selection.recipe?.id,
-            calories: selection.recipe?.calories || 0,
-            protein: selection.recipe?.protein || 0,
-            carbs: selection.recipe?.carbs || 0,
-            fat: selection.recipe?.fat || 0,
-            custom_description: selection.custom_description,
+            recipe_id: selection.recipe?.id || (selection as any).recipe_id,
+            calories: selection.recipe?.calories || selection.calories || 0,
+            protein: selection.recipe?.protein || selection.protein || 0,
+            carbs: selection.recipe?.carbs || selection.carbs || 0,
+            fat: selection.recipe?.fat || selection.fat || 0,
+            custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
             completed: false // Solo planificación al aplicar
           })
         })
@@ -320,6 +321,37 @@ export function MonthlyMealPlan() {
     return selection || null
   }
 
+  // Obtener el nombre de la comida con mejor manejo de casos
+  const getMealName = (selection: any | null): string => {
+    if (!selection) return 'Sin nombre'
+    
+    // Prioridad 1: recipe.name (si recipe es un objeto con name)
+    if (selection.recipe?.name && selection.recipe.name.trim() !== '') {
+      return selection.recipe.name
+    }
+    
+    // Prioridad 2: recipe_name (viene del serializer)
+    if (selection.recipe_name && selection.recipe_name.trim() !== '') {
+      return selection.recipe_name
+    }
+    
+    // Prioridad 3: custom_description
+    if (selection.custom_description && selection.custom_description.trim() !== '') {
+      return selection.custom_description
+    }
+    
+    // Si no hay nombre, devolver un texto descriptivo en lugar de "Sin nombre"
+    const mealTypeNames: Record<string, string> = {
+      'breakfast': 'Desayuno',
+      'morning_snack': 'Snack Mañana',
+      'lunch': 'Almuerzo',
+      'afternoon_snack': 'Snack Tarde',
+      'dinner': 'Cena'
+    }
+    const mealTypeName = mealTypeNames[selection.meal_type] || 'Comida'
+    return `${mealTypeName} - Seleccionada`
+  }
+
   const monthDays = getMonthDays()
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
@@ -358,14 +390,14 @@ export function MonthlyMealPlan() {
     <div className="space-y-6">
       {/* Header con navegación */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+        <CardHeader className="pb-3 md:pb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
             <div>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarDays className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                <CalendarDays className="h-4 w-4 md:h-5 md:w-5" />
                 Planificación Mensual
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-xs md:text-sm">
                 Planifica tus comidas para todo el mes
               </CardDescription>
             </div>
@@ -375,6 +407,7 @@ export function MonthlyMealPlan() {
                 size="sm"
                 onClick={goToPreviousMonth}
                 disabled={loading}
+                className="h-8 md:h-9"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -383,6 +416,7 @@ export function MonthlyMealPlan() {
                 size="sm"
                 onClick={goToCurrentMonth}
                 disabled={loading}
+                className="h-8 md:h-9 text-xs md:text-sm"
               >
                 Hoy
               </Button>
@@ -391,15 +425,16 @@ export function MonthlyMealPlan() {
                 size="sm"
                 onClick={goToNextMonth}
                 disabled={loading}
+                className="h-8 md:h-9"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <div className="text-center">
-            <p className="text-lg font-semibold">
+            <p className="text-base md:text-lg font-semibold">
               {format(currentMonth, "MMMM yyyy", { locale: es })}
             </p>
           </div>
@@ -412,19 +447,21 @@ export function MonthlyMealPlan() {
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-2 md:space-y-4">
           {/* Encabezados de días de la semana */}
-          <div className="grid grid-cols-7 gap-2">
+          <div className="grid grid-cols-7 gap-1 md:gap-2">
             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((day) => (
-              <div key={day} className="text-center text-sm font-medium text-muted-foreground py-2">
+              <div key={day} className="text-center text-xs md:text-sm font-medium text-muted-foreground py-1 md:py-2">
                 {day}
               </div>
             ))}
           </div>
 
-          {/* Calendario por semanas */}
-          {weeks.map((week, weekIndex) => (
-            <div key={weekIndex} className="grid grid-cols-7 gap-2">
+          {/* Calendario por semanas - Scroll horizontal en móvil */}
+          <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible">
+            <div className="inline-block min-w-full md:block">
+              {weeks.map((week, weekIndex) => (
+                <div key={weekIndex} className="grid grid-cols-7 gap-1 md:gap-2 min-w-[700px] md:min-w-0">
               {week.map((day, dayIndex) => {
                 if (!day) return <div key={dayIndex} className="min-h-[120px]" />
                 
@@ -438,20 +475,20 @@ export function MonthlyMealPlan() {
                 return (
                   <Card 
                     key={dateStr} 
-                    className={`min-h-[120px] ${
+                    className={`min-h-[100px] md:min-h-[120px] ${
                       !isCurrentMonth ? 'opacity-40' : ''
                     } ${isCurrentDay ? 'ring-2 ring-teal-500' : ''} ${
                       isPastDay ? 'bg-gray-50' : ''
                     }`}
                   >
-                    <CardHeader className="pb-2 p-2">
+                    <CardHeader className="pb-1 md:pb-2 p-1.5 md:p-2">
                       <div className="flex items-center justify-between">
                         <div>
-                          <CardTitle className="text-xs font-medium">
+                          <CardTitle className="text-xs md:text-sm font-medium">
                             {format(day, 'd')}
                           </CardTitle>
                           {isCurrentDay && (
-                            <Badge variant="outline" className="text-[10px] mt-1">
+                            <Badge variant="outline" className="text-[9px] md:text-[10px] mt-0.5 md:mt-1 px-1 py-0">
                               Hoy
                             </Badge>
                           )}
@@ -460,7 +497,7 @@ export function MonthlyMealPlan() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-5 w-5"
+                            className="h-6 w-6 md:h-5 md:w-5 touch-manipulation"
                             onClick={() => handleApplyToMonth(dateStr)}
                             disabled={saving}
                             title="Aplicar a todo el mes"
@@ -470,7 +507,7 @@ export function MonthlyMealPlan() {
                         )}
                       </div>
                     </CardHeader>
-                    <CardContent className="p-2 space-y-1">
+                    <CardContent className="p-1.5 md:p-2 space-y-0.5 md:space-y-1">
                       {isCurrentMonth && MEAL_TYPES.map((meal) => {
                         const selection = getSelectionForMeal(dateStr, meal.type)
                         // Verificar si está completada (por defecto false si no se especifica)
@@ -484,24 +521,24 @@ export function MonthlyMealPlan() {
                           >
                             <Button
                               variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
-                              className={`w-full justify-start h-auto p-1.5 text-[9px] ${
-                                hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100' : ''
-                              } ${hasSelection ? 'min-h-[85px]' : 'min-h-[40px]'}`}
+                              className={`w-full justify-start h-auto p-1 md:p-1.5 text-[8px] md:text-[9px] touch-manipulation ${
+                                hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200' : ''
+                              } ${hasSelection ? 'min-h-[70px] md:min-h-[85px]' : 'min-h-[32px] md:min-h-[40px]'}`}
                               onClick={() => handleSelectMeal(dateStr, meal.type)}
                               disabled={saving || !isCurrentMonth}
                             >
-                              <div className="flex flex-col gap-1 w-full text-left">
+                              <div className="flex flex-col gap-0.5 md:gap-1 w-full text-left">
                                 {/* Header: Icono, nombre de comida */}
-                                <div className="flex items-center gap-1">
-                                  <span className="text-[11px] flex-shrink-0">{meal.icon}</span>
+                                <div className="flex items-center gap-0.5 md:gap-1">
+                                  <span className="text-[10px] md:text-[11px] flex-shrink-0">{meal.icon}</span>
                                   <div className="flex-1 min-w-0">
-                                    <div className="font-medium text-[9px] leading-tight">{meal.name}</div>
+                                    <div className="font-medium text-[8px] md:text-[9px] leading-tight truncate">{meal.name}</div>
                                     {!hasSelection && (
-                                      <div className="text-[7px] text-muted-foreground">{meal.time}</div>
+                                      <div className="text-[6px] md:text-[7px] text-muted-foreground">{meal.time}</div>
                                     )}
                                   </div>
                                   {hasSelection && (
-                                    <Check className={`h-2.5 w-2.5 flex-shrink-0 ${
+                                    <Check className={`h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0 ${
                                       isCompleted ? 'text-teal-600' : 'text-blue-500'
                                     }`} />
                                   )}
@@ -509,21 +546,21 @@ export function MonthlyMealPlan() {
                                 
                                 {/* Selección: Nombre completo de la receta con macros */}
                                 {hasSelection && (
-                                  <div className="mt-0.5 pt-1 border-t border-gray-200/60 space-y-1">
-                                    <div className="text-[9px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
-                                      {selection.recipe?.name || selection.recipe_name || selection.custom_description || 'Sin nombre'}
+                                  <div className="mt-0.5 pt-0.5 md:pt-1 border-t border-gray-200/60 space-y-0.5 md:space-y-1">
+                                    <div className="text-[8px] md:text-[9px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
+                                      {getMealName(selection)}
                                     </div>
                                     
                                     {/* Estado: Seleccionada o Completada */}
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-0.5 md:gap-1">
                                       {!isCompleted && (
-                                        <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-blue-300 text-blue-600 bg-blue-50">
-                                          📋 Seleccionada
+                                        <Badge variant="outline" className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-blue-300 text-blue-600 bg-blue-50">
+                                          📋
                                         </Badge>
                                       )}
                                       {isCompleted && (
-                                        <Badge variant="outline" className="text-[7px] px-1 py-0 h-3 border-teal-300 text-teal-600 bg-teal-50">
-                                          ✅ Completada
+                                        <Badge variant="outline" className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-teal-300 text-teal-600 bg-teal-50">
+                                          ✅
                                         </Badge>
                                       )}
                                     </div>
@@ -531,7 +568,7 @@ export function MonthlyMealPlan() {
                                     {/* Macros nutricionales (solo calorías en vista mensual por espacio) */}
                                     {(selection.recipe?.calories || selection.calories) && (
                                       <div className="text-center bg-orange-50 rounded p-0.5">
-                                        <div className="font-bold text-orange-600 text-[8px]">
+                                        <div className="font-bold text-orange-600 text-[7px] md:text-[8px]">
                                           {selection.recipe?.calories || selection.calories || 0} kcal
                                         </div>
                                       </div>
@@ -544,7 +581,7 @@ export function MonthlyMealPlan() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-4 w-4 absolute -right-1 -top-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white shadow-sm"
+                                className="h-5 w-5 md:h-4 md:w-4 absolute -right-0.5 -top-0.5 md:-right-1 md:-top-1 opacity-60 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity bg-white shadow-sm touch-manipulation"
                                 onClick={() => {
                                   // Copiar semana anterior
                                   const previousWeekStart = new Date(day)
@@ -554,7 +591,7 @@ export function MonthlyMealPlan() {
                                 disabled={saving}
                                 title="Copiar semana anterior"
                               >
-                                <Copy className="h-2 w-2" />
+                                <Copy className="h-2.5 w-2.5 md:h-2 md:w-2" />
                               </Button>
                             )}
                           </div>
@@ -564,8 +601,10 @@ export function MonthlyMealPlan() {
                   </Card>
                 )
               })}
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
         </div>
       )}
 

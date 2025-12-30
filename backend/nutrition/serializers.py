@@ -71,6 +71,22 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "macro_percentages", "created_at", "updated_at"]
+    
+    def update(self, instance, validated_data):
+        """
+        Actualizar plan con validación reforzada: solo un plan activo por usuario.
+        Si se marca is_active=True, desactiva automáticamente otros planes activos del usuario.
+        """
+        is_activating = validated_data.get('is_active', False)
+        
+        # Si se está activando este plan y pertenece a un usuario, desactivar otros
+        if is_activating and instance.user:
+            NutritionPlan.objects.filter(
+                user=instance.user,
+                is_active=True
+            ).exclude(pk=instance.pk).update(is_active=False)
+        
+        return super().update(instance, validated_data)
 
 
 class NutritionPlanMinimalSerializer(serializers.ModelSerializer):

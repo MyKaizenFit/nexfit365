@@ -6,6 +6,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
+from django.shortcuts import get_object_or_404
 
 from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
@@ -123,6 +124,54 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         ).prefetch_related('days__exercises__exercise')
         serializer = WorkoutProgramMinimalSerializer(templates, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """
+        Activar un programa de entrenamiento para el usuario actual.
+        Desactiva automáticamente cualquier otro programa activo del usuario.
+        POST /api/workouts/programs/{id}/activate/
+        """
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        program = get_object_or_404(WorkoutProgram, pk=pk)
+        user = request.user
+        
+        # Validar que el programa pertenece al usuario o es una plantilla del sistema
+        if program.user and program.user != user:
+            return Response(
+                {'error': 'No tienes permiso para activar este programa.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Solo se pueden activar programas de usuarios (no plantillas directamente)
+        # Si es una plantilla, el admin debe crear una copia para el usuario primero
+        if program.is_template or (program.is_system and not program.user):
+            return Response(
+                {'error': 'No puedes activar directamente una plantilla. Un administrador debe asignártela primero.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # IMPORTANTE: Desactivar TODOS los otros programas activos del usuario
+        # Esto garantiza que solo un programa esté activo a la vez
+        deactivated_count = WorkoutProgram.objects.filter(
+            user=user,
+            is_active=True
+        ).exclude(pk=pk).update(is_active=False)
+        
+        logger.info(f'Usuario {user.email}: Desactivados {deactivated_count} programas al activar programa {pk}')
+        
+        # Activar el programa solicitado
+        program.is_active = True
+        program.save(update_fields=['is_active'])
+        
+        serializer = WorkoutProgramSerializer(program)
+        return Response({
+            'message': 'Programa activado correctamente. Otros programas activos han sido desactivados.',
+            'program': serializer.data,
+            'deactivated_count': deactivated_count
+        }, status=status.HTTP_200_OK)
 
 
 class WorkoutDayViewSet(viewsets.ModelViewSet):
