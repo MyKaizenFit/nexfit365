@@ -746,12 +746,12 @@ def weekly_meal_selections(request):
         
         end_date = start_date + timedelta(days=6)  # Domingo
         
-        # Obtener selecciones de la semana
+        # Obtener selecciones de la semana con optimización de consultas
         meal_logs = MealLog.objects.filter(
             user=user,
             date__gte=start_date,
             date__lte=end_date
-        ).order_by('date', 'meal_type')
+        ).select_related('recipe').order_by('date', 'meal_type')
         
         # Organizar por día
         weekly_selections = {}
@@ -960,6 +960,56 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         """Plantillas disponibles"""
         templates = NutritionPlan.objects.filter(is_template=True, is_active=True)
         return Response(NutritionPlanMinimalSerializer(templates, many=True).data)
+    
+    @action(detail=True, methods=['post'])
+    def activate(self, request, pk=None):
+        """
+        Activar un plan nutricional para el usuario actual.
+        Desactiva automáticamente cualquier otro plan activo del usuario.
+        POST /api/nutrition/plans/{id}/activate/
+        """
+        plan = get_object_or_404(NutritionPlan, pk=pk)
+        user = request.user
+        
+        # Validar que el plan pertenece al usuario o es una plantilla del sistema
+        if plan.user and plan.user != user:
+            return Response(
+                {'error': 'No tienes permiso para activar este plan.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Solo se pueden activar planes de usuarios (no plantillas directamente)
+        # Si es una plantilla, el admin debe crear una copia para el usuario primero
+        if plan.is_template or (plan.is_system and not plan.user):
+            return Response(
+                {'error': 'No puedes activar directamente una plantilla. Un administrador debe asignártela primero.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # IMPORTANTE: Desactivar TODOS los otros planes activos del usuario
+        # Esto garantiza que solo un plan esté activo a la vez
+        NutritionPlan.objects.filter(
+            user=user,
+            is_active=True
+        ).exclude(pk=pk).update(is_active=False)
+        
+        # Activar el plan solicitado
+        plan.is_active = True
+        plan.save(update_fields=['is_active'])
+        
+        # Registrar en el historial si existe el servicio
+        try:
+            from .services import PersonalizedNutritionService
+            nutrition_service = PersonalizedNutritionService(user)
+            # El servicio puede registrar el cambio en el historial si es necesario
+        except Exception as e:
+            logger.warning(f'No se pudo registrar el cambio en historial: {e}')
+        
+        serializer = NutritionPlanSerializer(plan)
+        return Response({
+            'message': 'Plan activado correctamente. Otros planes activos han sido desactivados.',
+            'plan': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class MealLogViewSet(viewsets.ModelViewSet):

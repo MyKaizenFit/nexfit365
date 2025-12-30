@@ -418,46 +418,46 @@ export function MealSelectionModal({
 
   const modalContent = (
     <>
-      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
-        <div className="w-full max-w-md h-[90vh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white border-2 border-purple-100 flex flex-col">
+      <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-[9998] flex items-center justify-center p-0 md:p-4">
+        <div className="w-full h-full md:w-full md:max-w-md md:h-[90vh] z-[9999] md:rounded-2xl overflow-hidden shadow-2xl bg-white md:border-2 md:border-purple-100 flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 rounded-t-2xl flex-shrink-0">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">{mealName}</h3>
-                <p className="text-sm text-gray-600 flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {mealTime}
+            <div className="flex items-center justify-between p-5 md:p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 md:rounded-t-2xl flex-shrink-0">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900">{mealName}</h3>
+                <p className="text-base md:text-sm text-gray-600 flex items-center gap-2 md:gap-1 mt-1">
+                  <Clock className="w-5 h-5 md:w-4 md:h-4 flex-shrink-0" />
+                  <span>{mealTime}</span>
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors ml-4 flex-shrink-0 touch-manipulation p-2 -mr-2"
                 aria-label="Cerrar modal"
               >
-                <X className="w-6 h-6" />
+                <X className="w-7 h-7 md:w-6 md:h-6" />
               </button>
             </div>
 
             {/* Content - Scrollable */}
-            <div className="p-4 space-y-3 overflow-y-auto flex-1 min-h-0">
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-gray-600">
+            <div className="p-5 md:p-4 space-y-4 md:space-y-3 overflow-y-auto flex-1 min-h-0">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 mb-5 md:mb-4">
+                <p className="text-base md:text-sm font-medium md:font-normal text-gray-700 md:text-gray-600">
                   Selecciona una opción para {mealName.toLowerCase()}:
                 </p>
                 <button
                   onClick={handleViewAllRecipes}
-                  className="px-3 py-1.5 text-xs font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg transition-all shadow-sm hover:shadow-md flex items-center gap-1.5"
+                  className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
                   disabled={loadingRecipes}
                 >
                   {loadingRecipes ? (
                     <>
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Cargando...
+                      <Loader2 className="w-4 h-4 md:w-3 md:h-3 animate-spin" />
+                      <span>Cargando...</span>
                     </>
                   ) : (
                     <>
-                      <BookOpen className="w-3 h-3" />
-                      Ver Recetas Disponibles
+                      <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
+                      <span>Ver Recetas Disponibles</span>
                     </>
                   )}
                 </button>
@@ -467,83 +467,85 @@ export function MealSelectionModal({
                 <div
                   key={option.id}
                   onClick={() => handleSelectOption(option)}
-                  className={`border rounded-lg p-3 cursor-pointer transition-all ${
+                  className={`border-2 md:border rounded-2xl md:rounded-lg p-5 md:p-3 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${
                     option.recipeId 
-                      ? 'border-orange-200 bg-gradient-to-br from-orange-50 to-pink-50 hover:border-orange-400 hover:shadow-md' 
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                      ? 'border-orange-300 md:border-orange-200 bg-gradient-to-br from-orange-50 to-pink-50 hover:border-orange-500 md:hover:border-orange-400 hover:shadow-xl md:hover:shadow-md' 
+                      : 'border-gray-300 md:border-gray-200 hover:border-blue-400 md:hover:border-blue-300 hover:bg-blue-50'
                   }`}
                 >
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">{option.icon}</div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-gray-900">{option.name}</h4>
+                  <div className="flex items-start gap-4 md:gap-3">
+                    <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">
+                        <h4 className="font-bold md:font-medium text-lg md:text-base text-gray-900 leading-tight">{option.name}</h4>
                         {option.recipeId && (
-                          <>
-                            <span className="px-2 py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-xs font-medium rounded-full flex items-center gap-1">
-                              <BookOpen className="w-3 h-3" />
+                          <div className="flex flex-wrap gap-2 md:gap-2">
+                            <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-sm md:text-xs font-semibold md:font-medium rounded-full flex items-center gap-1.5 md:gap-1">
+                              <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
                               Receta disponible
                             </span>
-                            <span className="px-2 py-0.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 text-xs font-medium rounded-full flex items-center gap-1">
-                              <Target className="w-3 h-3" />
+                            <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 text-sm md:text-xs font-semibold md:font-medium rounded-full flex items-center gap-1.5 md:gap-1">
+                              <Target className="w-4 h-4 md:w-3 md:h-3" />
                               Recomendado
                             </span>
-                          </>
+                          </div>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{option.description}</p>
+                      <p className="text-base md:text-sm text-gray-700 md:text-gray-600 mb-4 md:mb-2 leading-relaxed">{option.description}</p>
 
-                      {/* Macros */}
-                      <div className="flex items-center gap-4 text-xs text-gray-500 mb-2">
-                        <span className="flex items-center gap-1">
-                          <Zap className="w-3 h-3 text-orange-500" />
-                          {option.calories} kcal
+                      {/* Macros - Grid en móvil, flex en desktop */}
+                      <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-4 text-sm md:text-xs text-gray-600 md:text-gray-500 mb-4 md:mb-2">
+                        <span className="flex items-center gap-2 md:gap-1">
+                          <Zap className="w-5 h-5 md:w-3 md:h-3 text-orange-500 flex-shrink-0" />
+                          <span className="font-semibold md:font-normal">{option.calories} kcal</span>
                         </span>
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-blue-500" />
-                          {formatMacro(option.protein)}g proteína
+                        <span className="flex items-center gap-2 md:gap-1">
+                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                          <span className="font-semibold md:font-normal">{formatMacro(option.protein)}g proteína</span>
                         </span>
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-green-500" />
-                          {formatMacro(option.carbs)}g carbos
+                        <span className="flex items-center gap-2 md:gap-1">
+                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-green-500 flex-shrink-0" />
+                          <span className="font-semibold md:font-normal">{formatMacro(option.carbs)}g carbos</span>
                         </span>
-                        <span className="flex items-center gap-1">
-                          <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                          {formatMacro(option.fat)}g grasas
+                        <span className="flex items-center gap-2 md:gap-1">
+                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-yellow-500 flex-shrink-0" />
+                          <span className="font-semibold md:font-normal">{formatMacro(option.fat)}g grasas</span>
                         </span>
                       </div>
 
                       {/* Categoría */}
-                      <div className="flex items-center gap-2 mb-2">
-                        {getCategoryIcon(option.category || "balanced")}
-                        <span className="text-xs text-gray-500">
+                      <div className="flex items-center gap-2 mb-4 md:mb-2">
+                        <div className="scale-125 md:scale-100">
+                          {getCategoryIcon(option.category || "balanced")}
+                        </div>
+                        <span className="text-sm md:text-xs text-gray-600 md:text-gray-500 font-medium md:font-normal">
                           {getCategoryName(option.category || "balanced")}
                         </span>
                         {option.cookTime && (
-                          <span className="text-xs text-gray-400">
+                          <span className="text-sm md:text-xs text-gray-500 md:text-gray-400">
                             • {option.cookTime}
                           </span>
                         )}
                       </div>
 
-                      {/* Botón Ver Receta - Siempre disponible */}
+                      {/* Botón Ver Receta - Más grande en móvil */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           handleViewRecipe(option)
                         }}
-                        className="w-full mt-2 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                        className="w-full mt-2 px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-3 md:gap-2 touch-manipulation active:scale-[0.98]"
                         disabled={loadingRecipe}
                       >
                         {loadingRecipe ? (
                           <>
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Buscando receta...
+                            <Loader2 className="w-5 h-5 md:w-4 md:h-4 animate-spin" />
+                            <span>Buscando receta...</span>
                           </>
                         ) : (
                           <>
-                            <BookOpen className="w-4 h-4" />
-                            📖 Ver Receta
+                            <BookOpen className="w-5 h-5 md:w-4 md:h-4" />
+                            <span>📖 Ver Receta</span>
                           </>
                         )}
                       </button>
@@ -554,10 +556,10 @@ export function MealSelectionModal({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-gray-200 flex-shrink-0">
+            <div className="p-5 md:p-4 border-t border-gray-200 flex-shrink-0 bg-white md:bg-transparent">
               <button
                 onClick={onClose}
-                className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="w-full px-6 py-4 md:px-4 md:py-2 text-base md:text-sm font-semibold md:font-normal text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors touch-manipulation active:scale-[0.98]"
               >
                 Cancelar
               </button>
@@ -759,43 +761,43 @@ function RecipeDetailModal({
   }
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
-      <div className="w-full max-w-3xl h-[90vh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-0 md:p-4">
+      <div className="w-full h-full md:w-full md:max-w-3xl md:h-[90vh] z-[9999] md:rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-6 rounded-t-2xl flex-shrink-0">
+          <div className="bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-5 md:p-6 md:rounded-t-2xl flex-shrink-0">
             <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
-                    <ChefHat className="w-6 h-6 text-white" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-3 md:gap-3 mb-3 md:mb-2">
+                  <div className="w-14 h-14 md:w-12 md:h-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <ChefHat className="w-7 h-7 md:w-6 md:h-6 text-white" />
                   </div>
-                  <div className="flex-1">
-                    <h2 className="text-2xl font-bold text-gray-900">{recipe.name}</h2>
-                    <p className="text-sm text-gray-600 mt-1">{recipe.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">{recipe.name}</h2>
+                    <p className="text-sm md:text-sm text-gray-600 mt-1.5 md:mt-1 leading-relaxed">{recipe.description}</p>
                   </div>
                 </div>
 
                 {/* Badge de personalización */}
-                <div className="flex items-center gap-2 mt-3 flex-wrap">
-                  <div className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-medium flex items-center gap-1">
-                    <Target className="w-3 h-3" />
+                <div className="flex items-center gap-2 md:gap-2 mt-4 md:mt-3 flex-wrap">
+                  <div className="px-3 py-1.5 md:px-3 md:py-1 bg-blue-100 text-blue-700 rounded-full text-sm md:text-xs font-semibold md:font-medium flex items-center gap-1.5 md:gap-1">
+                    <Target className="w-4 h-4 md:w-3 md:h-3" />
                     Ajustado a tu perfil
                   </div>
                   {recipe.difficulty && (
-                    <div className={`px-3 py-1 rounded-full text-xs font-medium ${getDifficultyColor(recipe.difficulty)}`}>
+                    <div className={`px-3 py-1.5 md:px-3 md:py-1 rounded-full text-sm md:text-xs font-semibold md:font-medium ${getDifficultyColor(recipe.difficulty)}`}>
                       {getDifficultyLabel(recipe.difficulty)}
                     </div>
                   )}
-                  <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
+                  <div className="px-3 py-1.5 md:px-3 md:py-1 bg-gray-100 text-gray-700 rounded-full text-sm md:text-xs font-semibold md:font-medium flex items-center gap-1.5 md:gap-1">
+                    <Clock className="w-4 h-4 md:w-3 md:h-3" />
                     {recipe.prep_time_minutes || 0} min prep + {recipe.cook_time_minutes || 0} min cocción
                   </div>
-                  <div className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium flex items-center gap-1">
-                    <Users className="w-3 h-3" />
+                  <div className="px-3 py-1.5 md:px-3 md:py-1 bg-gray-100 text-gray-700 rounded-full text-sm md:text-xs font-semibold md:font-medium flex items-center gap-1.5 md:gap-1">
+                    <Users className="w-4 h-4 md:w-3 md:h-3" />
                     {personalized.servings} {personalized.servings === 1 ? 'porción' : 'porciones'}
                   </div>
                   {recipe.category && (
-                    <div className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-medium">
+                    <div className="px-3 py-1.5 md:px-3 md:py-1 bg-purple-100 text-purple-700 rounded-full text-sm md:text-xs font-semibold md:font-medium">
                       {recipe.category}
                     </div>
                   )}
@@ -803,73 +805,64 @@ function RecipeDetailModal({
               </div>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
+                className="text-gray-400 hover:text-gray-600 transition-colors ml-4 flex-shrink-0 touch-manipulation p-2 -mr-2"
                 aria-label="Cerrar"
               >
-                <X className="w-6 h-6" />
+                <X className="w-7 h-7 md:w-6 md:h-6" />
               </button>
-            </div>
-
-            {/* Información de personalización */}
-            <div className="bg-white/60 rounded-lg p-3 mt-3">
-              <p className="text-xs text-gray-600">
-                <span className="font-semibold">Cantidades ajustadas:</span> Esta receta aporta{' '}
-                <span className="font-bold text-orange-600">{personalized.meal_percentage}%</span> de tus calorías diarias objetivo ({userProfile.daily_calories_target} kcal).
-                Las cantidades se han ajustado según tu peso ({userProfile.weight}kg), altura ({userProfile.height}cm) y objetivo ({userProfile.main_goal}).
-              </p>
             </div>
           </div>
 
           {/* Content - Scrollable */}
-          <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0">
+          <div className="p-5 md:p-6 space-y-5 md:space-y-6 overflow-y-auto flex-1 min-h-0">
             {/* Macros personalizados */}
-            <div className="grid grid-cols-4 gap-4">
-              <div className="text-center bg-orange-50 rounded-lg p-4 border border-orange-100">
-                <div className="text-2xl font-bold text-orange-600 mb-1">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <div className="text-center bg-orange-50 rounded-xl md:rounded-lg p-4 md:p-4 border-2 md:border border-orange-200 md:border-orange-100">
+                <div className="text-3xl md:text-2xl font-bold text-orange-600 mb-1.5 md:mb-1">
                   {personalized.macros.calories}
                 </div>
-                <div className="text-xs text-orange-500 font-medium">kcal</div>
-                <div className="text-xs text-gray-400 mt-1">
-                  Original: {personalized.original_calories}
-                </div>
+                <div className="text-sm md:text-xs text-orange-500 font-semibold md:font-medium">kcal</div>
               </div>
-              <div className="text-center bg-blue-50 rounded-lg p-4 border border-blue-100">
-                <div className="text-2xl font-bold text-blue-600 mb-1">
+              <div className="text-center bg-blue-50 rounded-xl md:rounded-lg p-4 md:p-4 border-2 md:border border-blue-200 md:border-blue-100">
+                <div className="text-3xl md:text-2xl font-bold text-blue-600 mb-1.5 md:mb-1">
                   {formatMacro(personalized.macros.protein)}g
                 </div>
-                <div className="text-xs text-blue-500 font-medium">Proteína</div>
+                <div className="text-sm md:text-xs text-blue-500 font-semibold md:font-medium">Proteína</div>
               </div>
-              <div className="text-center bg-green-50 rounded-lg p-4 border border-green-100">
-                <div className="text-2xl font-bold text-green-600 mb-1">
+              <div className="text-center bg-green-50 rounded-xl md:rounded-lg p-4 md:p-4 border-2 md:border border-green-200 md:border-green-100">
+                <div className="text-3xl md:text-2xl font-bold text-green-600 mb-1.5 md:mb-1">
                   {formatMacro(personalized.macros.carbs)}g
                 </div>
-                <div className="text-xs text-green-500 font-medium">Carbos</div>
+                <div className="text-sm md:text-xs text-green-500 font-semibold md:font-medium">Carbos</div>
               </div>
-              <div className="text-center bg-yellow-50 rounded-lg p-4 border border-yellow-100">
-                <div className="text-2xl font-bold text-yellow-600 mb-1">
+              <div className="text-center bg-yellow-50 rounded-xl md:rounded-lg p-4 md:p-4 border-2 md:border border-yellow-200 md:border-yellow-100">
+                <div className="text-3xl md:text-2xl font-bold text-yellow-600 mb-1.5 md:mb-1">
                   {formatMacro(personalized.macros.fat)}g
                 </div>
-                <div className="text-xs text-yellow-500 font-medium">Grasas</div>
+                <div className="text-sm md:text-xs text-yellow-500 font-semibold md:font-medium">Grasas</div>
               </div>
             </div>
 
             {/* Ingredientes personalizados */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <BookOpen className="w-5 h-5 text-orange-500" />
-                Ingredientes (Ajustados a tu perfil)
+              <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3 flex items-center gap-2.5 md:gap-2">
+                <BookOpen className="w-6 h-6 md:w-5 md:h-5 text-orange-500 flex-shrink-0" />
+                <span>Ingredientes</span>
               </h3>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+              <div className="bg-gray-50 rounded-xl md:rounded-lg p-5 md:p-4 space-y-3 md:space-y-2">
                 {personalized.ingredients.map((ingredient, index) => {
                   const amount = typeof ingredient.amount === 'string'
                     ? (parseFloat(ingredient.amount) || null)
                     : ingredient.amount
 
+                  // Filtrar el texto de "cantidad a ajustar según tu perfil"
+                  const cleanNote = ingredient.note ? ingredient.note.replace(/cantidad a ajustar según tu perfil/gi, '').trim() : ''
+
                   return (
-                    <div key={index} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0">
-                      <span className="text-gray-700 font-medium">{ingredient.name}</span>
-                      <span className="text-gray-600 font-semibold">
-                        {amount !== null && amount !== undefined ? `${amount} ${ingredient.unit || 'g'}` : ingredient.note || 'Ajustar según preferencia'}
+                    <div key={index} className="flex items-center justify-between py-3 md:py-2 border-b border-gray-200 last:border-0">
+                      <span className="text-base md:text-sm text-gray-700 font-semibold md:font-medium pr-4">{ingredient.name}</span>
+                      <span className="text-base md:text-sm text-gray-600 font-bold md:font-semibold text-right flex-shrink-0">
+                        {amount !== null && amount !== undefined ? `${amount} ${ingredient.unit || 'g'}` : cleanNote || ''}
                       </span>
                     </div>
                   )
@@ -879,11 +872,11 @@ function RecipeDetailModal({
 
             {/* Instrucciones */}
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                <ChefHat className="w-5 h-5 text-orange-500" />
-                Instrucciones de Preparación
+              <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3 flex items-center gap-2.5 md:gap-2">
+                <ChefHat className="w-6 h-6 md:w-5 md:h-5 text-orange-500 flex-shrink-0" />
+                <span>Instrucciones de Preparación</span>
               </h3>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+              <div className="bg-gray-50 rounded-xl md:rounded-lg p-5 md:p-4 space-y-4 md:space-y-3">
                 {(() => {
                   // Verificar si hay instrucciones válidas (no vacías ni genéricas)
                   const hasValidInstructions = recipe.instructions && 
@@ -907,11 +900,11 @@ function RecipeDetailModal({
 
                     if (instructionsList.length > 0) {
                       return instructionsList.map((instruction: string, index: number) => (
-                        <div key={index} className="flex gap-3">
-                          <div className="flex-shrink-0 w-7 h-7 bg-gradient-to-br from-orange-400 to-pink-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                        <div key={index} className="flex gap-4 md:gap-3">
+                          <div className="flex-shrink-0 w-9 h-9 md:w-7 md:h-7 bg-gradient-to-br from-orange-400 to-pink-500 text-white rounded-full flex items-center justify-center text-base md:text-sm font-bold">
                             {index + 1}
                           </div>
-                          <p className="text-gray-700 flex-1 leading-relaxed">{instruction.trim()}</p>
+                          <p className="text-base md:text-sm text-gray-700 flex-1 leading-relaxed">{instruction.trim()}</p>
                         </div>
                       ))
                     }
@@ -919,9 +912,9 @@ function RecipeDetailModal({
                   
                   // Si no hay instrucciones válidas, mostrar mensaje
                   return (
-                    <div className="text-center py-4">
-                      <p className="text-gray-500 italic mb-2">No hay instrucciones detalladas disponibles para esta receta.</p>
-                      <p className="text-sm text-gray-400">Las instrucciones se agregarán próximamente.</p>
+                    <div className="text-center py-6 md:py-4">
+                      <p className="text-base md:text-sm text-gray-500 italic mb-2">No hay instrucciones detalladas disponibles para esta receta.</p>
+                      <p className="text-sm md:text-xs text-gray-400">Las instrucciones se agregarán próximamente.</p>
                     </div>
                   )
                 })()}
@@ -931,24 +924,24 @@ function RecipeDetailModal({
             {/* Información nutricional adicional */}
             {(recipe.fiber || recipe.sugar || recipe.sodium) && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Información Nutricional Adicional</h3>
-                <div className="grid grid-cols-3 gap-4">
+                <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3">Información Nutricional Adicional</h3>
+                <div className="grid grid-cols-3 gap-2.5 md:gap-4">
                   {recipe.fiber && (
-                    <div className="text-center bg-purple-50 rounded-lg p-3 border border-purple-100">
-                      <div className="text-lg font-bold text-purple-600">{formatMacro(recipe.fiber)}g</div>
-                      <div className="text-xs text-purple-500 font-medium">Fibra</div>
+                    <div className="text-center bg-purple-50 rounded-xl md:rounded-lg p-3 md:p-3 border-2 md:border border-purple-200 md:border-purple-100 min-w-0">
+                      <div className="text-xl md:text-lg font-bold text-purple-600 mb-1.5 md:mb-1 break-words">{formatMacro(recipe.fiber)}g</div>
+                      <div className="text-xs md:text-xs text-purple-500 font-semibold md:font-medium">Fibra</div>
                     </div>
                   )}
                   {recipe.sugar && (
-                    <div className="text-center bg-pink-50 rounded-lg p-3 border border-pink-100">
-                      <div className="text-lg font-bold text-pink-600">{formatMacro(recipe.sugar)}g</div>
-                      <div className="text-xs text-pink-500 font-medium">Azúcar</div>
+                    <div className="text-center bg-pink-50 rounded-xl md:rounded-lg p-3 md:p-3 border-2 md:border border-pink-200 md:border-pink-100 min-w-0">
+                      <div className="text-xl md:text-lg font-bold text-pink-600 mb-1.5 md:mb-1 break-words">{formatMacro(recipe.sugar)}g</div>
+                      <div className="text-xs md:text-xs text-pink-500 font-semibold md:font-medium">Azúcar</div>
                     </div>
                   )}
                   {recipe.sodium && (
-                    <div className="text-center bg-indigo-50 rounded-lg p-3 border border-indigo-100">
-                      <div className="text-lg font-bold text-indigo-600">{formatMacro(recipe.sodium)}mg</div>
-                      <div className="text-xs text-indigo-500 font-medium">Sodio</div>
+                    <div className="text-center bg-indigo-50 rounded-xl md:rounded-lg p-3 md:p-3 border-2 md:border border-indigo-200 md:border-indigo-100 min-w-0">
+                      <div className="text-xl md:text-lg font-bold text-indigo-600 mb-1.5 md:mb-1 break-words text-[14px] md:text-lg leading-tight">{formatMacro(recipe.sodium)}mg</div>
+                      <div className="text-xs md:text-xs text-indigo-500 font-semibold md:font-medium">Sodio</div>
                     </div>
                   )}
                 </div>
@@ -958,11 +951,11 @@ function RecipeDetailModal({
             {/* Imagen si está disponible */}
             {recipe.image_url && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Imagen de la Receta</h3>
+                <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3">Imagen de la Receta</h3>
                 <img
                   src={recipe.image_url}
                   alt={recipe.name}
-                  className="w-full rounded-lg object-cover shadow-md"
+                  className="w-full rounded-xl md:rounded-lg object-cover shadow-lg md:shadow-md"
                   onError={(e) => {
                     (e.target as HTMLImageElement).style.display = 'none'
                   }}
@@ -972,17 +965,17 @@ function RecipeDetailModal({
           </div>
 
           {/* Footer */}
-          <div className="bg-white border-t border-gray-200 p-6 rounded-b-2xl flex-shrink-0">
-            <div className="flex gap-3">
+          <div className="bg-white border-t border-gray-200 p-5 md:p-6 md:rounded-b-2xl flex-shrink-0">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-3">
               <button
                 onClick={onClose}
-                className="flex-1 px-4 py-3 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                className="flex-1 px-6 py-4 md:px-4 md:py-3 text-base md:text-sm text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors font-semibold md:font-medium touch-manipulation active:scale-[0.98]"
               >
                 Cerrar
               </button>
               <button
                 onClick={onSelectRecipe}
-                className="flex-1 px-4 py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-lg hover:from-orange-600 hover:to-pink-600 transition-colors font-medium shadow-lg"
+                className="flex-1 px-6 py-4 md:px-4 md:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl md:rounded-lg hover:from-orange-600 hover:to-pink-600 transition-colors font-bold md:font-medium shadow-xl md:shadow-lg touch-manipulation active:scale-[0.98]"
               >
                 Seleccionar esta Receta
               </button>

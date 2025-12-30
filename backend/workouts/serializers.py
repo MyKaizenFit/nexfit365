@@ -96,6 +96,22 @@ class WorkoutProgramSerializer(serializers.ModelSerializer):
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "total_days", "training_days", "created_at", "updated_at"]
+    
+    def update(self, instance, validated_data):
+        """
+        Actualizar programa con validación reforzada: solo un programa activo por usuario.
+        Si se marca is_active=True, desactiva automáticamente otros programas activos del usuario.
+        """
+        is_activating = validated_data.get('is_active', False)
+        
+        # Si se está activando este programa y pertenece a un usuario, desactivar otros
+        if is_activating and instance.user:
+            WorkoutProgram.objects.filter(
+                user=instance.user,
+                is_active=True
+            ).exclude(pk=instance.pk).update(is_active=False)
+        
+        return super().update(instance, validated_data)
 
 
 class WorkoutProgramMinimalSerializer(serializers.ModelSerializer):

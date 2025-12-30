@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,7 +14,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
-const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
   const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, getMealOptions } = useDailyMeals()
@@ -88,40 +87,40 @@ export function MealDashboard() {
       {/* Hero Section - Tarjeta de Nutrición */}
       <Card className="backdrop-blur-sm bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-0 shadow-xl overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20"></div>
-        <CardHeader className="text-center relative z-10">
+        <CardHeader className="text-center relative z-10 p-4 md:p-6">
           <div className="flex justify-end mb-2">
             <Button 
               variant="ghost" 
               size="sm" 
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="text-gray-600 hover:text-gray-900"
+              className="text-gray-600 hover:text-gray-900 h-8 md:h-9 text-xs md:text-sm"
             >
-              <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-3 w-3 md:h-4 md:w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Actualizar
             </Button>
           </div>
-          <div className="mx-auto w-24 h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center mb-4 shadow-2xl animate-pulse">
-            <ChefHat className="h-12 w-12 text-white" />
+          <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center mb-3 md:mb-4 shadow-2xl animate-pulse">
+            <ChefHat className="h-8 w-8 md:h-12 md:w-12 text-white" />
           </div>
-          <CardTitle className="text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
+          <CardTitle className="text-xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
             Plan Nutricional 🍽️
           </CardTitle>
-          <CardDescription className="text-base mt-2 text-gray-700">
+          <CardDescription className="text-sm md:text-base mt-2 text-gray-700">
             Tu alimentación equilibrada para alcanzar tus objetivos
           </CardDescription>
           {daysInTransformation > 0 && (
-            <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white">
+            <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs md:text-sm">
               <Flame className="h-3 w-3 mr-1" />
               {daysInTransformation} días en tu transformación
             </Badge>
           )}
           {/* Barra de progreso de comidas */}
           {totalMeals > 0 && (
-            <div className="mt-4 space-y-2">
-              <Progress value={progressPercentage} className="h-3 bg-orange-100" />
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                <Flame className="h-4 w-4 text-orange-500" />
+            <div className="mt-3 md:mt-4 space-y-1.5 md:space-y-2">
+              <Progress value={progressPercentage} className="h-2 md:h-3 bg-orange-100" />
+              <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-gray-600">
+                <Flame className="h-3 w-3 md:h-4 md:w-4 text-orange-500" />
                 <span className="font-medium">
                   {completedMeals} de {totalMeals} comidas completadas
                 </span>
@@ -131,33 +130,29 @@ export function MealDashboard() {
         </CardHeader>
       </Card>
 
-      {/* Tabs para vista diaria, semanal y mensual */}
+      {/* Tabs para vista diaria y semanal */}
       <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="daily" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Vista Diaria
+        <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+          <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Vista </span>Diaria
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            Vista Semanal
-          </TabsTrigger>
-          <TabsTrigger value="monthly" className="flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" />
-            Vista Mensual
+          <TabsTrigger value="weekly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Vista </span>Semanal
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="daily" className="space-y-6 mt-6">
+        <TabsContent value="daily" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
           {/* Progreso Detallado del Día - Movido a la parte superior */}
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-            <Target className="w-5 h-5 text-white" />
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex items-center gap-2 md:gap-3">
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Target className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </div>
-          <div>
-            <h3 className="text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
-            <p className="text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
+          <div className="min-w-0">
+            <h3 className="text-lg md:text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
+            <p className="text-xs md:text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
           </div>
         </div>
         
@@ -174,28 +169,29 @@ export function MealDashboard() {
       </div>
 
       {/* Comidas del día */}
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-              <Utensils className="w-5 h-5 text-white" />
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+          <div className="flex items-center gap-2 md:gap-3">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Utensils className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
-            <div>
-              <h3 className="text-xl font-bold text-gray-900">Plan de Comidas del Día</h3>
-              <p className="text-sm text-gray-500">Selecciona tus opciones preferidas</p>
+            <div className="min-w-0">
+              <h3 className="text-lg md:text-xl font-bold text-gray-900">Plan de Comidas del Día</h3>
+              <p className="text-xs md:text-sm text-gray-500">Selecciona tus opciones preferidas</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
+          <div className="flex items-center gap-2 text-[10px] md:text-xs text-gray-500 bg-gray-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg self-start sm:self-auto">
             <Cloud className="w-3 h-3" />
-            Sincronizado en la nube
+            <span className="hidden sm:inline">Sincronizado en la nube</span>
+            <span className="sm:hidden">Sincronizado</span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
           {meals.map((meal) => (
             <div
               key={meal.id}
-              className={`group relative border-2 rounded-xl p-6 transition-all duration-300 ${
+              className={`group relative border-2 rounded-xl p-4 md:p-6 transition-all duration-300 ${
                 meal.selectedOption
                   ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg shadow-green-100'
                   : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg hover:shadow-blue-50'
@@ -203,76 +199,76 @@ export function MealDashboard() {
             >
               {/* Indicador de estado */}
               {meal.selectedOption && (
-                <div className="absolute -top-3 -right-3 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                  <Check className="w-5 h-5 text-white" />
+                <div className="absolute -top-2 -right-2 md:-top-3 md:-right-3 w-7 h-7 md:w-8 md:h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+                  <Check className="w-4 h-4 md:w-5 md:h-5 text-white" />
                 </div>
               )}
 
               {/* Header de la comida */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${
+              <div className="flex items-center gap-2 md:gap-3 mb-3 md:mb-4">
+                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center text-xl md:text-2xl flex-shrink-0 ${
                   meal.selectedOption 
                     ? 'bg-green-100 text-green-600' 
                     : 'bg-gray-100 text-gray-600'
                 }`}>
                   {meal.icon}
                 </div>
-                <div className="flex-1">
-                  <h4 className="font-semibold text-gray-900 text-lg">{meal.name}</h4>
-                  <p className="text-sm text-gray-500 flex items-center gap-2">
-                    <Clock className="w-3 h-3" />
-                    {meal.time}
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-semibold text-gray-900 text-base md:text-lg truncate">{meal.name}</h4>
+                  <p className="text-xs md:text-sm text-gray-500 flex items-center gap-1.5 md:gap-2">
+                    <Clock className="w-3 h-3 flex-shrink-0" />
+                    <span>{meal.time}</span>
                   </p>
                 </div>
               </div>
 
               {/* Descripción */}
-              <p className="text-sm text-gray-600 mb-4 leading-relaxed">{meal.description}</p>
+              <p className="text-xs md:text-sm text-gray-600 mb-3 md:mb-4 leading-relaxed line-clamp-2">{meal.description}</p>
 
               {/* Comida seleccionada o botón */}
               {meal.selectedOption ? (
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   {/* Tarjeta de comida seleccionada */}
-                  <div className={`bg-white rounded-lg p-4 border shadow-sm ${
+                  <div className={`bg-white rounded-lg p-3 md:p-4 border shadow-sm ${
                     meal.isCompleted 
                       ? 'border-green-200 bg-green-50/30' 
                       : 'border-blue-200 bg-blue-50/30'
                   }`}>
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                    <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                      <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
                       }`}>
-                        <span className="text-lg">{meal.selectedOption.icon}</span>
+                        <span className="text-base md:text-lg">{meal.selectedOption.icon}</span>
                       </div>
-                      <div className="flex-1">
-                        <h5 className="font-semibold text-gray-900 text-sm">
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-semibold text-gray-900 text-xs md:text-sm truncate">
                           {meal.selectedOption.name}
                         </h5>
-                        <p className="text-xs text-gray-500">
+                        <p className="text-[10px] md:text-xs text-gray-500">
                           {meal.isCompleted ? '✅ Completada' : '📋 Seleccionada'}
                         </p>
                       </div>
                     </div>
                     
                     {/* Macros de la comida seleccionada */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="text-center bg-orange-50 rounded-lg p-2">
-                        <div className="font-bold text-orange-600 text-lg">
+                    <div className="grid grid-cols-3 gap-2 md:gap-3">
+                      <div className="text-center bg-orange-50 rounded-lg p-1.5 md:p-2">
+                        <div className="font-bold text-orange-600 text-base md:text-lg">
                           {meal.selectedOption.calories}
                         </div>
-                        <div className="text-xs text-orange-500 font-medium">kcal</div>
+                        <div className="text-[10px] md:text-xs text-orange-500 font-medium">kcal</div>
                       </div>
-                      <div className="text-center bg-blue-50 rounded-lg p-2">
-                        <div className="font-bold text-blue-600 text-lg">
+                      <div className="text-center bg-blue-50 rounded-lg p-1.5 md:p-2">
+                        <div className="font-bold text-blue-600 text-base md:text-lg">
                           {meal.selectedOption.protein}
                         </div>
-                        <div className="text-xs text-blue-500 font-medium">prot</div>
+                        <div className="text-[10px] md:text-xs text-blue-500 font-medium">prot</div>
                       </div>
-                      <div className="text-center bg-green-50 rounded-lg p-2">
-                        <div className="font-bold text-green-600 text-lg">
+                      <div className="text-center bg-green-50 rounded-lg p-1.5 md:p-2">
+                        <div className="font-bold text-green-600 text-base md:text-lg">
                           {meal.selectedOption.carbs}
                         </div>
-                        <div className="text-xs text-green-500 font-medium">carb</div>
+                        <div className="text-[10px] md:text-xs text-green-500 font-medium">carb</div>
                       </div>
                     </div>
                   </div>
@@ -284,31 +280,32 @@ export function MealDashboard() {
                         onClick={async () => {
                           await markMealCompleted(meal.id)
                         }}
-                        className="flex-1 text-sm text-white font-medium bg-green-500 hover:bg-green-600 px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
+                        className="flex-1 text-xs md:text-sm text-white font-medium bg-green-500 hover:bg-green-600 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 md:gap-2 touch-manipulation"
                       >
-                        <Check className="w-4 h-4" />
-                        Marcar como completada
+                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                        <span className="hidden sm:inline">Marcar como completada</span>
+                        <span className="sm:hidden">Completar</span>
                       </button>
                     )}
                     <button
                       onClick={() => handleOpenMealOptions(meal)}
-                      className={`text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
+                      className={`text-xs md:text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition-colors touch-manipulation ${
                         meal.isCompleted
-                          ? 'text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100'
-                          : 'text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100'
+                          ? 'text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200'
+                          : 'text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 active:bg-gray-200'
                       }`}
                     >
-                      ✏️ Cambiar
+                      ✏️ <span className="hidden sm:inline">Cambiar</span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <button
                   onClick={() => handleOpenMealOptions(meal)}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-2 md:gap-3 px-4 md:px-6 py-3 md:py-4 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg hover:from-blue-600 hover:to-purple-600 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed touch-manipulation text-sm md:text-base"
                   disabled={syncing}
                 >
-                  <Plus className="w-5 h-5" />
+                  <Plus className="w-4 h-4 md:w-5 md:h-5" />
                   <span className="font-medium">
                     {syncing ? 'Sincronizando...' : 'Ver Opciones'}
                   </span>
@@ -339,16 +336,6 @@ export function MealDashboard() {
             </div>
           }>
             <WeeklyMealPlan />
-          </Suspense>
-        </TabsContent>
-
-        <TabsContent value="monthly" className="mt-6">
-          <Suspense fallback={
-            <div className="flex items-center justify-center p-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-            </div>
-          }>
-            <MonthlyMealPlan />
           </Suspense>
         </TabsContent>
       </Tabs>
