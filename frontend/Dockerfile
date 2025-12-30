@@ -54,10 +54,9 @@ RUN chmod +x node_modules/.bin/next || true
 # Limpiar caché de npm antes del build para ahorrar memoria
 RUN npm cache clean --force || true
 # Build con recursos limitados (workers ya limitados por NEXT_BUILD_WORKERS=1)
-# Usar NEXT_DIST_DIR para evitar conflictos con directorios con permisos incorrectos
-# Luego copiar el contenido a .next para que Next.js lo encuentre
-RUN NEXT_DIST_DIR=.next-temp npm run build || (echo "Build failed, cleaning up..." && rm -rf .next-temp && exit 1)
-RUN rm -rf .next && mv .next-temp .next || (echo "Failed to move build directory" && exit 1)
+# Asegurar que el directorio .next tenga los permisos correctos antes del build
+RUN mkdir -p .next && chmod 755 .next || true
+RUN npm run build || (echo "Build failed" && exit 1)
 
 # Imagen de producción, copiar todos los archivos y ejecutar next
 FROM base AS runner
