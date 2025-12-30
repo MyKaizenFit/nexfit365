@@ -30,10 +30,10 @@ export function UserProfileHistory({ userId }: { userId: string }) {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        {!loading && history.length === 0 && (
+        {!loading && (!history || !Array.isArray(history) || history.length === 0) && (
           <p className="text-sm text-muted-foreground">Sin registros disponibles.</p>
         )}
-        {history.slice(0, 5).map((entry) => (
+        {Array.isArray(history) && history.slice(0, 5).map((entry) => (
           <div key={entry.id} className="border rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between text-sm font-semibold">
               <span>{entry.changed_by_email || "Sistema"}</span>

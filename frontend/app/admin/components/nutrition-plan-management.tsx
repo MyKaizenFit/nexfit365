@@ -199,10 +199,12 @@ export function NutritionPlanManagement() {
     }
   })
 
-  // Filtrar planes
-  const filteredPlans = plans.filter(plan => {
-    const matchesSearch = plan.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         plan.description?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Filtrar planes - asegurar que plans sea un array
+  const plansArray = Array.isArray(plans) ? plans : []
+  const filteredPlans = plansArray.filter(plan => {
+    if (!plan) return false
+    const matchesSearch = (plan.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (plan.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     return matchesSearch
   })
 

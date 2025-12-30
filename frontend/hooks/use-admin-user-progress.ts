@@ -10,7 +10,7 @@ interface HookState {
 }
 
 export function useAdminUserProgress(userId: string | number) {
-  const { getAuthHeaders } = useAuth()
+  const { getAuthHeaders, isAuthenticated, isLoading: authLoading } = useAuth()
   const [state, setState] = useState<HookState>({
     entries: [],
     summary: null,
@@ -34,36 +34,54 @@ export function useAdminUserProgress(userId: string | number) {
   }, [getAuthHeaders, userId])
 
   useEffect(() => {
-    if (userId) {
+    // Esperar a que la autenticación esté lista antes de hacer peticiones
+    if (userId && isAuthenticated && !authLoading) {
+      console.log(`📊 [useAdminUserProgress] Iniciando carga de datos para usuario ${userId}`)
       void fetchAll()
+    } else if (authLoading) {
+      console.log(`📊 [useAdminUserProgress] Esperando autenticación...`)
+      setState(prev => ({ ...prev, loading: true }))
     }
-  }, [userId, fetchAll])
+  }, [userId, isAuthenticated, authLoading, fetchAll])
 
+  // Asegurar que entries siempre sea un array
+  const safeEntries = Array.isArray(state.entries) ? state.entries : []
+  
   return {
     ...state,
+    entries: safeEntries,
     refetch: fetchAll,
     addEntry: async (payload: { weight: number; date: string; notes?: string }) => {
       const headers = await getAuthHeaders()
       const entry = await adminProgressService.addWeightEntry(userId, headers, payload)
-      setState(prev => ({ ...prev, entries: [entry, ...(prev.entries || [])] }))
+      setState(prev => {
+        const prevEntries = Array.isArray(prev.entries) ? prev.entries : []
+        return { ...prev, entries: [entry, ...prevEntries] }
+      })
       return entry
     },
     updateEntry: async (id: string, payload: { weight?: number; date?: string; notes?: string }) => {
       const headers = await getAuthHeaders()
       const entry = await adminProgressService.updateWeightEntry(userId, headers, id, payload)
-      setState(prev => ({
-        ...prev,
-        entries: prev.entries.map(e => (e.id === id ? entry : e)),
-      }))
+      setState(prev => {
+        const prevEntries = Array.isArray(prev.entries) ? prev.entries : []
+        return {
+          ...prev,
+          entries: prevEntries.map(e => (e && e.id === id ? entry : e)),
+        }
+      })
       return entry
     },
     deleteEntry: async (id: string) => {
       const headers = await getAuthHeaders()
       await adminProgressService.deleteWeightEntry(userId, headers, id)
-      setState(prev => ({
-        ...prev,
-        entries: prev.entries.filter(e => e.id !== id),
-      }))
+      setState(prev => {
+        const prevEntries = Array.isArray(prev.entries) ? prev.entries : []
+        return {
+          ...prev,
+          entries: prevEntries.filter(e => e && e.id !== id),
+        }
+      })
     },
   }
 }

@@ -169,11 +169,13 @@ def admin_user_workout_stats(request, user_id: int):
                     reps = s.get('reps') or 0
                     weight = s.get('weight') or 0
                     ton += reps * weight
-                    current_pr = per_exercise.get(name, {}).get('pr') or 0
+                    # Asegurar que el diccionario existe con ambas claves
+                    if name not in per_exercise:
+                        per_exercise[name] = {'tonnage': 0, 'pr': 0}
+                    current_pr = per_exercise[name].get('pr', 0) or 0
                     if weight > current_pr:
-                        per_exercise[name] = {**per_exercise.get(name, {}), 'pr': float(weight)}
-                    per_exercise.setdefault(name, {'tonnage': 0, 'pr': float(current_pr or weight)})
-                    per_exercise[name]['tonnage'] += reps * weight
+                        per_exercise[name]['pr'] = float(weight)
+                    per_exercise[name]['tonnage'] = per_exercise[name].get('tonnage', 0) + (reps * weight)
                     # 1RM estimado (Epley)
                     if reps and weight:
                         est_1rm = float(weight) * (1 + reps / 30)

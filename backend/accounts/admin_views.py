@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.db.models import Q, Count
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta
 from django.forms.models import model_to_dict
 
@@ -278,22 +279,33 @@ def admin_user_profile_history(request, user_id: int):
     Historial de cambios relevantes del perfil del usuario (campos críticos).
     Retorna los últimos 100 cambios con diffs simples.
     """
-    user = get_object_or_404(User, pk=user_id)
-    logs = ProfileAuditLog.objects.filter(user=user).select_related('changed_by')[:100]
-    history = []
-    for log in logs:
-        history.append({
-            "id": log.id,
-            "user_id": user.id,
-            "changed_by_email": log.changed_by.email if log.changed_by else None,
-            "created_at": log.created_at,
-            "changes": log.changes,
-        })
+    try:
+        user = get_object_or_404(User, pk=user_id)
+        logs = ProfileAuditLog.objects.filter(user=user).select_related('changed_by').order_by('-created_at')[:100]
+        history = []
+        for log in logs:
+            try:
+                history.append({
+                    "id": str(log.id),
+                    "user_id": user.id,
+                    "changed_by_email": log.changed_by.email if log.changed_by else None,
+                    "created_at": log.created_at.isoformat() if hasattr(log.created_at, 'isoformat') else str(log.created_at),
+                    "changes": log.changes if log.changes else {},
+                })
+            except Exception as e:
+                # Si hay un error con un log específico, continuar con el siguiente
+                continue
 
-    return Response({
-        "count": len(history),
-        "history": history
-    })
+        return Response({
+            "count": len(history),
+            "history": history
+        })
+    except Exception as e:
+        return Response({
+            "error": str(e),
+            "count": 0,
+            "history": []
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     @action(detail=True, methods=['post'])
     def toggle_verification(self, request, pk=None):

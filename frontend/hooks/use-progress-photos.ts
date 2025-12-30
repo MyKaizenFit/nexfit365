@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { userService, ProgressPhoto } from '@/lib/user-service'
-import { authService } from '@/lib/auth-service'
+import { getAuthService } from '@/lib/auth-service'
 
 export function useProgressPhotos() {
   const { isAuthenticated, user } = useAuth()
@@ -56,6 +56,7 @@ export function useProgressPhotos() {
       console.log('📤 Subiendo nueva foto...')
       
       // Verificar autenticación antes de subir
+      const authService = getAuthService()
       console.log('🔐 Estado de autenticación:')
       console.log('  - isAuthenticated:', isAuthenticated)
       console.log('  - Usuario actual:', user)

@@ -72,7 +72,16 @@ export function useAdminUserDetail(userId: string | number) {
       }
 
       const data = await response.json()
-      setUser(data)
+      // Asegurar que los campos de array siempre sean arrays
+      const normalizedData = {
+        ...data,
+        training_days: Array.isArray(data.training_days) ? data.training_days : (typeof data.training_days === 'number' ? [data.training_days] : []),
+        equipment_available: Array.isArray(data.equipment_available) ? data.equipment_available : [],
+        dietary_restrictions: Array.isArray(data.dietary_restrictions) ? data.dietary_restrictions : [],
+        allergies: Array.isArray(data.allergies) ? data.allergies : [],
+        medical_conditions: Array.isArray(data.medical_conditions) ? data.medical_conditions : [],
+      }
+      setUser(normalizedData)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
@@ -102,8 +111,17 @@ export function useAdminUserDetail(userId: string | number) {
       }
 
       const updatedUser = await response.json()
-      setUser(updatedUser)
-      return updatedUser
+      // Asegurar que los campos de array siempre sean arrays
+      const normalizedUser = {
+        ...updatedUser,
+        training_days: Array.isArray(updatedUser.training_days) ? updatedUser.training_days : (typeof updatedUser.training_days === 'number' ? [updatedUser.training_days] : []),
+        equipment_available: Array.isArray(updatedUser.equipment_available) ? updatedUser.equipment_available : [],
+        dietary_restrictions: Array.isArray(updatedUser.dietary_restrictions) ? updatedUser.dietary_restrictions : [],
+        allergies: Array.isArray(updatedUser.allergies) ? updatedUser.allergies : [],
+        medical_conditions: Array.isArray(updatedUser.medical_conditions) ? updatedUser.medical_conditions : [],
+      }
+      setUser(normalizedUser)
+      return normalizedUser
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)

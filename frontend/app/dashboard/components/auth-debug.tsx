@@ -3,7 +3,7 @@
 import { useAuth } from "@/contexts/auth-context"
 import { useEffect, useState } from "react"
 import { authenticatedFetch, buildApiUrl } from "@/lib/api"
-import { authService } from "@/lib/auth-service"
+import { getAuthService } from "@/lib/auth-service"
 
 export function AuthDebug() {
   const { user, isAuthenticated, isLoading } = useAuth()
@@ -17,6 +17,7 @@ export function AuthDebug() {
     try {
       // Probar endpoint de progreso
       try {
+        const authService = getAuthService()
         const accessToken = authService.getAccessToken()
         const response = await authenticatedFetch(buildApiUrl('progress-photos/'), {
           method: 'GET',
@@ -39,6 +40,7 @@ export function AuthDebug() {
 
       // Probar endpoint de nutrición
       try {
+        const authService = getAuthService()
         const accessToken = authService.getAccessToken()
         const response = await authenticatedFetch(buildApiUrl('nutrition/daily-meal-selections/today/'), {
           method: 'GET',
@@ -61,6 +63,7 @@ export function AuthDebug() {
 
       // Probar endpoint de usuario
       try {
+        const authService = getAuthService()
         const accessToken = authService.getAccessToken()
         const response = await authenticatedFetch(buildApiUrl('me/'), {
           method: 'GET',
@@ -100,7 +103,7 @@ export function AuthDebug() {
       <div className="mb-4">
         <p><strong>Estado:</strong> {isAuthenticated ? 'Autenticado' : 'No autenticado'}</p>
         <p><strong>Usuario:</strong> {user?.email || 'Ninguno'}</p>
-        <p><strong>Token:</strong> {authService.getAccessToken() ? `${authService.getAccessToken()?.substring(0, 20)}...` : 'Ninguno'}</p>
+        <p><strong>Token:</strong> {getAuthService().getAccessToken() ? `${getAuthService().getAccessToken()?.substring(0, 20)}...` : 'Ninguno'}</p>
       </div>
 
       <button

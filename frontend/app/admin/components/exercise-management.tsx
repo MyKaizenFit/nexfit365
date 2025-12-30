@@ -92,20 +92,23 @@ export function ExerciseManagement() {
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
 
+  // Asegurar que exercises sea un array
+  const exercisesArray = Array.isArray(exercises) ? exercises : []
   // Obtener categorías únicas para el filtro
-  const uniqueCategories = Array.from(new Set(exercises.map(exercise => exercise.category).filter(Boolean)))
+  const uniqueCategories = Array.from(new Set(exercisesArray.map(exercise => exercise?.category).filter(Boolean)))
   const uniqueMuscleGroups = Array.from(new Set(
-    exercises.flatMap(exercise => fixEncodingArray(exercise.muscle_groups || []))
+    exercisesArray.flatMap(exercise => fixEncodingArray(exercise?.muscle_groups || []))
   ))
 
-  const filteredExercises = exercises.filter((exercise) => {
-    const matchesSearch = exercise.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exercise.instructions?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredExercises = exercisesArray.filter((exercise) => {
+    if (!exercise) return false
+    const matchesSearch = (exercise.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (exercise.instructions || '').toLowerCase().includes(searchTerm.toLowerCase())
 
     const matchesCategory = categoryFilter === "all" || exercise.category === categoryFilter
 
     const matchesMuscleGroup = muscleGroupFilter === "all" ||
-      (exercise.muscle_groups && exercise.muscle_groups.includes(muscleGroupFilter))
+      (Array.isArray(exercise.muscle_groups) && exercise.muscle_groups.includes(muscleGroupFilter))
 
     return matchesSearch && matchesCategory && matchesMuscleGroup
   })

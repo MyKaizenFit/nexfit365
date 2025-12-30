@@ -62,62 +62,23 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       const headers = await getAuthHeaders()
 
-      // Staff puede filtrar por usuario
-      const listResponse = await fetch(buildApiUrl(`workout-programs/?user=${userId}`), {
+      // Usar el endpoint de admin que devuelve el programa activo del usuario
+      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/program/`), {
         headers,
       })
 
-      if (!listResponse.ok) {
-        throw new Error("Error al cargar los programas de entrenamiento del usuario")
+      if (!response.ok) {
+        throw new Error("Error al cargar el programa de entrenamiento del usuario")
       }
 
-      const listData = await listResponse.json()
-      const items = Array.isArray(listData.results) ? listData.results : Array.isArray(listData) ? listData : []
+      const data = await response.json()
+      console.log("🏋️ Respuesta del endpoint de admin:", data)
 
-      const selected = items.find((p: any) => p.is_active) || items[0]
+      // El endpoint devuelve { user_id, program, summary }
+      const detail = data.program
 
-      if (selected) {
-        const detailResponse = await fetch(buildApiUrl(`workout-programs/${selected.id}/`), {
-          headers,
-        })
-
-        if (!detailResponse.ok) {
-          throw new Error("Error al cargar el detalle del programa de entrenamiento")
-        }
-
-        const detail = await detailResponse.json()
-
-        const weeklySchedule: WorkoutDay[] = (detail.days || []).map((day: any, index: number) => ({
-          id: day.id,
-          day: day.day || "Lunes",
-          name: day.name || `Entrenamiento ${index + 1}`,
-          duration: day.duration_minutes || 60,
-          isRestDay: !!day.is_rest_day,
-          dayNumber: day.day_number,
-          notes: day.notes,
-          exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
-            id: ex.id,
-            name: ex.exercise?.name || ex.name || `Ejercicio ${exIndex + 1}`,
-            sets: ex.sets ?? 3,
-            reps: ex.reps || "10-12",
-            weight: ex.weight || "",
-            rest: ex.rest_seconds ?? 60,
-            notes: ex.notes || "",
-          })),
-        }))
-
-        setProgram({
-          id: detail.id,
-          name: detail.name || "Programa de Entrenamiento",
-          description: detail.description || "",
-          level: detail.level || "intermediate",
-          goal: detail.goal || "general_fitness",
-          daysPerWeek: detail.days_per_week || weeklySchedule.length || 3,
-          weeklySchedule,
-          durationWeeks: detail.duration_weeks,
-          isActive: detail.is_active,
-        })
-      } else {
+      if (!detail) {
+        console.log("🏋️ El usuario no tiene programa asignado")
         // Si no tiene programa aún, crear uno vacío en memoria
         setProgram({
           name: "Nuevo Programa de Entrenamientos",
@@ -129,7 +90,58 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
           durationWeeks: 4,
           isActive: true,
         })
+        return
       }
+
+      console.log("🏋️ Programa cargado:", detail.name, "días:", detail.days?.length || 0)
+
+      // Mapear días de la semana: el backend usa day_of_week (monday, tuesday, etc.)
+      // pero el componente espera nombres en español
+      const dayOfWeekMap: Record<string, string> = {
+        monday: "Lunes",
+        tuesday: "Martes",
+        wednesday: "Miércoles",
+        thursday: "Jueves",
+        friday: "Viernes",
+        saturday: "Sábado",
+        sunday: "Domingo",
+      }
+
+      // Ordenar días por day_number
+      const sortedDays = [...(detail.days || [])].sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0))
+
+      const weeklySchedule: WorkoutDay[] = sortedDays.map((day: any, index: number) => ({
+        id: day.id,
+        day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
+        name: day.name || `Entrenamiento ${index + 1}`,
+        duration: day.duration_minutes || 60,
+        isRestDay: !!day.is_rest_day,
+        dayNumber: day.day_number,
+        notes: day.notes || "",
+        exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
+          id: ex.id,
+          name: ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`,
+          sets: ex.sets ?? 3,
+          reps: ex.reps || "10-12",
+          weight: ex.weight || "",
+          rest: ex.rest_seconds ?? 60,
+          notes: ex.notes || "",
+        })),
+      }))
+
+      console.log("🏋️ Días cargados:", weeklySchedule.length, weeklySchedule.map(d => ({ name: d.name, exercises: d.exercises.length })))
+
+      setProgram({
+        id: detail.id,
+        name: detail.name || "Programa de Entrenamiento",
+        description: detail.description || "",
+        level: detail.difficulty || "intermediate", // El backend usa 'difficulty', no 'level'
+        goal: detail.goal || "general_fitness",
+        daysPerWeek: detail.days_per_week || weeklySchedule.length || 3,
+        weeklySchedule,
+        durationWeeks: detail.duration_weeks,
+        isActive: detail.is_active,
+      })
     } catch (err) {
       console.error("Error cargando programa de entrenamientos:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
@@ -237,9 +249,20 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       const headers = await getAuthHeaders()
 
+      // Mapear nombres de días en español a formato del backend (day_of_week)
+      const dayToDayOfWeekMap: Record<string, string> = {
+        Lunes: "monday",
+        Martes: "tuesday",
+        Miércoles: "wednesday",
+        Jueves: "thursday",
+        Viernes: "friday",
+        Sábado: "saturday",
+        Domingo: "sunday",
+      }
+
       const daysPayload = program.weeklySchedule.map((day, index) => ({
         id: day.id,
-        day: day.day,
+        day_of_week: dayToDayOfWeekMap[day.day] || day.day.toLowerCase() || "monday",
         name: day.name,
         day_number: day.dayNumber ?? index + 1,
         duration_minutes: day.duration,
@@ -264,7 +287,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         user_id: userId,
         name: program.name,
         description: program.description,
-        level: program.level,
+        difficulty: program.level, // El backend usa 'difficulty', no 'level'
         goal: program.goal,
         days_per_week: program.daysPerWeek || program.weeklySchedule.length || 3,
         duration_weeks: program.durationWeeks || 4,
@@ -274,7 +297,8 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       let response: Response
       if (program.id) {
-        response = await fetch(buildApiUrl(`workout-programs/${program.id}/`), {
+        // Usar el endpoint de admin para actualizar programas de usuarios
+        response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/`), {
           method: "PATCH",
           headers: {
             ...headers,
@@ -283,7 +307,8 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
           body: JSON.stringify(payload),
         })
       } else {
-        response = await fetch(buildApiUrl("workout-programs/"), {
+        // Crear nuevo programa usando el endpoint de admin
+        response = await fetch(buildApiUrl("admin/workouts/programs/"), {
           method: "POST",
           headers: {
             ...headers,

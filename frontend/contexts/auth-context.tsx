@@ -6,7 +6,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  authService,
+  getAuthService,
   User,
   LoginCredentials,
   RegisterCredentials,
@@ -74,6 +74,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const initializeAuth = async () => {
       try {
         // Verificar si hay tokens válidos
+        const authService = getAuthService()
         const hasValidTokens = await authService.hasValidTokens()
 
         if (hasValidTokens) {
@@ -109,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
               console.warn('Error al obtener usuario, limpiando tokens inválidos:', userError)
               // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
+              const authService = getAuthService()
               authService.clearTokens()
               setState({
                 user: null,
@@ -119,6 +121,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               })
             } else {
               // Error de sesión expirada, limpiar
+              const authService = getAuthService()
               authService.clearTokens()
               setState({
                 user: null,
@@ -164,6 +167,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
       }))
 
+      const authService = getAuthService()
       const authResponse: AuthResponse = await authService.login(credentials)
 
       // Verificar si el usuario debe cambiar contraseña
@@ -210,6 +214,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // También verificar el token JWT directamente para obtener la información de admin
       let isAdminFromToken = false
       try {
+        const authService = getAuthService()
         const accessToken = authService.getAccessToken()
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
@@ -283,6 +288,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Limpiar cookie del formulario
       document.cookie = 'initial_form_completed=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
 
+      const authService = getAuthService()
       const authResponse: AuthResponse = await authService.register(credentials)
 
       setState({
@@ -307,6 +313,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // También verificar el token JWT directamente para obtener la información de admin
       let isAdminFromToken = false
       try {
+        const authService = getAuthService()
         const accessToken = authService.getAccessToken()
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
@@ -355,6 +362,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isLoading: true,
       }))
 
+      const authService = getAuthService()
       await authService.logout()
 
       setState({
@@ -398,6 +406,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Refrescar información del usuario
   const refreshUser = async () => {
     try {
+      const authService = getAuthService()
       if (authService.isAuthenticated()) {
         const user = await authService.getCurrentUser()
         console.log('🔍 AuthContext - refreshUser - Datos del usuario recibidos:', {
@@ -429,6 +438,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
       }))
 
+      const authService = getAuthService()
       const updatedUser = await authService.updateProfile(profileData)
 
       setState(prev => ({
@@ -465,6 +475,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
       }))
 
+      const authService = getAuthService()
       await authService.forgotPassword(email)
 
       setState(prev => ({
@@ -499,6 +510,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
       }))
 
+      const authService = getAuthService()
       await authService.changePasswordAfterTemporary(newPassword, newPasswordConfirm)
 
       // Limpiar estado y redirigir al login
@@ -534,6 +546,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Obtener headers de autenticación
   const getAuthHeaders = async (): Promise<HeadersInit> => {
     try {
+      const authService = getAuthService()
       const accessToken = authService.getAccessToken()
       if (!accessToken) {
         throw new Error('No hay token de acceso disponible')
@@ -549,94 +562,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  // Verificar si el token está próximo a expirar y renovarlo
+  /**
+   * Desactivar el refresco automático de token para evitar cierres de sesión.
+   * El token solo se refrescará bajo demanda (p. ej. 401 en authenticatedFetch).
+   * Nunca se hace logout automático por fallos de refresh.
+   */
   useEffect(() => {
-    if (!state.isAuthenticated) return
-
-    const checkTokenExpiration = async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          // Verificar si el token está próximo a expirar
-          if (authService.isTokenExpiringSoon()) {
-            console.log('🔄 Token próximo a expirar, renovando automáticamente...')
-            const refreshResult = await authService.refreshAccessToken()
-
-            if (refreshResult.success && refreshResult.newToken) {
-              console.log('✅ Token renovado exitosamente')
-              // Refrescar datos del usuario con el nuevo token
-              try {
-                await refreshUser()
-              } catch (refreshError) {
-                console.warn('Error al refrescar usuario después de renovar token:', refreshError)
-                // No hacer logout si solo falla el refresh del usuario
-              }
-            } else {
-              console.error('❌ No se pudo renovar el token:', refreshResult.error)
-              // Solo hacer logout si el error no es "blacklisted" o "en progreso"
-              // Estos pueden ser problemas temporales de sincronización
-              if (refreshResult.error && 
-                  !refreshResult.error.includes('offline') && 
-                  !refreshResult.error.includes('blacklisted') &&
-                  !refreshResult.error.includes('en progreso')) {
-                await logout()
-              } else if (refreshResult.error?.includes('blacklisted')) {
-                // Si el token está blacklisted, puede ser porque se renovó desde otro lugar
-                // Intentar obtener el usuario con el token actual antes de hacer logout
-                console.warn('⚠️ Token blacklisted, puede ser un problema temporal')
-              }
-            }
-          } else {
-            // Si no está próximo a expirar, verificar que el token sea válido
-            // haciendo una verificación silenciosa
-            const token = authService.getAccessToken()
-            if (token && !token.startsWith('offline_token_')) {
-              try {
-                // Verificar que el token sea válido decodificándolo
-                const payload = JSON.parse(atob(token.split('.')[1]))
-                const expirationTime = payload.exp * 1000
-                const currentTime = Date.now()
-
-                // Si el token ya expiró, intentar renovarlo inmediatamente
-                if (expirationTime <= currentTime) {
-                  console.log('⚠️ Token expirado, renovando inmediatamente...')
-                  const refreshResult = await authService.refreshAccessToken()
-                  if (refreshResult.success && refreshResult.newToken) {
-                    await refreshUser()
-                  } else {
-                    console.warn('⚠️ No se pudo renovar el token automáticamente. Seguirá intentando...')
-                    // NO hacer logout automático, solo advertir
-                  }
-                }
-              } catch (error) {
-                console.warn('Error verificando token:', error)
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error al verificar/renovar token:', error)
-          // No hacer logout automáticamente, solo loguear el error
-          // El usuario puede seguir usando la app si el token aún es válido
-        }
-      }
-    }
-
-    // Verificar cada 5 minutos para evitar renovaciones excesivas
-    // El token se renueva automáticamente cuando está próximo a expirar (30 min antes)
-    const interval = setInterval(checkTokenExpiration, 5 * 60 * 1000)
-
-    // Ejecutar después de 30 segundos para evitar ejecución inmediata al montar
-    // Esto da tiempo a que la página cargue completamente
-    const initialTimeout = setTimeout(() => {
-      checkTokenExpiration()
-    }, 30 * 1000)
-
-    return () => {
-      clearInterval(interval)
-      if (initialTimeout) {
-        clearTimeout(initialTimeout)
-      }
-    }
-  }, [state.isAuthenticated, refreshUser, logout])
+    return () => {}
+  }, [state.isAuthenticated])
 
   // Valor del contexto
   const contextValue: AuthContextType = {

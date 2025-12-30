@@ -6,11 +6,11 @@ import { NextResponse } from 'next/server'
 
 // Contenido del Service Worker embebido
 const SW_CONTENT = `// Service Worker para NexFit365 PWA
-// Versión: 1.1.0 - Optimizado para mejor rendimiento offline
+// Versión: 1.5.0 - NO cachea NINGÚN archivo JS, usa cache-busting para forzar descarga fresca
 
-const CACHE_NAME = 'nexfit365-v1.1'
-const RUNTIME_CACHE = 'nexfit365-runtime-v1.1'
-const IMAGE_CACHE = 'nexfit365-images-v1.1'
+const CACHE_NAME = 'nexfit365-v1.5'
+const RUNTIME_CACHE = 'nexfit365-runtime-v1.5'
+const IMAGE_CACHE = 'nexfit365-images-v1.5'
 const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB máximo
 
 // Archivos estáticos críticos para cachear (solo lo esencial)
@@ -41,24 +41,31 @@ self.addEventListener('install', (event) => {
 
 // Activación del Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activando Service Worker...')
+  console.log('[SW] Activando Service Worker v1.5 - Limpiando TODOS los caches...')
   event.waitUntil(
     caches.keys().then((cacheNames) => {
+      // Eliminar TODOS los caches (incluso los actuales) para forzar actualización completa
       return Promise.all(
-        cacheNames
-          .filter((name) => {
-            return name !== CACHE_NAME && 
-                   name !== RUNTIME_CACHE && 
-                   name !== IMAGE_CACHE
-          })
-          .map((name) => {
-            console.log('[SW] Eliminando cache antiguo:', name)
-            return caches.delete(name)
-          })
+        cacheNames.map((name) => {
+          console.log('[SW] Eliminando cache:', name)
+          return caches.delete(name)
+        })
       )
+    }).then(() => {
+      console.log('[SW] Todos los caches eliminados. Forzando actualización inmediata...')
+      // Forzar que todos los clientes usen el nuevo Service Worker inmediatamente
+      return self.clients.claim().then(() => {
+        // Notificar a todos los clientes para que recarguen
+        return self.clients.matchAll().then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'SW_UPDATED', version: '1.5' })
+          })
+        })
+      })
     })
   )
-  return self.clients.claim()
+  // Forzar skipWaiting para activación inmediata
+  return self.skipWaiting()
 })
 
 // Interceptar requests
@@ -66,11 +73,19 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
-  // Excluir API y autenticación del cache
+  // NO INTERCEPTAR archivos JS - dejar que pasen directamente sin cache del SW
+  // Los chunks de Next.js tienen hashes únicos y Next.js maneja su propio cache
   if (url.pathname.startsWith('/api/') || 
       url.pathname.startsWith('/auth/') ||
-      url.pathname.startsWith('/admin/')) {
-    return // Dejar pasar sin cachear
+      url.pathname.startsWith('/admin/') ||
+      url.pathname.startsWith('/_next/') ||
+      url.pathname.includes('/_next/static/') ||
+      url.pathname.match(/\/\d+-[a-f0-9]+\.js/) || // Chunks de Next.js con hash (ej: 8836-abc123.js)
+      url.pathname.endsWith('.js') || // TODOS los archivos JS
+      url.pathname.includes('.js')) { // Cualquier ruta que contenga .js
+    // NO interceptar - dejar que el navegador maneje estos requests directamente
+    // Esto evita cualquier interferencia del Service Worker
+    return
   }
 
   // Service Worker no debe cachearse a sí mismo
@@ -84,8 +99,9 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  // Estrategia: Cache First para assets estáticos
-  if (url.pathname.match(/\\.(js|css|woff|woff2|ttf|eot|svg)$/)) {
+  // Solo cachear CSS y fuentes con Cache First
+  // Los archivos JS ya fueron excluidos arriba y NO se cachean
+  if (url.pathname.match(/\\.(css|woff|woff2|ttf|eot)$/)) {
     event.respondWith(cacheFirstStrategy(request))
     return
   }

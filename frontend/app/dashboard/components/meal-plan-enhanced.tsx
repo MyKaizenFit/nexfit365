@@ -12,7 +12,7 @@ import { useNutrition } from "@/hooks/use-nutrition"
 import { MealOptionsModal } from "./meal-options-modal"
 import { buildApiUrl, authenticatedFetch } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
-import { authService } from "@/lib/auth-service"
+import { getAuthService } from "@/lib/auth-service"
 
 // Estructura de las 5 comidas fijas
 const MEAL_STRUCTURE = [
@@ -89,6 +89,7 @@ export function MealPlanEnhanced() {
   // Cargar selecciones del día
   useEffect(() => {
     // Solo cargar si está autenticado y no se ha intentado cargar antes
+    const authService = getAuthService()
     if (isAuthenticated && authService.isAuthenticated() && !hasAttemptedLoad) {
       console.log('Iniciando carga de selecciones diarias...')
       setHasAttemptedLoad(true)
@@ -97,6 +98,7 @@ export function MealPlanEnhanced() {
   }, [isAuthenticated, hasAttemptedLoad])
 
   const loadDailySelections = async () => {
+    const authService = getAuthService()
     if (!isAuthenticated || !authService.isAuthenticated()) {
       console.log('Usuario no autenticado, saltando carga de selecciones')
       return
@@ -145,6 +147,7 @@ export function MealPlanEnhanced() {
   }
 
   const createDefaultSelections = async (date: string) => {
+    const authService = getAuthService()
     if (!isAuthenticated || !authService.getAccessToken()) {
       console.log('Usuario no autenticado, saltando creación de selecciones por defecto')
       return
@@ -208,7 +211,7 @@ export function MealPlanEnhanced() {
         const response = await authenticatedFetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/`), {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${authService.getAccessToken()}`,
+            'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

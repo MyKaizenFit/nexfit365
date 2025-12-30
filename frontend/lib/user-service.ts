@@ -2,7 +2,7 @@
 // Servicio para obtener datos reales del usuario desde el backend
 
 import { buildApiUrl, getAuthHeaders, handleApiResponse, handleFetchError, AUTH_ENDPOINTS } from './api'
-import { authService } from './auth-service'
+import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 
@@ -107,6 +107,7 @@ export class UserService {
   // Obtener perfil del usuario
   async getUserProfile(forceRefresh: boolean = false): Promise<UserProfile> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -161,6 +162,7 @@ export class UserService {
     }
 
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         // Retornar null en lugar de lanzar error si no está autenticado
         return null
@@ -210,6 +212,7 @@ export class UserService {
   // Obtener fotos de progreso
   async getProgressPhotos(): Promise<ProgressPhoto[]> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         console.warn('Usuario no autenticado al obtener fotos de progreso')
         return []
@@ -269,6 +272,7 @@ export class UserService {
     photoType: 'front' | 'back' | 'side' | 'other' = 'front'
   ): Promise<ProgressPhoto> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -379,6 +383,7 @@ export class UserService {
   // Obtener historial de peso
   async getWeightHistory(): Promise<WeightEntry[]> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -428,6 +433,7 @@ export class UserService {
   // Registrar nuevo peso
   async addWeightEntry(weight: number, notes?: string): Promise<WeightEntry> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -469,6 +475,7 @@ export class UserService {
   // Obtener plan nutricional actual
   async getCurrentNutritionPlan(): Promise<NutritionPlan | null> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -502,6 +509,7 @@ export class UserService {
   // Obtener programa de entrenamiento actual
   async getCurrentWorkoutProgram(): Promise<WorkoutProgram | null> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -535,6 +543,7 @@ export class UserService {
   // Actualizar perfil del usuario
   async updateUserProfile(updates: Partial<UserProfile> & { profile_picture?: File }): Promise<UserProfile> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }
@@ -620,6 +629,7 @@ export class UserService {
   // Obtener notificaciones
   async getNotifications(): Promise<any[]> {
     try {
+      const authService = getAuthService()
       if (!authService.isAuthenticated()) {
         throw new Error('Usuario no autenticado')
       }

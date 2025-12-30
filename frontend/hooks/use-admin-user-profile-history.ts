@@ -23,11 +23,22 @@ export function useAdminUserProfileHistory(userId: string | number) {
       const headers = await getAuthHeaders()
       const res = await fetch(buildApiUrl(`admin/users/audit/profile/${userId}/`), { headers })
       if (!res.ok) {
+        // Si es un error 500 o similar, devolver array vacío en lugar de error
+        if (res.status >= 500) {
+          console.warn(`[useAdminUserProfileHistory] ⚠️ Error del servidor (${res.status}), devolviendo array vacío`)
+          setData([])
+          setError(null) // No mostrar error al usuario si es un problema del servidor
+          return
+        }
         throw new Error(`Error ${res.status}`)
       }
       const json = await res.json()
-      setData(json.history || [])
+      const historyData = json.history || json || []
+      setData(Array.isArray(historyData) ? historyData : [])
     } catch (err) {
+      console.error('[useAdminUserProfileHistory] Error:', err)
+      // En caso de error, establecer array vacío para evitar errores de .filter()
+      setData([])
       setError(err instanceof Error ? err.message : "Error desconocido")
     } finally {
       setLoading(false)

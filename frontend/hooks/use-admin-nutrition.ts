@@ -116,12 +116,37 @@ export const useAdminNutrition = () => {
       setStats(data)
     } catch (err) {
       console.error('Error fetching nutrition stats:', err)
-      // No establecer error aquí, solo usar datos por defecto
+      // Calcular desde los datos cargados como fallback
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      
+      const nutritionByCategory: Record<string, number> = {}
+      const nutritionByDifficulty: Record<string, number> = {}
+      let recentCount = 0
+      
+      nutrition.forEach(recipe => {
+        // Por categoría
+        if (recipe.category) {
+          nutritionByCategory[recipe.category] = (nutritionByCategory[recipe.category] || 0) + 1
+        }
+        
+        // Por dificultad
+        if (recipe.difficulty) {
+          nutritionByDifficulty[recipe.difficulty] = (nutritionByDifficulty[recipe.difficulty] || 0) + 1
+        }
+        
+        // Recientes (últimos 7 días)
+        const createdDate = new Date(recipe.created_at)
+        if (createdDate >= sevenDaysAgo) {
+          recentCount++
+        }
+      })
+      
       setStats({
-        total_nutrition: 0,
-        nutrition_by_category: {},
-        nutrition_by_difficulty: {},
-        recent_nutrition: 0
+        total_nutrition: nutrition.length,
+        nutrition_by_category: nutritionByCategory,
+        nutrition_by_difficulty: nutritionByDifficulty,
+        recent_nutrition: recentCount
       })
     }
   }
@@ -303,8 +328,50 @@ export const useAdminNutrition = () => {
     fetchStats()
   }, [])
 
+  // Recalcular stats cuando cambian los datos de nutrición
+  useEffect(() => {
+    if (nutrition.length > 0) {
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      
+      const nutritionByCategory: Record<string, number> = {}
+      const nutritionByDifficulty: Record<string, number> = {}
+      let recentCount = 0
+      
+      nutrition.forEach(recipe => {
+        // Por categoría
+        if (recipe.category) {
+          nutritionByCategory[recipe.category] = (nutritionByCategory[recipe.category] || 0) + 1
+        }
+        
+        // Por dificultad
+        if (recipe.difficulty) {
+          nutritionByDifficulty[recipe.difficulty] = (nutritionByDifficulty[recipe.difficulty] || 0) + 1
+        }
+        
+        // Recientes (últimos 7 días)
+        const createdDate = new Date(recipe.created_at)
+        if (createdDate >= sevenDaysAgo) {
+          recentCount++
+        }
+      })
+      
+      // Actualizar stats si ya existen, o crear nuevos
+      setStats(prev => ({
+        total_nutrition: nutrition.length,
+        nutrition_by_category: nutritionByCategory,
+        nutrition_by_difficulty: nutritionByDifficulty,
+        recent_nutrition: recentCount,
+        ...prev
+      }))
+    }
+  }, [nutrition])
+
+  // Asegurar que nutrition siempre sea un array
+  const safeNutrition = Array.isArray(nutrition) ? nutrition : []
+  
   return {
-    nutrition,
+    nutrition: safeNutrition,
     stats,
     loading,
     error,

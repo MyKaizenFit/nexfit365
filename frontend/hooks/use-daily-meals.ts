@@ -285,17 +285,34 @@ export function useDailyMeals() {
       if (stored) {
         try {
           const selections = JSON.parse(stored)
+          
+          // Validar que selections sea un objeto válido
+          if (!selections || typeof selections !== 'object' || Array.isArray(selections)) {
+            console.warn('⚠️ Datos corruptos en localStorage, limpiando...')
+            localStorage.removeItem(`meal-selections-${today}`)
+            return meals
+          }
+          
           console.log('Selecciones cargadas desde localStorage (backup):', selections)
           
           return meals.map(meal => {
             const selection = selections[meal.id]
-            if (selection && selection.option) {
-              return { ...meal, selectedOption: selection.option, isCompleted: true }
+            if (selection && selection.option && typeof selection.option === 'object') {
+              // Validar que la opción tenga la estructura correcta
+              if (selection.option.id && selection.option.name) {
+                return { ...meal, selectedOption: selection.option, isCompleted: true }
+              }
             }
             return meal
           })
         } catch (error) {
-          console.error('Error cargando selecciones del localStorage:', error)
+          console.error('❌ Error cargando selecciones del localStorage, limpiando datos corruptos:', error)
+          // Limpiar datos corruptos
+          try {
+            localStorage.removeItem(`meal-selections-${today}`)
+          } catch (e) {
+            console.error('Error limpiando localStorage:', e)
+          }
         }
       }
     }
@@ -412,6 +429,98 @@ export function useDailyMeals() {
 
   }, [calculateTotalMacros, saveSelectionsToStorage, meals])
 
+  // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
+  const loadSelectionsFromBackend = useCallback(async (date: string) => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        headers,
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        console.error('Error obteniendo selecciones:', response.status)
+        return null
+      }
+
+      const data = await response.json()
+      const selections = data.selections || []
+      
+      // Mapeo de tipos de comida del backend a nombres en español
+      const mealTypeMapping: Record<string, string> = {
+        'breakfast': 'Desayuno',
+        'morning_snack': 'Snack Mañana',
+        'lunch': 'Almuerzo',
+        'afternoon_snack': 'Snack Tarde',
+        'dinner': 'Cena'
+      }
+
+      // Convertir selecciones a formato MealOption
+      const selectionsMap: Record<string, MealOption> = {}
+      
+      selections.forEach((log: any) => {
+        const mealName = mealTypeMapping[log.meal_type]
+        if (mealName) {
+          // Determinar el nombre de la comida - priorizar recipe_name, luego recipe.name, luego custom_description
+          let mealNameToShow = 'Sin nombre'
+          
+          // Primero intentar con recipe_name (viene del serializer)
+          if (log.recipe_name && log.recipe_name.trim() !== '') {
+            mealNameToShow = log.recipe_name
+          }
+          // Luego intentar con recipe.name (si recipe es un objeto)
+          else if (log.recipe) {
+            if (typeof log.recipe === 'object' && log.recipe.name && log.recipe.name.trim() !== '') {
+              mealNameToShow = log.recipe.name
+            }
+          }
+          // Finalmente usar custom_description
+          if (mealNameToShow === 'Sin nombre' && log.custom_description && log.custom_description.trim() !== '') {
+            mealNameToShow = log.custom_description
+          }
+          
+          // Si aún no hay nombre, usar un nombre genérico basado en el tipo de comida
+          if (mealNameToShow === 'Sin nombre') {
+            mealNameToShow = `${mealName} - Comida personalizada`
+          }
+          
+          console.log(`📋 Cargando selección para ${mealName}:`, {
+            recipe_name: log.recipe_name,
+            recipe: log.recipe,
+            custom_description: log.custom_description,
+            nombre_final: mealNameToShow
+          })
+          
+          // Crear MealOption con el nombre correcto
+          // Asegurar que los valores nutricionales sean números, no null/undefined
+          const calories = Number(log.calories) || Number(log.recipe?.calories) || 0
+          const protein = Number(log.protein) || Number(log.recipe?.protein) || 0
+          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || 0
+          const fat = Number(log.fat) || Number(log.recipe?.fat) || 0
+          
+          selectionsMap[mealName] = {
+            id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
+            name: mealNameToShow,
+            calories: calories,
+            protein: protein,
+            carbs: carbs,
+            fat: fat,
+            category: 'balanced',
+            icon: '🍽️',
+            description: log.recipe?.description || log.custom_description || '',
+            cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
+            recipeId: log.recipe?.id || log.recipe
+          }
+        }
+      })
+
+      return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
+    } catch (error) {
+      console.error('Error cargando selecciones del backend:', error)
+      return null
+    }
+  }, [])
+
   // Marcar comida como completada (solo en vista diaria)
   const markMealCompleted = useCallback(async (mealId: string) => {
     const meal = meals.find(m => m.id === mealId)
@@ -526,98 +635,6 @@ export function useDailyMeals() {
       console.error('❌ Error actualizando estado de completado:', error)
     }
   }, [calculateTotalMacros, meals, loadSelectionsFromBackend])
-
-  // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
-  const loadSelectionsFromBackend = useCallback(async (date: string) => {
-    try {
-      const headers = await getAuthHeaders()
-      const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
-        headers,
-        method: 'GET',
-      })
-
-      if (!response.ok) {
-        console.error('Error obteniendo selecciones:', response.status)
-        return null
-      }
-
-      const data = await response.json()
-      const selections = data.selections || []
-      
-      // Mapeo de tipos de comida del backend a nombres en español
-      const mealTypeMapping: Record<string, string> = {
-        'breakfast': 'Desayuno',
-        'morning_snack': 'Snack Mañana',
-        'lunch': 'Almuerzo',
-        'afternoon_snack': 'Snack Tarde',
-        'dinner': 'Cena'
-      }
-
-      // Convertir selecciones a formato MealOption
-      const selectionsMap: Record<string, MealOption> = {}
-      
-      selections.forEach((log: any) => {
-        const mealName = mealTypeMapping[log.meal_type]
-        if (mealName) {
-          // Determinar el nombre de la comida - priorizar recipe_name, luego recipe.name, luego custom_description
-          let mealNameToShow = 'Sin nombre'
-          
-          // Primero intentar con recipe_name (viene del serializer)
-          if (log.recipe_name && log.recipe_name.trim() !== '') {
-            mealNameToShow = log.recipe_name
-          }
-          // Luego intentar con recipe.name (si recipe es un objeto)
-          else if (log.recipe) {
-            if (typeof log.recipe === 'object' && log.recipe.name && log.recipe.name.trim() !== '') {
-              mealNameToShow = log.recipe.name
-            }
-          }
-          // Finalmente usar custom_description
-          if (mealNameToShow === 'Sin nombre' && log.custom_description && log.custom_description.trim() !== '') {
-            mealNameToShow = log.custom_description
-          }
-          
-          // Si aún no hay nombre, usar un nombre genérico basado en el tipo de comida
-          if (mealNameToShow === 'Sin nombre') {
-            mealNameToShow = `${mealName} - Comida personalizada`
-          }
-          
-          console.log(`📋 Cargando selección para ${mealName}:`, {
-            recipe_name: log.recipe_name,
-            recipe: log.recipe,
-            custom_description: log.custom_description,
-            nombre_final: mealNameToShow
-          })
-          
-          // Crear MealOption con el nombre correcto
-          // Asegurar que los valores nutricionales sean números, no null/undefined
-          const calories = Number(log.calories) || Number(log.recipe?.calories) || 0
-          const protein = Number(log.protein) || Number(log.recipe?.protein) || 0
-          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || 0
-          const fat = Number(log.fat) || Number(log.recipe?.fat) || 0
-          
-          selectionsMap[mealName] = {
-            id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
-            name: mealNameToShow,
-            calories: calories,
-            protein: protein,
-            carbs: carbs,
-            fat: fat,
-            category: 'balanced',
-            icon: '🍽️',
-            description: log.recipe?.description || log.custom_description || '',
-            cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
-            recipeId: log.recipe?.id || log.recipe
-          }
-        }
-      })
-
-      return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
-    } catch (error) {
-      console.error('Error cargando selecciones del backend:', error)
-      return null
-    }
-  }, [])
 
   // Aplicar selecciones a las comidas (incluye completadas y no completadas)
   const applySelectionsToMeals = useCallback(async (meals: DailyMeal[], selections: Record<string, MealOption> | null, date: string) => {
