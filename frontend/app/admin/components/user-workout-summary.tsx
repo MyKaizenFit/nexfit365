@@ -15,7 +15,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line } from "rec
 
 export function UserWorkoutSummary({ userId }: { userId: string }) {
   const { program, logs, totals, stats, loading, error, refetch, updateLog, deleteLog } = useAdminUserWorkouts(userId)
-  const [editing, setEditing] = useState<{ id: string; duration_minutes?: number | null; calories_burned?: number | null; rating?: number | null }> | null>(null)
+  const [editing, setEditing] = useState<{ id: string; duration_minutes?: number | null; calories_burned?: number | null; rating?: number | null } | null>(null)
   const [saving, setSaving] = useState(false)
 
   const todaysWorkout = program?.program?.days?.[0] || null

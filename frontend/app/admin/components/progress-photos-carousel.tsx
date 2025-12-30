@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus, Columns } from "lucide-react"
+import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus, Columns, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,52 +46,13 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
     notes: "",
   })
 
-  const [photos, setPhotos] = useState<ProgressPhoto[]>([
-    {
-      id: "1",
-      date: "2024-01-01",
-      url: "/placeholder.svg?height=400&width=300&text=Foto+Frontal",
-      type: "front",
-      weight: 75.2,
-      notes: "Foto inicial del programa",
-      measurements: { chest: 95, waist: 85, hips: 98, arms: 32, thighs: 58 },
-    },
-    {
-      id: "2",
-      date: "2024-01-15",
-      url: "/placeholder.svg?height=400&width=300&text=Foto+Lateral",
-      type: "side",
-      weight: 74.8,
-      notes: "Después de 2 semanas",
-      measurements: { chest: 94, waist: 84, hips: 97, arms: 32, thighs: 57 },
-    },
-    {
-      id: "3",
-      date: "2024-01-29",
-      url: "/placeholder.svg?height=400&width=300&text=Foto+Espalda",
-      type: "back",
-      weight: 74.1,
-      notes: "Un mes de progreso",
-      measurements: { chest: 93, waist: 83, hips: 96, arms: 31, thighs: 56 },
-    },
-    {
-      id: "4",
-      date: "2024-02-15",
-      url: "/placeholder.svg?height=400&width=300&text=Foto+Detalle",
-      type: "detail",
-      weight: 73.5,
-      notes: "Definición abdominal mejorada",
-    },
-    {
-      id: "5",
-      date: "2024-02-29",
-      url: "/placeholder.svg?height=400&width=300&text=Foto+Frontal+2",
-      type: "front",
-      weight: 72.5,
-      notes: "2 meses de transformación",
-      measurements: { chest: 92, waist: 81, hips: 94, arms: 31, thighs: 55 },
-    },
-  ])
+  const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Nota: Por ahora, mostramos estado vacío.
+  // Las fotos de progreso del usuario específico requieren un endpoint de admin dedicado.
+  // El endpoint actual /progress-photos/ solo muestra las fotos del usuario autenticado (admin), no del usuario consultado.
 
   const nextPhoto = () => {
     setCurrentIndex((prev) => (prev + 1) % photos.length)

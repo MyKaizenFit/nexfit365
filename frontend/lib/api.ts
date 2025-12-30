@@ -136,7 +136,8 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
     try {
       // Primero intentar obtener el token del servicio de autenticación
       try {
-        const { authService } = require('./auth-service')
+        const { getAuthService } = require('./auth-service')
+        const authService = getAuthService()
         const serviceToken = authService.getAccessToken()
         if (serviceToken) {
           authToken = serviceToken
@@ -249,8 +250,8 @@ export const handleFetchError = (error: any): Error => {
 // Función para obtener la instancia de AuthService de forma dinámica
 const getAuthService = () => {
   // Importación dinámica para evitar importación circular
-  const { authService } = require('./auth-service')
-  return authService
+  const { getAuthService } = require('./auth-service')
+  return getAuthService()
 }
 
 // Función para hacer requests con manejo automático de renovación de tokens

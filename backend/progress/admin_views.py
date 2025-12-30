@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Max, Min, Sum
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -56,6 +57,7 @@ class AdminWeightEntryViewSet(viewsets.ModelViewSet):
                     "change": None,
                     "min": None,
                     "max": None,
+                    "avg": None,
                 }
             )
 
@@ -66,6 +68,19 @@ class AdminWeightEntryViewSet(viewsets.ModelViewSet):
             min_weight=Min("weight"),
             max_weight=Max("weight"),
             avg_weight=Avg("weight"),
+        )
+
+        return Response(
+            {
+                "user_id": user.id,
+                "count": qs.count(),
+                "current": WeightEntrySerializer(latest).data,
+                "previous": WeightEntrySerializer(previous).data if previous else None,
+                "change": float(latest.weight - previous.weight) if previous and latest.weight and previous.weight else None,
+                "min": float(aggregates["min_weight"]) if aggregates["min_weight"] is not None else None,
+                "max": float(aggregates["max_weight"]) if aggregates["max_weight"] is not None else None,
+                "avg": float(aggregates["avg_weight"]) if aggregates["avg_weight"] is not None else None,
+            }
         )
 
 class AdminDailyWellnessViewSet(viewsets.ModelViewSet):
@@ -124,18 +139,5 @@ class AdminDailyWellnessViewSet(viewsets.ModelViewSet):
             "avg_motivation": float(aggregates["avg_motivation"]) if aggregates["avg_motivation"] is not None else None,
             "last": DailyWellnessSerializer(last).data if last else None,
         })
-
-        return Response(
-            {
-                "user_id": user.id,
-                "count": qs.count(),
-                "current": WeightEntrySerializer(latest).data,
-                "previous": WeightEntrySerializer(previous).data if previous else None,
-                "change": float(latest.weight - previous.weight) if previous else None,
-                "min": float(aggregates["min_weight"]) if aggregates["min_weight"] is not None else None,
-                "max": float(aggregates["max_weight"]) if aggregates["max_weight"] is not None else None,
-                "avg": float(aggregates["avg_weight"]) if aggregates["avg_weight"] is not None else None,
-            }
-        )
 
 

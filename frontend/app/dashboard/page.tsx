@@ -51,7 +51,8 @@ import {
 
 // Lazy loading de componentes pesados para code splitting
 const MealDashboard = lazy(() => import("@/components/dashboard/meal-dashboard").then(module => ({ default: module.MealDashboard })))
-const DashboardEnhanced = lazy(() => import("@/components/dashboard/dashboard-enhanced").then(module => ({ default: module.DashboardEnhanced })))
+// DashboardEnhanced se carga de forma normal para evitar problemas de inicialización con auth
+import { DashboardEnhanced } from "@/components/dashboard/dashboard-enhanced"
 const ProgressDashboard = lazy(() => import("@/components/dashboard/progress-dashboard").then(module => ({ default: module.ProgressDashboard })))
 const WorkoutSummary = lazy(() => import("./components/workout-summary").then(module => ({ default: module.WorkoutSummary })))
 const WorkoutDashboardEnhanced = lazy(() => import("@/components/dashboard/workout-dashboard-enhanced").then(module => ({ default: module.WorkoutDashboardEnhanced })))
@@ -60,7 +61,7 @@ const AchievementsDuolingo = lazy(() => import("./components/achievements-duolin
 const MobileNavigation = lazy(() => import("./components/mobile-navigation").then(module => ({ default: module.MobileNavigation })))
 const MobileHeader = lazy(() => import("./components/mobile-header").then(module => ({ default: module.MobileHeader })))
 const DayOneSheet = lazy(() => import("./components/day-one-sheet").then(module => ({ default: module.DayOneSheet })))
-const SettingsPage = lazy(() => import("./components/settings-page"))
+const SettingsPage = lazy(() => import("./components/settings-page").then(module => ({ default: module.default })))
 const ProfilePanel = lazy(() => import("./components/profile-panel").then(module => ({ default: module.ProfilePanel })))
 const NotificationsDropdown = lazy(() => import("./components/notifications-dropdown").then(module => ({ default: module.NotificationsDropdown })))
 const WorkoutPlansDashboard = lazy(() => import("@/components/workout-plans-dashboard").then(module => ({ default: module.WorkoutPlansDashboard })))

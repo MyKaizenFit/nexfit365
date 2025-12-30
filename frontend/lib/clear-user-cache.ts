@@ -5,7 +5,7 @@
 
 import { apiCache } from './api-cache'
 import { generateCacheKey } from './api-cache'
-import { AUTH_ENDPOINTS } from './auth-service'
+import { AUTH_ENDPOINTS } from './api'
 
 /**
  * Limpia toda la caché relacionada con el usuario

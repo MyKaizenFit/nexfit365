@@ -11,13 +11,18 @@ export function RegisterServiceWorker() {
         .then((registration) => {
           console.log('✅ Service Worker registrado:', registration.scope)
           
-          // Verificar actualizaciones periódicamente (cada 5 minutos en lugar de cada minuto)
+          // Forzar actualización inmediata
+          registration.update().catch((err) => {
+            console.debug('Service Worker update check:', err.message)
+          })
+          
+          // Verificar actualizaciones periódicamente (cada minuto para detectar cambios rápidamente)
           setInterval(() => {
             registration.update().catch((err) => {
               // Silenciar errores de actualización
               console.debug('Service Worker update check:', err.message)
             })
-          }, 300000) // Cada 5 minutos
+          }, 60000) // Cada minuto para detectar cambios más rápido
         })
         .catch((error) => {
           // Solo loguear errores críticos, no bloquear la aplicación

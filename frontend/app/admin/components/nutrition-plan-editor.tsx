@@ -1,14 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Trash2, Save, ChefHat, Clock, Zap, Loader2 } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Plus, Trash2, Save, ChefHat, Clock, Zap, Loader2, RefreshCw, Percent, BookOpen, Eye, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
+import { fixEncoding } from "@/lib/encoding-fix"
 
 interface MealFood {
   food_id: string
@@ -48,134 +52,201 @@ interface NutritionPlan {
   end_date?: string
 }
 
+type MacroPercents = { protein: number; carbs: number; fat: number }
+
+const DEFAULT_PERCENTS: MacroPercents = { protein: 30, carbs: 40, fat: 30 }
+
+const toNumber = (value: unknown, fallback = 0) => {
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
+}
+
+const computePercentsFromGrams = (grams: { protein?: number; carbs?: number; fat?: number }, calories: number): MacroPercents => {
+  const kcal = Math.max(calories || 0, 1)
+  const proteinPct = Math.round(((toNumber(grams.protein) * 4) / kcal) * 1000) / 10
+  const carbsPct = Math.round(((toNumber(grams.carbs) * 4) / kcal) * 1000) / 10
+  const fatPct = Math.round(((toNumber(grams.fat) * 9) / kcal) * 1000) / 10
+
+  // Si todo es 0, usar default
+  if (!proteinPct && !carbsPct && !fatPct) {
+    return DEFAULT_PERCENTS
+  }
+
+  return {
+    protein: proteinPct,
+    carbs: carbsPct,
+    fat: fatPct,
+  }
+}
+
+const computeGramsFromPercents = (percents: MacroPercents, calories: number) => {
+  const kcal = Math.max(calories || 0, 1)
+  return {
+    protein: Math.round((kcal * (percents.protein / 100)) / 4),
+    carbs: Math.round((kcal * (percents.carbs / 100)) / 4),
+    fat: Math.round((kcal * (percents.fat / 100)) / 9),
+  }
+}
+
 export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave: () => void }) {
   const [plan, setPlan] = useState<NutritionPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [macroPercents, setMacroPercents] = useState<MacroPercents>(DEFAULT_PERCENTS)
+  const [availablePlans, setAvailablePlans] = useState<Array<{ id: string; name: string }>>([])
+  const [selectedPlan, setSelectedPlan] = useState<string>("")
+  const [assigning, setAssigning] = useState(false)
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null)
+  const [showRecipeModal, setShowRecipeModal] = useState(false)
+  const [loadingRecipe, setLoadingRecipe] = useState(false)
 
-  // Cargar plan del usuario
+  // Cargar plan y planes precreados
   useEffect(() => {
     loadUserPlan()
+    loadDefaultPlans()
   }, [userId])
+
+  const loadDefaultPlans = async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl("admin/nutrition/default-plans/"), { headers })
+      if (!response.ok) return
+      const data = await response.json()
+      const plans = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : []
+      setAvailablePlans(plans.filter((p: any) => p?.is_active).map((p: any) => ({ id: String(p.id), name: fixEncoding(p.name || "Plan") })))
+    } catch (err) {
+      console.warn("No se pudieron cargar planes por defecto", err)
+    }
+  }
+
+  const pickBestPlan = (plans: any[]) => {
+    if (!Array.isArray(plans) || plans.length === 0) return null
+    const active = plans.find((p: any) => p?.is_active)
+    if (active) return active
+    const sorted = [...plans].sort((a: any, b: any) => {
+      const aDate = new Date(a?.start_date || a?.created_at || 0).getTime()
+      const bDate = new Date(b?.start_date || b?.created_at || 0).getTime()
+      return bDate - aDate
+    })
+    return sorted[0]
+  }
 
   const loadUserPlan = async () => {
     try {
       setLoading(true)
       setError(null)
-      
-      const headers = await getAuthHeaders()
-      // Obtener planes del usuario (activos primero)
-      const response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), {
-        headers,
-      })
 
-      if (!response.ok) {
-        throw new Error('Error al cargar el plan del usuario')
-      }
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), { headers })
+      if (!response.ok) throw new Error("Error al cargar el plan del usuario")
 
       const data = await response.json()
-      const plans = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
-      
-      // Buscar plan activo o el más reciente
-      let userPlan = plans.find((p: any) => p.is_active) || plans[0]
+      const plans = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : []
+      const userPlan = pickBestPlan(plans)
 
       if (userPlan) {
-        // Cargar detalles completos del plan
-        const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), {
-          headers,
+        const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), { headers })
+        if (!detailResponse.ok) throw new Error("Error al cargar detalle del plan")
+        const detail = await detailResponse.json()
+
+        const meals = (Array.isArray(detail.meals) ? detail.meals : []).map((meal: any, index: number) => ({
+          id: meal.id,
+          name: fixEncoding(meal.name || `Comida ${index + 1}`),
+          time: meal.time || "12:00",
+          calories: toNumber(meal.calories),
+          protein: toNumber(meal.protein),
+          carbs: toNumber(meal.carbs),
+          fat: toNumber(meal.fat),
+          description: fixEncoding(meal.description || ""),
+          order_index: meal.order_index || index + 1,
+          meal_foods: Array.isArray(meal.meal_foods)
+            ? meal.meal_foods.map((f: any) => ({
+                food_id: String(f.food_id || ""),
+                quantity: toNumber(f.quantity, 0),
+                food_name: fixEncoding(f.food_name || ""),
+              }))
+            : [],
+        }))
+
+        const grams = {
+          protein: toNumber(detail.target_macros?.protein),
+          carbs: toNumber(detail.target_macros?.carbs),
+          fat: toNumber(detail.target_macros?.fat),
+        }
+
+        const percentsFromApi = {
+          protein: toNumber(detail.target_macros?.protein_percentage),
+          carbs: toNumber(detail.target_macros?.carbs_percentage),
+          fat: toNumber(detail.target_macros?.fat_percentage),
+        }
+
+        const percents =
+          percentsFromApi.protein || percentsFromApi.carbs || percentsFromApi.fat
+            ? percentsFromApi
+            : computePercentsFromGrams(grams, toNumber(detail.daily_calories, 2000))
+
+        setMacroPercents({
+          protein: percents.protein || DEFAULT_PERCENTS.protein,
+          carbs: percents.carbs || DEFAULT_PERCENTS.carbs,
+          fat: percents.fat || DEFAULT_PERCENTS.fat,
         })
 
-        if (detailResponse.ok) {
-          const planDetail = await detailResponse.json()
-          // Convertir formato del backend al formato del componente
-          setPlan({
-            id: planDetail.id,
-            name: planDetail.name || 'Plan Nutricional',
-            description: planDetail.description || '',
-            daily_calories: planDetail.daily_calories || 2000,
-            target_macros: {
-              protein: planDetail.target_macros?.protein || 0,
-              carbs: planDetail.target_macros?.carbs || 0,
-              fat: planDetail.target_macros?.fat || 0,
-              protein_percentage: planDetail.target_macros?.protein_percentage,
-              carbs_percentage: planDetail.target_macros?.carbs_percentage,
-              fat_percentage: planDetail.target_macros?.fat_percentage,
-            },
-            meals: (planDetail.meals || []).map((meal: any, index: number) => ({
-              id: meal.id,
-              name: meal.name || `Comida ${index + 1}`,
-              time: meal.time || '12:00',
-              calories: meal.calories || 0,
-              protein: meal.protein || 0,
-              carbs: meal.carbs || 0,
-              fat: meal.fat || 0,
-              description: meal.description || '',
-              order_index: meal.order_index || index + 1,
-              meal_foods: meal.meal_foods || [],
-            })),
-            is_active: planDetail.is_active,
-            start_date: planDetail.start_date,
-            end_date: planDetail.end_date,
-          })
-        } else {
-          // Si no hay detalles, usar el plan básico
-          setPlan({
-            id: userPlan.id,
-            name: userPlan.name || 'Plan Nutricional',
-            description: userPlan.description || '',
-            daily_calories: userPlan.daily_calories || 2000,
-            target_macros: {
-              protein: 0,
-              carbs: 0,
-              fat: 0,
-            },
-            meals: [],
-            is_active: userPlan.is_active,
-          })
-        }
+        setPlan({
+          id: detail.id,
+          name: fixEncoding(detail.name || "Plan Nutricional"),
+          description: fixEncoding(detail.description || ""),
+          daily_calories: toNumber(detail.daily_calories, 2000),
+          target_macros: {
+            protein: grams.protein,
+            carbs: grams.carbs,
+            fat: grams.fat,
+            protein_percentage: percents.protein,
+            carbs_percentage: percents.carbs,
+            fat_percentage: percents.fat,
+          },
+          meals,
+          is_active: detail.is_active,
+          start_date: detail.start_date,
+          end_date: detail.end_date,
+        })
       } else {
-        // Crear plan vacío si no existe
+        setMacroPercents(DEFAULT_PERCENTS)
+        const grams = computeGramsFromPercents(DEFAULT_PERCENTS, 2000)
         setPlan({
           name: "Nuevo Plan Nutricional",
           description: "Plan nutricional personalizado",
           daily_calories: 2000,
           target_macros: {
-            protein: 150,
-            carbs: 220,
-            fat: 80,
+            ...grams,
+            protein_percentage: DEFAULT_PERCENTS.protein,
+            carbs_percentage: DEFAULT_PERCENTS.carbs,
+            fat_percentage: DEFAULT_PERCENTS.fat,
           },
           meals: [],
         })
       }
     } catch (err) {
-      console.error('Error cargando plan:', err)
-      setError(err instanceof Error ? err.message : 'Error desconocido')
+      console.error("Error cargando plan:", err)
+      setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
-        title: 'Error',
-        description: 'No se pudo cargar el plan del usuario',
-        variant: 'destructive'
-      })
-      // Crear plan vacío en caso de error
-      setPlan({
-        name: "Nuevo Plan Nutricional",
-        description: "Plan nutricional personalizado",
-        daily_calories: 2000,
-        target_macros: {
-          protein: 150,
-          carbs: 220,
-          fat: 80,
-        },
-        meals: [],
+        title: "Error",
+        description: "No se pudo cargar el plan del usuario",
+        variant: "destructive",
       })
     } finally {
       setLoading(false)
     }
   }
 
+  const mealsArray = useMemo(() => (Array.isArray(plan?.meals) ? plan!.meals : []), [plan])
+
+  const updatePlanState = (partial: Partial<NutritionPlan>) => {
+    setPlan((prev) => (prev ? { ...prev, ...partial } : prev))
+  }
+
   const addMeal = () => {
     if (!plan) return
-    
     const newMeal: Meal = {
       name: "Nueva Comida",
       time: "12:00",
@@ -184,143 +255,241 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       carbs: 0,
       fat: 0,
       description: "",
-      order_index: plan.meals.length + 1,
+      order_index: mealsArray.length + 1,
       meal_foods: [],
     }
-    setPlan({ ...plan, meals: [...plan.meals, newMeal] })
+    updatePlanState({ meals: [...mealsArray, newMeal] })
   }
 
   const updateMeal = (mealIndex: number, updates: Partial<Meal>) => {
     if (!plan) return
-    
-    setPlan({
-      ...plan,
-      meals: plan.meals.map((meal, index) => 
-        index === mealIndex ? { ...meal, ...updates } : meal
-      ),
-    })
+    const updated = mealsArray.map((meal, idx) => (idx === mealIndex ? { ...meal, ...updates } : meal))
+    updatePlanState({ meals: updated })
   }
 
   const deleteMeal = (mealIndex: number) => {
     if (!plan) return
-    
-    setPlan({
-      ...plan,
-      meals: plan.meals.filter((_, index) => index !== mealIndex),
+    const updated = mealsArray.filter((_, idx) => idx !== mealIndex)
+    updatePlanState({ meals: updated })
+  }
+
+  const addIngredient = (mealIndex: number) => {
+    if (!plan) return
+    const meal = mealsArray[mealIndex]
+    if (!meal) return
+    const newFood: MealFood = { food_id: "", food_name: "", quantity: 100 }
+    updateMeal(mealIndex, { meal_foods: [...(Array.isArray(meal.meal_foods) ? meal.meal_foods : []), newFood] })
+  }
+
+  const updateIngredient = (mealIndex: number, foodIndex: number, updates: Partial<MealFood>) => {
+    if (!plan) return
+    const meal = mealsArray[mealIndex]
+    if (!meal || !Array.isArray(meal.meal_foods)) return
+    const updatedFoods = meal.meal_foods.map((food, idx) => (idx === foodIndex ? { ...food, ...updates } : food))
+    updateMeal(mealIndex, { meal_foods: updatedFoods })
+  }
+
+  const removeIngredient = (mealIndex: number, foodIndex: number) => {
+    if (!plan) return
+    const meal = mealsArray[mealIndex]
+    if (!meal || !Array.isArray(meal.meal_foods)) return
+    const updatedFoods = meal.meal_foods.filter((_, idx) => idx !== foodIndex)
+    updateMeal(mealIndex, { meal_foods: updatedFoods })
+  }
+
+  // Función para cargar y mostrar receta completa
+  const viewRecipe = async (foodId: string) => {
+    if (!foodId || foodId.trim() === '') {
+      toast({
+        title: "Sin ID de receta",
+        description: "Este ingrediente no tiene un ID de receta asociado",
+        variant: "destructive"
+      })
+      return
+    }
+
+    try {
+      setLoadingRecipe(true)
+      const headers = await getAuthHeaders()
+      
+      // Intentar cargar desde endpoint admin primero
+      let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${foodId}/`), {
+        headers
+      })
+
+      if (!response.ok) {
+        // Si falla, intentar endpoint público
+        response = await fetch(buildApiUrl(`nutrition/recipes/${foodId}/`), {
+          headers
+        })
+      }
+
+      if (response.ok) {
+        const recipe = await response.json()
+        setSelectedRecipe(recipe)
+        setShowRecipeModal(true)
+      } else {
+        const errorData = await response.json().catch(() => ({}))
+        toast({
+          title: "Error",
+          description: errorData.detail || errorData.error || "No se pudo cargar la receta",
+          variant: "destructive"
+        })
+      }
+    } catch (err) {
+      console.error('Error cargando receta:', err)
+      toast({
+        title: "Error",
+        description: "Error al cargar la receta",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingRecipe(false)
+    }
+  }
+
+  const handlePercentsChange = (field: keyof MacroPercents, value: number) => {
+    if (!plan) return
+    const newPercents = { ...macroPercents, [field]: value }
+    const grams = computeGramsFromPercents(newPercents, plan.daily_calories)
+    setMacroPercents(newPercents)
+    updatePlanState({
+      target_macros: {
+        ...plan.target_macros,
+        ...grams,
+        protein_percentage: newPercents.protein,
+        carbs_percentage: newPercents.carbs,
+        fat_percentage: newPercents.fat,
+      },
     })
   }
 
-  const addFoodToMeal = (mealIndex: number) => {
+  const handleGramsChange = (field: "protein" | "carbs" | "fat", value: number) => {
     if (!plan) return
-    
-    const food = prompt("Añadir alimento (ID del alimento):")
-    if (food) {
-      const meal = plan.meals[mealIndex]
-      const newMealFood: MealFood = {
-        food_id: food,
-        quantity: 100, // cantidad por defecto en gramos
-      }
-      updateMeal(mealIndex, {
-        meal_foods: [...(meal.meal_foods || []), newMealFood],
-      })
+    const grams = {
+      protein: field === "protein" ? value : toNumber(plan.target_macros.protein),
+      carbs: field === "carbs" ? value : toNumber(plan.target_macros.carbs),
+      fat: field === "fat" ? value : toNumber(plan.target_macros.fat),
     }
+    const percents = computePercentsFromGrams(grams, plan.daily_calories)
+    setMacroPercents(percents)
+    updatePlanState({
+      target_macros: {
+        ...plan.target_macros,
+        ...grams,
+        protein_percentage: percents.protein,
+        carbs_percentage: percents.carbs,
+        fat_percentage: percents.fat,
+      },
+    })
   }
 
-  const removeFoodFromMeal = (mealIndex: number, foodIndex: number) => {
+  const handleDailyCaloriesChange = (value: number) => {
     if (!plan) return
-    
-    const meal = plan.meals[mealIndex]
-    if (meal.meal_foods) {
-      const newFoods = meal.meal_foods.filter((_, index) => index !== foodIndex)
-      updateMeal(mealIndex, { meal_foods: newFoods })
-    }
+    const grams = computeGramsFromPercents(macroPercents, value)
+    updatePlanState({
+      daily_calories: value,
+      target_macros: {
+        ...plan.target_macros,
+        ...grams,
+      },
+    })
   }
 
   const handleSave = async () => {
     if (!plan) return
-
     try {
       setSaving(true)
       setError(null)
-
       const headers = await getAuthHeaders()
-      
-      // Preparar datos para el backend
+
       const planData = {
         user_id: userId,
         name: plan.name,
         description: plan.description,
-        daily_calories: plan.daily_calories,
+        daily_calories: toNumber(plan.daily_calories),
         target_macros: {
-          protein: plan.target_macros.protein || 0,
-          carbs: plan.target_macros.carbs || 0,
-          fat: plan.target_macros.fat || 0,
+          protein: toNumber(plan.target_macros.protein),
+          carbs: toNumber(plan.target_macros.carbs),
+          fat: toNumber(plan.target_macros.fat),
+          protein_percentage: macroPercents.protein,
+          carbs_percentage: macroPercents.carbs,
+          fat_percentage: macroPercents.fat,
         },
-        meals: plan.meals.map((meal, index) => ({
+        meals: mealsArray.map((meal, index) => ({
           name: meal.name,
           time: meal.time,
-          calories: meal.calories,
-          protein: meal.protein,
-          carbs: meal.carbs,
-          fat: meal.fat,
+          calories: toNumber(meal.calories),
+          protein: toNumber(meal.protein),
+          carbs: toNumber(meal.carbs),
+          fat: toNumber(meal.fat),
           description: meal.description,
           order_index: meal.order_index || index + 1,
-          meal_foods: meal.meal_foods || [],
+          meal_foods: Array.isArray(meal.meal_foods)
+            ? meal.meal_foods.map((f) => ({
+                food_id: f.food_id,
+                quantity: toNumber(f.quantity, 0),
+                food_name: f.food_name,
+              }))
+            : [],
         })),
-        is_active: plan.is_active !== false, // Por defecto activo
+        is_active: plan.is_active !== false,
       }
 
-      let response
-      if (plan.id) {
-        // Actualizar plan existente
-        response = await fetch(buildApiUrl(`nutrition/plans/${plan.id}/`), {
-          method: 'PATCH',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(planData),
-        })
-      } else {
-        // Crear nuevo plan
-        response = await fetch(buildApiUrl('nutrition/plans/'), {
-          method: 'POST',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(planData),
-        })
-      }
+      const response = await fetch(buildApiUrl(plan.id ? `nutrition/plans/${plan.id}/` : "nutrition/plans/"), {
+        method: plan.id ? "PATCH" : "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(planData),
+      })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || errorData.error || 'Error al guardar el plan')
+        throw new Error(errorData.detail || errorData.error || "Error al guardar el plan")
       }
 
-      const savedPlan = await response.json()
-      
-      toast({
-        title: "✅ Plan nutricional guardado",
-        description: "Los cambios han sido aplicados al usuario",
-      })
-      
-      // Actualizar el plan con el ID si es nuevo
-      if (!plan.id && savedPlan.id) {
-        setPlan({ ...plan, id: savedPlan.id })
+      const saved = await response.json()
+      toast({ title: "✅ Plan nutricional guardado", description: "Los cambios han sido aplicados al usuario" })
+      if (!plan.id && saved.id) {
+        updatePlanState({ id: saved.id })
       }
-      
       onSave()
     } catch (err) {
-      console.error('Error guardando plan:', err)
-      setError(err instanceof Error ? err.message : 'Error desconocido')
+      console.error("Error guardando plan:", err)
+      setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "❌ Error",
-        description: err instanceof Error ? err.message : 'No se pudo guardar el plan',
-        variant: 'destructive'
+        description: err instanceof Error ? err.message : "No se pudo guardar el plan",
+        variant: "destructive",
       })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleAssignPlan = async () => {
+    if (!selectedPlan) return
+    try {
+      setAssigning(true)
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl("admin/nutrition/change-user-plan/"), {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, default_plan_id: selectedPlan }),
+      })
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || "No se pudo asignar el plan")
+      }
+      toast({ title: "✅ Plan asignado", description: "Se aplicó el plan seleccionado al usuario" })
+      await loadUserPlan()
+    } catch (err) {
+      toast({
+        title: "❌ Error al asignar",
+        description: err instanceof Error ? err.message : "No se pudo asignar el plan",
+        variant: "destructive",
+      })
+    } finally {
+      setAssigning(false)
     }
   }
 
@@ -344,323 +513,524 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
     )
   }
 
-  const totalMacros = plan.meals.reduce(
+  const totalMacros = mealsArray.reduce(
     (acc, meal) => ({
-      calories: acc.calories + meal.calories,
-      protein: acc.protein + meal.protein,
-      carbs: acc.carbs + meal.carbs,
-      fat: acc.fat + meal.fat,
+      calories: acc.calories + toNumber(meal.calories),
+      protein: acc.protein + toNumber(meal.protein),
+      carbs: acc.carbs + toNumber(meal.carbs),
+      fat: acc.fat + toNumber(meal.fat),
     }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 },
   )
 
+  const formatMacro = (value: number | string): string => {
+    const numValue = typeof value === "string" ? parseFloat(value) : value
+    if (isNaN(numValue) || !isFinite(numValue)) return "0"
+    const rounded = Math.round(numValue * 100) / 100
+    return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(2)
+  }
+
   return (
     <div className="space-y-6">
-      {/* Header del plan */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-            <ChefHat className="h-6 w-6" />
-            Editor de Plan Nutricional
-          </CardTitle>
-          <CardDescription>Personaliza el plan de alimentación del usuario</CardDescription>
+      {/* Header */}
+      <Card className="backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              <ChefHat className="h-6 w-6" />
+              Plan nutricional del usuario
+            </CardTitle>
+            <CardDescription>Ver y editar el plan actual o asignar uno existente</CardDescription>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadUserPlan} className="gap-2" disabled={loading || saving}>
+              <RefreshCw className="h-4 w-4" />
+              Recargar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 gap-2"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Guardar cambios
+            </Button>
+          </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="plan-name">Nombre del plan</Label>
-              <Input
-                id="plan-name"
-                value={plan.name}
-                onChange={(e) => setPlan({ ...plan, name: e.target.value })}
-                className="border-2 border-gray-200 focus:border-orange-400"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="daily-calories">Calorías diarias objetivo</Label>
-              <Input
-                id="daily-calories"
-                type="number"
-                value={plan.daily_calories}
-                onChange={(e) => setPlan({ ...plan, daily_calories: Number(e.target.value) })}
-                className="border-2 border-gray-200 focus:border-orange-400"
-              />
+        <CardContent className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <Label>Nombre del plan</Label>
+            <Input value={fixEncoding(plan.name)} onChange={(e) => updatePlanState({ name: e.target.value })} />
+            <Label>Descripción</Label>
+            <Textarea value={fixEncoding(plan.description)} onChange={(e) => updatePlanState({ description: e.target.value })} rows={3} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Calorías diarias objetivo</Label>
+                <Input
+                  type="number"
+                  value={plan.daily_calories}
+                  onChange={(e) => handleDailyCaloriesChange(Number(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Plan activo</Label>
+                <Input readOnly value={plan.is_active ? "Sí" : "No"} className="bg-muted" />
+              </div>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="plan-description">Descripción</Label>
-            <Textarea
-              id="plan-description"
-              value={plan.description}
-              onChange={(e) => setPlan({ ...plan, description: e.target.value })}
-              className="border-2 border-gray-200 focus:border-orange-400"
-              rows={2}
-            />
+          <div className="space-y-3">
+            <Label>Asignar plan pre-creado</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <Select value={selectedPlan} onValueChange={setSelectedPlan}>
+                <SelectTrigger className="sm:col-span-2">
+                  <SelectValue placeholder="Selecciona un plan existente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availablePlans.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button variant="secondary" onClick={handleAssignPlan} disabled={!selectedPlan || assigning} className="w-full">
+                {assigning ? <Loader2 className="h-4 w-4 animate-spin" /> : <BookOpen className="h-4 w-4 mr-2" />}
+                Asignar
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Esto aplicará un plan ya creado al usuario y recargará los datos para seguir editando de forma individual.
+            </p>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Macros objetivo */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-              <Label htmlFor="target-protein" className="text-blue-700">
-                Proteínas (g)
-              </Label>
+      {/* Macros y porcentajes */}
+      <Card className="border border-orange-100 bg-gradient-to-br from-orange-50 to-amber-50 shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-orange-800">
+            <Percent className="h-5 w-5" />
+            Objetivos de macros
+          </CardTitle>
+          <CardDescription>Calcula automáticamente por porcentajes y ajusta gramos a mano</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <Label>Proteínas (%)</Label>
+                <Input
+                  type="number"
+                  value={macroPercents.protein}
+                  onChange={(e) => handlePercentsChange("protein", Number(e.target.value) || 0)}
+                />
+              </div>
+              <div>
+                <Label>Carbohidratos (%)</Label>
+                <Input type="number" value={macroPercents.carbs} onChange={(e) => handlePercentsChange("carbs", Number(e.target.value) || 0)} />
+              </div>
+              <div>
+                <Label>Grasas (%)</Label>
+                <Input type="number" value={macroPercents.fat} onChange={(e) => handlePercentsChange("fat", Number(e.target.value) || 0)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Los porcentajes recalculan automáticamente los gramos en función de las calorías diarias.
+            </p>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <Label>Proteínas (g)</Label>
               <Input
-                id="target-protein"
                 type="number"
                 value={plan.target_macros.protein || 0}
-                onChange={(e) =>
-                  setPlan({
-                    ...plan,
-                    target_macros: { ...plan.target_macros, protein: Number(e.target.value) },
-                  })
-                }
-                className="mt-1 text-center border-blue-300 focus:border-blue-500"
+                onChange={(e) => handleGramsChange("protein", Number(e.target.value) || 0)}
               />
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg border border-green-200">
-              <Label htmlFor="target-carbs" className="text-green-700">
-                Carbohidratos (g)
-              </Label>
-              <Input
-                id="target-carbs"
-                type="number"
-                value={plan.target_macros.carbs || 0}
-                onChange={(e) =>
-                  setPlan({
-                    ...plan,
-                    target_macros: { ...plan.target_macros, carbs: Number(e.target.value) },
-                  })
-                }
-                className="mt-1 text-center border-green-300 focus:border-green-500"
-              />
+            <div>
+              <Label>Carbohidratos (g)</Label>
+              <Input type="number" value={plan.target_macros.carbs || 0} onChange={(e) => handleGramsChange("carbs", Number(e.target.value) || 0)} />
             </div>
-            <div className="text-center p-3 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
-              <Label htmlFor="target-fat" className="text-yellow-700">
-                Grasas (g)
-              </Label>
-              <Input
-                id="target-fat"
-                type="number"
-                value={plan.target_macros.fat || 0}
-                onChange={(e) =>
-                  setPlan({
-                    ...plan,
-                    target_macros: { ...plan.target_macros, fat: Number(e.target.value) },
-                  })
-                }
-                className="mt-1 text-center border-yellow-300 focus:border-yellow-500"
-              />
-            </div>
-          </div>
-
-          {/* Resumen actual */}
-          <div className="p-4 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200">
-            <h4 className="font-medium text-gray-800 mb-2">Totales actuales del plan:</h4>
-            <div className="grid grid-cols-4 gap-4 text-sm">
-              <div className="text-center">
-                <span className="font-bold text-lg">{totalMacros.calories}</span>
-                <p className="text-gray-600">kcal</p>
-              </div>
-              <div className="text-center">
-                <span className="font-bold text-lg text-blue-600">{totalMacros.protein}g</span>
-                <p className="text-gray-600">Proteínas</p>
-              </div>
-              <div className="text-center">
-                <span className="font-bold text-lg text-green-600">{totalMacros.carbs}g</span>
-                <p className="text-gray-600">Carbos</p>
-              </div>
-              <div className="text-center">
-                <span className="font-bold text-lg text-yellow-600">{totalMacros.fat}g</span>
-                <p className="text-gray-600">Grasas</p>
-              </div>
+            <div>
+              <Label>Grasas (g)</Label>
+              <Input type="number" value={plan.target_macros.fat || 0} onChange={(e) => handleGramsChange("fat", Number(e.target.value) || 0)} />
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Lista de comidas */}
+      {/* Resumen de totales */}
+      <Card className="border border-gray-100 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle>Totales actuales del plan (comidas del día)</CardTitle>
+          <CardDescription>Usando únicamente las comidas del plan actual, no las últimas 5.</CardDescription>
+        </CardHeader>
+        <CardContent className="grid grid-cols-4 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-semibold">{formatMacro(totalMacros.calories)}</div>
+            <p className="text-muted-foreground text-sm">kcal</p>
+          </div>
+          <div>
+            <div className="text-2xl font-semibold text-blue-600">{formatMacro(totalMacros.protein)}g</div>
+            <p className="text-muted-foreground text-sm">Proteínas</p>
+          </div>
+          <div>
+            <div className="text-2xl font-semibold text-green-600">{formatMacro(totalMacros.carbs)}g</div>
+            <p className="text-muted-foreground text-sm">Carbos</p>
+          </div>
+          <div>
+            <div className="text-2xl font-semibold text-amber-600">{formatMacro(totalMacros.fat)}g</div>
+            <p className="text-muted-foreground text-sm">Grasas</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Comidas y platos */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Comidas del día</h3>
-          <Button
-            onClick={addMeal}
-            className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0"
-          >
+          <h3 className="text-lg font-semibold">Comidas del día (editable por plato e ingredientes)</h3>
+          <Button onClick={addMeal} className="bg-gradient-to-r from-orange-500 to-red-500 text-white">
             <Plus className="h-4 w-4 mr-2" />
             Añadir comida
           </Button>
         </div>
 
-        {plan.meals.map((meal, index) => (
-          <Card key={meal.id || index} className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+        {mealsArray.length === 0 && (
+          <Card className="border border-dashed text-center py-8">
+            <p className="text-muted-foreground">No hay comidas en el plan</p>
+            <Button onClick={addMeal} className="mt-3">
+              Añadir primera comida
+            </Button>
+          </Card>
+        )}
+
+        {mealsArray.map((meal, index) => (
+          <Card key={meal.id || index} className="shadow-md border border-gray-100">
+            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between pb-2">
+              <div className="flex items-center gap-2">
                 <CardTitle className="text-base">Comida #{index + 1}</CardTitle>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => deleteMeal(index)}
-                  className="h-8 w-8 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <span className="text-sm text-muted-foreground">{fixEncoding(meal.name)}</span>
               </div>
+              <Button variant="ghost" size="icon" className="text-red-600" onClick={() => deleteMeal(index)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Nombre de la comida</Label>
-                  <Input
-                    value={meal.name}
-                    onChange={(e) => updateMeal(index, { name: e.target.value })}
-                    className="border-2 border-gray-200 focus:border-orange-400"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>Nombre</Label>
+                  <Input value={fixEncoding(meal.name)} onChange={(e) => updateMeal(index, { name: e.target.value })} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Hora</Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="time"
-                      value={meal.time}
-                      onChange={(e) => updateMeal(index, { time: e.target.value })}
-                      className="pl-10 border-2 border-gray-200 focus:border-orange-400"
-                    />
-                  </div>
+                  <Input type="time" value={meal.time} onChange={(e) => updateMeal(index, { time: e.target.value })} />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label>Calorías</Label>
-                  <div className="relative">
-                    <Zap className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                    <Input
-                      type="number"
-                      value={meal.calories}
-                      onChange={(e) => updateMeal(index, { calories: Number(e.target.value) })}
-                      className="pl-10 border-2 border-gray-200 focus:border-orange-400"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label className="text-blue-700">Proteínas (g)</Label>
                   <Input
                     type="number"
-                    value={meal.protein}
-                    onChange={(e) => updateMeal(index, { protein: Number(e.target.value) })}
-                    className="border-2 border-blue-200 focus:border-blue-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-green-700">Carbohidratos (g)</Label>
-                  <Input
-                    type="number"
-                    value={meal.carbs}
-                    onChange={(e) => updateMeal(index, { carbs: Number(e.target.value) })}
-                    className="border-2 border-green-200 focus:border-green-400"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-yellow-700">Grasas (g)</Label>
-                  <Input
-                    type="number"
-                    value={meal.fat}
-                    onChange={(e) => updateMeal(index, { fat: Number(e.target.value) })}
-                    className="border-2 border-yellow-200 focus:border-yellow-400"
+                    value={toNumber(meal.calories)}
+                    onChange={(e) => updateMeal(index, { calories: Number(e.target.value) || 0 })}
                   />
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Descripción</Label>
-                <Textarea
-                  value={meal.description}
-                  onChange={(e) => updateMeal(index, { description: e.target.value })}
-                  className="border-2 border-gray-200 focus:border-orange-400"
-                  rows={2}
-                  placeholder="Describe esta comida..."
-                />
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <Label>Proteínas (g)</Label>
+                  <Input
+                    type="number"
+                    value={toNumber(meal.protein)}
+                    onChange={(e) => updateMeal(index, { protein: Number(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Carbohidratos (g)</Label>
+                  <Input type="number" value={toNumber(meal.carbs)} onChange={(e) => updateMeal(index, { carbs: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Grasas (g)</Label>
+                  <Input type="number" value={toNumber(meal.fat)} onChange={(e) => updateMeal(index, { fat: Number(e.target.value) || 0 })} />
+                </div>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-1">
+                <Label>Descripción / notas</Label>
+                <Textarea value={fixEncoding(meal.description)} onChange={(e) => updateMeal(index, { description: e.target.value })} rows={2} />
+              </div>
+
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Alimentos incluidos</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addFoodToMeal(index)}
-                    className="text-orange-600 border-orange-300 hover:bg-orange-50"
-                  >
-                    <Plus className="h-3 w-3 mr-1" />
-                    Añadir
+                  <Label>Platos / ingredientes</Label>
+                  <Button variant="outline" size="sm" onClick={() => addIngredient(index)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Añadir ingrediente
                   </Button>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  {meal.meal_foods?.map((food, foodIndex) => (
-                    <div
-                      key={foodIndex}
-                      className="flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-800 rounded-full text-sm"
-                    >
-                      <span>{food.food_name || `Alimento ${food.food_id}`}</span>
-                      <span className="text-xs">({food.quantity}g)</span>
-                      <button
-                        onClick={() => removeFoodFromMeal(index, foodIndex)}
-                        className="ml-1 text-orange-600 hover:text-orange-800"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                  {(!meal.meal_foods || meal.meal_foods.length === 0) && (
-                    <p className="text-gray-500 text-sm italic">No hay alimentos añadidos</p>
-                  )}
-                </div>
+
+                {Array.isArray(meal.meal_foods) && meal.meal_foods.length > 0 ? (
+                  <div className="space-y-2">
+                    {meal.meal_foods.map((food, fIndex) => (
+                      <div key={fIndex} className="grid grid-cols-12 gap-2 items-center">
+                        <Input
+                          className="col-span-6"
+                          placeholder="Nombre del alimento/plato"
+                          value={fixEncoding(food.food_name || "")}
+                          onChange={(e) => updateIngredient(index, fIndex, { food_name: e.target.value })}
+                        />
+                        <Input
+                          className="col-span-3"
+                          type="number"
+                          placeholder="Cantidad (g)"
+                          value={toNumber(food.quantity, 0)}
+                          onChange={(e) => updateIngredient(index, fIndex, { quantity: Number(e.target.value) || 0 })}
+                        />
+                        <Input
+                          className="col-span-2"
+                          placeholder="ID ref."
+                          value={food.food_id}
+                          onChange={(e) => updateIngredient(index, fIndex, { food_id: e.target.value })}
+                        />
+                        {food.food_id && food.food_id.trim() !== '' && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-blue-600 col-span-1" 
+                            onClick={() => viewRecipe(food.food_id)}
+                            title="Ver receta completa"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" className="text-red-600 col-span-1" onClick={() => removeIngredient(index, fIndex)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Añade ingredientes para este plato.</p>
+                )}
               </div>
             </CardContent>
           </Card>
         ))}
-
-        {plan.meals.length === 0 && (
-          <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">No hay comidas en el plan</p>
-              <Button
-                onClick={addMeal}
-                className="mt-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-0"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Añadir primera comida
-              </Button>
-            </CardContent>
-          </Card>
-        )}
       </div>
 
-      {/* Botones de acción */}
-      <div className="flex gap-4 pt-6">
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Guardar plan nutricional
-            </>
-          )}
-        </Button>
-        <Button variant="outline" onClick={onSave} disabled={saving}>
-          Cancelar
-        </Button>
-      </div>
+      {/* Modal de receta completa */}
+      {showRecipeModal && selectedRecipe && (
+        <RecipeDetailModal recipe={selectedRecipe} onClose={() => { setShowRecipeModal(false); setSelectedRecipe(null) }} />
+      )}
     </div>
+  )
+}
+
+// Componente modal para mostrar detalles completos de una receta
+interface RecipeDetailModalProps {
+  recipe: any
+  onClose: () => void
+}
+
+function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
+  const getDifficultyColor = (difficulty?: string) => {
+    switch (difficulty) {
+      case 'easy': return 'text-green-600 bg-green-50'
+      case 'medium': return 'text-yellow-600 bg-yellow-50'
+      case 'hard': return 'text-red-600 bg-red-50'
+      default: return 'text-gray-600 bg-gray-50'
+    }
+  }
+
+  const getDifficultyLabel = (difficulty?: string) => {
+    switch (difficulty) {
+      case 'easy': return 'Fácil'
+      case 'medium': return 'Medio'
+      case 'hard': return 'Difícil'
+      default: return difficulty || 'No especificado'
+    }
+  }
+
+  const formatMacro = (value: number | string | undefined): string => {
+    if (value === undefined || value === null) return '0'
+    const num = typeof value === 'string' ? parseFloat(value) : value
+    if (isNaN(num)) return '0'
+    const rounded = Math.round(num * 10) / 10
+    return rounded % 1 === 0 ? rounded.toString() : rounded.toFixed(1)
+  }
+
+  const formatIngredients = (ingredients: any): Array<{ name: string; amount: string | number | null; unit: string | null }> => {
+    if (!ingredients) return []
+    if (Array.isArray(ingredients)) {
+      return ingredients.map(ing => {
+        if (typeof ing === 'string') {
+          return { name: fixEncoding(ing), amount: null, unit: null }
+        }
+        if (typeof ing === 'object' && ing !== null) {
+          return {
+            name: fixEncoding(ing.name || ing.ingredient || 'Ingrediente'),
+            amount: ing.amount || ing.quantity || null,
+            unit: ing.unit || 'g'
+          }
+        }
+        return { name: fixEncoding(String(ing)), amount: null, unit: null }
+      })
+    }
+    return []
+  }
+
+  const ingredients = formatIngredients(recipe.ingredients)
+  const instructions = recipe.instructions 
+    ? (typeof recipe.instructions === 'string' ? recipe.instructions.split('\n') : recipe.instructions)
+    : []
+
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
+                  <ChefHat className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <DialogTitle className="text-2xl font-bold">{fixEncoding(recipe.name || 'Receta sin nombre')}</DialogTitle>
+                  <DialogDescription className="text-sm text-gray-600 mt-1">
+                    {fixEncoding(recipe.description || 'Sin descripción')}
+                  </DialogDescription>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 mt-3 flex-wrap">
+                {recipe.difficulty && (
+                  <Badge className={getDifficultyColor(recipe.difficulty)}>
+                    {getDifficultyLabel(recipe.difficulty)}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  {recipe.prep_time_minutes || 0} min prep + {recipe.cook_time_minutes || 0} min cocción
+                </Badge>
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Users className="w-3 h-3" />
+                  {recipe.servings || 1} {recipe.servings === 1 ? 'porción' : 'porciones'}
+                </Badge>
+                {recipe.category && (
+                  <Badge variant="secondary">{fixEncoding(recipe.category)}</Badge>
+                )}
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="space-y-6 mt-4">
+          {/* Macros */}
+          <div className="grid grid-cols-4 gap-4">
+            <div className="text-center bg-orange-50 rounded-lg p-4 border border-orange-100">
+              <div className="text-2xl font-bold text-orange-600 mb-1">
+                {recipe.calories || 0}
+              </div>
+              <div className="text-xs text-orange-500 font-medium">kcal</div>
+            </div>
+            <div className="text-center bg-blue-50 rounded-lg p-4 border border-blue-100">
+              <div className="text-2xl font-bold text-blue-600 mb-1">
+                {formatMacro(recipe.protein)}g
+              </div>
+              <div className="text-xs text-blue-500 font-medium">Proteína</div>
+            </div>
+            <div className="text-center bg-green-50 rounded-lg p-4 border border-green-100">
+              <div className="text-2xl font-bold text-green-600 mb-1">
+                {formatMacro(recipe.carbs)}g
+              </div>
+              <div className="text-xs text-green-500 font-medium">Carbos</div>
+            </div>
+            <div className="text-center bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+              <div className="text-2xl font-bold text-yellow-600 mb-1">
+                {formatMacro(recipe.fat)}g
+              </div>
+              <div className="text-xs text-yellow-500 font-medium">Grasas</div>
+            </div>
+          </div>
+
+          {/* Ingredientes */}
+          {ingredients.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <BookOpen className="w-5 h-5 text-orange-500" />
+                Ingredientes
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                {ingredients.map((ingredient, index) => (
+                  <div key={index} className="flex items-center justify-between py-2 border-b border-gray-200 last:border-0">
+                    <span className="text-gray-700 font-medium">{ingredient.name}</span>
+                    {ingredient.amount !== null && (
+                      <span className="text-gray-600 font-semibold">
+                        {ingredient.amount} {ingredient.unit || 'g'}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Instrucciones */}
+          {instructions.length > 0 && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-orange-500" />
+                Instrucciones
+              </h3>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                {instructions.map((instruction, index) => (
+                  instruction.trim() && (
+                    <div key={index} className="flex gap-3">
+                      <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                        {index + 1}
+                      </div>
+                      <p className="text-gray-700 flex-1">{fixEncoding(instruction.trim())}</p>
+                    </div>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Información adicional */}
+          {(recipe.fiber || recipe.sugar || recipe.sodium) && (
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Información Nutricional Adicional</h3>
+              <div className="grid grid-cols-3 gap-4">
+                {recipe.fiber && (
+                  <div className="text-center bg-purple-50 rounded-lg p-3 border border-purple-100">
+                    <div className="text-lg font-bold text-purple-600">{formatMacro(recipe.fiber)}g</div>
+                    <div className="text-xs text-purple-500 font-medium">Fibra</div>
+                  </div>
+                )}
+                {recipe.sugar && (
+                  <div className="text-center bg-pink-50 rounded-lg p-3 border border-pink-100">
+                    <div className="text-lg font-bold text-pink-600">{formatMacro(recipe.sugar)}g</div>
+                    <div className="text-xs text-pink-500 font-medium">Azúcar</div>
+                  </div>
+                )}
+                {recipe.sodium && (
+                  <div className="text-center bg-indigo-50 rounded-lg p-3 border border-indigo-100">
+                    <div className="text-lg font-bold text-indigo-600">{formatMacro(recipe.sodium)}mg</div>
+                    <div className="text-xs text-indigo-500 font-medium">Sodio</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cerrar
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

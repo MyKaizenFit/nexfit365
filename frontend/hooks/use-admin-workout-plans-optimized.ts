@@ -178,34 +178,120 @@ export const useAdminWorkoutPlansOptimized = () => {
   const fetchStats = async () => {
     try {
       const headers = await getAuthHeaders()
-      // Obtener estadísticas del servidor si está disponible, o calcular localmente
-      const response = await fetch(buildApiUrl(`workout-plan-templates/?page_size=1`), {
+      
+      // Obtener total de planes
+      const totalResponse = await fetch(buildApiUrl(`workout-plan-templates/?page_size=1`), {
         headers
       })
       
-      if (response.ok) {
-        const data = await response.json()
-        const totalCount = data.count || 0
-        
-        // Para estadísticas más detalladas, hacer queries adicionales optimizadas
-        const stats: WorkoutPlanStats = {
-          total_programs: totalCount,
-          active_programs: 0, // Se puede calcular desde el filtro
-          programs_by_difficulty: {},
-          programs_by_role: {},
-          recent_programs: 0
-        }
-        
-        setStats(stats)
+      if (!totalResponse.ok) {
+        throw new Error(`Error ${totalResponse.status}: ${totalResponse.statusText}`)
       }
+      
+      const totalData = await totalResponse.json()
+      const totalCount = totalData.count || 0
+      
+      // Obtener planes activos
+      const activeResponse = await fetch(buildApiUrl(`workout-plan-templates/?is_active=true&page_size=1`), {
+        headers
+      })
+      
+      let activeCount = 0
+      if (activeResponse.ok) {
+        const activeData = await activeResponse.json()
+        activeCount = activeData.count || 0
+      }
+      
+      // Obtener planes recientes (últimos 7 días)
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      const recentResponse = await fetch(buildApiUrl(`workout-plan-templates/?created_after=${sevenDaysAgo.toISOString()}&page_size=1`), {
+        headers
+      })
+      
+      let recentCount = 0
+      if (recentResponse.ok) {
+        const recentData = await recentResponse.json()
+        recentCount = recentData.count || 0
+      }
+      
+      // Obtener planes por dificultad
+      const programsByDifficulty: Record<string, number> = {}
+      const difficultyLevels = ['beginner', 'intermediate', 'advanced']
+      
+      for (const difficulty of difficultyLevels) {
+        try {
+          const diffResponse = await fetch(buildApiUrl(`workout-plan-templates/?difficulty=${difficulty}&page_size=1`), {
+            headers
+          })
+          if (diffResponse.ok) {
+            const diffData = await diffResponse.json()
+            programsByDifficulty[difficulty] = diffData.count || 0
+          }
+        } catch (err) {
+          console.error(`Error fetching plans for difficulty ${difficulty}:`, err)
+        }
+      }
+      
+      // Obtener planes por rol
+      const programsByRole: Record<string, number> = {}
+      const roles = ['basic', 'pro', 'premium']
+      
+      for (const role of roles) {
+        try {
+          const roleResponse = await fetch(buildApiUrl(`workout-plan-templates/?min_role_required=${role}&page_size=1`), {
+            headers
+          })
+          if (roleResponse.ok) {
+            const roleData = await roleResponse.json()
+            programsByRole[role] = roleData.count || 0
+          }
+        } catch (err) {
+          console.error(`Error fetching plans for role ${role}:`, err)
+        }
+      }
+      
+      const stats: WorkoutPlanStats = {
+        total_programs: totalCount,
+        active_programs: activeCount,
+        programs_by_difficulty: programsByDifficulty,
+        programs_by_role: programsByRole,
+        recent_programs: recentCount
+      }
+      
+      console.log('📊 Estadísticas de planes de entrenamiento calculadas:', stats)
+      setStats(stats)
     } catch (err) {
       console.error('Error calculating stats:', err)
+      // Calcular desde los planes cargados como fallback
+      const activePlans = plans.filter(p => p.is_active).length
+      const sevenDaysAgo = new Date()
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+      const recentPlans = plans.filter(p => {
+        const createdDate = new Date(p.created_at)
+        return createdDate >= sevenDaysAgo
+      }).length
+      
+      const programsByDifficulty: Record<string, number> = {}
+      plans.forEach(plan => {
+        if (plan.difficulty) {
+          programsByDifficulty[plan.difficulty] = (programsByDifficulty[plan.difficulty] || 0) + 1
+        }
+      })
+      
+      const programsByRole: Record<string, number> = {}
+      plans.forEach(plan => {
+        if (plan.min_role_required) {
+          programsByRole[plan.min_role_required] = (programsByRole[plan.min_role_required] || 0) + 1
+        }
+      })
+      
       setStats({
         total_programs: totalCount,
-        active_programs: 0,
-        programs_by_difficulty: {},
-        programs_by_role: {},
-        recent_programs: 0
+        active_programs: activePlans,
+        programs_by_difficulty: programsByDifficulty,
+        programs_by_role: programsByRole,
+        recent_programs: recentPlans
       })
     }
   }
@@ -228,12 +314,12 @@ export const useAdminWorkoutPlansOptimized = () => {
     fetchExercises()
   }, []) // Solo al montar
   
-  // Actualizar stats cuando cambia totalCount
+  // Actualizar stats cuando cambian los planes o totalCount
   useEffect(() => {
-    if (totalCount > 0) {
+    if (totalCount > 0 || plans.length > 0) {
       fetchStats()
     }
-  }, [totalCount])
+  }, [totalCount, plans.length])
 
   // Función para obtener el detalle completo de un plan
   const fetchPlanDetail = useCallback(async (planId: string): Promise<WorkoutPlan | null> => {
@@ -316,9 +402,13 @@ export const useAdminWorkoutPlansOptimized = () => {
     }
   }
 
+  // Asegurar que plans y exercises siempre sean arrays
+  const safePlans = Array.isArray(plans) ? plans : []
+  const safeExercises = Array.isArray(exercises) ? exercises : []
+  
   return {
-    plans,
-    exercises,
+    plans: safePlans,
+    exercises: safeExercises,
     stats,
     loading,
     error,

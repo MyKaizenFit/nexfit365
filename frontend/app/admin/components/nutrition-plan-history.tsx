@@ -68,16 +68,19 @@ export function NutritionPlanHistory() {
     }
   }
 
-  const filteredHistory = history.filter(entry => {
+  // Asegurar que history sea un array antes de filtrar
+  const historyArray = Array.isArray(history) ? history : []
+  const filteredHistory = historyArray.filter(entry => {
+    if (!entry) return false
     // Filtro de búsqueda
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       const matchesSearch = (
-        entry.user.toLowerCase().includes(search) ||
-        entry.old_plan_name.toLowerCase().includes(search) ||
-        entry.new_plan_name.toLowerCase().includes(search) ||
-        entry.notes.toLowerCase().includes(search) ||
-        entry.changed_by_email?.toLowerCase().includes(search)
+        (entry.user || '').toLowerCase().includes(search) ||
+        (entry.old_plan_name || '').toLowerCase().includes(search) ||
+        (entry.new_plan_name || '').toLowerCase().includes(search) ||
+        (entry.notes || '').toLowerCase().includes(search) ||
+        (entry.changed_by_email || '').toLowerCase().includes(search)
       )
       if (!matchesSearch) return false
     }

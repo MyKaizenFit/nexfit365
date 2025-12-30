@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from workouts.models import WorkoutLog, WorkoutProgram
+from nutrition.models import NutritionPlan, MealLog
 from notifications.models import Notification
 from progress.models import ProgressPhoto, WeightEntry
 
@@ -40,6 +41,14 @@ def admin_dashboard_stats(request):
     ).count()
     total_programs = WorkoutProgram.objects.count()
     active_programs = WorkoutProgram.objects.filter(is_active=True).count()
+    
+    # Estadísticas de nutrición
+    total_nutrition_plans = NutritionPlan.objects.count()
+    active_nutrition_plans = NutritionPlan.objects.filter(is_active=True).count()
+    total_meal_logs = MealLog.objects.count()
+    recent_meal_logs = MealLog.objects.filter(
+        date__gte=timezone.now() - timedelta(days=30)
+    ).count()
     
     # Estadísticas de progreso
     total_progress_photos = ProgressPhoto.objects.count()
@@ -84,6 +93,12 @@ def admin_dashboard_stats(request):
             'active_programs': active_programs,
             'most_active_users': most_active_users,
             'popular_programs': popular_programs,
+        },
+        'nutrition': {
+            'total_plans': total_nutrition_plans,
+            'active_plans': active_nutrition_plans,
+            'total_meal_logs': total_meal_logs,
+            'recent_meal_logs_30_days': recent_meal_logs,
         },
         'progress': {
             'total_photos': total_progress_photos,

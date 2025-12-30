@@ -90,42 +90,45 @@ export function NutritionManagement() {
     tags: ''
   })
 
-  // Filtrar recetas
-  const filteredNutrition = nutrition.filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         item.ingredients.some(ing => ing.toLowerCase().includes(searchTerm.toLowerCase()))
+  // Filtrar recetas - asegurar que nutrition sea un array
+  const nutritionArray = Array.isArray(nutrition) ? nutrition : []
+  const filteredNutrition = nutritionArray.filter(item => {
+    if (!item) return false
+    const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (Array.isArray(item.ingredients) && item.ingredients.some(ing => ing?.toLowerCase().includes(searchTerm.toLowerCase())))
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter
     const matchesDifficulty = difficultyFilter === "all" || item.difficulty === difficultyFilter
     
     return matchesSearch && matchesCategory && matchesDifficulty
   })
   
-  // Ordenamiento
-  const sortedNutrition = [...filteredNutrition].sort((a, b) => {
+  // Ordenamiento - asegurar que filteredNutrition sea un array
+  const sortedNutrition = Array.isArray(filteredNutrition) ? [...filteredNutrition].sort((a, b) => {
+    if (!a || !b) return 0
     let aValue: any
     let bValue: any
     
     switch (sortColumn) {
       case 'name':
-        aValue = a.name.toLowerCase()
-        bValue = b.name.toLowerCase()
+        aValue = a.name?.toLowerCase() || ''
+        bValue = b.name?.toLowerCase() || ''
         break
       case 'category':
-        aValue = a.category
-        bValue = b.category
+        aValue = a.category || ''
+        bValue = b.category || ''
         break
       case 'difficulty':
-        aValue = a.difficulty
-        bValue = b.difficulty
+        aValue = a.difficulty || ''
+        bValue = b.difficulty || ''
         break
       case 'calories':
-        aValue = a.calories_per_serving
-        bValue = b.calories_per_serving
+        aValue = a.calories_per_serving || 0
+        bValue = b.calories_per_serving || 0
         break
       case 'time':
-        aValue = a.prep_time_minutes
-        bValue = b.prep_time_minutes
+        aValue = a.prep_time_minutes || 0
+        bValue = b.prep_time_minutes || 0
         break
       default:
         return 0
@@ -140,15 +143,15 @@ export function NutritionManagement() {
         ? (aValue - bValue)
         : (bValue - aValue)
     }
-  })
+  }) : []
   
   // Calcular paginación
   // Usar el total sin filtrar para determinar si mostrar paginación
-  const totalNutrition = nutrition.length
+  const totalNutrition = nutritionArray.length
   const totalPages = Math.ceil(sortedNutrition.length / 50) || 1
   const startIndex = (currentPage - 1) * 50
   const endIndex = startIndex + 50
-  const currentNutrition = sortedNutrition.slice(startIndex, endIndex)
+  const currentNutrition = Array.isArray(sortedNutrition) ? sortedNutrition.slice(startIndex, endIndex) : []
   
   // Función para cambiar el ordenamiento
   const handleSort = (column: string) => {
@@ -165,8 +168,8 @@ export function NutritionManagement() {
     setCurrentPage(1)
   }, [searchTerm, categoryFilter, difficultyFilter])
 
-  // Obtener categorías únicas
-  const categories = Array.from(new Set(nutrition.map(item => item.category)))
+  // Obtener categorías únicas - asegurar que nutrition sea un array
+  const categories = Array.from(new Set(nutritionArray.map(item => item?.category).filter(Boolean)))
 
   // Funciones para manejar el formulario
   const handleFormChange = (field: string, value: string | number) => {
@@ -488,7 +491,7 @@ export function NutritionManagement() {
                 checked={selectedNutrition.length === currentNutrition.length && currentNutrition.length > 0}
                 onCheckedChange={(checked) => {
                   if (checked) {
-                    setSelectedNutrition(currentNutrition.map(item => item.id))
+                    setSelectedNutrition(Array.isArray(currentNutrition) ? currentNutrition.map(item => item.id) : [])
                   } else {
                     setSelectedNutrition([])
                   }
@@ -567,7 +570,7 @@ export function NutritionManagement() {
                 </tr>
               </thead>
                 <tbody>
-                  {currentNutrition.map((item) => (
+                  {Array.isArray(currentNutrition) ? currentNutrition.map((item) => (
                     <tr key={item.id} className="border-t hover:bg-muted/50">
                       <td className="p-3">
                         <div className="flex items-center space-x-2">
@@ -584,7 +587,7 @@ export function NutritionManagement() {
                           <div>
                             <div className="font-medium">{item.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {item.ingredients.length} ingredientes
+                              {Array.isArray(item.ingredients) ? item.ingredients.length : 0} ingredientes
                             </div>
                           </div>
                         </div>
@@ -649,7 +652,7 @@ export function NutritionManagement() {
                         </DropdownMenu>
                       </td>
                     </tr>
-                  ))}
+                  )) : null}
                 </tbody>
               </table>
             </div>

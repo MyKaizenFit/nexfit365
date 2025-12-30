@@ -28,7 +28,8 @@ export function UserWeightHistory({ userId }: Props) {
   const [saving, setSaving] = useState(false)
 
   const onEdit = (entryId: string) => {
-    const entry = entries.find(e => e.id === entryId)
+    const entriesArray = Array.isArray(entries) ? entries : []
+    const entry = entriesArray.find(e => e && e.id === entryId)
     if (!entry) return
     setForm({
       weight: String(entry.weight),
@@ -77,10 +78,11 @@ export function UserWeightHistory({ userId }: Props) {
   }
 
   const filtered = useMemo(() => {
-    if (range === 0) return entries
+    const entriesArray = Array.isArray(entries) ? entries : []
+    if (range === 0) return entriesArray
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - range)
-    return entries.filter(e => new Date(e.date) >= cutoff)
+    return entriesArray.filter(e => e && new Date(e.date) >= cutoff)
   }, [entries, range])
 
   const trend = useMemo(() => {
@@ -102,11 +104,14 @@ export function UserWeightHistory({ userId }: Props) {
     const avg = (list: typeof entries) =>
       list.length ? list.reduce((s, e) => s + Number(e.weight), 0) / list.length : null
 
-    const currentList = entries.filter(e => {
+    const entriesArray = Array.isArray(entries) ? entries : []
+    const currentList = entriesArray.filter(e => {
+      if (!e) return false
       const d = new Date(e.date)
       return d >= start && d <= now
     })
-    const prevList = entries.filter(e => {
+    const prevList = entriesArray.filter(e => {
+      if (!e) return false
       const d = new Date(e.date)
       return d >= prevStart && d < prevEnd
     })

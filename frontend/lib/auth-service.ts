@@ -980,5 +980,16 @@ export class AuthService {
   }
 }
 
-// Exportar instancia singleton
-export const authService = AuthService.getInstance()
+// Exportar función para obtener la instancia singleton (lazy initialization)
+// Esto evita problemas de inicialización circular
+let _authServiceInstance: AuthService | null = null
+
+export const getAuthService = (): AuthService => {
+  if (!_authServiceInstance) {
+    _authServiceInstance = AuthService.getInstance()
+  }
+  return _authServiceInstance
+}
+
+// NO exportar authService directamente para evitar problemas de inicialización circular
+// Usar getAuthService() en su lugar

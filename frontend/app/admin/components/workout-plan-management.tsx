@@ -134,39 +134,42 @@ export function WorkoutPlanManagement() {
   const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{[dayId: string]: string[]}>({})
   const [showExerciseSelector, setShowExerciseSelector] = useState<{[dayId: string]: boolean}>({})
 
-  // Aplicar filtros del servidor y ordenamiento local
-  const filteredPlans = plans.filter((plan) => {
+  // Aplicar filtros del servidor y ordenamiento local - asegurar que plans sea un array
+  const plansArray = Array.isArray(plans) ? plans : []
+  const filteredPlans = plansArray.filter((plan) => {
+    if (!plan) return false
     // Filtro de ubicación (cliente porque no está en el backend)
     if (locationFilter !== "all") {
-      const isHome = fixEncoding(plan.name).toLowerCase().includes('casa')
-      const isGym = fixEncoding(plan.name).toLowerCase().includes('gimnasio')
+      const isHome = fixEncoding(plan.name || '').toLowerCase().includes('casa')
+      const isGym = fixEncoding(plan.name || '').toLowerCase().includes('gimnasio')
       if (locationFilter === "home" && !isHome) return false
       if (locationFilter === "gym" && !isGym) return false
     }
     return true
   })
   
-  // Ordenamiento
-  const sortedPlans = [...filteredPlans].sort((a, b) => {
+  // Ordenamiento - asegurar que filteredPlans sea un array
+  const sortedPlans = Array.isArray(filteredPlans) ? [...filteredPlans].sort((a, b) => {
+    if (!a || !b) return 0
     let aValue: any
     let bValue: any
     
     switch (sortColumn) {
       case 'name':
-        aValue = a.name.toLowerCase()
-        bValue = b.name.toLowerCase()
+        aValue = (a.name || '').toLowerCase()
+        bValue = (b.name || '').toLowerCase()
         break
       case 'role':
-        aValue = a.min_role_required
-        bValue = b.min_role_required
+        aValue = a.min_role_required || ''
+        bValue = b.min_role_required || ''
         break
       case 'difficulty':
-        aValue = a.difficulty
-        bValue = b.difficulty
+        aValue = a.difficulty || ''
+        bValue = b.difficulty || ''
         break
       case 'duration':
-        aValue = a.duration_weeks
-        bValue = b.duration_weeks
+        aValue = a.duration_weeks || 0
+        bValue = b.duration_weeks || 0
         break
       case 'status':
         aValue = a.is_active ? 1 : 0
@@ -185,7 +188,7 @@ export function WorkoutPlanManagement() {
         ? (aValue - bValue)
         : (bValue - aValue)
     }
-  })
+  }) : []
   
   // Usar todos los planes ordenados (ya vienen paginados del servidor)
   const currentPlans = sortedPlans
@@ -252,7 +255,7 @@ export function WorkoutPlanManagement() {
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedPlans(currentPlans.map(plan => plan.id))
+      setSelectedPlans(Array.isArray(currentPlans) ? currentPlans.map(plan => plan?.id).filter(Boolean) : [])
     } else {
       setSelectedPlans([])
     }
@@ -260,9 +263,15 @@ export function WorkoutPlanManagement() {
 
   const handleSelectPlan = (planId: string, checked: boolean) => {
     if (checked) {
-      setSelectedPlans(prev => [...prev, planId])
+      setSelectedPlans(prev => {
+        const prevArray = Array.isArray(prev) ? prev : []
+        return [...prevArray, planId]
+      })
     } else {
-      setSelectedPlans(prev => prev.filter(id => id !== planId))
+      setSelectedPlans(prev => {
+        const prevArray = Array.isArray(prev) ? prev : []
+        return prevArray.filter(id => id !== planId)
+      })
     }
   }
 
@@ -399,20 +408,32 @@ export function WorkoutPlanManagement() {
   }
 
   const removeWorkoutDay = (dayId: string) => {
-    if (workoutDays.length > 1) {
-      setWorkoutDays(prev => prev.filter(day => day.id !== dayId))
+    const daysArray = Array.isArray(workoutDays) ? workoutDays : []
+    if (daysArray.length > 1) {
+      setWorkoutDays(prev => {
+        const prevArray = Array.isArray(prev) ? prev : []
+        return prevArray.filter(day => day && day.id !== dayId)
+      })
     }
   }
 
   const updateWorkoutDay = (dayId: string, field: string, value: any) => {
-    setWorkoutDays(prev => prev.map(day => 
-      day.id === dayId ? { ...day, [field]: value } : day
-    ))
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => 
+        day && day.id === dayId ? { ...day, [field]: value } : day
+      )
+    })
   }
 
   const addExerciseToDay = (dayId: string, exerciseId: string) => {
-    const exercise = exercises.find(e => String(e.id) === String(exerciseId))
+    const exercisesArray = Array.isArray(exercises) ? exercises : []
+    const exercise = exercisesArray.find(e => String(e.id) === String(exerciseId))
     if (!exercise) return
+
+    const workoutDaysArray = Array.isArray(workoutDays) ? workoutDays : []
+    const targetDay = workoutDaysArray.find(d => d && d.id === dayId)
+    const dayExercises = Array.isArray(targetDay?.exercises) ? targetDay.exercises : []
 
     const newExercise = {
       exercise_id: String(exerciseId),
@@ -423,14 +444,20 @@ export function WorkoutPlanManagement() {
       duration: 0,
       rest_time: 60,
       notes: '',
-      order: workoutDays.find(d => d.id === dayId)?.exercises.length || 0
+      order: dayExercises.length || 0
     }
 
-    setWorkoutDays(prev => prev.map(day => 
-      day.id === dayId 
-        ? { ...day, exercises: [...day.exercises, newExercise] }
-        : day
-    ))
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => {
+        if (!day) return day
+        if (day.id === dayId) {
+          const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
+          return { ...day, exercises: [...exercisesArray, newExercise] }
+        }
+        return day
+      })
+    })
   }
 
   // Funciones para el selector múltiple de ejercicios
@@ -443,25 +470,27 @@ export function WorkoutPlanManagement() {
 
   const toggleExerciseSelection = (dayId: string, exerciseId: string) => {
     setSelectedExercisesForDay(prev => {
-      const current = prev[dayId] || []
-      const isSelected = current.includes(exerciseId)
+      const current = Array.isArray(prev[dayId]) ? prev[dayId] : []
+      const isSelected = Array.isArray(current) && current.includes(exerciseId)
       
       return {
         ...prev,
         [dayId]: isSelected 
-          ? current.filter(id => id !== exerciseId)
-          : [...current, exerciseId]
+          ? (Array.isArray(current) ? current.filter(id => id !== exerciseId) : [])
+          : [...(Array.isArray(current) ? current : []), exerciseId]
       }
     })
   }
 
   const addSelectedExercisesToDay = (dayId: string) => {
-    const selectedIds = selectedExercisesForDay[dayId] || []
+    const selectedIds = Array.isArray(selectedExercisesForDay[dayId]) ? selectedExercisesForDay[dayId] : []
     
     selectedIds.forEach(exerciseId => {
       // Verificar si el ejercicio ya está en el día
-      const day = workoutDays.find(d => d.id === dayId)
-      const alreadyExists = day?.exercises.some(e => String(e.exercise_id) === String(exerciseId))
+      const workoutDaysArray = Array.isArray(workoutDays) ? workoutDays : []
+      const day = workoutDaysArray.find(d => d && d.id === dayId)
+      const dayExercises = Array.isArray(day?.exercises) ? day.exercises : []
+      const alreadyExists = dayExercises.some(e => String(e.exercise_id) === String(exerciseId))
       
       if (!alreadyExists) {
         addExerciseToDay(dayId, exerciseId)
@@ -526,24 +555,36 @@ export function WorkoutPlanManagement() {
   }
 
   const removeExerciseFromDay = (dayId: string, exerciseIndex: number) => {
-    setWorkoutDays(prev => prev.map(day => 
-      day.id === dayId 
-        ? { ...day, exercises: day.exercises.filter((_, index) => index !== exerciseIndex) }
-        : day
-    ))
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => {
+        if (!day) return day
+        if (day.id === dayId) {
+          const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
+          return { ...day, exercises: exercisesArray.filter((_, index) => index !== exerciseIndex) }
+        }
+        return day
+      })
+    })
   }
 
   const updateExerciseInDay = (dayId: string, exerciseIndex: number, field: string, value: any) => {
-    setWorkoutDays(prev => prev.map(day => 
-      day.id === dayId 
-        ? {
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => {
+        if (!day) return day
+        if (day.id === dayId) {
+          const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
+          return {
             ...day, 
-            exercises: day.exercises.map((exercise, index) => 
+            exercises: exercisesArray.map((exercise, index) => 
               index === exerciseIndex ? { ...exercise, [field]: value } : exercise
             )
           }
-        : day
-    ))
+        }
+        return day
+      })
+    })
   }
 
   const handleSubmitPlan = async () => {
@@ -552,7 +593,7 @@ export function WorkoutPlanManagement() {
       
       const planData = {
         ...formData,
-        days: workoutDays.map(day => ({
+        days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
           day_name: day.day_name,
           day_number: day.day_number,
           is_rest_day: day.is_rest_day,
@@ -995,7 +1036,9 @@ export function WorkoutPlanManagement() {
                   </tr>
                 </thead>
                 <tbody>
-                  {currentPlans.map((plan) => (
+                  {Array.isArray(currentPlans) ? currentPlans.map((plan) => {
+                    if (!plan) return null
+                    return (
                     <tr key={plan.id} className="border-t hover:bg-muted/50">
                       <td className="p-3">
                         <div className="flex items-center space-x-2">
@@ -1141,7 +1184,8 @@ export function WorkoutPlanManagement() {
                         </DropdownMenu>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  }) : null}
                 </tbody>
               </table>
             </div>
@@ -1324,7 +1368,9 @@ export function WorkoutPlanManagement() {
               </div>
               
               <div className="space-y-4">
-                {workoutDays.map((day, dayIndex) => (
+                {Array.isArray(workoutDays) ? workoutDays.map((day, dayIndex) => {
+                  if (!day) return null
+                  return (
                   <Card key={day.id} className="border-2 border-purple-100">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
@@ -1418,10 +1464,12 @@ export function WorkoutPlanManagement() {
 
                                     {/* Lista de ejercicios con checkboxes */}
                                     <div className="max-h-60 overflow-y-auto space-y-2">
-                                      {exercises.map((exercise) => {
+                                      {Array.isArray(exercises) ? exercises.map((exercise) => {
+                                        if (!exercise) return null
                                         const exerciseIdStr = String(exercise.id)
-                                        const isSelected = selectedExercisesForDay[day.id]?.includes(exerciseIdStr) || false
-                                        const alreadyInDay = day.exercises.some(e => String(e.exercise_id) === exerciseIdStr)
+                                        const isSelected = Array.isArray(selectedExercisesForDay[day.id]) && selectedExercisesForDay[day.id].includes(exerciseIdStr)
+                                        const dayExercises = Array.isArray(day.exercises) ? day.exercises : []
+                                        const alreadyInDay = dayExercises.some(e => String(e.exercise_id) === exerciseIdStr)
                                         
                                         return (
                                           <div
@@ -1452,7 +1500,7 @@ export function WorkoutPlanManagement() {
                                             )}
                                           </div>
                                         )
-                                      })}
+                                      }) : null}
                                     </div>
 
                                     {/* Botones de acción */}
@@ -1482,12 +1530,13 @@ export function WorkoutPlanManagement() {
                           </div>
 
                           {/* Lista de ejercicios del día */}
-                          {day.exercises.length > 0 && (
+                          {Array.isArray(day.exercises) && day.exercises.length > 0 && (
                             <div className="space-y-3">
                               <FormLabel>Ejercicios del día ({day.exercises.length})</FormLabel>
                               {day.exercises.map((exercise, exerciseIndex) => {
                                 // Buscar datos del ejercicio en el array de ejercicios disponibles
-                                const exerciseData = exercises.find(e => String(e.id) === String(exercise.exercise_id))
+                                const exercisesArray = Array.isArray(exercises) ? exercises : []
+                                const exerciseData = exercisesArray.find(e => String(e.id) === String(exercise.exercise_id))
                                 // Usar el nombre guardado si no se encuentra en el array
                                 const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
                                 const displayCategory = exerciseData?.category || ''
@@ -1581,7 +1630,8 @@ export function WorkoutPlanManagement() {
                       )}
                     </CardContent>
                   </Card>
-                ))}
+                  )
+                }) : null}
                 
                 {/* Botón para agregar día debajo de la lista */}
                 <div className="flex justify-center pt-4">

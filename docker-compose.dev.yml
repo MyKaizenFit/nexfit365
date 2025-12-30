@@ -32,9 +32,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       # Configuración de encoding UTF-8
-      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=es_ES.UTF-8"
-      LC_ALL: "es_ES.UTF-8"
-      LANG: "es_ES.UTF-8"
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
+      LC_ALL: "C.UTF-8"
+      LANG: "C.UTF-8"
       PGCLIENTENCODING: "UTF8"
     ports:
       - "0.0.0.0:5434:5432"

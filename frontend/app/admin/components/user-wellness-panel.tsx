@@ -28,10 +28,11 @@ export function UserWellnessPanel({ userId }: Props) {
   const [saving, setSaving] = useState(false)
 
   const filtered = useMemo(() => {
-    if (range === 0) return entries
+    const entriesArray = Array.isArray(entries) ? entries : []
+    if (range === 0) return entriesArray
     const cutoff = new Date()
     cutoff.setDate(cutoff.getDate() - range)
-    return entries.filter(e => new Date(e.date) >= cutoff)
+    return entriesArray.filter(e => e && new Date(e.date) >= cutoff)
   }, [entries, range])
 
   const periodStats = useMemo(() => {
@@ -44,17 +45,21 @@ export function UserWellnessPanel({ userId }: Props) {
       const prevEnd = new Date()
       prevEnd.setDate(prevEnd.getDate() - days)
 
-      const avgField = (list: typeof entries, field: keyof typeof entries[number]) => {
-        const vals = list.map(e => Number(e[field])).filter(v => !Number.isNaN(v))
+      const entriesArray = Array.isArray(entries) ? entries : []
+      const avgField = (list: typeof entriesArray, field: keyof typeof entriesArray[number]) => {
+        const listArray = Array.isArray(list) ? list : []
+        const vals = listArray.map(e => e ? Number(e[field]) : NaN).filter(v => !Number.isNaN(v))
         if (!vals.length) return null
         return vals.reduce((s, v) => s + v, 0) / vals.length
       }
 
-      const current = entries.filter(e => {
+      const current = entriesArray.filter(e => {
+        if (!e) return false
         const d = new Date(e.date)
         return d >= start && d <= end
       })
-      const prev = entries.filter(e => {
+      const prev = entriesArray.filter(e => {
+        if (!e) return false
         const d = new Date(e.date)
         return d >= prevStart && d < prevEnd
       })
@@ -89,7 +94,8 @@ export function UserWellnessPanel({ userId }: Props) {
   }
 
   const onEdit = (id: string) => {
-    const entry = entries.find(e => e.id === id)
+    const entriesArray = Array.isArray(entries) ? entries : []
+    const entry = entriesArray.find(e => e && e.id === id)
     if (!entry) return
     setForm({
       date: entry.date,

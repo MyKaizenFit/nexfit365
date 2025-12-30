@@ -1,5 +1,8 @@
 "use client"
 
+// Evitar timeouts en renderizado RSC: forzar render dinámico
+export const dynamic = 'force-dynamic'
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import {
@@ -29,6 +32,7 @@ import {
   Heart,
   Settings,
   Loader2,
+  Bell,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -52,6 +56,7 @@ import { UserWellnessPanel } from "../../components/user-wellness-panel"
 import { UserNotifications } from "../../components/user-notifications"
 import { UserProfileHistory } from "../../components/user-profile-history"
 import { UserTodayPanels } from "../../components/user-today-panels"
+import { UserProgressPanel } from "../../components/user-progress-panel"
 import { fixEncoding, fixEncodingArray } from "@/lib/encoding-fix"
 
 const DAYS_OF_WEEK = [
@@ -88,9 +93,26 @@ const DIETARY_RESTRICTIONS_OPTIONS = [
   "Mediterráneo",
 ]
 
-export default function UserDetailPage({ params }: { params: { id: string } }) {
+export default function UserDetailPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
   const router = useRouter()
-  const { user, loading, error, refetch, updateUser } = useAdminUserDetail(params.id)
+  const [userId, setUserId] = useState<string | null>(null)
+  
+  // Manejar params asíncrono (Next.js 15+)
+  useEffect(() => {
+    const resolveParams = async () => {
+      try {
+        const resolvedParams = params instanceof Promise ? await params : params
+        if (resolvedParams?.id) {
+          setUserId(resolvedParams.id)
+        }
+      } catch (err) {
+        console.error('Error resolving params:', err)
+      }
+    }
+    resolveParams()
+  }, [params])
+  
+  const { user, loading, error, refetch, updateUser } = useAdminUserDetail(userId || "")
   const [isEditing, setIsEditing] = useState(false)
   const [editingSection, setEditingSection] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -112,12 +134,12 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         activity_level: user.activity_level as any,
         training_location: user.training_location as any,
         training_days_per_week: user.training_days_per_week || undefined,
-        training_days: user.training_days || [],
-        equipment_available: user.equipment_available || [],
-        dietary_restrictions: user.dietary_restrictions || [],
-        allergies: user.allergies || [],
+        training_days: Array.isArray(user.training_days) ? user.training_days : [],
+        equipment_available: Array.isArray(user.equipment_available) ? user.equipment_available : [],
+        dietary_restrictions: Array.isArray(user.dietary_restrictions) ? user.dietary_restrictions : [],
+        allergies: Array.isArray(user.allergies) ? user.allergies : [],
         disliked_foods: user.disliked_foods || "",
-        medical_conditions: user.medical_conditions || [],
+        medical_conditions: Array.isArray(user.medical_conditions) ? user.medical_conditions : [],
         injuries_or_medical_issues: user.injuries_or_medical_issues || "",
       })
     }
@@ -162,12 +184,12 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
         activity_level: user.activity_level as any,
         training_location: user.training_location as any,
         training_days_per_week: user.training_days_per_week || undefined,
-        training_days: user.training_days || [],
-        equipment_available: user.equipment_available || [],
-        dietary_restrictions: user.dietary_restrictions || [],
-        allergies: user.allergies || [],
+        training_days: Array.isArray(user.training_days) ? user.training_days : [],
+        equipment_available: Array.isArray(user.equipment_available) ? user.equipment_available : [],
+        dietary_restrictions: Array.isArray(user.dietary_restrictions) ? user.dietary_restrictions : [],
+        allergies: Array.isArray(user.allergies) ? user.allergies : [],
         disliked_foods: user.disliked_foods || "",
-        medical_conditions: user.medical_conditions || [],
+        medical_conditions: Array.isArray(user.medical_conditions) ? user.medical_conditions : [],
         injuries_or_medical_issues: user.injuries_or_medical_issues || "",
       })
     }
@@ -176,7 +198,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
   }
 
   const toggleTrainingDay = (day: number) => {
-    const currentDays = localData.training_days || []
+    const currentDays = Array.isArray(localData.training_days) ? localData.training_days : []
     const newDays = currentDays.includes(day)
       ? currentDays.filter((d) => d !== day)
       : [...currentDays, day].sort()
@@ -184,7 +206,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
   }
 
   const toggleEquipment = (equipment: string) => {
-    const current = localData.equipment_available || []
+    const current = Array.isArray(localData.equipment_available) ? localData.equipment_available : []
     const newEquipment = current.includes(equipment)
       ? current.filter((e) => e !== equipment)
       : [...current, equipment]
@@ -192,7 +214,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
   }
 
   const toggleDietaryRestriction = (restriction: string) => {
-    const current = localData.dietary_restrictions || []
+    const current = Array.isArray(localData.dietary_restrictions) ? localData.dietary_restrictions : []
     const newRestrictions = current.includes(restriction)
       ? current.filter((r) => r !== restriction)
       : [...current, restriction]
@@ -201,28 +223,39 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
 
   const addAllergy = (allergy: string) => {
     if (!allergy.trim()) return
-    const current = localData.allergies || []
+    const current = Array.isArray(localData.allergies) ? localData.allergies : []
     if (!current.includes(allergy.trim())) {
       setLocalData({ ...localData, allergies: [...current, allergy.trim()] })
     }
   }
 
   const removeAllergy = (allergy: string) => {
-    const current = localData.allergies || []
+    const current = Array.isArray(localData.allergies) ? localData.allergies : []
     setLocalData({ ...localData, allergies: current.filter((a) => a !== allergy) })
   }
 
   const addMedicalCondition = (condition: string) => {
     if (!condition.trim()) return
-    const current = localData.medical_conditions || []
+    const current = Array.isArray(localData.medical_conditions) ? localData.medical_conditions : []
     if (!current.includes(condition.trim())) {
       setLocalData({ ...localData, medical_conditions: [...current, condition.trim()] })
     }
   }
 
   const removeMedicalCondition = (condition: string) => {
-    const current = localData.medical_conditions || []
+    const current = Array.isArray(localData.medical_conditions) ? localData.medical_conditions : []
     setLocalData({ ...localData, medical_conditions: current.filter((c) => c !== condition) })
+  }
+
+  if (!userId) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-teal-600" />
+          <p className="text-muted-foreground">Cargando información del usuario...</p>
+        </div>
+      </div>
+    )
   }
 
   if (loading) {
@@ -754,7 +787,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                         <div key={day.value} className="flex items-center space-x-2">
                           <Checkbox
                             id={`day-${day.value}`}
-                            checked={(localData.training_days || []).includes(day.value)}
+                            checked={Array.isArray(localData.training_days) && localData.training_days.includes(day.value)}
                             onCheckedChange={() => toggleTrainingDay(day.value)}
                           />
                           <Label
@@ -768,7 +801,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.training_days && user.training_days.length > 0 ? (
+                      {Array.isArray(user.training_days) && user.training_days.length > 0 ? (
                         user.training_days.map((day) => {
                           const dayInfo = DAYS_OF_WEEK.find((d) => d.value === day)
                           return dayInfo ? (
@@ -796,7 +829,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                         <div key={equipment} className="flex items-center space-x-2">
                           <Checkbox
                             id={`equipment-${equipment}`}
-                            checked={(localData.equipment_available || []).includes(equipment)}
+                            checked={Array.isArray(localData.equipment_available) && localData.equipment_available.includes(equipment)}
                             onCheckedChange={() => toggleEquipment(equipment)}
                           />
                           <Label
@@ -810,7 +843,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.equipment_available && user.equipment_available.length > 0 ? (
+                      {Array.isArray(user.equipment_available) && user.equipment_available.length > 0 ? (
                         fixEncodingArray(user.equipment_available).map((equipment) => (
                           <Badge key={equipment} variant="outline">
                             {equipment}
@@ -844,7 +877,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                         <div key={restriction} className="flex items-center space-x-2">
                           <Checkbox
                             id={`restriction-${restriction}`}
-                            checked={(localData.dietary_restrictions || []).includes(restriction)}
+                            checked={Array.isArray(localData.dietary_restrictions) && localData.dietary_restrictions.includes(restriction)}
                             onCheckedChange={() => toggleDietaryRestriction(restriction)}
                           />
                           <Label
@@ -858,7 +891,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.dietary_restrictions && user.dietary_restrictions.length > 0 ? (
+                      {Array.isArray(user.dietary_restrictions) && user.dietary_restrictions.length > 0 ? (
                         fixEncodingArray(user.dietary_restrictions).map((restriction) => (
                           <Badge key={restriction} className="bg-orange-100 text-orange-700 border-0">
                             {restriction}
@@ -877,7 +910,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                   {isEditing ? (
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">
-                        {(localData.allergies || []).map((allergy) => (
+                        {Array.isArray(localData.allergies) ? localData.allergies.map((allergy) => (
                           <Badge
                             key={allergy}
                             variant="outline"
@@ -891,7 +924,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                               <X className="h-3 w-3" />
                             </button>
                           </Badge>
-                        ))}
+                        )) : null}
                       </div>
                       <div className="flex gap-2">
                         <Input
@@ -922,7 +955,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.allergies && user.allergies.length > 0 ? (
+                      {Array.isArray(user.allergies) && user.allergies.length > 0 ? (
                         fixEncodingArray(user.allergies).map((allergy) => (
                           <Badge key={allergy} className="bg-red-100 text-red-700 border-0">
                             {fixEncoding(allergy)}
@@ -971,7 +1004,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                   {isEditing ? (
                     <div className="space-y-2">
                       <div className="flex flex-wrap gap-2">
-                        {(localData.medical_conditions || []).map((condition) => (
+                        {Array.isArray(localData.medical_conditions) ? localData.medical_conditions.map((condition) => (
                           <Badge
                             key={condition}
                             variant="outline"
@@ -985,7 +1018,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                               <X className="h-3 w-3" />
                             </button>
                           </Badge>
-                        ))}
+                        )) : null}
                       </div>
                       <div className="flex gap-2">
                         <Input
@@ -1016,7 +1049,7 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
-                      {user.medical_conditions && user.medical_conditions.length > 0 ? (
+                      {Array.isArray(user.medical_conditions) && user.medical_conditions.length > 0 ? (
                         fixEncodingArray(user.medical_conditions).map((condition) => (
                           <Badge key={condition} className="bg-red-100 text-red-700 border-0">
                             {fixEncoding(condition)}
@@ -1052,9 +1085,17 @@ export default function UserDetailPage({ params }: { params: { id: string } }) {
             </Card>
           </TabsContent>
 
-          {/* Progress Tab */}
+          {/* Progress Tab (placeholder temporal para evitar errores mientras depuramos) */}
           <TabsContent value="progress" className="space-y-6">
-            <UserWeightHistory userId={user.id.toString()} />
+            <Card className="border border-emerald-100">
+              <CardHeader>
+                <CardTitle>Progreso</CardTitle>
+                <CardDescription>Estamos cargando el nuevo panel.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground">Placeholder temporal para evitar errores de carga.</p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Nutrition Tab */}

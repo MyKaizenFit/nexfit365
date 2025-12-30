@@ -161,10 +161,13 @@ function AdminPageContent() {
   })
 
 
-  const filteredUsers = users.filter((user) => {
+  // Asegurar que users sea un array antes de filtrar
+  const usersArray = Array.isArray(users) ? users : []
+  const filteredUsers = usersArray.filter((user) => {
+    if (!user) return false
     const matchesSearch =
-      `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
     
     const matchesStatus = statusFilter === "all" || 
       (statusFilter === "active" && user.is_active) ||
@@ -1043,11 +1046,18 @@ function AdminPageContent() {
                             >
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                               <DropdownMenuItem
-                                onClick={() => router.push(`/admin/user/${user.id}`)}
-                                className="hover:bg-gradient-to-r hover:from-emerald-50 hover:to-green-50"
+                                onClick={() => router.push(`/admin/user-v2/${user.id}`)}
+                                className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
                               >
                                 <Eye className="h-4 w-4 mr-2" />
-                                Ver perfil completo
+                                Ver perfil completo ✨
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => router.push(`/admin/user/${user.id}`)}
+                                className="hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-50 text-slate-500"
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Ver perfil (viejo)
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                                   <DropdownMenuItem
