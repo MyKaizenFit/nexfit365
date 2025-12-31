@@ -290,15 +290,15 @@ const SettingsPage = () => {
                 )}
 
                 {/* Preguntas Frecuentes */}
-                <div className="pt-4 md:pt-6 border-t border-gray-200">
-                  <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-                    Preguntas Frecuentes
+                <div className="pt-3 md:pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-sm md:text-lg mb-2 md:mb-4 flex items-center gap-2">
+                    <BookOpen className="h-4 w-4 md:h-6 md:w-6 text-blue-600 flex-shrink-0" />
+                    <span className="truncate">Preguntas Frecuentes</span>
                   </h4>
-                  <div className="space-y-3 md:space-y-4">
-                    <div className="p-4 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo cambio mi contraseña?</h5>
-                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
+                  <div className="space-y-2 md:space-y-4">
+                    <div className="p-3 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                      <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-3">¿Cómo cambio mi contraseña?</h5>
+                      <p className="text-xs md:text-base text-gray-600 leading-relaxed">
                         Ve a la pestaña "Seguridad" en esta misma página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.
                       </p>
                     </div>
@@ -327,21 +327,21 @@ const SettingsPage = () => {
                 </div>
 
                 {/* Información de la App */}
-                <div className="pt-6 border-t">
-                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <Info className="h-5 w-5 text-gray-600" />
-                    Información de la Aplicación
+                <div className="pt-3 md:pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-sm md:text-lg mb-2 md:mb-4 flex items-center gap-2">
+                    <Info className="h-4 w-4 md:h-6 md:w-6 text-gray-600 flex-shrink-0" />
+                    <span className="truncate">Información de la Aplicación</span>
                   </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="text-sm font-medium text-gray-700 mb-1">Versión</div>
-                      <div className="text-lg font-semibold text-gray-900">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-4">
+                    <div className="p-3 md:p-5 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-xs md:text-base font-medium text-gray-700 mb-1 md:mb-2">Versión</div>
+                      <div className="text-base md:text-xl font-semibold text-gray-900 truncate">
                         {helpSettings?.app_version || '2.1.0'}
                       </div>
                     </div>
-                    <div className="p-4 bg-gray-50 rounded-lg">
-                      <div className="text-sm font-medium text-gray-700 mb-1">Última actualización</div>
-                      <div className="text-lg font-semibold text-gray-900">
+                    <div className="p-3 md:p-5 bg-gray-50 rounded-lg border border-gray-200">
+                      <div className="text-xs md:text-base font-medium text-gray-700 mb-1 md:mb-2">Última actualización</div>
+                      <div className="text-base md:text-xl font-semibold text-gray-900 truncate">
                         {helpSettings?.last_update_date || 'Diciembre 2024'}
                       </div>
                     </div>
