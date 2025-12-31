@@ -36,6 +36,59 @@ interface TonnageData {
   exercises: number
 }
 
+// Función para corregir encoding de nombres de ejercicios
+const fixEncoding = (text: string): string => {
+  if (!text || typeof text !== 'string') return text || ''
+  
+  let fixed = text
+  
+  // CASOS ESPECÍFICOS DE ENCODING MAL INTERPRETADO
+  // ├│ es una codificación incorrecta de ó (UTF-8 mal interpretado como Windows-1252 o similar)
+  fixed = fixed.replace(/├│/g, 'ó')
+  fixed = fixed.replace(/├í/g, 'á')
+  fixed = fixed.replace(/├®/g, 'é')
+  fixed = fixed.replace(/├¡/g, 'í')
+  fixed = fixed.replace(/├║/g, 'ú')
+  fixed = fixed.replace(/├▒/g, 'ñ')
+  
+  // Casos específicos de caracteres que aparecen como barra vertical |
+  fixed = fixed.replace(/Jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/M\|quina/gi, 'Máquina')
+  fixed = fixed.replace(/m\|quina/gi, 'Máquina')
+  
+  // Casos específicos comunes sin el carácter |
+  fixed = fixed.replace(/Jaln\b/gi, 'Jalón')
+  fixed = fixed.replace(/Mquina\b/gi, 'Máquina')
+  
+  // Reemplazos generales de encoding incorrecto
+  fixed = fixed.replace(/b\?\?ceps/gi, 'bíceps')
+  fixed = fixed.replace(/tr\?\?ceps/gi, 'tríceps')
+  fixed = fixed.replace(/cu\?\?driceps/gi, 'cuádriceps')
+  fixed = fixed.replace(/\?\?/g, 'í')
+  fixed = fixed.replace(/Ã¡/g, 'á')
+  fixed = fixed.replace(/Ã©/g, 'é')
+  fixed = fixed.replace(/Ã­/g, 'í')
+  fixed = fixed.replace(/Ã³/g, 'ó')
+  fixed = fixed.replace(/Ãº/g, 'ú')
+  fixed = fixed.replace(/Ã±/g, 'ñ')
+  fixed = fixed.replace(/Ã¼/g, 'ü')
+  fixed = fixed.replace(/Ã‰/g, 'É')
+  fixed = fixed.replace(/Ã/g, 'í')
+  fixed = fixed.replace(/â€™/g, "'")
+  fixed = fixed.replace(/â€œ/g, '"')
+  fixed = fixed.replace(/â€/g, '"')
+  fixed = fixed.replace(/â€"/g, '—')
+  fixed = fixed.replace(/â€"/g, '–')
+  
+  // Último recurso: reemplazar | con ó solo si no está ya corregido
+  if (fixed.includes('|') && !fixed.includes('ó')) {
+    fixed = fixed.replace(/\|/g, 'ó')
+  }
+  
+  return fixed
+}
+
 export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedProps) {
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'all'>('month')
@@ -233,7 +286,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       })
 
       return {
-        name: exerciseData.exercise_name || 'Ejercicio desconocido',
+        name: fixEncoding(exerciseData.exercise_name || 'Ejercicio desconocido'),
         sets: completedSets,
         tonnage: Math.round(exerciseTonnage),
         pr: maxWeight,
@@ -246,32 +299,32 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
   return (
     <div className="space-y-6">
       {/* Estadísticas generales */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
         <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-          <CardHeader className="pb-3">
-            <CardDescription>Total Entrenamientos</CardDescription>
-            <CardTitle className="text-3xl">{completedLogs.length}</CardTitle>
+          <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+            <CardDescription className="text-xs md:text-sm">Total Entrenamientos</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">{completedLogs.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-          <CardHeader className="pb-3">
-            <CardDescription>Tonelaje Total</CardDescription>
-            <CardTitle className="text-3xl">{totalTonnage.toLocaleString()} kg</CardTitle>
+          <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+            <CardDescription className="text-xs md:text-sm">Tonelaje Total</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">{totalTonnage.toLocaleString()} kg</CardTitle>
           </CardHeader>
         </Card>
         <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-          <CardHeader className="pb-3">
-            <CardDescription>Tonelaje Promedio</CardDescription>
-            <CardTitle className="text-3xl">{averageTonnage.toLocaleString()} kg</CardTitle>
+          <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
+            <CardDescription className="text-xs md:text-sm">Tonelaje Promedio</CardDescription>
+            <CardTitle className="text-2xl md:text-3xl">{averageTonnage.toLocaleString()} kg</CardTitle>
           </CardHeader>
         </Card>
       </div>
 
       <Tabs defaultValue="history" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="history">Historial</TabsTrigger>
-          <TabsTrigger value="pr-rem">PR & REM</TabsTrigger>
-          <TabsTrigger value="tonnage">Tonelaje</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 gap-1 md:gap-2 h-auto md:h-10">
+          <TabsTrigger value="history" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
+          <TabsTrigger value="pr-rem" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">PR & REM</TabsTrigger>
+          <TabsTrigger value="tonnage" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Tonelaje</TabsTrigger>
         </TabsList>
 
         {/* Tab Historial */}
@@ -361,7 +414,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                           {exerciseDetails.map((exercise, idx) => (
                             <div key={idx} className="p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center justify-between mb-2">
-                                <span className="font-medium text-sm">{exercise.name}</span>
+                                <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
                                 <div className="flex items-center gap-3 text-xs">
                                   {exercise.pr > 0 && (
                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
@@ -438,7 +491,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                       .map((exercise) => (
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{exercise.exercise_name}</div>
+                            <div className="font-medium text-sm">{fixEncoding(exercise.exercise_name)}</div>
                             <div className="text-xs text-gray-600">
                               {format(new Date(exercise.lastDate), "dd MMM yyyy", { locale: es })}
                             </div>
@@ -470,7 +523,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                       .map((exercise) => (
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                           <div className="flex-1">
-                            <div className="font-medium text-sm">{exercise.exercise_name}</div>
+                            <div className="font-medium text-sm">{fixEncoding(exercise.exercise_name)}</div>
                             <div className="text-xs text-gray-600">
                               {format(new Date(exercise.lastDate), "dd MMM yyyy", { locale: es })}
                             </div>
@@ -490,21 +543,22 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         {/* Tab Tonelaje */}
         <TabsContent value="tonnage" className="space-y-4">
           <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="flex items-center gap-2">
-                    <BarChart3 className="h-5 w-5 text-green-600" />
+            <CardHeader className="px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
+                <div className="flex-1">
+                  <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                    <BarChart3 className="h-4 w-4 md:h-5 md:w-5 text-green-600 flex-shrink-0" />
                     Evolución del Tonelaje
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs md:text-sm mt-1">
                     Tonelaje = Peso × Series × Repeticiones
                   </CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-1.5 md:gap-2 flex-wrap">
                   <Button
                     variant={selectedTimeRange === 'week' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-[11px] md:text-sm px-2.5 md:px-3 py-1.5 md:py-1.5 h-auto touch-manipulation"
                     onClick={() => setSelectedTimeRange('week')}
                   >
                     Semana
@@ -512,6 +566,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                   <Button
                     variant={selectedTimeRange === 'month' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-[11px] md:text-sm px-2.5 md:px-3 py-1.5 md:py-1.5 h-auto touch-manipulation"
                     onClick={() => setSelectedTimeRange('month')}
                   >
                     Mes
@@ -519,6 +574,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                   <Button
                     variant={selectedTimeRange === 'all' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-[11px] md:text-sm px-2.5 md:px-3 py-1.5 md:py-1.5 h-auto touch-manipulation"
                     onClick={() => setSelectedTimeRange('all')}
                   >
                     Todo
@@ -526,64 +582,70 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="px-3 md:px-6 pb-4 md:pb-6">
               {tonnageData.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay datos de tonelaje disponibles</p>
+                <div className="text-center py-8 md:py-12 text-gray-500">
+                  <BarChart3 className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-4 opacity-50" />
+                  <p className="text-sm md:text-base">No hay datos de tonelaje disponibles</p>
                 </div>
               ) : (
-                <ChartContainer
-                  config={{
-                    tonnage: {
-                      label: "Tonelaje (kg)",
-                      color: "hsl(142, 76%, 36%)"
-                    }
-                  }}
-                  className="h-[400px]"
-                >
-                  <LineChart data={tonnageData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                    <XAxis 
-                      dataKey="date" 
-                      tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
-                      className="text-xs"
-                    />
-                    <YAxis 
-                      label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft' }}
-                      className="text-xs"
-                    />
-                    <ChartTooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload as TonnageData
-                          return (
-                            <div className="bg-white p-3 border rounded-lg shadow-lg">
-                              <p className="font-semibold mb-1">
-                                {format(new Date(data.date), "EEEE, d 'de' MMMM", { locale: es })}
-                              </p>
-                              <p className="text-sm text-green-600">
-                                Tonelaje: {data.tonnage.toLocaleString()} kg
-                              </p>
-                              <p className="text-xs text-gray-600">
-                                Ejercicios: {data.exercises}
-                              </p>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="tonnage" 
-                      stroke="hsl(142, 76%, 36%)"
-                      strokeWidth={3}
-                      dot={{ r: 5, fill: "hsl(142, 76%, 36%)" }}
-                      activeDot={{ r: 7 }}
-                    />
-                  </LineChart>
-                </ChartContainer>
+                <div className="w-full overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+                  <ChartContainer
+                    config={{
+                      tonnage: {
+                        label: "Tonelaje (kg)",
+                        color: "hsl(142, 76%, 36%)"
+                      }
+                    }}
+                    className="h-[280px] md:h-[400px] min-w-[500px] md:min-w-0"
+                  >
+                    <LineChart data={tonnageData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
+                        className="text-[10px] md:text-xs"
+                        tick={{ fontSize: 10 }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '10px' } }}
+                        className="text-[10px] md:text-xs"
+                        tick={{ fontSize: 10 }}
+                        width={50}
+                      />
+                      <ChartTooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload as TonnageData
+                            return (
+                              <div className="bg-white p-2.5 md:p-3 border rounded-lg shadow-lg">
+                                <p className="font-semibold text-xs md:text-sm mb-1">
+                                  {format(new Date(data.date), "EEEE, d 'de' MMMM", { locale: es })}
+                                </p>
+                                <p className="text-xs md:text-sm text-green-600 font-medium">
+                                  Tonelaje: {data.tonnage.toLocaleString()} kg
+                                </p>
+                                <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">
+                                  Ejercicios: {data.exercises}
+                                </p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="tonnage" 
+                        stroke="hsl(142, 76%, 36%)"
+                        strokeWidth={2.5}
+                        dot={{ r: 4, fill: "hsl(142, 76%, 36%)" }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ChartContainer>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -591,65 +653,68 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           {/* Gráfica de barras de tonelaje */}
           {tonnageData.length > 0 && (
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-orange-600" />
+              <CardHeader className="px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+                  <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-orange-600 flex-shrink-0" />
                   Tonelaje por Entrenamiento
                 </CardTitle>
-                <CardDescription>Comparación visual del tonelaje diario</CardDescription>
+                <CardDescription className="text-xs md:text-sm">Comparación visual del tonelaje diario</CardDescription>
               </CardHeader>
-              <CardContent>
-                <ChartContainer
-                  config={{
-                    tonnage: {
-                      label: "Tonelaje (kg)",
-                      color: "hsl(24, 95%, 53%)"
-                    }
-                  }}
-                  className="h-[300px]"
-                >
-                  <BarChart data={tonnageData}>
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                    <XAxis 
-                      dataKey="date" 
-                      tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
-                      className="text-xs"
-                      angle={-45}
-                      textAnchor="end"
-                      height={80}
-                    />
-                    <YAxis 
-                      label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft' }}
-                      className="text-xs"
-                    />
-                    <ChartTooltip 
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload as TonnageData
-                          return (
-                            <div className="bg-white p-3 border rounded-lg shadow-lg">
-                              <p className="font-semibold mb-1">
-                                {format(new Date(data.date), "EEEE, d 'de' MMMM", { locale: es })}
-                              </p>
-                              <p className="text-sm text-orange-600">
-                                Tonelaje: {data.tonnage.toLocaleString()} kg
-                              </p>
-                              <p className="text-xs text-gray-600">
-                                Ejercicios: {data.exercises}
-                              </p>
-                            </div>
-                          )
-                        }
-                        return null
-                      }}
-                    />
-                    <Bar 
-                      dataKey="tonnage" 
-                      fill="hsl(24, 95%, 53%)"
-                      radius={[8, 8, 0, 0]}
-                    />
-                  </BarChart>
-                </ChartContainer>
+              <CardContent className="px-3 md:px-6 pb-4 md:pb-6">
+                <div className="w-full overflow-x-auto -mx-3 md:mx-0 px-3 md:px-0">
+                  <ChartContainer
+                    config={{
+                      tonnage: {
+                        label: "Tonelaje (kg)",
+                        color: "hsl(24, 95%, 53%)"
+                      }
+                    }}
+                    className="h-[250px] md:h-[300px] min-w-[500px] md:min-w-0"
+                  >
+                    <BarChart data={tonnageData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
+                      <XAxis 
+                        dataKey="date" 
+                        tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
+                        className="text-[10px] md:text-xs"
+                        tick={{ fontSize: 10 }}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis 
+                        label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '10px' } }}
+                        className="text-[10px] md:text-xs"
+                        tick={{ fontSize: 10 }}
+                        width={50}
+                      />
+                      <ChartTooltip 
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const data = payload[0].payload as TonnageData
+                            return (
+                              <div className="bg-white p-2.5 md:p-3 border rounded-lg shadow-lg">
+                                <p className="font-semibold text-xs md:text-sm mb-1">
+                                  {format(new Date(data.date), "EEEE, d 'de' MMMM", { locale: es })}
+                                </p>
+                                <p className="text-xs md:text-sm text-orange-600 font-medium">
+                                  Tonelaje: {data.tonnage.toLocaleString()} kg
+                                </p>
+                                <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">
+                                  Ejercicios: {data.exercises}
+                                </p>
+                              </div>
+                            )
+                          }
+                          return null
+                        }}
+                      />
+                      <Bar 
+                        dataKey="tonnage" 
+                        fill="hsl(24, 95%, 53%)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ChartContainer>
+                </div>
               </CardContent>
             </Card>
           )}

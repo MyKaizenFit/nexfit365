@@ -26,6 +26,59 @@ import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 
+// Función para corregir encoding de nombres de ejercicios y grupos musculares
+const fixEncoding = (text: string): string => {
+  if (!text || typeof text !== 'string') return text || ''
+  
+  let fixed = text
+  
+  // CASOS ESPECÍFICOS DE ENCODING MAL INTERPRETADO
+  // ├│ es una codificación incorrecta de ó (UTF-8 mal interpretado como Windows-1252 o similar)
+  fixed = fixed.replace(/├│/g, 'ó')
+  fixed = fixed.replace(/├í/g, 'á')
+  fixed = fixed.replace(/├®/g, 'é')
+  fixed = fixed.replace(/├¡/g, 'í')
+  fixed = fixed.replace(/├║/g, 'ú')
+  fixed = fixed.replace(/├▒/g, 'ñ')
+  
+  // Casos específicos de caracteres que aparecen como barra vertical |
+  fixed = fixed.replace(/Jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/M\|quina/gi, 'Máquina')
+  fixed = fixed.replace(/m\|quina/gi, 'Máquina')
+  
+  // Casos específicos comunes sin el carácter |
+  fixed = fixed.replace(/Jaln\b/gi, 'Jalón')
+  fixed = fixed.replace(/Mquina\b/gi, 'Máquina')
+  
+  // Reemplazos generales de encoding incorrecto
+  fixed = fixed.replace(/b\?\?ceps/gi, 'bíceps')
+  fixed = fixed.replace(/tr\?\?ceps/gi, 'tríceps')
+  fixed = fixed.replace(/cu\?\?driceps/gi, 'cuádriceps')
+  fixed = fixed.replace(/\?\?/g, 'í')
+  fixed = fixed.replace(/Ã¡/g, 'á')
+  fixed = fixed.replace(/Ã©/g, 'é')
+  fixed = fixed.replace(/Ã­/g, 'í')
+  fixed = fixed.replace(/Ã³/g, 'ó')
+  fixed = fixed.replace(/Ãº/g, 'ú')
+  fixed = fixed.replace(/Ã±/g, 'ñ')
+  fixed = fixed.replace(/Ã¼/g, 'ü')
+  fixed = fixed.replace(/Ã‰/g, 'É')
+  fixed = fixed.replace(/Ã/g, 'í')
+  fixed = fixed.replace(/â€™/g, "'")
+  fixed = fixed.replace(/â€œ/g, '"')
+  fixed = fixed.replace(/â€/g, '"')
+  fixed = fixed.replace(/â€"/g, '—')
+  fixed = fixed.replace(/â€"/g, '–')
+  
+  // Último recurso: reemplazar | con ó solo si no está ya corregido
+  if (fixed.includes('|') && !fixed.includes('ó')) {
+    fixed = fixed.replace(/\|/g, 'ó')
+  }
+  
+  return fixed
+}
+
 export function WorkoutDashboardEnhanced() {
   const {
     workoutPrograms,
@@ -596,33 +649,33 @@ export function WorkoutDashboardEnhanced() {
       {/* Nota: El entrenamiento de hoy se muestra más completo que los demás porque es lo más importante para el usuario */}
       {todaysWorkoutFromProfile && !todaysWorkoutFromProfile.is_rest_day ? (
         <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200/50 shadow-xl">
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md">
-                  <Play className="h-7 w-7 text-white" />
+          <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                  <Play className="h-5 w-5 md:h-7 md:w-7 text-white" />
                 </div>
-                <div>
-                  <CardTitle className="text-2xl text-blue-700">Entrenamiento de Hoy</CardTitle>
-                  <CardDescription className="text-blue-600/80">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-lg md:text-2xl text-blue-700 leading-tight">Entrenamiento de Hoy</CardTitle>
+                  <CardDescription className="text-blue-600/80 text-xs md:text-sm">
                     {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
                   </CardDescription>
                   {userPlan && (
-                    <CardDescription className="text-blue-500/70 text-xs mt-1">
+                    <CardDescription className="text-blue-500/70 text-[10px] md:text-xs mt-0.5 md:mt-1 line-clamp-2">
                       Plan: {userPlan.name} • Asignado desde panel de administración
                     </CardDescription>
                   )}
                 </div>
               </div>
-              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 text-sm px-3 py-1">
-                {todaysWorkoutFromProfile.exercises?.length || 0} ejercicios
+              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 text-[10px] md:text-sm px-2 py-0.5 md:px-3 md:py-1 flex-shrink-0">
+                {todaysWorkoutFromProfile.exercises?.length || 0} ej.
               </Badge>
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 px-3 md:px-6 pb-3 md:pb-6">
             {/* Ejercicios completos */}
             {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-3">
               {todaysWorkoutFromProfile.exercises?.map((exercise, index) => {
                 const exerciseData = exercise.exercise || exercise
                 // Intentar obtener el ID del ejercicio de diferentes formas
@@ -637,95 +690,64 @@ export function WorkoutDashboardEnhanced() {
                   (exercise.id && completedExercisesForDay.has(String(exercise.id)))
                 )
                 
-                // Función para corregir encoding de grupos musculares
-                const fixEncoding = (text: string): string => {
-                  if (!text || typeof text !== 'string') return text || ''
-                  
-                  return text
-                    // Casos específicos comunes
-                    .replace(/b\?\?ceps/gi, 'bíceps')
-                    .replace(/tr\?\?ceps/gi, 'tríceps')
-                    .replace(/cu\?\?driceps/gi, 'cuádriceps')
-                    // Reemplazos generales de encoding incorrecto
-                    .replace(/\?\?/g, 'í')
-                    .replace(/Ã¡/g, 'á')
-                    .replace(/Ã©/g, 'é')
-                    .replace(/Ã­/g, 'í')
-                    .replace(/Ã³/g, 'ó')
-                    .replace(/Ãº/g, 'ú')
-                    .replace(/Ã±/g, 'ñ')
-                    .replace(/Ã¼/g, 'ü')
-                    .replace(/Ã‰/g, 'É')
-                    .replace(/Ã¡/g, 'á')
-                    .replace(/Ã©/g, 'é')
-                    .replace(/Ã³/g, 'ó')
-                    .replace(/Ãº/g, 'ú')
-                    .replace(/Ã±/g, 'ñ')
-                    .replace(/Ã¼/g, 'ü')
-                    // Casos adicionales de encoding UTF-8 mal interpretado
-                    .replace(/Ã/g, 'í')
-                    .replace(/â€™/g, "'")
-                    .replace(/â€œ/g, '"')
-                    .replace(/â€/g, '"')
-                    .replace(/â€"/g, '—')
-                    .replace(/â€"/g, '–')
-                }
                 
                 return (
                   <Card 
                     key={exercise.id || index} 
-                    className={`bg-white/90 border-2 transition-all ${
+                    className={`bg-white/90 border-2 transition-all touch-manipulation ${
                       isExerciseCompleted 
                         ? 'bg-green-50/90 border-green-300 shadow-md' 
                         : 'border-blue-100'
                     }`}
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-white text-sm font-bold ${
+                    <CardContent className="p-3 md:p-4">
+                      <div className="flex items-start justify-between gap-2 md:gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start gap-2 md:gap-2.5 mb-2">
+                            <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white text-xs md:text-sm font-bold flex-shrink-0 ${
                               isExerciseCompleted
                                 ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                                 : 'bg-gradient-to-br from-blue-400 to-cyan-500'
                             }`}>
                               {isExerciseCompleted ? (
-                                <CheckCircle2 className="h-5 w-5" />
+                                <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
                               ) : (
                                 index + 1
                               )}
                             </div>
-                            <h4 className={`font-semibold ${
-                              isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
-                            }`}>
-                              {exerciseData.name}
-                            </h4>
-                            {isExerciseCompleted && (
-                              <Badge variant="outline" className="ml-auto bg-green-100 border-green-300 text-green-700 text-xs">
-                                Completado
-                              </Badge>
-                            )}
+                            <div className="flex-1 min-w-0">
+                              <h4 className={`font-semibold text-base md:text-lg leading-tight break-words ${
+                                isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
+                              }`}>
+                                {fixEncoding(exerciseData.name)}
+                              </h4>
+                              {isExerciseCompleted && (
+                                <Badge variant="outline" className="mt-1.5 bg-green-100 border-green-300 text-green-700 text-[10px] md:text-xs px-1.5 py-0.5">
+                                  Completado
+                                </Badge>
+                              )}
+                            </div>
                           </div>
-                          <div className="space-y-1 text-sm">
-                            <div className={`flex items-center gap-4 ${
+                          <div className="space-y-2 md:space-y-1">
+                            <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${
                               isExerciseCompleted ? 'text-green-700' : 'text-blue-700'
                             }`}>
-                              <span className="font-medium">{exercise.sets} series</span>
-                              <span className="font-medium">{exercise.reps} repeticiones</span>
+                              <span className="font-semibold md:font-medium">{exercise.sets} series</span>
+                              <span className="font-semibold md:font-medium">{exercise.reps} rep.</span>
                               {exercise.rest_time && (
-                                <span className="text-muted-foreground">Descanso: {exercise.rest_time}s</span>
+                                <span className="text-muted-foreground text-[11px] md:text-sm">⏱️ {exercise.rest_time}s</span>
                               )}
                             </div>
                             {exerciseData.muscle_groups && exerciseData.muscle_groups.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
+                              <div className="flex flex-wrap gap-1 md:gap-1 mt-1.5 -mx-0.5 px-0.5">
                                 {exerciseData.muscle_groups.map((mg: string, i: number) => (
                                   <Badge 
                                     key={i} 
                                     variant="outline" 
-                                    className={`text-xs ${
+                                    className={`text-[9px] md:text-xs px-1 py-0.5 max-w-full truncate ${
                                       isExerciseCompleted
                                         ? 'border-green-200 text-green-700 bg-green-50'
-                                        : 'border-blue-200 text-blue-700'
+                                        : 'border-blue-200 text-blue-700 bg-blue-50'
                                     }`}
                                   >
                                     {fixEncoding(mg)}
@@ -839,8 +861,8 @@ export function WorkoutDashboardEnhanced() {
               Días de entrenamiento y descanso
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-7 gap-2">
+          <CardContent className="px-2 md:px-6">
+            <div className="grid grid-cols-7 gap-1 md:gap-2">
               {getWeeklyCalendar().map((day) => {
                 // Determinar el color y estilo según si es día de entrenamiento según el perfil
                 const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
@@ -848,32 +870,32 @@ export function WorkoutDashboardEnhanced() {
                 return (
                   <div
                     key={day.number}
-                    className={`p-3 rounded-lg text-center border-2 transition-all ${day.isToday
+                    className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
                       ? isTrainingByProfile
-                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg scale-105'
-                        : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg scale-105'
+                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg md:scale-105'
+                        : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg md:scale-105'
                       : isTrainingByProfile
                         ? 'bg-gradient-to-br from-blue-100 to-cyan-100 border-blue-300 text-blue-800'
                         : 'bg-gradient-to-br from-gray-100 to-slate-100 border-gray-300 text-gray-600'
                       }`}
                   >
-                    <div className="text-xs font-medium mb-1">{day.name.substring(0, 3)}</div>
+                    <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
                     <div className="flex items-center justify-center">
                       {isTrainingByProfile ? (
-                        <Dumbbell className={`h-5 w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
                       ) : (
-                        <Clock className={`h-5 w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
                       )}
                     </div>
                     {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
                     {day.hasPlanWorkout && day.workoutDay && (
-                      <div className={`text-xs mt-1 font-semibold ${day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
+                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
                         }`}>
                         {day.workoutDay.exercises?.length || 0} ej.
                       </div>
                     )}
                     {day.isToday && (
-                      <div className="text-xs mt-1 font-bold">HOY</div>
+                      <div className="text-[9px] md:text-xs mt-0.5 md:mt-1 font-bold leading-tight">HOY</div>
                     )}
                   </div>
                 )
@@ -881,14 +903,14 @@ export function WorkoutDashboardEnhanced() {
             </div>
 
             {/* Leyenda */}
-            <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-center gap-4 text-xs">
+            <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-gray-200 flex items-center justify-center gap-3 md:gap-4 text-[10px] md:text-xs flex-wrap">
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500"></div>
-                <span className="text-gray-700">Entrenamiento</span>
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
+                <span className="text-gray-700 whitespace-nowrap">Entrenamiento</span>
               </div>
               <div className="flex items-center gap-1">
-                <div className="w-4 h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500"></div>
-                <span className="text-gray-700">Descanso</span>
+                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500 flex-shrink-0"></div>
+                <span className="text-gray-700 whitespace-nowrap">Descanso</span>
               </div>
             </div>
           </CardContent>
@@ -896,25 +918,14 @@ export function WorkoutDashboardEnhanced() {
       </div>
 
       {/* Tabs con detalles del plan */}
-      <Tabs defaultValue="schedule" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="schedule">Programa Semanal</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
-          <TabsTrigger value="progress">Progreso</TabsTrigger>
+      <Tabs defaultValue="schedule" className="space-y-4 md:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 gap-1 md:gap-2 h-auto md:h-10">
+          <TabsTrigger value="schedule" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Programa Semanal</TabsTrigger>
+          <TabsTrigger value="history" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
+          <TabsTrigger value="progress" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
-          {/* Nota: Los entrenamientos se obtienen del plan asignado por el administrador */}
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-800">
-              <strong>Nota:</strong> Los entrenamientos se adaptan a tus días seleccionados en el perfil.
-              {trainingDays.length > 0 && (
-                <span className="block mt-1">
-                  Tus días de entrenamiento: {trainingDays.map(d => getDayNameFromNumber(d)).join(', ')}
-                </span>
-              )}
-            </p>
-          </div>
 
           {/* Mostrar días según el perfil del usuario, mapeando entrenamientos del plan en orden */}
           {trainingDays.length > 0 ? (() => {
@@ -994,7 +1005,7 @@ export function WorkoutDashboardEnhanced() {
                                 </div>
                               )}
 
-                              <div className="space-y-2">
+                              <div className="space-y-1.5 md:space-y-2">
                                 {planDay.exercises?.slice(0, 3).map((exercise: any) => {
                                   const exerciseData = exercise.exercise || exercise
                                   const exerciseId = exercise.id || exerciseData.id || String(exercise)
@@ -1003,20 +1014,20 @@ export function WorkoutDashboardEnhanced() {
                                   return (
                                     <div
                                       key={exercise.id}
-                                      className={`text-xs p-2 rounded transition-all ${isCompleted
+                                      className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded transition-all touch-manipulation ${isCompleted
                                         ? 'bg-green-50 border border-green-200'
                                         : 'bg-muted/50'
                                         }`}
                                     >
                                       <div className="flex items-center gap-2">
                                         {isCompleted && (
-                                          <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                          <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                         )}
-                                        <div className="flex-1">
-                                          <div className={`font-medium ${isCompleted ? 'text-green-700 line-through' : ''}`}>
-                                            {exerciseData.name}
+                                        <div className="flex-1 min-w-0">
+                                          <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
+                                            {fixEncoding(exerciseData.name)}
                                           </div>
-                                          <div className="text-muted-foreground">
+                                          <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
                                             {exercise.sets} x {exercise.reps} {exercise.weight && `@ ${exercise.weight}`}
                                           </div>
                                         </div>
@@ -1133,7 +1144,7 @@ export function WorkoutDashboardEnhanced() {
                               </div>
                             )}
 
-                            <div className="space-y-2">
+                            <div className="space-y-1.5 md:space-y-2">
                               {day.exercises?.slice(0, 3).map((exercise: any) => {
                                 const exerciseData = exercise.exercise || exercise
                                 const exerciseId = exercise.id || exerciseData.id || String(exercise)
@@ -1142,20 +1153,20 @@ export function WorkoutDashboardEnhanced() {
                                 return (
                                   <div
                                     key={exercise.id}
-                                    className={`text-xs p-2 rounded transition-all ${isCompleted
+                                    className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded transition-all touch-manipulation ${isCompleted
                                       ? 'bg-green-50 border border-green-200'
                                       : 'bg-muted/50'
                                       }`}
                                   >
                                     <div className="flex items-center gap-2">
                                       {isCompleted && (
-                                        <CheckCircle2 className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                        <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                       )}
-                                      <div className="flex-1">
-                                        <div className={`font-medium ${isCompleted ? 'text-green-700 line-through' : ''}`}>
-                                          {exerciseData.name}
+                                      <div className="flex-1 min-w-0">
+                                        <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
+                                          {fixEncoding(exerciseData.name)}
                                         </div>
-                                        <div className="text-muted-foreground">
+                                        <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
                                           {exercise.sets} x {exercise.reps} {exercise.weight && `@ ${exercise.weight}`}
                                         </div>
                                       </div>
@@ -1202,58 +1213,103 @@ export function WorkoutDashboardEnhanced() {
         </TabsContent>
 
         <TabsContent value="progress" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Estadísticas Generales</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex justify-between">
-                  <span>Total entrenamientos</span>
-                  <span className="font-semibold">{stats.totalWorkouts}</span>
+          {stats.totalWorkouts > 0 || stats.completedThisWeek > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+                <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+                  <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                    Estadísticas Generales
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-3 md:space-y-4">
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm md:text-base text-gray-700">Total entrenamientos</span>
+                    <span className="font-semibold text-base md:text-lg text-purple-700">{stats.totalWorkouts}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm md:text-base text-gray-700">Duración promedio</span>
+                    <span className="font-semibold text-base md:text-lg text-purple-700">{stats.averageDuration || 0} min</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm md:text-base text-gray-700">Racha actual</span>
+                    <span className="font-semibold text-base md:text-lg text-purple-700">{stats.currentStreak || 0} días</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="text-sm md:text-base text-gray-700">Mejor racha</span>
+                    <span className="font-semibold text-base md:text-lg text-purple-700">{stats.longestStreak || 0} días</span>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+                <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+                  <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                    Progreso Semanal
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm md:text-base">
+                      <span className="text-gray-700">Entrenamientos completados</span>
+                      <span className="font-semibold text-purple-700">{stats.completedThisWeek}/{stats.weeklyGoal}</span>
+                    </div>
+                    <Progress
+                      value={stats.weeklyGoal > 0 ? Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100) : 0}
+                      className="h-3 bg-purple-100"
+                    />
+                  </div>
+
+                  <div className="text-center pt-2">
+                    <div className="text-2xl md:text-3xl font-bold text-purple-600">
+                      {stats.weeklyGoal > 0 ? Math.round((stats.completedThisWeek / stats.weeklyGoal) * 100) : 0}%
+                    </div>
+                    <div className="text-xs md:text-sm text-muted-foreground mt-1">
+                      del objetivo semanal
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <CardContent className="p-8 md:p-12 text-center">
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
+                  <Target className="h-8 w-8 md:h-10 md:w-10 text-white" />
                 </div>
-                <div className="flex justify-between">
-                  <span>Duración promedio</span>
-                  <span className="font-semibold">{stats.averageDuration} min</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Racha actual</span>
-                  <span className="font-semibold">{stats.currentStreak} días</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Mejor racha</span>
-                  <span className="font-semibold">{stats.longestStreak} días</span>
+                <CardTitle className="text-xl md:text-2xl mb-2 md:mb-3 text-gray-800">
+                  Comienza tu progreso
+                </CardTitle>
+                <CardDescription className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">
+                  Aún no tienes entrenamientos registrados. Completa tu primer entrenamiento para comenzar a ver tus estadísticas aquí.
+                </CardDescription>
+                <div className="space-y-2 text-left max-w-md mx-auto">
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                    <CheckCircle2 className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-sm md:text-base text-gray-800">Registra tus entrenamientos</p>
+                      <p className="text-xs md:text-sm text-gray-600">Completa tus entrenamientos diarios para comenzar a ver tu progreso</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                    <Target className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-sm md:text-base text-gray-800">Rastrea tus rachas</p>
+                      <p className="text-xs md:text-sm text-gray-600">Mantén la consistencia para ver tus rachas de entrenamiento</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
+                    <TrendingUp className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium text-sm md:text-base text-gray-800">Alcanza tus objetivos</p>
+                      <p className="text-xs md:text-sm text-gray-600">Completa tus entrenamientos semanales para cumplir con tus metas</p>
+                    </div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Progreso Semanal</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Entrenamientos completados</span>
-                    <span>{stats.completedThisWeek}/{stats.weeklyGoal}</span>
-                  </div>
-                  <Progress
-                    value={(stats.completedThisWeek / stats.weeklyGoal) * 100}
-                    className="h-3"
-                  />
-                </div>
-
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {Math.round((stats.completedThisWeek / stats.weeklyGoal) * 100)}%
-                  </div>
-                  <div className="text-sm text-muted-foreground">
-                    del objetivo semanal
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+          )}
         </TabsContent>
       </Tabs>
 
