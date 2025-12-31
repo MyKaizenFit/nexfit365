@@ -299,14 +299,14 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
             {/* Historial reciente */}
             <div className="space-y-2 md:space-y-3">
               <h4 className="font-medium text-center text-sm md:text-base">Historial Reciente</h4>
-              {weightEntries && weightEntries.length > 0 ? (() => {
+              {(() => {
                 // Filtrar solo entradas con peso válido (no null, no undefined, mayor que 0)
-                const validEntries = weightEntries.filter(entry => 
+                const validEntries = weightEntries?.filter(entry => 
                   entry.weight !== null && 
                   entry.weight !== undefined && 
                   typeof entry.weight === 'number' && 
                   entry.weight > 0
-                )
+                ) || []
                 
                 if (validEntries.length === 0) {
                   return (
@@ -321,15 +321,9 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                 return (
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {validEntries.slice(0, 5).map((entry, index) => {
-                      // Calcular cambio respecto a la entrada anterior válida
-                      const previousValidIndex = validEntries.slice(0, index).length > 0 
-                        ? validEntries.findIndex((e, i) => i > index && e.weight !== null && e.weight !== undefined && e.weight > 0)
-                        : -1
-                      const previousEntry = previousValidIndex >= 0 && previousValidIndex < validEntries.length 
-                        ? validEntries[previousValidIndex] 
-                        : (index < validEntries.length - 1 ? validEntries[index + 1] : null)
-                      
-                      const change = previousEntry && previousEntry.weight && entry.weight 
+                      // Calcular cambio respecto a la entrada anterior (ya están filtradas y ordenadas)
+                      const previousEntry = index < validEntries.length - 1 ? validEntries[index + 1] : null
+                      const change = previousEntry && entry.weight && previousEntry.weight
                         ? entry.weight - previousEntry.weight 
                         : 0
                       const trend = getTrend(change)
@@ -342,16 +336,14 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-medium text-sm md:text-base">
-                                {entry.weight && typeof entry.weight === 'number' && entry.weight > 0
-                                  ? `${entry.weight.toFixed(1)} kg`
-                                  : 'Sin peso'}
+                                {entry.weight.toFixed(1)} kg
                               </div>
                               <div className="text-xs md:text-sm text-muted-foreground truncate">{formatDate(entry.date)}</div>
                             </div>
                           </div>
                           
                           <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-                            {previousEntry && previousEntry.weight && entry.weight && change !== 0 && (
+                            {previousEntry && change !== 0 && (
                               <div className="flex items-center gap-1">
                                 {trend.arrow}
                                 <span className={`text-xs md:text-sm font-medium ${trend.color}`}>
@@ -359,7 +351,7 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                                 </span>
                               </div>
                             )}
-                            {previousEntry && previousEntry.weight && entry.weight && (
+                            {previousEntry && (
                               <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 md:px-2">
                                 {trend.label}
                               </Badge>
@@ -370,14 +362,7 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                     })}
                   </div>
                 )
-              })() : (
-              ) : (
-                <div className="text-center py-6 md:py-8 text-muted-foreground">
-                  <Weight className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 opacity-50" />
-                  <p className="text-sm md:text-base">No hay registros de peso</p>
-                  <p className="text-xs md:text-sm mt-1">Comienza registrando tu peso actual</p>
-                </div>
-              )}
+              })()}
             </div>
 
             {/* Estadísticas adicionales */}
