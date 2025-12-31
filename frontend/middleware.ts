@@ -85,7 +85,7 @@ export function middleware(request: NextRequest) {
     try {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      console.log('🔍 Middleware - Payload del token:', payload)
+      // NO loguear payload del token por seguridad
       // Verificar roles de admin: superuser, staff, admin, trainer
       const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
       
@@ -118,7 +118,7 @@ export function middleware(request: NextRequest) {
     try {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      console.log('🔍 Middleware Admin - Payload del token:', payload)
+      // NO loguear payload del token por seguridad
       // Verificar roles de admin: superuser, staff, admin, trainer
       const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
       

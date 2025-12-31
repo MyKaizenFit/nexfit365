@@ -141,7 +141,7 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
         const serviceToken = authService.getAccessToken()
         if (serviceToken) {
           authToken = serviceToken
-          console.log('🔐 getAuthHeaders - Token obtenido del servicio de autenticación:', `${authToken.substring(0, 20)}...`)
+          // NO loguear tokens por seguridad
         }
       } catch (serviceError) {
         console.warn('No se pudo obtener el token del servicio de autenticación:', serviceError)
@@ -157,9 +157,7 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
         authToken = cookies.accessToken
 
-        // Debug: verificar el token obtenido
-        console.log('🔐 getAuthHeaders - Token obtenido de cookies:', authToken ? `${authToken.substring(0, 20)}...` : 'null')
-        console.log('🔐 getAuthHeaders - Todas las cookies:', document.cookie)
+        // NO loguear tokens ni cookies por seguridad
       }
     } catch (error) {
       console.warn('No se pudo obtener el token de autenticación:', error)
@@ -168,9 +166,11 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`
-    console.log('🔐 getAuthHeaders - Headers con autorización:', { ...headers, Authorization: `Bearer ${authToken.substring(0, 20)}...` })
+    // NO loguear headers con tokens por seguridad
   } else {
-    console.warn('🔐 getAuthHeaders - No se encontró token de autenticación')
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('🔐 getAuthHeaders - No se encontró token de autenticación')
+    }
   }
 
   return headers

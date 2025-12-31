@@ -62,17 +62,11 @@ const setCookie = (name: string, value: string, days: number = 7) => {
   }
 
   document.cookie = cookieString
-  if (value && typeof value === 'string') {
-    console.log(`🍪 Cookie guardada: ${name}=${value.substring(0, 20)}...`)
-  } else {
-    console.log(`🍪 Cookie guardada: ${name}=[valor no disponible]`)
-  }
-
+  
+  // NO loguear valores de cookies por seguridad
   // Verificar que se guardó correctamente
   const saved = getCookie(name)
-  if (saved) {
-    console.log(`✅ Cookie ${name} verificada correctamente`)
-  } else {
+  if (!saved && process.env.NODE_ENV === 'development') {
     console.error(`❌ Error: Cookie ${name} NO se guardó`)
   }
 }
@@ -105,7 +99,7 @@ const deleteCookie = (name: string) => {
   // Eliminar con todos los posibles atributos
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
   document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`
-  console.log(`🗑️ Cookie eliminada: ${name}`)
+  // NO loguear operaciones de cookies por seguridad
 }
 
 // Clase principal del servicio de autenticación mejorado
@@ -122,9 +116,10 @@ export class AuthService {
       this.accessToken = getCookie('accessToken')
       this.refreshToken = getCookie('refreshToken')
 
-      console.log('🍪 Tokens obtenidos de cookies:')
-      console.log('  accessToken:', this.accessToken ? `${this.accessToken.substring(0, 20)}...` : 'null')
-      console.log('  refreshToken:', this.refreshToken ? `${this.refreshToken.substring(0, 20)}...` : 'null')
+      // Solo loguear en modo desarrollo (sin información sensible)
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🍪 Tokens obtenidos de cookies (solo en desarrollo)')
+      }
 
       // Verificar si estamos en modo offline (sin backend)
       this.checkOfflineMode()
@@ -266,10 +261,10 @@ export class AuthService {
         throw new Error('Formato de email inválido')
       }
 
-      console.log('Enviando datos de login:', {
-        email: credentials.email,
-        password: credentials.password
-      })
+      // NO loguear credenciales por seguridad
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Enviando datos de login (sin credenciales)')
+      }
 
       // Agregar un pequeño delay para evitar rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000))
@@ -599,7 +594,10 @@ export class AuthService {
       const cookieToken = getCookie('accessToken')
       if (cookieToken) {
         this.accessToken = cookieToken
-        console.log('🔄 Token recuperado de cookies en getAccessToken()')
+        // No loguear información sensible
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔄 Token recuperado de cookies')
+        }
       }
     }
     return this.accessToken
@@ -612,7 +610,10 @@ export class AuthService {
       const cookieToken = getCookie('refreshToken')
       if (cookieToken) {
         this.refreshToken = cookieToken
-        console.log('🔄 Refresh token recuperado de cookies en getRefreshToken()')
+        // No loguear información sensible
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔄 Refresh token recuperado de cookies')
+        }
       }
     }
     return this.refreshToken
@@ -652,15 +653,9 @@ export class AuthService {
 
               if (retryResponse.ok) {
                 const result = await handleApiResponse<User>(retryResponse)
-                console.log('🔍 AuthService - getCurrentUser - Respuesta después de refresh:', result)
+                // NO loguear datos del usuario por seguridad
                 if (result.data) {
-                  console.log('🔍 AuthService - getCurrentUser - Datos del usuario después de refresh:', {
-                    email: result.data.email,
-                    is_superuser: result.data.is_superuser,
-                    is_staff: result.data.is_staff,
-                    role: result.data.role,
-                    roleType: typeof result.data.role
-                  })
+                  // Datos del usuario obtenidos después de refresh
                   return result.data
                 }
               }
@@ -743,21 +738,47 @@ export class AuthService {
         return { success: false, error: 'No hay token de renovación' }
       }
 
-      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({ refresh: this.refreshToken }),
-      })
+      let response: Response
+      try {
+        response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+          },
+          body: JSON.stringify({ refresh: this.refreshToken }),
+        })
+      } catch (fetchError) {
+        // Manejar errores de red/CORS
+        this.isRefreshing = false
+        const errorMessage = fetchError instanceof Error ? fetchError.message : 'Error desconocido'
+        
+        // Detectar errores de red específicos
+        if (errorMessage.includes('NetworkError') || errorMessage.includes('Failed to fetch') || errorMessage.includes('CORS')) {
+          console.warn('⚠️ Error de red/CORS al refrescar token. El token se refrescará bajo demanda cuando sea necesario.')
+          return { success: false, error: 'Error de red. El token se refrescará automáticamente cuando sea necesario.' }
+        }
+        
+        return { success: false, error: errorMessage }
+      }
+
+      // Manejar errores de timeout (504) y otros errores HTTP
+      if (!response.ok && response.status === 504) {
+        this.isRefreshing = false
+        console.warn('⚠️ Timeout (504) al refrescar token. El token se refrescará bajo demanda cuando sea necesario.')
+        return { success: false, error: 'Timeout del servidor. El token se refrescará automáticamente cuando sea necesario.' }
+      }
 
       const result = await handleApiResponse<{ access: string; refresh?: string }>(response)
 
       if (result.error) {
         this.isRefreshing = false
-        // Si el error es "Token is blacklisted", puede ser un problema temporal
+        // Si el error es "Token is blacklisted" o "Token expirado", el refresh token también expiró
         // No hacer logout inmediatamente, solo retornar el error
+        // El usuario deberá cerrar sesión manualmente si el refresh token expiró
+        if (result.error.includes('expirado') || result.error.includes('expired') || result.error.includes('blacklisted')) {
+          return { success: false, error: 'Token expirado. Por favor, cierra sesión e inicia de nuevo.' }
+        }
         return { success: false, error: result.error }
       }
 
@@ -773,7 +794,10 @@ export class AuthService {
       if (result.data.refresh) {
         this.refreshToken = result.data.refresh
         setCookie('refreshToken', result.data.refresh, 7) // 7 días
-        console.log('✅ Nuevo refresh token guardado')
+        // No loguear información sensible
+        if (process.env.NODE_ENV === 'development') {
+          console.log('✅ Nuevo refresh token guardado')
+        }
       }
 
       // Guardar en cookies
@@ -794,11 +818,10 @@ export class AuthService {
       if (!this.isOfflineMode && this.refreshToken) {
         // Intentar invalidar el token en el backend
         try {
-          console.log('🔐 Intentando logout en backend con refresh token:', this.refreshToken ? 'presente' : 'ausente')
-          console.log('🔐 Refresh token completo:', this.refreshToken)
-          console.log('🔐 URL del logout:', buildApiUrl(AUTH_ENDPOINTS.LOGOUT))
-          console.log('🔐 Headers enviados:', getAuthHeaders())
-          console.log('🔐 Body enviado:', JSON.stringify({ refresh: this.refreshToken }))
+          // NO loguear tokens por seguridad
+          if (process.env.NODE_ENV === 'development') {
+            console.log('🔐 Intentando logout en backend')
+          }
 
           const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
             method: 'POST',
