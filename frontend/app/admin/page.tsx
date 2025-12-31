@@ -1388,42 +1388,37 @@ function AdminPageContent() {
             
             {/* Paginación */}
             {totalPages > 0 && (
-              <div className="border-t p-4 flex items-center justify-between">
-                <div className="text-sm text-muted-foreground">
-                  Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, filteredUsers.length)} de {filteredUsers.length} usuarios
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                  >
-                    Primera
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    Anterior
-                  </Button>
-                  
-                  {/* Números de página */}
-                  {totalPages > 0 && (
-                    <div className="flex items-center gap-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+              <div className="border-t p-3 md:p-4">
+                {/* Mobile View - Compact */}
+                <div className="md:hidden space-y-3">
+                  <div className="text-xs text-center text-muted-foreground">
+                    Página {currentPage} de {totalPages} • {filteredUsers.length} usuarios
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                      className="flex-1 text-xs"
+                    >
+                      <ArrowLeft className="h-3 w-3 mr-1" />
+                      Anterior
+                    </Button>
+                    <div className="flex items-center gap-1 px-2">
+                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                         let pageNum;
-                        if (totalPages <= 5) {
+                        if (totalPages <= 3) {
                           pageNum = i + 1;
-                        } else if (currentPage <= 3) {
+                        } else if (currentPage === 1) {
                           pageNum = i + 1;
-                        } else if (currentPage >= totalPages - 2) {
-                          pageNum = totalPages - 4 + i;
+                        } else if (currentPage === totalPages) {
+                          pageNum = totalPages - 2 + i;
                         } else {
-                          pageNum = currentPage - 2 + i;
+                          pageNum = currentPage - 1 + i;
                         }
+                        
+                        if (pageNum < 1 || pageNum > totalPages) return null;
                         
                         return (
                           <Button
@@ -1431,31 +1426,96 @@ function AdminPageContent() {
                             variant={currentPage === pageNum ? "default" : "outline"}
                             size="sm"
                             onClick={() => setCurrentPage(pageNum)}
-                            className="w-10"
+                            className="w-8 h-8 p-0 text-xs"
                           >
                             {pageNum}
                           </Button>
                         );
                       })}
                     </div>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    Siguiente
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                  >
-                    Última
-                  </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                      className="flex-1 text-xs"
+                    >
+                      Siguiente
+                      <ArrowRight className="h-3 w-3 ml-1" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Desktop View - Full */}
+                <div className="hidden md:flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, filteredUsers.length)} de {filteredUsers.length} usuarios
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(1)}
+                      disabled={currentPage === 1}
+                    >
+                      Primera
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      Anterior
+                    </Button>
+                    
+                    {/* Números de página */}
+                    {totalPages > 0 && (
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum;
+                          if (totalPages <= 5) {
+                            pageNum = i + 1;
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1;
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i;
+                          } else {
+                            pageNum = currentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="w-10"
+                            >
+                              {pageNum}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Siguiente
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(totalPages)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Última
+                    </Button>
+                  </div>
                 </div>
               </div>
             )}
