@@ -306,27 +306,27 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50">
-      {/* Header */}
+      {/* Header - Mobile Optimized */}
       <div className="bg-white/80 backdrop-blur-lg border-b border-white/20 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 md:h-16 py-2">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
               <Button
                 variant="outline"
                 size="icon"
                 onClick={() => router.push("/admin")}
-                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 h-8 w-8 md:h-10 md:w-10 flex-shrink-0"
               >
-                <ArrowLeft className="h-4 w-4" />
+                <ArrowLeft className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
-              <div>
-                <h1 className="text-xl font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm md:text-xl font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent truncate">
                   {user.first_name} {user.last_name}
                 </h1>
-                <p className="text-sm text-gray-600">{user.email}</p>
+                <p className="text-xs md:text-sm text-gray-600 truncate">{user.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
               {getStatusBadge()}
               {getPlanBadge()}
             </div>
@@ -334,99 +334,162 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-8 h-auto p-1 bg-white/50 backdrop-blur-sm border-0">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
+        <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
+          {/* Mobile: Scroll horizontal, Desktop: Grid */}
+          <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
+            <TabsList className="inline-flex w-max h-auto p-1 bg-white/50 backdrop-blur-sm border-0 gap-1">
+              <TabsTrigger
+                value="overview"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <User className="h-3 w-3" />
+                <span>Perfil</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="progress"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <TrendingUp className="h-3 w-3" />
+                <span>Progreso</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="nutrition"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <ChefHat className="h-3 w-3" />
+                <span>Nutrición</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="workouts"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <Dumbbell className="h-3 w-3" />
+                <span>Entren.</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="photos"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <Camera className="h-3 w-3" />
+                <span>Fotos</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="achievements"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-amber-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <Award className="h-3 w-3" />
+                <span>Logros</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="wellness"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <Activity className="h-3 w-3" />
+                <span>Bienestar</span>
+              </TabsTrigger>
+              <TabsTrigger
+                value="notifications"
+                className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white whitespace-nowrap"
+              >
+                <Bell className="h-3 w-3" />
+                <span>Notif.</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          {/* Desktop: Grid tradicional */}
+          <TabsList className="hidden md:grid w-full grid-cols-4 lg:grid-cols-8 h-auto p-1 bg-white/50 backdrop-blur-sm border-0">
             <TabsTrigger
               value="overview"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
             >
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Perfil</span>
+              <User className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Perfil</span>
             </TabsTrigger>
             <TabsTrigger
               value="progress"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-500 data-[state=active]:to-green-500 data-[state=active]:text-white"
             >
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Progreso</span>
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Progreso</span>
             </TabsTrigger>
             <TabsTrigger
               value="nutrition"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-orange-500 data-[state=active]:to-red-500 data-[state=active]:text-white"
             >
-              <ChefHat className="h-4 w-4" />
-              <span className="hidden sm:inline">Nutrición</span>
+              <ChefHat className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Nutrición</span>
             </TabsTrigger>
             <TabsTrigger
               value="workouts"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white"
             >
-              <Dumbbell className="h-4 w-4" />
-              <span className="hidden sm:inline">Entrenamientos</span>
+              <Dumbbell className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Entrenamientos</span>
             </TabsTrigger>
             <TabsTrigger
               value="photos"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-pink-500 data-[state=active]:to-rose-500 data-[state=active]:text-white"
             >
-              <Camera className="h-4 w-4" />
-              <span className="hidden sm:inline">Fotos</span>
+              <Camera className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Fotos</span>
             </TabsTrigger>
             <TabsTrigger
               value="achievements"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-amber-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-amber-500 data-[state=active]:text-white"
             >
-              <Award className="h-4 w-4" />
-              <span className="hidden sm:inline">Logros</span>
+              <Award className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Logros</span>
             </TabsTrigger>
             <TabsTrigger
               value="wellness"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white"
             >
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Bienestar</span>
+              <Activity className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Bienestar</span>
             </TabsTrigger>
             <TabsTrigger
               value="notifications"
-              className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
             >
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notificaciones</span>
+              <Bell className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Notificaciones</span>
             </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab - Perfil Completo */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="flex justify-end gap-2 mb-4">
+          <TabsContent value="overview" className="space-y-4 md:space-y-6">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 mb-4">
               {!isEditing ? (
                 <Button
                   onClick={() => setIsEditing(true)}
-                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+                  className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0 w-full sm:w-auto text-sm"
                 >
-                  <Edit className="h-4 w-4 mr-2" />
+                  <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                   Editar Perfil
                 </Button>
               ) : (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                   <Button
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
+                    className="bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0 w-full sm:w-auto text-sm"
                   >
                     {saving ? (
                       <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" />
                         Guardando...
                       </>
                     ) : (
                       <>
-                        <Save className="h-4 w-4 mr-2" />
+                        <Save className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                         Guardar cambios
                       </>
                     )}
                   </Button>
-                  <Button variant="outline" onClick={handleCancelEdit} disabled={saving}>
-                    <X className="h-4 w-4 mr-2" />
+                  <Button variant="outline" onClick={handleCancelEdit} disabled={saving} className="w-full sm:w-auto text-sm">
+                    <X className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                     Cancelar
                   </Button>
                 </div>
@@ -437,18 +500,18 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
 
             <UserProfileHistory userId={user.id.toString()} />
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               {/* Información Personal */}
               <Card className="lg:col-span-2 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-                <CardHeader>
-                  <CardTitle className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <User className="h-5 w-5" />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
+                    <User className="h-4 w-4 md:h-5 md:w-5" />
                     Información Personal
                   </CardTitle>
-                  <CardDescription>Datos básicos del usuario</CardDescription>
+                  <CardDescription className="text-xs md:text-sm">Datos básicos del usuario</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <CardContent className="space-y-4 p-4 md:p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                     <div className="space-y-2">
                       <Label>Nombre</Label>
                       {isEditing ? (
@@ -548,14 +611,14 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
 
               {/* Estadísticas rápidas */}
               <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-                <CardHeader>
-                  <CardTitle className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent flex items-center gap-2">
-                    <Activity className="h-5 w-5" />
+                <CardHeader className="p-4 md:p-6">
+                  <CardTitle className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
+                    <Activity className="h-4 w-4 md:h-5 md:w-5" />
                     Estadísticas
                   </CardTitle>
-                  <CardDescription>Resumen del usuario</CardDescription>
+                  <CardDescription className="text-xs md:text-sm">Resumen del usuario</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent className="space-y-4 p-4 md:p-6">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Racha actual</span>
@@ -589,15 +652,15 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
 
             {/* Datos Físicos */}
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-              <CardHeader>
-                <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2">
-                  <Ruler className="h-5 w-5" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
+                  <Ruler className="h-4 w-4 md:h-5 md:w-5" />
                   Datos Físicos
                 </CardTitle>
-                <CardDescription>Medidas y objetivos físicos</CardDescription>
+                <CardDescription className="text-xs md:text-sm">Medidas y objetivos físicos</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Ruler className="h-4 w-4" />
