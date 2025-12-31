@@ -23,13 +23,21 @@ class RecipeMinimalForMealSerializer(serializers.ModelSerializer):
 class AdminPlanMealSerializer(serializers.ModelSerializer):
     """Serializer de comidas con recetas detalladas"""
     suggested_recipes = RecipeMinimalForMealSerializer(many=True, read_only=True)
+    suggested_recipes_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=Recipe.objects.all(),
+        source='suggested_recipes',
+        write_only=True,
+        required=False,
+        allow_null=True
+    )
     
     class Meta:
         model = PlanMeal
         fields = [
             'id', 'name', 'meal_type', 'time',
             'calories', 'protein', 'carbs', 'fat',
-            'description', 'order_index', 'suggested_recipes'
+            'description', 'order_index', 'suggested_recipes', 'suggested_recipes_ids'
         ]
 
 
