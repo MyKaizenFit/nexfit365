@@ -210,81 +210,77 @@ const SettingsPage = () => {
                 {loadingSettings ? (
                   <div className="text-center py-8 text-gray-500 text-sm md:text-base">Cargando configuración...</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 md:gap-4 w-full">
+                  <div className="space-y-3 md:space-y-4">
                     {helpSettings?.faq_enabled && (
-                      <Button
-                        variant="outline"
+                      <div
                         onClick={() => handleHelpAction("faq")}
-                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
+                        className="p-3 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 cursor-pointer hover:shadow-md transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-start gap-2 md:gap-3 w-full">
-                          <div className="p-2 md:p-3 bg-blue-100 rounded-lg flex-shrink-0 mt-0.5">
-                            <BookOpen className="h-4 w-4 md:h-6 md:w-6 text-blue-600" />
-                          </div>
+                        <div className="flex items-start gap-3 w-full">
+                          <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Preguntas Frecuentes</div>
-                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Encuentra respuestas rápidas a las preguntas más comunes</div>
+                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Preguntas Frecuentes</h5>
+                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                              Encuentra respuestas rápidas a las preguntas más comunes
+                            </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                      </Button>
+                      </div>
                     )}
                     
                     {helpSettings?.contact_enabled && (
-                      <Button
-                        variant="outline"
+                      <div
                         onClick={() => handleHelpAction("contact")}
-                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
+                        className="p-3 md:p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200 cursor-pointer hover:shadow-md transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-start gap-2 md:gap-3 w-full">
-                          <div className="p-2 md:p-3 bg-green-100 rounded-lg flex-shrink-0 mt-0.5">
-                            <Mail className="h-4 w-4 md:h-6 md:w-6 text-green-600" />
-                          </div>
+                        <div className="flex items-start gap-3 w-full">
+                          <Mail className="h-5 w-5 md:h-6 md:w-6 text-green-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Contactar Soporte</div>
-                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Habla directamente con nuestro equipo de soporte</div>
+                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Contactar Soporte</h5>
+                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                              Habla directamente con nuestro equipo de soporte
+                            </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                      </Button>
+                      </div>
                     )}
                     
                     {helpSettings?.guides_enabled && (
-                      <Button
-                        variant="outline"
+                      <div
                         onClick={() => handleHelpAction("guides")}
-                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
+                        className="p-3 md:p-5 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border-2 border-purple-200 cursor-pointer hover:shadow-md transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-start gap-2 md:gap-3 w-full">
-                          <div className="p-2 md:p-3 bg-purple-100 rounded-lg flex-shrink-0 mt-0.5">
-                            <FileText className="h-4 w-4 md:h-6 md:w-6 text-purple-600" />
-                          </div>
+                        <div className="flex items-start gap-3 w-full">
+                          <FileText className="h-5 w-5 md:h-6 md:w-6 text-purple-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Guías de Usuario</div>
-                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Aprende a usar todas las funciones de la aplicación</div>
+                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Guías de Usuario</h5>
+                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                              Aprende a usar todas las funciones de la aplicación
+                            </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                      </Button>
+                      </div>
                     )}
                     
                     {helpSettings?.report_enabled && (
-                      <Button
-                        variant="outline"
+                      <div
                         onClick={() => handleHelpAction("report")}
-                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
+                        className="p-3 md:p-5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border-2 border-orange-200 cursor-pointer hover:shadow-md transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-start gap-2 md:gap-3 w-full">
-                          <div className="p-2 md:p-3 bg-orange-100 rounded-lg flex-shrink-0 mt-0.5">
-                            <MessageCircle className="h-4 w-4 md:h-6 md:w-6 text-orange-600" />
-                          </div>
+                        <div className="flex items-start gap-3 w-full">
+                          <MessageCircle className="h-5 w-5 md:h-6 md:w-6 text-orange-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Reportar Problema</div>
-                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Informa errores, bugs o problemas técnicos</div>
+                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Reportar Problema</h5>
+                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                              Informa errores, bugs o problemas técnicos
+                            </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                      </Button>
+                      </div>
                     )}
                   </div>
                 )}
