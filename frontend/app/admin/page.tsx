@@ -1088,7 +1088,7 @@ function AdminPageContent() {
             )}
 
             {/* Users List - Mobile Cards / Desktop Table */}
-            <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50">
+            <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50 relative" style={{ isolation: 'isolate' }}>
               {/* Mobile View - Cards */}
               <div className="md:hidden space-y-3 p-3">
                 {/* Select All Header */}
