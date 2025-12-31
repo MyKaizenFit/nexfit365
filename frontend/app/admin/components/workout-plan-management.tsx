@@ -29,7 +29,9 @@ import {
   Activity,
   GripVertical,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -955,12 +957,12 @@ export function WorkoutPlanManagement() {
         </Card>
       )}
 
-      {/* Plans Table */}
+      {/* Plans List - Mobile Cards / Desktop Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Planes de Entrenamiento</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="hidden md:flex items-center space-x-2">
               <Checkbox
                 checked={selectedPlans.length === currentPlans.length && currentPlans.length > 0}
                 onCheckedChange={handleSelectAll}
@@ -971,8 +973,185 @@ export function WorkoutPlanManagement() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="p-0">
+          {/* Mobile View - Cards */}
+          <div className="md:hidden space-y-3 p-3">
+            {/* Select All Header */}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedPlans.length === currentPlans.length && currentPlans.length > 0}
+                  onCheckedChange={handleSelectAll}
+                />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Seleccionar todos
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {selectedPlans.length} seleccionados
+              </span>
+            </div>
+
+            {/* Plan Cards */}
+            {Array.isArray(currentPlans) ? currentPlans.map((plan) => {
+              if (!plan) return null
+              return (
+                <Card
+                  key={plan.id}
+                  className={`border-2 transition-all ${
+                    selectedPlans.includes(plan.id)
+                      ? 'border-purple-500 bg-purple-50/50'
+                      : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                  }`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={selectedPlans.includes(plan.id)}
+                        onCheckedChange={(checked) => handleSelectPlan(plan.id, checked as boolean)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-semibold text-base">
+                                {fixEncoding(plan.name)}
+                              </div>
+                              {plan.is_default && (
+                                <Badge className="bg-yellow-100 text-yellow-800 border-0 text-xs">
+                                  <Star className="h-3 w-3 mr-1" />
+                                  Por defecto
+                                </Badge>
+                              )}
+                            </div>
+                            {plan.description && (
+                              <div className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                                {fixEncoding(plan.description)}
+                              </div>
+                            )}
+                            {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
+                              <div className="text-xs text-muted-foreground mb-2 p-2 bg-gray-50 rounded">
+                                <span className="font-medium">Se asigna cuando: </span>
+                                {Object.entries(plan.default_conditions).map(([key, value]) => {
+                                  const keyNames: Record<string, string> = {
+                                    'days_per_week': 'Días/semana',
+                                    'difficulty': 'Dificultad',
+                                    'goal': 'Objetivo',
+                                    'min_role_required': 'Rol'
+                                  }
+                                  const valueNames: Record<string, any> = {
+                                    'beginner': 'Principiante',
+                                    'intermediate': 'Intermedio',
+                                    'advanced': 'Avanzado',
+                                    'weight_loss': 'Pérdida de peso',
+                                    'muscle_gain': 'Ganancia muscular',
+                                    'strength_building': 'Fuerza',
+                                    'endurance': 'Resistencia',
+                                    'general_fitness': 'Fitness general',
+                                    'basic': 'Básico',
+                                    'pro': 'Pro',
+                                    'premium': 'Premium'
+                                  }
+                                  return `${keyNames[key] || key}: ${valueNames[value] || value}`
+                                }).join(', ')}
+                              </div>
+                            )}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleEditPlan(plan.id)}
+                                disabled={loadingDetail}
+                              >
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Eye className="h-4 w-4 mr-2" />
+                                )}
+                                Ver Detalles
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleEditPlan(plan.id)}
+                                disabled={loadingDetail}
+                              >
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Edit className="h-4 w-4 mr-2" />
+                                )}
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleActive(plan.id)}>
+                                {plan.is_active ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Desactivar
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Activar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              {!plan.is_default && (
+                                <DropdownMenuItem onClick={() => handleSetAsDefault(plan.id)}>
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Establecer como por defecto
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(plan.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                        
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {getRoleBadge(plan.min_role_required)}
+                          {getDifficultyBadge(plan.difficulty)}
+                          {plan.is_active ? (
+                            <Badge className="bg-green-100 text-green-800 border-0 text-xs">Activo</Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">Inactivo</Badge>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{plan.duration_weeks} semanas</span>
+                          </div>
+                          {plan.estimated_duration_minutes && (
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              <span>{plan.estimated_duration_minutes} min/sesión</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            }) : null}
+          </div>
+
+          {/* Desktop View - Table */}
+          <div className="hidden md:block rounded-md border">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted/50">
@@ -1193,72 +1372,132 @@ export function WorkoutPlanManagement() {
           
           {/* Paginación */}
           {totalCount > 50 && (
-            <div className="border-t p-4 flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
-            Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, totalCount)} de {totalCount} planes
-          </div>
-              <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => changePage(1)}
-            disabled={currentPage === 1}
-          >
-            Primera
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => changePage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-          >
-            Anterior
-          </Button>
-                
-                {/* Números de página */}
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
-                    
-                    return (
-                      <Button
-                        key={pageNum}
-                        variant={currentPage === pageNum ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => changePage(pageNum)}
-                        className="w-10"
-                      >
-                        {pageNum}
-                      </Button>
-                    );
-                  })}
+            <div className="border-t p-3 md:p-4">
+              {/* Mobile View - Compact */}
+              <div className="md:hidden space-y-3">
+                <div className="text-xs text-center text-muted-foreground">
+                  Página {currentPage} de {totalPages} • {totalCount} planes
                 </div>
-                
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-          >
-            Siguiente
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => changePage(totalPages)}
-            disabled={currentPage === totalPages}
-          >
-            Última
-          </Button>
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="flex-1 text-xs"
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Anterior
+                  </Button>
+                  <div className="flex items-center gap-1 px-2">
+                    {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage === 1) {
+                        pageNum = i + 1;
+                      } else if (currentPage === totalPages) {
+                        pageNum = totalPages - 2 + i;
+                      } else {
+                        pageNum = currentPage - 1 + i;
+                      }
+                      
+                      if (pageNum < 1 || pageNum > totalPages) return null;
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => changePage(pageNum)}
+                          className="w-8 h-8 p-0 text-xs"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex-1 text-xs"
+                  >
+                    Siguiente
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Desktop View - Full */}
+              <div className="hidden md:flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, totalCount)} de {totalCount} planes
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    Primera
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  
+                  {/* Números de página */}
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={currentPage === pageNum ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => changePage(pageNum)}
+                          className="w-10"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => changePage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Última
+                  </Button>
+                </div>
               </div>
             </div>
           )}
