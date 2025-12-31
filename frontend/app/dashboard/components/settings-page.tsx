@@ -198,35 +198,35 @@ const SettingsPage = () => {
           <TabsContent value="help" className="space-y-6">
             {/* Centro de Ayuda Principal */}
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
-              <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg md:text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  <HelpCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
-                  Centro de Ayuda
+              <CardHeader className="px-3 md:px-6 pt-3 md:pt-6 pb-2 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-base md:text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  <HelpCircle className="h-4 w-4 md:h-6 md:w-6 text-blue-600 flex-shrink-0" />
+                  <span className="truncate">Centro de Ayuda</span>
                 </CardTitle>
-                <CardDescription className="text-sm md:text-base mt-1">Encuentra respuestas y obtén soporte para cualquier duda</CardDescription>
+                <CardDescription className="text-xs md:text-base mt-1">Encuentra respuestas y obtén soporte para cualquier duda</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6 pb-4 md:pb-6">
+              <CardContent className="space-y-2 md:space-y-4 px-3 md:px-6 pb-3 md:pb-6">
                 {/* Acciones Rápidas */}
                 {loadingSettings ? (
                   <div className="text-center py-8 text-gray-500 text-sm md:text-base">Cargando configuración...</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-3 md:gap-4">
+                  <div className="grid grid-cols-1 gap-2 md:gap-4">
                     {helpSettings?.faq_enabled && (
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("faq")}
-                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="p-2.5 md:p-3 bg-blue-100 rounded-lg flex-shrink-0">
-                            <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0">
+                          <div className="p-2 md:p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                            <BookOpen className="h-4 w-4 md:h-6 md:w-6 text-blue-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Preguntas Frecuentes</div>
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 truncate">Preguntas Frecuentes</div>
                           </div>
-                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 md:ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Encuentra respuestas rápidas a las preguntas más comunes</div>
+                        <div className="text-xs md:text-base text-gray-600 text-left w-full">Encuentra respuestas rápidas a las preguntas más comunes</div>
                       </Button>
                     )}
                     
@@ -234,18 +234,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("contact")}
-                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="p-2.5 md:p-3 bg-green-100 rounded-lg flex-shrink-0">
-                            <Mail className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
+                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0">
+                          <div className="p-2 md:p-3 bg-green-100 rounded-lg flex-shrink-0">
+                            <Mail className="h-4 w-4 md:h-6 md:w-6 text-green-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Contactar Soporte</div>
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 truncate">Contactar Soporte</div>
                           </div>
-                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 md:ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Habla directamente con nuestro equipo de soporte</div>
+                        <div className="text-xs md:text-base text-gray-600 text-left w-full">Habla directamente con nuestro equipo de soporte</div>
                       </Button>
                     )}
                     
@@ -253,18 +253,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("guides")}
-                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="p-2.5 md:p-3 bg-purple-100 rounded-lg flex-shrink-0">
-                            <FileText className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
+                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0">
+                          <div className="p-2 md:p-3 bg-purple-100 rounded-lg flex-shrink-0">
+                            <FileText className="h-4 w-4 md:h-6 md:w-6 text-purple-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Guías de Usuario</div>
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 truncate">Guías de Usuario</div>
                           </div>
-                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 md:ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Aprende a usar todas las funciones de la aplicación</div>
+                        <div className="text-xs md:text-base text-gray-600 text-left w-full">Aprende a usar todas las funciones de la aplicación</div>
                       </Button>
                     )}
                     
@@ -272,18 +272,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("report")}
-                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="p-2.5 md:p-3 bg-orange-100 rounded-lg flex-shrink-0">
-                            <MessageCircle className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
+                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0">
+                          <div className="p-2 md:p-3 bg-orange-100 rounded-lg flex-shrink-0">
+                            <MessageCircle className="h-4 w-4 md:h-6 md:w-6 text-orange-600" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Reportar Problema</div>
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 truncate">Reportar Problema</div>
                           </div>
-                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 md:ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Informa errores, bugs o problemas técnicos</div>
+                        <div className="text-xs md:text-base text-gray-600 text-left w-full">Informa errores, bugs o problemas técnicos</div>
                       </Button>
                     )}
                   </div>
