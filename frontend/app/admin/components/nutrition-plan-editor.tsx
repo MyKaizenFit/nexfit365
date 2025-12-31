@@ -275,19 +275,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       end_date: detail.end_date,
     })
   }
-      }
-    } catch (err) {
-      console.error("Error cargando plan:", err)
-      setError(err instanceof Error ? err.message : "Error desconocido")
-      toast({
-        title: "Error",
-        description: "No se pudo cargar el plan del usuario",
-        variant: "destructive",
-      })
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const mealsArray = useMemo(() => (Array.isArray(plan?.meals) ? plan!.meals : []), [plan])
 
