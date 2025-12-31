@@ -290,36 +290,36 @@ const SettingsPage = () => {
                 )}
 
                 {/* Preguntas Frecuentes */}
-                <div className="pt-6 border-t">
-                  <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
+                <div className="pt-4 md:pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
+                    <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                     Preguntas Frecuentes
                   </h4>
-                  <div className="space-y-4">
-                    <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
-                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo cambio mi contraseña?</h5>
-                      <p className="text-sm text-gray-600">
+                  <div className="space-y-3 md:space-y-4">
+                    <div className="p-4 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo cambio mi contraseña?</h5>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
                         Ve a la pestaña "Seguridad" en esta misma página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.
                       </p>
                     </div>
                     
-                    <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo actualizo mi perfil?</h5>
-                      <p className="text-sm text-gray-600">
+                    <div className="p-4 md:p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
+                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo actualizo mi perfil?</h5>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
                         En la pestaña "Mi Perfil" puedes editar toda tu información personal, incluyendo nombre, altura, peso, objetivos y más.
                       </p>
                     </div>
                     
-                    <div className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
-                      <h5 className="font-medium text-gray-900 mb-2">¿Cómo funcionan los planes de entrenamiento?</h5>
-                      <p className="text-sm text-gray-600">
+                    <div className="p-4 md:p-5 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border-2 border-purple-200">
+                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo funcionan los planes de entrenamiento?</h5>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
                         Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección "Entrenamientos" del dashboard.
                       </p>
                     </div>
                     
-                    <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
-                      <h5 className="font-medium text-gray-900 mb-2">¿Puedo personalizar mi plan nutricional?</h5>
-                      <p className="text-sm text-gray-600">
+                    <div className="p-4 md:p-5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border-2 border-orange-200">
+                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Puedo personalizar mi plan nutricional?</h5>
+                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
                         Sí, los planes nutricionales se adaptan a tus preferencias dietéticas, alergias y objetivos. Actualiza tu perfil para que el plan se ajuste automáticamente.
                       </p>
                     </div>
