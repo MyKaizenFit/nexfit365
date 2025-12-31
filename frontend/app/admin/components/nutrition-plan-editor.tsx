@@ -597,7 +597,12 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
               <ChefHat className="h-6 w-6" />
               Plan nutricional del usuario
             </CardTitle>
-            <CardDescription>Ver y editar el plan actual o asignar uno existente</CardDescription>
+            <CardDescription>
+              {plan.id 
+                ? `Plan actual: ${fixEncoding(plan.name)} - Edita este plan individual del usuario (los cambios solo afectan a este usuario)`
+                : "El usuario no tiene plan asignado. Crea uno nuevo o asigna uno existente."
+              }
+            </CardDescription>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={loadUserPlan} className="gap-2" disabled={loading || saving}>
