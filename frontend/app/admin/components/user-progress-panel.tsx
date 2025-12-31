@@ -151,7 +151,10 @@ export function UserProgressPanel({ userId }: Props) {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-2">Usa la galería para ver todas las fotos.</p>
-            <ProgressPhotosCarousel userId={userId} />
+            {(() => {
+              console.log("📸 [UserProgressPanel] Renderizando ProgressPhotosCarousel en card con userId:", userId)
+              return <ProgressPhotosCarousel userId={userId} />
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -172,7 +175,10 @@ export function UserProgressPanel({ userId }: Props) {
         </TabsContent>
 
         <TabsContent value="photos" className="space-y-4">
-          <ProgressPhotosCarousel userId={userId} />
+          {(() => {
+            console.log("📸 [UserProgressPanel] Renderizando ProgressPhotosCarousel en tab con userId:", userId)
+            return <ProgressPhotosCarousel userId={userId} />
+          })()}
         </TabsContent>
       </Tabs>
     </div>
