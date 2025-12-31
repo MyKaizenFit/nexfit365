@@ -407,27 +407,32 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Header */}
+      {/* Header - Mobile Optimized */}
       <header className="bg-white border-b sticky top-0 z-40 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="icon" onClick={() => router.push("/admin")}>
-                <ArrowLeft className="h-5 w-5" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-14 md:h-16 py-2">
+            <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={() => router.push("/admin")}
+                className="h-8 w-8 md:h-10 md:w-10 flex-shrink-0"
+              >
+                <ArrowLeft className="h-3 w-3 md:h-5 md:w-5" />
               </Button>
-              <div>
-                <h1 className="text-lg font-semibold text-slate-900">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-sm md:text-lg font-semibold text-slate-900 truncate">
                   {user.first_name} {user.last_name}
                 </h1>
-                <p className="text-sm text-slate-500">{user.email}</p>
+                <p className="text-xs md:text-sm text-slate-500 truncate">{user.email}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Badge variant={user.is_active ? "default" : "destructive"}>
+            <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
+              <Badge variant={user.is_active ? "default" : "destructive"} className="text-xs">
                 {user.is_active ? "Activo" : "Inactivo"}
               </Badge>
-              <Badge variant="outline">{user.role_display || user.role}</Badge>
-              <Badge className="bg-indigo-100 text-indigo-700 border-0">
+              <Badge variant="outline" className="text-xs hidden sm:inline-flex">{user.role_display || user.role}</Badge>
+              <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs hidden md:inline-flex">
                 v2 ✨
               </Badge>
             </div>
@@ -436,106 +441,141 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
       </header>
 
       {/* Contenido */}
-      <main className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="max-w-7xl mx-auto p-3 sm:p-4 md:p-6 lg:p-8">
         {/* Resumen rápido del usuario */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 mb-4 md:mb-6">
           <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-            <CardContent className="p-4">
+            <CardContent className="p-2 md:p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-indigo-600 font-medium mb-1">Peso Actual</p>
-                  <p className="text-2xl font-bold text-indigo-900">{user.weight ? `${user.weight} kg` : "-"}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] md:text-xs text-indigo-600 font-medium mb-1 truncate">Peso Actual</p>
+                  <p className="text-lg md:text-2xl font-bold text-indigo-900 truncate">{user.weight ? `${user.weight} kg` : "-"}</p>
                 </div>
-                <Weight className="h-8 w-8 text-indigo-400" />
+                <Weight className="h-5 w-5 md:h-8 md:w-8 text-indigo-400 flex-shrink-0 ml-1" />
               </div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
-            <CardContent className="p-4">
+            <CardContent className="p-2 md:p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-emerald-600 font-medium mb-1">Peso Objetivo</p>
-                  <p className="text-2xl font-bold text-emerald-900">{user.target_weight ? `${user.target_weight} kg` : "-"}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] md:text-xs text-emerald-600 font-medium mb-1 truncate">Peso Objetivo</p>
+                  <p className="text-lg md:text-2xl font-bold text-emerald-900 truncate">{user.target_weight ? `${user.target_weight} kg` : "-"}</p>
                 </div>
-                <Target className="h-8 w-8 text-emerald-400" />
+                <Target className="h-5 w-5 md:h-8 md:w-8 text-emerald-400 flex-shrink-0 ml-1" />
               </div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-            <CardContent className="p-4">
+            <CardContent className="p-2 md:p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-purple-600 font-medium mb-1">Racha Actual</p>
-                  <p className="text-2xl font-bold text-purple-900">{user.daily_streak || 0} días</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] md:text-xs text-purple-600 font-medium mb-1 truncate">Racha Actual</p>
+                  <p className="text-lg md:text-2xl font-bold text-purple-900 truncate">{user.daily_streak || 0} días</p>
                 </div>
-                <TrendingUp className="h-8 w-8 text-purple-400" />
+                <TrendingUp className="h-5 w-5 md:h-8 md:w-8 text-purple-400 flex-shrink-0 ml-1" />
               </div>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
-            <CardContent className="p-4">
+            <CardContent className="p-2 md:p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-orange-600 font-medium mb-1">IMC</p>
-                  <p className="text-2xl font-bold text-orange-900">{user.bmi ? user.bmi.toFixed(1) : "-"}</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] md:text-xs text-orange-600 font-medium mb-1 truncate">IMC</p>
+                  <p className="text-lg md:text-2xl font-bold text-orange-900 truncate">{user.bmi ? user.bmi.toFixed(1) : "-"}</p>
                 </div>
-                <Activity className="h-8 w-8 text-orange-400" />
+                <Activity className="h-5 w-5 md:h-8 md:w-8 text-orange-400 flex-shrink-0 ml-1" />
               </div>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1 bg-white rounded-lg shadow-sm">
-            <TabsTrigger value="profile" className="flex items-center gap-2 py-2">
-              <User className="h-4 w-4" />
-              <span className="hidden sm:inline">Perfil</span>
+        <Tabs defaultValue="profile" className="space-y-4 md:space-y-6">
+          {/* Mobile: Scroll horizontal */}
+          <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
+            <TabsList className="inline-flex w-max h-auto p-1 bg-white rounded-lg shadow-sm gap-1">
+              <TabsTrigger value="profile" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <User className="h-3 w-3" />
+                <span>Perfil</span>
+              </TabsTrigger>
+              <TabsTrigger value="fitness" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <Dumbbell className="h-3 w-3" />
+                <span>Fitness</span>
+              </TabsTrigger>
+              <TabsTrigger value="nutrition" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <ChefHat className="h-3 w-3" />
+                <span>Nutrición</span>
+              </TabsTrigger>
+              <TabsTrigger value="progress" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <TrendingUp className="h-3 w-3" />
+                <span>Progreso</span>
+              </TabsTrigger>
+              <TabsTrigger value="health" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <Heart className="h-3 w-3" />
+                <span>Salud</span>
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <Activity className="h-3 w-3" />
+                <span>Actividad</span>
+              </TabsTrigger>
+              <TabsTrigger value="notifications" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <Bell className="h-3 w-3" />
+                <span>Notif.</span>
+              </TabsTrigger>
+            </TabsList>
+          </div>
+          
+          {/* Desktop: Grid tradicional */}
+          <TabsList className="hidden md:grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1 bg-white rounded-lg shadow-sm">
+            <TabsTrigger value="profile" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <User className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Perfil</span>
             </TabsTrigger>
-            <TabsTrigger value="fitness" className="flex items-center gap-2 py-2">
-              <Dumbbell className="h-4 w-4" />
-              <span className="hidden sm:inline">Fitness</span>
+            <TabsTrigger value="fitness" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <Dumbbell className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Fitness</span>
             </TabsTrigger>
-            <TabsTrigger value="nutrition" className="flex items-center gap-2 py-2">
-              <ChefHat className="h-4 w-4" />
-              <span className="hidden sm:inline">Nutrición</span>
+            <TabsTrigger value="nutrition" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <ChefHat className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Nutrición</span>
             </TabsTrigger>
-            <TabsTrigger value="progress" className="flex items-center gap-2 py-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Progreso</span>
+            <TabsTrigger value="progress" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <TrendingUp className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Progreso</span>
             </TabsTrigger>
-            <TabsTrigger value="health" className="flex items-center gap-2 py-2">
-              <Heart className="h-4 w-4" />
-              <span className="hidden sm:inline">Salud</span>
+            <TabsTrigger value="health" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <Heart className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Salud</span>
             </TabsTrigger>
-            <TabsTrigger value="activity" className="flex items-center gap-2 py-2">
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Actividad</span>
+            <TabsTrigger value="activity" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <Activity className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Actividad</span>
             </TabsTrigger>
-            <TabsTrigger value="notifications" className="flex items-center gap-2 py-2">
-              <Bell className="h-4 w-4" />
-              <span className="hidden sm:inline">Notificaciones</span>
+            <TabsTrigger value="notifications" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <Bell className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Notificaciones</span>
             </TabsTrigger>
           </TabsList>
 
           {/* ================================================================ */}
           {/* TAB: PERFIL */}
           {/* ================================================================ */}
-          <TabsContent value="profile" className="space-y-6">
+          <TabsContent value="profile" className="space-y-4 md:space-y-6">
             {/* Botones de edición */}
-            <div className="flex justify-end gap-2">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
               {!isEditing ? (
-                <Button onClick={() => setIsEditing(true)} className="bg-indigo-600 hover:bg-indigo-700">
-                  <Edit className="h-4 w-4 mr-2" />
+                <Button onClick={() => setIsEditing(true)} className="bg-indigo-600 hover:bg-indigo-700 w-full sm:w-auto text-sm">
+                  <Edit className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                   Editar Perfil
                 </Button>
               ) : (
                 <>
-                  <Button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700">
-                    {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  <Button onClick={handleSave} disabled={saving} className="bg-green-600 hover:bg-green-700 w-full sm:w-auto text-sm">
+                    {saving ? <Loader2 className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2 animate-spin" /> : <Save className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />}
                     {saving ? "Guardando..." : "Guardar"}
                   </Button>
-                  <Button variant="outline" onClick={handleCancel} disabled={saving}>
-                    <X className="h-4 w-4 mr-2" />
+                  <Button variant="outline" onClick={handleCancel} disabled={saving} className="w-full sm:w-auto text-sm">
+                    <X className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                     Cancelar
                   </Button>
                 </>
@@ -544,14 +584,14 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
 
             {/* Info personal */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5 text-indigo-600" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <User className="h-4 w-4 md:h-5 md:w-5 text-indigo-600" />
                   Información Personal
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                   <div>
                     <Label>Nombre</Label>
                     {isEditing ? (
@@ -637,14 +677,14 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
 
             {/* Datos físicos */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Ruler className="h-5 w-5 text-blue-600" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Ruler className="h-4 w-4 md:h-5 md:w-5 text-blue-600" />
                   Datos Físicos
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
                   <div>
                     <Label className="flex items-center gap-1">
                       <Ruler className="h-3 w-3" /> Altura (cm)
@@ -713,14 +753,14 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
 
             {/* Estadísticas */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-green-600" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Activity className="h-4 w-4 md:h-5 md:w-5 text-green-600" />
                   Estadísticas
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <CardContent className="p-4 md:p-6">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-4">
                   <div className="text-center p-3 bg-slate-50 rounded-lg">
                     <p className="text-2xl font-bold text-indigo-600">{user.daily_streak || 0}</p>
                     <p className="text-xs text-slate-500">Racha actual</p>
@@ -743,14 +783,14 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
 
             {/* Objetivos y Preferencias de Fitness */}
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-purple-600" />
+              <CardHeader className="p-4 md:p-6">
+                <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                  <Target className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
                   Objetivos y Preferencias de Fitness
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <CardContent className="space-y-4 p-4 md:p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
                   <div>
                     <Label>Objetivo principal</Label>
                     <p className="mt-1 p-2 bg-slate-50 rounded">{user.main_goal_display || "No especificado"}</p>
