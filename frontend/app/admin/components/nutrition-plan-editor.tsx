@@ -138,7 +138,39 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       setError(null)
 
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), { headers })
+      
+      // Intentar usar endpoint de admin primero
+      console.log("🍽️ [NutritionPlanEditor] Cargando plan para usuario:", userId)
+      let response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan/`), { headers })
+      
+      if (response.ok) {
+        const adminData = await response.json()
+        console.log("🍽️ [NutritionPlanEditor] Respuesta admin:", adminData)
+        const planData = adminData.plan
+        
+        if (planData) {
+          console.log("🍽️ [NutritionPlanEditor] Plan encontrado, obteniendo detalle:", planData.id)
+          // Obtener detalle completo del plan usando el ViewSet de admin
+          const detailResponse = await fetch(buildApiUrl(`admin/nutrition/plans/${planData.id}/`), { headers })
+          if (!detailResponse.ok) {
+            console.error("🍽️ [NutritionPlanEditor] Error obteniendo detalle:", detailResponse.status)
+            throw new Error("Error al cargar detalle del plan")
+          }
+          const detail = await detailResponse.json()
+          console.log("🍽️ [NutritionPlanEditor] Detalle cargado:", detail)
+          
+          // Continuar con el procesamiento del detalle
+          processPlanDetail(detail)
+          return
+        } else {
+          console.log("🍽️ [NutritionPlanEditor] No hay plan activo, usando fallback")
+        }
+      } else {
+        console.warn("🍽️ [NutritionPlanEditor] Endpoint admin falló:", response.status, "usando fallback")
+      }
+      
+      // Fallback: usar endpoint público
+      response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), { headers })
       if (!response.ok) throw new Error("Error al cargar el plan del usuario")
 
       const data = await response.json()
@@ -149,68 +181,100 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), { headers })
         if (!detailResponse.ok) throw new Error("Error al cargar detalle del plan")
         const detail = await detailResponse.json()
-
-        const meals = (Array.isArray(detail.meals) ? detail.meals : []).map((meal: any, index: number) => ({
-          id: meal.id,
-          name: fixEncoding(meal.name || `Comida ${index + 1}`),
-          time: meal.time || "12:00",
-          calories: toNumber(meal.calories),
-          protein: toNumber(meal.protein),
-          carbs: toNumber(meal.carbs),
-          fat: toNumber(meal.fat),
-          description: fixEncoding(meal.description || ""),
-          order_index: meal.order_index || index + 1,
-          meal_foods: Array.isArray(meal.meal_foods)
-            ? meal.meal_foods.map((f: any) => ({
-                food_id: String(f.food_id || ""),
-                quantity: toNumber(f.quantity, 0),
-                food_name: fixEncoding(f.food_name || ""),
-              }))
-            : [],
-        }))
-
-        const grams = {
-          protein: toNumber(detail.target_macros?.protein),
-          carbs: toNumber(detail.target_macros?.carbs),
-          fat: toNumber(detail.target_macros?.fat),
-        }
-
-        const percentsFromApi = {
-          protein: toNumber(detail.target_macros?.protein_percentage),
-          carbs: toNumber(detail.target_macros?.carbs_percentage),
-          fat: toNumber(detail.target_macros?.fat_percentage),
-        }
-
-        const percents =
-          percentsFromApi.protein || percentsFromApi.carbs || percentsFromApi.fat
-            ? percentsFromApi
-            : computePercentsFromGrams(grams, toNumber(detail.daily_calories, 2000))
-
-        setMacroPercents({
-          protein: percents.protein || DEFAULT_PERCENTS.protein,
-          carbs: percents.carbs || DEFAULT_PERCENTS.carbs,
-          fat: percents.fat || DEFAULT_PERCENTS.fat,
-        })
-
-        setPlan({
-          id: detail.id,
-          name: fixEncoding(detail.name || "Plan Nutricional"),
-          description: fixEncoding(detail.description || ""),
-          daily_calories: toNumber(detail.daily_calories, 2000),
-          target_macros: {
-            protein: grams.protein,
-            carbs: grams.carbs,
-            fat: grams.fat,
-            protein_percentage: percents.protein,
-            carbs_percentage: percents.carbs,
-            fat_percentage: percents.fat,
-          },
-          meals,
-          is_active: detail.is_active,
-          start_date: detail.start_date,
-          end_date: detail.end_date,
-        })
+        
+        processPlanDetail(detail)
       } else {
+        // No hay plan, crear uno nuevo
+        setMacroPercents(DEFAULT_PERCENTS)
+        const grams = computeGramsFromPercents(DEFAULT_PERCENTS, 2000)
+        setPlan({
+          name: "Nuevo Plan Nutricional",
+          description: "Plan nutricional personalizado",
+          daily_calories: 2000,
+          target_macros: {
+            ...grams,
+            protein_percentage: DEFAULT_PERCENTS.protein,
+            carbs_percentage: DEFAULT_PERCENTS.carbs,
+            fat_percentage: DEFAULT_PERCENTS.fat,
+          },
+          meals: [],
+        })
+      }
+    } catch (err) {
+      console.error("Error cargando plan:", err)
+      setError(err instanceof Error ? err.message : "Error desconocido")
+      toast({
+        title: "Error",
+        description: "No se pudo cargar el plan del usuario",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const processPlanDetail = (detail: any) => {
+    const meals = (Array.isArray(detail.meals) ? detail.meals : []).map((meal: any, index: number) => ({
+      id: meal.id,
+      name: fixEncoding(meal.name || `Comida ${index + 1}`),
+      time: meal.time || "12:00",
+      calories: toNumber(meal.calories),
+      protein: toNumber(meal.protein),
+      carbs: toNumber(meal.carbs),
+      fat: toNumber(meal.fat),
+      description: fixEncoding(meal.description || ""),
+      order_index: meal.order_index || index + 1,
+      meal_foods: Array.isArray(meal.meal_foods)
+        ? meal.meal_foods.map((f: any) => ({
+            food_id: String(f.food_id || ""),
+            quantity: toNumber(f.quantity, 0),
+            food_name: fixEncoding(f.food_name || ""),
+          }))
+        : [],
+    }))
+
+    const grams = {
+      protein: toNumber(detail.target_macros?.protein || detail.protein_grams),
+      carbs: toNumber(detail.target_macros?.carbs || detail.carbs_grams),
+      fat: toNumber(detail.target_macros?.fat || detail.fat_grams),
+    }
+
+    const percentsFromApi = {
+      protein: toNumber(detail.target_macros?.protein_percentage),
+      carbs: toNumber(detail.target_macros?.carbs_percentage),
+      fat: toNumber(detail.target_macros?.fat_percentage),
+    }
+
+    const percents =
+      percentsFromApi.protein || percentsFromApi.carbs || percentsFromApi.fat
+        ? percentsFromApi
+        : computePercentsFromGrams(grams, toNumber(detail.daily_calories, 2000))
+
+    setMacroPercents({
+      protein: percents.protein || DEFAULT_PERCENTS.protein,
+      carbs: percents.carbs || DEFAULT_PERCENTS.carbs,
+      fat: percents.fat || DEFAULT_PERCENTS.fat,
+    })
+
+    setPlan({
+      id: detail.id,
+      name: fixEncoding(detail.name || "Plan Nutricional"),
+      description: fixEncoding(detail.description || ""),
+      daily_calories: toNumber(detail.daily_calories, 2000),
+      target_macros: {
+        protein: grams.protein,
+        carbs: grams.carbs,
+        fat: grams.fat,
+        protein_percentage: percents.protein,
+        carbs_percentage: percents.carbs,
+        fat_percentage: percents.fat,
+      },
+      meals,
+      is_active: detail.is_active,
+      start_date: detail.start_date,
+      end_date: detail.end_date,
+    })
+  }
         setMacroPercents(DEFAULT_PERCENTS)
         const grams = computeGramsFromPercents(DEFAULT_PERCENTS, 2000)
         setPlan({
