@@ -13,11 +13,25 @@ import { Badge } from "@/components/ui/badge"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
+import { useAdminNutritionPlans } from "@/hooks/use-admin-nutrition-plans"
 
 interface MealFood {
   food_id: string
   quantity: number
   food_name?: string
+}
+
+interface SuggestedRecipe {
+  id: string
+  name: string
+  category?: string
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
+  prep_time_minutes?: number
+  difficulty?: string
+  image_url?: string
 }
 
 interface Meal {
@@ -31,6 +45,7 @@ interface Meal {
   description: string
   order_index?: number
   meal_foods?: MealFood[]
+  suggested_recipes?: SuggestedRecipe[]
 }
 
 interface NutritionPlan {
@@ -100,12 +115,47 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
   const [selectedRecipe, setSelectedRecipe] = useState<any>(null)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
+  const [availableRecipes, setAvailableRecipes] = useState<SuggestedRecipe[]>([])
+  const [loadingRecipes, setLoadingRecipes] = useState(false)
+  const [selectedMealForRecipe, setSelectedMealForRecipe] = useState<number | null>(null)
+  const [showRecipeSelector, setShowRecipeSelector] = useState(false)
+  
+  const { fetchRecipes } = useAdminNutritionPlans()
 
   // Cargar plan y planes precreados
   useEffect(() => {
     loadUserPlan()
     loadDefaultPlans()
+    loadAvailableRecipes()
   }, [userId])
+
+  const loadAvailableRecipes = async () => {
+    try {
+      setLoadingRecipes(true)
+      const recipes = await fetchRecipes()
+      setAvailableRecipes(recipes.map((r: any) => ({
+        id: String(r.id),
+        name: fixEncoding(r.name || ""),
+        category: r.category,
+        calories: toNumber(r.calories),
+        protein: toNumber(r.protein),
+        carbs: toNumber(r.carbs),
+        fat: toNumber(r.fat),
+        prep_time_minutes: toNumber(r.prep_time_minutes),
+        difficulty: r.difficulty,
+        image_url: r.image_url,
+      })))
+    } catch (err) {
+      console.error("Error cargando recetas:", err)
+      toast({
+        title: "Error",
+        description: "No se pudieron cargar las recetas disponibles",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingRecipes(false)
+    }
+  }
 
   const loadDefaultPlans = async () => {
     try {
@@ -231,6 +281,20 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
             food_name: fixEncoding(f.food_name || ""),
           }))
         : [],
+      suggested_recipes: Array.isArray(meal.suggested_recipes)
+        ? meal.suggested_recipes.map((r: any) => ({
+            id: String(r.id),
+            name: fixEncoding(r.name || ""),
+            category: r.category,
+            calories: toNumber(r.calories),
+            protein: toNumber(r.protein),
+            carbs: toNumber(r.carbs),
+            fat: toNumber(r.fat),
+            prep_time_minutes: toNumber(r.prep_time_minutes),
+            difficulty: r.difficulty,
+            image_url: r.image_url,
+          }))
+        : [],
     }))
 
     const grams = {
@@ -332,6 +396,38 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
     if (!meal || !Array.isArray(meal.meal_foods)) return
     const updatedFoods = meal.meal_foods.filter((_, idx) => idx !== foodIndex)
     updateMeal(mealIndex, { meal_foods: updatedFoods })
+  }
+
+  const addSuggestedRecipe = (mealIndex: number, recipe: SuggestedRecipe) => {
+    if (!plan) return
+    const meal = mealsArray[mealIndex]
+    if (!meal) return
+    const currentRecipes = Array.isArray(meal.suggested_recipes) ? meal.suggested_recipes : []
+    // Verificar si ya existe
+    if (currentRecipes.some(r => r.id === recipe.id)) {
+      toast({
+        title: "Receta ya agregada",
+        description: "Esta receta ya está en la lista de opciones",
+        variant: "default",
+      })
+      return
+    }
+    updateMeal(mealIndex, { suggested_recipes: [...currentRecipes, recipe] })
+    setShowRecipeSelector(false)
+    setSelectedMealForRecipe(null)
+  }
+
+  const removeSuggestedRecipe = (mealIndex: number, recipeId: string) => {
+    if (!plan) return
+    const meal = mealsArray[mealIndex]
+    if (!meal || !Array.isArray(meal.suggested_recipes)) return
+    const updatedRecipes = meal.suggested_recipes.filter(r => r.id !== recipeId)
+    updateMeal(mealIndex, { suggested_recipes: updatedRecipes })
+  }
+
+  const openRecipeSelector = (mealIndex: number) => {
+    setSelectedMealForRecipe(mealIndex)
+    setShowRecipeSelector(true)
   }
 
   // Función para cargar y mostrar receta completa
@@ -497,6 +593,38 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
 
       const saved = await response.json()
       console.log("🍽️ [NutritionPlanEditor] Plan guardado:", saved)
+      
+      const savedPlanId = saved.id || plan.id
+      
+      // Actualizar las recetas sugeridas de cada comida
+      if (savedPlanId) {
+        for (let i = 0; i < mealsArray.length; i++) {
+          const meal = mealsArray[i]
+          if (!meal.id) {
+            console.warn(`🍽️ [NutritionPlanEditor] Comida ${i} no tiene ID, omitiendo actualización de recetas`)
+            continue
+          }
+          
+          const suggestedRecipeIds = Array.isArray(meal.suggested_recipes) 
+            ? meal.suggested_recipes.map(r => r.id)
+            : []
+          
+          // Actualizar la comida con las recetas sugeridas
+          const mealUpdateResponse = await fetch(buildApiUrl(`admin/nutrition/meals/${meal.id}/`), {
+            method: "PATCH",
+            headers: { ...headers, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              suggested_recipes_ids: suggestedRecipeIds,
+            }),
+          })
+          
+          if (!mealUpdateResponse.ok) {
+            console.warn(`🍽️ [NutritionPlanEditor] Error actualizando recetas de comida ${meal.id}:`, mealUpdateResponse.status)
+          } else {
+            console.log(`🍽️ [NutritionPlanEditor] Recetas actualizadas para comida ${meal.id}:`, suggestedRecipeIds)
+          }
+        }
+      }
       
       // Recargar el plan para asegurar que tenemos los datos actualizados
       await loadUserPlan()
@@ -875,6 +1003,66 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                   <p className="text-sm text-muted-foreground">Añade ingredientes para este plato.</p>
                 )}
               </div>
+
+              {/* Recetas sugeridas */}
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <Label>Opciones de recetas (vistas en panel de usuario)</Label>
+                  <Button variant="outline" size="sm" onClick={() => openRecipeSelector(index)}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Añadir receta
+                  </Button>
+                </div>
+
+                {Array.isArray(meal.suggested_recipes) && meal.suggested_recipes.length > 0 ? (
+                  <div className="space-y-2">
+                    {meal.suggested_recipes.map((recipe) => (
+                      <div key={recipe.id} className="flex items-center gap-3 p-3 border rounded-lg bg-orange-50/50">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{fixEncoding(recipe.name)}</span>
+                            {recipe.category && (
+                              <Badge variant="secondary" className="text-xs">{fixEncoding(recipe.category)}</Badge>
+                            )}
+                            {recipe.difficulty && (
+                              <Badge variant="outline" className="text-xs">{recipe.difficulty}</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                            {recipe.calories && <span>{recipe.calories} kcal</span>}
+                            {recipe.protein && <span>P: {recipe.protein}g</span>}
+                            {recipe.carbs && <span>C: {recipe.carbs}g</span>}
+                            {recipe.fat && <span>G: {recipe.fat}g</span>}
+                            {recipe.prep_time_minutes && <span><Clock className="h-3 w-3 inline mr-1" />{recipe.prep_time_minutes} min</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-blue-600 h-8 w-8" 
+                            onClick={() => viewRecipe(recipe.id)}
+                            title="Ver receta completa"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-red-600 h-8 w-8" 
+                            onClick={() => removeSuggestedRecipe(index, recipe.id)}
+                            title="Eliminar receta"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Añade recetas para que el usuario pueda elegir opciones.</p>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -884,6 +1072,76 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       {showRecipeModal && selectedRecipe && (
         <RecipeDetailModal recipe={selectedRecipe} onClose={() => { setShowRecipeModal(false); setSelectedRecipe(null) }} />
       )}
+
+      {/* Dialog para seleccionar receta */}
+      <Dialog open={showRecipeSelector} onOpenChange={setShowRecipeSelector}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Seleccionar receta para añadir</DialogTitle>
+            <DialogDescription>
+              Selecciona una receta de la lista para añadirla como opción para esta comida
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-[60vh] overflow-y-auto">
+            {loadingRecipes ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin" />
+                <span className="ml-2 text-muted-foreground">Cargando recetas...</span>
+              </div>
+            ) : availableRecipes.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">No hay recetas disponibles</p>
+            ) : (
+              availableRecipes.map((recipe) => {
+                const meal = selectedMealForRecipe !== null ? mealsArray[selectedMealForRecipe] : null
+                const isAlreadyAdded = meal?.suggested_recipes?.some(r => r.id === recipe.id) || false
+                
+                return (
+                  <div
+                    key={recipe.id}
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                      isAlreadyAdded 
+                        ? 'bg-gray-100 opacity-60 cursor-not-allowed' 
+                        : 'hover:bg-orange-50 hover:border-orange-300'
+                    }`}
+                    onClick={() => !isAlreadyAdded && selectedMealForRecipe !== null && addSuggestedRecipe(selectedMealForRecipe, recipe)}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{fixEncoding(recipe.name)}</span>
+                          {recipe.category && (
+                            <Badge variant="secondary" className="text-xs">{fixEncoding(recipe.category)}</Badge>
+                          )}
+                          {isAlreadyAdded && (
+                            <Badge variant="outline" className="text-xs">Ya agregada</Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                          {recipe.calories && <span>{recipe.calories} kcal</span>}
+                          {recipe.protein && <span>P: {recipe.protein}g</span>}
+                          {recipe.carbs && <span>C: {recipe.carbs}g</span>}
+                          {recipe.fat && <span>G: {recipe.fat}g</span>}
+                          {recipe.prep_time_minutes && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="h-3 w-3" />
+                              {recipe.prep_time_minutes} min
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowRecipeSelector(false); setSelectedMealForRecipe(null) }}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
