@@ -282,7 +282,7 @@ export class UserService {
         throw new Error('No hay token de acceso disponible')
       }
 
-      console.log('🔐 Token de acceso:', token.substring(0, 20) + '...')
+      // NO loguear tokens por seguridad
       console.log('🔐 Usuario autenticado:', authService.getCurrentUser()?.email)
 
       const url = buildApiUrl('progress-photos/')

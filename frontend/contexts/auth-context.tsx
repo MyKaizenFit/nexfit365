@@ -81,14 +81,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             // Intentar obtener usuario actual
             const user = await authService.getCurrentUser()
-            console.log('🔍 AuthContext - initializeAuth - Datos del usuario recibidos:', {
-              email: user.email,
-              is_superuser: user.is_superuser,
-              is_staff: user.is_staff,
-              role: user.role,
-              roleType: typeof user.role,
-              fullUser: user
-            })
+            // NO loguear datos del usuario por seguridad
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🔍 AuthContext - Usuario autenticado correctamente')
+            }
             setState({
               user,
               isAuthenticated: true,
@@ -202,14 +198,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Mostrar notificación de éxito
       authNotifications.showLoginSuccess(authResponse.user.first_name)
 
-      // Debug: verificar datos del usuario DESPUÉS de guardar
-      console.log('🔍 AuthContext - Estado actualizado después del login:', {
-        email: authResponse.user.email,
-        is_superuser: authResponse.user.is_superuser,
-        is_staff: authResponse.user.is_staff,
-        role: authResponse.user.role,
-        roleType: typeof authResponse.user.role
-      })
+      // NO loguear datos del usuario por seguridad
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🔍 AuthContext - Login exitoso')
+      }
 
       // También verificar el token JWT directamente para obtener la información de admin
       let isAdminFromToken = false
@@ -218,11 +210,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const accessToken = authService.getAccessToken()
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
-          console.log('🔍 Payload del token JWT:', payload)
+          // NO loguear payload del token por seguridad
           isAdminFromToken = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN'
         }
       } catch (tokenError) {
-        console.warn('Error al decodificar token:', tokenError)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Error al decodificar token:', tokenError)
+        }
       }
 
       // Redirigir según el rol del usuario (priorizar información del token)
@@ -317,11 +311,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const accessToken = authService.getAccessToken()
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
-          console.log('🔍 Payload del token JWT:', payload)
+          // NO loguear payload del token por seguridad
           isAdminFromToken = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN'
         }
       } catch (tokenError) {
-        console.warn('Error al decodificar token:', tokenError)
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('Error al decodificar token:', tokenError)
+        }
       }
 
       // Redirigir según el rol del usuario (priorizar información del token)
@@ -409,10 +405,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const authService = getAuthService()
       if (authService.isAuthenticated()) {
         const user = await authService.getCurrentUser()
-        console.log('🔍 AuthContext - refreshUser - Datos del usuario recibidos:', {
-          email: user.email,
-          is_superuser: user.is_superuser,
-          is_staff: user.is_staff,
+        // NO loguear datos del usuario por seguridad
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔍 AuthContext - Usuario refrescado')
+        }
           role: user.role,
           roleType: typeof user.role,
           fullUser: user
@@ -563,12 +559,63 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }
 
   /**
-   * Desactivar el refresco automático de token para evitar cierres de sesión.
-   * El token solo se refrescará bajo demanda (p. ej. 401 en authenticatedFetch).
-   * Nunca se hace logout automático por fallos de refresh.
+   * Refresh proactivo de token: verifica periódicamente si el token está próximo a expirar
+   * y lo refresca automáticamente antes de que expire.
+   * 
+   * Esto evita que el token expire completamente y cause errores 401.
+   * El refresh solo ocurre cuando el token está próximo a expirar (menos de 30 minutos).
+   * 
+   * Ventajas:
+   * - El token se renueva automáticamente sin interrumpir al usuario
+   * - Evita errores 401 y la necesidad de refrescar bajo demanda
+   * - Maneja errores de red/CORS de forma silenciosa (no hace logout automático)
    */
   useEffect(() => {
-    return () => {}
+    if (!state.isAuthenticated) {
+      return
+    }
+
+    const authService = getAuthService()
+
+    // Función para verificar y refrescar el token si es necesario
+    const checkAndRefreshToken = async () => {
+      try {
+        // Verificar si el token está próximo a expirar
+        if (authService.isTokenExpiringSoon()) {
+          console.log('🔄 Token próximo a expirar, refrescando proactivamente...')
+          
+          const refreshResult = await authService.refreshAccessToken()
+          
+          if (refreshResult.success) {
+            console.log('✅ Token refrescado proactivamente con éxito')
+          } else {
+            // Si falla el refresh proactivo, no hacer nada
+            // El token se refrescará bajo demanda cuando haya un 401
+            // Solo loguear en modo desarrollo para debugging
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('⚠️ No se pudo refrescar el token proactivamente:', refreshResult.error)
+            }
+          }
+        }
+      } catch (error) {
+        // Manejar errores de red/CORS de forma silenciosa
+        // No hacer logout automático, el token se refrescará bajo demanda cuando sea necesario
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('⚠️ Error en refresh proactivo (se ignorará):', error)
+        }
+      }
+    }
+
+    // Verificar inmediatamente al montar el componente
+    checkAndRefreshToken()
+
+    // Verificar cada 5 minutos si el token está próximo a expirar
+    // Esto es suficiente porque el token dura 2 horas y se refresca cuando quedan menos de 30 minutos
+    const interval = setInterval(checkAndRefreshToken, 5 * 60 * 1000) // 5 minutos
+
+    return () => {
+      clearInterval(interval)
+    }
   }, [state.isAuthenticated])
 
   // Valor del contexto
