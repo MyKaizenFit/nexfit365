@@ -472,10 +472,142 @@ export function ExerciseManagement() {
         </Card>
       )}
 
-      {/* Tabla */}
+      {/* Listado de Ejercicios - Mobile Cards / Desktop Table */}
       <Card>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
+          {/* Mobile View - Cards */}
+          <div className="md:hidden space-y-3 p-3">
+            {/* Select All Header */}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedExercises.length > 0 && selectedExercises.length === currentExercises.length}
+                  onCheckedChange={handleSelectAll}
+                />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Seleccionar todos
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {selectedExercises.length} seleccionados
+              </span>
+            </div>
+
+            {/* Exercise Cards */}
+            {currentExercises.map((exercise) => (
+              <Card
+                key={exercise.id}
+                className={`border-2 transition-all ${
+                  selectedExercises.includes(exercise.id)
+                    ? 'border-purple-500 bg-purple-50/50'
+                    : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={selectedExercises.includes(exercise.id)}
+                      onCheckedChange={(checked) => handleSelectExercise(exercise.id, checked as boolean)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base mb-1">
+                            {fixEncoding(exercise.name)}
+                          </div>
+                          {exercise.description && (
+                            <div className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                              {fixEncoding(exercise.description)}
+                            </div>
+                          )}
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openEditDialog(exercise)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(exercise.id)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {exercise.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {exercise.category}
+                          </Badge>
+                        )}
+                        {exercise.difficulty && (
+                          <Badge
+                            variant="outline"
+                            className={`text-xs ${
+                              exercise.difficulty === 'beginner' ? 'bg-green-100 text-green-800 border-green-200' :
+                                exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                  exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
+                            }`}
+                          >
+                            {exercise.difficulty === 'beginner' ? 'Principiante' :
+                              exercise.difficulty === 'intermediate' ? 'Intermedio' :
+                                exercise.difficulty === 'advanced' ? 'Avanzado' : exercise.difficulty}
+                          </Badge>
+                        )}
+                        {exercise.has_video && (
+                          <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
+                            📹 Video
+                          </Badge>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 text-xs pt-2 border-t">
+                        {(exercise.muscle_groups || []).length > 0 && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">Músculos: </span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {fixEncodingArray(exercise.muscle_groups || []).map((group, idx) => (
+                                <Badge key={idx} variant="secondary" className="text-xs">
+                                  {group}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {(exercise.equipment || []).length > 0 && (
+                          <div>
+                            <span className="font-medium text-muted-foreground">Equipamiento: </span>
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {fixEncodingArray(exercise.equipment || []).map((item, idx) => (
+                                <Badge key={idx} variant="outline" className="text-xs">
+                                  {item}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop View - Table */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-muted/50">
                 <tr>
