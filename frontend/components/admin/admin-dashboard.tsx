@@ -50,18 +50,22 @@ export function AdminDashboard() {
   const statsWithTrends = useMemo(() => {
     if (!dashboardStats) return null
 
+    // Usuarios: calcular porcentaje de activos sobre el total
     const totalUsers = dashboardStats.users?.total || 0
     const activeUsers = dashboardStats.users?.active || 0
     const activePercentage = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
 
+    // Programas de entrenamiento: calcular porcentaje de activos sobre el total (activos + inactivos)
     const totalWorkouts = dashboardStats.workouts?.total_programs || 0
     const activeWorkouts = dashboardStats.workouts?.active_programs || 0
     const activeWorkoutPercentage = totalWorkouts > 0 ? Math.round((activeWorkouts / totalWorkouts) * 100) : 0
 
+    // Planes de nutrición: calcular porcentaje de activos sobre el total (activos + inactivos)
     const totalNutrition = dashboardStats.nutrition?.total_plans || 0
     const activeNutrition = dashboardStats.nutrition?.active_plans || 0
     const activeNutritionPercentage = totalNutrition > 0 ? Math.round((activeNutrition / totalNutrition) * 100) : 0
 
+    // Notificaciones: calcular porcentaje de sin leer sobre el total
     const totalNotifications = dashboardStats.notifications?.total || 0
     const unreadNotifications = dashboardStats.notifications?.unread || 0
     const unreadPercentage = totalNotifications > 0 ? Math.round((unreadNotifications / totalNotifications) * 100) : 0
