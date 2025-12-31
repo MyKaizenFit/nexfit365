@@ -35,6 +35,8 @@ interface ProgressPhoto {
 }
 
 export function ProgressPhotosCarousel({ userId }: { userId: string }) {
+  console.log("📸 [ProgressPhotosCarousel] Componente renderizado con userId:", userId)
+  
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAddPhoto, setShowAddPhoto] = useState(false)
   const [selectedPhoto, setSelectedPhoto] = useState<ProgressPhoto | null>(null)
