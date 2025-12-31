@@ -198,31 +198,35 @@ const SettingsPage = () => {
           <TabsContent value="help" className="space-y-6">
             {/* Centro de Ayuda Principal */}
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  <HelpCircle className="h-5 w-5" />
+              <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg md:text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  <HelpCircle className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
                   Centro de Ayuda
                 </CardTitle>
-                <CardDescription>Encuentra respuestas y obtén soporte para cualquier duda</CardDescription>
+                <CardDescription className="text-sm md:text-base mt-1">Encuentra respuestas y obtén soporte para cualquier duda</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-3 md:space-y-4 px-4 md:px-6 pb-4 md:pb-6">
                 {/* Acciones Rápidas */}
                 {loadingSettings ? (
-                  <div className="text-center py-8 text-gray-500">Cargando configuración...</div>
+                  <div className="text-center py-8 text-gray-500 text-sm md:text-base">Cargando configuración...</div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-3 md:gap-4">
                     {helpSettings?.faq_enabled && (
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("faq")}
-                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-transparent transition-all"
+                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-center gap-2 w-full">
-                          <BookOpen className="h-5 w-5 text-blue-600" />
-                          <div className="font-medium text-left">Preguntas Frecuentes</div>
-                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="p-2.5 md:p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                            <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Preguntas Frecuentes</div>
+                          </div>
+                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm text-gray-600 text-left">Encuentra respuestas rápidas a las preguntas más comunes</div>
+                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Encuentra respuestas rápidas a las preguntas más comunes</div>
                       </Button>
                     )}
                     
@@ -230,14 +234,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("contact")}
-                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-transparent transition-all"
+                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-center gap-2 w-full">
-                          <Mail className="h-5 w-5 text-green-600" />
-                          <div className="font-medium text-left">Contactar Soporte</div>
-                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="p-2.5 md:p-3 bg-green-100 rounded-lg flex-shrink-0">
+                            <Mail className="h-5 w-5 md:h-6 md:w-6 text-green-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Contactar Soporte</div>
+                          </div>
+                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm text-gray-600 text-left">Habla directamente con nuestro equipo de soporte</div>
+                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Habla directamente con nuestro equipo de soporte</div>
                       </Button>
                     )}
                     
@@ -245,14 +253,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("guides")}
-                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent transition-all"
+                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-center gap-2 w-full">
-                          <FileText className="h-5 w-5 text-purple-600" />
-                          <div className="font-medium text-left">Guías de Usuario</div>
-                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="p-2.5 md:p-3 bg-purple-100 rounded-lg flex-shrink-0">
+                            <FileText className="h-5 w-5 md:h-6 md:w-6 text-purple-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Guías de Usuario</div>
+                          </div>
+                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm text-gray-600 text-left">Aprende a usar todas las funciones de la aplicación</div>
+                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Aprende a usar todas las funciones de la aplicación</div>
                       </Button>
                     )}
                     
@@ -260,14 +272,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("report")}
-                        className="h-auto p-4 flex flex-col items-start gap-2 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-transparent transition-all"
+                        className="h-auto p-4 md:p-5 flex flex-col items-start gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98]"
                       >
-                        <div className="flex items-center gap-2 w-full">
-                          <MessageCircle className="h-5 w-5 text-orange-600" />
-                          <div className="font-medium text-left">Reportar Problema</div>
-                          <ExternalLink className="h-4 w-4 ml-auto text-gray-400" />
+                        <div className="flex items-center gap-3 w-full">
+                          <div className="p-2.5 md:p-3 bg-orange-100 rounded-lg flex-shrink-0">
+                            <MessageCircle className="h-5 w-5 md:h-6 md:w-6 text-orange-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-base md:text-lg text-left text-gray-900">Reportar Problema</div>
+                          </div>
+                          <ExternalLink className="h-5 w-5 md:h-6 md:w-6 ml-auto text-gray-400 flex-shrink-0" />
                         </div>
-                        <div className="text-sm text-gray-600 text-left">Informa errores, bugs o problemas técnicos</div>
+                        <div className="text-sm md:text-base text-gray-600 text-left pl-[52px] md:pl-[60px]">Informa errores, bugs o problemas técnicos</div>
                       </Button>
                     )}
                   </div>
