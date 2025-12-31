@@ -275,20 +275,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       end_date: detail.end_date,
     })
   }
-        setMacroPercents(DEFAULT_PERCENTS)
-        const grams = computeGramsFromPercents(DEFAULT_PERCENTS, 2000)
-        setPlan({
-          name: "Nuevo Plan Nutricional",
-          description: "Plan nutricional personalizado",
-          daily_calories: 2000,
-          target_macros: {
-            ...grams,
-            protein_percentage: DEFAULT_PERCENTS.protein,
-            carbs_percentage: DEFAULT_PERCENTS.carbs,
-            fat_percentage: DEFAULT_PERCENTS.fat,
-          },
-          meals: [],
-        })
       }
     } catch (err) {
       console.error("Error cargando plan:", err)
