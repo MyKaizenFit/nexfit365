@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
+import { fixEncoding } from "@/lib/encoding-fix"
 
 interface Exercise {
   id?: string
@@ -113,14 +114,14 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
       const weeklySchedule: WorkoutDay[] = sortedDays.map((day: any, index: number) => ({
         id: day.id,
         day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
-        name: day.name || `Entrenamiento ${index + 1}`,
+        name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
         duration: day.duration_minutes || 60,
         isRestDay: !!day.is_rest_day,
         dayNumber: day.day_number,
         notes: day.notes || "",
         exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
           id: ex.id,
-          name: ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`,
+          name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
           sets: ex.sets ?? 3,
           reps: ex.reps || "10-12",
           weight: ex.weight || "",
@@ -133,7 +134,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       setProgram({
         id: detail.id,
-        name: detail.name || "Programa de Entrenamiento",
+        name: fixEncoding(detail.name || "Programa de Entrenamiento"),
         description: detail.description || "",
         level: detail.difficulty || "intermediate", // El backend usa 'difficulty', no 'level'
         goal: detail.goal || "general_fitness",
