@@ -210,23 +210,23 @@ const SettingsPage = () => {
                 {loadingSettings ? (
                   <div className="text-center py-8 text-gray-500 text-sm md:text-base">Cargando configuración...</div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 md:gap-4 max-w-full">
+                  <div className="grid grid-cols-1 gap-2 md:gap-4 w-full">
                     {helpSettings?.faq_enabled && (
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("faq")}
-                        className="h-auto p-2.5 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full max-w-full overflow-hidden"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0 max-w-full">
-                          <div className="p-1.5 md:p-3 bg-blue-100 rounded-lg flex-shrink-0">
+                        <div className="flex items-start gap-2 md:gap-3 w-full">
+                          <div className="p-2 md:p-3 bg-blue-100 rounded-lg flex-shrink-0 mt-0.5">
                             <BookOpen className="h-4 w-4 md:h-6 md:w-6 text-blue-600" />
                           </div>
-                          <div className="flex-1 min-w-0 max-w-[calc(100%-60px)]">
-                            <div className="font-semibold text-xs md:text-lg text-left text-gray-900 truncate">Preguntas Frecuentes</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Preguntas Frecuentes</div>
+                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Encuentra respuestas rápidas a las preguntas más comunes</div>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                        <div className="text-xs md:text-base text-gray-600 text-left w-full break-words">Encuentra respuestas rápidas a las preguntas más comunes</div>
                       </Button>
                     )}
                     
@@ -234,18 +234,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("contact")}
-                        className="h-auto p-2.5 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full max-w-full overflow-hidden"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0 max-w-full">
-                          <div className="p-1.5 md:p-3 bg-green-100 rounded-lg flex-shrink-0">
+                        <div className="flex items-start gap-2 md:gap-3 w-full">
+                          <div className="p-2 md:p-3 bg-green-100 rounded-lg flex-shrink-0 mt-0.5">
                             <Mail className="h-4 w-4 md:h-6 md:w-6 text-green-600" />
                           </div>
-                          <div className="flex-1 min-w-0 max-w-[calc(100%-60px)]">
-                            <div className="font-semibold text-xs md:text-lg text-left text-gray-900 truncate">Contactar Soporte</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Contactar Soporte</div>
+                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Habla directamente con nuestro equipo de soporte</div>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                        <div className="text-xs md:text-base text-gray-600 text-left w-full break-words">Habla directamente con nuestro equipo de soporte</div>
                       </Button>
                     )}
                     
@@ -253,18 +253,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("guides")}
-                        className="h-auto p-2.5 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full max-w-full overflow-hidden"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0 max-w-full">
-                          <div className="p-1.5 md:p-3 bg-purple-100 rounded-lg flex-shrink-0">
+                        <div className="flex items-start gap-2 md:gap-3 w-full">
+                          <div className="p-2 md:p-3 bg-purple-100 rounded-lg flex-shrink-0 mt-0.5">
                             <FileText className="h-4 w-4 md:h-6 md:w-6 text-purple-600" />
                           </div>
-                          <div className="flex-1 min-w-0 max-w-[calc(100%-60px)]">
-                            <div className="font-semibold text-xs md:text-lg text-left text-gray-900 truncate">Guías de Usuario</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Guías de Usuario</div>
+                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Aprende a usar todas las funciones de la aplicación</div>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                        <div className="text-xs md:text-base text-gray-600 text-left w-full break-words">Aprende a usar todas las funciones de la aplicación</div>
                       </Button>
                     )}
                     
@@ -272,18 +272,18 @@ const SettingsPage = () => {
                       <Button
                         variant="outline"
                         onClick={() => handleHelpAction("report")}
-                        className="h-auto p-2.5 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full max-w-full overflow-hidden"
+                        className="h-auto p-3 md:p-5 flex flex-col items-start gap-2 md:gap-3 hover:bg-gradient-to-r hover:from-orange-50 hover:to-amber-50 bg-white border-2 transition-all touch-manipulation active:scale-[0.98] w-full"
                       >
-                        <div className="flex items-center gap-2 md:gap-3 w-full min-w-0 max-w-full">
-                          <div className="p-1.5 md:p-3 bg-orange-100 rounded-lg flex-shrink-0">
+                        <div className="flex items-start gap-2 md:gap-3 w-full">
+                          <div className="p-2 md:p-3 bg-orange-100 rounded-lg flex-shrink-0 mt-0.5">
                             <MessageCircle className="h-4 w-4 md:h-6 md:w-6 text-orange-600" />
                           </div>
-                          <div className="flex-1 min-w-0 max-w-[calc(100%-60px)]">
-                            <div className="font-semibold text-xs md:text-lg text-left text-gray-900 truncate">Reportar Problema</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm md:text-lg text-left text-gray-900 mb-1">Reportar Problema</div>
+                            <div className="text-xs md:text-base text-gray-600 text-left leading-relaxed">Informa errores, bugs o problemas técnicos</div>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 ml-1 text-gray-400 flex-shrink-0" />
+                          <ExternalLink className="h-4 w-4 md:h-6 md:w-6 text-gray-400 flex-shrink-0 mt-0.5" />
                         </div>
-                        <div className="text-xs md:text-base text-gray-600 text-left w-full break-words">Informa errores, bugs o problemas técnicos</div>
                       </Button>
                     )}
                   </div>
