@@ -1,7 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .admin_views import AdminWeightEntryViewSet, AdminDailyWellnessViewSet
+from .admin_views import AdminWeightEntryViewSet, AdminDailyWellnessViewSet, AdminProgressPhotoViewSet
 
 router = DefaultRouter()
 router.register(
@@ -13,6 +13,11 @@ router.register(
     r"users/(?P<user_id>[^/.]+)/wellness",
     AdminDailyWellnessViewSet,
     basename="admin-wellness",
+)
+router.register(
+    r"users/(?P<user_id>[^/.]+)/photos",
+    AdminProgressPhotoViewSet,
+    basename="admin-progress-photos",
 )
 
 urlpatterns = [
