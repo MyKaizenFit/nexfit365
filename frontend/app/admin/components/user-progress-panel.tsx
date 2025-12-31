@@ -140,28 +140,12 @@ export function UserProgressPanel({ userId }: Props) {
             )}
           </CardContent>
         </Card>
-
-        {/* Fotos de progreso - Oculto temporalmente */}
-        {/* <Card className="border border-orange-100 shadow-sm">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-orange-700">
-              <ImageIcon className="h-5 w-5" />
-              Fotos de progreso
-            </CardTitle>
-            <CardDescription>Últimas fotos registradas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-2">Usa la galería para ver todas las fotos.</p>
-            <ProgressPhotosCarousel userId={userId} />
-          </CardContent>
-        </Card> */}
       </div>
 
       <Tabs defaultValue="weight" className="space-y-4">
         <TabsList>
           <TabsTrigger value="weight">Peso</TabsTrigger>
           <TabsTrigger value="wellness">Bienestar</TabsTrigger>
-          {/* <TabsTrigger value="photos">Fotos</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="weight" className="space-y-4">
@@ -171,11 +155,6 @@ export function UserProgressPanel({ userId }: Props) {
         <TabsContent value="wellness" className="space-y-4">
           <UserWellnessPanel userId={userId} />
         </TabsContent>
-
-        {/* Fotos de progreso - Oculto temporalmente */}
-        {/* <TabsContent value="photos" className="space-y-4">
-          <ProgressPhotosCarousel userId={userId} />
-        </TabsContent> */}
       </Tabs>
     </div>
   )
