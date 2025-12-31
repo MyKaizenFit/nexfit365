@@ -445,15 +445,13 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         name: plan.name,
         description: plan.description,
         daily_calories: toNumber(plan.daily_calories),
-        target_macros: {
-          protein: toNumber(plan.target_macros.protein),
-          carbs: toNumber(plan.target_macros.carbs),
-          fat: toNumber(plan.target_macros.fat),
-          protein_percentage: macroPercents.protein,
-          carbs_percentage: macroPercents.carbs,
-          fat_percentage: macroPercents.fat,
-        },
+        protein_grams: toNumber(plan.target_macros.protein),
+        carbs_grams: toNumber(plan.target_macros.carbs),
+        fat_grams: toNumber(plan.target_macros.fat),
+        meals_per_day: mealsArray.length || 5,
+        is_active: plan.is_active !== false,
         meals: mealsArray.map((meal, index) => ({
+          id: meal.id,
           name: meal.name,
           time: meal.time,
           calories: toNumber(meal.calories),
@@ -470,14 +468,27 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
               }))
             : [],
         })),
-        is_active: plan.is_active !== false,
       }
 
-      const response = await fetch(buildApiUrl(plan.id ? `nutrition/plans/${plan.id}/` : "nutrition/plans/"), {
-        method: plan.id ? "PATCH" : "POST",
-        headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify(planData),
-      })
+      console.log("🍽️ [NutritionPlanEditor] Guardando plan:", planData)
+
+      // Usar endpoint de admin para guardar
+      let response: Response
+      if (plan.id) {
+        // Actualizar plan existente usando admin endpoint
+        response = await fetch(buildApiUrl(`admin/nutrition/plans/${plan.id}/`), {
+          method: "PATCH",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(planData),
+        })
+      } else {
+        // Crear nuevo plan usando admin endpoint
+        response = await fetch(buildApiUrl("admin/nutrition/plans/"), {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify(planData),
+        })
+      }
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
@@ -485,7 +496,16 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       }
 
       const saved = await response.json()
-      toast({ title: "✅ Plan nutricional guardado", description: "Los cambios han sido aplicados al usuario" })
+      console.log("🍽️ [NutritionPlanEditor] Plan guardado:", saved)
+      
+      // Recargar el plan para asegurar que tenemos los datos actualizados
+      await loadUserPlan()
+      
+      toast({ 
+        title: "✅ Plan nutricional guardado", 
+        description: "Los cambios han sido aplicados al usuario de forma individual" 
+      })
+      
       if (!plan.id && saved.id) {
         updatePlanState({ id: saved.id })
       }
