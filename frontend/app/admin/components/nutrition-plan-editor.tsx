@@ -1246,27 +1246,27 @@ function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
 
         <div className="space-y-6 mt-4">
           {/* Macros */}
-          <div className="grid grid-cols-4 gap-4">
-            <div className="text-center bg-orange-50 rounded-lg p-4 border border-orange-100">
-              <div className="text-2xl font-bold text-orange-600 mb-1">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div className="text-center bg-orange-50 rounded-lg p-4 md:p-4 border border-orange-100 min-w-0 overflow-visible">
+              <div className="text-2xl md:text-2xl font-bold text-orange-600 mb-1 break-words whitespace-normal leading-tight">
                 {recipe.calories || 0}
               </div>
               <div className="text-xs text-orange-500 font-medium">kcal</div>
             </div>
-            <div className="text-center bg-blue-50 rounded-lg p-4 border border-blue-100">
-              <div className="text-2xl font-bold text-blue-600 mb-1">
+            <div className="text-center bg-blue-50 rounded-lg p-4 md:p-4 border border-blue-100 min-w-0 overflow-visible">
+              <div className="text-2xl md:text-2xl font-bold text-blue-600 mb-1 break-words whitespace-normal leading-tight">
                 {formatMacro(recipe.protein)}g
               </div>
               <div className="text-xs text-blue-500 font-medium">Proteína</div>
             </div>
-            <div className="text-center bg-green-50 rounded-lg p-4 border border-green-100">
-              <div className="text-2xl font-bold text-green-600 mb-1">
+            <div className="text-center bg-green-50 rounded-lg p-4 md:p-4 border border-green-100 min-w-0 overflow-visible">
+              <div className="text-2xl md:text-2xl font-bold text-green-600 mb-1 break-words whitespace-normal leading-tight">
                 {formatMacro(recipe.carbs)}g
               </div>
               <div className="text-xs text-green-500 font-medium">Carbos</div>
             </div>
-            <div className="text-center bg-yellow-50 rounded-lg p-4 border border-yellow-100">
-              <div className="text-2xl font-bold text-yellow-600 mb-1">
+            <div className="text-center bg-yellow-50 rounded-lg p-4 md:p-4 border border-yellow-100 min-w-0 overflow-visible">
+              <div className="text-2xl md:text-2xl font-bold text-yellow-600 mb-1 break-words whitespace-normal leading-tight">
                 {formatMacro(recipe.fat)}g
               </div>
               <div className="text-xs text-yellow-500 font-medium">Grasas</div>
