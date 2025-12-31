@@ -184,12 +184,6 @@ function DashboardContent() {
                 </Suspense> */}
               </div>
 
-              {/* Elementos móviles al final */}
-              <div className="lg:hidden space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-600">
-                <div className="sm:hidden">
-                  <Achievements />
-                </div>
-              </div>
 
 
             </div>
