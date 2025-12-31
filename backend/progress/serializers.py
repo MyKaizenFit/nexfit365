@@ -179,6 +179,22 @@ class WeightEntrySerializer(serializers.ModelSerializer):
         fields = ["id", "user", "weight", "date", "notes", "created_at"]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
     
+    def to_representation(self, instance):
+        """Convertir Decimal a float para la serialización JSON"""
+        representation = super().to_representation(instance)
+        # Convertir weight de Decimal/string a float
+        if 'weight' in representation and representation['weight'] is not None:
+            try:
+                from decimal import Decimal
+                if isinstance(instance.weight, Decimal):
+                    representation['weight'] = float(instance.weight)
+                elif isinstance(representation['weight'], str):
+                    representation['weight'] = float(representation['weight'])
+            except (ValueError, TypeError):
+                # Si no se puede convertir, dejarlo como está
+                pass
+        return representation
+    
     def create(self, validated_data):
         """Crear entrada de peso con usuario del request"""
         import logging
