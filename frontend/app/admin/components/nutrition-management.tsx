@@ -24,7 +24,9 @@ import {
   Users,
   Flame,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -481,12 +483,12 @@ export function NutritionManagement() {
         </Card>
       )}
 
-      {/* Nutrition Table */}
+      {/* Nutrition List - Mobile Cards / Desktop Table */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Recetas</CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="hidden md:flex items-center space-x-2">
               <Checkbox
                 checked={selectedNutrition.length === currentNutrition.length && currentNutrition.length > 0}
                 onCheckedChange={(checked) => {
@@ -503,8 +505,125 @@ export function NutritionManagement() {
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
+        <CardContent className="p-0">
+          {/* Mobile View - Cards */}
+          <div className="md:hidden space-y-3 p-3">
+            {/* Select All Header */}
+            <div className="flex items-center justify-between pb-2 border-b">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  checked={selectedNutrition.length === currentNutrition.length && currentNutrition.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedNutrition(Array.isArray(currentNutrition) ? currentNutrition.map(item => item.id) : [])
+                    } else {
+                      setSelectedNutrition([])
+                    }
+                  }}
+                />
+                <span className="text-sm font-medium text-muted-foreground">
+                  Seleccionar todas
+                </span>
+              </div>
+              <span className="text-xs text-muted-foreground">
+                {selectedNutrition.length} seleccionadas
+              </span>
+            </div>
+
+            {/* Recipe Cards */}
+            {Array.isArray(currentNutrition) ? currentNutrition.map((item) => (
+              <Card
+                key={item.id}
+                className={`border-2 transition-all ${
+                  selectedNutrition.includes(item.id)
+                    ? 'border-purple-500 bg-purple-50/50'
+                    : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={selectedNutrition.includes(item.id)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedNutrition(prev => [...prev, item.id])
+                        } else {
+                          setSelectedNutrition(prev => prev.filter(id => id !== item.id))
+                        }
+                      }}
+                      className="mt-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="font-semibold text-base mb-1">
+                            {item.name}
+                          </div>
+                          <div className="text-xs text-muted-foreground mb-2">
+                            {Array.isArray(item.ingredients) ? item.ingredients.length : 0} ingredientes
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-56">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => handleViewNutrition(item)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver Detalles
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleEditNutrition(item)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => deleteNutrition(item.id.toString())}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {item.category && (
+                          <Badge variant="outline" className="text-xs">
+                            {item.category}
+                          </Badge>
+                        )}
+                        {getDifficultyBadge(item.difficulty)}
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-xs text-muted-foreground pt-2 border-t">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          <span>{item.prep_time_minutes} min</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="h-3 w-3" />
+                          <span>{item.servings} porciones</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Flame className="h-3 w-3" />
+                          <span>{item.calories_per_serving} cal</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )) : null}
+          </div>
+
+          {/* Desktop View - Table */}
+          <div className="hidden md:block rounded-md border">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-muted/50">
@@ -660,42 +779,37 @@ export function NutritionManagement() {
           
           {/* Paginación */}
           {totalPages > 0 && (
-            <div className="border-t p-4 flex items-center justify-between">
-              <div className="text-sm text-muted-foreground">
-                Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, sortedNutrition.length)} de {sortedNutrition.length} recetas
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                >
-                  Primera
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Anterior
-                </Button>
-                
-                {/* Números de página */}
-                {totalPages > 0 && (
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+            <div className="border-t p-3 md:p-4">
+              {/* Mobile View - Compact */}
+              <div className="md:hidden space-y-3">
+                <div className="text-xs text-center text-muted-foreground">
+                  Página {currentPage} de {totalPages} • {sortedNutrition.length} recetas
+                </div>
+                <div className="flex items-center justify-between gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="flex-1 text-xs"
+                  >
+                    <ArrowLeft className="h-3 w-3 mr-1" />
+                    Anterior
+                  </Button>
+                  <div className="flex items-center gap-1 px-2">
+                    {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                       let pageNum;
-                      if (totalPages <= 5) {
+                      if (totalPages <= 3) {
                         pageNum = i + 1;
-                      } else if (currentPage <= 3) {
+                      } else if (currentPage === 1) {
                         pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
+                      } else if (currentPage === totalPages) {
+                        pageNum = totalPages - 2 + i;
                       } else {
-                        pageNum = currentPage - 2 + i;
+                        pageNum = currentPage - 1 + i;
                       }
+                      
+                      if (pageNum < 1 || pageNum > totalPages) return null;
                       
                       return (
                         <Button
@@ -703,31 +817,96 @@ export function NutritionManagement() {
                           variant={currentPage === pageNum ? "default" : "outline"}
                           size="sm"
                           onClick={() => setCurrentPage(pageNum)}
-                          className="w-10"
+                          className="w-8 h-8 p-0 text-xs"
                         >
                           {pageNum}
                         </Button>
                       );
                     })}
                   </div>
-                )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                >
-                  Última
-                </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="flex-1 text-xs"
+                  >
+                    Siguiente
+                    <ArrowRight className="h-3 w-3 ml-1" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Desktop View - Full */}
+              <div className="hidden md:flex items-center justify-between">
+                <div className="text-sm text-muted-foreground">
+                  Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, sortedNutrition.length)} de {sortedNutrition.length} recetas
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                  >
+                    Primera
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Anterior
+                  </Button>
+                  
+                  {/* Números de página */}
+                  {totalPages > 0 && (
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNum = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = currentPage - 2 + i;
+                        }
+                        
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={currentPage === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => setCurrentPage(pageNum)}
+                            className="w-10"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Siguiente
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                  >
+                    Última
+                  </Button>
+                </div>
               </div>
             </div>
           )}
