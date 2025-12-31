@@ -4,7 +4,7 @@ Vistas para el panel de administración
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
-from django.db.models import Count, Sum, Avg
+from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from datetime import timedelta
 
@@ -13,6 +13,7 @@ from workouts.models import WorkoutLog, WorkoutProgram
 from nutrition.models import MealLog, NutritionPlan
 from progress.models import WeightEntry, ProgressPhoto
 from achievements.models import UserAchievement
+from notifications.models import Notification
 
 
 @api_view(['GET'])
@@ -28,6 +29,9 @@ def admin_dashboard_stats(request):
     # Estadísticas de usuarios
     total_users = CustomUser.objects.count()
     active_users = CustomUser.objects.filter(is_active=True).count()
+    admins = CustomUser.objects.filter(
+        Q(is_superuser=True) | Q(is_staff=True) | Q(role='admin') | Q(role='trainer')
+    ).count()
     new_users_today = CustomUser.objects.filter(date_joined__date=today).count()
     new_users_week = CustomUser.objects.filter(date_joined__date__gte=week_start).count()
     new_users_month = CustomUser.objects.filter(date_joined__date__gte=month_start).count()
@@ -36,13 +40,19 @@ def admin_dashboard_stats(request):
     total_workout_logs = WorkoutLog.objects.count()
     workouts_today = WorkoutLog.objects.filter(date=today).count()
     workouts_week = WorkoutLog.objects.filter(date__gte=week_start).count()
+    total_programs = WorkoutProgram.objects.count()  # Total: activos + inactivos
     active_programs = WorkoutProgram.objects.filter(is_active=True).count()
     
     # Estadísticas de nutrición
     total_meal_logs = MealLog.objects.count()
     meals_today = MealLog.objects.filter(date=today).count()
     meals_week = MealLog.objects.filter(date__gte=week_start).count()
+    total_nutrition_plans = NutritionPlan.objects.count()  # Total: activos + inactivos
     active_nutrition_plans = NutritionPlan.objects.filter(is_active=True).count()
+    
+    # Estadísticas de notificaciones
+    total_notifications = Notification.objects.count()
+    unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
     
     # Estadísticas de progreso
     total_weight_entries = WeightEntry.objects.count()
@@ -71,6 +81,7 @@ def admin_dashboard_stats(request):
         "users": {
             "total": total_users,
             "active": active_users,
+            "admins": admins,
             "new_today": new_users_today,
             "new_week": new_users_week,
             "new_month": new_users_month,
@@ -81,18 +92,25 @@ def admin_dashboard_stats(request):
             "total_logs": total_workout_logs,
             "today": workouts_today,
             "week": workouts_week,
+            "total_programs": total_programs,  # Total: activos + inactivos
             "active_programs": active_programs,
         },
         "nutrition": {
             "total_logs": total_meal_logs,
             "today": meals_today,
             "week": meals_week,
+            "total_plans": total_nutrition_plans,  # Total: activos + inactivos
             "active_plans": active_nutrition_plans,
+            "total_meal_logs": total_meal_logs,  # Para compatibilidad con frontend
         },
         "progress": {
             "total_weight_entries": total_weight_entries,
             "weight_entries_today": weight_entries_today,
             "total_photos": total_progress_photos,
+        },
+        "notifications": {
+            "total": total_notifications,
+            "unread": unread_notifications,
         },
         "achievements": {
             "total_unlocked": total_achievements_unlocked,
