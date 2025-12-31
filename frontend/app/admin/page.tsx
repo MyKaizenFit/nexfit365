@@ -1087,9 +1087,152 @@ function AdminPageContent() {
               </div>
             )}
 
-            {/* Users Table */}
+            {/* Users List - Mobile Cards / Desktop Table */}
             <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50">
-              <div className="overflow-x-auto">
+              {/* Mobile View - Cards */}
+              <div className="md:hidden space-y-3 p-3">
+                {/* Select All Header */}
+                <div className="flex items-center justify-between pb-2 border-b">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
+                      onCheckedChange={() => {
+                        if (selectedUsers.length === currentUsers.length) {
+                          setSelectedUsers([])
+                        } else {
+                          setSelectedUsers(currentUsers.map((user) => user.id))
+                        }
+                      }}
+                    />
+                    <span className="text-sm font-medium text-muted-foreground">
+                      Seleccionar todos
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {selectedUsers.length} seleccionados
+                  </span>
+                </div>
+
+                {/* User Cards */}
+                {currentUsers.map((user) => (
+                  <Card
+                    key={user.id}
+                    className={`border-2 transition-all ${
+                      selectedUsers.includes(user.id)
+                        ? 'border-purple-500 bg-purple-50/50'
+                        : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                    }`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <Checkbox
+                          checked={selectedUsers.includes(user.id)}
+                          onCheckedChange={() => handleSelectUser(user.id)}
+                          className="mt-1"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-base mb-1 truncate">
+                                {fixEncoding(user.first_name)} {fixEncoding(user.last_name)}
+                              </div>
+                              <div className="text-sm text-muted-foreground truncate">
+                                {user.email}
+                              </div>
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                <DropdownMenuItem
+                                  onClick={() => router.push(`/admin/user-v2/${user.id}`)}
+                                >
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  Ver perfil completo
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Editar
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleChangeRole(user.id)}>
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Cambiar Rol
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleToggleVerification(user.id)}>
+                                  <Shield className="h-4 w-4 mr-2" />
+                                  {user.is_verified ? 'Desverificar' : 'Verificar'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
+                                  <Key className="h-4 w-4 mr-2" />
+                                  Resetear Contraseña
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                {user.is_active ? (
+                                  <DropdownMenuItem
+                                    onClick={() => handleUserAction(user.id, "deactivate")}
+                                    className="text-orange-600"
+                                  >
+                                    <UserX className="h-4 w-4 mr-2" />
+                                    Desactivar
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    onClick={() => handleUserAction(user.id, "activate")}
+                                    className="text-green-600"
+                                  >
+                                    <UserCheck className="h-4 w-4 mr-2" />
+                                    Activar
+                                  </DropdownMenuItem>
+                                )}
+                                <DropdownMenuItem
+                                  onClick={() => handleUserAction(user.id, "delete")}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Eliminar
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                          
+                          <div className="flex flex-wrap items-center gap-2 mb-2">
+                            {getStatusBadge(user.is_active)}
+                            {getRoleBadge(user.role)}
+                            {user.is_verified ? (
+                              <Badge className="bg-green-100 text-green-800 border-0 text-xs">Verificado</Badge>
+                            ) : (
+                              <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">No verificado</Badge>
+                            )}
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
+                            <div>
+                              <span className="font-medium">Edad:</span> {user.age ? `${user.age} años` : 'N/A'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Registro:</span> {formatDate(user.date_joined)}
+                            </div>
+                            <div>
+                              <span className="font-medium">Último acceso:</span> {user.last_login ? formatDate(user.last_login) : 'Nunca'}
+                            </div>
+                            <div>
+                              <span className="font-medium">Última edición:</span> {user.updated_at ? formatDate(user.updated_at) : '—'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop View - Table */}
+              <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gradient-to-r from-gray-50 to-slate-50">
                       <tr>
