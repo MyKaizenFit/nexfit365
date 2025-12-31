@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, TrendingUp, HeartPulse, Image as ImageIcon, RefreshCw } from "lucide-react"
 import { UserWeightHistory } from "./user-weight-history"
 import { UserWellnessPanel } from "./user-wellness-panel"
-import { ProgressPhotosCarousel } from "./progress-photos-carousel"
+// import { ProgressPhotosCarousel } from "./progress-photos-carousel" // Oculto temporalmente
 import { useAdminUserProgress } from "@/hooks/use-admin-user-progress"
 import { useAdminUserWellness } from "@/hooks/use-admin-user-wellness"
 
@@ -141,7 +141,8 @@ export function UserProgressPanel({ userId }: Props) {
           </CardContent>
         </Card>
 
-        <Card className="border border-orange-100 shadow-sm">
+        {/* Fotos de progreso - Oculto temporalmente */}
+        {/* <Card className="border border-orange-100 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-orange-700">
               <ImageIcon className="h-5 w-5" />
@@ -151,19 +152,16 @@ export function UserProgressPanel({ userId }: Props) {
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-2">Usa la galería para ver todas las fotos.</p>
-            {(() => {
-              console.log("📸 [UserProgressPanel] Renderizando ProgressPhotosCarousel en card con userId:", userId)
-              return <ProgressPhotosCarousel userId={userId} />
-            })()}
+            <ProgressPhotosCarousel userId={userId} />
           </CardContent>
-        </Card>
+        </Card> */}
       </div>
 
       <Tabs defaultValue="weight" className="space-y-4">
         <TabsList>
           <TabsTrigger value="weight">Peso</TabsTrigger>
           <TabsTrigger value="wellness">Bienestar</TabsTrigger>
-          <TabsTrigger value="photos">Fotos</TabsTrigger>
+          {/* <TabsTrigger value="photos">Fotos</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="weight" className="space-y-4">
@@ -174,12 +172,10 @@ export function UserProgressPanel({ userId }: Props) {
           <UserWellnessPanel userId={userId} />
         </TabsContent>
 
-        <TabsContent value="photos" className="space-y-4">
-          {(() => {
-            console.log("📸 [UserProgressPanel] Renderizando ProgressPhotosCarousel en tab con userId:", userId)
-            return <ProgressPhotosCarousel userId={userId} />
-          })()}
-        </TabsContent>
+        {/* Fotos de progreso - Oculto temporalmente */}
+        {/* <TabsContent value="photos" className="space-y-4">
+          <ProgressPhotosCarousel userId={userId} />
+        </TabsContent> */}
       </Tabs>
     </div>
   )
