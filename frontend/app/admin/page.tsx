@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -143,6 +143,7 @@ function AdminPageContent() {
     | 'help-settings'
   >('dashboard')
   const [isLoading, setIsLoading] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -205,6 +206,17 @@ function AdminPageContent() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, statusFilter, roleFilter])
+
+  // Cerrar menú móvil cuando se cambia a desktop
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsMobileMenuOpen(false)
+      }
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const handleBulkAction = async (action: string) => {
     if (selectedUsers.length === 0) {
@@ -568,49 +580,156 @@ function AdminPageContent() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
+            {/* Botón hamburguesa para móvil */}
             <Button
               variant="outline"
               size="icon"
-              onClick={() => router.push("/auth")}
-              className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <Menu className="h-5 w-5" />
             </Button>
             <div>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+              <h1 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                 Panel de Administrador
               </h1>
-              <p className="text-gray-600">Gestiona usuarios y configuraciones del sistema</p>
+              <p className="text-sm md:text-base text-gray-600 hidden md:block">Gestiona usuarios y configuraciones del sistema</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="hidden md:flex items-center gap-2">
             {activeSection === 'users' && (
               <Button
                 onClick={() => setShowNewUserForm(true)}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-sm md:text-base"
                 disabled={isLoading}
+                size="sm"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Usuario
+                <Plus className="h-4 w-4 mr-1 md:mr-2" />
+                <span className="hidden sm:inline">Nuevo Usuario</span>
+                <span className="sm:hidden">Nuevo</span>
               </Button>
             )}
             <Button
               variant="outline"
               onClick={handleLogout}
-              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+              className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300 text-sm md:text-base"
+              size="sm"
             >
-              <LogOut className="h-4 w-4 mr-2" />
-              Cerrar Sesión
+              <LogOut className="h-4 w-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
+              <span className="sm:hidden">Salir</span>
             </Button>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
-        <div className="relative flex items-center justify-center">
+        {/* Overlay para móvil cuando el menú está abierto */}
+        {isMobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 md:hidden"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Sidebar lateral para móvil */}
+        <div
+          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-white via-gray-50 to-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          }`}
+        >
+          <div className="flex flex-col h-full">
+            {/* Header del sidebar */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-cyan-50">
+              <div>
+                <h2 className="text-lg font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                  Panel Admin
+                </h2>
+                <p className="text-xs text-gray-500 mt-0.5">Menú de navegación</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="hover:bg-gray-200 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Navegación del sidebar */}
+            <div className="flex-1 overflow-y-auto p-3 space-y-1">
+              {/* Botón Nuevo Usuario cuando estamos en la sección de usuarios */}
+              {activeSection === 'users' && (
+                <Button
+                  onClick={() => {
+                    setShowNewUserForm(true)
+                    setIsMobileMenuOpen(false)
+                  }}
+                  className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 mb-2 shadow-md"
+                  disabled={isLoading}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nuevo Usuario
+                </Button>
+              )}
+              {[
+                { id: 'dashboard', label: 'Dashboard', icon: Settings, gradient: 'from-blue-500 to-cyan-500' },
+                { id: 'users', label: 'Usuarios', icon: Users, gradient: 'from-blue-500 to-cyan-500' },
+                { id: 'profile', label: 'Mi Perfil', icon: User, gradient: 'from-blue-500 to-cyan-500' },
+                { id: 'exercises', label: 'Ejercicios', icon: Dumbbell, gradient: 'from-orange-500 to-red-500' },
+                { id: 'workout-plans', label: 'Planes de Entrenamiento', icon: Dumbbell, gradient: 'from-purple-500 to-violet-500' },
+                { id: 'nutrition', label: 'Recetas', icon: Apple, gradient: 'from-green-500 to-emerald-500' },
+                { id: 'nutrition-plans', label: 'Planes de Menús', icon: Apple, gradient: 'from-orange-500 to-amber-500' },
+                { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
+                { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
+                { id: 'notifications', label: 'Notificaciones', icon: Bell, gradient: 'from-indigo-500 to-blue-500' },
+                { id: 'help-settings', label: 'Config. Ayuda', icon: HelpCircle, gradient: 'from-blue-500 to-indigo-500' },
+              ].map((item) => {
+                const IconComponent = item.icon
+                const isActive = activeSection === item.id
+                return (
+                  <Button
+                    key={item.id}
+                    variant={isActive ? 'default' : 'ghost'}
+                    onClick={() => {
+                      setActiveSection(item.id as any)
+                      setIsMobileMenuOpen(false)
+                    }}
+                    className={`w-full justify-start gap-3 h-auto py-3 px-4 rounded-lg transition-all ${
+                      isActive
+                        ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
+                        : 'hover:bg-gray-100 text-gray-700'
+                    }`}
+                  >
+                    <IconComponent className="h-5 w-5 flex-shrink-0" />
+                    <span className="text-left font-medium">{item.label}</span>
+                  </Button>
+                )
+              })}
+            </div>
+
+            {/* Footer del sidebar con botón de cerrar sesión */}
+            <div className="border-t border-gray-200 p-4 bg-gradient-to-r from-gray-50 to-slate-50">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handleLogout()
+                  setIsMobileMenuOpen(false)
+                }}
+                className="w-full border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-300"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Cerrar Sesión
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Tabs - Solo visible en desktop */}
+        <div className="relative hidden md:flex items-center justify-center">
           <Button
             variant="outline"
             size="icon"
-            className="hidden md:flex h-9 w-9 absolute left-0 -translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 bg-white shadow hover:bg-gray-100 z-20"
+            className="h-9 w-9 absolute left-0 -translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 bg-white shadow hover:bg-gray-100 z-20"
             onClick={() => handleNavScroll("left")}
             aria-label="Desplazar navegación a la izquierda"
           >
@@ -618,8 +737,8 @@ function AdminPageContent() {
           </Button>
           <div className="w-full">
             <div className="relative rounded-2xl border border-gray-200 bg-white/70 backdrop-blur-md shadow-sm">
-              <div className="pointer-events-none absolute inset-y-1 left-3 w-8 bg-gradient-to-r from-white/90 to-transparent rounded-l-2xl hidden md:block" />
-              <div className="pointer-events-none absolute inset-y-1 right-3 w-8 bg-gradient-to-l from-white/90 to-transparent rounded-r-2xl hidden md:block" />
+              <div className="pointer-events-none absolute inset-y-1 left-3 w-8 bg-gradient-to-r from-white/90 to-transparent rounded-l-2xl" />
+              <div className="pointer-events-none absolute inset-y-1 right-3 w-8 bg-gradient-to-l from-white/90 to-transparent rounded-r-2xl" />
               <div className="px-12">
                 <div
                   id="admin-nav-scroll"
