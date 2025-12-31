@@ -248,34 +248,37 @@ export function UserNutritionPlanManagement() {
   })
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Planes de Usuarios</h2>
-          <p className="text-gray-600 mt-1">Asigna planes nutricionales a usuarios individuales o masivamente</p>
+          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Gestión de Planes de Usuarios</h2>
+          <p className="text-sm md:text-base text-gray-600 mt-1">Asigna planes nutricionales a usuarios individuales o masivamente</p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="management">Gestión</TabsTrigger>
-          <TabsTrigger value="stats">Estadísticas</TabsTrigger>
-          <TabsTrigger value="history">Historial</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 text-xs md:text-sm">
+          <TabsTrigger value="management" className="text-[10px] md:text-sm px-2 md:px-4">Gestión</TabsTrigger>
+          <TabsTrigger value="stats" className="text-[10px] md:text-sm px-2 md:px-4">Estadísticas</TabsTrigger>
+          <TabsTrigger value="history" className="text-[10px] md:text-sm px-2 md:px-4">Historial</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="management" className="space-y-6">
-          <div className="flex gap-2 justify-end">
+        <TabsContent value="management" className="space-y-4 md:space-y-6">
+          <div className="flex flex-col sm:flex-row gap-2 sm:justify-end">
             <Button 
               onClick={() => setShowIndividualDialog(true)}
               variant="outline"
+              className="w-full sm:w-auto text-xs md:text-sm"
             >
-              <UserCheck className="w-4 h-4 mr-2" />
-              Cambiar Plan Individual
+              <UserCheck className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
+              <span className="hidden sm:inline">Cambiar Plan Individual</span>
+              <span className="sm:hidden">Plan Individual</span>
             </Button>
             <Button 
               onClick={() => setShowBulkDialog(true)}
+              className="w-full sm:w-auto text-xs md:text-sm"
             >
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
               Cambio Masivo
             </Button>
           </div>
@@ -283,16 +286,16 @@ export function UserNutritionPlanManagement() {
           {/* Lista de usuarios */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Usuarios ({filteredUsers.length})</CardTitle>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-base md:text-lg">Usuarios ({filteredUsers.length})</CardTitle>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="relative flex-1 sm:flex-initial">
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
                 <Input
                   placeholder="Buscar usuarios..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 w-64"
+                  className="pl-7 md:pl-8 w-full sm:w-48 md:w-64 text-xs md:text-sm"
                 />
               </div>
             </div>
@@ -304,24 +307,24 @@ export function UserNutritionPlanManagement() {
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
             </div>
           ) : filteredUsers.length === 0 ? (
-            <p className="text-center text-gray-500 py-8">No hay usuarios</p>
+            <p className="text-center text-gray-500 py-8 text-sm">No hay usuarios</p>
           ) : (
             <div className="space-y-2">
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg hover:bg-gray-50"
                 >
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <div className="font-medium">{user.email}</div>
-                      <div className="text-sm text-gray-500">
+                  <div className="flex items-start gap-3 min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-sm md:text-base truncate">{user.email}</div>
+                      <div className="text-xs md:text-sm text-gray-500 break-words">
                         {user.first_name} {user.last_name} • {user.role}
                         {user.main_goal && ` • ${user.main_goal}`}
                       </div>
                     </div>
                   </div>
-                  <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                  <Badge variant={user.is_active ? 'default' : 'secondary'} className="w-fit text-xs">
                     {user.is_active ? 'Activo' : 'Inactivo'}
                   </Badge>
                 </div>
@@ -333,50 +336,54 @@ export function UserNutritionPlanManagement() {
 
       {/* Diálogo para cambio individual */}
       <Dialog open={showIndividualDialog} onOpenChange={setShowIndividualDialog}>
-        <DialogContent>
+        <DialogContent className="max-w-[95vw] sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Cambiar Plan de Usuario</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base md:text-lg">Cambiar Plan de Usuario</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
               Selecciona un usuario y el plan que deseas asignarle
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Usuario</Label>
+              <Label className="text-xs md:text-sm">Usuario</Label>
               <Select onValueChange={(value) => {
                 const user = users.find(u => u.id === value)
                 setCurrentUser(user || null)
               }}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs md:text-sm">
                   <SelectValue placeholder="Selecciona un usuario" />
                 </SelectTrigger>
                 <SelectContent>
                   {users.map(user => (
-                    <SelectItem key={user.id} value={user.id}>
-                      {user.email} ({user.first_name} {user.last_name})
+                    <SelectItem key={user.id} value={user.id} className="text-xs md:text-sm">
+                      <span className="truncate block">{user.email} ({user.first_name} {user.last_name})</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Plan Nutricional</Label>
+              <Label className="text-xs md:text-sm">Plan Nutricional</Label>
               <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs md:text-sm">
                   <SelectValue placeholder="Selecciona un plan" />
                 </SelectTrigger>
                 <SelectContent>
                   {defaultPlans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} ({plan.daily_calories} kcal)
+                    <SelectItem key={plan.id} value={plan.id} className="text-xs md:text-sm">
+                      <span className="truncate block">{plan.name} ({plan.daily_calories} kcal)</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowIndividualDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowIndividualDialog(false)}
+              className="w-full sm:w-auto text-xs md:text-sm"
+            >
               Cancelar
             </Button>
             <Button
@@ -386,15 +393,16 @@ export function UserNutritionPlanManagement() {
                 }
               }}
               disabled={!currentUser || !selectedPlan || processing}
+              className="w-full sm:w-auto text-xs md:text-sm"
             >
               {processing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 animate-spin" />
                   Procesando...
                 </>
               ) : (
                 <>
-                  <ArrowRight className="w-4 h-4 mr-2" />
+                  <ArrowRight className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                   Cambiar Plan
                 </>
               )}
@@ -405,68 +413,69 @@ export function UserNutritionPlanManagement() {
 
       {/* Diálogo para cambio masivo */}
       <Dialog open={showBulkDialog} onOpenChange={setShowBulkDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Cambio Masivo de Planes</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base md:text-lg">Cambio Masivo de Planes</DialogTitle>
+            <DialogDescription className="text-xs md:text-sm">
               Asigna un plan nutricional a múltiples usuarios o a todos según filtros
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Plan Nutricional</Label>
+              <Label className="text-xs md:text-sm">Plan Nutricional</Label>
               <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                <SelectTrigger>
+                <SelectTrigger className="text-xs md:text-sm">
                   <SelectValue placeholder="Selecciona un plan" />
                 </SelectTrigger>
                 <SelectContent>
                   {defaultPlans.map(plan => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.name} ({plan.daily_calories} kcal)
+                    <SelectItem key={plan.id} value={plan.id} className="text-xs md:text-sm">
+                      <span className="truncate block">{plan.name} ({plan.daily_calories} kcal)</span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="flex items-center space-x-2">
+            <div className="flex items-start space-x-2">
               <Checkbox 
                 id="change-all" 
                 checked={changeAll}
                 onCheckedChange={(checked) => setChangeAll(checked === true)}
+                className="mt-1"
               />
-              <Label htmlFor="change-all" className="cursor-pointer">
+              <Label htmlFor="change-all" className="cursor-pointer text-xs md:text-sm leading-relaxed">
                 Cambiar a todos los usuarios (con filtros opcionales)
               </Label>
             </div>
 
             {changeAll && (
-              <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-blue-200">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-6 border-l-2 border-blue-200">
                 <div>
-                  <Label>Filtrar por Rol</Label>
+                  <Label className="text-xs md:text-sm">Filtrar por Rol</Label>
                   <Select value={filterRole} onValueChange={setFilterRole}>
-                    <SelectTrigger>
+                    <SelectTrigger className="text-xs md:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="basic">Basic</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="all" className="text-xs md:text-sm">Todos</SelectItem>
+                      <SelectItem value="basic" className="text-xs md:text-sm">Basic</SelectItem>
+                      <SelectItem value="pro" className="text-xs md:text-sm">Pro</SelectItem>
+                      <SelectItem value="premium" className="text-xs md:text-sm">Premium</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Filtrar por Objetivo</Label>
+                  <Label className="text-xs md:text-sm">Filtrar por Objetivo</Label>
                   <Select value={filterGoal} onValueChange={setFilterGoal}>
-                    <SelectTrigger>
+                    <SelectTrigger className="text-xs md:text-sm">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="lose_weight">Pérdida de peso</SelectItem>
-                      <SelectItem value="gain_muscle">Ganancia muscular</SelectItem>
-                      <SelectItem value="body_recomposition">Recomposición</SelectItem>
+                      <SelectItem value="all" className="text-xs md:text-sm">Todos</SelectItem>
+                      <SelectItem value="lose_weight" className="text-xs md:text-sm">Pérdida de peso</SelectItem>
+                      <SelectItem value="gain_muscle" className="text-xs md:text-sm">Ganancia muscular</SelectItem>
+                      <SelectItem value="body_recomposition" className="text-xs md:text-sm">Recomposición</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -475,10 +484,10 @@ export function UserNutritionPlanManagement() {
 
             {!changeAll && (
               <div>
-                <Label>Seleccionar Usuarios Específicos</Label>
+                <Label className="text-xs md:text-sm">Seleccionar Usuarios Específicos</Label>
                 <div className="max-h-60 overflow-y-auto border rounded-lg p-2 space-y-2 mt-2">
                   {users.map(user => (
-                    <div key={user.id} className="flex items-center space-x-2">
+                    <div key={user.id} className="flex items-start space-x-2">
                       <Checkbox
                         checked={selectedUserIds.includes(user.id)}
                         onCheckedChange={(checked) => {
@@ -488,8 +497,9 @@ export function UserNutritionPlanManagement() {
                             setSelectedUserIds(selectedUserIds.filter(id => id !== user.id))
                           }
                         }}
+                        className="mt-0.5"
                       />
-                      <Label className="cursor-pointer flex-1">
+                      <Label className="cursor-pointer flex-1 text-xs md:text-sm break-words leading-relaxed">
                         {user.email} ({user.first_name} {user.last_name})
                       </Label>
                     </div>
@@ -498,22 +508,27 @@ export function UserNutritionPlanManagement() {
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowBulkDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowBulkDialog(false)}
+              className="w-full sm:w-auto text-xs md:text-sm"
+            >
               Cancelar
             </Button>
             <Button
               onClick={handleBulkChangePlans}
               disabled={!selectedPlan || processing || (!changeAll && selectedUserIds.length === 0)}
+              className="w-full sm:w-auto text-xs md:text-sm"
             >
               {processing ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2 animate-spin" />
                   Procesando...
                 </>
               ) : (
                 <>
-                  <Users className="w-4 h-4 mr-2" />
+                  <Users className="w-3 h-3 md:w-4 md:h-4 mr-1 md:mr-2" />
                   Aplicar Cambio
                 </>
               )}
