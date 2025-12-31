@@ -4,7 +4,7 @@ import { useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, TrendingUp, HeartPulse, Image as ImageIcon, RefreshCw } from "lucide-react"
+import { Loader2, TrendingUp, HeartPulse, RefreshCw } from "lucide-react"
 import { UserWeightHistory } from "./user-weight-history"
 import { UserWellnessPanel } from "./user-wellness-panel"
 // import { ProgressPhotosCarousel } from "./progress-photos-carousel" // Oculto temporalmente
