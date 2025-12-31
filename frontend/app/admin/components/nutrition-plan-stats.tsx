@@ -353,70 +353,87 @@ export function NutritionPlanStats() {
       )}
 
       {/* Distribución de calorías - Gráfico Pie */}
-      {stats?.calorie_distribution && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribución por Rangos de Calorías</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                low: { label: "Bajas (<1800)", color: "#3b82f6" },
-                moderate: { label: "Moderadas (1800-2499)", color: "#10b981" },
-                high: { label: "Altas (2500-2999)", color: "#f59e0b" },
-                very_high: { label: "Muy Altas (≥3000)", color: "#ef4444" }
-              }}
-              className="h-[300px]"
-            >
-              <PieChart>
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Pie
-                  data={[
-                    { name: 'Bajas (<1800)', value: stats.calorie_distribution.low },
-                    { name: 'Moderadas (1800-2499)', value: stats.calorie_distribution.moderate },
-                    { name: 'Altas (2500-2999)', value: stats.calorie_distribution.high },
-                    { name: 'Muy Altas (≥3000)', value: stats.calorie_distribution.very_high }
-                  ]}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {[
-                    stats.calorie_distribution.low,
-                    stats.calorie_distribution.moderate,
-                    stats.calorie_distribution.high,
-                    stats.calorie_distribution.very_high
-                  ].map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-            <div className="mt-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span>Bajas (&lt;1800)</span>
-                <Badge>{stats.calorie_distribution.low}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Moderadas (1800-2499)</span>
-                <Badge>{stats.calorie_distribution.moderate}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Altas (2500-2999)</span>
-                <Badge>{stats.calorie_distribution.high}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Muy Altas (≥3000)</span>
-                <Badge>{stats.calorie_distribution.very_high}</Badge>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {stats?.calorie_distribution && (() => {
+        const total = stats.calorie_distribution.low + 
+                     stats.calorie_distribution.moderate + 
+                     stats.calorie_distribution.high + 
+                     stats.calorie_distribution.very_high;
+        
+        const pieData = [
+          { name: 'Bajas (<1500)', value: stats.calorie_distribution.low },
+          { name: 'Moderadas (1500-1999)', value: stats.calorie_distribution.moderate },
+          { name: 'Altas (2000-2499)', value: stats.calorie_distribution.high },
+          { name: 'Muy Altas (≥2500)', value: stats.calorie_distribution.very_high }
+        ].filter(item => item.value > 0); // Solo mostrar rangos con datos
+        
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Distribución por Rangos de Calorías</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {total > 0 ? (
+                <>
+                  <ChartContainer
+                    config={{
+                      low: { label: "Bajas (<1500)", color: "#3b82f6" },
+                      moderate: { label: "Moderadas (1500-1999)", color: "#10b981" },
+                      high: { label: "Altas (2000-2499)", color: "#f59e0b" },
+                      very_high: { label: "Muy Altas (≥2500)", color: "#ef4444" }
+                    }}
+                    className="h-[300px]"
+                  >
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Pie
+                        data={pieData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, value, percent }) => 
+                          `${name}: ${value} (${(percent * 100).toFixed(1)}%)`
+                        }
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {pieData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={COLORS[index % COLORS.length]} 
+                          />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="mt-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span>Bajas (&lt;1500 kcal)</span>
+                      <Badge>{stats.calorie_distribution.low}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Moderadas (1500-1999 kcal)</span>
+                      <Badge>{stats.calorie_distribution.moderate}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Altas (2000-2499 kcal)</span>
+                      <Badge>{stats.calorie_distribution.high}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span>Muy Altas (≥2500 kcal)</span>
+                      <Badge>{stats.calorie_distribution.very_high}</Badge>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No hay datos de distribución de calorías disponibles
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {/* Razones de cambio - Gráfico */}
       {stats?.plan_changes?.change_reasons && stats.plan_changes.change_reasons.length > 0 && (
@@ -458,42 +475,83 @@ export function NutritionPlanStats() {
       )}
 
       {/* Línea temporal de creación */}
-      {stats?.creation_timeline && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Línea Temporal de Creación de Planes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{
-                planes: { label: "Planes Creados", color: "hsl(var(--chart-1))" }
-              }}
-              className="h-[300px]"
-            >
-              <LineChart 
-                data={[
-                  { periodo: '24 horas', planes: stats.creation_timeline.last_24_hours },
-                  { periodo: '7 días', planes: stats.creation_timeline.last_7_days },
-                  { periodo: '30 días', planes: stats.creation_timeline.last_30_days },
-                  { periodo: '90 días', planes: stats.creation_timeline.last_90_days }
-                ]}
+      {stats?.creation_timeline && (() => {
+        // Calcular incrementos: 7 días incluye 24h, 30 días incluye 7 días, etc.
+        const timelineData = [
+          { 
+            periodo: 'Últimas 24h', 
+            planes: stats.creation_timeline.last_24_hours,
+            acumulado: stats.creation_timeline.last_24_hours
+          },
+          { 
+            periodo: 'Últimos 7 días', 
+            planes: stats.creation_timeline.last_7_days,
+            acumulado: stats.creation_timeline.last_7_days
+          },
+          { 
+            periodo: 'Últimos 30 días', 
+            planes: stats.creation_timeline.last_30_days,
+            acumulado: stats.creation_timeline.last_30_days
+          },
+          { 
+            periodo: 'Últimos 90 días', 
+            planes: stats.creation_timeline.last_90_days,
+            acumulado: stats.creation_timeline.last_90_days
+          }
+        ];
+        
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Línea Temporal de Creación de Planes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer
+                config={{
+                  planes: { label: "Planes Creados", color: "hsl(var(--chart-1))" }
+                }}
+                className="h-[300px]"
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="periodo" />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Line 
-                  type="monotone" 
-                  dataKey="planes" 
-                  stroke="var(--color-planes)" 
-                  strokeWidth={2}
-                  dot={{ r: 6 }}
-                />
-              </LineChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
+                <BarChart data={timelineData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="periodo" 
+                    tick={{ fontSize: 12 }}
+                  />
+                  <YAxis />
+                  <ChartTooltip 
+                    content={<ChartTooltipContent />}
+                    formatter={(value: number) => [`${value} planes`, 'Total acumulado']}
+                  />
+                  <Bar 
+                    dataKey="planes" 
+                    fill="var(--color-planes)" 
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ChartContainer>
+              <div className="mt-4 space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>Últimas 24 horas</span>
+                  <Badge>{stats.creation_timeline.last_24_hours} planes</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Últimos 7 días</span>
+                  <Badge>{stats.creation_timeline.last_7_days} planes</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Últimos 30 días</span>
+                  <Badge>{stats.creation_timeline.last_30_days} planes</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Últimos 90 días</span>
+                  <Badge>{stats.creation_timeline.last_90_days} planes</Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
     </div>
   )
 }
