@@ -3,13 +3,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes as perm_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
-from django.db.models import Count, Avg, Sum
+from django.db.models import Count, Avg, Sum, Min, Max, Q
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime, timedelta
 
-from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog
+from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer
@@ -322,3 +322,261 @@ def admin_user_meal_log_detail(request, user_id: int, log_id):
     serializer.is_valid(raise_exception=True)
     serializer.save()
     return Response(serializer.data)
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_plans_stats(request):
+    """
+    Estadísticas generales de planes nutricionales de usuarios
+    """
+    # Estadísticas básicas
+    total_user_plans = NutritionPlan.objects.filter(user__isnull=False).count()
+    active_user_plans = NutritionPlan.objects.filter(user__isnull=False, is_active=True).count()
+    inactive_user_plans = NutritionPlan.objects.filter(user__isnull=False, is_active=False).count()
+    
+    # Usuarios con planes activos
+    users_with_active_plans = User.objects.filter(
+        nutrition_plans__is_active=True
+    ).distinct().count()
+    
+    # Planes recientes
+    now = timezone.now()
+    recent_plans_7_days = NutritionPlan.objects.filter(
+        user__isnull=False,
+        created_at__gte=now - timedelta(days=7)
+    ).count()
+    recent_plans_30_days = NutritionPlan.objects.filter(
+        user__isnull=False,
+        created_at__gte=now - timedelta(days=30)
+    ).count()
+    
+    # Estadísticas de calorías
+    calories_stats = NutritionPlan.objects.filter(
+        user__isnull=False,
+        daily_calories__isnull=False
+    ).aggregate(
+        average=Avg('daily_calories'),
+        min=Count('daily_calories', filter=Q(daily_calories__isnull=False)),
+        max=Count('daily_calories', filter=Q(daily_calories__isnull=False))
+    )
+    
+    # Obtener min y max reales
+    plans_with_calories = NutritionPlan.objects.filter(
+        user__isnull=False,
+        daily_calories__isnull=False
+    )
+    if plans_with_calories.exists():
+        calories_stats['min'] = plans_with_calories.aggregate(Min('daily_calories'))['daily_calories__min']
+        calories_stats['max'] = plans_with_calories.aggregate(Max('daily_calories'))['daily_calories__max']
+    else:
+        calories_stats['min'] = None
+        calories_stats['max'] = None
+    
+    # Planes más populares (por nombre de plan)
+    popular_plans = NutritionPlan.objects.filter(
+        user__isnull=False
+    ).values('name').annotate(
+        count=Count('id')
+    ).order_by('-count')[:10]
+    
+    most_popular_plans = [
+        {'name': item['name'], 'count': item['count']}
+        for item in popular_plans
+    ]
+    
+    # Timeline de creación
+    creation_timeline = {
+        'last_24_hours': NutritionPlan.objects.filter(
+            user__isnull=False,
+            created_at__gte=now - timedelta(hours=24)
+        ).count(),
+        'last_7_days': recent_plans_7_days,
+        'last_30_days': recent_plans_30_days,
+        'last_90_days': NutritionPlan.objects.filter(
+            user__isnull=False,
+            created_at__gte=now - timedelta(days=90)
+        ).count(),
+    }
+    
+    # Top usuarios por número de planes
+    top_users = User.objects.filter(
+        nutrition_plans__isnull=False
+    ).annotate(
+        plan_count=Count('nutrition_plans')
+    ).order_by('-plan_count')[:10]
+    
+    top_users_by_plans = [
+        {
+            'email': user.email,
+            'name': f"{user.first_name} {user.last_name}".strip() or user.email,
+            'plan_count': user.plan_count
+        }
+        for user in top_users
+    ]
+    
+    # Estadísticas de cambios de planes
+    total_changes = NutritionPlanHistory.objects.count()
+    changes_by_admins = NutritionPlanHistory.objects.filter(
+        changed_by__is_staff=True
+    ).count()
+    changes_by_users = NutritionPlanHistory.objects.filter(
+        Q(changed_by__is_staff=False) | Q(changed_by__isnull=True)
+    ).count()
+    changes_last_30_days = NutritionPlanHistory.objects.filter(
+        created_at__gte=now - timedelta(days=30)
+    ).count()
+    
+    # Planes más cambiados
+    most_changed_plans = NutritionPlanHistory.objects.filter(
+        new_plan__isnull=False
+    ).values('new_plan__name').annotate(
+        change_count=Count('id')
+    ).order_by('-change_count')[:10]
+    
+    most_changed_plans_list = [
+        {
+            'plan_name': item['new_plan__name'] or 'Plan eliminado',
+            'change_count': item['change_count']
+        }
+        for item in most_changed_plans
+    ]
+    
+    # Razones de cambio
+    change_reasons = NutritionPlanHistory.objects.values('reason').annotate(
+        count=Count('id')
+    )
+    
+    reason_display_map = {
+        'user_request': 'Solicitud del usuario',
+        'admin_change': 'Cambio por administrador',
+        'auto_assigned': 'Asignación automática',
+        'goal_change': 'Cambio de objetivo',
+        'upgrade': 'Actualización de plan',
+        'other': 'Otro',
+    }
+    
+    change_reasons_list = [
+        {
+            'reason': item['reason'],
+            'reason_display': reason_display_map.get(item['reason'], item['reason']),
+            'count': item['count']
+        }
+        for item in change_reasons
+    ]
+    
+    # Distribución de calorías
+    calorie_distribution = {
+        'low': NutritionPlan.objects.filter(
+            user__isnull=False,
+            daily_calories__lt=1500
+        ).count(),
+        'moderate': NutritionPlan.objects.filter(
+            user__isnull=False,
+            daily_calories__gte=1500,
+            daily_calories__lt=2000
+        ).count(),
+        'high': NutritionPlan.objects.filter(
+            user__isnull=False,
+            daily_calories__gte=2000,
+            daily_calories__lt=2500
+        ).count(),
+        'very_high': NutritionPlan.objects.filter(
+            user__isnull=False,
+            daily_calories__gte=2500
+        ).count(),
+    }
+    
+    return Response({
+        'total_user_plans': total_user_plans,
+        'active_user_plans': active_user_plans,
+        'inactive_user_plans': inactive_user_plans,
+        'users_with_active_plans': users_with_active_plans,
+        'recent_plans_7_days': recent_plans_7_days,
+        'recent_plans_30_days': recent_plans_30_days,
+        'calories_stats': {
+            'average': round(calories_stats['average'] or 0, 1),
+            'min': calories_stats['min'],
+            'max': calories_stats['max'],
+        },
+        'most_popular_plans': most_popular_plans,
+        'creation_timeline': creation_timeline,
+        'top_users_by_plans': top_users_by_plans,
+        'plan_changes': {
+            'total_changes': total_changes,
+            'changes_by_admins': changes_by_admins,
+            'changes_by_users': changes_by_users,
+            'changes_last_30_days': changes_last_30_days,
+            'most_changed_plans': most_changed_plans_list,
+            'change_reasons': change_reasons_list,
+        },
+        'calorie_distribution': calorie_distribution,
+    })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_plans_usage_stats(request):
+    """
+    Estadísticas de uso de planes por defecto
+    """
+    # Planes por defecto (sin usuario asignado o marcados como template)
+    default_plans = NutritionPlan.objects.filter(
+        Q(user__isnull=True) | Q(is_template=True)
+    ).distinct()
+    
+    total_default_plans = default_plans.count()
+    active_default_plans = default_plans.filter(is_active=True).count()
+    
+    # Uso de cada plan por defecto
+    plan_usage = []
+    for plan in default_plans:
+        users_count = NutritionPlan.objects.filter(
+            name=plan.name,
+            user__isnull=False
+        ).values('user').distinct().count()
+        
+        plan_usage.append({
+            'plan_id': str(plan.id),
+            'plan_name': plan.name,
+            'daily_calories': plan.daily_calories or 0,
+            'target_audience': getattr(plan, 'target_audience', None),
+            'min_role_required': getattr(plan, 'min_role_required', None),
+            'users_count': users_count,
+            'is_default': getattr(plan, 'is_default', False),
+        })
+    
+    # Ordenar por número de usuarios
+    plan_usage.sort(key=lambda x: x['users_count'], reverse=True)
+    
+    return Response({
+        'total_default_plans': total_default_plans,
+        'active_default_plans': active_default_plans,
+        'plan_usage': plan_usage,
+    })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_plans_history(request):
+    """
+    Historial general de cambios de planes nutricionales
+    """
+    limit = min(int(request.query_params.get('limit', 100)), 500)
+    user_id = request.query_params.get('user_id')
+    
+    history_qs = NutritionPlanHistory.objects.select_related(
+        'user', 'old_plan', 'new_plan', 'changed_by'
+    ).order_by('-created_at')
+    
+    if user_id and user_id != 'all':
+        history_qs = history_qs.filter(user_id=user_id)
+    
+    history_qs = history_qs[:limit]
+    
+    serializer = NutritionPlanHistorySerializer(history_qs, many=True)
+    
+    return Response({
+        'count': len(serializer.data),
+        'history': serializer.data,
+    })

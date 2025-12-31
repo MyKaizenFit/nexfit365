@@ -17,4 +17,8 @@ urlpatterns = [
     path('users/<int:user_id>/plan-history/', admin_views.admin_user_plan_history, name='admin-user-plan-history'),
     path('users/<int:user_id>/meal-logs/', admin_views.admin_user_meal_logs, name='admin-user-meal-logs'),
     path('users/<int:user_id>/meal-logs/<uuid:log_id>/', admin_views.admin_user_meal_log_detail, name='admin-user-meal-log-detail'),
+    # Estadísticas y historial general de planes de usuarios
+    path('user-plans/stats/', admin_views.admin_user_plans_stats, name='admin-user-plans-stats'),
+    path('user-plans/usage_stats/', admin_views.admin_user_plans_usage_stats, name='admin-user-plans-usage-stats'),
+    path('user-plans/history/', admin_views.admin_user_plans_history, name='admin-user-plans-history'),
 ]
