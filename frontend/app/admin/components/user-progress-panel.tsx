@@ -53,7 +53,7 @@ export function UserProgressPanel({ userId }: Props) {
             <h3 className="text-xl font-semibold">Progreso del usuario</h3>
             <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Nuevo panel</span>
           </div>
-          <p className="text-sm text-muted-foreground">Peso, bienestar y fotos de progreso</p>
+          <p className="text-sm text-muted-foreground">Peso y bienestar del usuario</p>
         </div>
         <Button
           variant="outline"
@@ -70,7 +70,7 @@ export function UserProgressPanel({ userId }: Props) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="border border-emerald-100 shadow-sm">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-700">
