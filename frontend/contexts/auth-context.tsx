@@ -409,10 +409,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (process.env.NODE_ENV === 'development') {
           console.log('🔍 AuthContext - Usuario refrescado')
         }
-          role: user.role,
-          roleType: typeof user.role,
-          fullUser: user
-        })
         setState(prev => ({
           ...prev,
           user,
