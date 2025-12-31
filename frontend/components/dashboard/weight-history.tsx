@@ -39,9 +39,17 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
 
   // Calcular peso actual desde múltiples fuentes (prioridad: historial > perfil > stats > user)
   const currentWeight = useMemo(() => {
-    // 1. Prioridad: peso más reciente del historial
+    // 1. Prioridad: peso más reciente del historial (solo si es válido)
     if (weightEntries && weightEntries.length > 0) {
-      return weightEntries[0].weight
+      const validEntry = weightEntries.find(entry => 
+        entry.weight !== null && 
+        entry.weight !== undefined && 
+        typeof entry.weight === 'number' && 
+        entry.weight > 0
+      )
+      if (validEntry) {
+        return validEntry.weight
+      }
     }
     
     // 2. Peso del perfil del usuario
@@ -92,14 +100,26 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
     return null
   }, [profile?.target_weight, progressStats?.weight?.goal, userStats?.targetWeight, user?.target_weight])
 
-  // Calcular peso inicial: el más antiguo del historial ordenado por fecha
+  // Calcular peso inicial: el más antiguo del historial ordenado por fecha (solo válido)
   const initialWeight = useMemo(() => {
     if (!weightEntries || weightEntries.length === 0) {
       return null
     }
     
+    // Filtrar solo entradas válidas
+    const validEntries = weightEntries.filter(entry => 
+      entry.weight !== null && 
+      entry.weight !== undefined && 
+      typeof entry.weight === 'number' && 
+      entry.weight > 0
+    )
+    
+    if (validEntries.length === 0) {
+      return null
+    }
+    
     // Ordenar por fecha ascendente (más antiguo primero)
-    const sortedByDate = [...weightEntries].sort((a, b) => {
+    const sortedByDate = [...validEntries].sort((a, b) => {
       const dateA = new Date(a.date).getTime()
       const dateB = new Date(b.date).getTime()
       return dateA - dateB
@@ -279,45 +299,78 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
             {/* Historial reciente */}
             <div className="space-y-2 md:space-y-3">
               <h4 className="font-medium text-center text-sm md:text-base">Historial Reciente</h4>
-              {weightEntries && weightEntries.length > 0 ? (
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {weightEntries.slice(0, 5).map((entry, index) => {
-                    // Calcular cambio respecto a la entrada anterior
-                    const previousEntry = index < weightEntries.length - 1 ? weightEntries[index + 1] : null
-                    const change = previousEntry ? entry.weight - previousEntry.weight : 0
-                    const trend = getTrend(change)
-                    
-                    return (
-                      <div key={entry.id} className="flex items-center justify-between p-2.5 md:p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                        <div className="flex items-center gap-2.5 md:gap-3 flex-1 min-w-0">
-                          <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                            <Weight className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm md:text-base">{entry.weight.toFixed(1)} kg</div>
-                            <div className="text-xs md:text-sm text-muted-foreground truncate">{formatDate(entry.date)}</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
-                          {previousEntry && change !== 0 && (
-                            <div className="flex items-center gap-1">
-                              {trend.arrow}
-                              <span className={`text-xs md:text-sm font-medium ${trend.color}`}>
-                                {Math.abs(change).toFixed(1)} kg
-                              </span>
+              {weightEntries && weightEntries.length > 0 ? (() => {
+                // Filtrar solo entradas con peso válido (no null, no undefined, mayor que 0)
+                const validEntries = weightEntries.filter(entry => 
+                  entry.weight !== null && 
+                  entry.weight !== undefined && 
+                  typeof entry.weight === 'number' && 
+                  entry.weight > 0
+                )
+                
+                if (validEntries.length === 0) {
+                  return (
+                    <div className="text-center py-6 md:py-8 text-muted-foreground">
+                      <Weight className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm md:text-base">No hay registros de peso válidos</p>
+                      <p className="text-xs md:text-sm mt-1">Comienza registrando tu peso actual</p>
+                    </div>
+                  )
+                }
+                
+                return (
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {validEntries.slice(0, 5).map((entry, index) => {
+                      // Calcular cambio respecto a la entrada anterior válida
+                      const previousValidIndex = validEntries.slice(0, index).length > 0 
+                        ? validEntries.findIndex((e, i) => i > index && e.weight !== null && e.weight !== undefined && e.weight > 0)
+                        : -1
+                      const previousEntry = previousValidIndex >= 0 && previousValidIndex < validEntries.length 
+                        ? validEntries[previousValidIndex] 
+                        : (index < validEntries.length - 1 ? validEntries[index + 1] : null)
+                      
+                      const change = previousEntry && previousEntry.weight && entry.weight 
+                        ? entry.weight - previousEntry.weight 
+                        : 0
+                      const trend = getTrend(change)
+                      
+                      return (
+                        <div key={entry.id} className="flex items-center justify-between p-2.5 md:p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                          <div className="flex items-center gap-2.5 md:gap-3 flex-1 min-w-0">
+                            <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                              <Weight className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />
                             </div>
-                          )}
-                          {previousEntry && (
-                            <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 md:px-2">
-                              {trend.label}
-                            </Badge>
-                          )}
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm md:text-base">
+                                {entry.weight && typeof entry.weight === 'number' && entry.weight > 0
+                                  ? `${entry.weight.toFixed(1)} kg`
+                                  : 'Sin peso'}
+                              </div>
+                              <div className="text-xs md:text-sm text-muted-foreground truncate">{formatDate(entry.date)}</div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+                            {previousEntry && previousEntry.weight && entry.weight && change !== 0 && (
+                              <div className="flex items-center gap-1">
+                                {trend.arrow}
+                                <span className={`text-xs md:text-sm font-medium ${trend.color}`}>
+                                  {Math.abs(change).toFixed(1)} kg
+                                </span>
+                              </div>
+                            )}
+                            {previousEntry && previousEntry.weight && entry.weight && (
+                              <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 md:px-2">
+                                {trend.label}
+                              </Badge>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    )
-                  })}
-                </div>
+                      )
+                    })}
+                  </div>
+                )
+              })() : (
               ) : (
                 <div className="text-center py-6 md:py-8 text-muted-foreground">
                   <Weight className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 opacity-50" />
@@ -328,25 +381,38 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
             </div>
 
             {/* Estadísticas adicionales */}
-            {weightEntries && weightEntries.length > 1 && (
-              <div className="p-3 md:p-4 bg-muted/30 rounded-lg md:rounded-xl border">
-                <h4 className="font-medium text-center mb-2 md:mb-3 text-sm md:text-base">Estadísticas</h4>
-                <div className="grid grid-cols-2 gap-3 md:gap-4 text-center">
-                  <div>
-                    <div className="text-base md:text-lg font-bold text-blue-600">
-                      {Math.min(...weightEntries.map(e => e.weight)).toFixed(1)} kg
+            {(() => {
+              // Filtrar solo entradas válidas para estadísticas
+              const validEntries = weightEntries?.filter(entry => 
+                entry.weight !== null && 
+                entry.weight !== undefined && 
+                typeof entry.weight === 'number' && 
+                entry.weight > 0
+              ) || []
+              
+              if (validEntries.length > 1) {
+                return (
+                  <div className="p-3 md:p-4 bg-muted/30 rounded-lg md:rounded-xl border">
+                    <h4 className="font-medium text-center mb-2 md:mb-3 text-sm md:text-base">Estadísticas</h4>
+                    <div className="grid grid-cols-2 gap-3 md:gap-4 text-center">
+                      <div>
+                        <div className="text-base md:text-lg font-bold text-blue-600">
+                          {Math.min(...validEntries.map(e => e.weight)).toFixed(1)} kg
+                        </div>
+                        <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más bajo</div>
+                      </div>
+                      <div>
+                        <div className="text-base md:text-lg font-bold text-blue-600">
+                          {Math.max(...validEntries.map(e => e.weight)).toFixed(1)} kg
+                        </div>
+                        <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más alto</div>
+                      </div>
                     </div>
-                    <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más bajo</div>
                   </div>
-                  <div>
-                    <div className="text-base md:text-lg font-bold text-blue-600">
-                      {Math.max(...weightEntries.map(e => e.weight)).toFixed(1)} kg
-                    </div>
-                    <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más alto</div>
-                  </div>
-                </div>
-              </div>
-            )}
+                )
+              }
+              return null
+            })()}
           </>
         )}
       </CardContent>
