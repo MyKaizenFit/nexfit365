@@ -40,6 +40,8 @@ import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl } from "@/lib/api"
 // Importar componente de edición de entrenamiento
 import { WorkoutProgramEditor } from "../../components/workout-program-editor"
+// Importar componente de edición de nutrición
+import { NutritionPlanEditor } from "../../components/nutrition-plan-editor"
 // Importar componentes de progreso e historial
 import { UserProgressPanel } from "../../components/user-progress-panel"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
@@ -1128,16 +1130,16 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
               </CardContent>
             </Card>
 
-            {/* Componentes de nutrición temporalmente deshabilitados */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Plan Nutricional</CardTitle>
-                <CardDescription>Información del plan nutricional del usuario</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-500">El plan nutricional está siendo cargado.</p>
-              </CardContent>
-            </Card>
+            {/* Editor de plan nutricional */}
+            <NutritionPlanEditor
+              userId={user.id.toString()}
+              onSave={() => {
+                toast({
+                  title: "✅ Plan nutricional guardado",
+                  description: "El plan nutricional ha sido actualizado",
+                })
+              }}
+            />
           </TabsContent>
 
           {/* ================================================================ */}
