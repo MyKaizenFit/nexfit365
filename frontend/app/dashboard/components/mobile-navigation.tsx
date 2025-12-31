@@ -1,11 +1,11 @@
 "use client"
-import { ChefHat, Dumbbell, Home, TrendingUp, User, Sparkles, Heart, Moon } from "lucide-react"
+import { ChefHat, Dumbbell, Home, Target, User, Sparkles, Heart, Moon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const mobileMenuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", badge: null },
-  { title: "Progreso", icon: TrendingUp, url: "progress", badge: null },
+  { title: "Day 1", icon: Target, url: "day-one", badge: null },
   { title: "Comidas", icon: ChefHat, url: "meals", badge: null },
   { title: "Entrenar", icon: Dumbbell, url: "workouts-3", badge: null },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null },

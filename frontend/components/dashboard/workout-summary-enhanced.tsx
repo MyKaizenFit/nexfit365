@@ -29,6 +29,59 @@ interface WorkoutSummaryEnhancedProps {
   className?: string
 }
 
+// Función para corregir encoding de nombres de ejercicios
+const fixEncoding = (text: string): string => {
+  if (!text || typeof text !== 'string') return text || ''
+  
+  let fixed = text
+  
+  // CASOS ESPECÍFICOS DE ENCODING MAL INTERPRETADO
+  // ├│ es una codificación incorrecta de ó (UTF-8 mal interpretado como Windows-1252 o similar)
+  fixed = fixed.replace(/├│/g, 'ó')
+  fixed = fixed.replace(/├í/g, 'á')
+  fixed = fixed.replace(/├®/g, 'é')
+  fixed = fixed.replace(/├¡/g, 'í')
+  fixed = fixed.replace(/├║/g, 'ú')
+  fixed = fixed.replace(/├▒/g, 'ñ')
+  
+  // Casos específicos de caracteres que aparecen como barra vertical |
+  fixed = fixed.replace(/Jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/jal\|n/gi, 'Jalón')
+  fixed = fixed.replace(/M\|quina/gi, 'Máquina')
+  fixed = fixed.replace(/m\|quina/gi, 'Máquina')
+  
+  // Casos específicos comunes sin el carácter |
+  fixed = fixed.replace(/Jaln\b/gi, 'Jalón')
+  fixed = fixed.replace(/Mquina\b/gi, 'Máquina')
+  
+  // Reemplazos generales de encoding incorrecto
+  fixed = fixed.replace(/b\?\?ceps/gi, 'bíceps')
+  fixed = fixed.replace(/tr\?\?ceps/gi, 'tríceps')
+  fixed = fixed.replace(/cu\?\?driceps/gi, 'cuádriceps')
+  fixed = fixed.replace(/\?\?/g, 'í')
+  fixed = fixed.replace(/Ã¡/g, 'á')
+  fixed = fixed.replace(/Ã©/g, 'é')
+  fixed = fixed.replace(/Ã­/g, 'í')
+  fixed = fixed.replace(/Ã³/g, 'ó')
+  fixed = fixed.replace(/Ãº/g, 'ú')
+  fixed = fixed.replace(/Ã±/g, 'ñ')
+  fixed = fixed.replace(/Ã¼/g, 'ü')
+  fixed = fixed.replace(/Ã‰/g, 'É')
+  fixed = fixed.replace(/Ã/g, 'í')
+  fixed = fixed.replace(/â€™/g, "'")
+  fixed = fixed.replace(/â€œ/g, '"')
+  fixed = fixed.replace(/â€/g, '"')
+  fixed = fixed.replace(/â€"/g, '—')
+  fixed = fixed.replace(/â€"/g, '–')
+  
+  // Último recurso: reemplazar | con ó solo si no está ya corregido
+  if (fixed.includes('|') && !fixed.includes('ó')) {
+    fixed = fixed.replace(/\|/g, 'ó')
+  }
+  
+  return fixed
+}
+
 export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ className }: WorkoutSummaryEnhancedProps) {
   const {
     workoutLogs,
@@ -351,7 +404,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
                             >
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
-                                  <h4 className="font-semibold text-sm">{exerciseData.name || 'Ejercicio'}</h4>
+                                  <h4 className="font-semibold text-sm">{fixEncoding(exerciseData.name || 'Ejercicio')}</h4>
                                   <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                                     <span>{exercise.sets} series</span>
                                     <span>{exercise.reps} repeticiones</span>

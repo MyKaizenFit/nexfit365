@@ -25,7 +25,7 @@ interface MobileHeaderProps {
 
 const sectionTitles: Record<string, string> = {
   dashboard: "Dashboard",
-  progress: "Mi Progreso",
+  "day-one": "Day 1",
   meals: "Menús",
   workouts: "Entrenamientos",
   profile: "Mi Perfil",
@@ -57,7 +57,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
 
   const searchOptions = [
     { title: "Dashboard", section: "dashboard", description: "Vista general de tu progreso" },
-    { title: "Mi Progreso", section: "progress", description: "Fotos y evolución del peso" },
+    { title: "Day 1", section: "day-one", description: "Tu punto de partida y transformación" },
     { title: "Menús", section: "meals", description: "Plan de comidas y nutrición" },
     { title: "Entrenamientos", section: "workouts", description: "Rutinas de ejercicio" },
     { title: "Mi Perfil", section: "profile", description: "Información personal" },

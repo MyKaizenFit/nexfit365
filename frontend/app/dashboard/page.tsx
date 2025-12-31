@@ -69,7 +69,6 @@ const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").t
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
-const ProgressAnalysisPanel = lazy(() => import("./components/progress-analysis-panel").then(module => ({ default: module.ProgressAnalysisPanel })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -197,26 +196,6 @@ function DashboardContent() {
           </div>
         )
 
-      case "progress":
-        return (
-          <div className="fade-in-stagger scroll-area h-full w-full relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-emerald-200/20 to-teal-200/20 rounded-full blur-3xl animate-pulse"></div>
-              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-            </div>
-            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
-                <Suspense fallback={
-                  <div className="flex items-center justify-center p-12">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-                  </div>
-                }>
-                  <ProgressAnalysisPanel />
-                </Suspense>
-              </div>
-            </div>
-          </div>
-        )
 
       // TODO: Activar en versiones posteriores
       /* case "recommendations":

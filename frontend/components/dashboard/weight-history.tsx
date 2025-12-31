@@ -172,22 +172,36 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
 
   return (
     <Card className={className}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Weight className="h-5 w-5 text-blue-600" />
-            <div>
-              <CardTitle>Seguimiento de Peso</CardTitle>
-              <CardDescription>Tu evolución y progreso hacia el objetivo</CardDescription>
+      <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+        <div className="flex items-start md:items-center justify-between gap-3 md:gap-4">
+          <div className="flex items-center gap-3 md:gap-3 flex-1 min-w-0">
+            <div className="flex-shrink-0 w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl md:rounded-2xl flex items-center justify-center shadow-lg">
+              <Weight className="h-6 w-6 md:h-7 md:w-7 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-lg md:text-xl font-bold leading-tight mb-1 md:mb-0.5">
+                Seguimiento de Peso
+              </CardTitle>
+              <CardDescription className="text-xs md:text-sm leading-tight text-gray-600 hidden sm:block">
+                Tu evolución y progreso hacia el objetivo
+              </CardDescription>
             </div>
           </div>
-          <Button onClick={onAddWeight} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Registrar Peso
+          <Button 
+            onClick={onAddWeight} 
+            size="sm"
+            className="flex-shrink-0 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 shadow-md hover:shadow-lg h-10 md:h-9 px-4 md:px-3 text-sm md:text-xs font-medium touch-manipulation active:scale-95 transition-all"
+          >
+            <Plus className="h-4 w-4 md:h-3.5 md:w-3.5 mr-1.5 md:mr-1.5" />
+            <span className="hidden sm:inline">Registrar</span>
+            <span className="sm:hidden">Peso</span>
           </Button>
         </div>
+        <CardDescription className="text-xs md:text-sm text-gray-600 mt-2 sm:hidden">
+          Tu evolución y progreso hacia el objetivo
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
+      <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-4 md:space-y-6">
         {loading ? (
           <div className="text-center py-8">
             <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -196,44 +210,44 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
         ) : (
           <>
             {/* Resumen actual */}
-            <div className={`grid gap-4 p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg border border-blue-200 ${targetWeight ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
+            <div className={`grid gap-3 md:gap-4 p-3 md:p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg md:rounded-xl border border-blue-200 ${targetWeight ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {/* Peso Actual */}
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-700">
+                <div className="text-xl md:text-2xl font-bold text-blue-700">
                   {currentWeight !== null ? `${currentWeight.toFixed(1)} kg` : 'Sin registro'}
                 </div>
-                <div className="text-xs text-blue-600">Peso actual</div>
+                <div className="text-[10px] md:text-xs text-blue-600 mt-0.5">Peso actual</div>
               </div>
 
               {/* Peso Objetivo */}
               {targetWeight !== null && (
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-700">
+                  <div className="text-xl md:text-2xl font-bold text-blue-700">
                     {targetWeight.toFixed(1)} kg
                   </div>
-                  <div className="text-xs text-blue-600">Objetivo</div>
+                  <div className="text-[10px] md:text-xs text-blue-600 mt-0.5">Objetivo</div>
                 </div>
               )}
 
               {/* Cambio Total */}
               {totalChange !== null && (
                 <div className="text-center">
-                  <div className={`text-2xl font-bold flex items-center justify-center gap-1 ${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  <div className={`text-xl md:text-2xl font-bold flex items-center justify-center gap-1 ${totalChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                     {totalChange >= 0 ? (
                       <>
-                        <ArrowDown className="h-5 w-5" />
+                        <ArrowDown className="h-4 w-4 md:h-5 md:w-5" />
                         {Math.abs(totalChange).toFixed(1)} kg
                       </>
                     ) : (
                       <>
-                        <ArrowUp className="h-5 w-5" />
+                        <ArrowUp className="h-4 w-4 md:h-5 md:w-5" />
                         {Math.abs(totalChange).toFixed(1)} kg
                       </>
                     )}
                   </div>
-                  <div className="text-xs text-blue-600">Cambio total</div>
+                  <div className="text-[10px] md:text-xs text-blue-600 mt-0.5">Cambio total</div>
                   {initialWeight !== null && (
-                    <div className="text-xs text-blue-500 mt-1">
+                    <div className="text-[9px] md:text-xs text-blue-500 mt-0.5">
                       Desde {initialWeight.toFixed(1)} kg
                     </div>
                   )}
@@ -243,16 +257,16 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
 
             {/* Progreso hacia objetivo - Solo mostrar si hay objetivo */}
             {targetWeight !== null && currentWeight !== null && initialWeight !== null && (
-              <div className="space-y-3">
+              <div className="space-y-2 md:space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">Progreso hacia objetivo</span>
-                  <span className="text-sm font-bold text-blue-600">{progressPercentage.toFixed(1)}%</span>
+                  <span className="text-xs md:text-sm font-medium text-muted-foreground">Progreso hacia objetivo</span>
+                  <span className="text-xs md:text-sm font-bold text-blue-600">{progressPercentage.toFixed(1)}%</span>
                 </div>
                 <Progress 
                   value={progressPercentage} 
-                  className="h-3"
+                  className="h-2.5 md:h-3"
                 />
-                <div className="text-center text-sm text-muted-foreground">
+                <div className="text-center text-xs md:text-sm text-muted-foreground">
                   {progressPercentage >= 80 ? '¡Casi alcanzas tu objetivo!' :
                    progressPercentage >= 60 ? '¡Excelente progreso!' :
                    progressPercentage >= 40 ? '¡Buen trabajo, sigue así!' :
@@ -263,8 +277,8 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
             )}
 
             {/* Historial reciente */}
-            <div className="space-y-3">
-              <h4 className="font-medium text-center">Historial Reciente</h4>
+            <div className="space-y-2 md:space-y-3">
+              <h4 className="font-medium text-center text-sm md:text-base">Historial Reciente</h4>
               {weightEntries && weightEntries.length > 0 ? (
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {weightEntries.slice(0, 5).map((entry, index) => {
@@ -274,28 +288,28 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                     const trend = getTrend(change)
                     
                     return (
-                      <div key={entry.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                            <Weight className="h-4 w-4 text-blue-600" />
+                      <div key={entry.id} className="flex items-center justify-between p-2.5 md:p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
+                        <div className="flex items-center gap-2.5 md:gap-3 flex-1 min-w-0">
+                          <div className="w-8 h-8 md:w-9 md:h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Weight className="h-3.5 w-3.5 md:h-4 md:w-4 text-blue-600" />
                           </div>
-                          <div>
-                            <div className="font-medium">{entry.weight.toFixed(1)} kg</div>
-                            <div className="text-sm text-muted-foreground">{formatDate(entry.date)}</div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm md:text-base">{entry.weight.toFixed(1)} kg</div>
+                            <div className="text-xs md:text-sm text-muted-foreground truncate">{formatDate(entry.date)}</div>
                           </div>
                         </div>
                         
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
                           {previousEntry && change !== 0 && (
                             <div className="flex items-center gap-1">
                               {trend.arrow}
-                              <span className={`text-sm font-medium ${trend.color}`}>
+                              <span className={`text-xs md:text-sm font-medium ${trend.color}`}>
                                 {Math.abs(change).toFixed(1)} kg
                               </span>
                             </div>
                           )}
                           {previousEntry && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[10px] md:text-xs px-1.5 md:px-2">
                               {trend.label}
                             </Badge>
                           )}
@@ -305,30 +319,30 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
                   })}
                 </div>
               ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Weight className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>No hay registros de peso</p>
-                  <p className="text-sm">Comienza registrando tu peso actual</p>
+                <div className="text-center py-6 md:py-8 text-muted-foreground">
+                  <Weight className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm md:text-base">No hay registros de peso</p>
+                  <p className="text-xs md:text-sm mt-1">Comienza registrando tu peso actual</p>
                 </div>
               )}
             </div>
 
             {/* Estadísticas adicionales */}
             {weightEntries && weightEntries.length > 1 && (
-              <div className="p-4 bg-muted/30 rounded-lg border">
-                <h4 className="font-medium text-center mb-3">Estadísticas</h4>
-                <div className="grid grid-cols-2 gap-4 text-center">
+              <div className="p-3 md:p-4 bg-muted/30 rounded-lg md:rounded-xl border">
+                <h4 className="font-medium text-center mb-2 md:mb-3 text-sm md:text-base">Estadísticas</h4>
+                <div className="grid grid-cols-2 gap-3 md:gap-4 text-center">
                   <div>
-                    <div className="text-lg font-bold text-blue-600">
+                    <div className="text-base md:text-lg font-bold text-blue-600">
                       {Math.min(...weightEntries.map(e => e.weight)).toFixed(1)} kg
                     </div>
-                    <div className="text-xs text-muted-foreground">Peso más bajo</div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más bajo</div>
                   </div>
                   <div>
-                    <div className="text-lg font-bold text-blue-600">
+                    <div className="text-base md:text-lg font-bold text-blue-600">
                       {Math.max(...weightEntries.map(e => e.weight)).toFixed(1)} kg
                     </div>
-                    <div className="text-xs text-muted-foreground">Peso más alto</div>
+                    <div className="text-[10px] md:text-xs text-muted-foreground mt-0.5">Peso más alto</div>
                   </div>
                 </div>
               </div>
