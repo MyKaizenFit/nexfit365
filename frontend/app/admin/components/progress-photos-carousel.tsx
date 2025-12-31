@@ -60,14 +60,26 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
         const { buildApiUrl, getAuthHeaders } = await import("@/lib/api")
         const headers = await getAuthHeaders()
         
-        const response = await fetch(buildApiUrl(`admin/progress/users/${userId}/photos/`), { headers })
+        console.log("📸 [ProgressPhotosCarousel] Cargando fotos para usuario:", userId)
+        const url = buildApiUrl(`admin/progress/users/${userId}/photos/`)
+        console.log("📸 [ProgressPhotosCarousel] URL:", url)
+        
+        const response = await fetch(url, { headers })
+        
+        console.log("📸 [ProgressPhotosCarousel] Response status:", response.status)
         
         if (!response.ok) {
-          throw new Error("Error al cargar las fotos de progreso")
+          const errorText = await response.text()
+          console.error("📸 [ProgressPhotosCarousel] Error response:", errorText)
+          throw new Error(`Error al cargar las fotos de progreso: ${response.status}`)
         }
         
         const data = await response.json()
+        console.log("📸 [ProgressPhotosCarousel] Data recibida:", data)
+        
+        // El ViewSet puede devolver un array directamente o un objeto con results
         const photosList = Array.isArray(data) ? data : (data.results || [])
+        console.log("📸 [ProgressPhotosCarousel] Photos list:", photosList.length, "fotos")
         
         // Mapear las fotos del formato del backend al formato del componente
         const mappedPhotos: ProgressPhoto[] = photosList.map((photo: any) => ({
