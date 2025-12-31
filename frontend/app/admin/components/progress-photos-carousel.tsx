@@ -52,6 +52,14 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
 
   // Cargar fotos del usuario desde el endpoint de admin
   useEffect(() => {
+    console.log("📸 [ProgressPhotosCarousel] useEffect ejecutado, userId:", userId)
+    
+    if (!userId) {
+      console.warn("📸 [ProgressPhotosCarousel] No userId proporcionado")
+      setLoading(false)
+      return
+    }
+    
     const loadPhotos = async () => {
       try {
         setLoading(true)
@@ -95,18 +103,17 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
         // Ordenar por fecha (más recientes primero)
         mappedPhotos.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         
+        console.log("📸 [ProgressPhotosCarousel] Fotos mapeadas:", mappedPhotos.length)
         setPhotos(mappedPhotos)
       } catch (err) {
-        console.error("Error cargando fotos:", err)
+        console.error("📸 [ProgressPhotosCarousel] Error cargando fotos:", err)
         setError(err instanceof Error ? err.message : "Error desconocido")
       } finally {
         setLoading(false)
       }
     }
     
-    if (userId) {
-      loadPhotos()
-    }
+    loadPhotos()
   }, [userId])
 
   const nextPhoto = () => {
