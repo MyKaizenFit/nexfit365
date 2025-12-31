@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus, Columns, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -47,12 +47,55 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
   })
 
   const [photos, setPhotos] = useState<ProgressPhoto[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Nota: Por ahora, mostramos estado vacío.
-  // Las fotos de progreso del usuario específico requieren un endpoint de admin dedicado.
-  // El endpoint actual /progress-photos/ solo muestra las fotos del usuario autenticado (admin), no del usuario consultado.
+  // Cargar fotos del usuario desde el endpoint de admin
+  useEffect(() => {
+    const loadPhotos = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        
+        const { buildApiUrl, getAuthHeaders } = await import("@/lib/api")
+        const headers = await getAuthHeaders()
+        
+        const response = await fetch(buildApiUrl(`admin/progress/users/${userId}/photos/`), { headers })
+        
+        if (!response.ok) {
+          throw new Error("Error al cargar las fotos de progreso")
+        }
+        
+        const data = await response.json()
+        const photosList = Array.isArray(data) ? data : (data.results || [])
+        
+        // Mapear las fotos del formato del backend al formato del componente
+        const mappedPhotos: ProgressPhoto[] = photosList.map((photo: any) => ({
+          id: String(photo.id),
+          date: photo.date,
+          url: photo.photo_url || photo.photo || "/placeholder.svg",
+          type: photo.photo_type || "front",
+          weight: photo.weight ? Number(photo.weight) : undefined,
+          notes: photo.notes || "",
+          measurements: photo.measurements || undefined,
+        }))
+        
+        // Ordenar por fecha (más recientes primero)
+        mappedPhotos.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        
+        setPhotos(mappedPhotos)
+      } catch (err) {
+        console.error("Error cargando fotos:", err)
+        setError(err instanceof Error ? err.message : "Error desconocido")
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    if (userId) {
+      loadPhotos()
+    }
+  }, [userId])
 
   const nextPhoto = () => {
     setCurrentIndex((prev) => (prev + 1) % photos.length)

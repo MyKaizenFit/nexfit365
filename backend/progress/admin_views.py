@@ -8,8 +8,8 @@ from rest_framework import permissions, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import WeightEntry, DailyWellness
-from .serializers import WeightEntrySerializer, DailyWellnessSerializer
+from .models import WeightEntry, DailyWellness, ProgressPhoto
+from .serializers import WeightEntrySerializer, DailyWellnessSerializer, ProgressPhotoSerializer
 
 User = get_user_model()
 
@@ -140,4 +140,36 @@ class AdminDailyWellnessViewSet(viewsets.ModelViewSet):
             "last": DailyWellnessSerializer(last).data if last else None,
         })
 
+
+class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
+    """
+    Gestión de fotos de progreso para un usuario (solo admin/staff).
+    Prefijo: /api/admin/progress/users/<user_id>/photos/
+    """
+
+    serializer_class = ProgressPhotoSerializer
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ["date", "created_at", "photo_type"]
+    ordering = ["-date", "-created_at"]
+
+    def get_user(self):
+        user_id = self.kwargs.get("user_id")
+        return get_object_or_404(User, pk=user_id)
+
+    def get_queryset(self):
+        user = self.get_user()
+        return ProgressPhoto.objects.filter(user=user)
+
+    def get_serializer_context(self):
+        """Agregar el request al contexto del serializer para generar URLs correctas"""
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.get_user())
+
+    def perform_update(self, serializer):
+        serializer.save(user=self.get_user())
 
