@@ -476,7 +476,7 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
               {filteredActive.map(config => (
                 <ConfigurationCard
                   key={config.id}
@@ -515,7 +515,7 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-3 md:grid md:grid-cols-2 lg:grid-cols-3 md:gap-4 md:space-y-0">
               {filteredInactive.map(config => (
                 <ConfigurationCard
                   key={config.id}
@@ -748,128 +748,135 @@ function ConfigurationCard({ configuration, onEdit, onDelete }: ConfigurationCar
   const specificityLevel = criteriaCount >= 3 ? "Muy Específica" : criteriaCount >= 2 ? "Específica" : criteriaCount >= 1 ? "Moderada" : "General"
   
   return (
-    <Card className="border-muted hover:border-primary/50 transition-all hover:shadow-md">
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between gap-2">
+    <Card className="border-2 border-gray-200 hover:border-purple-300 hover:shadow-md transition-all">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <CardTitle className="text-base md:text-lg flex items-start gap-2 flex-wrap mb-2">
-              <span className="break-words">{configuration.name}</span>
-              <Badge 
-                variant={getPriorityVariant(configuration.priority)} 
-                className="text-xs flex-shrink-0"
-                title={`Nivel de especificidad: ${specificityLevel} (${criteriaCount} criterios)`}
-              >
-                {getPriorityLabel(configuration.priority)}
-              </Badge>
-            </CardTitle>
-            <CardDescription className="text-xs md:text-sm line-clamp-2">
-              {configuration.description || "Sin descripción"}
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <Button size="icon" variant="ghost" onClick={onEdit} className="h-8 w-8">
-              <Edit className="h-4 w-4" />
-            </Button>
-            <Button size="icon" variant="ghost" onClick={onDelete} className="h-8 w-8 text-destructive hover:text-destructive">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {/* Tags compactos */}
-        <div className="flex flex-wrap items-center gap-1.5">
-          {configuration.main_goal && (
-            <Badge variant="secondary" className="text-xs">
-              {goalOptions.find(g => g.id === configuration.main_goal)?.name || configuration.main_goal}
-            </Badge>
-          )}
-          {configuration.training_location && (
-            <Badge variant="outline" className="text-xs">
-              {locationOptions.find(l => l.id === configuration.training_location)?.name || configuration.training_location}
-            </Badge>
-          )}
-          {configuration.activity_level && (
-            <Badge variant="outline" className="text-xs">
-              {activityOptions.find(a => a.id === configuration.activity_level)?.name || configuration.activity_level}
-            </Badge>
-          )}
-          {configuration.gender && (
-            <Badge variant="outline" className="text-xs">
-              {genderOptions.find(g => g.id === configuration.gender)?.name || configuration.gender}
-            </Badge>
-          )}
-        </div>
-
-        {/* Planes asignados - siempre visibles */}
-        <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground text-xs">Nutrición:</span>
-            <Badge variant={configuration.default_nutrition_plan ? "default" : "outline"} className="text-xs">
-              {configuration.default_nutrition_plan?.name ?? "No asignado"}
-            </Badge>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-muted-foreground text-xs">Entrenamiento:</span>
-            <Badge variant={configuration.default_workout_program ? "default" : "outline"} className="text-xs">
-              {configuration.default_workout_program?.name ?? "No asignado"}
-            </Badge>
-          </div>
-        </div>
-
-        {/* Botón para expandir/colapsar detalles */}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full text-xs"
-        >
-          {isExpanded ? (
-            <>
-              <X className="h-3 w-3 mr-1" />
-              Ocultar detalles
-            </>
-          ) : (
-            <>
-              <Eye className="h-3 w-3 mr-1" />
-              Ver detalles
-            </>
-          )}
-        </Button>
-
-        {/* Detalles expandibles */}
-        {isExpanded && (
-          <div className="space-y-2 pt-2 border-t text-xs">
-            {(configuration.min_training_days_per_week || configuration.max_training_days_per_week) && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Días entrenamiento:</span>
-                <span>{configuration.min_training_days_per_week ?? "?"} - {configuration.max_training_days_per_week ?? "?"}</span>
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                  <div className="font-semibold text-base break-words">
+                    {configuration.name}
+                  </div>
+                  <Badge 
+                    variant={getPriorityVariant(configuration.priority)} 
+                    className="text-xs flex-shrink-0"
+                    title={`Nivel de especificidad: ${specificityLevel} (${criteriaCount} criterios)`}
+                  >
+                    {getPriorityLabel(configuration.priority)}
+                  </Badge>
+                </div>
+                {configuration.description && (
+                  <div className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                    {configuration.description}
+                  </div>
+                )}
               </div>
-            )}
-            {(configuration.age_min || configuration.age_max) && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Edad:</span>
-                <span>{configuration.age_min ?? "?"} - {configuration.age_max ?? "?"} años</span>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <Button size="icon" variant="ghost" onClick={onEdit} className="h-8 w-8">
+                  <Edit className="h-3 w-3 md:h-4 md:w-4" />
+                </Button>
+                <Button size="icon" variant="ghost" onClick={onDelete} className="h-8 w-8 text-destructive hover:text-destructive">
+                  <Trash2 className="h-3 w-3 md:h-4 md:w-4" />
+                </Button>
               </div>
-            )}
-            {configuration.dietary_restrictions?.length > 0 && (
-              <div>
-                <span className="text-muted-foreground">Restricciones: </span>
-                <span className="text-xs">{configuration.dietary_restrictions.join(", ")}</span>
-              </div>
-            )}
-            {configuration.equipment_keywords?.length > 0 && (
-              <div>
-                <span className="text-muted-foreground">Equipamiento: </span>
-                <span className="text-xs">{configuration.equipment_keywords.join(", ")}</span>
-              </div>
-            )}
-            <div className="flex justify-between text-muted-foreground pt-2 border-t">
-              <span>Creado: {new Date(configuration.created_at).toLocaleDateString()}</span>
-              <span>Actualizado: {new Date(configuration.updated_at).toLocaleDateString()}</span>
             </div>
+            
+            {/* Tags compactos */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+              {configuration.main_goal && (
+                <Badge variant="secondary" className="text-xs">
+                  {goalOptions.find(g => g.id === configuration.main_goal)?.name || configuration.main_goal}
+                </Badge>
+              )}
+              {configuration.training_location && (
+                <Badge variant="outline" className="text-xs">
+                  {locationOptions.find(l => l.id === configuration.training_location)?.name || configuration.training_location}
+                </Badge>
+              )}
+              {configuration.activity_level && (
+                <Badge variant="outline" className="text-xs">
+                  {activityOptions.find(a => a.id === configuration.activity_level)?.name || configuration.activity_level}
+                </Badge>
+              )}
+              {configuration.gender && (
+                <Badge variant="outline" className="text-xs">
+                  {genderOptions.find(g => g.id === configuration.gender)?.name || configuration.gender}
+                </Badge>
+              )}
+            </div>
+
+            {/* Planes asignados - siempre visibles */}
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Nutrición:</span>
+                <Badge variant={configuration.default_nutrition_plan ? "default" : "outline"} className="text-xs">
+                  {configuration.default_nutrition_plan?.name ?? "No asignado"}
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs text-muted-foreground">Entrenamiento:</span>
+                <Badge variant={configuration.default_workout_program ? "default" : "outline"} className="text-xs">
+                  {configuration.default_workout_program?.name ?? "No asignado"}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Botón para expandir/colapsar detalles */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="w-full text-xs mt-2"
+            >
+              {isExpanded ? (
+                <>
+                  <X className="h-3 w-3 mr-1" />
+                  Ocultar detalles
+                </>
+              ) : (
+                <>
+                  <Eye className="h-3 w-3 mr-1" />
+                  Ver detalles
+                </>
+              )}
+            </Button>
+
+            {/* Detalles expandibles */}
+            {isExpanded && (
+              <div className="space-y-2 pt-2 border-t text-xs mt-2">
+                {(configuration.min_training_days_per_week || configuration.max_training_days_per_week) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Días entrenamiento:</span>
+                    <span>{configuration.min_training_days_per_week ?? "?"} - {configuration.max_training_days_per_week ?? "?"}</span>
+                  </div>
+                )}
+                {(configuration.age_min || configuration.age_max) && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Edad:</span>
+                    <span>{configuration.age_min ?? "?"} - {configuration.age_max ?? "?"} años</span>
+                  </div>
+                )}
+                {configuration.dietary_restrictions?.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">Restricciones: </span>
+                    <span className="text-xs break-words">{configuration.dietary_restrictions.join(", ")}</span>
+                  </div>
+                )}
+                {configuration.equipment_keywords?.length > 0 && (
+                  <div>
+                    <span className="text-muted-foreground">Equipamiento: </span>
+                    <span className="text-xs break-words">{configuration.equipment_keywords.join(", ")}</span>
+                  </div>
+                )}
+                <div className="flex flex-col sm:flex-row sm:justify-between gap-1 text-muted-foreground pt-2 border-t">
+                  <span className="text-xs">Creado: {new Date(configuration.created_at).toLocaleDateString()}</span>
+                  <span className="text-xs">Actualizado: {new Date(configuration.updated_at).toLocaleDateString()}</span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   )
