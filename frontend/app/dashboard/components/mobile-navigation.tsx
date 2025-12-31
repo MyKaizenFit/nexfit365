@@ -1,18 +1,17 @@
 "use client"
-import { ChefHat, Dumbbell, Home, Target, User, Sparkles, Heart, Moon } from "lucide-react"
+import { ChefHat, Dumbbell, Home, Target, User, Sparkles, Heart, Moon, Medal, Settings } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const mobileMenuItems = [
-  { title: "Inicio", icon: Home, url: "dashboard", badge: null },
+  { title: "Dashboard", icon: Home, url: "dashboard", badge: null },
   { title: "Day 1", icon: Target, url: "day-one", badge: null },
-  { title: "Comidas", icon: ChefHat, url: "meals", badge: null },
-  { title: "Entrenar", icon: Dumbbell, url: "workouts-3", badge: null },
+  { title: "Menús / Recetas", icon: ChefHat, url: "meals", badge: null },
+  { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3", badge: null },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null },
-  // TODO: Activar en versiones posteriores
-  // { title: "Inspiración", icon: Sparkles, url: "recommendations", badge: null },
-  // { title: "Consejos", icon: Heart, url: "tips", badge: null },
-  { title: "Perfil", icon: User, url: "profile", badge: null },
+  { title: "Mi Perfil", icon: User, url: "profile", badge: null },
+  { title: "Logros", icon: Medal, url: "achievements", badge: null },
+  { title: "Configuración", icon: Settings, url: "settings", badge: null },
 ]
 
 interface MobileNavigationProps {
@@ -27,8 +26,8 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
       <div className="absolute inset-0 bg-white/80 backdrop-blur-lg border-t border-white/20"></div>
 
       {/* Navigation items */}
-      <nav className="relative responsive-flex items-center justify-center px-6 sm:px-8 py-3 w-full safe-area-pl safe-area-pr">
-        <div className="flex items-center justify-between w-full max-w-md mx-auto">
+      <nav className="relative responsive-flex items-center justify-center px-2 sm:px-4 py-2 sm:py-3 w-full safe-area-pl safe-area-pr">
+        <div className="flex items-center justify-around w-full max-w-2xl mx-auto gap-1">
           {mobileMenuItems.map((item, index) => {
             const IconComponent = item.icon
             const isActive = selectedSection === item.url
@@ -38,7 +37,7 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                 key={item.url}
                 onClick={() => onSectionChange(item.url, item.title)}
                 className={cn(
-                  "relative flex flex-col items-center justify-center p-2 sm:p-3 rounded-xl transition-all duration-300 group",
+                  "relative flex flex-col items-center justify-center p-1.5 sm:p-2 rounded-lg transition-all duration-300 group flex-1 min-w-0",
                   isActive
                     ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-600 scale-105"
                     : "text-gray-500 hover:text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50",
@@ -48,13 +47,13 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                 {/* Icon container */}
                 <div
                   className={cn(
-                    "relative p-2.5 rounded-full transition-all duration-300 flex-shrink-0",
+                    "relative p-1.5 sm:p-2 rounded-full transition-all duration-300 flex-shrink-0",
                     isActive
                       ? "bg-gradient-to-br from-teal-400 to-cyan-500 text-white shadow-lg animate-gentle-pulse"
                       : "group-hover:bg-gradient-to-br group-hover:from-gray-100 group-hover:to-slate-100 group-hover:scale-110",
                   )}
                 >
-                  <IconComponent className="h-5 w-5" />
+                  <IconComponent className="h-4 w-4 sm:h-5 sm:w-5" />
 
                   {/* Badge */}
                   {item.badge && (
@@ -64,10 +63,10 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                   )}
                 </div>
 
-                {/* Label - Solo visible en tablets+ */}
+                {/* Label - Oculto en móvil, solo visible en tablets+ */}
                 <span
                   className={cn(
-                    "text-xs font-medium mt-1.5 transition-all duration-300 responsive-text hidden sm:block",
+                    "text-[10px] sm:text-xs font-medium mt-0.5 sm:mt-1 transition-all duration-300 truncate w-full text-center hidden md:block",
                     isActive ? "text-teal-600" : "text-gray-500",
                   )}
                 >
