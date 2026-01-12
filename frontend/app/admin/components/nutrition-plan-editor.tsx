@@ -32,6 +32,14 @@ interface SuggestedRecipe {
   prep_time_minutes?: number
   difficulty?: string
   image_url?: string
+  // Campos para cantidades personalizadas
+  meal_recipe_id?: string
+  servings?: number
+  custom_calories?: number
+  custom_protein?: number
+  custom_carbs?: number
+  custom_fat?: number
+  display_order?: number
 }
 
 interface Meal {
@@ -281,20 +289,64 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
             food_name: fixEncoding(f.food_name || ""),
           }))
         : [],
-      suggested_recipes: Array.isArray(meal.suggested_recipes)
-        ? meal.suggested_recipes.map((r: any) => ({
-            id: String(r.id),
-            name: fixEncoding(r.name || ""),
-            category: r.category,
-            calories: toNumber(r.calories),
-            protein: toNumber(r.protein),
-            carbs: toNumber(r.carbs),
-            fat: toNumber(r.fat),
-            prep_time_minutes: toNumber(r.prep_time_minutes),
-            difficulty: r.difficulty,
-            image_url: r.image_url,
-          }))
-        : [],
+      suggested_recipes: (() => {
+        // Priorizar meal_recipes si existen (tienen cantidades personalizadas)
+        if (Array.isArray(meal.meal_recipes) && meal.meal_recipes.length > 0) {
+          return meal.meal_recipes.map((mr: any) => {
+            const recipe = mr.recipe || {}
+            const baseCalories = toNumber(recipe.calories)
+            const baseProtein = toNumber(recipe.protein)
+            const baseCarbs = toNumber(recipe.carbs)
+            const baseFat = toNumber(recipe.fat)
+            const servings = toNumber(mr.servings, 1)
+            
+            return {
+              id: String(recipe.id || mr.recipe_id),
+              name: fixEncoding(recipe.name || ""),
+              category: recipe.category,
+              calories: mr.custom_calories !== null && mr.custom_calories !== undefined 
+                ? toNumber(mr.custom_calories) 
+                : baseCalories * servings,
+              protein: mr.custom_protein !== null && mr.custom_protein !== undefined
+                ? toNumber(mr.custom_protein)
+                : baseProtein * servings,
+              carbs: mr.custom_carbs !== null && mr.custom_carbs !== undefined
+                ? toNumber(mr.custom_carbs)
+                : baseCarbs * servings,
+              fat: mr.custom_fat !== null && mr.custom_fat !== undefined
+                ? toNumber(mr.custom_fat)
+                : baseFat * servings,
+              prep_time_minutes: toNumber(recipe.prep_time_minutes),
+              difficulty: recipe.difficulty,
+              image_url: recipe.image_url,
+              meal_recipe_id: String(mr.id || ""),
+              servings: servings,
+              custom_calories: mr.custom_calories !== null && mr.custom_calories !== undefined ? toNumber(mr.custom_calories) : undefined,
+              custom_protein: mr.custom_protein !== null && mr.custom_protein !== undefined ? toNumber(mr.custom_protein) : undefined,
+              custom_carbs: mr.custom_carbs !== null && mr.custom_carbs !== undefined ? toNumber(mr.custom_carbs) : undefined,
+              custom_fat: mr.custom_fat !== null && mr.custom_fat !== undefined ? toNumber(mr.custom_fat) : undefined,
+              display_order: toNumber(mr.display_order, 0),
+            }
+          })
+        }
+        // Fallback: usar suggested_recipes simple (sin cantidades personalizadas)
+        return Array.isArray(meal.suggested_recipes)
+          ? meal.suggested_recipes.map((r: any) => ({
+              id: String(r.id),
+              name: fixEncoding(r.name || ""),
+              category: r.category,
+              calories: toNumber(r.calories),
+              protein: toNumber(r.protein),
+              carbs: toNumber(r.carbs),
+              fat: toNumber(r.fat),
+              prep_time_minutes: toNumber(r.prep_time_minutes),
+              difficulty: r.difficulty,
+              image_url: r.image_url,
+              servings: 1,
+              // Sin valores personalizados, se calcularán desde la receta base
+            }))
+          : []
+      })(),
     }))
 
     const grams = {
@@ -596,7 +648,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       
       const savedPlanId = saved.id || plan.id
       
-      // Actualizar las recetas sugeridas de cada comida
+      // Actualizar las recetas sugeridas y sus cantidades personalizadas
       if (savedPlanId) {
         for (let i = 0; i < mealsArray.length; i++) {
           const meal = mealsArray[i]
@@ -609,7 +661,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
             ? meal.suggested_recipes.map(r => r.id)
             : []
           
-          // Actualizar la comida con las recetas sugeridas
+          // Primero, actualizar la relación ManyToMany simple
           const mealUpdateResponse = await fetch(buildApiUrl(`admin/nutrition/meals/${meal.id}/`), {
             method: "PATCH",
             headers: { ...headers, "Content-Type": "application/json" },
@@ -622,6 +674,86 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
             console.warn(`🍽️ [NutritionPlanEditor] Error actualizando recetas de comida ${meal.id}:`, mealUpdateResponse.status)
           } else {
             console.log(`🍽️ [NutritionPlanEditor] Recetas actualizadas para comida ${meal.id}:`, suggestedRecipeIds)
+          }
+          
+          // Luego, actualizar las cantidades personalizadas usando PlanMealRecipe
+          if (Array.isArray(meal.suggested_recipes)) {
+            for (const recipe of meal.suggested_recipes) {
+              try {
+                // Buscar si ya existe un PlanMealRecipe para esta combinación
+                const existingResponse = await fetch(
+                  buildApiUrl(`admin/nutrition/meal-recipes/?meal_id=${meal.id}`),
+                  { headers }
+                )
+                
+                let existingMealRecipe: any = null
+                if (existingResponse.ok) {
+                  const existingData = await existingResponse.json()
+                  const recipes = Array.isArray(existingData.results) ? existingData.results : (Array.isArray(existingData) ? existingData : [])
+                  existingMealRecipe = recipes.find((mr: any) => 
+                    (mr.recipe?.id === recipe.id) || (mr.recipe_id === recipe.id) || (String(mr.recipe?.id) === String(recipe.id))
+                  )
+                }
+                
+                const mealRecipeData: any = {
+                  meal_id: meal.id,
+                  recipe_id: recipe.id,
+                  servings: recipe.servings || 1,
+                  display_order: recipe.display_order || 0,
+                }
+                
+                // Solo incluir custom values si están definidos explícitamente
+                if (recipe.custom_calories !== undefined && recipe.custom_calories !== null) {
+                  mealRecipeData.custom_calories = recipe.custom_calories
+                }
+                if (recipe.custom_protein !== undefined && recipe.custom_protein !== null) {
+                  mealRecipeData.custom_protein = recipe.custom_protein
+                }
+                if (recipe.custom_carbs !== undefined && recipe.custom_carbs !== null) {
+                  mealRecipeData.custom_carbs = recipe.custom_carbs
+                }
+                if (recipe.custom_fat !== undefined && recipe.custom_fat !== null) {
+                  mealRecipeData.custom_fat = recipe.custom_fat
+                }
+                
+                // Crear o actualizar PlanMealRecipe
+                if (existingMealRecipe?.id) {
+                  // Actualizar existente
+                  const updateResponse = await fetch(
+                    buildApiUrl(`admin/nutrition/meal-recipes/${existingMealRecipe.id}/`),
+                    {
+                      method: "PATCH",
+                      headers: { ...headers, "Content-Type": "application/json" },
+                      body: JSON.stringify(mealRecipeData),
+                    }
+                  )
+                  if (!updateResponse.ok) {
+                    const errorText = await updateResponse.text()
+                    console.warn(`🍽️ [NutritionPlanEditor] Error actualizando PlanMealRecipe ${existingMealRecipe.id}:`, updateResponse.status, errorText)
+                  } else {
+                    console.log(`🍽️ [NutritionPlanEditor] PlanMealRecipe actualizado:`, existingMealRecipe.id)
+                  }
+                } else {
+                  // Crear nuevo
+                  const createResponse = await fetch(
+                    buildApiUrl(`admin/nutrition/meal-recipes/`),
+                    {
+                      method: "POST",
+                      headers: { ...headers, "Content-Type": "application/json" },
+                      body: JSON.stringify(mealRecipeData),
+                    }
+                  )
+                  if (!createResponse.ok) {
+                    const errorText = await createResponse.text()
+                    console.warn(`🍽️ [NutritionPlanEditor] Error creando PlanMealRecipe:`, createResponse.status, errorText)
+                  } else {
+                    console.log(`🍽️ [NutritionPlanEditor] PlanMealRecipe creado para receta ${recipe.id}`)
+                  }
+                }
+              } catch (err) {
+                console.error(`🍽️ [NutritionPlanEditor] Error procesando receta ${recipe.id}:`, err)
+              }
+            }
           }
         }
       }
@@ -952,7 +1084,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label>Platos / ingredientes</Label>
+                  <Label className="text-base font-semibold">Ingredientes / Alimentos</Label>
                   <Button variant="outline" size="sm" onClick={() => addIngredient(index)}>
                     <Plus className="h-4 w-4 mr-1" />
                     Añadir ingrediente
@@ -960,47 +1092,91 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                 </div>
 
                 {Array.isArray(meal.meal_foods) && meal.meal_foods.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="space-y-3">
                     {meal.meal_foods.map((food, fIndex) => (
-                      <div key={fIndex} className="grid grid-cols-12 gap-2 items-center">
-                        <Input
-                          className="col-span-6"
-                          placeholder="Nombre del alimento/plato"
-                          value={fixEncoding(food.food_name || "")}
-                          onChange={(e) => updateIngredient(index, fIndex, { food_name: e.target.value })}
-                        />
-                        <Input
-                          className="col-span-3"
-                          type="number"
-                          placeholder="Cantidad (g)"
-                          value={toNumber(food.quantity, 0)}
-                          onChange={(e) => updateIngredient(index, fIndex, { quantity: Number(e.target.value) || 0 })}
-                        />
-                        <Input
-                          className="col-span-2"
-                          placeholder="ID ref."
-                          value={food.food_id}
-                          onChange={(e) => updateIngredient(index, fIndex, { food_id: e.target.value })}
-                        />
-                        {food.food_id && food.food_id.trim() !== '' && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-blue-600 col-span-1" 
-                            onClick={() => viewRecipe(food.food_id)}
-                            title="Ver receta completa"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="text-red-600 col-span-1" onClick={() => removeIngredient(index, fIndex)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Card key={fIndex} className="border border-gray-200 bg-gray-50/30">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <Label className="text-xs font-medium text-muted-foreground mb-1 block">
+                                Ingrediente #{fIndex + 1}
+                              </Label>
+                            </div>
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-red-600 h-8 w-8" 
+                              onClick={() => removeIngredient(index, fIndex)}
+                              title="Eliminar ingrediente"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Nombre del alimento/plato</Label>
+                              <Input
+                                placeholder="Ej: Pollo, Arroz, Ensalada..."
+                                value={fixEncoding(food.food_name || "")}
+                                onChange={(e) => updateIngredient(index, fIndex, { food_name: e.target.value })}
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">Cantidad (gramos)</Label>
+                              <Input
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                placeholder="Ej: 200"
+                                value={food.quantity || 0}
+                                onChange={(e) => updateIngredient(index, fIndex, { quantity: Number(e.target.value) || 0 })}
+                                className="text-sm"
+                              />
+                            </div>
+                            <div className="space-y-1">
+                              <Label className="text-xs font-medium">ID de referencia (opcional)</Label>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  placeholder="ID de receta o alimento"
+                                  value={food.food_id || ""}
+                                  onChange={(e) => updateIngredient(index, fIndex, { food_id: e.target.value })}
+                                  className="text-sm flex-1"
+                                />
+                                {food.food_id && food.food_id.trim() !== '' && (
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    className="text-blue-600 h-9 w-9" 
+                                    onClick={() => viewRecipe(food.food_id)}
+                                    title="Ver receta/alimento completo"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">Añade ingredientes para este plato.</p>
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center">
+                      <p className="text-sm text-muted-foreground">No hay ingredientes añadidos.</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-3" 
+                        onClick={() => addIngredient(index)}
+                      >
+                        <Plus className="h-4 w-4 mr-1" />
+                        Añadir primer ingrediente
+                      </Button>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
 
@@ -1015,49 +1191,159 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                 </div>
 
                 {Array.isArray(meal.suggested_recipes) && meal.suggested_recipes.length > 0 ? (
-                  <div className="space-y-2">
-                    {meal.suggested_recipes.map((recipe) => (
-                      <div key={recipe.id} className="flex items-center gap-3 p-3 border rounded-lg bg-orange-50/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="font-medium text-sm">{fixEncoding(recipe.name)}</span>
-                            {recipe.category && (
-                              <Badge variant="secondary" className="text-xs">{fixEncoding(recipe.category)}</Badge>
-                            )}
-                            {recipe.difficulty && (
-                              <Badge variant="outline" className="text-xs">{recipe.difficulty}</Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                            {recipe.calories && <span>{recipe.calories} kcal</span>}
-                            {recipe.protein && <span>P: {recipe.protein}g</span>}
-                            {recipe.carbs && <span>C: {recipe.carbs}g</span>}
-                            {recipe.fat && <span>G: {recipe.fat}g</span>}
-                            {recipe.prep_time_minutes && <span><Clock className="h-3 w-3 inline mr-1" />{recipe.prep_time_minutes} min</span>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-blue-600 h-8 w-8" 
-                            onClick={() => viewRecipe(recipe.id)}
-                            title="Ver receta completa"
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-600 h-8 w-8" 
-                            onClick={() => removeSuggestedRecipe(index, recipe.id)}
-                            title="Eliminar receta"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {meal.suggested_recipes.map((recipe, recipeIndex) => {
+                      const updateRecipeQuantities = (updates: Partial<SuggestedRecipe>) => {
+                        if (!plan) return
+                        const meal = mealsArray[index]
+                        if (!meal || !Array.isArray(meal.suggested_recipes)) return
+                        const updatedRecipes = meal.suggested_recipes.map((r: SuggestedRecipe) => 
+                          r.id === recipe.id ? { ...r, ...updates } : r
+                        )
+                        updateMeal(index, { suggested_recipes: updatedRecipes })
+                      }
+                      
+                      // Obtener valores actuales o usar valores por defecto
+                      const currentServings = recipe.servings || 1
+                      const currentCalories = recipe.custom_calories !== undefined ? recipe.custom_calories : recipe.calories
+                      const currentProtein = recipe.custom_protein !== undefined ? recipe.custom_protein : recipe.protein
+                      const currentCarbs = recipe.custom_carbs !== undefined ? recipe.custom_carbs : recipe.carbs
+                      const currentFat = recipe.custom_fat !== undefined ? recipe.custom_fat : recipe.fat
+                      
+                      return (
+                        <Card key={recipe.id} className="border border-orange-200 bg-orange-50/30">
+                          <CardContent className="p-4 space-y-3">
+                            {/* Header con nombre y badges */}
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <span className="font-medium text-sm">{fixEncoding(recipe.name)}</span>
+                                  {recipe.category && (
+                                    <Badge variant="secondary" className="text-xs">{fixEncoding(recipe.category)}</Badge>
+                                  )}
+                                  {recipe.difficulty && (
+                                    <Badge variant="outline" className="text-xs">{recipe.difficulty}</Badge>
+                                  )}
+                                </div>
+                                {recipe.prep_time_minutes && (
+                                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                    <Clock className="h-3 w-3" />
+                                    {recipe.prep_time_minutes} min
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-blue-600 h-8 w-8" 
+                                  onClick={() => viewRecipe(recipe.id)}
+                                  title="Ver receta completa"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  className="text-red-600 h-8 w-8" 
+                                  onClick={() => removeSuggestedRecipe(index, recipe.id)}
+                                  title="Eliminar receta"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Campos editables de cantidades */}
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2 border-t">
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium">Porciones</Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="0.1"
+                                  value={currentServings}
+                                  onChange={(e) => {
+                                    const newServings = Number(e.target.value) || 1
+                                    updateRecipeQuantities({ servings: newServings })
+                                  }}
+                                  className="h-8 text-xs"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium">Calorías</Label>
+                                <Input
+                                  type="number"
+                                  step="1"
+                                  min="0"
+                                  value={currentCalories || 0}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value) || 0
+                                    updateRecipeQuantities({ custom_calories: value })
+                                  }}
+                                  className="h-8 text-xs"
+                                  placeholder="Auto"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium">Proteína (g)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  value={currentProtein || 0}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value) || 0
+                                    updateRecipeQuantities({ custom_protein: value })
+                                  }}
+                                  className="h-8 text-xs"
+                                  placeholder="Auto"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium">Carbos (g)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  value={currentCarbs || 0}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value) || 0
+                                    updateRecipeQuantities({ custom_carbs: value })
+                                  }}
+                                  className="h-8 text-xs"
+                                  placeholder="Auto"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <Label className="text-xs font-medium">Grasas (g)</Label>
+                                <Input
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  value={currentFat || 0}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value) || 0
+                                    updateRecipeQuantities({ custom_fat: value })
+                                  }}
+                                  className="h-8 text-xs"
+                                  placeholder="Auto"
+                                />
+                              </div>
+                            </div>
+                            
+                            {/* Mostrar valores que se mostrarán al usuario */}
+                            <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1 border-t">
+                              <span className="font-medium">Valores mostrados al usuario:</span>
+                              <span className="text-orange-600 font-semibold">{Math.round(recipe.calories || 0)} kcal</span>
+                              <span className="text-blue-600">P: {Math.round((recipe.protein || 0) * 10) / 10}g</span>
+                              <span className="text-green-600">C: {Math.round((recipe.carbs || 0) * 10) / 10}g</span>
+                              <span className="text-yellow-600">G: {Math.round((recipe.fat || 0) * 10) / 10}g</span>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground">Añade recetas para que el usuario pueda elegir opciones.</p>

@@ -33,6 +33,15 @@ services:
   db:
     image: postgres:15
     restart: unless-stopped
+    # Límites de recursos para PostgreSQL
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'      # Máximo 1.5 CPUs
+          memory: 1.5G     # Máximo 1.5GB RAM
+        reservations:
+          cpus: '0.25'     # Mínimo 0.25 CPU garantizado
+          memory: 256M     # Mínimo 256MB RAM garantizado
     env_file:
       - ./docker/backend.env.production
     environment:
@@ -63,7 +72,16 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    # Límites de recursos para Redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'      # Máximo 0.5 CPUs
+          memory: 512M     # Máximo 512MB RAM
+        reservations:
+          cpus: '0.1'      # Mínimo 0.1 CPU garantizado
+          memory: 128M     # Mínimo 128MB RAM garantizado
     # Redis NO expone puerto externamente por seguridad
     volumes:
       - /srv/mykaizenfit/pro/data/redis:/data
@@ -85,6 +103,15 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     user: "0:0"  # Root para evitar problemas de permisos
+    # Límites de recursos para backend
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'      # Máximo 2 CPUs
+          memory: 2G       # Máximo 2GB RAM
+        reservations:
+          cpus: '0.5'      # Mínimo 0.5 CPU garantizado
+          memory: 512M     # Mínimo 512MB RAM garantizado
     env_file:
       - ./docker/backend.env.production
     command: >
@@ -94,7 +121,7 @@ services:
         echo '📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput &&
         echo '🚀 Iniciando Gunicorn...' &&
-        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 4 --threads 2 --timeout 120 --access-logfile - --error-logfile - --log-level info
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 6 --threads 3 --timeout 120 --worker-class gthread --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - --log-level info
       "
     ports:
       - "0.0.0.0:8000:8000"  # Puerto 8000 para producción

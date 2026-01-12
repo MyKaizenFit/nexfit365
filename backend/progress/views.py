@@ -2,6 +2,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Avg, Max, Min
@@ -24,6 +25,7 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
     """
     serializer_class = ProgressPhotoSerializer
     permission_classes = [IsAuthenticated]  # Solo requiere autenticación
+    parser_classes = [MultiPartParser, FormParser]  # Para aceptar multipart/form-data
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
     filterset_fields = ["photo_type", "date"]
     ordering_fields = ["date", "created_at", "weight"]

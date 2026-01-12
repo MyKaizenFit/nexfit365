@@ -9,10 +9,10 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime, timedelta
 
-from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory
+from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
-    AdminPlanMealSerializer, AdminFoodSerializer
+    AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 
@@ -88,6 +88,21 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
     queryset = Food.objects.all()
     serializer_class = AdminFoodSerializer
     permission_classes = [IsAdminUser]
+
+
+class AdminPlanMealRecipeViewSet(viewsets.ModelViewSet):
+    """ViewSet para gestionar recetas sugeridas con cantidades personalizadas"""
+    queryset = PlanMealRecipe.objects.all().select_related('meal', 'recipe')
+    serializer_class = PlanMealRecipeSerializer
+    permission_classes = [IsAdminUser]
+    
+    def get_queryset(self):
+        """Filtrar por meal_id si se proporciona"""
+        queryset = super().get_queryset()
+        meal_id = self.request.query_params.get('meal_id')
+        if meal_id:
+            queryset = queryset.filter(meal_id=meal_id)
+        return queryset
 
 
 @api_view(['GET'])

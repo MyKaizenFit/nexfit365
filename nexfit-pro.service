@@ -1,0 +1,39 @@
+[Unit]
+Description=Nex-Fit PRO Application - Fitness & Nutrition Platform
+Documentation=https://nexfit365.dpdns.org
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/srv/mykaizenfit/pro
+Environment="COMPOSE_PROJECT_NAME=nexfit-pro"
+Environment="COMPOSE_FILE=docker-compose.prod.yml"
+
+# Cargar variables de entorno si existen
+EnvironmentFile=-/srv/mykaizenfit/pro/.env.production
+
+# Iniciar servicios
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+
+# Detener servicios (sin eliminar volúmenes)
+ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+
+# Recargar configuración
+ExecReload=/usr/bin/docker compose -f docker-compose.prod.yml up -d --force-recreate
+
+# Tiempo de espera para inicio (importante para builds)
+TimeoutStartSec=600
+TimeoutStopSec=120
+
+# Reiniciar en caso de fallo
+Restart=on-failure
+RestartSec=10s
+
+# Límites de recursos
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
