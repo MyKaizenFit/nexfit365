@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, memo } from "react"
+import { useRouter } from "next/navigation"
 import { 
   TrendingUp, 
   Target, 
@@ -53,6 +54,7 @@ interface DashboardEnhancedProps {
 }
 
 export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
+  const router = useRouter()
   const { user, isAuthenticated } = useAuth()
   const { userStats, loading: statsLoading, refreshStats } = useUserData()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats: refreshProgressStats } = useProgressStats()
@@ -502,7 +504,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 <Button 
                   size="sm" 
                   className="bg-white/20 hover:bg-white/30 text-white border-0"
-                  onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'workouts' } }))}
+                  onClick={() => router.push('/dashboard?section=workouts-3')}
                 >
                   <Play className="h-4 w-4 mr-2" />
                   Comenzar

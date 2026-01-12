@@ -408,13 +408,15 @@ class PlanMeal(TimeStampedModel):
         help_text="Grasas en gramos"
     )
     
-    # Opciones de recetas sugeridas
+    # Opciones de recetas sugeridas (relación simple)
     suggested_recipes = models.ManyToManyField(
         Recipe, 
         blank=True, 
         related_name='suggested_in_meals',
         help_text="Recetas sugeridas para esta comida"
     )
+    
+    # Nota: Las cantidades personalizadas se almacenan en PlanMealRecipe
     
     description = models.TextField(
         blank=True, 
@@ -432,6 +434,110 @@ class PlanMeal(TimeStampedModel):
     
     def __str__(self):
         return f"{self.plan.name} - {self.get_meal_type_display()}"
+
+
+# =============================================================================
+# RECETAS SUGERIDAS EN COMIDAS (con cantidades personalizadas)
+# =============================================================================
+
+class PlanMealRecipe(TimeStampedModel):
+    """
+    Modelo intermedio para almacenar recetas sugeridas en comidas con cantidades personalizadas
+    Permite editar las cantidades y macros que se muestran al usuario final
+    """
+    meal = models.ForeignKey(
+        PlanMeal,
+        on_delete=models.CASCADE,
+        related_name='meal_recipes'
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name='meal_suggestions'
+    )
+    
+    # Cantidades personalizadas (por defecto usa los valores de la receta)
+    servings = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=1.0,
+        help_text="Número de porciones personalizado (por defecto 1.0 = valores originales de la receta)"
+    )
+    
+    # Macros personalizados (opcionales, si están null usa los de la receta escalados)
+    custom_calories = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Calorías personalizadas (null = calcular desde receta * servings)"
+    )
+    custom_protein = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Proteínas personalizadas en gramos (null = calcular desde receta * servings)"
+    )
+    custom_carbs = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Carbohidratos personalizados en gramos (null = calcular desde receta * servings)"
+    )
+    custom_fat = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Grasas personalizadas en gramos (null = calcular desde receta * servings)"
+    )
+    
+    # Orden de visualización
+    display_order = models.PositiveIntegerField(
+        default=0,
+        help_text="Orden de visualización (menor = primero)"
+    )
+    
+    class Meta:
+        ordering = ['display_order', 'created_at']
+        unique_together = ['meal', 'recipe']
+        verbose_name = "Receta Sugerida en Comida"
+        verbose_name_plural = "Recetas Sugeridas en Comidas"
+    
+    def __str__(self):
+        return f"{self.meal.name} - {self.recipe.name}"
+    
+    def get_display_calories(self):
+        """Obtiene las calorías a mostrar (personalizadas o calculadas)"""
+        if self.custom_calories is not None:
+            return self.custom_calories
+        if self.recipe.calories:
+            return int(float(self.recipe.calories) * float(self.servings))
+        return 0
+    
+    def get_display_protein(self):
+        """Obtiene las proteínas a mostrar (personalizadas o calculadas)"""
+        if self.custom_protein is not None:
+            return float(self.custom_protein)
+        if self.recipe.protein:
+            return float(self.recipe.protein) * float(self.servings)
+        return 0.0
+    
+    def get_display_carbs(self):
+        """Obtiene los carbohidratos a mostrar (personalizados o calculados)"""
+        if self.custom_carbs is not None:
+            return float(self.custom_carbs)
+        if self.recipe.carbs:
+            return float(self.recipe.carbs) * float(self.servings)
+        return 0.0
+    
+    def get_display_fat(self):
+        """Obtiene las grasas a mostrar (personalizadas o calculadas)"""
+        if self.custom_fat is not None:
+            return float(self.custom_fat)
+        if self.recipe.fat:
+            return float(self.recipe.fat) * float(self.servings)
+        return 0.0
 
 
 # =============================================================================

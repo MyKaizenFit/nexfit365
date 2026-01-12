@@ -1,6 +1,6 @@
 # nutrition/admin_serializers.py
 from rest_framework import serializers
-from .models import Recipe, NutritionPlan, PlanMeal, Food
+from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, PlanMealRecipe
 
 
 class AdminRecipeSerializer(serializers.ModelSerializer):
@@ -20,9 +20,28 @@ class RecipeMinimalForMealSerializer(serializers.ModelSerializer):
         ]
 
 
+class PlanMealRecipeSerializer(serializers.ModelSerializer):
+    """Serializer para recetas sugeridas con cantidades personalizadas"""
+    recipe = RecipeMinimalForMealSerializer(read_only=True)
+    recipe_id = serializers.PrimaryKeyRelatedField(
+        queryset=Recipe.objects.all(),
+        source='recipe',
+        write_only=True
+    )
+    
+    class Meta:
+        model = PlanMealRecipe
+        fields = [
+            'id', 'recipe', 'recipe_id', 'servings',
+            'custom_calories', 'custom_protein', 'custom_carbs', 'custom_fat',
+            'display_order'
+        ]
+
+
 class AdminPlanMealSerializer(serializers.ModelSerializer):
-    """Serializer de comidas con recetas detalladas"""
+    """Serializer de comidas con recetas detalladas y cantidades personalizadas"""
     suggested_recipes = RecipeMinimalForMealSerializer(many=True, read_only=True)
+    meal_recipes = serializers.SerializerMethodField()
     suggested_recipes_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Recipe.objects.all(),
@@ -37,8 +56,19 @@ class AdminPlanMealSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'meal_type', 'time',
             'calories', 'protein', 'carbs', 'fat',
-            'description', 'order_index', 'suggested_recipes', 'suggested_recipes_ids'
+            'description', 'order_index', 'suggested_recipes', 'suggested_recipes_ids', 'meal_recipes'
         ]
+    
+    def get_meal_recipes(self, obj):
+        """Obtener meal_recipes de forma segura"""
+        try:
+            # Intentar obtener meal_recipes si el modelo PlanMealRecipe existe
+            from nutrition.models import PlanMealRecipe
+            meal_recipes = PlanMealRecipe.objects.filter(meal=obj).select_related('recipe')
+            return PlanMealRecipeSerializer(meal_recipes, many=True).data
+        except Exception:
+            # Si hay algún error (tabla no existe, etc.), retornar lista vacía
+            return []
 
 
 class AdminNutritionPlanSerializer(serializers.ModelSerializer):
