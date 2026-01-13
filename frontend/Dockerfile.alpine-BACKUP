@@ -1,12 +1,9 @@
 # Dockerfile para MyKaizenFit Frontend
-# CAMBIADO DE alpine A slim (Debian) por seguridad
-FROM node:18-slim AS base
+FROM node:18-alpine AS base
 
 # Instalar dependencias solo cuando sea necesario
 FROM base AS deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libc6 \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Instalar dependencias usando npm (lockfile oficial del proyecto)
@@ -65,11 +62,8 @@ RUN npm run build || (echo "Build failed" && exit 1)
 FROM base AS runner
 WORKDIR /app
 
-# Instalar wget y curl para healthchecks
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    wget \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
+# Instalar wget para healthchecks
+RUN apk add --no-cache wget
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
