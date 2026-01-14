@@ -1051,6 +1051,33 @@ export function WorkoutPlanManagement() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <FormLabel>Ordenar por</FormLabel>
+              <Select value={sortColumn} onValueChange={(v) => setSortColumn(v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="role">Categoría</SelectItem>
+                  <SelectItem value="difficulty">Dificultad</SelectItem>
+                  <SelectItem value="duration">Duración</SelectItem>
+                  <SelectItem value="status">Estado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FormLabel>Dirección</FormLabel>
+              <Select value={sortDirection} onValueChange={(v) => setSortDirection(v as "asc" | "desc")}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="asc">Ascendente</SelectItem>
+                  <SelectItem value="desc">Descendente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
