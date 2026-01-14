@@ -43,6 +43,8 @@ class Exercise(TimeStampedModel):
         ('hiit', 'HIIT'),
         ('bodyweight', 'Peso corporal'),
         ('functional', 'Funcional'),
+        ('plyometrics', 'Pliometría'),
+        ('balance', 'Equilibrio'),
     ]
     
     # Información básica

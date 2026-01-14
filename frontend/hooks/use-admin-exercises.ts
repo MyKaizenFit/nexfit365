@@ -49,12 +49,55 @@ export interface CreateExerciseData {
   image_url?: string
 }
 
+export interface CategoryOption {
+  value: string
+  label: string
+}
+
 export const useAdminExercises = () => {
   const { getAuthHeaders } = useAuth()
   const [exercises, setExercises] = useState<Exercise[]>([])
   const [stats, setStats] = useState<ExerciseStats | null>(null)
+  const [categories, setCategories] = useState<CategoryOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // Función para actualizar stats desde un array de ejercicios
+  const updateStatsFromExercises = (exercisesList: Exercise[]) => {
+    const categoryStats: Record<string, number> = {}
+    const muscleGroupStats: Record<string, number> = {}
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    let recentCount = 0
+
+    exercisesList.forEach(exercise => {
+      // Estadísticas por categoría
+      const category = exercise.category || 'Sin categoría'
+      categoryStats[category] = (categoryStats[category] || 0) + 1
+
+      // Estadísticas por grupo muscular
+      if (exercise.muscle_groups && Array.isArray(exercise.muscle_groups)) {
+        exercise.muscle_groups.forEach(mg => {
+          muscleGroupStats[mg] = (muscleGroupStats[mg] || 0) + 1
+        })
+      }
+
+      // Ejercicios recientes
+      if (exercise.created_at) {
+        const createdDate = new Date(exercise.created_at)
+        if (createdDate >= thirtyDaysAgo) {
+          recentCount++
+        }
+      }
+    })
+
+    setStats({
+      total_exercises: exercisesList.length,
+      exercises_by_category: categoryStats,
+      exercises_by_muscle_group: muscleGroupStats,
+      recent_exercises: recentCount
+    })
+  }
 
   const fetchExercises = async () => {
     try {
@@ -62,7 +105,94 @@ export const useAdminExercises = () => {
       setError(null)
 
       let headers = await getAuthHeaders()
-      let response = await fetch(buildApiUrl(`admin/exercises/exercises/?page_size=1000`), {
+      let allExercises: Exercise[] = []
+      let page = 1
+      const pageSize = 10000 // Usar el máximo permitido por el backend
+      let hasMore = true
+
+      console.log('🔄 Iniciando carga de ejercicios...')
+
+      // Cargar todas las páginas automáticamente
+      while (hasMore) {
+        let response = await fetch(
+          buildApiUrl(`admin/exercises/exercises/?page=${page}&page_size=${pageSize}`), 
+          { headers }
+        )
+
+        // Si recibimos 401, intentar refrescar el token
+        if (response.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) return // Ya redirigió al login
+          headers = newHeaders
+          response = await fetch(
+            buildApiUrl(`admin/exercises/exercises/?page=${page}&page_size=${pageSize}`), 
+            { headers }
+          )
+        }
+
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '')
+          console.error('❌ Error en respuesta:', response.status, errorText)
+          throw new Error(`Error ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        
+        // Manejar respuesta paginada o array directo
+        const exercisesData = Array.isArray(data.results) 
+          ? data.results 
+          : (Array.isArray(data) ? data : [])
+
+        if (exercisesData.length > 0) {
+          allExercises = [...allExercises, ...exercisesData]
+          console.log(`📦 Página ${page}: ${exercisesData.length} ejercicios cargados (Total acumulado: ${allExercises.length})`)
+          
+          // Verificar si hay más páginas
+          // Si la respuesta tiene 'next' y no es null/undefined, hay más páginas
+          // También verificar 'count' para saber el total esperado
+          const totalCount = data.count || allExercises.length
+          const hasNext = data.next !== null && data.next !== undefined && data.next !== ''
+          
+          console.log(`📊 Total esperado: ${totalCount}, Cargados: ${allExercises.length}, Next: ${hasNext}`)
+          
+          // Si ya cargamos todos o no hay más páginas, terminar
+          if (!hasNext || allExercises.length >= totalCount) {
+            hasMore = false
+          } else {
+            hasMore = true
+            page++
+          }
+        } else {
+          // No hay más datos
+          hasMore = false
+        }
+      }
+
+      setExercises(allExercises)
+      console.log(`✅ Total ejercicios cargados: ${allExercises.length}`)
+      // Actualizar stats con el conteo real de ejercicios cargados
+      updateStatsFromExercises(allExercises)
+    } catch (err) {
+      console.error('Error fetching exercises:', err)
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      setExercises([])
+      // Resetear stats si falla la carga
+      setStats({
+        total_exercises: 0,
+        exercises_by_category: {},
+        exercises_by_muscle_group: {},
+        recent_exercises: 0
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchCategories = async () => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl(`exercises/categories/`), {
         headers
       })
 
@@ -71,39 +201,45 @@ export const useAdminExercises = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) return // Ya redirigió al login
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/exercises/exercises/?page_size=1000`), {
+        response = await fetch(buildApiUrl(`exercises/categories/`), {
           headers
         })
       }
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '')
-        console.error('❌ Error en respuesta:', response.status, errorText)
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
       const data = await response.json()
-      const exercisesData = data.results || data
-
-      if (Array.isArray(exercisesData)) {
-        setExercises(exercisesData)
-        console.log(`✅ Total ejercicios cargados: ${exercisesData.length}`)
-      } else {
-        console.error('Expected array but got:', typeof exercisesData)
-        setExercises([])
-      }
+      setCategories(data)
     } catch (err) {
-      console.error('Error fetching exercises:', err)
-      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
-      setError(errorMessage)
-      setExercises([])
-    } finally {
-      setLoading(false)
+      console.error('Error fetching categories:', err)
+      // Fallback a categorías por defecto si falla
+      setCategories([
+        { value: 'strength', label: 'Fuerza' },
+        { value: 'cardio', label: 'Cardio' },
+        { value: 'flexibility', label: 'Flexibilidad' },
+        { value: 'hiit', label: 'HIIT' },
+        { value: 'bodyweight', label: 'Peso corporal' },
+        { value: 'functional', label: 'Funcional' },
+        { value: 'plyometrics', label: 'Pliometría' },
+        { value: 'balance', label: 'Equilibrio' },
+      ])
     }
   }
 
-  const fetchStats = async () => {
+  const fetchStats = async (useExercisesCount = false, exercisesList?: Exercise[]) => {
     try {
+      // Si se solicita usar el conteo de ejercicios cargados, calcular stats localmente
+      if (useExercisesCount) {
+        const exercisesToUse = exercisesList || exercises
+        if (exercisesToUse.length > 0) {
+          updateStatsFromExercises(exercisesToUse)
+          return
+        }
+      }
+
+      // Obtener stats del backend
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/exercises/stats/`), {
         headers
@@ -127,13 +263,19 @@ export const useAdminExercises = () => {
       setStats(data)
     } catch (err) {
       console.error('Error fetching exercise stats:', err)
-      // Datos de fallback
-      setStats({
-        total_exercises: exercises.length,
-        exercises_by_category: {},
-        exercises_by_muscle_group: {},
-        recent_exercises: 0
-      })
+      // Si tenemos ejercicios cargados, usar ese conteo como fallback
+      const exercisesToUse = exercisesList || exercises
+      if (exercisesToUse.length > 0) {
+        updateStatsFromExercises(exercisesToUse)
+      } else {
+        // Si no hay ejercicios cargados, usar valores por defecto
+        setStats({
+          total_exercises: 0,
+          exercises_by_category: {},
+          exercises_by_muscle_group: {},
+          recent_exercises: 0
+        })
+      }
     }
   }
 
@@ -166,12 +308,37 @@ export const useAdminExercises = () => {
       }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `Error ${response.status}`)
+        const errorData = await response.json().catch(() => ({}))
+        
+        // Manejar errores de validación de Django REST Framework
+        let errorMessage = errorData.detail || `Error ${response.status}`
+        
+        // Si hay errores de campo específicos, formatearlos
+        if (errorData.category) {
+          const categoryError = Array.isArray(errorData.category) ? errorData.category[0] : errorData.category
+          errorMessage = `Categoría: ${categoryError}`
+        } else if (errorData.name) {
+          const nameError = Array.isArray(errorData.name) ? errorData.name[0] : errorData.name
+          errorMessage = `Nombre: ${nameError}`
+        } else if (typeof errorData === 'object' && Object.keys(errorData).length > 0) {
+          // Si hay múltiples errores, formatearlos
+          const errorMessages = Object.entries(errorData).map(([field, errors]) => {
+            const errorList = Array.isArray(errors) ? errors : [errors]
+            return `${field}: ${errorList.join(', ')}`
+          })
+          errorMessage = errorMessages.join('; ')
+        }
+        
+        throw new Error(errorMessage)
       }
 
       const newExercise = await response.json()
-      setExercises(prev => [...prev, newExercise])
+      setExercises(prev => {
+        const updated = [...prev, newExercise]
+        // Actualizar stats inmediatamente con el nuevo conteo
+        updateStatsFromExercises(updated)
+        return updated
+      })
       return newExercise
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
@@ -214,9 +381,14 @@ export const useAdminExercises = () => {
       }
 
       const updatedExercise = await response.json()
-      setExercises(prev => prev.map(exercise =>
-        exercise.id === exerciseId ? updatedExercise : exercise
-      ))
+      setExercises(prev => {
+        const updated = prev.map(exercise =>
+          exercise.id === exerciseId ? updatedExercise : exercise
+        )
+        // Actualizar stats si es necesario (aunque el conteo no cambia, puede cambiar la categoría)
+        updateStatsFromExercises(updated)
+        return updated
+      })
       return updatedExercise
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
@@ -249,7 +421,12 @@ export const useAdminExercises = () => {
         throw new Error(errorData.detail || `Error ${response.status}`)
       }
 
-      setExercises(prev => prev.filter(exercise => exercise.id !== exerciseId))
+      setExercises(prev => {
+        const updated = prev.filter(exercise => exercise.id !== exerciseId)
+        // Actualizar stats inmediatamente con el nuevo conteo
+        updateStatsFromExercises(updated)
+        return updated
+      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
@@ -290,10 +467,15 @@ export const useAdminExercises = () => {
         throw new Error(errorData.detail || `Error ${response.status}`)
       }
 
-      setExercises(prev => prev.filter(exercise => {
-        const exerciseIdNum = typeof exercise.id === 'string' ? parseInt(exercise.id, 10) : exercise.id
-        return !exerciseIds.includes(exerciseIdNum)
-      }))
+      setExercises(prev => {
+        const updated = prev.filter(exercise => {
+          const exerciseIdNum = typeof exercise.id === 'string' ? parseInt(exercise.id, 10) : exercise.id
+          return !exerciseIds.includes(exerciseIdNum)
+        })
+        // Actualizar stats inmediatamente con el nuevo conteo
+        updateStatsFromExercises(updated)
+        return updated
+      })
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
@@ -302,8 +484,16 @@ export const useAdminExercises = () => {
   }
 
   useEffect(() => {
-    fetchExercises()
-    fetchStats()
+    // Cargar ejercicios primero (que ya actualiza stats), luego categorías
+    // fetchStats ya no es necesario aquí porque fetchExercises actualiza las stats
+    const loadData = async () => {
+      await fetchExercises()
+      await fetchCategories()
+      // También obtener stats del backend para tener datos completos (categorías, grupos musculares, etc.)
+      // Pero el total_exercises ya está actualizado por fetchExercises
+      await fetchStats()
+    }
+    loadData()
   }, [])
 
   const uploadExerciseVideo = async (exerciseId: number | string, videoFile: File): Promise<Exercise> => {
@@ -431,6 +621,8 @@ export const useAdminExercises = () => {
 
       // Refrescar la lista y estadísticas
       await fetchExercises()
+      // Esperar un momento para asegurar que exercises se haya actualizado
+      await new Promise(resolve => setTimeout(resolve, 100))
       await fetchStats()
 
       return result
@@ -443,10 +635,12 @@ export const useAdminExercises = () => {
   return {
     exercises,
     stats,
+    categories,
     loading,
     error,
     fetchExercises,
     fetchStats,
+    fetchCategories,
     createExercise,
     updateExercise,
     deleteExercise,
@@ -454,7 +648,7 @@ export const useAdminExercises = () => {
     bulkCreateExercises,
     uploadExerciseVideo,
     uploadExerciseThumbnail,
-    refetch: () => { fetchExercises(); fetchStats() }
+    refetch: () => { fetchExercises(); fetchStats(); fetchCategories() }
   }
 }
 

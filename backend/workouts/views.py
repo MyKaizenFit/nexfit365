@@ -39,13 +39,10 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def categories(self, request):
         """Lista de categorías disponibles"""
+        from .models import Exercise
         return Response([
-            {'value': 'strength', 'label': 'Fuerza'},
-            {'value': 'cardio', 'label': 'Cardio'},
-            {'value': 'flexibility', 'label': 'Flexibilidad'},
-            {'value': 'hiit', 'label': 'HIIT'},
-            {'value': 'bodyweight', 'label': 'Peso corporal'},
-            {'value': 'functional', 'label': 'Funcional'},
+            {'value': value, 'label': label}
+            for value, label in Exercise.CATEGORY_CHOICES
         ])
     
     @action(detail=False, methods=['get'])
@@ -199,73 +196,74 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         return WorkoutLog.objects.filter(user=self.request.user)
     
     def create(self, request, *args, **kwargs):
-        """Sobrescribir create para manejar mejor los errores"""
-        from django.utils import timezone
-        from django.db import IntegrityError
-        from rest_framework.exceptions import ValidationError
+        """
+        Crear una nueva plantilla de plan de entrenamiento con días y ejercicios anidados
+        """
+        # Hacer una copia mutable de request.data
+        data = request.data.copy()
+        days_data = data.pop('days', [])
         
-        # Log para depuración
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f'📊 Creando workout log - exercises_data recibido: {request.data.get("exercises_data", [])}')
+        # Asegurar que se crea como plantilla
+        data['is_template'] = True
+        data['is_system'] = False
         
-        serializer = self.get_serializer(data=request.data)
+        # Crear el programa base
+        serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
+        program = serializer.save(created_by=request.user)
         
-        # Verificar si ya existe un log completado para este día y workout_day
-        workout_day = serializer.validated_data.get('workout_day')
-        date = serializer.validated_data.get('date', timezone.localdate())
-        
-        if workout_day:
-            existing_log = WorkoutLog.objects.filter(
-                user=request.user,
-                workout_day=workout_day,
-                date=date,
-                completed=True
-            ).first()
+        # Crear los días y ejercicios
+        for day_index, day_data in enumerate(days_data):
+            # Mapear day_name a name si es necesario
+            day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
             
-            if existing_log:
-                return Response(
-                    {'detail': 'Ya has completado este entrenamiento hoy. No puedes realizarlo de nuevo el mismo día.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-        
-        try:
-            # Guardar el log
-            workout_log = serializer.save(user=self.request.user)
+            # Determinar day_of_week basado en day_number
+            day_number = day_data.get('day_number', day_index + 1)
+            day_of_week_map = {
+                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
+                5: 'friday', 6: 'saturday', 7: 'sunday'
+            }
+            day_of_week = day_of_week_map.get(day_number, 'monday')
             
-            # Verificar que exercises_data se guardó correctamente
-            workout_log.refresh_from_db()
-            
-            # Log para depuración
-            logger.info(f'✅ Workout log creado - ID: {workout_log.id}, completed: {workout_log.completed}')
-            logger.info(f'📊 exercises_data guardado: {workout_log.exercises_data}')
-            logger.info(f'📊 Tipo de exercises_data: {type(workout_log.exercises_data)}')
-            logger.info(f'📊 Longitud de exercises_data: {len(workout_log.exercises_data) if isinstance(workout_log.exercises_data, list) else "No es lista"}')
-            
-            # Serializar el log guardado para la respuesta (usar el objeto guardado, no serializer.data)
-            response_data = WorkoutLogSerializer(workout_log).data
-            
-            headers = self.get_success_headers(response_data)
-            return Response(response_data, status=status.HTTP_201_CREATED, headers=headers)
-        except IntegrityError as e:
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.error(f'IntegrityError al crear workout log: {str(e)}')
-            return Response(
-                {'detail': 'Ya existe un registro de entrenamiento para este día.'},
-                status=status.HTTP_400_BAD_REQUEST
+            workout_day = WorkoutDay.objects.create(
+                program=program,
+                name=day_name,
+                day_number=day_number,
+                day_of_week=day_of_week,
+                is_rest_day=day_data.get('is_rest_day', False),
+                duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
+                notes=day_data.get('notes', ''),
+                order_index=day_index
             )
-        except Exception as e:
-            import logging
-            import traceback
-            logger = logging.getLogger(__name__)
-            logger.error(f'Error al crear workout log: {str(e)}')
-            logger.error(f'Traceback: {traceback.format_exc()}')
-            return Response(
-                {'detail': f'Error al crear el log de entrenamiento: {str(e)}'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+            
+            # Crear los ejercicios del día
+            exercises_data = day_data.get('exercises', [])
+            for ex_index, exercise_data in enumerate(exercises_data):
+                # El frontend puede enviar exercise_id o exercise
+                exercise_id = exercise_data.get('exercise_id') or exercise_data.get('exercise')
+                
+                if exercise_id:
+                    try:
+                        exercise = Exercise.objects.get(id=exercise_id, is_active=True)
+                        
+                        WorkoutDayExercise.objects.create(
+                            workout_day=workout_day,
+                            exercise=exercise,
+                            sets=exercise_data.get('sets', 3),
+                            reps=exercise_data.get('reps', '10-12'),
+                            weight=exercise_data.get('weight') or 0,
+                            rest_seconds=exercise_data.get('rest_time') or exercise_data.get('rest_seconds', 60),
+                            duration_seconds=exercise_data.get('duration') or None,
+                            notes=exercise_data.get('notes', ''),
+                            order_index=ex_index
+                        )
+                    except Exercise.DoesNotExist:
+                        # Si el ejercicio no existe, continuar sin agregarlo
+                        continue
+        
+        # Retornar el programa creado con todos sus días y ejercicios
+        response_serializer = self.get_serializer(program)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -447,10 +445,11 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 from django.db import models
 
 
-class WorkoutPlanTemplateViewSet(viewsets.ReadOnlyModelViewSet):
+class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
     """
     ViewSet para plantillas de planes de entrenamiento (admin)
     Usado por el panel de administración
+    Permite crear, leer, actualizar y eliminar plantillas
     """
     serializer_class = WorkoutProgramSerializer
     permission_classes = [IsAuthenticated]
@@ -493,3 +492,86 @@ class WorkoutPlanTemplateViewSet(viewsets.ReadOnlyModelViewSet):
             'page_size': page_size,
             'total_pages': (total + page_size - 1) // page_size,
         })
+    
+    def create(self, request, *args, **kwargs):
+        """
+        Crear una nueva plantilla de plan de entrenamiento con días y ejercicios anidados
+        """
+        # Convertir request.data a dict mutable
+        if hasattr(request.data, 'dict'):
+            data = request.data.dict()
+        else:
+            data = dict(request.data)
+        
+        # Extraer días antes de modificar data
+        days_data = data.pop('days', []) or []
+        
+        # Asegurar que se crea como plantilla
+        data['is_template'] = True
+        data['is_system'] = False
+        
+        # Crear el programa base
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        program = serializer.save(created_by=request.user)
+        
+        # Asegurar que is_template se guardó correctamente
+        program.refresh_from_db()
+        if not program.is_template:
+            program.is_template = True
+            program.is_system = False
+            program.save(update_fields=['is_template', 'is_system'])
+        
+        # Crear los días y ejercicios
+        for day_index, day_data in enumerate(days_data):
+            # Mapear day_name a name si es necesario
+            day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
+            
+            # Determinar day_of_week basado en day_number
+            day_number = day_data.get('day_number', day_index + 1)
+            day_of_week_map = {
+                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
+                5: 'friday', 6: 'saturday', 7: 'sunday'
+            }
+            day_of_week = day_of_week_map.get(day_number, 'monday')
+            
+            workout_day = WorkoutDay.objects.create(
+                program=program,
+                name=day_name,
+                day_number=day_number,
+                day_of_week=day_of_week,
+                is_rest_day=day_data.get('is_rest_day', False),
+                duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
+                notes=day_data.get('notes', ''),
+                order_index=day_index
+            )
+            
+            # Crear los ejercicios del día
+            exercises_data = day_data.get('exercises', [])
+            for ex_index, exercise_data in enumerate(exercises_data):
+                # El frontend puede enviar exercise_id o exercise
+                exercise_id = exercise_data.get('exercise_id') or exercise_data.get('exercise')
+                
+                if exercise_id:
+                    try:
+                        exercise = Exercise.objects.get(id=exercise_id, is_active=True)
+                        
+                        WorkoutDayExercise.objects.create(
+                            workout_day=workout_day,
+                            exercise=exercise,
+                            sets=exercise_data.get('sets', 3),
+                            reps=exercise_data.get('reps', '10-12'),
+                            weight=exercise_data.get('weight') or 0,
+                            rest_seconds=exercise_data.get('rest_time') or exercise_data.get('rest_seconds', 60),
+                            duration_seconds=exercise_data.get('duration') or None,
+                            notes=exercise_data.get('notes', ''),
+                            order_index=ex_index
+                        )
+                    except Exercise.DoesNotExist:
+                        # Si el ejercicio no existe, continuar sin agregarlo
+                        continue
+        
+        # Retornar el programa creado con todos sus días y ejercicios
+        response_serializer = self.get_serializer(program)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+    

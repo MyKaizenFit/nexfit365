@@ -30,6 +30,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         return ExerciseSerializer
     
+    def perform_create(self, serializer):
+        """Guardar el ejercicio con el usuario que lo crea"""
+        serializer.save(created_by=self.request.user)
+    
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Estadísticas de ejercicios"""
