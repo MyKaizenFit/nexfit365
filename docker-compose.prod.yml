@@ -233,9 +233,12 @@ services:
 # Nombres únicos para evitar conflictos con desarrollo
 networks:
   internal:
-    name: nexfit-pro-internal
+    # IMPORTANTE: nombre único para evitar colisiones de alias DNS (db/redis) con otros stacks
+    # Si varios proyectos comparten la misma red, Docker DNS puede resolver "db" a otro contenedor.
+    name: nexfit-pro-internal-prod
     driver: bridge
     internal: true  # Red privada: solo comunicación entre servicios Docker
   web:
-    name: nexfit-pro-web
+    # Nombre único para evitar colisiones con otros despliegues
+    name: nexfit-pro-web-prod
     driver: bridge

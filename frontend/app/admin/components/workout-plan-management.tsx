@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
+import { authenticatedFetch } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -86,9 +87,13 @@ export function WorkoutPlanManagement() {
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
   const [goalFilter, setGoalFilter] = useState<string>("all")
   const [locationFilter, setLocationFilter] = useState<string>("all")
+  const [userFilter, setUserFilter] = useState<string>("all")
+  const [planTypeFilter, setPlanTypeFilter] = useState<string>("all") // all | templates | users
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+
+  const [usersList, setUsersList] = useState<Array<{ id: string; email: string }>>([])
   
   // Ordenamiento (cliente - solo para los 50 planes cargados)
   const [sortColumn, setSortColumn] = useState<string>("name")
@@ -101,8 +106,28 @@ export function WorkoutPlanManagement() {
     difficulty: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
     duration_weeks: 4,
     min_role_required: 'basic' as 'basic' | 'pro' | 'premium' | 'admin',
-    estimated_duration_minutes: 60
+    estimated_duration_minutes: 60,
+    user: '' // opcional: si se setea, se crea/edita como plan de usuario
   })
+
+  // Cargar usuarios para filtros/asignación
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const resp = await authenticatedFetch('admin/users/?page=1&page_size=500')
+        if (!resp.ok) return
+        const data = await resp.json()
+        const results = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        const mapped = results
+          .filter((u: any) => u && (u.id || u.pk) && u.email)
+          .map((u: any) => ({ id: String(u.id || u.pk), email: String(u.email) }))
+        setUsersList(mapped)
+      } catch {
+        // ignore
+      }
+    }
+    loadUsers()
+  }, [])
   
   const [workoutDays, setWorkoutDays] = useState<Array<{
     id: string
@@ -167,8 +192,9 @@ export function WorkoutPlanManagement() {
         bValue = (b.name || '').toLowerCase()
         break
       case 'role':
-        aValue = a.min_role_required || ''
-        bValue = b.min_role_required || ''
+        // Usamos la columna "role" como "Categoría" (Sistema / Plantilla / Usuario)
+        aValue = getPlanCategory(a)
+        bValue = getPlanCategory(b)
         break
       case 'difficulty':
         aValue = a.difficulty || ''
@@ -217,7 +243,12 @@ export function WorkoutPlanManagement() {
       difficulty: difficultyFilter,
       goal: goalFilter,
       min_role_required: roleFilter,
-      location: locationFilter // Este se filtra en cliente
+      location: locationFilter, // Este se filtra en cliente
+      user: userFilter !== 'all' ? userFilter : undefined,
+      is_template:
+        planTypeFilter === 'templates' ? true :
+        planTypeFilter === 'users' ? false :
+        undefined
     }
     
     // Debounce para búsqueda
@@ -230,20 +261,27 @@ export function WorkoutPlanManagement() {
       updateFilters(newFilters)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, roleFilter, difficultyFilter, goalFilter, locationFilter])
+  }, [searchTerm, roleFilter, difficultyFilter, goalFilter, locationFilter, userFilter, planTypeFilter])
 
-  const getRoleBadge = (role: string) => {
-    switch (role) {
-      case "admin":
-        return <Badge className="bg-purple-100 text-purple-800 border-0">Admin</Badge>
-      case "premium":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-0">Premium</Badge>
-      case "pro":
-        return <Badge className="bg-blue-100 text-blue-800 border-0">Pro</Badge>
-      case "basic":
-        return <Badge variant="outline">Básico</Badge>
+  const getPlanCategory = (plan: any) => {
+    if (!plan) return "Desconocido"
+    if (plan.user && !plan.is_template && !plan.is_system) return "Usuario"
+    if (plan.is_system) return "Sistema"
+    if (plan.is_template) return "Plantilla"
+    return "Otro"
+  }
+
+  const getCategoryBadge = (plan: any) => {
+    const category = getPlanCategory(plan)
+    switch (category) {
+      case "Usuario":
+        return <Badge className="bg-teal-100 text-teal-800 border-0">Usuario</Badge>
+      case "Sistema":
+        return <Badge className="bg-purple-100 text-purple-800 border-0">Sistema</Badge>
+      case "Plantilla":
+        return <Badge className="bg-gray-100 text-gray-800 border-0">Plantilla</Badge>
       default:
-        return <Badge variant="outline">{role}</Badge>
+        return <Badge variant="outline">{category}</Badge>
     }
   }
 
@@ -695,7 +733,8 @@ export function WorkoutPlanManagement() {
         difficulty: 'beginner',
         duration_weeks: 4,
         min_role_required: 'basic',
-        estimated_duration_minutes: 60
+        estimated_duration_minutes: 60,
+        user: ''
       })
       setWorkoutDays([{
         id: '1',
@@ -726,7 +765,8 @@ export function WorkoutPlanManagement() {
       difficulty: 'beginner',
       duration_weeks: 4,
       min_role_required: 'basic',
-      estimated_duration_minutes: 60
+      estimated_duration_minutes: 60,
+      user: ''
     })
     setWorkoutDays([{
       id: '1',
@@ -756,7 +796,8 @@ export function WorkoutPlanManagement() {
           difficulty: planDetail.difficulty || 'beginner',
           duration_weeks: planDetail.duration_weeks || 4,
           min_role_required: planDetail.min_role_required || 'basic',
-          estimated_duration_minutes: planDetail.estimated_duration_minutes || 60
+          estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
+          user: planDetail.user ? String(planDetail.user) : ''
         })
         
         // Convertir días del plan al formato del formulario
@@ -806,8 +847,8 @@ export function WorkoutPlanManagement() {
         })
       } else {
         toast({
-          title: "❌ Error",
-          description: "No se pudo cargar el plan",
+          title: "⚠️ Plan no encontrado",
+          description: "El plan no existe o no se guardó correctamente. Se recargó la lista.",
           variant: "destructive",
         })
       }
@@ -981,6 +1022,35 @@ export function WorkoutPlanManagement() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <FormLabel>Tipo</FormLabel>
+              <Select value={planTypeFilter} onValueChange={setPlanTypeFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="templates">Plantillas</SelectItem>
+                  <SelectItem value="users">Planes de usuario</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FormLabel>Usuario</FormLabel>
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {usersList.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1088,6 +1158,7 @@ export function WorkoutPlanManagement() {
                               <div className="font-semibold text-base">
                                 {fixEncoding(plan.name)}
                               </div>
+                              {getCategoryBadge(plan)}
                               {plan.is_default && (
                                 <Badge className="bg-yellow-100 text-yellow-800 border-0 text-xs">
                                   <Star className="h-3 w-3 mr-1" />
@@ -1191,7 +1262,7 @@ export function WorkoutPlanManagement() {
                         </div>
                         
                         <div className="flex flex-wrap items-center gap-2 mb-2">
-                          {getRoleBadge(plan.min_role_required)}
+                          {getCategoryBadge(plan)}
                           {getDifficultyBadge(plan.difficulty)}
                           {plan.is_active ? (
                             <Badge className="bg-green-100 text-green-800 border-0 text-xs">Activo</Badge>
@@ -1242,7 +1313,7 @@ export function WorkoutPlanManagement() {
                       onClick={() => handleSort('role')}
                     >
                       <div className="flex items-center gap-2">
-                        Rol
+                        Categoría
                         {sortColumn === 'role' && (
                           sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
                         )}
@@ -1298,6 +1369,7 @@ export function WorkoutPlanManagement() {
                           <div>
                             <div className="flex items-center gap-2">
                               <div className="font-medium">{fixEncoding(plan.name)}</div>
+                              {getCategoryBadge(plan)}
                               {plan.is_default && (
                                 <Badge className="bg-yellow-100 text-yellow-800 border-0" title="Plan por defecto">
                                   <Star className="h-3 w-3 mr-1" />
@@ -1341,7 +1413,7 @@ export function WorkoutPlanManagement() {
                           </div>
                         </div>
                       </td>
-                      <td className="p-3">{getRoleBadge(plan.min_role_required)}</td>
+                      <td className="p-3">{getCategoryBadge(plan)}</td>
                       <td className="p-3">{getDifficultyBadge(plan.difficulty)}</td>
                       <td className="p-3">
                         <div className="flex items-center text-sm text-muted-foreground">
@@ -1626,7 +1698,7 @@ export function WorkoutPlanManagement() {
               />
             </div>
             
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <FormLabel>Duración (semanas) *</FormLabel>
                 <Input
@@ -1635,6 +1707,22 @@ export function WorkoutPlanManagement() {
                   value={formData.duration_weeks}
                   onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
                 />
+              </div>
+              <div>
+                <FormLabel>Asignar a Usuario (opcional)</FormLabel>
+                <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Plantilla (sin usuario)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
+                    {usersList.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <FormLabel>Rol Mínimo Requerido *</FormLabel>

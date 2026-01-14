@@ -33,3 +33,55 @@ class AdminWorkoutProgramSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkoutProgram
         fields = '__all__'
+
+
+class AdminWorkoutProgramMinimalSerializer(serializers.ModelSerializer):
+    """
+    Serializer minimal para listas en admin.
+    Incluye info del usuario para poder gestionar planes de usuarios.
+    """
+    user_email = serializers.SerializerMethodField()
+    created_by_email = serializers.SerializerMethodField()
+    days_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = WorkoutProgram
+        fields = [
+            "id",
+            "name",
+            "description",
+            "difficulty",
+            "goal",
+            "location",
+            "duration_weeks",
+            "days_per_week",
+            "estimated_duration_minutes",
+            "is_template",
+            "is_system",
+            "is_active",
+            "user",
+            "created_by",
+            "user_email",
+            "created_by_email",
+            "days_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_user_email(self, obj):
+        try:
+            return getattr(obj.user, "email", None)
+        except Exception:
+            return None
+
+    def get_created_by_email(self, obj):
+        try:
+            return getattr(obj.created_by, "email", None)
+        except Exception:
+            return None
+
+    def get_days_count(self, obj):
+        try:
+            return obj.days.count()
+        except Exception:
+            return 0

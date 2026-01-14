@@ -26,6 +26,12 @@ export interface WorkoutPlan {
   estimated_duration_minutes?: number
   is_active: boolean
   is_default: boolean
+  is_template?: boolean
+  is_system?: boolean
+  user?: string | number | null
+  user_email?: string | null
+  created_by?: string | number | null
+  created_by_email?: string | null
   created_at: string
   updated_at: string
   days?: WorkoutDay[]
@@ -75,6 +81,9 @@ export interface WorkoutPlanFilters {
   min_role_required?: string
   is_active?: boolean
   is_public?: boolean
+  user?: string
+  is_template?: boolean
+  is_system?: boolean
 }
 
 export const useAdminWorkoutPlansOptimized = () => {
@@ -106,8 +115,12 @@ export const useAdminWorkoutPlansOptimized = () => {
     }
     if (filters.is_active !== undefined) params.append('is_active', filters.is_active.toString())
     if (filters.is_public !== undefined) params.append('is_public', filters.is_public.toString())
+    if (filters.user && filters.user !== 'all') params.append('user', filters.user)
+    if (filters.is_template !== undefined) params.append('is_template', filters.is_template.toString())
+    if (filters.is_system !== undefined) params.append('is_system', filters.is_system.toString())
     
-    return buildApiUrl(`workout-plan-templates/?${params.toString()}`)
+    // Importante: devolver endpoint RELATIVO para usar authenticatedFetch (que ya aplica buildApiUrl)
+    return `admin/workouts/programs/?${params.toString()}`
   }, [pageSize])
 
   const fetchPlans = useCallback(async (page: number = 1, filters: WorkoutPlanFilters = {}) => {
@@ -115,11 +128,13 @@ export const useAdminWorkoutPlansOptimized = () => {
       setLoading(true)
       setError(null)
       
-      const headers = await getAuthHeaders()
       const url = buildFetchUrl(page, filters)
       
-      console.log('📡 Fetching plans from:', url)
-      const response = await fetch(url, { headers })
+      console.log('📡 Fetching plans from:', buildApiUrl(url))
+      const response = await authenticatedFetch(url, {
+        // Evitar caches HTTP intermedios / navegador (reduce casos de "lista vieja")
+        cache: 'no-store',
+      })
       
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
@@ -152,7 +167,7 @@ export const useAdminWorkoutPlansOptimized = () => {
     } finally {
       setLoading(false)
     }
-  }, [getAuthHeaders, buildFetchUrl])
+  }, [buildFetchUrl])
 
   const fetchExercises = async () => {
     try {
@@ -178,7 +193,7 @@ export const useAdminWorkoutPlansOptimized = () => {
   const fetchStats = async () => {
     try {
       // Obtener total de planes
-      const totalResponse = await authenticatedFetch(`workout-plan-templates/?page_size=1`)
+      const totalResponse = await authenticatedFetch(`admin/workouts/programs/?page_size=1`)
       
       if (!totalResponse.ok) {
         throw new Error(`Error ${totalResponse.status}: ${totalResponse.statusText}`)
@@ -190,7 +205,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       // Obtener planes activos
       let activeCount = 0
       try {
-        const activeResponse = await authenticatedFetch(`workout-plan-templates/?is_active=true&page_size=1`)
+        const activeResponse = await authenticatedFetch(`admin/workouts/programs/?is_active=true&page_size=1`)
         if (activeResponse.ok) {
           const activeData = await activeResponse.json()
           activeCount = activeData.count || 0
@@ -204,7 +219,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       try {
         const sevenDaysAgo = new Date()
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-        const recentResponse = await authenticatedFetch(`workout-plan-templates/?created_after=${sevenDaysAgo.toISOString()}&page_size=1`)
+        const recentResponse = await authenticatedFetch(`admin/workouts/programs/?created_after=${sevenDaysAgo.toISOString()}&page_size=1`)
         if (recentResponse.ok) {
           const recentData = await recentResponse.json()
           recentCount = recentData.count || 0
@@ -219,7 +234,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       
       const difficultyPromises = difficultyLevels.map(async (difficulty) => {
         try {
-          const diffResponse = await authenticatedFetch(`workout-plan-templates/?difficulty=${difficulty}&page_size=1`)
+          const diffResponse = await authenticatedFetch(`admin/workouts/programs/?difficulty=${difficulty}&page_size=1`)
           if (diffResponse.ok) {
             const diffData = await diffResponse.json()
             return { difficulty, count: diffData.count || 0 }
@@ -313,12 +328,16 @@ export const useAdminWorkoutPlansOptimized = () => {
   // Función para obtener el detalle completo de un plan
   const fetchPlanDetail = useCallback(async (planId: string): Promise<WorkoutPlan | null> => {
     try {
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
-        headers
+      const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
+        cache: 'no-store',
       })
       
       if (!response.ok) {
+        // Si el plan ya no existe (o nunca se guardó), forzar refetch para limpiar la lista
+        if (response.status === 404) {
+          fetchPlans(currentPage, filters)
+          return null
+        }
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
       
@@ -329,15 +348,14 @@ export const useAdminWorkoutPlansOptimized = () => {
       console.error('Error fetching plan detail:', err)
       return null
     }
-  }, [getAuthHeaders])
+  }, [fetchPlans, currentPage, filters])
 
   // CRUD operations
   const createPlan = async (planData: any): Promise<WorkoutPlan> => {
-    const headers = await getAuthHeaders()
-    const response = await fetch(buildApiUrl('workout-plan-templates/'), {
+    const response = await authenticatedFetch('admin/workouts/programs/', {
       method: 'POST',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(planData)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData),
     })
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
@@ -357,11 +375,10 @@ export const useAdminWorkoutPlansOptimized = () => {
   }
 
   const updatePlan = async (planId: string, planData: any): Promise<WorkoutPlan> => {
-    const headers = await getAuthHeaders()
-    const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
+    const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
       method: 'PATCH',
-      headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify(planData)
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(planData),
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
     const updatedPlan = await response.json()
@@ -376,10 +393,8 @@ export const useAdminWorkoutPlansOptimized = () => {
   }
 
   const deletePlan = async (planId: string): Promise<void> => {
-    const headers = await getAuthHeaders()
-    const response = await fetch(buildApiUrl(`workout-plan-templates/${planId}/`), {
+    const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
       method: 'DELETE',
-      headers
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
     
