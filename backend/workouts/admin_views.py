@@ -1,7 +1,7 @@
 # workouts/admin_views.py
 # Views de admin simplificados
 
-from rest_framework import viewsets
+from rest_framework import viewsets, filters, status
 from rest_framework.decorators import api_view, permission_classes as perm_classes
 from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
@@ -9,12 +9,15 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta, date
 from django.db.models import Sum, Count, Avg, Q
+from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog
 from .admin_serializers import (
     AdminExerciseSerializer,
     AdminWorkoutProgramSerializer,
-    AdminWorkoutDaySerializer
+    AdminWorkoutDaySerializer,
+    AdminWorkoutProgramMinimalSerializer,
 )
 from .serializers import WorkoutLogSerializer
 
@@ -30,9 +33,148 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
 
 class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     """Admin ViewSet para programas"""
-    queryset = WorkoutProgram.objects.all().prefetch_related('days__exercises')
+    queryset = WorkoutProgram.objects.all().select_related("user", "created_by").prefetch_related('days__exercises__exercise')
     serializer_class = AdminWorkoutProgramSerializer
     permission_classes = [IsAdminUser]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    filterset_fields = ['difficulty', 'goal', 'location', 'is_system', 'is_template', 'is_active', 'user', 'created_by']
+    ordering_fields = ['name', 'created_at', 'updated_at']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdminWorkoutProgramMinimalSerializer
+        return AdminWorkoutProgramSerializer
+
+    def list(self, request, *args, **kwargs):
+        """Lista con paginación compatible con el frontend"""
+        queryset = self.filter_queryset(self.get_queryset())
+
+        page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 50))
+
+        total = queryset.count()
+        start = (page - 1) * page_size
+        end = start + page_size
+
+        queryset = queryset[start:end]
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response({
+            'results': serializer.data,
+            'count': total,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': (total + page_size - 1) // page_size,
+        })
+
+    def _apply_days_payload(self, program: WorkoutProgram, days_data):
+        """
+        Reemplaza días+ejercicios del programa con la estructura enviada por el frontend.
+        Implementación simple: borrar y recrear.
+        """
+        # Borrar días existentes (cascade borra WorkoutDayExercise)
+        program.days.all().delete()
+
+        for day_index, day_data in enumerate(days_data or []):
+            day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
+
+            day_number = day_data.get('day_number', day_index + 1)
+            day_of_week_map = {
+                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
+                5: 'friday', 6: 'saturday', 7: 'sunday'
+            }
+            day_of_week = day_of_week_map.get(day_number, 'monday')
+
+            workout_day = WorkoutDay.objects.create(
+                program=program,
+                name=day_name,
+                day_number=day_number,
+                day_of_week=day_of_week,
+                is_rest_day=day_data.get('is_rest_day', False),
+                duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
+                notes=day_data.get('notes', ''),
+                order_index=day_index
+            )
+
+            exercises_data = day_data.get('exercises', []) or []
+            for ex_index, exercise_data in enumerate(exercises_data):
+                exercise_id = exercise_data.get('exercise_id') or exercise_data.get('exercise')
+                if not exercise_id:
+                    continue
+                try:
+                    exercise = Exercise.objects.get(id=exercise_id, is_active=True)
+                except Exercise.DoesNotExist:
+                    continue
+
+                from .models import WorkoutDayExercise
+                WorkoutDayExercise.objects.create(
+                    workout_day=workout_day,
+                    exercise=exercise,
+                    sets=exercise_data.get('sets', 3),
+                    reps=exercise_data.get('reps', '10-12'),
+                    weight=exercise_data.get('weight') or 0,
+                    rest_seconds=exercise_data.get('rest_time') or exercise_data.get('rest_seconds', 60),
+                    duration_seconds=exercise_data.get('duration') or None,
+                    notes=exercise_data.get('notes', ''),
+                    order_index=ex_index
+                )
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        """
+        Crear un programa (plantilla o plan de usuario) con días y ejercicios anidados.
+        - Si viene `user`/`user_id` => plan de usuario (is_template=False, is_system=False)
+        - Si no viene user => por defecto se crea como plantilla (is_template=True, is_system=False)
+        """
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        days_data = data.pop('days', []) or []
+
+        user_id = data.get('user_id') or data.get('user')
+        if user_id:
+            data['user'] = user_id
+            data['is_template'] = False
+            data['is_system'] = False
+        else:
+            # default admin behavior: create as template unless explicitly set
+            data.setdefault('is_template', True)
+            data.setdefault('is_system', False)
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        program: WorkoutProgram = serializer.save(created_by=request.user)
+
+        self._apply_days_payload(program, days_data)
+
+        response_serializer = AdminWorkoutProgramSerializer(program)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        """
+        Actualizar un programa. Si se envía `days`, reemplaza días+ejercicios.
+        """
+        partial = kwargs.pop('partial', False)
+        instance: WorkoutProgram = self.get_object()
+
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        days_data = data.pop('days', None)  # None => no tocar días
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        program: WorkoutProgram = serializer.save()
+
+        if days_data is not None:
+            self._apply_days_payload(program, days_data)
+
+        response_serializer = AdminWorkoutProgramSerializer(program)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
+
+    def partial_update(self, request, *args, **kwargs):
+        kwargs['partial'] = True
+        return self.update(request, *args, **kwargs)
 
 
 class AdminWorkoutDayViewSet(viewsets.ModelViewSet):
