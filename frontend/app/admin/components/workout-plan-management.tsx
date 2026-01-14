@@ -135,6 +135,11 @@ export function WorkoutPlanManagement() {
   // Estado para el selector múltiple de ejercicios
   const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{[dayId: string]: string[]}>({})
   const [showExerciseSelector, setShowExerciseSelector] = useState<{[dayId: string]: boolean}>({})
+  
+  // Estados para búsqueda y filtros de ejercicios
+  const [exerciseSearchTerm, setExerciseSearchTerm] = useState<{[dayId: string]: string}>({})
+  const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<{[dayId: string]: string}>({})
+  const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState<{[dayId: string]: string}>({})
 
   // Aplicar filtros del servidor y ordenamiento local - asegurar que plans sea un array
   const plansArray = Array.isArray(plans) ? plans : []
@@ -519,6 +524,71 @@ export function WorkoutPlanManagement() {
       ...prev,
       [dayId]: false
     }))
+  }
+
+  // Función para filtrar ejercicios según búsqueda y filtros
+  const getFilteredExercises = (dayId: string) => {
+    const exercisesArray = Array.isArray(exercises) ? exercises : []
+    const searchTerm = (exerciseSearchTerm[dayId] || '').toLowerCase().trim()
+    const categoryFilter = exerciseCategoryFilter[dayId] || 'all'
+    const muscleFilter = exerciseMuscleFilter[dayId] || 'all'
+
+    return exercisesArray.filter((exercise) => {
+      if (!exercise) return false
+
+      // Filtro por nombre (aplicar fixEncoding para comparación)
+      if (searchTerm) {
+        const exerciseName = fixEncoding(exercise.name || '').toLowerCase()
+        if (!exerciseName.includes(searchTerm)) {
+          return false
+        }
+      }
+
+      // Filtro por categoría
+      if (categoryFilter !== 'all' && exercise.category !== categoryFilter) {
+        return false
+      }
+
+      // Filtro por músculos (aplicar fixEncoding para comparación)
+      if (muscleFilter !== 'all') {
+        const muscleGroups = Array.isArray(exercise.muscle_groups) ? exercise.muscle_groups : []
+        const hasMuscle = muscleGroups.some(muscle => {
+          const fixedMuscle = fixEncoding(muscle || '')
+          return fixedMuscle.toLowerCase().includes(muscleFilter.toLowerCase())
+        })
+        if (!hasMuscle) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }
+
+  // Obtener categorías únicas de ejercicios
+  const getUniqueCategories = () => {
+    const exercisesArray = Array.isArray(exercises) ? exercises : []
+    const categories = new Set<string>()
+    exercisesArray.forEach(ex => {
+      if (ex?.category) {
+        categories.add(ex.category)
+      }
+    })
+    return Array.from(categories).sort()
+  }
+
+  // Obtener músculos únicos de ejercicios
+  const getUniqueMuscles = () => {
+    const exercisesArray = Array.isArray(exercises) ? exercises : []
+    const muscles = new Set<string>()
+    exercisesArray.forEach(ex => {
+      if (Array.isArray(ex?.muscle_groups)) {
+        ex.muscle_groups.forEach(muscle => {
+          if (muscle) muscles.add(muscle)
+        })
+      }
+    })
+    return Array.from(muscles).sort()
   }
 
   // Funciones para reordenar días
@@ -1701,9 +1771,88 @@ export function WorkoutPlanManagement() {
                                       </div>
                                     </div>
 
+                                    {/* Búsqueda y Filtros */}
+                                    <div className="space-y-3">
+                                      {/* Buscador por nombre */}
+                                      <div className="relative">
+                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                        <Input
+                                          placeholder="Buscar ejercicio por nombre..."
+                                          value={exerciseSearchTerm[day.id] || ''}
+                                          onChange={(e) => setExerciseSearchTerm(prev => ({
+                                            ...prev,
+                                            [day.id]: e.target.value
+                                          }))}
+                                          className="pl-9"
+                                        />
+                                      </div>
+
+                                      {/* Filtros */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                        {/* Filtro por categoría */}
+                                        <Select
+                                          value={exerciseCategoryFilter[day.id] || 'all'}
+                                          onValueChange={(value) => setExerciseCategoryFilter(prev => ({
+                                            ...prev,
+                                            [day.id]: value
+                                          }))}
+                                        >
+                                          <SelectTrigger className="h-9">
+                                            <SelectValue placeholder="Filtrar por categoría" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="all">Todas las categorías</SelectItem>
+                                            {getUniqueCategories().map(category => (
+                                              <SelectItem key={category} value={category}>
+                                                {fixEncoding(category)}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+
+                                        {/* Filtro por músculo */}
+                                        <Select
+                                          value={exerciseMuscleFilter[day.id] || 'all'}
+                                          onValueChange={(value) => setExerciseMuscleFilter(prev => ({
+                                            ...prev,
+                                            [day.id]: value
+                                          }))}
+                                        >
+                                          <SelectTrigger className="h-9">
+                                            <SelectValue placeholder="Filtrar por músculo" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="all">Todos los músculos</SelectItem>
+                                            {getUniqueMuscles().map(muscle => (
+                                              <SelectItem key={muscle} value={muscle}>
+                                                {fixEncoding(muscle)}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+
+                                      {/* Botón para limpiar filtros */}
+                                      {(exerciseSearchTerm[day.id] || exerciseCategoryFilter[day.id] !== 'all' || exerciseMuscleFilter[day.id] !== 'all') && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          onClick={() => {
+                                            setExerciseSearchTerm(prev => ({ ...prev, [day.id]: '' }))
+                                            setExerciseCategoryFilter(prev => ({ ...prev, [day.id]: 'all' }))
+                                            setExerciseMuscleFilter(prev => ({ ...prev, [day.id]: 'all' }))
+                                          }}
+                                          className="w-full text-xs"
+                                        >
+                                          <Filter className="h-3 w-3 mr-1" />
+                                          Limpiar filtros
+                                        </Button>
+                                      )}
+                                    </div>
+
                                     {/* Lista de ejercicios con checkboxes */}
                                     <div className="max-h-60 overflow-y-auto space-y-2">
-                                      {Array.isArray(exercises) ? exercises.map((exercise) => {
+                                      {getFilteredExercises(day.id).map((exercise) => {
                                         if (!exercise) return null
                                         const exerciseIdStr = String(exercise.id)
                                         const isSelected = Array.isArray(selectedExercisesForDay[day.id]) && selectedExercisesForDay[day.id].includes(exerciseIdStr)
@@ -1727,9 +1876,9 @@ export function WorkoutPlanManagement() {
                                               disabled={alreadyInDay}
                                             />
                                             <div className="flex-1">
-                                              <div className="font-medium text-sm">{exercise.name}</div>
+                                              <div className="font-medium text-sm">{fixEncoding(exercise.name)}</div>
                                               <div className="text-xs text-muted-foreground">
-                                                {exercise.category} • {exercise.muscle_groups?.join(', ')}
+                                                {fixEncoding(exercise.category)} • {exercise.muscle_groups?.map(m => fixEncoding(m)).join(', ')}
                                               </div>
                                             </div>
                                             {alreadyInDay && (
@@ -1739,8 +1888,15 @@ export function WorkoutPlanManagement() {
                                             )}
                                           </div>
                                         )
-                                      }) : null}
+                                      })}
                                     </div>
+
+                                    {/* Mensaje si no hay resultados */}
+                                    {getFilteredExercises(day.id).length === 0 && (
+                                      <div className="text-center py-4 text-sm text-muted-foreground">
+                                        No se encontraron ejercicios con los filtros aplicados
+                                      </div>
+                                    )}
 
                                     {/* Botones de acción */}
                                     <div className="flex gap-2 pt-2 border-t">

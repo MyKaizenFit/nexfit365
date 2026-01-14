@@ -48,6 +48,7 @@ export function ExerciseManagement() {
   const {
     exercises,
     stats,
+    categories,
     loading,
     error,
     createExercise,
@@ -392,19 +393,19 @@ export function ExerciseManagement() {
       </div>
 
       {/* Estadísticas */}
-      {stats && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Ejercicios</CardTitle>
-              <Dumbbell className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total_exercises}</div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Ejercicios</CardTitle>
+            <Dumbbell className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats?.total_exercises ?? exercisesArray.length}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filtros */}
       <Card>
@@ -944,11 +945,25 @@ export function ExerciseManagement() {
                     <SelectValue placeholder="Seleccionar categoría" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="strength">Fuerza</SelectItem>
-                    <SelectItem value="cardio">Cardio</SelectItem>
-                    <SelectItem value="flexibility">Flexibilidad</SelectItem>
-                    <SelectItem value="balance">Equilibrio</SelectItem>
-                    <SelectItem value="plyometrics">Pliometría</SelectItem>
+                    {categories.length > 0 ? (
+                      categories.map((cat) => (
+                        <SelectItem key={cat.value} value={cat.value}>
+                          {cat.label}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      // Fallback mientras cargan las categorías
+                      <>
+                        <SelectItem value="strength">Fuerza</SelectItem>
+                        <SelectItem value="cardio">Cardio</SelectItem>
+                        <SelectItem value="flexibility">Flexibilidad</SelectItem>
+                        <SelectItem value="hiit">HIIT</SelectItem>
+                        <SelectItem value="bodyweight">Peso corporal</SelectItem>
+                        <SelectItem value="functional">Funcional</SelectItem>
+                        <SelectItem value="plyometrics">Pliometría</SelectItem>
+                        <SelectItem value="balance">Equilibrio</SelectItem>
+                      </>
+                    )}
                   </SelectContent>
                 </Select>
               </div>

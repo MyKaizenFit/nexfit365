@@ -1,4 +1,4 @@
-import { buildApiUrl } from '@/lib/api'
+import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 // hooks/use-admin-workout-plans-optimized.ts - Versión optimizada con paginación del servidor
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
@@ -177,12 +177,8 @@ export const useAdminWorkoutPlansOptimized = () => {
 
   const fetchStats = async () => {
     try {
-      const headers = await getAuthHeaders()
-      
       // Obtener total de planes
-      const totalResponse = await fetch(buildApiUrl(`workout-plan-templates/?page_size=1`), {
-        headers
-      })
+      const totalResponse = await authenticatedFetch(`workout-plan-templates/?page_size=1`)
       
       if (!totalResponse.ok) {
         throw new Error(`Error ${totalResponse.status}: ${totalResponse.statusText}`)
@@ -192,70 +188,67 @@ export const useAdminWorkoutPlansOptimized = () => {
       const totalCount = totalData.count || 0
       
       // Obtener planes activos
-      const activeResponse = await fetch(buildApiUrl(`workout-plan-templates/?is_active=true&page_size=1`), {
-        headers
-      })
-      
       let activeCount = 0
-      if (activeResponse.ok) {
-        const activeData = await activeResponse.json()
-        activeCount = activeData.count || 0
+      try {
+        const activeResponse = await authenticatedFetch(`workout-plan-templates/?is_active=true&page_size=1`)
+        if (activeResponse.ok) {
+          const activeData = await activeResponse.json()
+          activeCount = activeData.count || 0
+        }
+      } catch (err) {
+        console.warn('Error fetching active plans:', err)
       }
       
       // Obtener planes recientes (últimos 7 días)
-      const sevenDaysAgo = new Date()
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      const recentResponse = await fetch(buildApiUrl(`workout-plan-templates/?created_after=${sevenDaysAgo.toISOString()}&page_size=1`), {
-        headers
-      })
-      
       let recentCount = 0
-      if (recentResponse.ok) {
-        const recentData = await recentResponse.json()
-        recentCount = recentData.count || 0
+      try {
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        const recentResponse = await authenticatedFetch(`workout-plan-templates/?created_after=${sevenDaysAgo.toISOString()}&page_size=1`)
+        if (recentResponse.ok) {
+          const recentData = await recentResponse.json()
+          recentCount = recentData.count || 0
+        }
+      } catch (err) {
+        console.warn('Error fetching recent plans:', err)
       }
       
-      // Obtener planes por dificultad
+      // Obtener planes por dificultad - hacer en paralelo con mejor manejo de errores
       const programsByDifficulty: Record<string, number> = {}
       const difficultyLevels = ['beginner', 'intermediate', 'advanced']
       
-      for (const difficulty of difficultyLevels) {
+      const difficultyPromises = difficultyLevels.map(async (difficulty) => {
         try {
-          const diffResponse = await fetch(buildApiUrl(`workout-plan-templates/?difficulty=${difficulty}&page_size=1`), {
-            headers
-          })
+          const diffResponse = await authenticatedFetch(`workout-plan-templates/?difficulty=${difficulty}&page_size=1`)
           if (diffResponse.ok) {
             const diffData = await diffResponse.json()
-            programsByDifficulty[difficulty] = diffData.count || 0
+            return { difficulty, count: diffData.count || 0 }
           }
+          return { difficulty, count: 0 }
         } catch (err) {
-          console.error(`Error fetching plans for difficulty ${difficulty}:`, err)
+          console.warn(`Error fetching plans for difficulty ${difficulty}:`, err)
+          return { difficulty, count: 0 }
         }
-      }
+      })
       
-      // Obtener planes por rol
+      const difficultyResults = await Promise.allSettled(difficultyPromises)
+      difficultyResults.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          programsByDifficulty[result.value.difficulty] = result.value.count
+        }
+      })
+      
+      // Obtener planes por rol - calcular desde los planes cargados
+      // Nota: min_role_required no existe en el modelo, así que calculamos desde los planes
       const programsByRole: Record<string, number> = {}
-      const roles = ['basic', 'pro', 'premium']
-      
-      for (const role of roles) {
-        try {
-          const roleResponse = await fetch(buildApiUrl(`workout-plan-templates/?min_role_required=${role}&page_size=1`), {
-            headers
-          })
-          if (roleResponse.ok) {
-            const roleData = await roleResponse.json()
-            programsByRole[role] = roleData.count || 0
-          }
-        } catch (err) {
-          console.error(`Error fetching plans for role ${role}:`, err)
-        }
-      }
+      // Como no hay campo min_role_required, dejamos esto vacío o calculamos desde otra fuente
+      // Por ahora, lo dejamos vacío ya que el campo no existe en el modelo
       
       const stats: WorkoutPlanStats = {
         total_programs: totalCount,
         active_programs: activeCount,
         programs_by_difficulty: programsByDifficulty,
-        programs_by_role: programsByRole,
+        programs_by_role: programsByRole, // Vacío ya que el campo no existe
         recent_programs: recentCount
       }
       
@@ -279,18 +272,14 @@ export const useAdminWorkoutPlansOptimized = () => {
         }
       })
       
+      // min_role_required no existe en el modelo, así que dejamos esto vacío
       const programsByRole: Record<string, number> = {}
-      plans.forEach(plan => {
-        if (plan.min_role_required) {
-          programsByRole[plan.min_role_required] = (programsByRole[plan.min_role_required] || 0) + 1
-        }
-      })
       
       setStats({
         total_programs: totalCount,
         active_programs: activePlans,
         programs_by_difficulty: programsByDifficulty,
-        programs_by_role: programsByRole,
+        programs_by_role: programsByRole, // Vacío ya que el campo no existe
         recent_programs: recentPlans
       })
     }
@@ -350,9 +339,20 @@ export const useAdminWorkoutPlansOptimized = () => {
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(planData)
     })
-    if (!response.ok) throw new Error(`Error ${response.status}`)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || errorData.message || `Error ${response.status}`)
+    }
     const newPlan = await response.json()
-    fetchPlans(currentPage, filters)
+    
+    // Recargar desde la página 1 para asegurar que el nuevo plan aparezca
+    // y actualizar las estadísticas inmediatamente
+    setCurrentPage(1)
+    await Promise.all([
+      fetchPlans(1, filters),
+      fetchStats()
+    ])
+    
     return newPlan
   }
 
@@ -365,7 +365,13 @@ export const useAdminWorkoutPlansOptimized = () => {
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
     const updatedPlan = await response.json()
-    fetchPlans(currentPage, filters)
+    
+    // Actualizar lista y estadísticas
+    await Promise.all([
+      fetchPlans(currentPage, filters),
+      fetchStats()
+    ])
+    
     return updatedPlan
   }
 
@@ -376,7 +382,12 @@ export const useAdminWorkoutPlansOptimized = () => {
       headers
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
-    fetchPlans(currentPage, filters)
+    
+    // Actualizar lista y estadísticas
+    await Promise.all([
+      fetchPlans(currentPage, filters),
+      fetchStats()
+    ])
   }
 
   const togglePlanActive = async (planId: string): Promise<void> => {
