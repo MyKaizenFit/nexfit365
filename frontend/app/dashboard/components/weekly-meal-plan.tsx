@@ -59,8 +59,29 @@ export function WeeklyMealPlan() {
   const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string; plan_meal_id?: string | null; meal_name?: string; meal_time?: string | null } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
-  const [slotsByDate, setSlotsByDate] = useState<Record<string, any[]>>({})
-  const [optionsByDateAndMealId, setOptionsByDateAndMealId] = useState<Record<string, Record<string, any[]>>>({})
+  // Cache simple de opciones por fecha + tipo (para evitar refetch al abrir/cerrar)
+  const [optionsByDateAndType, setOptionsByDateAndType] = useState<Record<string, Record<string, any[]>>>({})
+
+  const getSlotIcon = (mealType: string) => {
+    switch (mealType) {
+      case 'breakfast': return '🌅'
+      case 'morning_snack': return '☕'
+      case 'lunch': return '🍽️'
+      case 'afternoon_snack': return '🍎'
+      case 'dinner': return '🌙'
+      default: return '🍽️'
+    }
+  }
+
+  const resolveRecipeId = (option: any): string | undefined => {
+    // Preferir SIEMPRE recipeId (es el ID real de Recipe en backend)
+    if (option?.recipeId) return String(option.recipeId)
+    // Fallback: si option.id viene como "recipe-<uuid>", extraer el uuid
+    if (typeof option?.id === 'string' && option.id.startsWith('recipe-')) return option.id.replace(/^recipe-/, '')
+    // Último fallback: usar id tal cual
+    if (option?.id) return String(option.id)
+    return undefined
+  }
 
   // Generar días de la semana
   const getWeekDays = useCallback(() => {
@@ -105,10 +126,9 @@ export function WeeklyMealPlan() {
     setSelectedMeal({ date, meal_type: slot.meal_type, plan_meal_id: slot.id || null, meal_name: slot.name, meal_time: slot.time })
     
     try {
-      const dateOptions = optionsByDateAndMealId[date] || {}
-      const byMealId = slot.id ? dateOptions[String(slot.id)] : null
-      if (Array.isArray(byMealId) && byMealId.length > 0) {
-        setMealOptions(byMealId)
+      const cachedByType = optionsByDateAndType[date]?.[slot.meal_type]
+      if (Array.isArray(cachedByType) && cachedByType.length > 0) {
+        setMealOptions(cachedByType)
         setIsModalOpen(true)
         return
       }
@@ -120,9 +140,15 @@ export function WeeklyMealPlan() {
       )
       if (!response.ok) return
       const data = await response.json()
-      const optsById = data.options_by_meal_id || {}
-      const options = slot.id ? (optsById[String(slot.id)] || []) : (data.meals_by_type?.[slot.meal_type] || [])
+      const options = data.meals_by_type?.[slot.meal_type] || []
       setMealOptions(options)
+      setOptionsByDateAndType((prev) => ({
+        ...prev,
+        [date]: {
+          ...(prev[date] || {}),
+          [slot.meal_type]: options,
+        },
+      }))
       setIsModalOpen(true)
     } catch (error) {
       console.error('Error cargando opciones:', error)
@@ -140,11 +166,12 @@ export function WeeklyMealPlan() {
 
     setSaving(true)
     try {
+      const recipeId = resolveRecipeId(option)
       const selections = [{
         date: selectedMeal.date,
         meal_type: selectedMeal.meal_type,
         plan_meal_id: selectedMeal.plan_meal_id || undefined,
-        recipe_id: option.id || option.recipeId,
+        recipe_id: recipeId,
         calories: option.calories || 0,
         protein: option.protein || 0,
         carbs: option.carbs || 0,
@@ -196,7 +223,7 @@ export function WeeklyMealPlan() {
         date: dateStr,
         meal_type: slot.meal_type,
         plan_meal_id: (selection as any).plan_meal_id || slot.id,
-        recipe_id: selection.recipe?.id || selection.recipe_id,
+        recipe_id: selection.recipe?.id || (selection as any).recipe_id,
         calories: selection.recipe?.calories || selection.calories || 0,
         protein: selection.recipe?.protein || selection.protein || 0,
         carbs: selection.recipe?.carbs || selection.carbs || 0,
@@ -348,29 +375,7 @@ export function WeeklyMealPlan() {
     return selection || null
   }
 
-  // Cargar slots/opciones por cada día de la semana
   const weekDays = getWeekDays()
-  useEffect(() => {
-    const loadSlots = async () => {
-      try {
-        const nextSlots: Record<string, any[]> = {}
-        const nextOptions: Record<string, Record<string, any[]>> = {}
-        await Promise.all(weekDays.map(async (day) => {
-          const dateStr = format(day, 'yyyy-MM-dd')
-          const res = await authenticatedFetch(`nutrition/plan-meals-for-selection/?date=${dateStr}`, { method: 'GET' })
-          if (!res.ok) return
-          const data = await res.json()
-          nextSlots[dateStr] = Array.isArray(data.meal_slots) ? data.meal_slots : []
-          nextOptions[dateStr] = data.options_by_meal_id || {}
-        }))
-        setSlotsByDate(nextSlots)
-        setOptionsByDateAndMealId(nextOptions)
-      } catch (e) {
-        console.warn('No se pudieron cargar slots semanales:', e)
-      }
-    }
-    loadSlots()
-  }, [currentWeekStart])
 
   // Obtener el nombre de la comida con mejor manejo de casos
   const getMealName = (selection: WeeklyMealSelection | null): string => {
@@ -403,12 +408,8 @@ export function WeeklyMealPlan() {
     return `${mealTypeName} - Seleccionada`
   }
 
-  const slotsForDay = useCallback((dateStr: string) => {
-    const slots = slotsByDate[dateStr]
-    if (Array.isArray(slots) && slots.length > 0) {
-      return slots.slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
-    }
-    // fallback a los 5 tipos estándar
+  // Siempre usar slots estándar (rápido). Las opciones se cargan on-demand al abrir el modal.
+  const slotsForDay = useCallback((_dateStr: string) => {
     return FALLBACK_MEAL_TYPES.map((m) => ({
       id: undefined,
       name: m.name,
@@ -416,7 +417,7 @@ export function WeeklyMealPlan() {
       time: m.time,
       icon: m.icon,
     }))
-  }, [slotsByDate])
+  }, [])
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -510,7 +511,7 @@ export function WeeklyMealPlan() {
                           <div className="flex flex-col gap-1.5 w-full text-left">
                             {/* Header: Icono, nombre de comida y hora */}
                             <div className="flex items-center gap-2">
-                              <span className="text-base flex-shrink-0">{slot.icon || "🍽️"}</span>
+                              <span className="text-base flex-shrink-0">{slot.icon || getSlotIcon(slot.meal_type)}</span>
                               <div className="flex-1 min-w-0">
                                 <div className="font-medium text-xs leading-tight">{slot.name || slot.meal_type}</div>
                                 {!hasSelection && (
