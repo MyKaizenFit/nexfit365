@@ -119,6 +119,7 @@ export function MenuPlanManagementV2() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
   const [createStep, setCreateStep] = useState<"basic" | "week">("basic")
+  const [autoComputeMacros, setAutoComputeMacros] = useState(true)
 
   // Editor semanal (reutiliza NutritionTemplatePlanEditor)
   const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
@@ -164,6 +165,7 @@ export function MenuPlanManagementV2() {
     setShowRecipeSelector(false)
     setRecipeSearch("")
     setTargetMealIndex(null)
+    setAutoComputeMacros(true)
   }, [])
 
   const openCreate = () => {
@@ -257,15 +259,27 @@ export function MenuPlanManagementV2() {
     try {
       setSaving(true)
       const userId = form.user_id === "none" ? null : Number(form.user_id)
-      const mealsPayload = draftMeals.map((m) => ({
+      const shouldAuto = autoComputeMacros && computedPlanAverages.calories > 0
+      const derivedDailyCalories = shouldAuto ? Math.round(computedPlanAverages.calories) : (Number(form.daily_calories) || 0)
+      const derivedPercents = shouldAuto
+        ? {
+            protein: Math.round(computedPlanAverages.proteinPct || 0),
+            carbs: Math.round(computedPlanAverages.carbsPct || 0),
+            fat: Math.round(computedPlanAverages.fatPct || 0),
+          }
+        : { protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 }
+
+      const mealsPayload = draftMeals.map((m) => {
+        const computed = autoComputeMacros ? computeMealAverages(m) : null
+        return {
         day_of_week: m.day_of_week,
         name: m.name,
         meal_type: m.meal_type,
         time: m.time,
-        calories: toNumber(m.calories),
-        protein: toNumber(m.protein),
-        carbs: toNumber(m.carbs),
-        fat: toNumber(m.fat),
+        calories: computed ? Math.round(toNumber(computed.calories)) : toNumber(m.calories),
+        protein: computed ? Math.round(toNumber(computed.protein)) : toNumber(m.protein),
+        carbs: computed ? Math.round(toNumber(computed.carbs)) : toNumber(m.carbs),
+        fat: computed ? Math.round(toNumber(computed.fat)) : toNumber(m.fat),
         description: m.description || "",
         order_index: toNumber(m.order_index, 1),
         suggested_recipes_ids: m.meal_recipes.map((r) => r.recipe_id),
@@ -278,12 +292,13 @@ export function MenuPlanManagementV2() {
           custom_fat: r.custom_fat,
           display_order: r.display_order ?? 0,
         })),
-      }))
+        }
+      })
       const created = await createPlan({
         name: form.name.trim(),
         description: form.description || "",
-        daily_calories: Number(form.daily_calories) || 0,
-        percents: { protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 },
+        daily_calories: derivedDailyCalories,
+        percents: derivedPercents,
         user_id: userId,
         meals: mealsPayload,
       })
@@ -531,6 +546,92 @@ export function MenuPlanManagementV2() {
     for (const r of availableRecipes) map.set(String(r.id), r)
     return map
   }, [availableRecipes])
+
+  const computeRecipeMacros = useCallback((recipe: AdminRecipe | undefined | null, option?: MealRecipeOption) => {
+    if (!recipe) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    const servings = option?.servings != null ? toNumber(option.servings, 1) : 1
+    const calories = option?.custom_calories != null ? toNumber(option.custom_calories) : toNumber(recipe.calories) * servings
+    const protein = option?.custom_protein != null ? toNumber(option.custom_protein) : toNumber(recipe.protein) * servings
+    const carbs = option?.custom_carbs != null ? toNumber(option.custom_carbs) : toNumber(recipe.carbs) * servings
+    const fat = option?.custom_fat != null ? toNumber(option.custom_fat) : toNumber(recipe.fat) * servings
+    return { calories, protein, carbs, fat }
+  }, [])
+
+  const computeMealAverages = useCallback((meal: PlanMealDraft) => {
+    const opts = Array.isArray(meal.meal_recipes) ? meal.meal_recipes : []
+    const used = opts
+      .map((o) => ({ o, r: recipesById.get(String(o.recipe_id)) }))
+      .filter((x) => x.r)
+      .map((x) => computeRecipeMacros(x.r!, x.o))
+    if (used.length === 0) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    const sum = used.reduce(
+      (acc, m) => ({
+        calories: acc.calories + m.calories,
+        protein: acc.protein + m.protein,
+        carbs: acc.carbs + m.carbs,
+        fat: acc.fat + m.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+    return {
+      calories: sum.calories / used.length,
+      protein: sum.protein / used.length,
+      carbs: sum.carbs / used.length,
+      fat: sum.fat / used.length,
+    }
+  }, [computeRecipeMacros, recipesById])
+
+  const computeDayTotals = useCallback((day: number) => {
+    const meals = draftMeals.filter((m) => m.day_of_week === day)
+    const totals = meals.reduce(
+      (acc, m) => {
+        const base = autoComputeMacros ? computeMealAverages(m) : { calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat }
+        return {
+          calories: acc.calories + toNumber(base.calories),
+          protein: acc.protein + toNumber(base.protein),
+          carbs: acc.carbs + toNumber(base.carbs),
+          fat: acc.fat + toNumber(base.fat),
+        }
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+    return totals
+  }, [autoComputeMacros, computeMealAverages, draftMeals])
+
+  const computedPlanAverages = useMemo(() => {
+    // Promedio diario sobre los días que tengan al menos 1 comida
+    const dayTotals = (["1", "2", "3", "4", "5", "6", "7"] as DayKey[])
+      .map((d) => Number(d))
+      .map((day) => ({ day, t: computeDayTotals(day) }))
+      .filter((x) => (x.t.calories + x.t.protein + x.t.carbs + x.t.fat) > 0)
+
+    if (dayTotals.length === 0) {
+      return { calories: 0, protein: 0, carbs: 0, fat: 0, proteinPct: 0, carbsPct: 0, fatPct: 0 }
+    }
+
+    const sum = dayTotals.reduce(
+      (acc, x) => ({
+        calories: acc.calories + x.t.calories,
+        protein: acc.protein + x.t.protein,
+        carbs: acc.carbs + x.t.carbs,
+        fat: acc.fat + x.t.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+    const avg = {
+      calories: sum.calories / dayTotals.length,
+      protein: sum.protein / dayTotals.length,
+      carbs: sum.carbs / dayTotals.length,
+      fat: sum.fat / dayTotals.length,
+    }
+
+    const macroCalories = (avg.protein * 4) + (avg.carbs * 4) + (avg.fat * 9)
+    const totalCalories = macroCalories > 0 ? macroCalories : avg.calories
+    const proteinPct = totalCalories > 0 ? (avg.protein * 4 / totalCalories) * 100 : 0
+    const carbsPct = totalCalories > 0 ? (avg.carbs * 4 / totalCalories) * 100 : 0
+    const fatPct = totalCalories > 0 ? (avg.fat * 9 / totalCalories) * 100 : 0
+    return { ...avg, proteinPct, carbsPct, fatPct }
+  }, [computeDayTotals])
 
   const filteredRecipes = useMemo(() => {
     const q = recipeSearch.trim().toLowerCase()
@@ -939,6 +1040,18 @@ export function MenuPlanManagementV2() {
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4">
+                <Card className="border-dashed">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-medium">Cálculo automático de macros</div>
+                      <Checkbox checked={autoComputeMacros} onCheckedChange={(v) => setAutoComputeMacros(Boolean(v))} />
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Si está activado, la media diaria de kcal/macros se calcula usando las recetas seleccionadas en la semana (media de opciones por comida).
+                    </div>
+                  </CardContent>
+                </Card>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Nombre</label>
@@ -946,7 +1059,12 @@ export function MenuPlanManagementV2() {
                   </div>
                   <div>
                     <label className="text-sm font-medium">Calorías diarias</label>
-                    <Input type="number" value={form.daily_calories} onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })} />
+                    <Input
+                      type="number"
+                      value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.calories) : form.daily_calories}
+                      onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })}
+                      disabled={autoComputeMacros && computedPlanAverages.calories > 0}
+                    />
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
@@ -965,10 +1083,39 @@ export function MenuPlanManagementV2() {
                   <div className="md:col-span-2">
                     <div className="text-sm font-medium mb-2">Macros (%)</div>
                     <div className="grid grid-cols-3 gap-3">
-                      <div><Input type="number" value={form.protein} onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Proteína</div></div>
-                      <div><Input type="number" value={form.carbs} onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Carbos</div></div>
-                      <div><Input type="number" value={form.fat} onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Grasas</div></div>
+                      <div>
+                        <Input
+                          type="number"
+                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.proteinPct) : form.protein}
+                          onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })}
+                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">Proteína</div>
+                      </div>
+                      <div>
+                        <Input
+                          type="number"
+                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.carbsPct) : form.carbs}
+                          onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })}
+                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">Carbos</div>
+                      </div>
+                      <div>
+                        <Input
+                          type="number"
+                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.fatPct) : form.fat}
+                          onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })}
+                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
+                        />
+                        <div className="text-xs text-gray-500 mt-1">Grasas</div>
+                      </div>
                     </div>
+                    {autoComputeMacros && computedPlanAverages.calories > 0 && (
+                      <div className="text-xs text-muted-foreground mt-2">
+                        Media diaria estimada: {Math.round(computedPlanAverages.calories)} kcal · P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -983,6 +1130,25 @@ export function MenuPlanManagementV2() {
                 <div className="text-sm text-muted-foreground">
                   Configura la semana completa: añade comidas por día y selecciona varias recetas como opciones por cada comida (igual que en entrenos con ejercicios).
                 </div>
+
+                {autoComputeMacros && (
+                  <Card>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Media diaria (calculada)</CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-sm text-muted-foreground">
+                      {computedPlanAverages.calories > 0 ? (
+                        <div>
+                          <div><b>{Math.round(computedPlanAverages.calories)} kcal</b></div>
+                          <div>P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g</div>
+                          <div className="text-xs mt-1">P {Math.round(computedPlanAverages.proteinPct)}% · C {Math.round(computedPlanAverages.carbsPct)}% · G {Math.round(computedPlanAverages.fatPct)}%</div>
+                        </div>
+                      ) : (
+                        <div>Añade recetas a la semana para calcular la media diaria.</div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
 
                 <Tabs value={draftActiveDay} onValueChange={(v) => setDraftActiveDay(v as DayKey)}>
                   <TabsList className="grid grid-cols-7">
@@ -1010,6 +1176,7 @@ export function MenuPlanManagementV2() {
                   <div className="space-y-3">
                     {draftMealsForDay.map((meal) => {
                       const draftIndex = draftMeals.findIndex((m) => m === meal)
+                      const computed = autoComputeMacros ? computeMealAverages(meal) : null
                       const recipeOptions = meal.meal_recipes
                         .slice()
                         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -1065,6 +1232,12 @@ export function MenuPlanManagementV2() {
                                 <Input type="number" className="h-9" value={meal.fat} onChange={(e) => updateDraftMeal(draftIndex, { fat: toNumber(e.target.value) })} />
                               </div>
                             </div>
+
+                            {autoComputeMacros && computed && meal.meal_recipes.length > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Calculado (media de opciones): {Math.round(computed.calories)} kcal · P {Math.round(computed.protein)} · C {Math.round(computed.carbs)} · G {Math.round(computed.fat)}
+                              </div>
+                            )}
 
                             <div className="space-y-1">
                               <FormLabel className="text-xs">Notas / descripción</FormLabel>
