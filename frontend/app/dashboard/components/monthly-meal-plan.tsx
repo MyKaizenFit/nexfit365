@@ -135,10 +135,11 @@ export function MonthlyMealPlan() {
 
     setSaving(true)
     try {
+      const recipeId = option?.recipeId ? String(option.recipeId) : (typeof option?.id === 'string' && option.id.startsWith('recipe-') ? option.id.replace(/^recipe-/, '') : (option?.id ? String(option.id) : undefined))
       const selections = [{
         date: selectedMeal.date,
         meal_type: selectedMeal.meal_type,
-        recipe_id: option.id || option.recipeId,
+        recipe_id: recipeId,
         calories: option.calories || 0,
         protein: option.protein || 0,
         carbs: option.carbs || 0,
