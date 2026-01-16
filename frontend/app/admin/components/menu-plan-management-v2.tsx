@@ -722,8 +722,8 @@ export function MenuPlanManagementV2() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="p-4">
-          <div className="grid gap-4 md:grid-cols-6">
+        <CardContent className="p-5 md:p-4">
+          <div className="grid gap-5 md:gap-4 md:grid-cols-6">
             <div className="md:col-span-2">
               <FormLabel>Buscar</FormLabel>
               <div className="relative">
@@ -773,16 +773,16 @@ export function MenuPlanManagementV2() {
       {selectedPlans.length > 0 && (
         <Card className="border-purple-200 bg-purple-50">
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm font-medium">{selectedPlans.length} plan(es) seleccionado(s)</span>
-              <div className="flex gap-2">
-                <Button size="sm" onClick={() => handleBulkToggleActive(true)} disabled={isBulkLoading} className="bg-green-500 hover:bg-green-600 text-white">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button onClick={() => handleBulkToggleActive(true)} disabled={isBulkLoading} className="h-11 bg-green-500 hover:bg-green-600 text-white">
                   <CheckCircle className="h-3 w-3 mr-1" /> Activar
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => handleBulkToggleActive(false)} disabled={isBulkLoading}>
+                <Button variant="outline" onClick={() => handleBulkToggleActive(false)} disabled={isBulkLoading} className="h-11">
                   <XCircle className="h-3 w-3 mr-1" /> Desactivar
                 </Button>
-                <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isBulkLoading}>
+                <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkLoading} className="h-11">
                   <Trash2 className="h-3 w-3 mr-1" /> Eliminar
                 </Button>
               </div>
@@ -816,7 +816,7 @@ export function MenuPlanManagementV2() {
           </CardHeader>
           <CardContent className="p-0">
             {/* Mobile */}
-            <div className="md:hidden space-y-3 p-3">
+            <div className="md:hidden space-y-4 p-4">
               <div className="flex items-center justify-between pb-2 border-b">
                 <div className="flex items-center gap-2">
                   <Checkbox
@@ -835,7 +835,7 @@ export function MenuPlanManagementV2() {
                     selectedPlans.includes(p.id) ? "border-purple-500 bg-purple-50/50" : "border-gray-200 hover:border-purple-300 hover:shadow-md"
                   }`}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-5">
                     <div className="flex items-start gap-3">
                       <Checkbox checked={selectedPlans.includes(p.id)} onCheckedChange={(v) => handleSelectPlan(p.id, Boolean(v))} className="mt-1" />
                       <div className="flex-1 min-w-0">
@@ -854,7 +854,7 @@ export function MenuPlanManagementV2() {
                           </div>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                              <Button variant="ghost" size="icon" className="h-10 w-10 flex-shrink-0">
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -1027,7 +1027,7 @@ export function MenuPlanManagementV2() {
           setShowCreateDialog(open)
         }}
       >
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPlanId ? "Editar Plan de Menús" : "Crear Plan de Menús"}</DialogTitle>
             <DialogDescription>{editingPlanId ? "Modifica el plan y, si quieres, abre el editor semanal." : "Crea una plantilla o un plan asignado a usuario."}</DialogDescription>
@@ -1151,16 +1151,16 @@ export function MenuPlanManagementV2() {
                 )}
 
                 <Tabs value={draftActiveDay} onValueChange={(v) => setDraftActiveDay(v as DayKey)}>
-                  <TabsList className="grid grid-cols-7">
+                  <TabsList className="flex w-full gap-2 overflow-x-auto justify-start">
                     {(["1","2","3","4","5","6","7"] as DayKey[]).map((d) => (
-                      <TabsTrigger key={d} value={d} className="text-xs">{DAY_LABELS[d].slice(0,3)}</TabsTrigger>
+                      <TabsTrigger key={d} value={d} className="shrink-0 px-3 py-2 text-sm">{DAY_LABELS[d].slice(0,3)}</TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="text-sm font-medium">{DAY_LABELS[draftActiveDay]}</div>
-                  <Button size="sm" variant="outline" onClick={addDraftMeal}>
+                  <Button variant="outline" onClick={addDraftMeal} className="h-11">
                     <Plus className="h-4 w-4 mr-1" />
                     Añadir comida
                   </Button>
@@ -1193,12 +1193,12 @@ export function MenuPlanManagementV2() {
                               </Button>
                             </div>
                           </CardHeader>
-                          <CardContent className="space-y-3">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Tipo</FormLabel>
                                 <Select value={meal.meal_type} onValueChange={(v) => updateDraftMeal(draftIndex, { meal_type: v })}>
-                                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                                  <SelectTrigger className="h-11 text-sm"><SelectValue /></SelectTrigger>
                                   <SelectContent>
                                     {MEAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
                                   </SelectContent>
@@ -1206,30 +1206,30 @@ export function MenuPlanManagementV2() {
                               </div>
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Nombre</FormLabel>
-                                <Input className="h-9" value={meal.name} onChange={(e) => updateDraftMeal(draftIndex, { name: e.target.value })} />
+                                <Input className="h-11" value={meal.name} onChange={(e) => updateDraftMeal(draftIndex, { name: e.target.value })} />
                               </div>
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Hora</FormLabel>
-                                <Input className="h-9" value={meal.time} onChange={(e) => updateDraftMeal(draftIndex, { time: e.target.value })} placeholder="08:00" />
+                                <Input className="h-11" value={meal.time} onChange={(e) => updateDraftMeal(draftIndex, { time: e.target.value })} placeholder="08:00" />
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Kcal</FormLabel>
-                                <Input type="number" className="h-9" value={meal.calories} onChange={(e) => updateDraftMeal(draftIndex, { calories: toNumber(e.target.value) })} />
+                                <Input type="number" className="h-11" value={meal.calories} onChange={(e) => updateDraftMeal(draftIndex, { calories: toNumber(e.target.value) })} />
                               </div>
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Proteína (g)</FormLabel>
-                                <Input type="number" className="h-9" value={meal.protein} onChange={(e) => updateDraftMeal(draftIndex, { protein: toNumber(e.target.value) })} />
+                                <Input type="number" className="h-11" value={meal.protein} onChange={(e) => updateDraftMeal(draftIndex, { protein: toNumber(e.target.value) })} />
                               </div>
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Carbos (g)</FormLabel>
-                                <Input type="number" className="h-9" value={meal.carbs} onChange={(e) => updateDraftMeal(draftIndex, { carbs: toNumber(e.target.value) })} />
+                                <Input type="number" className="h-11" value={meal.carbs} onChange={(e) => updateDraftMeal(draftIndex, { carbs: toNumber(e.target.value) })} />
                               </div>
                               <div className="space-y-1">
                                 <FormLabel className="text-xs">Grasas (g)</FormLabel>
-                                <Input type="number" className="h-9" value={meal.fat} onChange={(e) => updateDraftMeal(draftIndex, { fat: toNumber(e.target.value) })} />
+                                <Input type="number" className="h-11" value={meal.fat} onChange={(e) => updateDraftMeal(draftIndex, { fat: toNumber(e.target.value) })} />
                               </div>
                             </div>
 
@@ -1241,13 +1241,13 @@ export function MenuPlanManagementV2() {
 
                             <div className="space-y-1">
                               <FormLabel className="text-xs">Notas / descripción</FormLabel>
-                              <Input className="h-9" value={meal.description} onChange={(e) => updateDraftMeal(draftIndex, { description: e.target.value })} placeholder="Opcional..." />
+                              <Input className="h-11" value={meal.description} onChange={(e) => updateDraftMeal(draftIndex, { description: e.target.value })} placeholder="Opcional..." />
                             </div>
 
                             <div className="space-y-2">
                               <div className="flex items-center justify-between">
                                 <FormLabel className="text-xs">Opciones de receta (puedes añadir varias)</FormLabel>
-                                <Button size="sm" variant="outline" onClick={() => openRecipePickerForDraftMeal(draftIndex)}>
+                                <Button variant="outline" onClick={() => openRecipePickerForDraftMeal(draftIndex)} className="h-11">
                                   <Plus className="h-4 w-4 mr-1" /> Añadir receta
                                 </Button>
                               </div>
@@ -1255,9 +1255,9 @@ export function MenuPlanManagementV2() {
                               {meal.meal_recipes.length === 0 ? (
                                 <div className="text-sm text-muted-foreground">Sin recetas seleccionadas.</div>
                               ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                   {recipeOptions.map((r) => (
-                                    <div key={r.id} className="border rounded-md p-2 flex items-center justify-between gap-2">
+                                    <div key={r.id} className="border rounded-md p-3 flex items-center justify-between gap-3">
                                       <div className="min-w-0">
                                         <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
                                         <div className="text-xs text-muted-foreground">
@@ -1279,9 +1279,9 @@ export function MenuPlanManagementV2() {
                   </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <Button variant="outline" onClick={() => setCreateStep("basic")}>← Volver</Button>
-                  <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim()}>
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <Button variant="outline" onClick={() => setCreateStep("basic")} className="h-11">← Volver</Button>
+                  <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim()} className="h-11">
                     {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear con semana"}
                   </Button>
                 </div>
