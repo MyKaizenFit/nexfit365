@@ -1151,9 +1151,12 @@ export function MenuPlanManagementV2() {
                 )}
 
                 <Tabs value={draftActiveDay} onValueChange={(v) => setDraftActiveDay(v as DayKey)}>
-                  <TabsList className="flex w-full gap-2 overflow-x-auto justify-start">
+                  {/* En móvil: 2 filas (sin scroll horizontal). En desktop: 7 columnas. */}
+                  <TabsList className="grid grid-cols-4 sm:grid-cols-7 gap-2 h-auto">
                     {(["1","2","3","4","5","6","7"] as DayKey[]).map((d) => (
-                      <TabsTrigger key={d} value={d} className="shrink-0 px-3 py-2 text-sm">{DAY_LABELS[d].slice(0,3)}</TabsTrigger>
+                      <TabsTrigger key={d} value={d} className="px-3 py-2 text-sm">
+                        {DAY_LABELS[d].slice(0,3)}
+                      </TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
