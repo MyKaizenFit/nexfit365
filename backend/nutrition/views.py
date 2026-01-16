@@ -249,16 +249,19 @@ def plan_meals_for_selection(request):
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
         
-        return Response({
-            'meals_by_type': meals_by_type,
-            'meal_slots': meal_slots,
-            'options_by_meal_id': options_by_meal_id,
-            'plan_name': user_plan.name,
-            'source': 'user_plan',
-            'date': date_for_slots.isoformat(),
-            'daily_calories_target': daily_calories,
-            'daily_macros': daily_macros
-        })
+        # Si el usuario tiene plan pero no hay comidas configuradas para ese día,
+        # NO devolver vacío: continuar con plantillas del sistema / fallback por recetas.
+        if meal_slots:
+            return Response({
+                'meals_by_type': meals_by_type,
+                'meal_slots': meal_slots,
+                'options_by_meal_id': options_by_meal_id,
+                'plan_name': user_plan.name,
+                'source': 'user_plan',
+                'date': date_for_slots.isoformat(),
+                'daily_calories_target': daily_calories,
+                'daily_macros': daily_macros
+            })
     
     # Si no tiene plan, devolver comidas de plantillas del sistema
     system_plans = NutritionPlan.objects.filter(
@@ -317,13 +320,103 @@ def plan_meals_for_selection(request):
                 'order_index': meal.order_index,
             })
             options_by_meal_id[str(meal.id)] = meal_options
-    
+
+    # Si tampoco hay comidas en las plantillas del sistema, hacer fallback usando recetas activas.
+    if not meal_slots and not meals_by_type:
+        requested_meal_type = request.query_params.get('meal_type')
+        fallback_types = [requested_meal_type] if requested_meal_type else [
+            'breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'
+        ]
+
+        # Horarios sugeridos (para el frontend)
+        fallback_time = {
+            'breakfast': '08:00:00',
+            'morning_snack': '10:30:00',
+            'lunch': '13:00:00',
+            'afternoon_snack': '16:00:00',
+            'dinner': '20:00:00',
+        }
+        fallback_name = {
+            'breakfast': 'Desayuno',
+            'morning_snack': 'Snack Mañana',
+            'lunch': 'Almuerzo',
+            'afternoon_snack': 'Snack Tarde',
+            'dinner': 'Cena',
+        }
+        fallback_icon = {
+            'breakfast': '🌅',
+            'morning_snack': '☕',
+            'lunch': '🍽️',
+            'afternoon_snack': '🍎',
+            'dinner': '🌙',
+        }
+
+        # Traer recetas activas. Priorizamos las del sistema si existen; si no, usamos todas.
+        recipes_qs = Recipe.objects.filter(is_active=True)
+        system_count = recipes_qs.filter(is_system=True).count()
+        if system_count > 0:
+            recipes_qs = recipes_qs.filter(is_system=True)
+
+        for mt in fallback_types:
+            if not mt:
+                continue
+
+            meals_by_type[mt] = []
+
+            # Filtrar recetas por tipo de comida:
+            # - si existe JSON meal_types y contiene mt
+            # - o si la categoría coincide (snack para morning/afternoon snack)
+            category = 'snack' if mt in ('morning_snack', 'afternoon_snack', 'evening_snack') else mt
+            candidates = recipes_qs.filter(
+                Q(meal_types__contains=[mt]) |
+                Q(meal_types=[]) |
+                Q(category=category)
+            ).order_by('-is_featured', 'name')[:12]
+
+            for recipe in candidates:
+                personalized = personalize_recipe(recipe, mt, None)
+                meals_by_type[mt].append({
+                    'id': f"recipe-{recipe.id}",
+                    'name': recipe.name,
+                    'calories': personalized['calories'],
+                    'protein': personalized['protein'],
+                    'carbs': personalized['carbs'],
+                    'fat': personalized['fat'],
+                    'category': 'balanced',
+                    'icon': fallback_icon.get(mt, '🍽️'),
+                    'description': recipe.description or '',
+                    'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                    'recipeId': recipe.id
+                })
+
+            meal_slots.append({
+                'id': None,
+                'day_of_week': None,
+                'name': fallback_name.get(mt, mt),
+                'meal_type': mt,
+                'time': fallback_time.get(mt),
+                'description': '',
+                'order_index': fallback_types.index(mt) + 1,
+            })
+
+        return Response({
+            'meals_by_type': meals_by_type,
+            'meal_slots': meal_slots,
+            'options_by_meal_id': {},
+            'plan_name': None,
+            'source': 'recipes_fallback',
+            'date': date_for_slots.isoformat(),
+            'daily_calories_target': daily_calories,
+            'daily_macros': daily_macros
+        })
+
     return Response({
         'meals_by_type': meals_by_type,
         'meal_slots': meal_slots,
         'options_by_meal_id': options_by_meal_id,
         'plan_name': None,
         'source': 'system_templates',
+        'date': date_for_slots.isoformat(),
         'daily_calories_target': daily_calories,
         'daily_macros': daily_macros
     })
