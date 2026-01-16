@@ -89,6 +89,17 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument("--dry-run", action="store_true", help="Do not write to DB; only print what would change.")
         parser.add_argument("--force", action="store_true", help="Overwrite meals even if the plan already has some.")
+        parser.add_argument(
+            "--ensure-full-day",
+            action="store_true",
+            help="Ensure each day has a full set of meals (default 5). Adds missing meals without deleting existing ones.",
+        )
+        parser.add_argument(
+            "--target-meals-per-day",
+            type=int,
+            default=5,
+            help="When using --ensure-full-day, how many meals per day to guarantee (max 5 with current templates). Default: 5.",
+        )
         parser.add_argument("--limit", type=int, default=10, help="Max number of plans to seed (default: 10).")
         parser.add_argument(
             "--include-user-plans",
@@ -116,6 +127,8 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         dry_run: bool = options["dry_run"]
         force: bool = options["force"]
+        ensure_full_day: bool = options["ensure_full_day"]
+        target_meals_per_day: int = max(1, min(int(options["target_meals_per_day"] or 5), len(DEFAULT_MEAL_TEMPLATES)))
         limit: int = options["limit"]
         include_user_plans: bool = options["include_user_plans"]
         plan_ids: list[str] = options["plan_ids"] or []
@@ -138,7 +151,7 @@ class Command(BaseCommand):
             if not include_user_plans:
                 plans_qs = plans_qs.filter(user__isnull=True)
             # Por seguridad, sólo los que no tienen comidas, salvo --force
-            if not force:
+            if not force and not ensure_full_day:
                 plans_qs = plans_qs.filter(meals_count=0)
 
         plans = list(plans_qs.order_by("-created_at")[:limit])
@@ -161,6 +174,8 @@ class Command(BaseCommand):
                     options_per_meal=options_per_meal,
                     dry_run=dry_run,
                     force=force,
+                    ensure_full_day=ensure_full_day,
+                    target_meals_per_day=target_meals_per_day,
                     update_plan_macros=update_plan_macros,
                 )
                 seeded += 1
@@ -181,10 +196,12 @@ class Command(BaseCommand):
         options_per_meal: int,
         dry_run: bool,
         force: bool,
+        ensure_full_day: bool,
+        target_meals_per_day: int,
         update_plan_macros: bool,
     ):
         existing_meals = plan.meals.count()
-        if existing_meals > 0 and not force:
+        if existing_meals > 0 and not force and not ensure_full_day:
             self.stdout.write(self.style.WARNING(f"⏭️  {plan.name}: ya tiene {existing_meals} comidas; omitido (usa --force)."))
             return
 
@@ -198,25 +215,48 @@ class Command(BaseCommand):
             plan.meals.all().delete()
 
         # Pick templates based on meals_per_day (cap to defaults)
-        templates = DEFAULT_MEAL_TEMPLATES[: max(1, min(int(plan.meals_per_day or 5), len(DEFAULT_MEAL_TEMPLATES)))]
+        if ensure_full_day:
+            templates = DEFAULT_MEAL_TEMPLATES[:target_meals_per_day]
+        else:
+            templates = DEFAULT_MEAL_TEMPLATES[: max(1, min(int(plan.meals_per_day or 5), len(DEFAULT_MEAL_TEMPLATES)))]
 
         day_totals = []
         for day in DAY_KEYS:
             meals_for_day = []
             for t in templates:
-                meal = PlanMeal.objects.create(
-                    plan=plan,
-                    day_of_week=day,
-                    name=f"{t.name} ({day})",
-                    meal_type=t.meal_type,
-                    time=t.time,
-                    calories=0,
-                    protein=0,
-                    carbs=0,
-                    fat=0,
-                    description="",
-                    order_index=t.order_index,
-                )
+                if ensure_full_day and not force:
+                    meal = PlanMeal.objects.filter(plan=plan, day_of_week=day, meal_type=t.meal_type).first()
+                else:
+                    meal = None
+
+                if meal is None:
+                    meal = PlanMeal.objects.create(
+                        plan=plan,
+                        day_of_week=day,
+                        name=f"{t.name} ({day})",
+                        meal_type=t.meal_type,
+                        time=t.time,
+                        calories=0,
+                        protein=0,
+                        carbs=0,
+                        fat=0,
+                        description="",
+                        order_index=t.order_index,
+                    )
+                else:
+                    # Ensure order/time are sane
+                    changed = False
+                    if meal.order_index != t.order_index:
+                        meal.order_index = t.order_index
+                        changed = True
+                    if meal.time and str(meal.time) != t.time:
+                        # keep existing manual time; do not override unless empty
+                        pass
+                    if not meal.time:
+                        meal.time = t.time
+                        changed = True
+                    if changed:
+                        meal.save(update_fields=["order_index", "time"])
 
                 cats = MEALTYPE_TO_RECIPE_CATEGORIES.get(t.meal_type, ["lunch"])
                 suitable = recipes_qs.filter(Q(category__in=cats) | Q(meal_types__overlap=cats))
@@ -230,19 +270,22 @@ class Command(BaseCommand):
                     candidates = list(recipes_qs[:500])
                 picked = rnd.sample(candidates, k=min(options_per_meal, len(candidates)))
 
-                # suggested_recipes M2M
-                meal.suggested_recipes.set(picked)
+                # If ensure_full_day: only seed options when missing (idempotent)
+                has_options = PlanMealRecipe.objects.filter(meal=meal).exists() or meal.suggested_recipes.exists()
+                if force or (not ensure_full_day) or (ensure_full_day and not has_options):
+                    meal.suggested_recipes.set(picked)
+                    PlanMealRecipe.objects.filter(meal=meal).delete()
+                    for idx, r in enumerate(picked):
+                        PlanMealRecipe.objects.create(
+                            meal=meal,
+                            recipe=r,
+                            servings=1.0,
+                            display_order=idx,
+                        )
 
-                # PlanMealRecipe options + average macros for the meal
-                for idx, r in enumerate(picked):
-                    PlanMealRecipe.objects.create(
-                        meal=meal,
-                        recipe=r,
-                        servings=1.0,
-                        display_order=idx,
-                    )
-
-                avg = _avg_macros(picked)
+                # Always recompute meal macros based on assigned options
+                recipes_for_avg = list(meal.suggested_recipes.all())
+                avg = _avg_macros(recipes_for_avg)
                 meal.calories = int(round(avg["calories"]))
                 meal.protein = round(Decimal(str(avg["protein"])), 2)
                 meal.carbs = round(Decimal(str(avg["carbs"])), 2)
