@@ -11,12 +11,77 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
+import { buildApiUrl } from "@/lib/api"
+import { handle401AndRefresh } from "@/lib/fetch-with-auth"
+
+type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
+
+interface AdminRecipe {
+  id: string
+  name: string
+  category?: string
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
+}
+
+interface MealRecipeOption {
+  recipe_id: string
+  display_order: number
+  servings?: number
+  custom_calories?: number
+  custom_protein?: number
+  custom_carbs?: number
+  custom_fat?: number
+}
+
+interface PlanMealDraft {
+  day_of_week: number
+  name: string
+  meal_type: string
+  time: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  description: string
+  order_index: number
+  meal_recipes: MealRecipeOption[]
+}
+
+const DAY_LABELS: Record<DayKey, string> = {
+  "1": "Lunes",
+  "2": "Martes",
+  "3": "Miércoles",
+  "4": "Jueves",
+  "5": "Viernes",
+  "6": "Sábado",
+  "7": "Domingo",
+}
+
+const MEAL_TYPES: Array<{ value: string; label: string }> = [
+  { value: "breakfast", label: "Desayuno" },
+  { value: "morning_snack", label: "Snack Mañana" },
+  { value: "lunch", label: "Almuerzo" },
+  { value: "afternoon_snack", label: "Snack Tarde" },
+  { value: "dinner", label: "Cena" },
+  { value: "evening_snack", label: "Snack Noche" },
+  { value: "pre_workout", label: "Pre-Entreno" },
+  { value: "post_workout", label: "Post-Entreno" },
+]
+
+function toNumber(value: unknown, fallback = 0) {
+  const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN
+  return Number.isFinite(n) ? n : fallback
+}
 
 function getCategory(plan: { is_system: boolean; user_id?: number | null; is_template: boolean }) {
   if (plan.user_id) return "Usuario"
@@ -53,11 +118,19 @@ export function MenuPlanManagementV2() {
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [createStep, setCreateStep] = useState<"basic" | "week">("basic")
 
   // Editor semanal (reutiliza NutritionTemplatePlanEditor)
   const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
   const [weeklyPlanId, setWeeklyPlanId] = useState<string | null>(null)
-  const [availableRecipes, setAvailableRecipes] = useState<any[]>([])
+  const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
+
+  // Draft del constructor semanal (tipo planes de entrenamiento)
+  const [draftActiveDay, setDraftActiveDay] = useState<DayKey>("1")
+  const [draftMeals, setDraftMeals] = useState<PlanMealDraft[]>([])
+  const [showRecipeSelector, setShowRecipeSelector] = useState(false)
+  const [recipeSearch, setRecipeSearch] = useState("")
+  const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
 
   // Duplicar a usuario
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
@@ -85,6 +158,12 @@ export function MenuPlanManagementV2() {
       fat: 30,
       user_id: "none",
     })
+    setCreateStep("basic")
+    setDraftActiveDay("1")
+    setDraftMeals([])
+    setShowRecipeSelector(false)
+    setRecipeSearch("")
+    setTargetMealIndex(null)
   }, [])
 
   const openCreate = () => {
@@ -95,9 +174,14 @@ export function MenuPlanManagementV2() {
 
   const loadRecipes = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
-      const res = await fetch(`/api/proxy/admin/nutrition/recipes/?page_size=500`, { headers })
-      // Nota: en prod hay reverse-proxy en frontend; si falla, el editor igual funciona sin lista (solo sugiere vacío).
+      let headers = await getAuthHeaders()
+      let res = await fetch(buildApiUrl("admin/nutrition/recipes/?page_size=500"), { headers })
+      if (res.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (!newHeaders) return
+        headers = newHeaders
+        res = await fetch(buildApiUrl("admin/nutrition/recipes/?page_size=500"), { headers })
+      }
       if (!res.ok) return
       const data = await res.json()
       const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
@@ -173,12 +257,35 @@ export function MenuPlanManagementV2() {
     try {
       setSaving(true)
       const userId = form.user_id === "none" ? null : Number(form.user_id)
+      const mealsPayload = draftMeals.map((m) => ({
+        day_of_week: m.day_of_week,
+        name: m.name,
+        meal_type: m.meal_type,
+        time: m.time,
+        calories: toNumber(m.calories),
+        protein: toNumber(m.protein),
+        carbs: toNumber(m.carbs),
+        fat: toNumber(m.fat),
+        description: m.description || "",
+        order_index: toNumber(m.order_index, 1),
+        suggested_recipes_ids: m.meal_recipes.map((r) => r.recipe_id),
+        meal_recipes: m.meal_recipes.map((r) => ({
+          recipe_id: r.recipe_id,
+          servings: r.servings ?? 1,
+          custom_calories: r.custom_calories,
+          custom_protein: r.custom_protein,
+          custom_carbs: r.custom_carbs,
+          custom_fat: r.custom_fat,
+          display_order: r.display_order ?? 0,
+        })),
+      }))
       const created = await createPlan({
         name: form.name.trim(),
         description: form.description || "",
         daily_calories: Number(form.daily_calories) || 0,
         percents: { protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 },
         user_id: userId,
+        meals: mealsPayload,
       })
       toast({ title: "✅ Plan creado", description: configureWeekly ? "Ahora configura el menú semanal." : "Creado correctamente." })
       setShowCreateDialog(false)
@@ -374,6 +481,87 @@ export function MenuPlanManagementV2() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const draftMealsForDay = useMemo(() => {
+    const dayNum = Number(draftActiveDay)
+    return draftMeals.filter((m) => m.day_of_week === dayNum).sort((a, b) => a.order_index - b.order_index)
+  }, [draftMeals, draftActiveDay])
+
+  const addDraftMeal = () => {
+    const dayNum = Number(draftActiveDay)
+    const nextOrder = Math.max(0, ...draftMeals.filter((m) => m.day_of_week === dayNum).map((m) => m.order_index || 0)) + 1
+    const newMeal: PlanMealDraft = {
+      day_of_week: dayNum,
+      name: `Comida ${nextOrder} (${DAY_LABELS[draftActiveDay]})`,
+      meal_type: "breakfast",
+      time: "08:00",
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      description: "",
+      order_index: nextOrder,
+      meal_recipes: [],
+    }
+    setDraftMeals((prev) => [...prev, newMeal])
+  }
+
+  const updateDraftMeal = (indexInDraftMeals: number, patch: Partial<PlanMealDraft>) => {
+    setDraftMeals((prev) => {
+      const next = [...prev]
+      if (!next[indexInDraftMeals]) return prev
+      next[indexInDraftMeals] = { ...next[indexInDraftMeals], ...patch }
+      return next
+    })
+  }
+
+  const removeDraftMeal = (indexInDraftMeals: number) => {
+    setDraftMeals((prev) => prev.filter((_, i) => i !== indexInDraftMeals))
+  }
+
+  const openRecipePickerForDraftMeal = (draftIndex: number) => {
+    setTargetMealIndex(draftIndex)
+    setRecipeSearch("")
+    setShowRecipeSelector(true)
+  }
+
+  const recipesById = useMemo(() => {
+    const map = new Map<string, AdminRecipe>()
+    for (const r of availableRecipes) map.set(String(r.id), r)
+    return map
+  }, [availableRecipes])
+
+  const filteredRecipes = useMemo(() => {
+    const q = recipeSearch.trim().toLowerCase()
+    if (!q) return availableRecipes
+    return availableRecipes.filter((r) => (r.name || "").toLowerCase().includes(q))
+  }, [availableRecipes, recipeSearch])
+
+  const addRecipeToDraftMeal = (recipe: AdminRecipe) => {
+    if (targetMealIndex == null) return
+    setDraftMeals((prev) => {
+      const next = [...prev]
+      const meal = next[targetMealIndex]
+      if (!meal) return prev
+      const already = meal.meal_recipes.some((r) => String(r.recipe_id) === String(recipe.id))
+      if (already) return prev
+      meal.meal_recipes = [...meal.meal_recipes, { recipe_id: String(recipe.id), display_order: meal.meal_recipes.length, servings: 1 }]
+      next[targetMealIndex] = { ...meal }
+      return next
+    })
+  }
+
+  const removeRecipeFromDraftMeal = (draftIndex: number, recipeId: string) => {
+    setDraftMeals((prev) => {
+      const next = [...prev]
+      const meal = next[draftIndex]
+      if (!meal) return prev
+      const filtered = meal.meal_recipes.filter((r) => String(r.recipe_id) !== String(recipeId))
+      meal.meal_recipes = filtered.map((r, i) => ({ ...r, display_order: i }))
+      next[draftIndex] = { ...meal }
+      return next
+    })
   }
 
   return (
@@ -743,38 +931,226 @@ export function MenuPlanManagementV2() {
             <DialogTitle>{editingPlanId ? "Editar Plan de Menús" : "Crear Plan de Menús"}</DialogTitle>
             <DialogDescription>{editingPlanId ? "Modifica el plan y, si quieres, abre el editor semanal." : "Crea una plantilla o un plan asignado a usuario."}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium">Nombre</label>
-              <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Calorías diarias</label>
-              <Input type="number" value={form.daily_calories} onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })} />
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
-              <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
-                  {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-sm font-medium">Descripción</label>
-              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
-            </div>
-            <div className="md:col-span-2">
-              <div className="text-sm font-medium mb-2">Macros (%)</div>
-              <div className="grid grid-cols-3 gap-3">
-                <div><Input type="number" value={form.protein} onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Proteína</div></div>
-                <div><Input type="number" value={form.carbs} onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Carbos</div></div>
-                <div><Input type="number" value={form.fat} onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Grasas</div></div>
+          {!editingPlanId ? (
+            <Tabs value={createStep} onValueChange={(v) => setCreateStep(v as any)}>
+              <TabsList className="grid grid-cols-2">
+                <TabsTrigger value="basic">Datos</TabsTrigger>
+                <TabsTrigger value="week">Semana</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Nombre</label>
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium">Calorías diarias</label>
+                    <Input type="number" value={form.daily_calories} onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
+                    <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
+                        {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Descripción</label>
+                    <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-sm font-medium mb-2">Macros (%)</div>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div><Input type="number" value={form.protein} onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Proteína</div></div>
+                      <div><Input type="number" value={form.carbs} onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Carbos</div></div>
+                      <div><Input type="number" value={form.fat} onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Grasas</div></div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button variant="outline" onClick={() => setCreateStep("week")}>
+                    Configurar semana →
+                  </Button>
+                </div>
+              </TabsContent>
+
+              <TabsContent value="week" className="space-y-4">
+                <div className="text-sm text-muted-foreground">
+                  Configura la semana completa: añade comidas por día y selecciona varias recetas como opciones por cada comida (igual que en entrenos con ejercicios).
+                </div>
+
+                <Tabs value={draftActiveDay} onValueChange={(v) => setDraftActiveDay(v as DayKey)}>
+                  <TabsList className="grid grid-cols-7">
+                    {(["1","2","3","4","5","6","7"] as DayKey[]).map((d) => (
+                      <TabsTrigger key={d} value={d} className="text-xs">{DAY_LABELS[d].slice(0,3)}</TabsTrigger>
+                    ))}
+                  </TabsList>
+                </Tabs>
+
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-medium">{DAY_LABELS[draftActiveDay]}</div>
+                  <Button size="sm" variant="outline" onClick={addDraftMeal}>
+                    <Plus className="h-4 w-4 mr-1" />
+                    Añadir comida
+                  </Button>
+                </div>
+
+                {draftMealsForDay.length === 0 ? (
+                  <Card className="border-dashed">
+                    <CardContent className="p-6 text-center text-sm text-muted-foreground">
+                      No hay comidas para este día. Usa “Añadir comida”.
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {draftMealsForDay.map((meal) => {
+                      const draftIndex = draftMeals.findIndex((m) => m === meal)
+                      const recipeOptions = meal.meal_recipes
+                        .slice()
+                        .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                        .map((r) => recipesById.get(String(r.recipe_id)))
+                        .filter(Boolean) as AdminRecipe[]
+
+                      return (
+                        <Card key={`${draftIndex}-${meal.order_index}`} className="border">
+                          <CardHeader className="pb-2">
+                            <div className="flex items-start justify-between gap-3">
+                              <CardTitle className="text-sm">Comida #{meal.order_index}</CardTitle>
+                              <Button variant="ghost" size="icon" onClick={() => removeDraftMeal(draftIndex)} title="Eliminar comida">
+                                <Trash2 className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          </CardHeader>
+                          <CardContent className="space-y-3">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Tipo</FormLabel>
+                                <Select value={meal.meal_type} onValueChange={(v) => updateDraftMeal(draftIndex, { meal_type: v })}>
+                                  <SelectTrigger className="h-9 text-sm"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {MEAL_TYPES.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Nombre</FormLabel>
+                                <Input className="h-9" value={meal.name} onChange={(e) => updateDraftMeal(draftIndex, { name: e.target.value })} />
+                              </div>
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Hora</FormLabel>
+                                <Input className="h-9" value={meal.time} onChange={(e) => updateDraftMeal(draftIndex, { time: e.target.value })} placeholder="08:00" />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Kcal</FormLabel>
+                                <Input type="number" className="h-9" value={meal.calories} onChange={(e) => updateDraftMeal(draftIndex, { calories: toNumber(e.target.value) })} />
+                              </div>
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Proteína (g)</FormLabel>
+                                <Input type="number" className="h-9" value={meal.protein} onChange={(e) => updateDraftMeal(draftIndex, { protein: toNumber(e.target.value) })} />
+                              </div>
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Carbos (g)</FormLabel>
+                                <Input type="number" className="h-9" value={meal.carbs} onChange={(e) => updateDraftMeal(draftIndex, { carbs: toNumber(e.target.value) })} />
+                              </div>
+                              <div className="space-y-1">
+                                <FormLabel className="text-xs">Grasas (g)</FormLabel>
+                                <Input type="number" className="h-9" value={meal.fat} onChange={(e) => updateDraftMeal(draftIndex, { fat: toNumber(e.target.value) })} />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <FormLabel className="text-xs">Notas / descripción</FormLabel>
+                              <Input className="h-9" value={meal.description} onChange={(e) => updateDraftMeal(draftIndex, { description: e.target.value })} placeholder="Opcional..." />
+                            </div>
+
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <FormLabel className="text-xs">Opciones de receta (puedes añadir varias)</FormLabel>
+                                <Button size="sm" variant="outline" onClick={() => openRecipePickerForDraftMeal(draftIndex)}>
+                                  <Plus className="h-4 w-4 mr-1" /> Añadir receta
+                                </Button>
+                              </div>
+
+                              {meal.meal_recipes.length === 0 ? (
+                                <div className="text-sm text-muted-foreground">Sin recetas seleccionadas.</div>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {recipeOptions.map((r) => (
+                                    <div key={r.id} className="border rounded-md p-2 flex items-center justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}
+                                        </div>
+                                      </div>
+                                      <Button variant="ghost" size="icon" onClick={() => removeRecipeFromDraftMeal(draftIndex, String(r.id))} title="Quitar receta">
+                                        <Trash2 className="h-4 w-4 text-red-600" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        </Card>
+                      )
+                    })}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between">
+                  <Button variant="outline" onClick={() => setCreateStep("basic")}>← Volver</Button>
+                  <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim()}>
+                    {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear con semana"}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            // Edición: mantenemos modal simple y el editor semanal separado
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium">Nombre</label>
+                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Calorías diarias</label>
+                  <Input type="number" value={form.daily_calories} onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
+                  <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
+                      {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium">Descripción</label>
+                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
+                </div>
+                <div className="md:col-span-2">
+                  <div className="text-sm font-medium mb-2">Macros (%)</div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div><Input type="number" value={form.protein} onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Proteína</div></div>
+                    <div><Input type="number" value={form.carbs} onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Carbos</div></div>
+                    <div><Input type="number" value={form.fat} onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Grasas</div></div>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={saving}>Cerrar</Button>
             {editingPlanId ? (
@@ -819,6 +1195,46 @@ export function MenuPlanManagementV2() {
           ) : (
             <div className="text-sm text-muted-foreground">Selecciona un plan.</div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Selector de recetas para el builder de creación */}
+      <Dialog open={showRecipeSelector} onOpenChange={setShowRecipeSelector}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Seleccionar receta</DialogTitle>
+            <DialogDescription>Elige una receta ya creada para añadirla como opción en la comida.</DialogDescription>
+          </DialogHeader>
+
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input className="pl-8" placeholder="Buscar receta..." value={recipeSearch} onChange={(e) => setRecipeSearch(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {filteredRecipes.map((r) => (
+              <Button
+                key={r.id}
+                variant="outline"
+                className="justify-start h-auto whitespace-normal"
+                onClick={() => {
+                  addRecipeToDraftMeal(r)
+                  setShowRecipeSelector(false)
+                }}
+              >
+                <div className="text-left">
+                  <div className="font-medium text-sm">{fixEncoding(r.name)}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}
+                  </div>
+                </div>
+              </Button>
+            ))}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRecipeSelector(false)}>Cerrar</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
