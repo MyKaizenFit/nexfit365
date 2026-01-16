@@ -178,6 +178,38 @@ def plan_meals_for_selection(request):
     else:
         date_for_slots = timezone.localdate()
 
+    # Si piden explícitamente un tipo de comida (p.ej. vista mensual), filtrar por ese tipo
+    requested_meal_type = request.query_params.get('meal_type')
+
+    def build_standard_slots(meal_types: list[str]):
+        """Construye una lista estable de slots (sin IDs) para el frontend."""
+        fallback_time = {
+            'breakfast': '08:00:00',
+            'morning_snack': '10:30:00',
+            'lunch': '13:00:00',
+            'afternoon_snack': '16:00:00',
+            'dinner': '20:00:00',
+        }
+        fallback_name = {
+            'breakfast': 'Desayuno',
+            'morning_snack': 'Snack Mañana',
+            'lunch': 'Almuerzo',
+            'afternoon_snack': 'Snack Tarde',
+            'dinner': 'Cena',
+        }
+        slots = []
+        for idx, mt in enumerate(meal_types):
+            slots.append({
+                'id': None,
+                'day_of_week': None,
+                'name': fallback_name.get(mt, mt),
+                'meal_type': mt,
+                'time': fallback_time.get(mt),
+                'description': '',
+                'order_index': idx + 1,
+            })
+        return slots
+
     # Primero intentar obtener comidas del plan actual del usuario
     user_plan = NutritionPlan.objects.filter(
         user=user,
@@ -263,7 +295,7 @@ def plan_meals_for_selection(request):
                 'daily_macros': daily_macros
             })
     
-    # Si no tiene plan, devolver comidas de plantillas del sistema
+    # Si no tiene plan (o no hay comidas configuradas), devolver opciones desde plantillas del sistema
     system_plans = NutritionPlan.objects.filter(
         is_system=True,
         is_active=True
@@ -272,6 +304,8 @@ def plan_meals_for_selection(request):
     for plan in system_plans:
         for meal in plan.meals.all().order_by('order_index', 'id'):
             meal_type = meal.meal_type
+            if requested_meal_type and meal_type != requested_meal_type:
+                continue
             if meal_type not in meals_by_type:
                 meals_by_type[meal_type] = []
             
@@ -309,40 +343,12 @@ def plan_meals_for_selection(request):
                 })
 
             meals_by_type[meal_type].extend(meal_options)
-            # Slots y opciones por meal_id para el caso "sin plan de usuario"
-            meal_slots.append({
-                'id': str(meal.id),
-                'day_of_week': meal.day_of_week,
-                'name': meal.name,
-                'meal_type': meal.meal_type,
-                'time': meal.time.isoformat() if meal.time else None,
-                'description': meal.description or '',
-                'order_index': meal.order_index,
-            })
-            options_by_meal_id[str(meal.id)] = meal_options
 
     # Si tampoco hay comidas en las plantillas del sistema, hacer fallback usando recetas activas.
-    if not meal_slots and not meals_by_type:
-        requested_meal_type = request.query_params.get('meal_type')
+    if not meals_by_type:
         fallback_types = [requested_meal_type] if requested_meal_type else [
             'breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'
         ]
-
-        # Horarios sugeridos (para el frontend)
-        fallback_time = {
-            'breakfast': '08:00:00',
-            'morning_snack': '10:30:00',
-            'lunch': '13:00:00',
-            'afternoon_snack': '16:00:00',
-            'dinner': '20:00:00',
-        }
-        fallback_name = {
-            'breakfast': 'Desayuno',
-            'morning_snack': 'Snack Mañana',
-            'lunch': 'Almuerzo',
-            'afternoon_snack': 'Snack Tarde',
-            'dinner': 'Cena',
-        }
         fallback_icon = {
             'breakfast': '🌅',
             'morning_snack': '☕',
@@ -389,19 +395,9 @@ def plan_meals_for_selection(request):
                     'recipeId': recipe.id
                 })
 
-            meal_slots.append({
-                'id': None,
-                'day_of_week': None,
-                'name': fallback_name.get(mt, mt),
-                'meal_type': mt,
-                'time': fallback_time.get(mt),
-                'description': '',
-                'order_index': fallback_types.index(mt) + 1,
-            })
-
         return Response({
             'meals_by_type': meals_by_type,
-            'meal_slots': meal_slots,
+            'meal_slots': build_standard_slots(fallback_types),
             'options_by_meal_id': {},
             'plan_name': None,
             'source': 'recipes_fallback',
@@ -410,10 +406,16 @@ def plan_meals_for_selection(request):
             'daily_macros': daily_macros
         })
 
+    # Plantillas del sistema: devolver SIEMPRE slots estándar (sin duplicados) y opciones por tipo
+    if requested_meal_type:
+        slot_types = [requested_meal_type]
+    else:
+        slot_types = ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner']
+
     return Response({
         'meals_by_type': meals_by_type,
-        'meal_slots': meal_slots,
-        'options_by_meal_id': options_by_meal_id,
+        'meal_slots': build_standard_slots(slot_types),
+        'options_by_meal_id': {},
         'plan_name': None,
         'source': 'system_templates',
         'date': date_for_slots.isoformat(),
