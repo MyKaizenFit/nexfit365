@@ -432,6 +432,7 @@ export function MealSelectionModal({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors ml-4 flex-shrink-0 touch-manipulation p-2 -mr-2"
                 aria-label="Cerrar modal"
@@ -447,6 +448,7 @@ export function MealSelectionModal({
                   Selecciona una opción para {mealName.toLowerCase()}:
                 </p>
                 <button
+                  type="button"
                   onClick={handleViewAllRecipes}
                   className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
                   disabled={loadingRecipes}
@@ -532,6 +534,7 @@ export function MealSelectionModal({
 
                       {/* Botón Ver Receta - Más grande en móvil */}
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation()
                           handleViewRecipe(option)
@@ -560,6 +563,7 @@ export function MealSelectionModal({
             {/* Footer */}
             <div className="p-5 md:p-4 border-t border-gray-200 flex-shrink-0 bg-white md:bg-transparent">
               <button
+                type="button"
                 onClick={onClose}
                 className="w-full px-6 py-4 md:px-4 md:py-2 text-base md:text-sm font-semibold md:font-normal text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors touch-manipulation active:scale-[0.98]"
               >
@@ -970,12 +974,14 @@ function RecipeDetailModal({
           <div className="bg-white border-t border-gray-200 p-5 md:p-6 md:rounded-b-2xl flex-shrink-0">
             <div className="flex flex-col md:flex-row gap-3 md:gap-3">
               <button
+                type="button"
                 onClick={onClose}
                 className="flex-1 px-6 py-4 md:px-4 md:py-3 text-base md:text-sm text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors font-semibold md:font-medium touch-manipulation active:scale-[0.98]"
               >
                 Cerrar
               </button>
               <button
+                type="button"
                 onClick={onSelectRecipe}
                 className="flex-1 px-6 py-4 md:px-4 md:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl md:rounded-lg hover:from-orange-600 hover:to-pink-600 transition-colors font-bold md:font-medium shadow-xl md:shadow-lg touch-manipulation active:scale-[0.98]"
               >
@@ -1048,6 +1054,7 @@ function AllRecipesModal({
                 </p>
               </div>
               <button
+                type="button"
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
                 aria-label="Cerrar"
@@ -1161,6 +1168,7 @@ function AllRecipesModal({
 
                     {/* Botón seleccionar */}
                     <button
+                      type="button"
                       onClick={async (e) => {
                         e.stopPropagation()
                         console.log('🔘 Botón Seleccionar clickeado para:', recipe.name)
@@ -1179,6 +1187,7 @@ function AllRecipesModal({
           {/* Footer */}
           <div className="bg-white border-t border-gray-200 p-4 rounded-b-2xl flex-shrink-0">
             <button
+              type="button"
               onClick={onClose}
               className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >

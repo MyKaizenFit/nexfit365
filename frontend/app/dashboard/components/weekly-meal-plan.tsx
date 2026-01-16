@@ -475,6 +475,7 @@ export function WeeklyMealPlan() {
                     {hasSelections && (
                       <div className="flex gap-1">
                         <Button
+                          type="button"
                           variant="ghost"
                           size="icon"
                           className="h-6 w-6"
@@ -501,6 +502,7 @@ export function WeeklyMealPlan() {
                         className="relative group"
                       >
                         <Button
+                          type="button"
                           variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
                           className={`w-full justify-start h-auto p-1.5 md:p-2 text-[10px] md:text-xs touch-manipulation ${
                             hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200' : ''
