@@ -55,6 +55,8 @@ def plan_meals_for_selection(request):
     Las cantidades se personalizan según el perfil del usuario (peso, altura, objetivo, etc.)
     """
     import logging
+    from datetime import datetime
+    from django.utils import timezone
     logger = logging.getLogger(__name__)
     
     user = request.user

@@ -11,7 +11,8 @@ export async function handle401AndRefresh(getAuthHeaders: () => Promise<HeadersI
   console.log('🔄 Token expirado, intentando refrescar...')
   
   try {
-    const { authService } = await import('@/lib/auth-service')
+    const { getAuthService } = await import('@/lib/auth-service')
+    const authService = getAuthService()
     const refreshResult = await authService.refreshAccessToken()
     
     if (refreshResult.success && refreshResult.newToken) {
@@ -21,14 +22,14 @@ export async function handle401AndRefresh(getAuthHeaders: () => Promise<HeadersI
     } else {
       console.error('❌ No se pudo refrescar el token:', refreshResult.error)
       if (typeof window !== 'undefined') {
-        window.location.href = '/auth/login'
+        window.location.href = '/auth'
       }
       return null
     }
   } catch (error) {
     console.error('Error al refrescar token:', error)
     if (typeof window !== 'undefined') {
-      window.location.href = '/auth/login'
+      window.location.href = '/auth'
     }
     return null
   }

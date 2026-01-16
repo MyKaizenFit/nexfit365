@@ -202,12 +202,11 @@ export class AuthService {
       const currentTime = Date.now()
       const timeUntilExpiration = expirationTime - currentTime
 
-      // Considerar que está próximo a expirar si queda menos de 30 minutos
-      // Esto da más margen de seguridad, especialmente ahora que el token dura 2 horas
-      // Esto asegura que el token se renueve automáticamente durante entrenamientos largos
-      // sin interacción del usuario. Con 30 minutos de margen, el token se renovará
-      // automáticamente cada ~90 minutos (2 horas - 30 minutos)
-      return timeUntilExpiration < 30 * 60 * 1000
+      // Considerar que está próximo a expirar si queda poco tiempo.
+      // Importante: en producción el access suele durar ~15 min; si usamos 30 min aquí,
+      // refrescamos en bucle y podemos acabar con refresh tokens blacklisteados.
+      // 5 min da margen suficiente sin causar rotaciones excesivas.
+      return timeUntilExpiration < 5 * 60 * 1000
     } catch (error) {
       console.warn('Error al verificar expiración del token:', error)
       return false
