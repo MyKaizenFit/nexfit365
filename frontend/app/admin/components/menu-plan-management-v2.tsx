@@ -8,12 +8,14 @@ import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label as FormLabel } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Loader2, MoreHorizontal, Plus, Search, Trash2, Pencil, Copy, User, Flame } from "lucide-react"
+import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
-import { buildApiUrl } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 
 function getCategory(plan: { is_system: boolean; user_id?: number | null; is_template: boolean }) {
@@ -30,20 +32,34 @@ function CategoryBadge({ plan }: { plan: { is_system: boolean; user_id?: number 
 }
 
 export function MenuPlanManagementV2() {
-  const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, deletePlan, toggleActive } = useAdminMenuPlans()
+  const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, updatePlan, deletePlan, toggleActive } = useAdminMenuPlans()
   const { getAuthHeaders } = useAuth()
 
-  const [search, setSearch] = useState("")
-  const [type, setType] = useState<MenuPlanTypeFilter>("all")
+  // Filtros (similar a Planes de Entrenamiento)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState<MenuPlanTypeFilter>("all")
   const [userFilter, setUserFilter] = useState<string>("all")
 
-  const [showCreate, setShowCreate] = useState(false)
-  const [creating, setCreating] = useState(false)
+  // Ordenamiento (cliente, consistente con WorkoutPlanManagement)
+  const [sortColumn, setSortColumn] = useState<"name" | "category" | "calories" | "status">("name")
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
 
+  // Selección + bulk actions
+  const [selectedPlans, setSelectedPlans] = useState<string[]>([])
+  const [isBulkLoading, setIsBulkLoading] = useState(false)
+
+  // Create/Edit dialog (unificado)
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
+  const [loadingDetail, setLoadingDetail] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Editor semanal (reutiliza NutritionTemplatePlanEditor)
   const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
   const [weeklyPlanId, setWeeklyPlanId] = useState<string | null>(null)
   const [availableRecipes, setAvailableRecipes] = useState<any[]>([])
 
+  // Duplicar a usuario
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
@@ -59,21 +75,7 @@ export function MenuPlanManagementV2() {
     user_id: "none" as string,
   })
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return plans.filter((p) => {
-      const matchesSearch = !q || (p.name || "").toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q)
-      const matchesUser = userFilter === "all" ? true : String(p.user_id || "") === String(userFilter)
-      const matchesType =
-        type === "all" ? true :
-        type === "users" ? Boolean(p.user_id) :
-        type === "system" ? Boolean(p.is_system) :
-        /* templates */ (!p.user_id && !p.is_system)
-      return matchesSearch && matchesUser && matchesType
-    })
-  }, [plans, search, type, userFilter])
-
-  const openCreate = () => {
+  const resetForm = useCallback(() => {
     setForm({
       name: "",
       description: "",
@@ -83,13 +85,19 @@ export function MenuPlanManagementV2() {
       fat: 30,
       user_id: "none",
     })
-    setShowCreate(true)
+  }, [])
+
+  const openCreate = () => {
+    setEditingPlanId(null)
+    resetForm()
+    setShowCreateDialog(true)
   }
 
   const loadRecipes = useCallback(async () => {
     try {
       const headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl("admin/nutrition/recipes/?page_size=500"), { headers })
+      const res = await fetch(`/api/proxy/admin/nutrition/recipes/?page_size=500`, { headers })
+      // Nota: en prod hay reverse-proxy en frontend; si falla, el editor igual funciona sin lista (solo sugiere vacío).
       if (!res.ok) return
       const data = await res.json()
       const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
@@ -100,23 +108,81 @@ export function MenuPlanManagementV2() {
   }, [getAuthHeaders])
 
   useEffect(() => {
+    // Cargar recetas una vez para el editor semanal
     loadRecipes()
   }, [loadRecipes])
 
+  // Aplicar filtros automáticamente (similar a useEffect de WorkoutPlanManagement)
+  useEffect(() => {
+    const filters = { search: searchTerm, type: typeFilter, userId: userFilter }
+    if (searchTerm.trim().length > 0) {
+      const t = setTimeout(() => {
+        fetchPlans(filters)
+      }, 400)
+      return () => clearTimeout(t)
+    }
+    fetchPlans(filters)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, typeFilter, userFilter])
+
+  const filteredPlans = useMemo(() => {
+    // La lista ya viene filtrada del servidor; mantenemos un filtro defensivo (p. ej. por nombre) por consistencia UX.
+    const q = searchTerm.trim().toLowerCase()
+    return (Array.isArray(plans) ? plans : []).filter((p) => {
+      const matchesSearch = !q || fixEncoding(p.name || "").toLowerCase().includes(q) || fixEncoding(p.description || "").toLowerCase().includes(q)
+      return matchesSearch
+    })
+  }, [plans, searchTerm])
+
+  const sortedPlans = useMemo(() => {
+    const arr = Array.isArray(filteredPlans) ? [...filteredPlans] : []
+    const getValue = (p: any) => {
+      switch (sortColumn) {
+        case "name":
+          return fixEncoding(p.name || "").toLowerCase()
+        case "category":
+          return getCategory(p)
+        case "calories":
+          return Number(p.daily_calories) || 0
+        case "status":
+          return p.is_active ? 1 : 0
+        default:
+          return 0
+      }
+    }
+    arr.sort((a, b) => {
+      const av = getValue(a)
+      const bv = getValue(b)
+      if (typeof av === "string") {
+        return sortDirection === "asc" ? av.localeCompare(String(bv)) : String(bv).localeCompare(av)
+      }
+      return sortDirection === "asc" ? (Number(av) - Number(bv)) : (Number(bv) - Number(av))
+    })
+    return arr
+  }, [filteredPlans, sortColumn, sortDirection])
+
+  const handleSort = (col: typeof sortColumn) => {
+    if (sortColumn === col) setSortDirection((d) => (d === "asc" ? "desc" : "asc"))
+    else {
+      setSortColumn(col)
+      setSortDirection("asc")
+    }
+  }
+
   const handleCreate = async (configureWeekly: boolean) => {
     try {
-      setCreating(true)
+      setSaving(true)
       const userId = form.user_id === "none" ? null : Number(form.user_id)
       const created = await createPlan({
         name: form.name.trim(),
-        description: form.description,
+        description: form.description || "",
         daily_calories: Number(form.daily_calories) || 0,
         percents: { protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 },
         user_id: userId,
       })
       toast({ title: "✅ Plan creado", description: configureWeekly ? "Ahora configura el menú semanal." : "Creado correctamente." })
-      setShowCreate(false)
-      await fetchPlans({ search, type, userId: userFilter })
+      setShowCreateDialog(false)
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
       if (configureWeekly && created?.id) {
         setWeeklyPlanId(String(created.id))
         setShowWeeklyEditor(true)
@@ -124,7 +190,7 @@ export function MenuPlanManagementV2() {
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo crear", variant: "destructive" })
     } finally {
-      setCreating(false)
+      setSaving(false)
     }
   }
 
@@ -182,7 +248,7 @@ export function MenuPlanManagementV2() {
       })
       toast({ title: "✅ Duplicado", description: "Plan duplicado y asignado al usuario." })
       setShowDuplicateDialog(false)
-      await fetchPlans({ search, type, userId: userFilter })
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
       if (created?.id) {
         setWeeklyPlanId(String(created.id))
         setShowWeeklyEditor(true)
@@ -199,7 +265,7 @@ export function MenuPlanManagementV2() {
     try {
       await deletePlan(planId)
       toast({ title: "✅ Eliminado" })
-      await fetchPlans({ search, type, userId: userFilter })
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo eliminar", variant: "destructive" })
     }
@@ -208,9 +274,105 @@ export function MenuPlanManagementV2() {
   const handleToggleActive = async (planId: string, next: boolean) => {
     try {
       await toggleActive(planId, next)
-      await fetchPlans({ search, type, userId: userFilter })
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo actualizar", variant: "destructive" })
+    }
+  }
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedPlans(sortedPlans.map((p) => p.id))
+    else setSelectedPlans([])
+  }
+
+  const handleSelectPlan = (planId: string, checked: boolean) => {
+    setSelectedPlans((prev) => {
+      const arr = Array.isArray(prev) ? prev : []
+      return checked ? Array.from(new Set([...arr, planId])) : arr.filter((id) => id !== planId)
+    })
+  }
+
+  const handleBulkToggleActive = async (next: boolean) => {
+    if (selectedPlans.length === 0) return
+    try {
+      setIsBulkLoading(true)
+      await Promise.all(selectedPlans.map((id) => toggleActive(id, next)))
+      toast({ title: "✅ Actualizado", description: `${selectedPlans.length} planes actualizados` })
+      setSelectedPlans([])
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+    } catch (e) {
+      toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudieron actualizar", variant: "destructive" })
+    } finally {
+      setIsBulkLoading(false)
+    }
+  }
+
+  const handleBulkDelete = async () => {
+    if (selectedPlans.length === 0) return
+    if (!confirm(`¿Eliminar ${selectedPlans.length} planes?`)) return
+    try {
+      setIsBulkLoading(true)
+      await Promise.all(selectedPlans.map((id) => deletePlan(id)))
+      toast({ title: "✅ Eliminados", description: `${selectedPlans.length} planes eliminados` })
+      setSelectedPlans([])
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+    } catch (e) {
+      toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudieron eliminar", variant: "destructive" })
+    } finally {
+      setIsBulkLoading(false)
+    }
+  }
+
+  const openEdit = async (planId: string) => {
+    try {
+      setLoadingDetail(true)
+      setEditingPlanId(planId)
+      const detail = await fetchPlanDetail(planId)
+      if (!detail) throw new Error("No se pudo cargar el plan")
+      setForm({
+        name: fixEncoding(detail.name || ""),
+        description: fixEncoding(detail.description || ""),
+        daily_calories: Number(detail.daily_calories) || 0,
+        protein: Number((detail as any).protein_percentage ?? detail.protein_percentage ?? 30) || 30,
+        carbs: Number((detail as any).carbs_percentage ?? detail.carbs_percentage ?? 40) || 40,
+        fat: Number((detail as any).fat_percentage ?? detail.fat_percentage ?? 30) || 30,
+        user_id: detail.user_id ? String(detail.user_id) : "none",
+      })
+      setShowCreateDialog(true)
+    } catch (e) {
+      toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo abrir", variant: "destructive" })
+      setEditingPlanId(null)
+    } finally {
+      setLoadingDetail(false)
+    }
+  }
+
+  const handleSaveEdit = async (configureWeekly: boolean) => {
+    if (!editingPlanId) return
+    try {
+      setSaving(true)
+      const userId = form.user_id === "none" ? null : Number(form.user_id)
+      await updatePlan(editingPlanId, {
+        name: form.name.trim(),
+        description: form.description || "",
+        daily_calories: Number(form.daily_calories) || 0,
+        user_id: userId,
+        // El backend calcula %/g según campos disponibles; para mantener consistente, mandamos porcentajes directos.
+        protein_percentage: Number(form.protein) || 0,
+        carbs_percentage: Number(form.carbs) || 0,
+        fat_percentage: Number(form.fat) || 0,
+      })
+      toast({ title: "✅ Plan actualizado" })
+      setShowCreateDialog(false)
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+      if (configureWeekly) {
+        setWeeklyPlanId(editingPlanId)
+        setShowWeeklyEditor(true)
+      }
+    } catch (e) {
+      toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -219,139 +381,367 @@ export function MenuPlanManagementV2() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Planes de Menús (Nuevo)</h2>
-          <p className="text-gray-600 mt-1">Plantillas, sistema y planes de usuario, con editor semanal de recetas.</p>
+          <p className="text-gray-600 mt-1">Administra planes como en “Planes de entrenamiento”: filtros, tabla y acciones masivas.</p>
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0">
           <Plus className="w-4 h-4 mr-2" />
-          Crear Plan
+          Nuevo Plan
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Total</div>
-              <div className="text-2xl font-bold">{stats.total}</div>
-            </div>
-            <Flame className="w-7 h-7 text-orange-500" />
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total</CardTitle>
+            <Flame className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.total}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm text-gray-600">Activos</div>
-              <div className="text-2xl font-bold">{stats.active}</div>
-            </div>
-            <Badge>Activo</Badge>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Activos</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.active}</div>
+          </CardContent>
+        </Card>
+        <Card className="hidden lg:block">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Plantillas</CardTitle>
+            <Badge variant="outline">Template</Badge>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{sortedPlans.filter((p) => !p.user_id && !p.is_system).length}</div>
+          </CardContent>
+        </Card>
+        <Card className="hidden lg:block">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">De usuario</CardTitle>
+            <User className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{sortedPlans.filter((p) => Boolean(p.user_id)).length}</div>
           </CardContent>
         </Card>
       </div>
 
+      {/* Filters */}
       <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
         <CardContent className="p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar..." className="pl-10" />
+          <div className="grid gap-4 md:grid-cols-6">
+            <div className="md:col-span-2">
+              <FormLabel>Buscar</FormLabel>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Buscar planes..." className="pl-8" />
+              </div>
             </div>
-            <div className="w-full md:w-56">
-              <Select value={type} onValueChange={(v) => setType(v as any)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+            <div>
+              <FormLabel>Tipo</FormLabel>
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="templates">Plantillas</SelectItem>
-                  <SelectItem value="users">Usuarios</SelectItem>
+                  <SelectItem value="users">Planes de usuario</SelectItem>
                   <SelectItem value="system">Sistema</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div className="w-full md:w-72">
+            <div className="md:col-span-2">
+              <FormLabel>Usuario</FormLabel>
               <Select value={userFilter} onValueChange={setUserFilter}>
-                <SelectTrigger><SelectValue placeholder="Usuario" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  <SelectItem value="all">Todos</SelectItem>
                   {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => fetchPlans({ search, type, userId: userFilter })}
-              disabled={loading}
-            >
-              Aplicar
-            </Button>
+            <div>
+              <FormLabel>Ordenar</FormLabel>
+              <Select value={sortColumn} onValueChange={(v) => setSortColumn(v as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="category">Categoría</SelectItem>
+                  <SelectItem value="calories">Calorías</SelectItem>
+                  <SelectItem value="status">Estado</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Bulk Actions */}
+      {selectedPlans.length > 0 && (
+        <Card className="border-purple-200 bg-purple-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">{selectedPlans.length} plan(es) seleccionado(s)</span>
+              <div className="flex gap-2">
+                <Button size="sm" onClick={() => handleBulkToggleActive(true)} disabled={isBulkLoading} className="bg-green-500 hover:bg-green-600 text-white">
+                  <CheckCircle className="h-3 w-3 mr-1" /> Activar
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => handleBulkToggleActive(false)} disabled={isBulkLoading}>
+                  <XCircle className="h-3 w-3 mr-1" /> Desactivar
+                </Button>
+                <Button size="sm" variant="destructive" onClick={handleBulkDelete} disabled={isBulkLoading}>
+                  <Trash2 className="h-3 w-3 mr-1" /> Eliminar
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {loading ? (
-        <div className="flex items-center justify-center p-10">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Cargando planes de menús...</span>
         </div>
       ) : error ? (
-        <Card><CardContent className="p-6 text-red-600">{error}</CardContent></Card>
+        <div className="flex items-center justify-center h-64 text-red-600">{error}</div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map((p) => (
-            <Card key={p.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <CardTitle className="text-lg truncate">{fixEncoding(p.name)}</CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <CategoryBadge plan={p} />
-                      {p.user_email && (
-                        <Badge variant="outline" className="truncate max-w-[160px]">
-                          <User className="w-3 h-3 mr-1" />
-                          {p.user_email}
-                        </Badge>
-                      )}
-                      {p.is_active ? <Badge>Activo</Badge> : <Badge variant="secondary">Inactivo</Badge>}
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon"><MoreHorizontal className="w-4 h-4" /></Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
-                        <Pencil className="w-4 h-4 mr-2" /> Editar menú semanal
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
-                        <Copy className="w-4 h-4 mr-2" /> Duplicar a usuario…
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleToggleActive(p.id, !p.is_active)}>
-                        <Flame className="w-4 h-4 mr-2" /> {p.is_active ? "Desactivar" : "Activar"}
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-red-600">
-                        <Trash2 className="w-4 h-4 mr-2" /> Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Planes de menús</CardTitle>
+              <div className="hidden md:flex items-center space-x-2">
+                <Checkbox
+                  checked={selectedPlans.length === sortedPlans.length && sortedPlans.length > 0}
+                  onCheckedChange={(v) => handleSelectAll(Boolean(v))}
+                />
+                <span className="text-sm text-muted-foreground">
+                  {selectedPlans.length > 0 ? `${selectedPlans.length} seleccionados` : "Seleccionar todos"}
+                </span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            {/* Mobile */}
+            <div className="md:hidden space-y-3 p-3">
+              <div className="flex items-center justify-between pb-2 border-b">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    checked={selectedPlans.length === sortedPlans.length && sortedPlans.length > 0}
+                    onCheckedChange={(v) => handleSelectAll(Boolean(v))}
+                  />
+                  <span className="text-sm font-medium text-muted-foreground">Seleccionar todos</span>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="text-sm text-gray-600 line-clamp-2">{fixEncoding(p.description || "")}</div>
-                <div className="text-sm"><b>Calorías:</b> {p.daily_calories} kcal</div>
-                <div className="text-sm"><b>Proteína:</b> {p.protein_percentage}% · <b>Carbos:</b> {p.carbs_percentage}% · <b>Grasas:</b> {p.fat_percentage}%</div>
-                <div className="text-xs text-gray-500">Comidas configuradas: {p.meals_count ?? "-"}</div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <span className="text-xs text-muted-foreground">{selectedPlans.length} seleccionados</span>
+              </div>
+
+              {sortedPlans.map((p) => (
+                <Card
+                  key={p.id}
+                  className={`border-2 transition-all ${
+                    selectedPlans.includes(p.id) ? "border-purple-500 bg-purple-50/50" : "border-gray-200 hover:border-purple-300 hover:shadow-md"
+                  }`}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start gap-3">
+                      <Checkbox checked={selectedPlans.includes(p.id)} onCheckedChange={(v) => handleSelectPlan(p.id, Boolean(v))} className="mt-1" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <div className="font-semibold text-base truncate">{fixEncoding(p.name)}</div>
+                              <CategoryBadge plan={p} />
+                              {p.is_active ? (
+                                <Badge className="bg-green-100 text-green-800 border-0 text-xs">Activo</Badge>
+                              ) : (
+                                <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">Inactivo</Badge>
+                              )}
+                            </div>
+                            {p.description && <div className="text-xs text-muted-foreground line-clamp-2">{fixEncoding(p.description)}</div>}
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openEdit(p.id)} disabled={loadingDetail}>
+                                {loadingDetail ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Pencil className="h-4 w-4 mr-2" />}
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
+                                <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleActive(p.id, !p.is_active)}>
+                                {p.is_active ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 mr-2" /> Desactivar
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" /> Activar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
+                          <div className="flex items-center gap-1">
+                            <Flame className="h-3 w-3" />
+                            <span>{p.daily_calories} kcal</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            <span className="truncate">{p.user_email || "—"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden md:block rounded-md border">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => handleSort("name")}>
+                        <div className="flex items-center gap-2">
+                          Plan
+                          {sortColumn === "name" && (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                        </div>
+                      </th>
+                      <th className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => handleSort("category")}>
+                        <div className="flex items-center gap-2">
+                          Categoría
+                          {sortColumn === "category" && (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                        </div>
+                      </th>
+                      <th className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => handleSort("calories")}>
+                        <div className="flex items-center gap-2">
+                          Calorías
+                          {sortColumn === "calories" && (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                        </div>
+                      </th>
+                      <th className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors" onClick={() => handleSort("status")}>
+                        <div className="flex items-center gap-2">
+                          Estado
+                          {sortColumn === "status" && (sortDirection === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                        </div>
+                      </th>
+                      <th className="p-3 text-left font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPlans.map((p) => (
+                      <tr key={p.id} className="border-t hover:bg-muted/50">
+                        <td className="p-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox checked={selectedPlans.includes(p.id)} onCheckedChange={(v) => handleSelectPlan(p.id, Boolean(v))} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium truncate max-w-[420px]">{fixEncoding(p.name)}</div>
+                                <CategoryBadge plan={p} />
+                                {p.user_email && (
+                                  <Badge variant="outline" className="truncate max-w-[200px]">
+                                    <User className="w-3 h-3 mr-1" />
+                                    {p.user_email}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {p.description ? (fixEncoding(p.description).length > 60 ? `${fixEncoding(p.description).slice(0, 60)}...` : fixEncoding(p.description)) : "Sin descripción"}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3"><CategoryBadge plan={p} /></td>
+                        <td className="p-3">{p.daily_calories} kcal</td>
+                        <td className="p-3">
+                          {p.is_active ? <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge> : <Badge className="bg-gray-100 text-gray-800 border-0">Inactivo</Badge>}
+                        </td>
+                        <td className="p-3">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => openEdit(p.id)} disabled={loadingDetail}>
+                                {loadingDetail ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Pencil className="h-4 w-4 mr-2" />}
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
+                                <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
+                                <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleToggleActive(p.id, !p.is_active)}>
+                                {p.is_active ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 mr-2" /> Desactivar
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" /> Activar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={() => handleDelete(p.id)} className="text-red-600">
+                                <Trash2 className="h-4 w-4 mr-2" /> Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Crear */}
-      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+      <Dialog
+        open={showCreateDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingPlanId(null)
+            resetForm()
+          }
+          setShowCreateDialog(open)
+        }}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>Crear Plan de Menús (Nuevo)</DialogTitle>
-            <DialogDescription>Crea una plantilla o un plan asignado a usuario, y luego configura el menú semanal.</DialogDescription>
+            <DialogTitle>{editingPlanId ? "Editar Plan de Menús" : "Crear Plan de Menús"}</DialogTitle>
+            <DialogDescription>{editingPlanId ? "Modifica el plan y, si quieres, abre el editor semanal." : "Crea una plantilla o un plan asignado a usuario."}</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -374,7 +764,7 @@ export function MenuPlanManagementV2() {
             </div>
             <div className="md:col-span-2">
               <label className="text-sm font-medium">Descripción</label>
-              <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." />
+              <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
             </div>
             <div className="md:col-span-2">
               <div className="text-sm font-medium mb-2">Macros (%)</div>
@@ -386,13 +776,26 @@ export function MenuPlanManagementV2() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreate(false)} disabled={creating}>Cerrar</Button>
-            <Button variant="outline" onClick={() => handleCreate(true)} disabled={creating || !form.name.trim()}>
-              {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear y configurar menú"}
-            </Button>
-            <Button onClick={() => handleCreate(false)} disabled={creating || !form.name.trim()}>
-              {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear"}
-            </Button>
+            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={saving}>Cerrar</Button>
+            {editingPlanId ? (
+              <>
+                <Button variant="outline" onClick={() => handleSaveEdit(true)} disabled={saving || !form.name.trim()}>
+                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : "Guardar y editar menú"}
+                </Button>
+                <Button onClick={() => handleSaveEdit(false)} disabled={saving || !form.name.trim()}>
+                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : "Guardar"}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => handleCreate(true)} disabled={saving || !form.name.trim()}>
+                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear y configurar menú"}
+                </Button>
+                <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim()}>
+                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear"}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -409,7 +812,7 @@ export function MenuPlanManagementV2() {
               planId={weeklyPlanId}
               availableRecipes={availableRecipes}
               onSaved={async () => {
-                await fetchPlans({ search, type, userId: userFilter })
+                await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
               }}
               onClose={() => setShowWeeklyEditor(false)}
             />
