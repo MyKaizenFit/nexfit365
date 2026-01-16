@@ -3,15 +3,24 @@
 
 from rest_framework import serializers
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise
+from backend.utils.encoding_fix import fix_mojibake
 
 
-class AdminExerciseSerializer(serializers.ModelSerializer):
+class EncodingFixMixin:
+    """Apply mojibake repair to outgoing representations."""
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return fix_mojibake(data)
+
+
+class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     class Meta:
         model = Exercise
         fields = '__all__'
 
 
-class AdminWorkoutDayExerciseSerializer(serializers.ModelSerializer):
+class AdminWorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
     
     class Meta:
@@ -19,7 +28,7 @@ class AdminWorkoutDayExerciseSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class AdminWorkoutDaySerializer(serializers.ModelSerializer):
+class AdminWorkoutDaySerializer(EncodingFixMixin, serializers.ModelSerializer):
     exercises = AdminWorkoutDayExerciseSerializer(many=True, read_only=True)
     
     class Meta:
@@ -27,7 +36,7 @@ class AdminWorkoutDaySerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class AdminWorkoutProgramSerializer(serializers.ModelSerializer):
+class AdminWorkoutProgramSerializer(EncodingFixMixin, serializers.ModelSerializer):
     days = AdminWorkoutDaySerializer(many=True, read_only=True)
     
     class Meta:
@@ -35,7 +44,7 @@ class AdminWorkoutProgramSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class AdminWorkoutProgramMinimalSerializer(serializers.ModelSerializer):
+class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """
     Serializer minimal para listas en admin.
     Incluye info del usuario para poder gestionar planes de usuarios.

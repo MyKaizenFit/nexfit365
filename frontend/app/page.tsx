@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
+import { getAuthService } from "@/lib/auth-service"
 import { PersonalizedRecommendations } from "@/components/personalized-recommendations"
 import { 
   Target, 
@@ -33,6 +34,55 @@ export default function HomePage() {
   const { isAuthenticated, isLoading, user } = useAuth()
   const [userProfile, setUserProfile] = useState<any>(null)
   const [showPersonalizedContent, setShowPersonalizedContent] = useState(false)
+
+  // Si está autenticado, no permitir permanecer en la home (/):
+  // redirigir al dashboard o al panel admin según el rol.
+  useEffect(() => {
+    if (isLoading) return
+    if (!isAuthenticated) return
+
+    // Si el usuario debe cambiar contraseña, respetar ese flujo primero
+    if (user?.must_change_password) {
+      window.location.replace('/auth/change-password')
+      return
+    }
+
+    // Determinar si es admin (prioriza token si user aún no cargó)
+    let isAdmin = false
+    try {
+      const authService = getAuthService()
+      const accessToken = authService.getAccessToken()
+      if (accessToken && accessToken.includes('.') && !accessToken.startsWith('offline_token_')) {
+        const payload = JSON.parse(atob(accessToken.split('.')[1]))
+        isAdmin = !!(payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer')
+      }
+    } catch {
+      // Ignorar: si falla token, caemos al chequeo por user
+    }
+
+    isAdmin =
+      isAdmin ||
+      !!(user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || (user as any).role === 'admin' || (user as any).role === 'trainer'))
+
+    if (isAdmin) {
+      window.location.replace('/admin')
+      return
+    }
+
+    // Usuarios normales: si el formulario inicial no está completo, ir al formulario;
+    // si está completo, ir al dashboard.
+    try {
+      const formCompleted = localStorage.getItem('initial_form_completed')
+      if (!formCompleted || formCompleted !== 'true') {
+        window.location.replace('/initial-registration')
+        return
+      }
+    } catch {
+      // Si localStorage falla, ir al dashboard y el middleware decidirá si debe bloquear
+    }
+
+    window.location.replace('/dashboard')
+  }, [isAuthenticated, isLoading, user])
 
   // Cargar datos del perfil del usuario
   useEffect(() => {
@@ -63,169 +113,16 @@ export default function HomePage() {
     loadUserProfile()
   }, [isAuthenticated, user])
 
-  // Si está autenticado, mostrar opciones de navegación
+  // Si está autenticado, el efecto anterior se encarga de redirigir.
   if (isAuthenticated && !isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-        {/* Header Hero */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white">
-          <div className="absolute inset-0 bg-black/10 pointer-events-none"></div>
-          <div className="relative max-w-7xl mx-auto px-4 py-16 sm:px-6 lg:px-8">
-            <div className="text-center">
-              <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-6">
-                <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
-              </div>
-              <h1 className="text-5xl md:text-6xl font-bold mb-4">
-                ¡Bienvenido a <span className="text-orange-400">NEX</span><span className="text-gray-200">FIT</span>! 🎉
-              </h1>
-              <p className="text-xl md:text-2xl text-blue-100 max-w-3xl mx-auto leading-relaxed">
-                Tu compañero personal para alcanzar tus objetivos de fitness y transformar tu vida
-              </p>
-              <div className="mt-8 flex flex-wrap justify-center gap-4">
-                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                  <Star className="w-5 h-5 text-yellow-300" />
-                  <span className="text-sm font-medium">Plan Personalizado</span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                  <TrendingUp className="w-5 h-5 text-green-300" />
-                  <span className="text-sm font-medium">Seguimiento Avanzado</span>
-                </div>
-                <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                  <Heart className="w-5 h-5 text-red-300" />
-                  <span className="text-sm font-medium">Salud Integral</span>
-                </div>
-              </div>
-            </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
+            <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
           </div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-          {/* Tarjetas de navegación principal */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
-            <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border-0 bg-white/80 backdrop-blur-sm" 
-                  onClick={() => router.push('/dashboard')}>
-              <CardContent className="p-8 text-center">
-                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Home className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">Dashboard Principal</h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Resumen completo de tu progreso, próximas actividades y métricas de rendimiento
-                </p>
-                <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                  Ir al Dashboard <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border-0 bg-white/80 backdrop-blur-sm" 
-                  onClick={() => router.push('/admin')}>
-              <CardContent className="p-8 text-center">
-                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Settings className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">Administración</h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Panel de control avanzado para gestión del sistema y configuración
-                </p>
-                <Button className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                  Panel Admin <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="group hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2 border-0 bg-white/80 backdrop-blur-sm" 
-                  onClick={() => router.push('/dashboard')}>
-              <CardContent className="p-8 text-center">
-                <div className="mx-auto w-20 h-20 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
-                  <Trophy className="w-10 h-10 text-white" />
-                </div>
-                <h3 className="text-2xl font-bold mb-3 text-gray-800">Mi Progreso</h3>
-                <p className="text-gray-600 mb-6 leading-relaxed">
-                  Visualiza tus logros, estadísticas y el camino hacia tus objetivos
-                </p>
-                <Button className="w-full bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300">
-                  Ver Progreso <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Contenido personalizado basado en el perfil del usuario */}
-          {showPersonalizedContent && userProfile && (
-            <div className="mb-12">
-              <PersonalizedRecommendations 
-                userProfile={userProfile as any}
-                onComplete={() => {
-                  console.log('Recomendaciones personalizadas completadas')
-                }}
-              />
-            </div>
-          )}
-
-          {/* Características destacadas */}
-          <div className="mb-12">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold text-gray-800 mb-4">🚀 Características Destacadas</h2>
-              <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-                Descubre todo lo que Nex-Fit tiene para ofrecerte en tu viaje hacia una vida más saludable
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20">
-                <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Activity className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Seguimiento Avanzado</h3>
-                <p className="text-gray-600 text-sm">Monitorea tu progreso con métricas detalladas y gráficos interactivos</p>
-              </div>
-
-              <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20">
-                <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <ChefHat className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Plan Nutricional</h3>
-                <p className="text-gray-600 text-sm">Planes de comidas personalizados y seguimiento de macros</p>
-              </div>
-
-              <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20">
-                <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <Dumbbell className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Rutinas de Ejercicio</h3>
-                <p className="text-gray-600 text-sm">Programas de entrenamiento adaptados a tu nivel y objetivos</p>
-              </div>
-
-              <div className="text-center p-6 bg-white/60 backdrop-blur-sm rounded-2xl border border-white/20">
-                <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                  <BarChart3 className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Analytics Inteligente</h3>
-                <p className="text-gray-600 text-sm">Insights personalizados para optimizar tu rendimiento</p>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA Final */}
-          <div className="mt-16 mb-8">
-            <Card className="border-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white shadow-2xl">
-              <CardContent className="p-12 text-center">
-                <Sparkles className="w-16 h-16 mx-auto mb-6 text-yellow-300" />
-                <h2 className="text-4xl font-bold mb-4">¿Listo para transformar tu vida?</h2>
-                <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-                  Únete a miles de personas que ya están alcanzando sus objetivos con Nex-Fit
-                </p>
-                <Button 
-                  size="lg"
-                  className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300"
-                  onClick={() => router.push('/dashboard')}
-                >
-                  Comenzar Ahora <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </CardContent>
-            </Card>
-          </div>
+          <h1 className="text-3xl font-bold mb-3 text-gray-800">Redirigiendo...</h1>
+          <p className="text-gray-600">Te estamos llevando a tu panel.</p>
         </div>
       </div>
     )

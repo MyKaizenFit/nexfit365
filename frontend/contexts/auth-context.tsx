@@ -541,6 +541,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const authService = getAuthService()
       const accessToken = authService.getAccessToken()
       if (!accessToken) {
+        // Si no hay token, no dejar al usuario en un estado inconsistente (pantallas protegidas sin sesión real)
+        setState({
+          user: null,
+          isAuthenticated: false,
+          isLoading: false,
+          error: null,
+          mustChangePassword: false,
+        })
+        router.push('/auth')
         throw new Error('No hay token de acceso disponible')
       }
 
@@ -576,6 +585,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Función para verificar y refrescar el token si es necesario
     const checkAndRefreshToken = async () => {
       try {
+        // Si el estado dice "autenticado" pero ya no hay tokens, forzar logout/redirect
+        if (!authService.hasValidTokens()) {
+          console.warn('⚠️ Tokens no válidos detectados durante sesión activa. Redirigiendo a /auth...')
+          setState({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+            mustChangePassword: false,
+          })
+          router.push('/auth')
+          return
+        }
+
         // Verificar si el token está próximo a expirar
         if (authService.isTokenExpiringSoon()) {
           console.log('🔄 Token próximo a expirar, refrescando proactivamente...')
@@ -585,6 +608,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (refreshResult.success) {
             console.log('✅ Token refrescado proactivamente con éxito')
           } else {
+            // Si el refresh falla por sesión expirada/401, authService puede limpiar tokens.
+            // En ese caso, no dejar el estado inconsistente: forzar logout/redirect.
+            const err = refreshResult.error || ''
+            if (err.includes('Sesión expirada') || err.includes('expired') || err.includes('401') || !authService.hasValidTokens()) {
+              console.warn('⚠️ Refresh falló y la sesión ya no es válida. Redirigiendo a /auth...')
+              setState({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                mustChangePassword: false,
+              })
+              router.push('/auth')
+              return
+            }
+
             // Si falla el refresh proactivo, no hacer nada
             // El token se refrescará bajo demanda cuando haya un 401
             // Solo loguear en modo desarrollo para debugging

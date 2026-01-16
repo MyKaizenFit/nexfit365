@@ -618,6 +618,7 @@ export function MonthlyMealPlan() {
           }}
           mealName={MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.name || ""}
           mealTime={MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.time || ""}
+          mealType={selectedMeal.meal_type}
           options={mealOptions}
           onSelectOption={handleSaveSelection}
         />

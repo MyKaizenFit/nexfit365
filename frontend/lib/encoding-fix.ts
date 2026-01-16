@@ -47,6 +47,18 @@ export function fixEncoding(text: string | null | undefined): string {
   fixed = fixed.replace(/\u00C3\u0091/g, 'Ñ') // Ã'
   fixed = fixed.replace(/\u00C3\u009C/g, 'Ü') // Ãœ
 
+  // Correcciones cuando UTF-8 se interpreta como CP437/CP850 (mojibake tipo "Tr├¡ceps")
+  // Ejemplos:
+  // - Tr├¡ceps -> Tríceps
+  // - Gl├║teos -> Glúteos
+  fixed = fixed.replace(/├í/g, 'á')
+  fixed = fixed.replace(/├⌐/g, 'é')
+  fixed = fixed.replace(/├¡/g, 'í')
+  fixed = fixed.replace(/├│/g, 'ó')
+  fixed = fixed.replace(/├║/g, 'ú')
+  fixed = fixed.replace(/├▒/g, 'ñ')
+  fixed = fixed.replace(/├╝/g, 'ü')
+
   return fixed
 }
 

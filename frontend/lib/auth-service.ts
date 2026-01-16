@@ -762,6 +762,14 @@ export class AuthService {
         return { success: false, error: errorMessage }
       }
 
+      // Si el refresh token es inválido/expiró (401), no tiene sentido reintentar.
+      // Limpiar tokens para evitar bucles de refresh y forzar nuevo login.
+      if (response.status === 401) {
+        this.isRefreshing = false
+        this.clearTokens()
+        return { success: false, error: 'Sesión expirada. Por favor, inicia sesión nuevamente.' }
+      }
+
       // Manejar errores de timeout (504) y otros errores HTTP
       if (!response.ok && response.status === 504) {
         this.isRefreshing = false

@@ -6,9 +6,18 @@ from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
     WorkoutLog, WorkoutLogExercise, WorkoutLogSet
 )
+from backend.utils.encoding_fix import fix_mojibake
 
 
-class ExerciseSerializer(serializers.ModelSerializer):
+class EncodingFixMixin:
+    """Apply mojibake repair to outgoing representations."""
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        return fix_mojibake(data)
+
+
+class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
@@ -30,7 +39,7 @@ class ExerciseSerializer(serializers.ModelSerializer):
         return obj.get_video_url()
 
 
-class ExerciseMinimalSerializer(serializers.ModelSerializer):
+class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer minimal para listas - incluye datos de video para reproducción"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
@@ -48,7 +57,7 @@ class ExerciseMinimalSerializer(serializers.ModelSerializer):
         return obj.get_video_url()
 
 
-class WorkoutDayExerciseSerializer(serializers.ModelSerializer):
+class WorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios en un día"""
     exercise = ExerciseMinimalSerializer(read_only=True)
     exercise_id = serializers.UUIDField(write_only=True)
@@ -62,7 +71,7 @@ class WorkoutDayExerciseSerializer(serializers.ModelSerializer):
         ]
 
 
-class WorkoutDaySerializer(serializers.ModelSerializer):
+class WorkoutDaySerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para días de entrenamiento"""
     exercises = WorkoutDayExerciseSerializer(many=True, read_only=True)
     total_exercises = serializers.IntegerField(read_only=True)
@@ -76,7 +85,7 @@ class WorkoutDaySerializer(serializers.ModelSerializer):
         ]
 
 
-class WorkoutProgramSerializer(serializers.ModelSerializer):
+class WorkoutProgramSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para programas de entrenamiento"""
     days = WorkoutDaySerializer(many=True, read_only=True)
     total_days = serializers.IntegerField(read_only=True)
@@ -114,7 +123,7 @@ class WorkoutProgramSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
-class WorkoutProgramMinimalSerializer(serializers.ModelSerializer):
+class WorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer minimal para listas - incluye campos necesarios para admin"""
     days_count = serializers.SerializerMethodField()
     

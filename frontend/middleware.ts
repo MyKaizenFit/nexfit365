@@ -34,6 +34,35 @@ export function middleware(request: NextRequest) {
   // Obtener token de autenticación desde cookies
   const accessToken = request.cookies.get('accessToken')?.value
   const refreshToken = request.cookies.get('refreshToken')?.value
+
+  // Si el usuario ya está autenticado, no permitir acceso a la home (/)
+  // y redirigir según su rol (admin -> /admin, usuario -> /dashboard o /initial-registration).
+  if (pathname === '/' && accessToken) {
+    try {
+      // Tokens "offline_token_*" no son JWT; redirigir de forma segura
+      if (!accessToken.includes('.')) {
+        return NextResponse.redirect(new URL('/dashboard', request.url))
+      }
+
+      const payload = JSON.parse(atob(accessToken.split('.')[1]))
+      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
+
+      if (isAdmin) {
+        return NextResponse.redirect(new URL('/admin', request.url))
+      }
+
+      const formCompleted = request.cookies.get('initial_form_completed')?.value
+      if (!formCompleted || formCompleted !== 'true') {
+        return NextResponse.redirect(new URL('/initial-registration', request.url))
+      }
+
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    } catch (error) {
+      // Si no podemos decodificar el token, redirigir a dashboard por defecto
+      console.error('Error decodificando token en middleware (/):', error)
+      return NextResponse.redirect(new URL('/dashboard', request.url))
+    }
+  }
   
   // Verificar si la ruta actual requiere autenticación
   const isProtectedRoute = protectedRoutes.some(route => 

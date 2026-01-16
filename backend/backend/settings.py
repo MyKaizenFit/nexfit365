@@ -250,7 +250,11 @@ DATABASES = {
             "client_encoding": "UTF8",  # Asegurar UTF-8 en la conexión a PostgreSQL
             "options": "-c client_encoding=UTF8 -c lc_messages=en_US.UTF-8",  # Forzar UTF-8 en la conexión
         },
-        "CONN_MAX_AGE": 600,  # Mantener conexiones abiertas por 10 minutos
+        # En producción, evitar conexiones persistentes largas: si Postgres reinicia, pueden quedar sockets rotos
+        # y provocar 500 ("server closed the connection unexpectedly") en endpoints como login/me.
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60" if DEBUG else "0")),
+        # Verificar salud de conexión al reutilizarla (Django 4.2+)
+        "CONN_HEALTH_CHECKS": os.getenv("DB_CONN_HEALTH_CHECKS", "True") == "True",
         # Asegurar que todas las conexiones usen UTF-8
         "TEST": {
             "CHARSET": "utf8",

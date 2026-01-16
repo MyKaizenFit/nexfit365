@@ -46,7 +46,7 @@ class PlanMealSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanMeal
         fields = [
-            "id", "name", "meal_type", "time",
+            "id", "day_of_week", "name", "meal_type", "time",
             "calories", "protein", "carbs", "fat",
             "suggested_recipes", "description", "order_index"
         ]
@@ -111,11 +111,14 @@ class MealLogSerializer(serializers.ModelSerializer):
     """Serializer para logs de comidas"""
     recipe_name = serializers.CharField(source='recipe.name', read_only=True, allow_null=True)
     recipe = serializers.SerializerMethodField()
+    plan_meal_id = serializers.UUIDField(source='plan_meal.id', read_only=True, allow_null=True)
+    plan_meal_meta = serializers.SerializerMethodField()
     
     class Meta:
         model = MealLog
         fields = [
             "id", "user", "date", "meal_type", "time",
+            "plan_meal_id", "plan_meal_meta",
             "recipe", "recipe_name", "custom_description",
             "calories", "protein", "carbs", "fat", "servings",
             "completed", "rating", "notes", "photo",
@@ -138,6 +141,19 @@ class MealLogSerializer(serializers.ModelSerializer):
                 'cook_time_minutes': obj.recipe.cook_time_minutes or 0,
             }
         return None
+
+    def get_plan_meal_meta(self, obj):
+        if not obj.plan_meal:
+            return None
+        pm = obj.plan_meal
+        return {
+            'id': str(pm.id),
+            'name': pm.name,
+            'meal_type': pm.meal_type,
+            'time': pm.time.isoformat() if pm.time else None,
+            'order_index': pm.order_index,
+            'day_of_week': pm.day_of_week,
+        }
 
 
 class FoodSerializer(serializers.ModelSerializer):

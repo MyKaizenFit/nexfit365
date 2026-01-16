@@ -263,7 +263,7 @@ export function WorkoutPlanManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchTerm, roleFilter, difficultyFilter, goalFilter, locationFilter, userFilter, planTypeFilter])
 
-  const getPlanCategory = (plan: any) => {
+  function getPlanCategory(plan: any) {
     if (!plan) return "Desconocido"
     if (plan.user && !plan.is_template && !plan.is_system) return "Usuario"
     if (plan.is_system) return "Sistema"
@@ -271,7 +271,7 @@ export function WorkoutPlanManagement() {
     return "Otro"
   }
 
-  const getCategoryBadge = (plan: any) => {
+  function getCategoryBadge(plan: any) {
     const category = getPlanCategory(plan)
     switch (category) {
       case "Usuario":
