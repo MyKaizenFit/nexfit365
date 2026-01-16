@@ -13,6 +13,7 @@ interface DailyMeal {
   time: string
   description: string
   icon: string
+  mealType: string
   selectedOption: MealOption | null
   isCompleted: boolean
 }
@@ -46,6 +47,15 @@ export function useDailyMeals() {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [planMealOptions, setPlanMealOptions] = useState<Record<string, MealOption[]>>({})
+  const [planMealSlots, setPlanMealSlots] = useState<Array<{
+    id: string
+    name: string
+    time: string | null
+    description?: string
+    meal_type: string
+    order_index?: number
+  }>>([])
+  const [planOptionsByMealId, setPlanOptionsByMealId] = useState<Record<string, MealOption[]>>({})
 
   // Estructura de comidas del día
   const mealTimes = {
@@ -180,21 +190,61 @@ export function useDailyMeals() {
     ]
   }
 
-  // Generar comidas del día
+  const mealTypeToIcon = (mealType: string): string => {
+    const icons: Record<string, string> = {
+      breakfast: "🌅",
+      morning_snack: "☕",
+      lunch: "🍽️",
+      afternoon_snack: "🍎",
+      dinner: "🌙",
+      evening_snack: "🌜",
+      pre_workout: "⚡",
+      post_workout: "💪",
+      other: "🍽️",
+    }
+    return icons[mealType] || "🍽️"
+  }
+
+  // Generar comidas del día (dinámico según el plan del usuario)
   const generateDailyMeals = useCallback(() => {
+    // Si el backend devolvió slots, respetarlos (nº variable y tipos variables)
+    if (Array.isArray(planMealSlots) && planMealSlots.length > 0) {
+      const sorted = [...planMealSlots].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+      return sorted.map((m) => ({
+        id: String(m.id),
+        name: m.name,
+        time: (m.time || "12:00").slice(0, 5),
+        description: m.description || "",
+        icon: mealTypeToIcon(m.meal_type),
+        mealType: m.meal_type,
+        selectedOption: null,
+        isCompleted: false,
+      }))
+    }
+
+    // Fallback: estructura fija de 5 comidas
     const mealNames = ["Desayuno", "Snack Mañana", "Almuerzo", "Snack Tarde", "Cena"]
     const mealKeys = Object.keys(mealTimes)
-    
     return mealNames.map((name, index) => ({
       id: `meal-${index + 1}`,
       name,
       time: mealTimes[mealKeys[index] as keyof typeof mealTimes] || "12:00",
       description: getMealDescription(name),
       icon: getMealIcon(name),
+      mealType: (() => {
+        const map: Record<string, string> = {
+          "Desayuno": "breakfast",
+          "Snack Mañana": "morning_snack",
+          "Almuerzo": "lunch",
+          "Snack Tarde": "afternoon_snack",
+          "Cena": "dinner",
+        }
+        return map[name] || "breakfast"
+      })(),
       selectedOption: null,
-      isCompleted: false
+      isCompleted: false,
     }))
-  }, [])
+  }, [planMealSlots])
 
   // Obtener descripción de la comida
   const getMealDescription = (mealName: string): string => {
@@ -351,20 +401,11 @@ export function useDailyMeals() {
       try {
         setSyncing(true)
         const today = new Date().toISOString().split('T')[0]
-        
-        // Crear mapeo de tipos de comida para el backend
-        const mealTypeMapping: Record<string, string> = {
-          'Desayuno': 'breakfast',
-          'Snack Mañana': 'morning_snack',
-          'Almuerzo': 'lunch',
-          'Snack Tarde': 'afternoon_snack',
-          'Cena': 'dinner'
-        }
 
-        // Encontrar el nombre de la comida
+        // Encontrar la comida seleccionada (dinámico: viene del plan)
         const meal = meals.find(m => m.id === mealId)
         if (meal) {
-          const mealType = mealTypeMapping[meal.name]
+          const mealType = meal.mealType
           if (mealType) {
             console.log(`💾 Guardando selección en backend: ${meal.name} -> ${mealType} (no completada)`)
             
@@ -375,6 +416,8 @@ export function useDailyMeals() {
             const requestData: any = {
               date: today,
               meal_type: mealType,
+              // Si el id de la comida viene del plan (UUID), enviarlo para identificar el slot
+              plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
               calories: option.calories || 0,
               protein: option.protein || 0,
               carbs: option.carbs || 0,
@@ -382,13 +425,11 @@ export function useDailyMeals() {
               completed: false // Solo planificación, no completada
             }
             
-            // Solo incluir recipe_id si existe y es válido
-            if (option.id && option.id !== 'undefined' && option.id !== 'null') {
-              // Si el ID contiene "recipe-" o es un UUID, usarlo directamente
-              // Si es un ID numérico, convertirlo a string
-              requestData.recipe_id = String(option.id).replace('recipe-', '')
-            } else if (option.recipeId) {
-              requestData.recipe_id = String(option.recipeId).replace('recipe-', '')
+            // Preferir recipeId (viene explícito del backend). Evita enviar IDs compuestos tipo "meal-...-recipe-...".
+            if (option.recipeId) {
+              requestData.recipe_id = String(option.recipeId)
+            } else if (option.id && String(option.id).includes('recipe-')) {
+              requestData.recipe_id = String(option.id).split('recipe-').pop()
             } else {
               // Si no hay recipe_id, usar custom_description
               requestData.custom_description = option.name || 'Comida seleccionada'
@@ -445,22 +486,14 @@ export function useDailyMeals() {
 
       const data = await response.json()
       const selections = data.selections || []
-      
-      // Mapeo de tipos de comida del backend a nombres en español
-      const mealTypeMapping: Record<string, string> = {
-        'breakfast': 'Desayuno',
-        'morning_snack': 'Snack Mañana',
-        'lunch': 'Almuerzo',
-        'afternoon_snack': 'Snack Tarde',
-        'dinner': 'Cena'
-      }
 
       // Convertir selecciones a formato MealOption
       const selectionsMap: Record<string, MealOption> = {}
       
       selections.forEach((log: any) => {
-        const mealName = mealTypeMapping[log.meal_type]
-        if (mealName) {
+        const mealType = String(log.meal_type || '')
+        const key = String(log.plan_meal_id || mealType)
+        if (key) {
           // Determinar el nombre de la comida - priorizar recipe_name, luego recipe.name, luego custom_description
           let mealNameToShow = 'Sin nombre'
           
@@ -481,10 +514,10 @@ export function useDailyMeals() {
           
           // Si aún no hay nombre, usar un nombre genérico basado en el tipo de comida
           if (mealNameToShow === 'Sin nombre') {
-            mealNameToShow = `${mealName} - Comida personalizada`
+            mealNameToShow = `${mealType} - Comida personalizada`
           }
           
-          console.log(`📋 Cargando selección para ${mealName}:`, {
+          console.log(`📋 Cargando selección para ${mealType}:`, {
             recipe_name: log.recipe_name,
             recipe: log.recipe,
             custom_description: log.custom_description,
@@ -498,7 +531,7 @@ export function useDailyMeals() {
           const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || 0
           const fat = Number(log.fat) || Number(log.recipe?.fat) || 0
           
-          selectionsMap[mealName] = {
+          selectionsMap[key] = {
             id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
             name: mealNameToShow,
             calories: calories,
@@ -547,15 +580,7 @@ export function useDailyMeals() {
     // Actualizar en el backend
     try {
       const today = new Date().toISOString().split('T')[0]
-      const mealTypeMapping: Record<string, string> = {
-        'Desayuno': 'breakfast',
-        'Snack Mañana': 'morning_snack',
-        'Almuerzo': 'lunch',
-        'Snack Tarde': 'afternoon_snack',
-        'Cena': 'dinner'
-      }
-
-      const mealType = mealTypeMapping[meal.name]
+      const mealType = meal.mealType
       if (mealType) {
         const headers = await getAuthHeaders()
         const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
@@ -564,7 +589,7 @@ export function useDailyMeals() {
           body: JSON.stringify({
             date: today,
             meal_type: mealType,
-            recipe_id: meal.selectedOption.id,
+            recipe_id: meal.selectedOption.recipeId || (String(meal.selectedOption.id).includes('recipe-') ? String(meal.selectedOption.id).split('recipe-').pop() : meal.selectedOption.id),
             calories: meal.selectedOption.calories || 0,
             protein: meal.selectedOption.protein || 0,
             carbs: meal.selectedOption.carbs || 0,
@@ -588,32 +613,22 @@ export function useDailyMeals() {
             if (statusResponse.ok) {
               const data = await statusResponse.json()
               const logs = data.selections || []
-              
-              const mealTypeMapping: Record<string, string> = {
-                'breakfast': 'Desayuno',
-                'morning_snack': 'Snack Mañana',
-                'lunch': 'Almuerzo',
-                'afternoon_snack': 'Snack Tarde',
-                'dinner': 'Cena'
-              }
-              
               const completedMap: Record<string, boolean> = {}
               logs.forEach((log: any) => {
-                const mealName = mealTypeMapping[log.meal_type]
-                if (mealName) {
-                  completedMap[mealName] = log.completed || false
-                }
+                const mt = String(log.meal_type || '')
+                const k = String(log.plan_meal_id || mt)
+                if (k) completedMap[k] = log.completed || false
               })
               
               // Actualizar meals con las selecciones y estado de completado
               setMeals(currentMeals => {
                 const updatedMeals = currentMeals.map(meal => {
-                  const selection = selections[meal.name]
+                  const selection = selections[meal.id] || selections[meal.mealType]
                   if (selection) {
                     return { 
                       ...meal, 
                       selectedOption: selection, 
-                      isCompleted: completedMap[meal.name] || false 
+                      isCompleted: completedMap[String(meal.id)] || completedMap[meal.mealType] || false 
                     }
                   }
                   return meal
@@ -650,30 +665,21 @@ export function useDailyMeals() {
         if (response.ok) {
           const data = await response.json()
           const logs = data.selections || []
-          
-          const mealTypeMapping: Record<string, string> = {
-            'breakfast': 'Desayuno',
-            'morning_snack': 'Snack Mañana',
-            'lunch': 'Almuerzo',
-            'afternoon_snack': 'Snack Tarde',
-            'dinner': 'Cena'
-          }
 
-          const completedMap: Record<string, boolean> = {}
-          logs.forEach((log: any) => {
-            const mealName = mealTypeMapping[log.meal_type]
-            if (mealName) {
-              completedMap[mealName] = log.completed || false
-            }
-          })
+              const completedMap: Record<string, boolean> = {}
+              logs.forEach((log: any) => {
+                const mt = String(log.meal_type || '')
+                const k = String(log.plan_meal_id || mt)
+                if (k) completedMap[k] = log.completed || false
+              })
 
           return meals.map(meal => {
-            const selection = selections[meal.name]
+            const selection = selections[meal.id] || selections[meal.mealType]
             if (selection) {
               return { 
                 ...meal, 
                 selectedOption: selection, 
-                isCompleted: completedMap[meal.name] || false 
+                isCompleted: completedMap[String(meal.id)] || completedMap[meal.mealType] || false 
               }
             }
             return meal
@@ -685,7 +691,7 @@ export function useDailyMeals() {
 
       // Fallback: mostrar selecciones pero marcarlas como no completadas
       return meals.map(meal => {
-        const selection = selections[meal.name]
+        const selection = selections[meal.id] || selections[meal.mealType]
         if (selection) {
           // Asegurarse de que el nombre esté presente
           const mealOption = {
@@ -706,6 +712,27 @@ export function useDailyMeals() {
       const planMeals = await nutritionService.getPlanMealsForSelection()
       if (planMeals && planMeals.meals_by_type) {
         setPlanMealOptions(planMeals.meals_by_type)
+
+        if (Array.isArray(planMeals.meal_slots)) {
+          setPlanMealSlots(
+            planMeals.meal_slots.map((m) => ({
+              id: String(m.id),
+              name: m.name,
+              time: (m.time || null) as any,
+              description: m.description || "",
+              meal_type: m.meal_type,
+              order_index: m.order_index,
+            }))
+          )
+        } else {
+          setPlanMealSlots([])
+        }
+
+        if (planMeals.options_by_meal_id && typeof planMeals.options_by_meal_id === "object") {
+          setPlanOptionsByMealId(planMeals.options_by_meal_id as any)
+        } else {
+          setPlanOptionsByMealId({})
+        }
         
         // Actualizar macros con valores personalizados del backend
         if (planMeals.daily_calories_target && planMeals.daily_macros) {
@@ -735,11 +762,15 @@ export function useDailyMeals() {
       } else {
         // Fallback a opciones por defecto
         setPlanMealOptions(defaultMealOptions)
+        setPlanMealSlots([])
+        setPlanOptionsByMealId({})
       }
     } catch (error) {
       console.error('Error cargando opciones del plan:', error)
       // Fallback a opciones por defecto
       setPlanMealOptions(defaultMealOptions)
+      setPlanMealSlots([])
+      setPlanOptionsByMealId({})
     }
   }, [currentPlan])
 
@@ -813,32 +844,26 @@ export function useDailyMeals() {
   }, [isAuthenticated, currentPlan?.id]) // Solo cuando cambie el ID del plan, no el objeto completo
 
   // Obtener opciones para una comida específica
-  const getMealOptions = useCallback((mealName: string): MealOption[] => {
-    // Mapeo de nombres a tipos de comida del backend
-    const mealTypeMap: Record<string, string> = {
-      "Desayuno": "breakfast",
-      "Snack Mañana": "morning_snack",
-      "Almuerzo": "lunch",
-      "Snack Tarde": "afternoon_snack",
-      "Cena": "dinner"
-    }
-    
-    const mealType = mealTypeMap[mealName] || "breakfast"
-    
-    // Si hay opciones del plan, usarlas; si no, usar las por defecto
+  const getMealOptions = useCallback((mealId: string): MealOption[] => {
+    // Preferir opciones por slot (permite nº variable de comidas/día)
+    const byId = planOptionsByMealId[mealId]
+    if (Array.isArray(byId) && byId.length > 0) return byId
+
+    // Fallback: buscar el slot y usar options por tipo
+    const slot = meals.find((m) => m.id === mealId)
+    const mealType = slot?.mealType || "breakfast"
     if (planMealOptions[mealType] && planMealOptions[mealType].length > 0) {
       return planMealOptions[mealType]
     }
-    
-    // Fallback a opciones hardcodeadas si no hay plan
-    const mealKey = mealName === "Desayuno" ? "breakfast" :
-                   mealName === "Snack Mañana" ? "snack1" :
-                   mealName === "Almuerzo" ? "lunch" :
-                   mealName === "Snack Tarde" ? "snack2" :
-                   mealName === "Cena" ? "dinner" : "breakfast"
-    
+
+    // Último fallback: opciones hardcodeadas
+    const mealKey =
+      mealType === "breakfast" ? "breakfast" :
+      mealType === "morning_snack" ? "snack1" :
+      mealType === "afternoon_snack" ? "snack2" :
+      mealType === "dinner" ? "dinner" : "lunch"
     return defaultMealOptions[mealKey] || []
-  }, [planMealOptions])
+  }, [planMealOptions, planOptionsByMealId, meals])
 
   // Refrescar datos
   const refreshData = useCallback(async () => {

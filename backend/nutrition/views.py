@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
+from django.db.models import Q
 
 from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
 from .serializers import (
@@ -165,6 +166,16 @@ def plan_meals_for_selection(request):
             'scale_factor': round(scale_factor, 2)
         }
     
+    # Permitir seleccionar el día (para vistas semanales/mensuales)
+    date_param = request.query_params.get('date')
+    if date_param:
+        try:
+            date_for_slots = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            date_for_slots = timezone.localdate()
+    else:
+        date_for_slots = timezone.localdate()
+
     # Primero intentar obtener comidas del plan actual del usuario
     user_plan = NutritionPlan.objects.filter(
         user=user,
@@ -172,20 +183,37 @@ def plan_meals_for_selection(request):
     ).prefetch_related('meals__suggested_recipes').first()
     
     meals_by_type = {}
+    # Nuevo: devolver slots (comidas del día) y opciones por slot
+    meal_slots = []
+    options_by_meal_id = {}
     
     if user_plan:
-        meals = user_plan.meals.all()
+        # Si el plan tiene comidas por día, mostrar las del día actual.
+        # day_of_week: 1=Lunes..7=Domingo. Null = aplica a cualquier día (compatibilidad).
+        today_dow = date_for_slots.isoweekday()
+        meals = user_plan.meals.filter(Q(day_of_week=today_dow) | Q(day_of_week__isnull=True)).order_by('order_index', 'id')
         for meal in meals:
             meal_type = meal.meal_type
             if meal_type not in meals_by_type:
                 meals_by_type[meal_type] = []
+
+            # Slot base (para que el frontend pueda renderizar nº variable de comidas)
+            meal_slots.append({
+                'id': str(meal.id),
+                'day_of_week': meal.day_of_week,
+                'name': meal.name,
+                'meal_type': meal.meal_type,
+                'time': meal.time.isoformat() if meal.time else None,
+                'description': meal.description or '',
+                'order_index': meal.order_index,
+            })
             
             # Crear opciones basadas en la comida y sus recetas sugeridas
             meal_options = []
             
-            # Si hay recetas sugeridas, crear una opción por cada receta (máximo 3)
+            # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
             if meal.suggested_recipes.exists():
-                for recipe in meal.suggested_recipes.all()[:3]:
+                for recipe in meal.suggested_recipes.all():
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
@@ -217,11 +245,15 @@ def plan_meals_for_selection(request):
                 })
             
             meals_by_type[meal_type].extend(meal_options)
+            options_by_meal_id[str(meal.id)] = meal_options
         
         return Response({
             'meals_by_type': meals_by_type,
+            'meal_slots': meal_slots,
+            'options_by_meal_id': options_by_meal_id,
             'plan_name': user_plan.name,
             'source': 'user_plan',
+            'date': date_for_slots.isoformat(),
             'daily_calories_target': daily_calories,
             'daily_macros': daily_macros
         })
@@ -230,19 +262,20 @@ def plan_meals_for_selection(request):
     system_plans = NutritionPlan.objects.filter(
         is_system=True,
         is_active=True
-    ).prefetch_related('meals__suggested_recipes')[:3]
+    ).prefetch_related('meals__suggested_recipes')
     
     for plan in system_plans:
-        for meal in plan.meals.all():
+        for meal in plan.meals.all().order_by('order_index', 'id'):
             meal_type = meal.meal_type
             if meal_type not in meals_by_type:
                 meals_by_type[meal_type] = []
             
-            # Crear opciones basadas en la comida y sus recetas sugeridas (máximo 3)
+            # Crear opciones basadas en la comida y sus recetas sugeridas (sin límite)
+            meal_options = []
             if meal.suggested_recipes.exists():
-                for recipe in meal.suggested_recipes.all()[:3]:
+                for recipe in meal.suggested_recipes.all():
                     personalized = personalize_recipe(recipe, meal_type, meal)
-                    meals_by_type[meal_type].append({
+                    meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
                         'name': recipe.name,
                         'calories': personalized['calories'],
@@ -257,7 +290,7 @@ def plan_meals_for_selection(request):
                     })
             else:
                 personalized = personalize_meal(meal, meal_type)
-                meals_by_type[meal_type].append({
+                meal_options.append({
                     'id': f"meal-{meal.id}",
                     'name': meal.name,
                     'calories': personalized['calories'],
@@ -269,9 +302,24 @@ def plan_meals_for_selection(request):
                     'description': meal.description,
                     'cookTime': '15 min'
                 })
+
+            meals_by_type[meal_type].extend(meal_options)
+            # Slots y opciones por meal_id para el caso "sin plan de usuario"
+            meal_slots.append({
+                'id': str(meal.id),
+                'day_of_week': meal.day_of_week,
+                'name': meal.name,
+                'meal_type': meal.meal_type,
+                'time': meal.time.isoformat() if meal.time else None,
+                'description': meal.description or '',
+                'order_index': meal.order_index,
+            })
+            options_by_meal_id[str(meal.id)] = meal_options
     
     return Response({
         'meals_by_type': meals_by_type,
+        'meal_slots': meal_slots,
+        'options_by_meal_id': options_by_meal_id,
         'plan_name': None,
         'source': 'system_templates',
         'daily_calories_target': daily_calories,
@@ -359,7 +407,21 @@ def daily_meal_selections(request):
         data = request.data
         meal_type = data.get('meal_type')
         recipe_id = data.get('recipe_id')
+        plan_meal_id = data.get('plan_meal_id')
         
+        # Resolver plan_meal (slot) si se proporciona, y permitir inferir meal_type desde el slot
+        plan_meal = None
+        if plan_meal_id:
+            try:
+                active_plan = NutritionPlan.objects.filter(user=user, is_active=True).prefetch_related('meals').first()
+                if active_plan:
+                    plan_meal = active_plan.meals.filter(id=plan_meal_id).first()
+            except Exception:
+                plan_meal = None
+
+        if not meal_type and plan_meal:
+            meal_type = plan_meal.meal_type
+
         if not meal_type:
             return Response({'error': 'meal_type es requerido'}, status=status.HTTP_400_BAD_REQUEST)
         
@@ -424,11 +486,18 @@ def daily_meal_selections(request):
         if not custom_description and recipe:
             custom_description = recipe.name
         
+        # Si hay slot, se guarda por (user, date, plan_meal) para permitir múltiples del mismo tipo
+        lookup = {'user': user, 'date': date}
+        if plan_meal:
+            lookup['plan_meal'] = plan_meal
+            lookup['meal_type'] = meal_type
+        else:
+            lookup['meal_type'] = meal_type
+
         meal_log, created = MealLog.objects.update_or_create(
-            user=user,
-            date=date,
-            meal_type=meal_type,
+            **lookup,
             defaults={
+                'plan_meal': plan_meal,
                 'recipe': recipe,
                 'completed': is_completed,
                 'calories': int(calories) if calories else 0,
@@ -800,6 +869,16 @@ def weekly_meal_selections(request):
                 if not meal_type:
                     errors.append({'selection': selection_data, 'error': 'meal_type es requerido'})
                     continue
+
+                plan_meal_id = selection_data.get('plan_meal_id')
+                plan_meal = None
+                if plan_meal_id:
+                    try:
+                        active_plan = NutritionPlan.objects.filter(user=user, is_active=True).prefetch_related('meals').first()
+                        if active_plan:
+                            plan_meal = active_plan.meals.filter(id=plan_meal_id).first()
+                    except Exception:
+                        plan_meal = None
                 
                 # Crear o actualizar selección
                 # Por defecto, las selecciones se guardan como no completadas (solo planificación)
@@ -807,11 +886,14 @@ def weekly_meal_selections(request):
                 if isinstance(is_completed, str):
                     is_completed = is_completed.lower() in ('true', '1', 'yes')
                 
+                lookup = {'user': user, 'date': selection_date, 'meal_type': meal_type}
+                if plan_meal:
+                    lookup['plan_meal'] = plan_meal
+
                 meal_log, created = MealLog.objects.update_or_create(
-                    user=user,
-                    date=selection_date,
-                    meal_type=meal_type,
+                    **lookup,
                     defaults={
+                        'plan_meal': plan_meal,
                         'recipe_id': selection_data.get('recipe_id'),
                         'completed': is_completed,
                         # Solo contar calorías si está completada

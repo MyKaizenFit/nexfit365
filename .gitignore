@@ -17,6 +17,8 @@ docker-data/
 
 # ===== Backups =====
 backups/
+# Backups/exports operativos del servidor (no deben versionarse)
+backups-current/
 # Pero permitir backups de desarrollo para sincronización entre equipos
 !backups/dev/
 !backups/dev/*.sql.gz

@@ -49,6 +49,7 @@ import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fixEncoding } from "@/lib/encoding-fix"
+import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 
 export function NutritionPlanManagement() {
   const {
@@ -70,6 +71,9 @@ export function NutritionPlanManagement() {
 
   const [selectedPlans, setSelectedPlans] = useState<string[]>([])
   const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState<"all" | "templates" | "system" | "users">("all")
+  const [users, setUsers] = useState<Array<{ id: number; email: string }>>([])
+  const [userFilter, setUserFilter] = useState<string>("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<NutritionPlan | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
@@ -80,6 +84,26 @@ export function NutritionPlanManagement() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
   const [showRecipeModal, setShowRecipeModal] = useState(false)
+  const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
+
+  // Cargar usuarios (para filtrar/asignar planes de menús de usuarios)
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const { getAuthHeaders } = await import('@/contexts/auth-context')
+        const { buildApiUrl } = await import('@/lib/api')
+        const headers = await getAuthHeaders()
+        const res = await fetch(buildApiUrl('admin/users/?page_size=500'), { headers })
+        if (!res.ok) return
+        const data = await res.json()
+        const list = Array.isArray(data.results) ? data.results : []
+        setUsers(list.map((u: any) => ({ id: Number(u.id), email: String(u.email) })))
+      } catch {
+        // ignore
+      }
+    }
+    loadUsers()
+  }, [])
 
   // Cargar recetas disponibles al montar
   useEffect(() => {
@@ -111,6 +135,7 @@ export function NutritionPlanManagement() {
         // Cargar las comidas del plan
         setPlanMeals(planDetail.meals || [])
         setEditingPlan(planDetail)
+        setShowWeeklyEditor(false)
       }
     } catch (error) {
       console.error('Error loading plan detail:', error)
@@ -196,7 +221,8 @@ export function NutritionPlanManagement() {
       protein_percentage: 30,
       carbs_percentage: 40,
       fat_percentage: 30
-    }
+    },
+    user_id: null
   })
 
   // Filtrar planes - asegurar que plans sea un array
@@ -205,13 +231,42 @@ export function NutritionPlanManagement() {
     if (!plan) return false
     const matchesSearch = (plan.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          (plan.description || '').toLowerCase().includes(searchTerm.toLowerCase())
-    return matchesSearch
+    const matchesType =
+      typeFilter === "all" ? true :
+      typeFilter === "users" ? Boolean(plan.user_id) :
+      typeFilter === "system" ? Boolean(plan.is_system) :
+      /* templates */ (!plan.user_id && !plan.is_system)
+    const matchesUser =
+      userFilter === "all" ? true : String(plan.user_id || "") === String(userFilter)
+    return matchesSearch && matchesType && matchesUser
   })
+
+  const openCreateDialog = () => {
+    setEditingPlan(null)
+    setPlanMeals([])
+    setShowWeeklyEditor(false)
+    setFormData({
+      name: '',
+      description: '',
+      daily_calories: 2000,
+      target_macros: {
+        protein_percentage: 30,
+        carbs_percentage: 40,
+        fat_percentage: 30
+      },
+      user_id: null
+    })
+    setShowCreateDialog(true)
+  }
 
   const handleCreate = async () => {
     try {
       setIsLoading(true)
-      await createPlan(formData)
+      // Crear y llevar directamente a configurar el menú semanal
+      const newPlan = await createPlan(formData)
+      setEditingPlan(newPlan)
+      setPlanMeals([])
+      setShowWeeklyEditor(true)
       setShowCreateDialog(false)
       setFormData({
         name: '',
@@ -225,12 +280,30 @@ export function NutritionPlanManagement() {
       })
       toast({
         title: "Éxito",
-        description: "Plan de nutrición creado correctamente",
+        description: "Plan creado. Ahora configura el menú semanal.",
       })
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "Error al crear el plan",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleCreateAndConfigure = async () => {
+    try {
+      setIsLoading(true)
+      const newPlan = await createPlan(formData)
+      setEditingPlan(newPlan)
+      setPlanMeals([])
+      setShowWeeklyEditor(true)
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "Error al crear el plan",
         variant: "destructive",
       })
     } finally {
@@ -257,7 +330,7 @@ export function NutritionPlanManagement() {
       })
       toast({
         title: "Éxito",
-        description: "Plan de nutrición actualizado correctamente",
+        description: "Plan actualizado correctamente",
       })
     } catch (error: any) {
       toast({
@@ -314,10 +387,10 @@ export function NutritionPlanManagement() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Planes de Nutrición</h2>
-          <p className="text-gray-600 mt-1">Gestiona los planes de nutrición del sistema</p>
+          <h2 className="text-3xl font-bold text-gray-800">Planes de Menús</h2>
+          <p className="text-gray-600 mt-1">Gestiona los planes de menús del sistema</p>
         </div>
-        <Button onClick={() => setShowCreateDialog(true)}>
+        <Button onClick={openCreateDialog}>
           <Plus className="w-4 h-4 mr-2" />
           Crear Plan
         </Button>
@@ -354,7 +427,7 @@ export function NutritionPlanManagement() {
       {/* Búsqueda y filtros */}
       <Card>
         <CardContent className="p-4">
-          <div className="flex gap-4">
+          <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <Input
@@ -363,6 +436,32 @@ export function NutritionPlanManagement() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
+            </div>
+            <div className="w-full md:w-56">
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="templates">Plantillas</SelectItem>
+                  <SelectItem value="users">Usuarios</SelectItem>
+                  <SelectItem value="system">Sistema</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-full md:w-72">
+              <Select value={userFilter} onValueChange={setUserFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </CardContent>
@@ -478,7 +577,7 @@ export function NutritionPlanManagement() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingPlan ? "Editar Plan de Nutrición" : "Crear Plan de Nutrición"}
+              {editingPlan ? "Editar Plan de Menús" : "Crear Plan de Menús"}
             </DialogTitle>
             <DialogDescription>
               {editingPlan ? "Modifica los datos del plan" : "Completa los datos para crear un nuevo plan"}
@@ -503,6 +602,26 @@ export function NutritionPlanManagement() {
                   onChange={(e) => setFormData({ ...formData, daily_calories: parseInt(e.target.value) || 0 })}
                 />
               </div>
+            </div>
+            <div>
+              <FormLabel>Asignar a usuario (opcional)</FormLabel>
+              <Select
+                value={formData.user_id ? String(formData.user_id) : "none"}
+                onValueChange={(v) => {
+                  const userId = v === "none" ? null : Number(v)
+                  setFormData({ ...formData, user_id: userId })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un usuario" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
+                  {users.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div>
               <FormLabel>Descripción</FormLabel>
@@ -550,7 +669,7 @@ export function NutritionPlanManagement() {
             </Card>
             
             {/* Comidas del plan */}
-            {editingPlan && planMeals.length > 0 && (
+            {editingPlan && (
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm flex items-center gap-2">
@@ -559,6 +678,15 @@ export function NutritionPlanManagement() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <div className="flex items-center justify-end">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowWeeklyEditor(true)}
+                    >
+                      Configurar / editar menú semanal
+                    </Button>
+                  </div>
                   {planMeals.map((meal, index) => (
                     <Card key={meal.id} className="border-l-4 border-l-green-400">
                       <CardContent className="p-4">
@@ -656,6 +784,11 @@ export function NutritionPlanManagement() {
                 <CardContent className="p-6 text-center text-gray-500">
                   <ChefHat className="w-8 h-8 mx-auto mb-2 opacity-50" />
                   <p>Este plan no tiene comidas configuradas</p>
+                  <div className="mt-3">
+                    <Button variant="outline" size="sm" onClick={() => setShowWeeklyEditor(true)}>
+                      Configurar menú semanal
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -668,6 +801,18 @@ export function NutritionPlanManagement() {
             }}>
               Cerrar
             </Button>
+            {!editingPlan && (
+              <Button variant="outline" onClick={handleCreateAndConfigure} disabled={isLoading}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  "Crear y configurar menú"
+                )}
+              </Button>
+            )}
             <Button onClick={editingPlan ? handleUpdate : handleCreate} disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -692,6 +837,33 @@ export function NutritionPlanManagement() {
           }}
         />
       )}
+
+      {/* Editor semanal de comidas (7 días + múltiples opciones de receta por comida) */}
+      <Dialog open={showWeeklyEditor} onOpenChange={setShowWeeklyEditor}>
+        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Editar menú semanal</DialogTitle>
+            <DialogDescription>
+              Selecciona recetas ya creadas y define varias opciones por cada comida para cada día de la semana.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingPlan ? (
+            <NutritionTemplatePlanEditor
+              planId={editingPlan.id}
+              availableRecipes={availableRecipes}
+              onSaved={async () => {
+                const detail = await fetchPlanDetail(editingPlan.id)
+                if (detail) setPlanMeals(detail.meals || [])
+                await refetch()
+              }}
+              onClose={() => setShowWeeklyEditor(false)}
+            />
+          ) : (
+            <div className="text-sm text-muted-foreground">Selecciona un plan para editar.</div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

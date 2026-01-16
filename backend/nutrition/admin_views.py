@@ -3,16 +3,20 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes as perm_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from django.db import transaction
 from django.db.models import Count, Avg, Sum, Min, Max, Q
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime, timedelta
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
 
 from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
-    AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer
+    AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer,
+    AdminNutritionPlanMinimalSerializer
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 
@@ -73,9 +77,159 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
 
 
 class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
-    queryset = NutritionPlan.objects.all().prefetch_related('meals')
+    queryset = NutritionPlan.objects.all().prefetch_related(
+        'meals',
+        'meals__suggested_recipes',
+        'meals__meal_recipes',
+        'meals__meal_recipes__recipe',
+    )
     serializer_class = AdminNutritionPlanSerializer
     permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['is_template', 'is_system', 'is_active', 'user']
+    search_fields = ['name', 'description', 'user__email']
+    ordering_fields = ['created_at', 'updated_at', 'name', 'daily_calories', 'user__email', 'is_template', 'is_system', 'is_active']
+    ordering = ['-created_at']
+
+    def get_serializer_class(self):
+        if getattr(self, 'action', None) == 'list':
+            return AdminNutritionPlanMinimalSerializer
+        return AdminNutritionPlanSerializer
+
+    def get_queryset(self):
+        qs = NutritionPlan.objects.all()
+        # Listado: evita cargar todo el árbol de comidas por defecto
+        if getattr(self, 'action', None) == 'list':
+            return qs.prefetch_related('meals').select_related('user')
+        return qs.prefetch_related(
+            'meals',
+            'meals__suggested_recipes',
+            'meals__meal_recipes',
+            'meals__meal_recipes__recipe',
+        ).select_related('user')
+
+    def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
+        """
+        Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
+        Espera una lista de objetos con campos de PlanMeal y opcionalmente:
+          - suggested_recipes_ids: [recipe_id,...]
+          - meal_recipes: [{recipe_id, servings, custom_*, display_order}, ...]
+        """
+        if meals_payload is None:
+            return
+        if not isinstance(meals_payload, list):
+            return
+
+        # Eliminar comidas anteriores (cascade elimina PlanMealRecipe)
+        plan.meals.all().delete()
+
+        for idx, meal_data in enumerate(meals_payload):
+            if not isinstance(meal_data, dict):
+                continue
+
+            suggested_ids = meal_data.get('suggested_recipes_ids')
+            meal_recipes = meal_data.get('meal_recipes')
+
+            meal = PlanMeal.objects.create(
+                plan=plan,
+                day_of_week=meal_data.get('day_of_week') or None,
+                name=meal_data.get('name') or f'Comida {idx + 1}',
+                meal_type=meal_data.get('meal_type') or 'lunch',
+                time=meal_data.get('time') or None,
+                calories=meal_data.get('calories') or 0,
+                protein=meal_data.get('protein') or 0,
+                carbs=meal_data.get('carbs') or 0,
+                fat=meal_data.get('fat') or 0,
+                description=meal_data.get('description') or '',
+                order_index=meal_data.get('order_index') or (idx + 1),
+            )
+
+            # ManyToMany simple
+            if isinstance(suggested_ids, list) and suggested_ids:
+                meal.suggested_recipes.set(Recipe.objects.filter(id__in=suggested_ids))
+
+            # Cantidades personalizadas por receta
+            if isinstance(meal_recipes, list) and meal_recipes:
+                for mr in meal_recipes:
+                    if not isinstance(mr, dict):
+                        continue
+                    recipe_id = mr.get('recipe_id') or (mr.get('recipe') or {}).get('id')
+                    if not recipe_id:
+                        continue
+                    try:
+                        recipe = Recipe.objects.get(id=recipe_id)
+                    except Recipe.DoesNotExist:
+                        continue
+
+                    payload = {
+                        'meal': meal,
+                        'recipe': recipe,
+                        'servings': mr.get('servings') or 1.0,
+                        'display_order': mr.get('display_order') or 0,
+                        'custom_calories': mr.get('custom_calories', None),
+                        'custom_protein': mr.get('custom_protein', None),
+                        'custom_carbs': mr.get('custom_carbs', None),
+                        'custom_fat': mr.get('custom_fat', None),
+                    }
+                    PlanMealRecipe.objects.create(**payload)
+
+    @transaction.atomic
+    def create(self, request, *args, **kwargs):
+        meals_payload = request.data.get('meals')
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        plan = serializer.save()
+
+        # Normalizar flags según si es plan de usuario o plantilla
+        if plan.user_id and not plan.is_system:
+            if plan.is_template:
+                plan.is_template = False
+                plan.save(update_fields=['is_template'])
+        if not plan.user_id and not plan.is_system and not plan.is_template:
+            # Por defecto, un admin creando sin usuario asignado es plantilla
+            plan.is_template = True
+            plan.save(update_fields=['is_template'])
+
+        self._replace_plan_meals(plan, meals_payload)
+
+        plan.refresh_from_db()
+        plan = NutritionPlan.objects.prefetch_related(
+            'meals',
+            'meals__suggested_recipes',
+            'meals__meal_recipes',
+            'meals__meal_recipes__recipe',
+        ).get(pk=plan.pk)
+        return Response(self.get_serializer(plan).data, status=status.HTTP_201_CREATED)
+
+    @transaction.atomic
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        meals_payload = request.data.get('meals')
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        plan = serializer.save()
+
+        # Normalizar flags si cambió asignación de usuario
+        if plan.user_id and not plan.is_system:
+            if plan.is_template:
+                plan.is_template = False
+                plan.save(update_fields=['is_template'])
+        if not plan.user_id and not plan.is_system and not plan.is_template:
+            plan.is_template = True
+            plan.save(update_fields=['is_template'])
+
+        self._replace_plan_meals(plan, meals_payload)
+
+        plan.refresh_from_db()
+        plan = NutritionPlan.objects.prefetch_related(
+            'meals',
+            'meals__suggested_recipes',
+            'meals__meal_recipes',
+            'meals__meal_recipes__recipe',
+        ).get(pk=plan.pk)
+        return Response(self.get_serializer(plan).data, status=status.HTTP_200_OK)
 
 
 class AdminPlanMealViewSet(viewsets.ModelViewSet):

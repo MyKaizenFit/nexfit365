@@ -60,6 +60,8 @@ export interface NutritionPlan {
   is_default: boolean
   is_template?: boolean
   is_system?: boolean
+  user_id?: number | null
+  user_email?: string | null
   min_role_required?: string
   duration_weeks?: number
   target_audience?: string
@@ -87,6 +89,7 @@ export interface CreateNutritionPlanData {
     carbs_percentage: number
     fat_percentage: number
   }
+  user_id?: number | null
 }
 
 export const useAdminNutritionPlans = () => {
@@ -96,13 +99,25 @@ export const useAdminNutritionPlans = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  const percentsToGrams = (dailyCalories: number, percents: { protein_percentage: number; carbs_percentage: number; fat_percentage: number }) => {
+    const calories = Number(dailyCalories) || 0
+    const proteinPct = Number(percents.protein_percentage) || 0
+    const carbsPct = Number(percents.carbs_percentage) || 0
+    const fatPct = Number(percents.fat_percentage) || 0
+    return {
+      protein_grams: Math.round((calories * proteinPct) / 100 / 4),
+      carbs_grams: Math.round((calories * carbsPct) / 100 / 4),
+      fat_grams: Math.round((calories * fatPct) / 100 / 9),
+    }
+  }
+
   const fetchPlans = async () => {
     try {
       setLoading(true)
       setError(null)
       
       let headers = await getAuthHeaders()
-      let response = await fetch(buildApiUrl('admin/nutrition/default-plans/'), {
+      let response = await fetch(buildApiUrl('admin/nutrition/plans/?page_size=200'), {
         headers
       })
 
@@ -115,7 +130,7 @@ export const useAdminNutritionPlans = () => {
         if (refreshResult.success && refreshResult.newToken) {
           console.log('✅ Token refrescado, reintentando...')
           headers = await getAuthHeaders()
-          response = await fetch(buildApiUrl('admin/nutrition/default-plans/'), {
+          response = await fetch(buildApiUrl('admin/nutrition/plans/?page_size=200'), {
             headers
           })
         } else {
@@ -199,13 +214,26 @@ export const useAdminNutritionPlans = () => {
   const createPlan = async (planData: CreateNutritionPlanData): Promise<NutritionPlan> => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl('admin/nutrition/default-plans/'), {
+      const grams = percentsToGrams(planData.daily_calories, planData.target_macros)
+      const payload = {
+        name: planData.name,
+        description: planData.description,
+        daily_calories: planData.daily_calories,
+        ...grams,
+        // Si se asigna a usuario: plan de usuario (no plantilla). Si no: plantilla.
+        user_id: planData.user_id ?? null,
+        is_template: planData.user_id ? false : true,
+        is_system: false,
+        is_active: true,
+      }
+
+      const response = await fetch(buildApiUrl('admin/nutrition/plans/'), {
         method: 'POST',
         headers: {
           ...headers,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(planData)
+        body: JSON.stringify(payload)
       })
 
       if (!response.ok) {
@@ -214,7 +242,8 @@ export const useAdminNutritionPlans = () => {
       }
 
       const newPlan = await response.json()
-      setPlans(prev => [newPlan, ...prev])
+      // Refrescar listado (el endpoint de lista actual puede ser diferente/paginado)
+      await fetchPlans()
       return newPlan
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
@@ -226,13 +255,18 @@ export const useAdminNutritionPlans = () => {
   const updatePlan = async (planId: string, planData: Partial<CreateNutritionPlanData>): Promise<NutritionPlan> => {
     try {
       let headers = await getAuthHeaders()
-      let response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/`), {
+      const patchPayload: any = { ...planData }
+      if (planData.daily_calories != null && planData.target_macros) {
+        Object.assign(patchPayload, percentsToGrams(planData.daily_calories, planData.target_macros))
+      }
+
+      let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
         method: 'PATCH',
         headers: {
           ...headers,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(planData)
+        body: JSON.stringify(patchPayload)
       })
 
       // Si recibimos 401, intentar refrescar el token
@@ -240,13 +274,13 @@ export const useAdminNutritionPlans = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/`), {
+        response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
           method: 'PATCH',
           headers: {
             ...headers,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(planData)
+          body: JSON.stringify(patchPayload)
         })
       }
 
@@ -256,7 +290,7 @@ export const useAdminNutritionPlans = () => {
       }
 
       const updatedPlan = await response.json()
-      setPlans(prev => prev.map(plan => plan.id === planId ? updatedPlan : plan))
+      await fetchPlans()
       return updatedPlan
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
@@ -268,7 +302,7 @@ export const useAdminNutritionPlans = () => {
   const deletePlan = async (planId: string): Promise<void> => {
     try {
       let headers = await getAuthHeaders()
-      let response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/`), {
+      let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
         method: 'DELETE',
         headers
       })
@@ -278,7 +312,7 @@ export const useAdminNutritionPlans = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/`), {
+        response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
           method: 'DELETE',
           headers
         })
@@ -289,7 +323,7 @@ export const useAdminNutritionPlans = () => {
         throw new Error(errorData.error || `Error ${response.status}`)
       }
 
-      setPlans(prev => prev.filter(plan => plan.id !== planId))
+      await fetchPlans()
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)

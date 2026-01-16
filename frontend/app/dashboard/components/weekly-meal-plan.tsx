@@ -13,7 +13,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { authenticatedFetch } from "@/lib/api"
 
-const MEAL_TYPES = [
+const FALLBACK_MEAL_TYPES = [
   { name: "Desayuno", type: "breakfast", time: "08:00", icon: "🌅" },
   { name: "Snack Mañana", type: "morning_snack", time: "10:30", icon: "☕" },
   { name: "Almuerzo", type: "lunch", time: "13:00", icon: "🍽️" },
@@ -24,6 +24,7 @@ const MEAL_TYPES = [
 interface WeeklyMealSelection {
   date: string
   meal_type: string
+  plan_meal_id?: string | null
   recipe?: {
     id: string
     name: string
@@ -55,9 +56,11 @@ export function WeeklyMealPlan() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string } | null>(null)
+  const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string; plan_meal_id?: string | null; meal_name?: string; meal_time?: string | null } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
+  const [slotsByDate, setSlotsByDate] = useState<Record<string, any[]>>({})
+  const [optionsByDateAndMealId, setOptionsByDateAndMealId] = useState<Record<string, Record<string, any[]>>>({})
 
   // Generar días de la semana
   const getWeekDays = useCallback(() => {
@@ -97,29 +100,30 @@ export function WeeklyMealPlan() {
   // Navegación de semana eliminada - siempre muestra la semana actual
 
   // Abrir modal de selección
-  const handleSelectMeal = async (date: string, mealType: string) => {
+  const handleSelectMeal = async (date: string, slot: { id?: string; meal_type: string; name?: string; time?: string | null }) => {
     setSelectedDay(date)
-    setSelectedMeal({ date, meal_type: mealType })
+    setSelectedMeal({ date, meal_type: slot.meal_type, plan_meal_id: slot.id || null, meal_name: slot.name, meal_time: slot.time })
     
     try {
-      // Cargar opciones de comida para este tipo
+      const dateOptions = optionsByDateAndMealId[date] || {}
+      const byMealId = slot.id ? dateOptions[String(slot.id)] : null
+      if (Array.isArray(byMealId) && byMealId.length > 0) {
+        setMealOptions(byMealId)
+        setIsModalOpen(true)
+        return
+      }
+
+      // Fallback: pedir al backend (por fecha) y extraer opciones por slot o por tipo
       const response = await authenticatedFetch(
-        `nutrition/plan-meals-for-selection/?meal_type=${mealType}`,
+        `nutrition/plan-meals-for-selection/?date=${date}`,
         { method: 'GET' }
       )
-      
-      if (response.ok) {
-        const data = await response.json()
-        const mealTypeKey = mealType === 'breakfast' ? 'breakfast' :
-                           mealType === 'lunch' ? 'lunch' :
-                           mealType === 'dinner' ? 'dinner' :
-                           mealType === 'morning_snack' ? 'morning_snack' :
-                           'afternoon_snack'
-        
-        const options = data.meals_by_type?.[mealTypeKey] || []
-        setMealOptions(options)
-        setIsModalOpen(true)
-      }
+      if (!response.ok) return
+      const data = await response.json()
+      const optsById = data.options_by_meal_id || {}
+      const options = slot.id ? (optsById[String(slot.id)] || []) : (data.meals_by_type?.[slot.meal_type] || [])
+      setMealOptions(options)
+      setIsModalOpen(true)
     } catch (error) {
       console.error('Error cargando opciones:', error)
       toast({
@@ -139,6 +143,7 @@ export function WeeklyMealPlan() {
       const selections = [{
         date: selectedMeal.date,
         meal_type: selectedMeal.meal_type,
+        plan_meal_id: selectedMeal.plan_meal_id || undefined,
         recipe_id: option.id || option.recipeId,
         calories: option.calories || 0,
         protein: option.protein || 0,
@@ -175,11 +180,11 @@ export function WeeklyMealPlan() {
   }
 
   // Marcar comida como completada directamente desde la vista
-  const handleToggleCompleted = async (dateStr: string, mealType: string) => {
-    const selection = getSelectionForMeal(dateStr, mealType)
+  const handleToggleCompleted = async (dateStr: string, slot: { meal_type: string; id?: string }) => {
+    const selection = getSelectionForMeal(dateStr, slot.meal_type, slot.id)
     if (!selection) {
       // Si no hay selección, abrir modal para seleccionar
-      handleSelectMeal(dateStr, mealType)
+      handleSelectMeal(dateStr, slot)
       return
     }
 
@@ -189,7 +194,8 @@ export function WeeklyMealPlan() {
       
       const selections = [{
         date: dateStr,
-        meal_type: mealType,
+        meal_type: slot.meal_type,
+        plan_meal_id: (selection as any).plan_meal_id || slot.id,
         recipe_id: selection.recipe?.id || selection.recipe_id,
         calories: selection.recipe?.calories || selection.calories || 0,
         protein: selection.recipe?.protein || selection.protein || 0,
@@ -240,6 +246,7 @@ export function WeeklyMealPlan() {
       const selectionsToSave = sourceSelections.map(selection => ({
         date: targetDate,
         meal_type: selection.meal_type,
+        plan_meal_id: (selection as any).plan_meal_id,
         recipe_id: selection.recipe?.id || (selection as any).recipe_id,
         calories: selection.recipe?.calories || selection.calories || 0,
         protein: selection.recipe?.protein || selection.protein || 0,
@@ -296,6 +303,7 @@ export function WeeklyMealPlan() {
           selectionsToSave.push({
             date: targetDateStr,
             meal_type: selection.meal_type,
+            plan_meal_id: (selection as any).plan_meal_id,
             recipe_id: selection.recipe?.id || (selection as any).recipe_id,
             calories: selection.recipe?.calories || selection.calories || 0,
             protein: selection.recipe?.protein || selection.protein || 0,
@@ -330,17 +338,39 @@ export function WeeklyMealPlan() {
   }
 
   // Obtener selección para un día y tipo de comida
-  const getSelectionForMeal = (dateStr: string, mealType: string): WeeklyMealSelection | null => {
+  const getSelectionForMeal = (dateStr: string, mealType: string, planMealId?: string): WeeklyMealSelection | null => {
     const daySelections = weeklySelections[dateStr] || []
-    // Buscar por meal_type, puede venir como objeto o como string en el array
     const selection = daySelections.find((s: any) => {
-      if (typeof s === 'object') {
-        return s.meal_type === mealType
-      }
-      return false
+      if (typeof s !== 'object') return false
+      if (planMealId && s.plan_meal_id) return String(s.plan_meal_id) === String(planMealId)
+      return s.meal_type === mealType
     })
     return selection || null
   }
+
+  // Cargar slots/opciones por cada día de la semana
+  const weekDays = getWeekDays()
+  useEffect(() => {
+    const loadSlots = async () => {
+      try {
+        const nextSlots: Record<string, any[]> = {}
+        const nextOptions: Record<string, Record<string, any[]>> = {}
+        await Promise.all(weekDays.map(async (day) => {
+          const dateStr = format(day, 'yyyy-MM-dd')
+          const res = await authenticatedFetch(`nutrition/plan-meals-for-selection/?date=${dateStr}`, { method: 'GET' })
+          if (!res.ok) return
+          const data = await res.json()
+          nextSlots[dateStr] = Array.isArray(data.meal_slots) ? data.meal_slots : []
+          nextOptions[dateStr] = data.options_by_meal_id || {}
+        }))
+        setSlotsByDate(nextSlots)
+        setOptionsByDateAndMealId(nextOptions)
+      } catch (e) {
+        console.warn('No se pudieron cargar slots semanales:', e)
+      }
+    }
+    loadSlots()
+  }, [currentWeekStart])
 
   // Obtener el nombre de la comida con mejor manejo de casos
   const getMealName = (selection: WeeklyMealSelection | null): string => {
@@ -373,7 +403,20 @@ export function WeeklyMealPlan() {
     return `${mealTypeName} - Seleccionada`
   }
 
-  const weekDays = getWeekDays()
+  const slotsForDay = useCallback((dateStr: string) => {
+    const slots = slotsByDate[dateStr]
+    if (Array.isArray(slots) && slots.length > 0) {
+      return slots.slice().sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+    }
+    // fallback a los 5 tipos estándar
+    return FALLBACK_MEAL_TYPES.map((m) => ({
+      id: undefined,
+      name: m.name,
+      meal_type: m.type,
+      time: m.time,
+      icon: m.icon,
+    }))
+  }, [slotsByDate])
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -445,15 +488,15 @@ export function WeeklyMealPlan() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-2 md:p-6 space-y-1.5 md:space-y-2">
-                  {MEAL_TYPES.map((meal, mealIndex) => {
-                    const selection = getSelectionForMeal(dateStr, meal.type)
+                  {slotsForDay(dateStr).map((slot: any) => {
+                    const selection = getSelectionForMeal(dateStr, slot.meal_type, slot.id)
                     // Verificar si está completada (por defecto false si no se especifica)
                     const isCompleted = selection?.completed === true
                     const hasSelection = !!selection
                     
                     return (
                       <div
-                        key={meal.type}
+                        key={String(slot.id || slot.meal_type) + '-' + String(slot.order_index || '')}
                         className="relative group"
                       >
                         <Button
@@ -461,17 +504,17 @@ export function WeeklyMealPlan() {
                           className={`w-full justify-start h-auto p-1.5 md:p-2 text-[10px] md:text-xs touch-manipulation ${
                             hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200' : ''
                           } ${hasSelection ? 'min-h-[90px] md:min-h-[110px]' : 'min-h-[40px] md:min-h-[45px]'}`}
-                          onClick={() => handleSelectMeal(dateStr, meal.type)}
+                          onClick={() => handleSelectMeal(dateStr, slot)}
                           disabled={saving}
                         >
                           <div className="flex flex-col gap-1.5 w-full text-left">
                             {/* Header: Icono, nombre de comida y hora */}
                             <div className="flex items-center gap-2">
-                              <span className="text-base flex-shrink-0">{meal.icon}</span>
+                              <span className="text-base flex-shrink-0">{slot.icon || "🍽️"}</span>
                               <div className="flex-1 min-w-0">
-                                <div className="font-medium text-xs leading-tight">{meal.name}</div>
+                                <div className="font-medium text-xs leading-tight">{slot.name || slot.meal_type}</div>
                                 {!hasSelection && (
-                                  <div className="text-[10px] text-muted-foreground">{meal.time}</div>
+                                  <div className="text-[10px] text-muted-foreground">{(slot.time || "").slice(0,5) || ""}</div>
                                 )}
                               </div>
                               {hasSelection && (
@@ -484,7 +527,7 @@ export function WeeklyMealPlan() {
                                   }`}
                                   onClick={(e) => {
                                     e.stopPropagation()
-                                    handleToggleCompleted(dateStr, meal.type)
+                                    handleToggleCompleted(dateStr, slot)
                                   }}
                                   disabled={saving}
                                   title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
@@ -562,8 +605,9 @@ export function WeeklyMealPlan() {
             setIsModalOpen(false)
             setSelectedMeal(null)
           }}
-          mealName={MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.name || ""}
-          mealTime={MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.time || ""}
+          mealName={selectedMeal.meal_name || FALLBACK_MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.name || selectedMeal.meal_type}
+          mealTime={(selectedMeal.meal_time || FALLBACK_MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.time || "").slice(0,5)}
+          mealType={selectedMeal.meal_type}
           options={mealOptions}
           onSelectOption={handleSaveSelection}
         />

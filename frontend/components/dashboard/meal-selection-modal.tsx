@@ -11,6 +11,7 @@ interface MealSelectionModalProps {
   onClose: () => void
   mealName: string
   mealTime: string
+  mealType?: string
   options: MealOption[]
   onSelectOption: (option: MealOption) => void
 }
@@ -20,6 +21,7 @@ export function MealSelectionModal({
   onClose,
   mealName,
   mealTime,
+  mealType,
   options,
   onSelectOption
 }: MealSelectionModalProps) {
@@ -79,11 +81,11 @@ export function MealSelectionModal({
         const allRecipes = await nutritionService.listRecipes()
         
         // Filtrar recetas por tipo de comida si es posible
-        const mealType = mealTypeMap[mealName] || "lunch"
+        const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
         const filteredRecipes = allRecipes.filter(r => {
           // Si la receta tiene meal_types, verificar que coincida
           if (r.meal_types && Array.isArray(r.meal_types)) {
-            return r.meal_types.includes(mealType) || r.meal_types.length === 0
+            return r.meal_types.includes(resolvedMealType) || r.meal_types.length === 0
           }
           // Si no tiene meal_types, incluirla de todas formas
           return true
@@ -106,7 +108,7 @@ export function MealSelectionModal({
   const handleViewRecipe = async (option: MealOption) => {
     setLoadingRecipe(true)
     try {
-      const mealType = mealTypeMap[mealName] || "lunch"
+      const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
       let recipe: Recipe | null = null
       let recipeId: number | null = null
 
@@ -213,13 +215,13 @@ export function MealSelectionModal({
 
       console.log('🔍 Cargando receta personalizada:', { 
         recipeId, 
-        mealType, 
+        mealType: resolvedMealType, 
         mealName,
         optionName: option.name,
         optionId: option.id
       })
       
-      const data = await nutritionService.getPersonalizedRecipe(recipeId, mealType)
+      const data = await nutritionService.getPersonalizedRecipe(recipeId, resolvedMealType)
       
       // Validar que la receta cargada corresponde a la opción seleccionada
       if (data && data.recipe) {

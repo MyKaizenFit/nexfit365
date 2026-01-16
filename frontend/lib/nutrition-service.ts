@@ -307,6 +307,16 @@ class NutritionService {
   // Obtener comidas del plan activo organizadas por tipo
   async getPlanMealsForSelection(): Promise<{ 
     meals_by_type: Record<string, MealOption[]>, 
+    meal_slots?: Array<{
+      id: string
+      day_of_week?: number | null
+      name: string
+      meal_type: string
+      time?: string | null
+      description?: string
+      order_index?: number
+    }>,
+    options_by_meal_id?: Record<string, MealOption[]>,
     plan_name?: string,
     daily_calories_target?: number,
     daily_macros?: {
@@ -335,6 +345,8 @@ class NutritionService {
       const data = await response.json()
       return {
         meals_by_type: data.meals_by_type || {},
+        meal_slots: data.meal_slots || [],
+        options_by_meal_id: data.options_by_meal_id || {},
         plan_name: data.plan_name,
         daily_calories_target: data.daily_calories_target,
         daily_macros: data.daily_macros
@@ -931,6 +943,7 @@ class NutritionService {
   async saveWeeklyMealSelections(selections: Array<{
     date: string
     meal_type: string
+    plan_meal_id?: string
     recipe_id?: string
     calories?: number
     protein?: number
@@ -975,6 +988,7 @@ class NutritionService {
     selections: Array<{
       date: string
       meal_type: string
+      plan_meal_id?: string
       recipe_id?: string
       calories?: number
       protein?: number

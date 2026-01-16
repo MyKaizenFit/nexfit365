@@ -39,6 +39,7 @@ const ExerciseManagement = lazy(() => import("./components/exercise-management")
 const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-management").then(module => ({ default: module.WorkoutPlanManagement })))
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const NutritionPlanManagement = lazy(() => import("./components/nutrition-plan-management").then(module => ({ default: module.NutritionPlanManagement })))
+const MenuPlanManagementV2 = lazy(() => import("./components/menu-plan-management-v2").then(module => ({ default: module.MenuPlanManagementV2 })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
 const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-v2").then(module => ({ default: module.DefaultPlanConfigurationsPanelV2 })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
@@ -137,6 +138,7 @@ function AdminPageContent() {
     | 'workout-plans'
     | 'nutrition'
     | 'nutrition-plans'
+    | 'nutrition-plans-v2'
     | 'user-nutrition-plans'
     | 'default-plan-configurations'
     | 'notifications'
@@ -679,6 +681,7 @@ function AdminPageContent() {
                 { id: 'workout-plans', label: 'Planes de Entrenamiento', icon: Dumbbell, gradient: 'from-purple-500 to-violet-500' },
                 { id: 'nutrition', label: 'Recetas', icon: Apple, gradient: 'from-green-500 to-emerald-500' },
                 { id: 'nutrition-plans', label: 'Planes de Menús', icon: Apple, gradient: 'from-orange-500 to-amber-500' },
+                { id: 'nutrition-plans-v2', label: 'Planes de Menús (Nuevo)', icon: Apple, gradient: 'from-orange-600 to-yellow-500' },
                 { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
                 { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
                 { id: 'notifications', label: 'Notificaciones', icon: Bell, gradient: 'from-indigo-500 to-blue-500' },
@@ -830,6 +833,18 @@ function AdminPageContent() {
                       Planes de Menús
                     </Button>
                     <Button
+                      variant={activeSection === 'nutrition-plans-v2' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('nutrition-plans-v2')}
+                      className={`flex items-center gap-2 ${
+                        activeSection === 'nutrition-plans-v2' 
+                          ? 'bg-gradient-to-r from-orange-600 to-yellow-500 text-white' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <Apple className="h-4 w-4" />
+                      Planes de Menús (Nuevo)
+                    </Button>
+                    <Button
                       variant={activeSection === 'user-nutrition-plans' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('user-nutrition-plans')}
                       className={`flex items-center gap-2 ${
@@ -916,6 +931,8 @@ function AdminPageContent() {
             <NutritionManagement />
           ) : activeSection === 'nutrition-plans' ? (
             <NutritionPlanManagement />
+          ) : activeSection === 'nutrition-plans-v2' ? (
+            <MenuPlanManagementV2 />
           ) : activeSection === 'user-nutrition-plans' ? (
             <UserNutritionPlanManagement />
           ) : activeSection === 'default-plan-configurations' ? (

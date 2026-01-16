@@ -22,11 +22,12 @@ export function MealDashboard() {
     id: string
     name: string
     time: string
+    mealType: string
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const handleOpenMealOptions = (meal: { id: string; name: string; time: string }) => {
+  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
     setSelectedMeal(meal)
     setIsModalOpen(true)
   }
@@ -323,7 +324,8 @@ export function MealDashboard() {
               onClose={handleCloseModal}
               mealName={selectedMeal.name}
               mealTime={selectedMeal.time}
-              options={getMealOptions(selectedMeal.name)}
+              mealType={selectedMeal.mealType}
+              options={getMealOptions(selectedMeal.id)}
               onSelectOption={handleSelectOption}
             />
           )}

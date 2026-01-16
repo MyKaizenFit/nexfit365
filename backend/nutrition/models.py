@@ -362,11 +362,29 @@ class PlanMeal(TimeStampedModel):
         ('pre_workout', 'Pre-Entreno'),
         ('post_workout', 'Post-Entreno'),
     ]
+
+    DAY_OF_WEEK_CHOICES = [
+        (1, 'Lunes'),
+        (2, 'Martes'),
+        (3, 'Miércoles'),
+        (4, 'Jueves'),
+        (5, 'Viernes'),
+        (6, 'Sábado'),
+        (7, 'Domingo'),
+    ]
     
     plan = models.ForeignKey(
         NutritionPlan, 
         on_delete=models.CASCADE, 
         related_name='meals'
+    )
+
+    # Día de la semana (opcional). Si es null, la comida aplica a cualquier día (compatibilidad).
+    day_of_week = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=DAY_OF_WEEK_CHOICES,
+        help_text="Día de la semana (1=Lunes..7=Domingo). Null = aplica a cualquier día."
     )
     
     name = models.CharField(
@@ -428,7 +446,7 @@ class PlanMeal(TimeStampedModel):
     )
     
     class Meta:
-        ordering = ['order_index']
+        ordering = ['day_of_week', 'order_index']
         verbose_name = "Comida en Plan"
         verbose_name_plural = "Comidas en Plan"
     
@@ -575,6 +593,16 @@ class MealLog(TimeStampedModel):
         null=True, 
         blank=True,
         help_text="Hora de la comida"
+    )
+
+    # Referencia al slot del plan (permite múltiples comidas del mismo tipo en un día)
+    plan_meal = models.ForeignKey(
+        'PlanMeal',
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='logs',
+        help_text="Comida del plan (slot). Si existe, identifica la selección de forma única."
     )
     
     # Qué comió
