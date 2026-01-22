@@ -133,6 +133,7 @@ class LoginView(TokenObtainPairView):
                     import traceback
                     traceback.print_exc()
             else:
+                pass
         
         return response
 
@@ -381,6 +382,7 @@ Equipo Nex-Fit
                 )
             except Exception as e:
                 # Log del error pero no fallar la request
+                pass
             
             return Response({
                 "detail": "Si el email existe, se ha enviado un link de reset"
