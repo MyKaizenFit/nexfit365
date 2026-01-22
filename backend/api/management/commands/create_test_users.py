@@ -16,6 +16,7 @@ class Command(BaseCommand):
                 'last_name': 'User',
                 'is_staff': True,
                 'is_superuser': True,
+                'phone_number': None,
             },
             {
                 'email': 'usuario@test.com',
@@ -24,6 +25,7 @@ class Command(BaseCommand):
                 'last_name': 'Test',
                 'is_staff': False,
                 'is_superuser': False,
+                'phone_number': None,
             },
             {
                 'email': 'test2@gmail.com',
@@ -32,6 +34,53 @@ class Command(BaseCommand):
                 'last_name': 'Two',
                 'is_staff': False,
                 'is_superuser': False,
+                'phone_number': None,
+            },
+            # Recuperar los 5 usuarios perdidos (con teléfono)
+            {
+                'email': 'hjgf@jhg.ci',
+                'password': 'temp123456',
+                'first_name': 'User',
+                'last_name': 'Four',
+                'is_staff': False,
+                'is_superuser': False,
+                'phone_number': '234234234',
+            },
+            {
+                'email': 'saraottum@gmail.com',
+                'password': 'temp123456',
+                'first_name': 'Sara',
+                'last_name': 'Ottum',
+                'is_staff': False,
+                'is_superuser': False,
+                'phone_number': '601401727',
+            },
+            {
+                'email': 'raptoraitor32@gmail.com',
+                'password': 'temp123456',
+                'first_name': 'Raptor',
+                'last_name': 'Aitor',
+                'is_staff': False,
+                'is_superuser': False,
+                'phone_number': '642855638',
+            },
+            {
+                'email': 'prueba@test.com',
+                'password': 'temp123456',
+                'first_name': 'Prueba',
+                'last_name': 'Test',
+                'is_staff': False,
+                'is_superuser': False,
+                'phone_number': '123123123',
+            },
+            {
+                'email': 'frosiris50@gmail.com',
+                'password': 'temp123456',
+                'first_name': 'Fro',
+                'last_name': 'Siris',
+                'is_staff': False,
+                'is_superuser': False,
+                'phone_number': '000000000',
             },
         ]
         
@@ -45,4 +94,5 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(f"⏭️  Existente: {email}")
         
-        self.stdout.write(f"\nTotal: {CustomUser.objects.count()}")
+        self.stdout.write(f"\n✅ Usuarios creados/restaurados exitosamente")
+        self.stdout.write(f"📊 Total usuarios en BD: {CustomUser.objects.count()}")
