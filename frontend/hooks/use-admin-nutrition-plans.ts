@@ -123,18 +123,15 @@ export const useAdminNutritionPlans = () => {
 
       // Si recibimos 401, intentar refrescar el token
       if (response.status === 401) {
-        console.log('🔄 Token expirado, intentando refrescar...')
         const { authService } = await import('@/lib/auth-service')
         const refreshResult = await authService.refreshAccessToken()
         
         if (refreshResult.success && refreshResult.newToken) {
-          console.log('✅ Token refrescado, reintentando...')
           headers = await getAuthHeaders()
           response = await fetch(buildApiUrl('admin/nutrition/plans/?page_size=200'), {
             headers
           })
         } else {
-          console.error('❌ No se pudo refrescar el token')
           if (typeof window !== 'undefined') {
             window.location.href = '/auth/login'
           }
@@ -154,13 +151,11 @@ export const useAdminNutritionPlans = () => {
       } else if (Array.isArray(data)) {
         setPlans(data)
       } else {
-        console.warn('Formato de datos inesperado:', data)
         setPlans([])
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
-      console.error('Error fetching nutrition plans:', err)
     } finally {
       setLoading(false)
     }
@@ -197,10 +192,8 @@ export const useAdminNutritionPlans = () => {
         recent_plans: recentPlans
       }
       
-      console.log('📊 Estadísticas de planes de nutrición calculadas:', calculatedStats)
       setStats(calculatedStats)
     } catch (err) {
-      console.error('Error calculating nutrition plan stats:', err)
       // Datos de fallback
       setStats({
         total_plans: plans.length,
@@ -553,10 +546,8 @@ export const useAdminNutritionPlans = () => {
       }
 
       const planDetail = await response.json()
-      console.log('🍽️ Detalle del plan de nutrición cargado:', planDetail.name, '- Comidas:', planDetail.meals?.length || 0)
       return planDetail
     } catch (err) {
-      console.error('Error fetching nutrition plan detail:', err)
       return null
     }
   }
@@ -579,15 +570,12 @@ export const useAdminNutritionPlans = () => {
       }
 
       if (!response.ok) {
-        console.warn('Error fetching recipes, status:', response.status)
         return []
       }
 
       const data = await response.json()
-      console.log('📦 Recetas cargadas:', data.results?.length || data.length || 0)
       return data.results || data || []
     } catch (err) {
-      console.error('Error fetching recipes:', err)
       return []
     }
   }

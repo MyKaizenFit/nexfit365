@@ -27,7 +27,6 @@ export function UserNotifications({ userId }: Props) {
       await send(form)
       setForm({ title: "", message: "", type: "info", priority: "medium" })
     } catch (err) {
-      console.error(err)
     } finally {
       setSending(false)
       await refetch()

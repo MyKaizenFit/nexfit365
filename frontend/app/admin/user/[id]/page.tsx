@@ -106,7 +106,6 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
           setUserId(resolvedParams.id)
         }
       } catch (err) {
-        console.error('Error resolving params:', err)
       }
     }
     resolveParams()

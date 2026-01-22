@@ -99,7 +99,6 @@ export function UserNutritionPlanManagement() {
       const data = await response.json()
       setUsers(Array.isArray(data.results) ? data.results : [])
     } catch (error) {
-      console.error('Error cargando usuarios:', error)
       toast({
         title: 'Error',
         description: 'No se pudieron cargar los usuarios',
@@ -123,7 +122,6 @@ export function UserNutritionPlanManagement() {
       const plans = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
       setDefaultPlans(plans.filter((p: DefaultPlan) => p.is_active))
     } catch (error) {
-      console.error('Error cargando planes:', error)
     }
   }
 

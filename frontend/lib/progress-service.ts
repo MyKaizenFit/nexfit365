@@ -121,14 +121,12 @@ class ProgressService {
       )
 
       if (!response.ok) {
-        console.error(`Error obteniendo estadísticas de progreso: ${response.status}`)
         return null
       }
 
       const data = await response.json()
       return data as ProgressStats
     } catch (error) {
-      console.error('Error obteniendo estadísticas de progreso:', error)
       return null
     }
   }
@@ -148,14 +146,12 @@ class ProgressService {
       )
 
       if (!response.ok) {
-        console.error(`Error obteniendo análisis de progreso: ${response.status}`)
         return null
       }
 
       const data = await response.json()
       return data as ProgressAnalysis
     } catch (error) {
-      console.error('Error obteniendo análisis de progreso:', error)
       return null
     }
   }
@@ -175,7 +171,6 @@ class ProgressService {
       )
 
       if (!response.ok) {
-        console.error(`Error obteniendo historial de peso: ${response.status}`)
         return []
       }
 
@@ -193,7 +188,6 @@ class ProgressService {
 
       return []
     } catch (error) {
-      console.error('Error obteniendo historial de peso:', error)
       return []
     }
   }
@@ -225,7 +219,6 @@ class ProgressService {
       const data = await response.json()
       return data as WeightEntry
     } catch (error) {
-      console.error('Error agregando entrada de peso:', error)
       throw error
     }
   }
@@ -257,7 +250,6 @@ class ProgressService {
       const data = await response.json()
       return data as WeightEntry
     } catch (error) {
-      console.error('Error actualizando entrada de peso:', error)
       throw error
     }
   }
@@ -281,7 +273,6 @@ class ProgressService {
         throw new Error(errorData.detail || `Error eliminando entrada de peso: ${response.status}`)
       }
     } catch (error) {
-      console.error('Error eliminando entrada de peso:', error)
       throw error
     }
   }
@@ -319,7 +310,6 @@ class ProgressService {
       
       return true
     } catch (error) {
-      console.error('Error aplicando ajuste de plan:', error)
       return false
     }
   }

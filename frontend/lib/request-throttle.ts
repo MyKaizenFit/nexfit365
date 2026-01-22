@@ -107,7 +107,6 @@ class RequestThrottler {
         try {
           await execute()
         } catch (error) {
-          console.error(`Error en request throttled (${key}):`, error)
         }
       }
 
@@ -198,7 +197,6 @@ export async function throttledFetch(
       const retryAfter = response.headers.get('Retry-After')
       const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000
       
-      console.warn(`Rate limited. Waiting ${delay}ms before retry...`)
       await new Promise(resolve => setTimeout(resolve, delay))
       
       // Reintentar una vez

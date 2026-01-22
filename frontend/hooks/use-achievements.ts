@@ -61,7 +61,6 @@ export function useAchievements() {
         fetchSummary()
       ])
     } catch (err) {
-      console.error('Error fetching achievements data:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar logros')
     } finally {
       setLoading(false)
@@ -78,11 +77,9 @@ export function useAchievements() {
     } catch (err) {
       // Silenciar errores de autenticación (usuario no autenticado)
       if (err instanceof Error && err.message.includes('token')) {
-        console.debug('Usuario no autenticado, omitiendo carga de achievements')
         setAchievements([])
         return
       }
-      console.error('Error fetching achievements:', err)
       setAchievements([])
     }
   }
@@ -95,7 +92,6 @@ export function useAchievements() {
         setUserAchievements(data.results || data || [])
       }
     } catch (err) {
-      console.error('Error fetching user achievements:', err)
       setUserAchievements([])
     }
   }
@@ -109,7 +105,6 @@ export function useAchievements() {
         return
       }
     } catch (err) {
-      console.error('Error fetching summary:', err)
     }
 
     // Si falla o no existe, calcular un resumen básico

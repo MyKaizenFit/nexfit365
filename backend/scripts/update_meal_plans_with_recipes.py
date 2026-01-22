@@ -66,13 +66,10 @@ def assign_recipes_to_meal(meal, meal_type, num_recipes=3):
 
 def update_plan_with_recipes(plan):
     """Actualizar un plan con recetas en sus comidas"""
-    print(f"\n📋 Actualizando: {plan.name}")
-    print(f"   Objetivo: {plan.goal} | Calorías: {plan.daily_calories} kcal")
     
     meals = plan.meals.all().order_by('order_index')
     
     if not meals:
-        print("   ⚠️  Plan sin comidas definidas")
         return 0
     
     total_recipes = 0
@@ -82,20 +79,14 @@ def update_plan_with_recipes(plan):
         meal_identifier = meal.name if hasattr(meal, 'name') and meal.name else meal.meal_type
         num_assigned = assign_recipes_to_meal(meal, meal_identifier, num_recipes=5)
         total_recipes += num_assigned
-        print(f"   ✅ {meal_identifier}: {num_assigned} recetas")
     
     return total_recipes
 
 def main():
-    print("=" * 70)
-    print("🍽️  ACTUALIZANDO PLANES DE MENÚS CON RECETAS")
-    print("=" * 70 + "\n")
     
     # Obtener todos los planes plantilla
     plans = NutritionPlan.objects.filter(is_template=True)
     
-    print(f"📊 Planes plantilla encontrados: {plans.count()}")
-    print(f"📚 Recetas disponibles: {Recipe.objects.filter(is_active=True).count()}\n")
     
     total_recipes_assigned = 0
     
@@ -103,17 +94,11 @@ def main():
         recipes_assigned = update_plan_with_recipes(plan)
         total_recipes_assigned += recipes_assigned
     
-    print(f"\n{'='*70}")
-    print(f"✅ Proceso completado")
-    print(f"   Total recetas asignadas: {total_recipes_assigned}")
-    print(f"{'='*70}\n")
     
     # Mostrar resumen
-    print("📊 Resumen por plan:")
     for plan in plans:
         meals_count = plan.meals.count()
         recipes_count = sum(meal.suggested_recipes.count() for meal in plan.meals.all())
-        print(f"   • {plan.name}: {meals_count} comidas, {recipes_count} recetas sugeridas")
 
 if __name__ == '__main__':
     main()

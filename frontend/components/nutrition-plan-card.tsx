@@ -44,7 +44,6 @@ export function NutritionPlanCard() {
       const plans = await getAvailablePlans()
       setAvailablePlans(plans)
     } catch (error) {
-      console.error('Error cargando planes disponibles:', error)
     } finally {
       setLoadingPlans(false)
     }
@@ -59,7 +58,6 @@ export function NutritionPlanCard() {
         await refreshPlan()
       }
     } catch (error) {
-      console.error('Error cambiando plan:', error)
     } finally {
       setChanging(false)
     }

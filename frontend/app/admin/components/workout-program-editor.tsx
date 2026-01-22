@@ -73,13 +73,11 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
       }
 
       const data = await response.json()
-      console.log("🏋️ Respuesta del endpoint de admin:", data)
 
       // El endpoint devuelve { user_id, program, summary }
       const detail = data.program
 
       if (!detail) {
-        console.log("🏋️ El usuario no tiene programa asignado")
         // Si no tiene programa aún, crear uno vacío en memoria
         setProgram({
           name: "Nuevo Programa de Entrenamientos",
@@ -94,7 +92,6 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         return
       }
 
-      console.log("🏋️ Programa cargado:", detail.name, "días:", detail.days?.length || 0)
 
       // Mapear días de la semana: el backend usa day_of_week (monday, tuesday, etc.)
       // pero el componente espera nombres en español
@@ -130,7 +127,6 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         })),
       }))
 
-      console.log("🏋️ Días cargados:", weeklySchedule.length, weeklySchedule.map(d => ({ name: d.name, exercises: d.exercises.length })))
 
       setProgram({
         id: detail.id,
@@ -144,7 +140,6 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         isActive: detail.is_active,
       })
     } catch (err) {
-      console.error("Error cargando programa de entrenamientos:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "Error",
@@ -337,7 +332,6 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       onSave()
     } catch (err) {
-      console.error("Error guardando programa de entrenamientos:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "❌ Error",

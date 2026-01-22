@@ -100,10 +100,8 @@ export function WeeklyMealPlan() {
     try {
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd')
       const selections = await nutritionService.getWeeklyMealSelections(startDateStr)
-      console.log('📋 Selecciones cargadas de la semana:', startDateStr, selections)
       setWeeklySelections(selections)
     } catch (error) {
-      console.error('Error cargando selecciones semanales:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las selecciones de la semana",
@@ -151,7 +149,6 @@ export function WeeklyMealPlan() {
       }))
       setIsModalOpen(true)
     } catch (error) {
-      console.error('Error cargando opciones:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las opciones de comida",
@@ -182,7 +179,6 @@ export function WeeklyMealPlan() {
 
       const result = await nutritionService.saveWeeklyMealSelections(selections)
       
-      console.log('✅ Selección guardada:', result)
       
       toast({
         title: "✅ Comida seleccionada",
@@ -195,7 +191,6 @@ export function WeeklyMealPlan() {
       // Recargar selecciones después de guardar
       await loadWeeklySelections()
     } catch (error) {
-      console.error('Error guardando selección:', error)
       toast({
         title: "Error",
         description: "No se pudo guardar la selección",
@@ -234,7 +229,6 @@ export function WeeklyMealPlan() {
 
       const result = await nutritionService.saveWeeklyMealSelections(selections)
       
-      console.log('✅ Estado de completado actualizado:', result)
       
       toast({
         title: newCompletedStatus ? "✅ Comida completada" : "📋 Comida desmarcada",
@@ -244,7 +238,6 @@ export function WeeklyMealPlan() {
       // Recargar selecciones después de actualizar
       await loadWeeklySelections()
     } catch (error) {
-      console.error('Error actualizando estado de completado:', error)
       toast({
         title: "Error",
         description: "No se pudo actualizar el estado de la comida",
@@ -292,7 +285,6 @@ export function WeeklyMealPlan() {
 
       await loadWeeklySelections()
     } catch (error) {
-      console.error('Error copiando día:', error)
       toast({
         title: "Error",
         description: "No se pudo copiar el día",
@@ -353,7 +345,6 @@ export function WeeklyMealPlan() {
         await loadWeeklySelections()
       }
     } catch (error) {
-      console.error('Error aplicando a semana:', error)
       toast({
         title: "Error",
         description: "No se pudo aplicar a toda la semana",

@@ -394,63 +394,39 @@ class MaintenanceTool:
     
     def show_maintenance_summary(self):
         """Mostrar resumen de mantenimiento"""
-        print("\n" + "=" * 60)
-        print("🧹 RESUMEN DE MANTENIMIENTO - Nex-Fit Backend")
-        print("=" * 60)
         
         # Limpieza
-        print(f"🧹 LIMPIEZA:")
         cleanup = self.maintenance_results.get("cleanup", {})
         for item, status in cleanup.items():
             if isinstance(status, int) and status > 0:
-                print(f"   ✅ {item}: {status} elementos eliminados")
             elif status == "ok":
-                print(f"   ✅ {item}: OK")
             elif status == "warning":
-                print(f"   ⚠️  {item}: Advertencia")
             elif status == "error":
-                print(f"   ❌ {item}: Error")
             else:
-                print(f"   ℹ️  {item}: {status}")
         
         # Optimización
-        print(f"\n🗄️  OPTIMIZACIÓN:")
         optimization = self.maintenance_results.get("optimization", {})
         for item, status in optimization.items():
             if status == "ok":
-                print(f"   ✅ {item}: OK")
             elif status == "warning":
-                print(f"   ⚠️  {item}: Advertencia")
             else:
-                print(f"   ❌ {item}: {status}")
         
         # Health Check
-        print(f"\n🏥 HEALTH CHECK:")
         health = self.maintenance_results.get("health_check", {})
         for item, status in health.items():
             if status == "ok":
-                print(f"   ✅ {item}: OK")
             elif status == "warning":
-                print(f"   ⚠️  {item}: Advertencia")
             else:
-                print(f"   ❌ {item}: {status}")
         
-        print("=" * 60)
         
         # Recomendaciones
-        print(f"\n💡 RECOMENDACIONES:")
         
         if any(status == "error" for status in cleanup.values()):
-            print("   • Revisa los errores de limpieza")
         
         if any(status == "warning" for status in optimization.values()):
-            print("   • Considera revisar la configuración de base de datos")
         
         if any(status == "warning" for status in health.values()):
-            print("   • Revisa las advertencias del sistema")
         
-        print("   • Ejecuta tests después del mantenimiento: python scripts/run_tests.py")
-        print("=" * 60)
     
     def run(self) -> bool:
         """Ejecutar todas las tareas de mantenimiento"""

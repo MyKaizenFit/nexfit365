@@ -197,12 +197,9 @@ export function AchievementsDuolingo() {
             description: `Has completado todos tus objetivos. Racha: ${data.daily_streak || weeklyStreak.currentStreak + 1} días`,
           })
         } else {
-          console.error('Error al actualizar racha:', response.status, response.statusText)
           const errorData = await response.json().catch(() => ({}))
-          console.error('Error details:', errorData)
         }
       } catch (error) {
-        console.error('Error al actualizar racha:', error)
         // No actualizar localmente si hay error, mejor dejar que el backend maneje la racha
       }
     }

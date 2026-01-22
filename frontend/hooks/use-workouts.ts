@@ -154,7 +154,6 @@ export function useWorkouts() {
 
       await fetchWorkoutLogs()
     } catch (err) {
-      console.error('Error loading workout data:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento')
     } finally {
       setLoading(false)
@@ -164,7 +163,6 @@ export function useWorkouts() {
   // Obtener programas de entrenamiento del usuario
   const fetchWorkoutPrograms = async () => {
     if (!isAuthenticated) {
-      console.log('Usuario no autenticado, saltando fetchWorkoutPrograms')
       return
     }
 
@@ -178,7 +176,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener programas de entrenamiento')
       }
     } catch (err) {
-      console.error('Error fetching workout programs:', err)
       throw err
     }
   }
@@ -186,7 +183,6 @@ export function useWorkouts() {
   // Obtener programa activo
   const fetchActiveProgram = async () => {
     if (!isAuthenticated) {
-      console.log('Usuario no autenticado, saltando fetchActiveProgram')
       return
     }
 
@@ -213,7 +209,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener programa activo')
       }
     } catch (err) {
-      console.error('Error fetching active program:', err)
       throw err
     }
   }
@@ -221,7 +216,6 @@ export function useWorkouts() {
   // Obtener plantillas disponibles
   const fetchTemplates = async () => {
     if (!isAuthenticated) {
-      console.log('Usuario no autenticado, saltando fetchTemplates')
       return
     }
 
@@ -235,7 +229,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener plantillas')
       }
     } catch (err) {
-      console.error('Error fetching templates:', err)
       throw err
     }
   }
@@ -243,7 +236,6 @@ export function useWorkouts() {
   // Obtener ejercicios disponibles
   const fetchExercises = async () => {
     if (!isAuthenticated) {
-      console.log('Usuario no autenticado, saltando fetchExercises')
       return
     }
 
@@ -257,7 +249,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener ejercicios')
       }
     } catch (err) {
-      console.error('Error fetching exercises:', err)
       throw err
     }
   }
@@ -265,7 +256,6 @@ export function useWorkouts() {
   // Obtener logs de entrenamiento
   const fetchWorkoutLogs = async () => {
     if (!isAuthenticated) {
-      console.log('Usuario no autenticado, saltando fetchWorkoutLogs')
       return
     }
 
@@ -278,10 +268,8 @@ export function useWorkouts() {
         setWorkoutLogs(logs)
         
         // Log para depuración
-        console.log('📊 Logs cargados:', logs.length)
         if (logs.length > 0) {
           const lastLog = logs[0] // El más reciente
-          console.log('📊 Último log:', {
             id: lastLog.id,
             date: lastLog.date,
             completed: lastLog.completed,
@@ -293,7 +281,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener logs de entrenamiento')
       }
     } catch (err) {
-      console.error('Error fetching workout logs:', err)
       throw err
     }
   }
@@ -326,7 +313,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al crear programa desde plantilla')
       }
     } catch (err) {
-      console.error('Error creating program from template:', err)
       throw err
     }
   }
@@ -353,7 +339,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al activar programa')
       }
     } catch (err) {
-      console.error('Error activating program:', err)
       // Asegurarse de lanzar un Error con mensaje de string
       if (err instanceof Error) {
         throw err
@@ -398,7 +383,6 @@ export function useWorkouts() {
       try {
         text = await response.text()
       } catch (textError) {
-        console.error('Error reading response text:', textError)
         const textErrorMsg = textError instanceof Error ? textError.message : String(textError)
         throw new Error(`No se pudo leer la respuesta del servidor: ${textErrorMsg}`)
       }
@@ -431,15 +415,9 @@ export function useWorkouts() {
           data = JSON.parse(cleanedText)
         } catch (jsonError) {
           // Si falla el parseo JSON, loguear el error completo
-          console.error('❌ Error parsing JSON response:')
-          console.error('  Status:', response.status, response.statusText)
-          console.error('  Content-Type:', contentType)
-          console.error('  Response text (first 500 chars):', cleanedText.substring(0, 500))
-          console.error('  Parse error:', jsonError)
 
           // Si la respuesta es exitosa pero no es JSON válido, intentar continuar
           if (response.ok) {
-            console.warn('⚠️ Respuesta exitosa pero no es JSON válido, continuando...')
             await fetchWorkoutLogs()
             await fetchWorkoutStatistics()
             return {}
@@ -451,7 +429,6 @@ export function useWorkouts() {
         }
       } else {
         // Si no es JSON, usar el texto directamente
-        console.warn('⚠️ Response is not JSON:', {
           contentType,
           status: response.status,
           text: cleanedText.substring(0, 200)
@@ -557,7 +534,6 @@ export function useWorkouts() {
         throw new Error(errorMessage)
       }
     } catch (err) {
-      console.error('Error creating workout log:', err)
       
       // Extraer el mensaje de error de forma segura
       let errorMessage = 'Error desconocido al crear log de entrenamiento'
@@ -660,7 +636,6 @@ export function useWorkouts() {
         throw new Error(data.detail || 'Error al obtener estadísticas')
       }
     } catch (err) {
-      console.error('Error fetching workout statistics:', err)
       return null
     }
   }

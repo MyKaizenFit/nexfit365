@@ -62,7 +62,6 @@ export function NutritionPlanHistory() {
         setHistory(data.history || [])
       }
     } catch (error) {
-      console.error('Error cargando historial:', error)
     } finally {
       setLoading(false)
     }

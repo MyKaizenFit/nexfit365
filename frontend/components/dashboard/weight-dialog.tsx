@@ -63,7 +63,6 @@ export function WeightDialog({
       }
       onOpenChange(false)
     } catch (error) {
-      console.error("Error al guardar peso:", error)
       alert("Error al guardar el peso. Inténtalo de nuevo.")
     } finally {
       setLoading(false)

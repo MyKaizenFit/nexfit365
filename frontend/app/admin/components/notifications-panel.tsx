@@ -149,7 +149,6 @@ export function AdminNotificationsPanel({
         action_url: "",
       })
     } catch (error) {
-      console.error("Error sending notification:", error)
       toast({
         title: "❌ Error",
         description: error instanceof Error ? error.message : "No se pudo enviar la notificación",
@@ -187,7 +186,6 @@ export function AdminNotificationsPanel({
         action_url: "",
       })
     } catch (error) {
-      console.error("Error broadcasting notification:", error)
       toast({
         title: "❌ Error",
         description: error instanceof Error ? error.message : "No se pudo enviar la notificación masiva",

@@ -28,7 +28,6 @@ export function ProgressAnalysisPanel() {
       const data = await progressService.getProgressAnalysis(weeks)
       setAnalysis(data)
     } catch (error) {
-      console.error('Error cargando análisis:', error)
       toast({
         title: "Error",
         description: "No se pudo cargar el análisis de progreso",
@@ -66,7 +65,6 @@ export function ProgressAnalysisPanel() {
         await loadAnalysis()
       }
     } catch (error) {
-      console.error('Error aplicando ajuste:', error)
       toast({
         title: "❌ Error",
         description: error instanceof Error ? error.message : "No se pudo aplicar el ajuste",

@@ -53,7 +53,6 @@ export function useUserData() {
         })
       }
     } catch (err) {
-      console.error('Error fetching user stats:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
       
       // Los datos por defecto ya están en el servicio
@@ -88,7 +87,6 @@ export function useUserData() {
       // Refrescar los datos
       await fetchUserStats()
     } catch (err) {
-      console.error('Error updating user stats:', err)
       setError(err instanceof Error ? err.message : 'Error al actualizar')
     }
   }

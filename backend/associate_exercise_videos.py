@@ -43,17 +43,14 @@ def main():
         # Intentar también en MEDIA_ROOT
         videos_dir = settings.MEDIA_ROOT / 'exercises' / 'videos'
         if not videos_dir.exists():
-            print(f"❌ Directorio no encontrado: {videos_dir}")
             return
     
     # Obtener todos los archivos de video
     video_files = [f for f in os.listdir(videos_dir) if f.endswith(('.mov', '.MOV', '.mp4', '.MP4'))]
     
-    print(f"\n📁 Encontrados {len(video_files)} videos en {videos_dir}\n")
     
     # Obtener todos los ejercicios
     exercises = Exercise.objects.all()
-    print(f"🏋️ Encontrados {exercises.count()} ejercicios en la base de datos\n")
     
     # Crear diccionarios de búsqueda
     video_dict = {normalize_filename(f): f for f in video_files}
@@ -71,9 +68,6 @@ def main():
         else:
             unmatched_videos.append(video_filename)
     
-    print("=" * 80)
-    print("✅ VIDEOS ASOCIADOS:")
-    print("=" * 80)
     
     for exercise, video_filename in matched:
         rel_path = f"exercises/videos/{video_filename}"
@@ -82,29 +76,13 @@ def main():
         exercise.video_file.name = rel_path
         exercise.save()
         
-        print(f"✅ {exercise.name}")
-        print(f"   Video: {video_filename}")
-        print()
     
     if unmatched_videos:
-        print("=" * 80)
-        print("⚠️  VIDEOS SIN EMPAREJAR:")
-        print("=" * 80)
         for video in unmatched_videos:
-            print(f"❓ {video}")
-        print()
     
-    print("=" * 80)
-    print(f"📊 RESUMEN:")
-    print("=" * 80)
-    print(f"✅ Videos asociados: {len(matched)}")
-    print(f"⚠️  Videos sin emparejar: {len(unmatched_videos)}")
-    print()
     
     if len(matched) > 0:
-        print("✨ ¡Videos asociados exitosamente!")
     else:
-        print("⚠️  No se encontraron emparejamientos. Verifica los nombres de los archivos.")
 
 if __name__ == '__main__':
     main()

@@ -789,29 +789,16 @@ def get_google_drive_video_url(filename):
 
 
 def main():
-    print("=" * 80)
-    print("🏋️  POBLANDO EJERCICIOS CON VIDEOS DE GOOGLE DRIVE")
-    print("=" * 80)
-    print()
     
     # Confirmar antes de eliminar
     existing_count = Exercise.objects.count()
-    print(f"⚠️  Ejercicios actuales en la BD: {existing_count}")
-    print(f"📹 Ejercicios con video a crear: {len(EXERCISES_WITH_VIDEOS)}")
-    print()
     
     # Opción para solo agregar sin eliminar
     import sys
     if "--keep-existing" not in sys.argv:
-        print("🗑️  Eliminando ejercicios existentes...")
         Exercise.objects.all().delete()
-        print("✅ Ejercicios eliminados")
     else:
-        print("ℹ️  Manteniendo ejercicios existentes (--keep-existing)")
     
-    print()
-    print("📝 Creando ejercicios con videos...")
-    print()
     
     created = 0
     errors = []
@@ -834,27 +821,15 @@ def main():
                 is_active=True
             )
             
-            print(f"  ✅ {exercise.name}")
             created += 1
             
         except Exception as e:
             error_msg = f"  ❌ {ex_data['name']}: {str(e)}"
-            print(error_msg)
             errors.append(error_msg)
     
-    print()
-    print("=" * 80)
-    print("📊 RESUMEN")
-    print("=" * 80)
-    print(f"✅ Ejercicios creados: {created}")
-    print(f"❌ Errores: {len(errors)}")
-    print(f"📦 Total en BD: {Exercise.objects.count()}")
-    print()
     
     if errors:
-        print("Errores encontrados:")
         for error in errors:
-            print(error)
 
 
 if __name__ == "__main__":

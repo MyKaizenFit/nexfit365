@@ -105,7 +105,6 @@ export default function HomePage() {
           setUserProfile(mockProfile)
           setShowPersonalizedContent(true)
         } catch (error) {
-          console.error('Error cargando perfil del usuario:', error)
         }
       }
     }

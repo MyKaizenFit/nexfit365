@@ -75,11 +75,9 @@ export const useAdminNutrition = () => {
       } else if (data.results && Array.isArray(data.results)) {
         setNutrition(data.results)
       } else {
-        console.warn('Formato de datos inesperado:', data)
         setNutrition([])
       }
     } catch (err) {
-      console.error('Error fetching nutrition:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar recetas')
     } finally {
       setLoading(false)
@@ -115,7 +113,6 @@ export const useAdminNutrition = () => {
       const data = await response.json()
       setStats(data)
     } catch (err) {
-      console.error('Error fetching nutrition stats:', err)
       // Calcular desde los datos cargados como fallback
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
@@ -193,7 +190,6 @@ export const useAdminNutrition = () => {
       
       return newNutrition
     } catch (err) {
-      console.error('Error creating nutrition:', err)
       throw err
     }
   }
@@ -242,7 +238,6 @@ export const useAdminNutrition = () => {
       
       return updatedNutrition
     } catch (err) {
-      console.error('Error updating nutrition:', err)
       throw err
     }
   }
@@ -276,7 +271,6 @@ export const useAdminNutrition = () => {
       // Refrescar estadísticas
       await fetchStats()
     } catch (err) {
-      console.error('Error deleting nutrition:', err)
       throw err
     }
   }
@@ -318,7 +312,6 @@ export const useAdminNutrition = () => {
       // Refrescar estadísticas
       await fetchStats()
     } catch (err) {
-      console.error('Error bulk deleting nutrition:', err)
       throw err
     }
   }

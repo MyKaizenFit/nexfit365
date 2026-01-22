@@ -82,7 +82,6 @@ class LoginView(TokenObtainPairView):
             except Exception as e:
                 # Si hay error obteniendo el usuario del serializer, intentar del token
                 import traceback
-                print(f"Error obteniendo usuario del serializer: {e}")
                 traceback.print_exc()
             
             # Si no se obtuvo el usuario del serializer, intentar del token
@@ -95,10 +94,8 @@ class LoginView(TokenObtainPairView):
                     user_id = decoded_token.get('user_id')
                     if user_id:
                         user = User.objects.get(id=user_id)
-                        print(f"Usuario obtenido del token: {user.email}")
                 except (InvalidToken, User.DoesNotExist, Exception) as token_error:
                     import traceback
-                    print(f"Error obteniendo usuario del token: {token_error}")
                     traceback.print_exc()
             
             # Agregar información del usuario a la respuesta si se obtuvo
@@ -134,10 +131,8 @@ class LoginView(TokenObtainPairView):
                         response.data['must_change_password'] = True
                 except Exception as user_error:
                     import traceback
-                    print(f"Error construyendo respuesta del usuario: {user_error}")
                     traceback.print_exc()
             else:
-                print("⚠️ ADVERTENCIA: No se pudo obtener el usuario para agregar a la respuesta del login")
         
         return response
 
@@ -284,8 +279,6 @@ class RegisterView(APIView):
             except Exception as e:
                 import traceback
                 error_trace = traceback.format_exc()
-                print(f"Error al crear usuario: {e}")
-                print(f"Traceback: {error_trace}")
                 return Response({
                     "detail": "Error al crear usuario",
                     "error": str(e)
@@ -388,7 +381,6 @@ Equipo Nex-Fit
                 )
             except Exception as e:
                 # Log del error pero no fallar la request
-                print(f"Error enviando email: {e}")
             
             return Response({
                 "detail": "Si el email existe, se ha enviado un link de reset"

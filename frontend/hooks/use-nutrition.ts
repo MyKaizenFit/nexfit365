@@ -65,7 +65,6 @@ export function useNutrition(): UseNutritionReturn {
         isLoading: false
       }))
     } catch (error) {
-      console.error('Error cargando plan de nutrición:', error)
       setState(prev => ({
         ...prev,
         error: 'Error cargando plan de nutrición',
@@ -85,7 +84,6 @@ export function useNutrition(): UseNutritionReturn {
         dailyStats: stats
       }))
     } catch (error) {
-      console.error('Error cargando estadísticas diarias:', error)
     }
   }, [isAuthenticated])
 
@@ -119,7 +117,6 @@ export function useNutrition(): UseNutritionReturn {
       }
       return false
     } catch (error) {
-      console.error('Error marcando comida como completada:', error)
       toast({
         title: "Error",
         description: "No se pudo marcar la comida como completada. Inténtalo de nuevo.",
@@ -151,7 +148,6 @@ export function useNutrition(): UseNutritionReturn {
       }
       return false
     } catch (error) {
-      console.error('Error creando registro de comida:', error)
       toast({
         title: "Error",
         description: "No se pudo crear el registro de comida. Inténtalo de nuevo.",
@@ -166,7 +162,6 @@ export function useNutrition(): UseNutritionReturn {
     try {
       return await nutritionService.getFoods(search)
     } catch (error) {
-      console.error('Error buscando alimentos:', error)
       return []
     }
   }, [])
@@ -196,7 +191,6 @@ export function useNutrition(): UseNutritionReturn {
       }
       return false
     } catch (error) {
-      console.error('Error cambiando plan:', error)
       setState(prev => ({
         ...prev,
         error: error instanceof Error ? error.message : 'Error al cambiar plan',
@@ -216,7 +210,6 @@ export function useNutrition(): UseNutritionReturn {
     try {
       return await nutritionService.getAvailablePlans()
     } catch (error) {
-      console.error('Error obteniendo planes disponibles:', error)
       return []
     }
   }, [])

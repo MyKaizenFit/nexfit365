@@ -113,7 +113,6 @@ function AdminPageContent() {
         description: "Has cerrado sesión correctamente",
       })
     } catch (error) {
-      console.error('Error al cerrar sesión:', error)
       toast({
         title: "❌ Error",
         description: "Error al cerrar sesión",

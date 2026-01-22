@@ -36,10 +36,8 @@ export function useAdminUserWellness(userId: string | number) {
   useEffect(() => {
     // Esperar a que la autenticación esté lista antes de hacer peticiones
     if (userId && isAuthenticated && !authLoading) {
-      console.log(`💚 [useAdminUserWellness] Iniciando carga de datos para usuario ${userId}`)
       void fetchAll()
     } else if (authLoading) {
-      console.log(`💚 [useAdminUserWellness] Esperando autenticación...`)
       setState(prev => ({ ...prev, loading: true }))
     }
   }, [userId, isAuthenticated, authLoading, fetchAll])

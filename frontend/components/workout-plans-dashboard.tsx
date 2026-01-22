@@ -187,7 +187,6 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
         setActivePlan(mockPlans.find(plan => plan.is_active) || null)
         
       } catch (error) {
-        console.error('Error cargando planes de entrenamiento:', error)
         toast({
           title: "Error",
           description: "No se pudieron cargar los planes de entrenamiento",

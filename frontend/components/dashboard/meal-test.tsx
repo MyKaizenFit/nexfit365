@@ -19,14 +19,11 @@ export function MealTest() {
     if (breakfastMeal) {
       const options = getMealOptions('Desayuno')
       if (options.length > 0) {
-        console.log('🧪 PRUEBA: Seleccionando desayuno:', options[0])
-        console.log('🧪 Estado antes de seleccionar:', meals.map(m => ({ name: m.name, selected: m.selectedOption?.name })))
         
         selectMealOption(breakfastMeal.id, options[0])
         
         // Verificar estado después de un delay
         setTimeout(() => {
-          console.log('🧪 Estado después de seleccionar:', meals.map(m => ({ name: m.name, selected: m.selectedOption?.name })))
           setLocalState('Selección completada - revisa consola')
         }, 1000)
       }

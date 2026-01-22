@@ -225,7 +225,6 @@ def create_exercises():
         if created:
             created_count += 1
     
-    print(f"✓ Creados {created_count} ejercicios nuevos (Total: {Exercise.objects.count()})")
     return Exercise.objects.all()
 
 
@@ -237,7 +236,6 @@ def create_workout_plans(exercises):
     if not admin_user:
         admin_user = CustomUser.objects.first()
         if not admin_user:
-            print("⚠ Error: No hay usuarios en el sistema")
             return
     
     def get_exercise(name):
@@ -332,7 +330,6 @@ def create_workout_plans(exercises):
                     order_index=i+1
                 )
     
-    print(f"✓ Plan creado: {plan1.name}")
     
     # === PLAN 2: ENTRENAMIENTO INTERMEDIO (4 días/semana) ===
     plan2, _ = WorkoutPlanTemplate.objects.get_or_create(
@@ -480,7 +477,6 @@ def create_workout_plans(exercises):
                     order_index=i+1
                 )
     
-    print(f"✓ Plan creado: {plan2.name}")
     
     # === PLAN 3: PLAN AVANZADO (5 días/semana) ===
     plan3, _ = WorkoutPlanTemplate.objects.get_or_create(
@@ -660,27 +656,15 @@ def create_workout_plans(exercises):
                     order_index=i+1
                 )
     
-    print(f"✓ Plan creado: {plan3.name}")
     
-    print(f"\n✓ Total de planes creados: {WorkoutPlanTemplate.objects.count()}")
-    print(f"✓ Total de días de entrenamiento: {WorkoutPlanDay.objects.count()}")
-    print(f"✓ Total de ejercicios en planes: {WorkoutPlanExercise.objects.count()}")
 
 
 if __name__ == "__main__":
-    print("=" * 60)
-    print("POBLADOR DE EJERCICIOS Y PLANES DE ENTRENAMIENTO")
-    print("=" * 60)
     
-    print("\n1. Creando ejercicios...")
     exercises = create_exercises()
     
-    print("\n2. Creando planes de entrenamiento...")
     create_workout_plans(exercises)
     
-    print("\n" + "=" * 60)
-    print("✓ PROCESO COMPLETADO EXITOSAMENTE")
-    print("=" * 60)
 
 
 

@@ -118,7 +118,6 @@ function DashboardContent() {
           }
           setUserProfile(mockProfile)
         } catch (error) {
-          console.error('Error cargando perfil del usuario:', error)
         }
       }
     }

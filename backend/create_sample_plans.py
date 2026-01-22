@@ -68,9 +68,7 @@ def create_sample_exercises():
         )
         exercises.append(exercise)
         if created:
-            print(f"✅ Ejercicio creado: {exercise.name}")
         else:
-            print(f"⚠️  Ejercicio ya existe: {exercise.name}")
     
     return exercises
 
@@ -127,9 +125,7 @@ def create_sample_foods():
         )
         foods.append(food)
         if created:
-            print(f"✅ Alimento creado: {food.name}")
         else:
-            print(f"⚠️  Alimento ya existe: {food.name}")
     
     return foods
 
@@ -152,7 +148,6 @@ def create_sample_workout_plans(exercises):
     )
     
     if created:
-        print(f"✅ Plan básico creado: {basic_plan.name}")
         
         # Crear días del plan básico
         days_data = [
@@ -204,7 +199,6 @@ def create_sample_workout_plans(exercises):
                         }
                     )
     else:
-        print(f"⚠️  Plan básico ya existe: {basic_plan.name}")
     
     # Plan Pro para usuarios Pro
     pro_plan, created = DefaultWorkoutProgram.objects.get_or_create(
@@ -222,9 +216,7 @@ def create_sample_workout_plans(exercises):
     )
     
     if created:
-        print(f"✅ Plan Pro creado: {pro_plan.name}")
     else:
-        print(f"⚠️  Plan Pro ya existe: {pro_plan.name}")
     
     # Plan Premium para usuarios Premium
     premium_plan, created = DefaultWorkoutProgram.objects.get_or_create(
@@ -242,9 +234,7 @@ def create_sample_workout_plans(exercises):
     )
     
     if created:
-        print(f"✅ Plan Premium creado: {premium_plan.name}")
     else:
-        print(f"⚠️  Plan Premium ya existe: {premium_plan.name}")
 
 def create_sample_nutrition_plans():
     """Crear planes de nutrición de ejemplo"""
@@ -267,9 +257,7 @@ def create_sample_nutrition_plans():
     )
     
     if created:
-        print(f"✅ Plan nutricional básico creado: {basic_plan.name}")
     else:
-        print(f"⚠️  Plan nutricional básico ya existe: {basic_plan.name}")
     
     # Plan Pro para usuarios Pro
     pro_plan, created = DefaultNutritionPlan.objects.get_or_create(
@@ -288,9 +276,7 @@ def create_sample_nutrition_plans():
     )
     
     if created:
-        print(f"✅ Plan nutricional Pro creado: {pro_plan.name}")
     else:
-        print(f"⚠️  Plan nutricional Pro ya existe: {pro_plan.name}")
     
     # Plan Premium para usuarios Premium
     premium_plan, created = DefaultNutritionPlan.objects.get_or_create(
@@ -309,37 +295,22 @@ def create_sample_nutrition_plans():
     )
     
     if created:
-        print(f"✅ Plan nutricional Premium creado: {premium_plan.name}")
     else:
-        print(f"⚠️  Plan nutricional Premium ya existe: {premium_plan.name}")
 
 def main():
-    print("🚀 Creando planes de ejemplo...")
-    print("=" * 50)
     
     # Crear ejercicios
-    print("\n📋 Creando ejercicios...")
     exercises = create_sample_exercises()
     
     # Crear alimentos
-    print("\n🍎 Creando alimentos...")
     foods = create_sample_foods()
     
     # Crear planes de entrenamiento
-    print("\n💪 Creando planes de entrenamiento...")
     create_sample_workout_plans(exercises)
     
     # Crear planes de nutrición
-    print("\n🥗 Creando planes de nutrición...")
     create_sample_nutrition_plans()
     
-    print("\n" + "=" * 50)
-    print("✅ ¡Planes de ejemplo creados exitosamente!")
-    print("\n📊 Resumen:")
-    print(f"   - Ejercicios: {len(exercises)}")
-    print(f"   - Alimentos: {len(foods)}")
-    print(f"   - Planes de entrenamiento: {DefaultWorkoutProgram.objects.count()}")
-    print(f"   - Planes de nutrición: {DefaultNutritionPlan.objects.count()}")
 
 if __name__ == "__main__":
     main()

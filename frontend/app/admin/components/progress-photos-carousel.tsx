@@ -35,7 +35,6 @@ interface ProgressPhoto {
 }
 
 export function ProgressPhotosCarousel({ userId }: { userId: string }) {
-  console.log("📸 [ProgressPhotosCarousel] Componente renderizado con userId:", userId)
   
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showAddPhoto, setShowAddPhoto] = useState(false)
@@ -54,10 +53,8 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
 
   // Cargar fotos del usuario desde el endpoint de admin
   useEffect(() => {
-    console.log("📸 [ProgressPhotosCarousel] useEffect ejecutado, userId:", userId)
     
     if (!userId) {
-      console.warn("📸 [ProgressPhotosCarousel] No userId proporcionado")
       setLoading(false)
       return
     }
@@ -70,26 +67,20 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
         const { buildApiUrl, getAuthHeaders } = await import("@/lib/api")
         const headers = await getAuthHeaders()
         
-        console.log("📸 [ProgressPhotosCarousel] Cargando fotos para usuario:", userId)
         const url = buildApiUrl(`admin/progress/users/${userId}/photos/`)
-        console.log("📸 [ProgressPhotosCarousel] URL:", url)
         
         const response = await fetch(url, { headers })
         
-        console.log("📸 [ProgressPhotosCarousel] Response status:", response.status)
         
         if (!response.ok) {
           const errorText = await response.text()
-          console.error("📸 [ProgressPhotosCarousel] Error response:", errorText)
           throw new Error(`Error al cargar las fotos de progreso: ${response.status}`)
         }
         
         const data = await response.json()
-        console.log("📸 [ProgressPhotosCarousel] Data recibida:", data)
         
         // El ViewSet puede devolver un array directamente o un objeto con results
         const photosList = Array.isArray(data) ? data : (data.results || [])
-        console.log("📸 [ProgressPhotosCarousel] Photos list:", photosList.length, "fotos")
         
         // Mapear las fotos del formato del backend al formato del componente
         const mappedPhotos: ProgressPhoto[] = photosList.map((photo: any) => ({
@@ -105,10 +96,8 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
         // Ordenar por fecha (más recientes primero)
         mappedPhotos.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         
-        console.log("📸 [ProgressPhotosCarousel] Fotos mapeadas:", mappedPhotos.length)
         setPhotos(mappedPhotos)
       } catch (err) {
-        console.error("📸 [ProgressPhotosCarousel] Error cargando fotos:", err)
         setError(err instanceof Error ? err.message : "Error desconocido")
       } finally {
         setLoading(false)

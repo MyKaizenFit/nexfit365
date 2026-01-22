@@ -18,12 +18,10 @@ const getApiBaseUrl = (): string => {
   // Si no hay variable de entorno, lanzar error en producción
   if (process.env.NODE_ENV === 'production') {
     // En producción, usar el dominio HTTPS como fallback si no hay variable de entorno
-    console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada en producción, usando dominio HTTPS como fallback')
     return 'https://api.nexfit365.dpdns.org'
   }
 
   // Solo en desarrollo, usar localhost:8001 como fallback (puerto de desarrollo)
-  console.warn('⚠️  NEXT_PUBLIC_API_URL no está configurada, usando localhost:8001 como fallback (solo desarrollo)')
   return 'http://localhost:8001'
 }
 
@@ -144,7 +142,6 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
           // NO loguear tokens por seguridad
         }
       } catch (serviceError) {
-        console.warn('No se pudo obtener el token del servicio de autenticación:', serviceError)
       }
 
       // Si no se obtuvo del servicio, intentar obtenerlo de las cookies
@@ -160,7 +157,6 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
         // NO loguear tokens ni cookies por seguridad
       }
     } catch (error) {
-      console.warn('No se pudo obtener el token de autenticación:', error)
     }
   }
 
@@ -169,7 +165,6 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
     // NO loguear headers con tokens por seguridad
   } else {
     if (process.env.NODE_ENV === 'development') {
-      console.warn('🔐 getAuthHeaders - No se encontró token de autenticación')
     }
   }
 
@@ -207,7 +202,6 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         } else {
           errorMessage = 'Demasiadas solicitudes. Por favor, espera un momento antes de intentar de nuevo.'
         }
-        console.warn('Rate limit alcanzado:', errorMessage)
         return { data: null, error: errorMessage }
       }
 
@@ -224,7 +218,6 @@ export const handleApiResponse = async <T>(response: Response): Promise<{ data: 
         }
       } catch (parseError) {
         // Si no se puede parsear el error, usar el mensaje por defecto
-        console.warn('No se pudo parsear el mensaje de error:', parseError)
       }
 
       return { data: null, error: errorMessage }
@@ -277,13 +270,11 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
 
     // Si recibimos un 401, intentar refrescar el token
     if (response.status === 401) {
-      console.log('🔄 Token expirado (401), intentando refrescar...')
 
       try {
         const refreshResult = await authService.refreshAccessToken()
 
         if (refreshResult.success && refreshResult.newToken) {
-          console.log('✅ Token refrescado exitosamente, reintentando request...')
 
           // Reintentar la request con el nuevo token
           const retryResponse = await fetch(buildApiUrl(url), {
@@ -296,19 +287,16 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
 
           // Si el retry también falla con 401, NO cerrar sesión automáticamente
           if (retryResponse.status === 401) {
-            console.warn('⚠️ El refresh token también expiró. El usuario debe cerrar sesión manualmente.')
             // NO redirigir automáticamente, solo loguear
             throw new Error('Token expirado. Por favor, cierra sesión e inicia de nuevo.')
           }
 
           return retryResponse
         } else {
-          console.warn('⚠️ No se pudo refrescar el token:', refreshResult.error)
           // NO redirigir automáticamente, el usuario debe cerrar sesión manualmente
           throw new Error(refreshResult.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
         }
       } catch (refreshError) {
-        console.warn('⚠️ Error refrescando token:', refreshError)
         // NO limpiar tokens ni redirigir automáticamente
         throw refreshError instanceof Error ? refreshError : new Error('Error de autenticación. Por favor, intenta de nuevo.')
       }
@@ -316,7 +304,6 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
 
     return response
   } catch (error) {
-    console.error('Error en authenticatedFetch:', error)
     throw error
   }
 }

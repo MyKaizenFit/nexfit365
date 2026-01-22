@@ -86,7 +86,6 @@ export function AuthDebug() {
 
       setTestResults(results)
     } catch (error) {
-      console.error('Error en pruebas:', error)
     } finally {
       setIsTesting(false)
     }

@@ -260,7 +260,6 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
       }
       // Si onSave se completa sin errores, el componente padre manejará el cierre
     } catch (error) {
-      console.error('Error al crear usuario:', error)
       toast({
         title: "❌ Error al crear usuario",
         description: error instanceof Error ? error.message : "Ocurrió un error inesperado",

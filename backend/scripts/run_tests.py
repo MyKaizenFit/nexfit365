@@ -546,21 +546,10 @@ class TestRunner:
     
     def show_final_summary(self):
         """Mostrar resumen final en consola"""
-        print("\n" + "=" * 60)
-        print("🎯 RESUMEN FINAL DE TESTS - Nex-Fit Backend")
-        print("=" * 60)
         
         summary = self.results["summary"]
         
-        print(f"📊 ESTADO GENERAL:")
-        print(f"   • Total de apps: {summary['total_apps']}")
-        print(f"   • ✅ Tests pasados: {summary['passed']}")
-        print(f"   • ❌ Tests fallidos: {summary['failed']}")
-        print(f"   • 💥 Errores: {summary['errors']}")
-        print(f"   • 🎯 Tasa de éxito: {summary['success_rate']}%")
-        print(f"   • ⏱️  Tiempo total: {summary['total_duration']}s")
         
-        print(f"\n🔍 RESULTADOS POR APP:")
         for app, result in self.test_results.items():
             status_emoji = {
                 "passed": "✅",
@@ -569,42 +558,24 @@ class TestRunner:
                 "timeout": "⏰"
             }.get(result["status"], "❓")
             
-            print(f"   {status_emoji} {app}: {result['status'].upper()}")
             if result["duration"] > 0:
-                print(f"      ⏱️  Duración: {result['duration']}s")
         
-        print(f"\n🌐 ESTADO DEL SERVIDOR: {self.results['server_status'].upper()}")
         
         if self.coverage and self.results.get("coverage"):
-            print(f"\n📊 COBERTURA DE CÓDIGO:")
             coverage = self.results["coverage"]
             if "total" in coverage:
                 total = coverage["total"]
-                print(f"   • Statements: {total['statements']}")
-                print(f"   • Missing: {total['missing']}")
-                print(f"   • Coverage: {total['coverage']}")
         
-        print(f"\n📁 LOGS Y REPORTES:")
-        print(f"   • Logs detallados: scripts/logs/")
-        print(f"   • Reporte JSON: scripts/logs/test_results_*.json")
-        print(f"   • Resumen TXT: scripts/logs/test_summary_*.txt")
         
         if self.coverage:
-            print(f"   • Reporte HTML: htmlcov/index.html")
         
-        print("=" * 60)
         
         # Recomendaciones
         if summary["success_rate"] == 100:
-            print("🎉 ¡Excelente! Todos los tests pasaron correctamente.")
         elif summary["success_rate"] >= 80:
-            print("👍 Buen trabajo. La mayoría de los tests pasaron.")
         elif summary["success_rate"] >= 60:
-            print("⚠️  Hay algunos problemas que necesitan atención.")
         else:
-            print("🚨 Hay muchos problemas que requieren revisión urgente.")
         
-        print("=" * 60)
 
 
 def main():

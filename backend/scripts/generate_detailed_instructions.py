@@ -274,9 +274,6 @@ def generate_instructions(recipe):
 
 
 def main():
-    print("=" * 70)
-    print("🍽️  GENERANDO INSTRUCCIONES DETALLADAS PARA RECETAS")
-    print("=" * 70 + "\n")
     
     # Obtener todas las recetas con instrucciones genéricas
     recipes = Recipe.objects.filter(
@@ -300,7 +297,6 @@ def main():
             recipe_ids.add(recipe.id)
             final_recipes.append(recipe)
     
-    print(f"📋 Encontradas {len(final_recipes)} recetas con instrucciones genéricas\n")
     
     updated = 0
     errors = 0
@@ -313,19 +309,12 @@ def main():
             recipe.instructions = new_instructions
             recipe.save()
             
-            print(f"✅ {recipe.name}")
-            print(f"   Instrucciones generadas: {len(new_instructions.split(chr(10)))} pasos")
             updated += 1
             
         except Exception as e:
-            print(f"❌ Error en {recipe.name}: {str(e)}")
             errors += 1
     
-    print("\n" + "=" * 70)
-    print(f"✅ Actualizadas: {updated} recetas")
     if errors > 0:
-        print(f"❌ Errores: {errors} recetas")
-    print("=" * 70)
 
 
 if __name__ == '__main__':

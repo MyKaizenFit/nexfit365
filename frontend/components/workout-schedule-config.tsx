@@ -43,22 +43,16 @@ export function WorkoutScheduleConfig({ className }: WorkoutScheduleConfigProps)
   // Configurar días cuando se carga el perfil
   useEffect(() => {
     if (profile) {
-      console.log('🔍 Profile data:', profile)
-      console.log('🔍 training_days:', profile.training_days)
-      console.log('🔍 training_days_per_week:', profile.training_days_per_week)
       
       // Si el perfil tiene training_days (array), usarlos
       if (profile.training_days && Array.isArray(profile.training_days) && profile.training_days.length > 0) {
-        console.log('✅ Usando training_days del perfil:', profile.training_days)
         setWorkoutDays(profile.training_days)
       } else if (profile.training_days_per_week) {
         // Si no hay training_days pero hay training_days_per_week, usar días por defecto
         const defaultDays = [1, 3, 5, 6, 2, 4, 7] // Prioridad: Lun, Mié, Vie, Sáb, Mar, Jue, Dom
         const calculatedDays = defaultDays.slice(0, profile.training_days_per_week).sort((a, b) => a - b)
-        console.log('⚠️ No hay training_days, usando días por defecto:', calculatedDays)
         setWorkoutDays(calculatedDays)
       } else {
-        console.log('⚠️ No hay datos de entrenamiento en el perfil')
       }
     }
   }, [profile])

@@ -87,7 +87,6 @@ export default function EntrenamientosPage() {
       await activateProgram(program.id)
       await refreshData()
     } catch (error) {
-      console.error('Error creando programa:', error)
     }
   }
 
@@ -96,7 +95,6 @@ export default function EntrenamientosPage() {
       await createWorkoutLog(workoutDay.id, 'Entrenamiento iniciado')
       await refreshData()
     } catch (error) {
-      console.error('Error iniciando entrenamiento:', error)
     }
   }
 

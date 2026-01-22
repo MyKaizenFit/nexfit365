@@ -62,7 +62,6 @@ export function useNotificationsEnhanced() {
       
       setNotifications(mockNotifications)
     } catch (err) {
-      console.error('Error loading notifications:', err)
       setError(err instanceof Error ? err.message : 'Error al cargar notificaciones')
     } finally {
       setLoading(false)
@@ -87,7 +86,6 @@ export function useNotificationsEnhanced() {
       }
       setSettings(defaultSettings)
     } catch (err) {
-      console.error('Error loading notification settings:', err)
     }
   }, [isAuthenticated])
 
@@ -146,7 +144,6 @@ export function useNotificationsEnhanced() {
         description: "La notificación ha sido marcada como leída",
       })
     } catch (err) {
-      console.error('Error marking notification as read:', err)
       toast({
         title: "❌ Error",
         description: "No se pudo marcar la notificación como leída",
@@ -167,7 +164,6 @@ export function useNotificationsEnhanced() {
         description: "Todas las notificaciones han sido marcadas como leídas",
       })
     } catch (err) {
-      console.error('Error marking all notifications as read:', err)
       toast({
         title: "❌ Error",
         description: "No se pudo marcar todas las notificaciones como leídas",
@@ -193,7 +189,6 @@ export function useNotificationsEnhanced() {
         description: "La notificación ha sido eliminada",
       })
     } catch (err) {
-      console.error('Error deleting notification:', err)
       toast({
         title: "❌ Error",
         description: "No se pudo eliminar la notificación",
@@ -214,7 +209,6 @@ export function useNotificationsEnhanced() {
         description: "Se han eliminado todas las notificaciones",
       })
     } catch (err) {
-      console.error('Error clearing all notifications:', err)
       toast({
         title: "❌ Error",
         description: "No se pudieron eliminar todas las notificaciones",
@@ -234,7 +228,6 @@ export function useNotificationsEnhanced() {
         description: "Las preferencias de notificaciones han sido actualizadas",
       })
     } catch (err) {
-      console.error('Error updating notification settings:', err)
       toast({
         title: "❌ Error",
         description: "No se pudo actualizar la configuración",
@@ -308,7 +301,6 @@ export function useAutomatedNotifications() {
       if (lastWorkout !== today) {
         // El usuario no ha hecho su entrenamiento hoy
         // En una implementación real, esto se haría desde el backend
-        console.log('Usuario no ha completado su entrenamiento diario')
         
         // Aquí podrías enviar una notificación automática
         // await notificationService.createNotification({
@@ -322,7 +314,6 @@ export function useAutomatedNotifications() {
         // })
       }
     } catch (error) {
-      console.error('Error checking daily workout:', error)
     }
   }, [isAuthenticated, user])
 
@@ -336,7 +327,6 @@ export function useAutomatedNotifications() {
       const lastMealLog = localStorage.getItem(`last_meal_log_${user.id}`)
       
       if (lastMealLog !== today) {
-        console.log('Usuario no ha registrado sus comidas del día')
         
         // Aquí podrías enviar una notificación automática
         // await notificationService.createNotification({
@@ -350,7 +340,6 @@ export function useAutomatedNotifications() {
         // })
       }
     } catch (error) {
-      console.error('Error checking meal logging:', error)
     }
   }, [isAuthenticated, user])
 
@@ -365,7 +354,6 @@ export function useAutomatedNotifications() {
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
       
       if (!lastWeightEntry || new Date(lastWeightEntry) < oneWeekAgo) {
-        console.log('Usuario no ha registrado su peso esta semana')
         
         // Aquí podrías enviar una notificación automática
         // await notificationService.createNotification({
@@ -379,7 +367,6 @@ export function useAutomatedNotifications() {
         // })
       }
     } catch (error) {
-      console.error('Error checking weight reminder:', error)
     }
   }, [isAuthenticated, user])
 

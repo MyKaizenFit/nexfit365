@@ -59,7 +59,6 @@ export function useProfile() {
         throw new Error('Error al cargar el perfil');
       }
     } catch (error) {
-      console.error('Error loading profile:', error);
       toast({
         title: 'Error',
         description: 'Error al cargar el perfil del usuario',
@@ -102,7 +101,6 @@ export function useProfile() {
         throw new Error(errorData.detail || 'Error al actualizar el perfil');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Error al actualizar el perfil',

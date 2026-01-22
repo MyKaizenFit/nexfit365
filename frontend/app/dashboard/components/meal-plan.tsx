@@ -126,7 +126,6 @@ export function MealPlan() {
         await refreshPlan()
       }
     } catch (error) {
-      console.error('Error marcando comida:', error)
     }
   }
 
@@ -175,7 +174,6 @@ export function MealPlan() {
         }
       }
     } catch (error) {
-      console.error('Error seleccionando opción de comida:', error)
     }
   }
 

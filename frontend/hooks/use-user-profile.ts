@@ -27,7 +27,6 @@ export function useUserProfile() {
       const data = await userService.getUserProfile()
       setProfile(data)
     } catch (err) {
-      console.error('Error fetching user profile:', err)
       setError(err instanceof Error ? err.message : 'Error al obtener perfil')
       
       // Si falla, usar datos básicos del contexto de autenticación
@@ -70,7 +69,6 @@ export function useUserProfile() {
         await refreshUser()
       } catch (authError) {
         // Si falla la actualización del contexto, no es crítico, solo loguear
-        console.warn('No se pudo actualizar el contexto de autenticación:', authError)
       }
       
       // Si se actualizó la foto, refrescar el perfil para obtener la nueva URL

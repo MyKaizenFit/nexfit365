@@ -70,7 +70,6 @@ export function useAdminDashboard() {
       setStats(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-      console.error('Error fetching dashboard stats:', err)
     } finally {
       setLoading(false)
     }
@@ -90,7 +89,6 @@ export function useAdminDashboard() {
       const data = await response.json()
       setRecentActivity(data)
     } catch (err) {
-      console.error('Error fetching recent activity:', err)
     }
   }
 

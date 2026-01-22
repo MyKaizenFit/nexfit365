@@ -125,7 +125,6 @@ export class AutomatedNotificationService {
       // Si no hay registro de entrenamiento hoy, activar notificación
       return lastWorkout !== today
     } catch (error) {
-      console.error('Error checking daily workout:', error)
       return false
     }
   }
@@ -140,7 +139,6 @@ export class AutomatedNotificationService {
       // Si no hay registro de comidas hoy, activar notificación
       return lastMealLog !== today
     } catch (error) {
-      console.error('Error checking meal logging:', error)
       return false
     }
   }
@@ -156,7 +154,6 @@ export class AutomatedNotificationService {
       // Si no hay registro de peso en la última semana, activar notificación
       return !lastWeightEntry || new Date(lastWeightEntry) < oneWeekAgo
     } catch (error) {
-      console.error('Error checking weight reminder:', error)
       return false
     }
   }
@@ -173,7 +170,6 @@ export class AutomatedNotificationService {
       // Si no se ha verificado en la última hora, activar notificación
       return !lastAchievementCheck || new Date(lastAchievementCheck) < oneHourAgo
     } catch (error) {
-      console.error('Error checking achievements:', error)
       return false
     }
   }
@@ -188,7 +184,6 @@ export class AutomatedNotificationService {
       // Si tiene una racha de al menos 3 días, motivar a mantenerla
       return currentStreak >= 3
     } catch (error) {
-      console.error('Error checking streak maintenance:', error)
       return false
     }
   }
@@ -204,7 +199,6 @@ export class AutomatedNotificationService {
     if (this.isRunning) return
 
     this.isRunning = true
-    console.log('🚀 Iniciando servicio de notificaciones automáticas')
 
     // Verificar reglas cada 30 minutos
     this.checkInterval = setInterval(() => {
@@ -222,7 +216,6 @@ export class AutomatedNotificationService {
       this.checkInterval = null
     }
     this.isRunning = false
-    console.log('⏹️ Servicio de notificaciones automáticas detenido')
   }
 
   // Verificar todas las reglas
@@ -233,7 +226,6 @@ export class AutomatedNotificationService {
       try {
         await this.checkRule(rule)
       } catch (error) {
-        console.error(`Error checking rule ${rule.id}:`, error)
       }
     }
   }
@@ -262,7 +254,6 @@ export class AutomatedNotificationService {
   private async triggerNotification(rule: AutomatedNotificationRule): Promise<void> {
     try {
       // En una implementación real, esto enviaría la notificación al backend
-      console.log(`🔔 Activando notificación: ${rule.name}`)
       
       // Simular envío de notificación
       // await notificationService.broadcastNotification(rule.notification)
@@ -274,7 +265,6 @@ export class AutomatedNotificationService {
       localStorage.setItem(`rule_${rule.id}_last_triggered`, rule.lastTriggered.toISOString())
       
     } catch (error) {
-      console.error(`Error triggering notification for rule ${rule.id}:`, error)
     }
   }
 
@@ -288,7 +278,6 @@ export class AutomatedNotificationService {
     const rule = this.rules.find(r => r.id === ruleId)
     if (rule) {
       rule.enabled = enabled
-      console.log(`Regla ${ruleId} ${enabled ? 'habilitada' : 'deshabilitada'}`)
     }
   }
 
@@ -297,7 +286,6 @@ export class AutomatedNotificationService {
     const rule = this.rules.find(r => r.id === ruleId)
     if (rule) {
       Object.assign(rule, updates)
-      console.log(`Regla ${ruleId} actualizada`)
     }
   }
 

@@ -63,7 +63,6 @@ export function useDailyMacros() {
 
       setMacros(dailyMacros)
     } catch (err) {
-      console.error('Error fetching daily macros:', err)
       setError(err instanceof Error ? err.message : 'Error al obtener macros')
       
       // Usar datos por defecto si falla

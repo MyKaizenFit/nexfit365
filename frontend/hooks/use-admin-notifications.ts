@@ -63,7 +63,6 @@ export function useAdminNotifications() {
       setNotifications(data.results || data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-      console.error('Error fetching notifications:', err)
     } finally {
       setLoading(false)
     }
@@ -83,7 +82,6 @@ export function useAdminNotifications() {
       const data = await response.json()
       setStats(data)
     } catch (err) {
-      console.error('Error fetching notification stats:', err)
     }
   }
 

@@ -49,7 +49,6 @@ export function SearchablePlanSelect({
 
   // Debug: Log cuando cambian las opciones
   React.useEffect(() => {
-    console.log(`[SearchablePlanSelect] ${label}: ${options.length} opciones disponibles`, {
       sample: options.slice(0, 3),
       allIds: options.map(o => o.id).slice(0, 10)
     })

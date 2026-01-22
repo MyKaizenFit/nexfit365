@@ -91,7 +91,6 @@ class WorkoutService {
       const plansArray = Array.isArray(result.data) ? result.data : (result.data?.results || [])
       return { data: plansArray, error: null }
     } catch (error) {
-      console.error('Error obteniendo planes de entrenamiento del usuario:', error)
       return { data: null, error: 'Error al obtener planes de entrenamiento' }
     }
   }
@@ -114,7 +113,6 @@ class WorkoutService {
       const logsArray = Array.isArray(result.data) ? result.data : (result.data?.results || [])
       return { data: logsArray, error: null }
     } catch (error) {
-      console.error('Error obteniendo logs de entrenamiento:', error)
       return { data: null, error: 'Error al obtener historial de entrenamientos' }
     }
   }
@@ -131,7 +129,6 @@ class WorkoutService {
       
       return await handleApiResponse<WorkoutLog>(response)
     } catch (error) {
-      console.error('Error creando log de entrenamiento:', error)
       return { data: null, error: 'Error al registrar entrenamiento' }
     }
   }
@@ -146,7 +143,6 @@ class WorkoutService {
       
       return await handleApiResponse<WorkoutPlanTemplate[]>(response)
     } catch (error) {
-      console.error('Error obteniendo plantillas de planes:', error)
       return { data: null, error: 'Error al obtener plantillas de planes' }
     }
   }
@@ -163,7 +159,6 @@ class WorkoutService {
       
       return await handleApiResponse<WorkoutPlanTemplate>(response)
     } catch (error) {
-      console.error('Error creando plantilla de plan:', error)
       return { data: null, error: 'Error al crear plantilla de plan' }
     }
   }
@@ -185,7 +180,6 @@ class WorkoutService {
       
       return await handleApiResponse<UserWorkoutPlan>(response)
     } catch (error) {
-      console.error('Error asignando plan de entrenamiento:', error)
       return { data: null, error: 'Error al asignar plan de entrenamiento' }
     }
   }
@@ -202,7 +196,6 @@ class WorkoutService {
       
       return await handleApiResponse<UserWorkoutPlan>(response)
     } catch (error) {
-      console.error('Error cambiando estado del plan:', error)
       return { data: null, error: 'Error al cambiar estado del plan' }
     }
   }
@@ -217,7 +210,6 @@ class WorkoutService {
       
       return await handleApiResponse<Exercise[]>(response)
     } catch (error) {
-      console.error('Error obteniendo ejercicios:', error)
       return { data: null, error: 'Error al obtener ejercicios' }
     }
   }

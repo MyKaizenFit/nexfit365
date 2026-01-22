@@ -259,10 +259,10 @@ class EnvironmentSetup:
                 )
                 
                 if result.returncode == 0:
-                    logger.info("✅ Superusuario creado: admin@example.invalid / CHANGE_ME_PASSWORD")
+                    logger.info("✅ Superusuario creado exitosamente")
                     self.setup_results["database"]["superuser"] = "created"
                 else:
-                    logger.warning(f"⚠️  Error creando superusuario: {result.stderr}")
+                    logger.warning(f"⚠️  Error creando superusuario")
                     self.setup_results["database"]["superuser"] = "error"
             else:
                 logger.info("✅ Ya existe un superusuario")
@@ -412,68 +412,43 @@ class EnvironmentSetup:
     
     def show_setup_summary(self):
         """Mostrar resumen de la configuración"""
-        print("\n" + "=" * 60)
-        print("🔧 RESUMEN DE CONFIGURACIÓN - Nex-Fit Backend")
-        print("=" * 60)
         
         # Dependencias
-        print(f"📦 DEPENDENCIAS:")
         deps = self.setup_results.get("dependencies", {})
         for dep, status in deps.items():
             if status == "installed" or status == "ok":
-                print(f"   ✅ {dep}: {status}")
             elif status == "missing":
-                print(f"   ❌ {dep}: {status}")
             else:
-                print(f"   ⚠️  {dep}: {status}")
         
         # Base de datos
-        print(f"\n🗄️  BASE DE DATOS:")
         db = self.setup_results.get("database", {})
         for item, status in db.items():
             if status == "ok":
-                print(f"   ✅ {item}: {status}")
             elif status == "failed":
-                print(f"   ❌ {item}: {status}")
             else:
-                print(f"   ⚠️  {item}: {status}")
         
         # Configuración
-        print(f"\n⚙️  CONFIGURACIÓN:")
         config = self.setup_results.get("configuration", {})
         for item, status in config.items():
             if status == "ok":
-                print(f"   ✅ {item}: {status}")
             elif status == "failed":
-                print(f"   ❌ {item}: {status}")
             else:
-                print(f"   ⚠️  {item}: {status}")
         
         # Datos de prueba
-        print(f"\n🎭 DATOS DE PRUEBA:")
         test_data = self.setup_results.get("test_data", {})
         for item, status in test_data.items():
             if status == "ok":
-                print(f"   ✅ {item}: {status}")
             else:
-                print(f"   ⚠️  {item}: {status}")
         
-        print("=" * 60)
         
         # Recomendaciones
-        print(f"\n💡 RECOMENDACIONES:")
         
         if any(status == "missing" for status in deps.values()):
-            print("   • Instala dependencias faltantes: pip install -r requirements.txt")
         
         if db.get("connection") == "failed":
-            print("   • Verifica la configuración de base de datos en .env")
         
         if config.get("redis") == "error":
-            print("   • Redis no está disponible, pero no es crítico para testing")
         
-        print("   • Ejecuta tests completos: python scripts/run_tests.py")
-        print("=" * 60)
     
     def run(self) -> bool:
         """Ejecutar toda la configuración"""

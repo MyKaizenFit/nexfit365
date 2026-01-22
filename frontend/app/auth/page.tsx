@@ -93,7 +93,6 @@ function AuthPageContent() {
         // El contexto ya maneja las notificaciones y redirección
       } catch (error: any) {
         // El contexto ya maneja las notificaciones de error
-        console.error('Error en login:', error)
       }
   }
 
@@ -113,7 +112,6 @@ function AuthPageContent() {
         // El contexto ya maneja las notificaciones y redirección
       } catch (error: any) {
         // El contexto ya maneja las notificaciones de error
-        console.error('Error en registro:', error)
       }
   }
 

@@ -169,7 +169,6 @@ function InitialRegistrationFormComponent({
           dateInputRef.current.showPicker();
         } catch (e) {
           // Algunos navegadores pueden bloquear showPicker si no es por interacción del usuario
-          console.log('showPicker no disponible');
         }
       }
     }
@@ -281,7 +280,6 @@ function InitialRegistrationFormComponent({
     try {
       await onComplete(submitData);
     } catch (error) {
-      console.error('Error al enviar formulario:', error);
     }
   };
 

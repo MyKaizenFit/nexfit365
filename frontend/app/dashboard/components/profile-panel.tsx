@@ -61,7 +61,6 @@ export const ProfilePanel = memo(function ProfilePanel() {
         setCurrentPlan(calculated)
       }
     } catch (error) {
-      console.error('Error cargando plan actual:', error)
     }
   }
 
@@ -162,12 +161,10 @@ export const ProfilePanel = memo(function ProfilePanel() {
             // Refrescar también los hooks relacionados si están disponibles
             // Esto se hace a través del evento para evitar dependencias circulares
           } catch (error) {
-            console.warn('Error refrescando datos de peso:', error)
           }
         }
       }
     } catch (error) {
-      console.error('Error al actualizar perfil:', error)
       toast({
         title: "❌ Error",
         description: "No se pudo actualizar el perfil. Inténtalo de nuevo.",

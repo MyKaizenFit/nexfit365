@@ -79,7 +79,6 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
       setTips(data)
       setError(null)
     } catch (err) {
-      console.error('Error fetching wellness tips:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
       setTips([])
     } finally {

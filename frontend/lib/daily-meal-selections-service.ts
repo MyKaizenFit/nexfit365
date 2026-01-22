@@ -38,11 +38,9 @@ class DailyMealSelectionsService {
       const { authService } = require('./auth-service')
       const token = authService.getAccessToken()
       if (!token) {
-        console.log('No hay token de acceso, saltando getDailySelections')
         return []
       }
     } catch (error) {
-      console.log('Error verificando autenticación, saltando getDailySelections')
       return []
     }
 
@@ -78,7 +76,6 @@ class DailyMealSelectionsService {
       
       return result
     } catch (error) {
-      console.error('Error obteniendo selecciones diarias:', error)
       return []
     }
   }
@@ -90,11 +87,9 @@ class DailyMealSelectionsService {
       const { authService } = require('./auth-service')
       const token = authService.getAccessToken()
       if (!token) {
-        console.log('No hay token de acceso, saltando saveMealSelection')
         return null
       }
     } catch (error) {
-      console.log('Error verificando autenticación, saltando saveMealSelection')
       return null
     }
 
@@ -131,7 +126,6 @@ class DailyMealSelectionsService {
         notes: selection.notes || `Seleccionado: ${selection.selected_option?.name}`,
       }
 
-      console.log('💾 Datos a enviar al backend:', dataToSend)
 
       let response: Response
 
@@ -166,15 +160,12 @@ class DailyMealSelectionsService {
           errorDetails = response.statusText
         }
         
-        console.error(`❌ Error ${response.status} del backend:`, errorDetails)
         throw new Error(`Error ${response.status}: ${errorDetails}`)
       }
 
       const result = await response.json()
-      console.log('✅ Selección guardada en backend:', result)
       return result
     } catch (error) {
-      console.error('❌ Error guardando selección de comida:', error)
       return null
     }
   }
@@ -186,11 +177,9 @@ class DailyMealSelectionsService {
       const { authService } = require('./auth-service')
       const token = authService.getAccessToken()
       if (!token) {
-        console.log('No hay token de acceso, saltando deleteMealSelection')
         return false
       }
     } catch (error) {
-      console.log('Error verificando autenticación, saltando deleteMealSelection')
       return false
     }
 
@@ -207,7 +196,6 @@ class DailyMealSelectionsService {
 
       return true
     } catch (error) {
-      console.error('Error eliminando selección de comida:', error)
       return false
     }
   }
@@ -219,11 +207,9 @@ class DailyMealSelectionsService {
       const { authService } = require('./auth-service')
       const token = authService.getAccessToken()
       if (!token) {
-        console.log('No hay token de acceso, saltando getUserSelections')
         return []
       }
     } catch (error) {
-      console.log('Error verificando autenticación, saltando getUserSelections')
       return []
     }
 
@@ -245,7 +231,6 @@ class DailyMealSelectionsService {
       const data: DailyMealSelectionsResponse = await response.json()
       return data.results || []
     } catch (error) {
-      console.error('Error obteniendo selecciones del usuario:', error)
       return []
     }
   }
@@ -256,11 +241,9 @@ class DailyMealSelectionsService {
     date: string
   ): Promise<boolean> {
     try {
-      console.log('Sincronizando selecciones con backend:', { localSelections, date })
       
       // Obtener selecciones del backend
       const backendSelections = await this.getDailySelections(date)
-      console.log('Selecciones del backend:', backendSelections)
 
       // Crear mapeo de tipos de comida
       const mealTypeMapping: Record<string, string> = {
@@ -284,16 +267,13 @@ class DailyMealSelectionsService {
 
           const result = await this.saveMealSelection(selection)
           if (!result) {
-            console.error(`Error sincronizando ${mealName}`)
             return false
           }
         }
       }
 
-      console.log('Sincronización completada exitosamente')
       return true
     } catch (error) {
-      console.error('Error en sincronización:', error)
       return false
     }
   }
@@ -323,7 +303,6 @@ class DailyMealSelectionsService {
 
       return localSelections
     } catch (error) {
-      console.error('Error cargando selecciones del backend:', error)
       return {}
     }
   }

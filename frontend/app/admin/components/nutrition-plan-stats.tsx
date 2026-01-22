@@ -150,7 +150,6 @@ export function NutritionPlanStats() {
         setUsageStats(usageData)
       }
     } catch (error) {
-      console.error('Error cargando estadísticas:', error)
     } finally {
       setLoading(false)
     }

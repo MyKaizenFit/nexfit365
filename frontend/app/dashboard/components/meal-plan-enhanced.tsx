@@ -91,7 +91,6 @@ export function MealPlanEnhanced() {
     // Solo cargar si está autenticado y no se ha intentado cargar antes
     const authService = getAuthService()
     if (isAuthenticated && authService.isAuthenticated() && !hasAttemptedLoad) {
-      console.log('Iniciando carga de selecciones diarias...')
       setHasAttemptedLoad(true)
       loadDailySelections()
     }
@@ -100,7 +99,6 @@ export function MealPlanEnhanced() {
   const loadDailySelections = async () => {
     const authService = getAuthService()
     if (!isAuthenticated || !authService.isAuthenticated()) {
-      console.log('Usuario no autenticado, saltando carga de selecciones')
       return
     }
 
@@ -120,7 +118,6 @@ export function MealPlanEnhanced() {
         setDailySelections(data)
       } else if (response.status === 401) {
         // Usuario no autenticado, mostrar mensaje y no reintentar
-        console.log('Sesión expirada, no se reintentará la carga')
         toast({
           title: "Sesión expirada",
           description: "Por favor, inicia sesión nuevamente",
@@ -130,11 +127,9 @@ export function MealPlanEnhanced() {
         return
       } else {
         // Solo crear selecciones por defecto si no es un error de autenticación
-        console.log('Error no relacionado con autenticación, creando selecciones por defecto')
         createDefaultSelections(today)
       }
     } catch (error: unknown) {
-      console.error('Error cargando selecciones:', error)
       // Solo crear selecciones por defecto si no es un error de autenticación
       const errorMessage = error instanceof Error ? error.message : ''
       if (errorMessage && !errorMessage.includes('Sesión expirada')) {
@@ -149,7 +144,6 @@ export function MealPlanEnhanced() {
   const createDefaultSelections = async (date: string) => {
     const authService = getAuthService()
     if (!isAuthenticated || !authService.getAccessToken()) {
-      console.log('Usuario no autenticado, saltando creación de selecciones por defecto')
       return
     }
 
@@ -179,17 +173,13 @@ export function MealPlanEnhanced() {
         })
       } else if (response.status === 401) {
         // No reintentar si es un error de autenticación
-        console.log('Error 401 al crear selecciones por defecto, no se reintentará')
         return
       } else {
-        console.error('Error creando selecciones por defecto:', response.status)
       }
     } catch (error: unknown) {
-      console.error('Error en createDefaultSelections:', error)
       // No reintentar si es un error de autenticación
       const errorMessage = error instanceof Error ? error.message : ''
       if (errorMessage && !errorMessage.includes('Sesión expirada')) {
-        console.log('Error no relacionado con autenticación, se puede reintentar más tarde')
       }
     }
   }
@@ -235,7 +225,6 @@ export function MealPlanEnhanced() {
         }
       }
     } catch (error) {
-      console.error('Error seleccionando comida:', error)
       toast({
         title: "Error",
         description: "No se pudo seleccionar la comida",
@@ -271,7 +260,6 @@ export function MealPlanEnhanced() {
         })
       }
     } catch (error) {
-      console.error('Error marcando como completada:', error)
     }
   }
 

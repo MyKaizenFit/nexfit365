@@ -214,13 +214,11 @@ export class UserService {
     try {
       const authService = getAuthService()
       if (!authService.isAuthenticated()) {
-        console.warn('Usuario no autenticado al obtener fotos de progreso')
         return []
       }
 
       const token = authService.getAccessToken()
       if (!token) {
-        console.warn('No hay token de acceso disponible para obtener fotos de progreso')
         return []
       }
 
@@ -240,26 +238,21 @@ export class UserService {
       }>(response)
       
       if (result.error) {
-        console.warn('Error del backend al obtener fotos:', result.error)
         return []
       }
 
       // Manejar respuesta paginada de Django REST Framework
       if (result.data && 'results' in result.data) {
-        console.log(`📸 Fotos obtenidas del backend: ${result.data.results.length} de ${result.data.count} total`)
         return result.data.results
       }
 
       // Fallback para respuesta no paginada
       if (Array.isArray(result.data)) {
-        console.log(`📸 Fotos obtenidas (formato directo): ${result.data.length}`)
         return result.data
       }
 
-      console.warn('📸 Formato de respuesta inesperado:', result.data)
       return []
     } catch (error) {
-      console.warn('Error al obtener fotos de progreso:', error)
       return []
     }
   }
@@ -283,10 +276,8 @@ export class UserService {
       }
 
       // NO loguear tokens por seguridad
-      console.log('🔐 Usuario autenticado:', authService.getCurrentUser()?.email)
 
       const url = buildApiUrl('progress-photos/')
-      console.log('🌐 Subiendo foto a:', url)
 
       // Crear FormData
       const formData = new FormData()
@@ -305,12 +296,9 @@ export class UserService {
       }
 
       // Log del FormData
-      console.log('📤 FormData preparado:')
       for (let [key, value] of formData.entries()) {
         if (value instanceof File) {
-          console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`)
         } else {
-          console.log(`  ${key}: ${value}`)
         }
       }
 
@@ -319,7 +307,6 @@ export class UserService {
         'Authorization': `Bearer ${token}`,
       }
 
-      console.log('🔐 Headers de autenticación:', headers)
 
       const response = await fetch(url, {
         method: 'POST',
@@ -327,34 +314,23 @@ export class UserService {
         body: formData,
       })
 
-      console.log('📥 Respuesta del servidor:', response.status, response.statusText)
 
       if (!response.ok) {
-        console.error('❌ Error HTTP:', response.status, response.statusText)
         
         // Log detallado del error
         try {
           const errorData = await response.json()
-          console.error('❌ Detalles del error:', errorData)
         } catch (parseError) {
-          console.error('❌ No se pudo parsear el error:', parseError)
         }
 
         // Log de headers de respuesta
-        console.log('🔍 Headers de la respuesta:')
         for (let [key, value] of response.headers.entries()) {
-          console.log(`  ${key}: ${value}`)
         }
 
         // Log de la petición
-        console.log('🔍 URL de la petición:', url)
-        console.log('🔍 Método:', 'POST')
-        console.log('🔍 FormData enviado:')
         for (let [key, value] of formData.entries()) {
           if (value instanceof File) {
-            console.log(`  ${key}: File(${value.name}, ${value.size} bytes)`)
           } else {
-            console.log(`  ${key}: ${value}`)
           }
         }
 
@@ -371,11 +347,9 @@ export class UserService {
         throw new Error('No se recibieron datos de la foto subida')
       }
 
-      console.log('✅ Foto subida exitosamente:', result.data)
       return result.data
 
     } catch (error) {
-      console.error('❌ Error en uploadProgressPhoto:', error)
       throw error
     }
   }
@@ -425,7 +399,6 @@ export class UserService {
 
       return []
     } catch (error) {
-      console.warn('Error al obtener historial de peso:', error)
       return []
     }
   }
@@ -501,7 +474,6 @@ export class UserService {
 
       return result.data || null
     } catch (error) {
-      console.warn('Error al obtener plan nutricional:', error)
       return null
     }
   }
@@ -535,7 +507,6 @@ export class UserService {
 
       return result.data || null
     } catch (error) {
-      console.warn('Error al obtener programa de entrenamiento:', error)
       return null
     }
   }
@@ -655,7 +626,6 @@ export class UserService {
 
       return result.data || []
     } catch (error) {
-      console.warn('Error al obtener notificaciones:', error)
       return []
     }
   }

@@ -66,7 +66,6 @@ export function UserWeightHistory({ userId }: Props) {
       setShowDialog(false)
       await refetch()
     } catch (err) {
-      console.error(err)
     } finally {
       setSaving(false)
     }

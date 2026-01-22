@@ -217,7 +217,6 @@ export function PhotoCarousel({
                        height={360}
                        className="rounded-xl object-cover shadow-2xl border-4 border-white/30 transition-all duration-500 hover:shadow-3xl cursor-pointer"
                        onError={(e) => {
-                         console.error('Error cargando imagen:', e)
                          const target = e.target as HTMLImageElement
                          target.src = "/placeholder.svg"
                        }}

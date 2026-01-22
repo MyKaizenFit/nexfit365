@@ -154,7 +154,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         image_url: r.image_url,
       })))
     } catch (err) {
-      console.error("Error cargando recetas:", err)
       toast({
         title: "Error",
         description: "No se pudieron cargar las recetas disponibles",
@@ -174,7 +173,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       const plans = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : []
       setAvailablePlans(plans.filter((p: any) => p?.is_active).map((p: any) => ({ id: String(p.id), name: fixEncoding(p.name || "Plan") })))
     } catch (err) {
-      console.warn("No se pudieron cargar planes por defecto", err)
     }
   }
 
@@ -198,33 +196,26 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       const headers = await getAuthHeaders()
       
       // Intentar usar endpoint de admin primero
-      console.log("🍽️ [NutritionPlanEditor] Cargando plan para usuario:", userId)
       let response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan/`), { headers })
       
       if (response.ok) {
         const adminData = await response.json()
-        console.log("🍽️ [NutritionPlanEditor] Respuesta admin:", adminData)
         const planData = adminData.plan
         
         if (planData) {
-          console.log("🍽️ [NutritionPlanEditor] Plan encontrado, obteniendo detalle:", planData.id)
           // Obtener detalle completo del plan usando el ViewSet de admin
           const detailResponse = await fetch(buildApiUrl(`admin/nutrition/plans/${planData.id}/`), { headers })
           if (!detailResponse.ok) {
-            console.error("🍽️ [NutritionPlanEditor] Error obteniendo detalle:", detailResponse.status)
             throw new Error("Error al cargar detalle del plan")
           }
           const detail = await detailResponse.json()
-          console.log("🍽️ [NutritionPlanEditor] Detalle cargado:", detail)
           
           // Continuar con el procesamiento del detalle
           processPlanDetail(detail)
           return
         } else {
-          console.log("🍽️ [NutritionPlanEditor] No hay plan activo, usando fallback")
         }
       } else {
-        console.warn("🍽️ [NutritionPlanEditor] Endpoint admin falló:", response.status, "usando fallback")
       }
       
       // Fallback: usar endpoint público
@@ -259,7 +250,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         })
       }
     } catch (err) {
-      console.error("Error cargando plan:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "Error",
@@ -522,7 +512,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         })
       }
     } catch (err) {
-      console.error('Error cargando receta:', err)
       toast({
         title: "Error",
         description: "Error al cargar la receta",
@@ -618,7 +607,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         })),
       }
 
-      console.log("🍽️ [NutritionPlanEditor] Guardando plan:", planData)
 
       // Usar endpoint de admin para guardar
       let response: Response
@@ -644,7 +632,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       }
 
       const saved = await response.json()
-      console.log("🍽️ [NutritionPlanEditor] Plan guardado:", saved)
       
       const savedPlanId = saved.id || plan.id
       
@@ -653,7 +640,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
         for (let i = 0; i < mealsArray.length; i++) {
           const meal = mealsArray[i]
           if (!meal.id) {
-            console.warn(`🍽️ [NutritionPlanEditor] Comida ${i} no tiene ID, omitiendo actualización de recetas`)
             continue
           }
           
@@ -671,9 +657,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
           })
           
           if (!mealUpdateResponse.ok) {
-            console.warn(`🍽️ [NutritionPlanEditor] Error actualizando recetas de comida ${meal.id}:`, mealUpdateResponse.status)
           } else {
-            console.log(`🍽️ [NutritionPlanEditor] Recetas actualizadas para comida ${meal.id}:`, suggestedRecipeIds)
           }
           
           // Luego, actualizar las cantidades personalizadas usando PlanMealRecipe
@@ -729,9 +713,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                   )
                   if (!updateResponse.ok) {
                     const errorText = await updateResponse.text()
-                    console.warn(`🍽️ [NutritionPlanEditor] Error actualizando PlanMealRecipe ${existingMealRecipe.id}:`, updateResponse.status, errorText)
                   } else {
-                    console.log(`🍽️ [NutritionPlanEditor] PlanMealRecipe actualizado:`, existingMealRecipe.id)
                   }
                 } else {
                   // Crear nuevo
@@ -745,13 +727,10 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                   )
                   if (!createResponse.ok) {
                     const errorText = await createResponse.text()
-                    console.warn(`🍽️ [NutritionPlanEditor] Error creando PlanMealRecipe:`, createResponse.status, errorText)
                   } else {
-                    console.log(`🍽️ [NutritionPlanEditor] PlanMealRecipe creado para receta ${recipe.id}`)
                   }
                 }
               } catch (err) {
-                console.error(`🍽️ [NutritionPlanEditor] Error procesando receta ${recipe.id}:`, err)
               }
             }
           }
@@ -771,7 +750,6 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       }
       onSave()
     } catch (err) {
-      console.error("Error guardando plan:", err)
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
         title: "❌ Error",
