@@ -55,7 +55,7 @@ class CustomUser(AbstractUser):
     # ==========================================================================
     
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=20, null=True, blank=True)
+    phone_number = models.CharField(max_length=500, null=True, blank=True)  # Ampliado para datos encriptados
     profile_picture = models.ImageField(
         upload_to='profile_pictures/', 
         null=True, 
