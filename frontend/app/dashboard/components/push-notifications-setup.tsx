@@ -40,7 +40,6 @@ export function PushNotificationsSetup() {
         await loadSubscriptions()
       }
     } catch (error) {
-      console.error('Error verificando soporte push:', error)
     } finally {
       setChecking(false)
     }
@@ -51,7 +50,6 @@ export function PushNotificationsSetup() {
       const subs = await pushService.getUserSubscriptions()
       setSubscriptions(subs)
     } catch (error) {
-      console.error('Error cargando suscripciones:', error)
     }
   }
 
@@ -72,7 +70,6 @@ export function PushNotificationsSetup() {
         description: 'Ahora recibirás notificaciones push en tu dispositivo',
       })
     } catch (error) {
-      console.error('Error suscribiéndose:', error)
       toast({
         title: '❌ Error',
         description: error instanceof Error ? error.message : 'No se pudo activar las notificaciones',
@@ -94,7 +91,6 @@ export function PushNotificationsSetup() {
         try {
           await pushService.removeSubscriptionFromBackend(sub.id)
         } catch (error) {
-          console.error('Error eliminando suscripción del backend:', error)
         }
       }
 
@@ -106,7 +102,6 @@ export function PushNotificationsSetup() {
         description: 'Ya no recibirás notificaciones push',
       })
     } catch (error) {
-      console.error('Error cancelando suscripción:', error)
       toast({
         title: '❌ Error',
         description: 'No se pudo desactivar las notificaciones',

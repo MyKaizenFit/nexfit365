@@ -153,11 +153,9 @@ class NutritionService {
       const { authService } = require('./auth-service')
       const token = authService.getAccessToken()
       if (!token) {
-        console.log('No hay token de acceso, saltando getCurrentPlan')
         return null
       }
     } catch (error) {
-      console.log('Error verificando autenticación, saltando getCurrentPlan')
       return null
     }
 
@@ -200,7 +198,6 @@ class NutritionService {
 
       return result
     } catch (error) {
-      console.error('Error obteniendo plan de nutrición:', error)
       return null
     }
   }
@@ -245,7 +242,6 @@ class NutritionService {
 
       return result.data.plan
     } catch (error) {
-      console.error('Error ajustando plan:', error)
       throw handleFetchError(error)
     }
   }
@@ -278,7 +274,6 @@ class NutritionService {
 
       return data.plan || null
     } catch (error) {
-      console.error('Error cambiando plan:', error)
       throw error
     }
   }
@@ -299,7 +294,6 @@ class NutritionService {
       const data = await response.json()
       return data.plans || []
     } catch (error) {
-      console.error('Error obteniendo planes disponibles:', error)
       return []
     }
   }
@@ -352,7 +346,6 @@ class NutritionService {
         daily_macros: data.daily_macros
       }
     } catch (error) {
-      console.error('Error obteniendo comidas del plan:', error)
       return null
     }
   }
@@ -435,7 +428,6 @@ class NutritionService {
 
       return result
     } catch (error) {
-      console.error('Error obteniendo plan por defecto del backend:', error)
 
       // Fallback: plan local por defecto (solo si falla el backend)
       const today = new Date()
@@ -476,7 +468,6 @@ class NutritionService {
       const data = await response.json()
       return data.results || []
     } catch (error) {
-      console.error('Error obteniendo planes de nutrición:', error)
       return []
     }
   }
@@ -501,7 +492,6 @@ class NutritionService {
       const data = await response.json()
       return data.results || []
     } catch (error) {
-      console.error('Error obteniendo alimentos:', error)
       return []
     }
   }
@@ -522,7 +512,6 @@ class NutritionService {
       const data = await response.json()
       return data.results || []
     } catch (error) {
-      console.error('Error obteniendo registro de comidas:', error)
       return []
     }
   }
@@ -548,7 +537,6 @@ class NutritionService {
 
       return await response.json()
     } catch (error) {
-      console.error('Error marcando comida como completada:', error)
       return null
     }
   }
@@ -559,8 +547,6 @@ class NutritionService {
       const headers = await getAuthHeaders()
 
       // Log de los datos que se van a enviar
-      console.log('Datos a enviar a createMealLog:', mealData)
-      console.log('Headers:', headers)
 
       const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
         headers,
@@ -578,13 +564,11 @@ class NutritionService {
           errorDetails = response.statusText
         }
 
-        console.error(`Error ${response.status} del backend:`, errorDetails)
         throw new Error(`Error ${response.status}: ${errorDetails}`)
       }
 
       return await response.json()
     } catch (error) {
-      console.error('Error creando registro de comida:', error)
       return null
     }
   }
@@ -611,7 +595,6 @@ class NutritionService {
         cookTime: '15 min', // Valor por defecto
       }))
     } catch (error) {
-      console.error('Error obteniendo comidas sugeridas:', error)
       return this.getDefaultMealOptions()
     }
   }
@@ -708,7 +691,6 @@ class NutritionService {
 
       return stats
     } catch (error) {
-      console.error('Error obteniendo estadísticas nutricionales:', error)
       return {
         totalCalories: 0,
         totalProtein: 0,
@@ -737,7 +719,6 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`
-      console.log('📡 Llamando a endpoint:', url)
       
       const response = await fetch(url, {
         headers,
@@ -746,17 +727,14 @@ class NutritionService {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`❌ Error ${response.status} al obtener receta personalizada:`, errorText)
         throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
       }
 
       // Parsear JSON asegurando UTF-8
       const text = await response.text()
       const data = JSON.parse(text)
-      console.log('✅ Respuesta recibida:', data)
       return data
     } catch (error: any) {
-      console.error('❌ Error obteniendo receta personalizada:', error)
       throw error // Re-lanzar el error para que el componente pueda manejarlo
     }
   }
@@ -766,7 +744,6 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`
-      console.log('📡 Llamando a endpoint de receta básica:', url)
       
       const response = await fetch(url, {
         headers,
@@ -775,15 +752,12 @@ class NutritionService {
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`❌ Error ${response.status} al obtener receta:`, errorText)
         throw new Error(`Error ${response.status}: ${response.statusText}. ${errorText}`)
       }
 
       const data = await response.json()
-      console.log('✅ Receta básica recibida:', data.name)
       return data
     } catch (error: any) {
-      console.error('❌ Error obteniendo receta:', error)
       throw error // Re-lanzar el error para que el componente pueda manejarlo
     }
   }
@@ -811,7 +785,6 @@ class NutritionService {
       const data = await response.json()
       return Array.isArray(data) ? data : (data.results || data.recipes || [])
     } catch (error) {
-      console.error('Error buscando recetas:', error)
       return []
     }
   }
@@ -848,7 +821,6 @@ class NutritionService {
 
       // Si aún falla con 404, intentar con el endpoint de admin
       if (response.status === 404) {
-        console.warn('⚠️ Endpoint /api/nutrition/recipes/ no encontrado, intentando con endpoint de admin...')
         response = await fetch(
           `${buildApiUrl('admin/nutrition/recipes/')}`,
           {
@@ -859,17 +831,14 @@ class NutritionService {
       }
 
       if (!response.ok) {
-        console.error(`❌ Error ${response.status} al listar recetas:`, response.statusText)
         // Si falla, devolver array vacío en lugar de lanzar error
         return []
       }
 
       const data = await response.json()
       const recipes = Array.isArray(data) ? data : (data.results || data.recipes || [])
-      console.log(`✅ ${recipes.length} recetas cargadas`)
       return recipes
     } catch (error) {
-      console.error('❌ Error listando recetas:', error)
       return []
     }
   }
@@ -893,14 +862,12 @@ class NutritionService {
       )
 
       if (!response.ok) {
-        console.error(`Error obteniendo selecciones semanales: ${response.status}`)
         return {}
       }
 
       const data = await response.json()
       return data.selections || {}
     } catch (error) {
-      console.error('Error obteniendo selecciones semanales:', error)
       return {}
     }
   }
@@ -925,14 +892,12 @@ class NutritionService {
       )
 
       if (!response.ok) {
-        console.error(`Error obteniendo selecciones mensuales: ${response.status}`)
         return {}
       }
 
       const data = await response.json()
       return data.selections || {}
     } catch (error) {
-      console.error('Error obteniendo selecciones mensuales:', error)
       return {}
     }
   }
@@ -974,7 +939,6 @@ class NutritionService {
         errors: data.errors || null
       }
     } catch (error) {
-      console.error('Error guardando selecciones semanales:', error)
       throw error
     }
   }
@@ -1020,7 +984,6 @@ class NutritionService {
         errors: data.errors || null
       }
     } catch (error) {
-      console.error('Error guardando selecciones mensuales:', error)
       throw error
     }
   }

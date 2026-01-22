@@ -30,7 +30,6 @@ export function clearUserCache() {
     localStorage.removeItem('initial_form_completed')
   }
   
-  console.log('✅ Caché del usuario limpiada')
 }
 
 /**
@@ -44,7 +43,6 @@ export function clearAllCache() {
     sessionStorage.clear()
   }
   
-  console.log('✅ Toda la caché limpiada')
 }
 
 

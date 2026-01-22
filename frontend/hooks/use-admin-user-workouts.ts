@@ -63,30 +63,23 @@ export function useAdminUserWorkouts(userId: string | number) {
 
   const fetchLogs = useCallback(async () => {
     try {
-      console.log(`🏋️ [useAdminUserWorkouts] Fetching logs for user ${userId}`)
       const headers = await getAuthHeaders()
       const url = buildApiUrl(`admin/workouts/users/${userId}/workout-logs/?limit=25`)
-      console.log(`🏋️ [useAdminUserWorkouts] Fetching from: ${url}`)
       const response = await fetch(url, {
         headers,
       })
-      console.log(`🏋️ [useAdminUserWorkouts] Response status: ${response.status}`)
       if (!response.ok) {
         const errorText = await response.text()
-        console.error(`🏋️ [useAdminUserWorkouts] Error response:`, errorText)
         throw new Error(`Error ${response.status}`)
       }
       const data = await response.json()
-      console.log(`🏋️ [useAdminUserWorkouts] Data received:`, data)
       setState(prev => ({
         ...prev,
         logs: Array.isArray(data.logs) ? data.logs : [],
         totals: data.totals && typeof data.totals === 'object' ? data.totals : {},
       }))
-      console.log(`🏋️ [useAdminUserWorkouts] Logs set:`, Array.isArray(data.logs) ? data.logs.length : 0, 'logs')
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido"
-      console.error(`🏋️ [useAdminUserWorkouts] Error in fetchLogs:`, err)
       setState(prev => ({ ...prev, error: message }))
     }
   }, [getAuthHeaders, userId])
@@ -100,7 +93,6 @@ export function useAdminUserWorkouts(userId: string | number) {
       if (!response.ok) {
         // Si es un error 500 o similar, establecer stats vacío en lugar de error
         if (response.status >= 500) {
-          console.warn(`[useAdminUserWorkouts] ⚠️ Error del servidor (${response.status}) en workout-stats, estableciendo stats vacío`)
           setState(prev => ({ ...prev, stats: null }))
           return
         }
@@ -109,7 +101,6 @@ export function useAdminUserWorkouts(userId: string | number) {
       const data = await response.json()
       setState(prev => ({ ...prev, stats: data }))
     } catch (err) {
-      console.error('[useAdminUserWorkouts] Error en fetchStats:', err)
       // En caso de error, establecer stats como null para evitar errores
       setState(prev => ({ ...prev, stats: null }))
     }
@@ -122,10 +113,8 @@ export function useAdminUserWorkouts(userId: string | number) {
   useEffect(() => {
     // Esperar a que la autenticación esté lista antes de hacer peticiones
     if (userId && isAuthenticated && !authLoading) {
-      console.log(`🏋️ [useAdminUserWorkouts] Iniciando carga de datos para usuario ${userId}`)
       void reloadAll()
     } else if (authLoading) {
-      console.log(`🏋️ [useAdminUserWorkouts] Esperando autenticación...`)
       setState(prev => ({ ...prev, loading: true }))
     }
   }, [userId, isAuthenticated, authLoading, reloadAll])

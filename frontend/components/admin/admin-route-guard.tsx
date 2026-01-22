@@ -19,11 +19,9 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
     const checkAdminAccess = async () => {
       // Esperar a que termine la carga de autenticación
       if (isLoading) {
-        console.log('⏳ AdminRouteGuard - Esperando carga de autenticación...')
         return
       }
 
-      console.log('🔍 AdminRouteGuard - Verificando acceso:', {
         isAuthenticated,
         hasUser: !!user,
         userData: user ? {
@@ -37,14 +35,12 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
 
       // Si no está autenticado, redirigir al login
       if (!isAuthenticated) {
-        console.log('🚫 Usuario no autenticado, redirigiendo al login')
         router.push('/auth')
         return
       }
 
       // Si no hay usuario pero está autenticado, esperar un poco más
       if (!user) {
-        console.log('⏳ Usuario autenticado pero datos de usuario no cargados, esperando...')
         setIsChecking(true)
         return
       }
@@ -53,7 +49,6 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
       // Verificar roles de admin: superuser, staff, admin, trainer
       const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
       
-      console.log('🔍 AdminRouteGuard - Verificación de admin:', {
         is_superuser: user.is_superuser,
         is_staff: user.is_staff,
         role: user.role,
@@ -62,7 +57,6 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
       })
       
       if (user && !isAdmin) {
-        console.log('🚫 Usuario no tiene permisos de admin, redirigiendo al dashboard', {
           is_superuser: user.is_superuser,
           is_staff: user.is_staff,
           role: user.role,
@@ -74,7 +68,6 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
 
       // Si es admin, permitir acceso
       if (isAdmin) {
-        console.log('✅ Usuario admin verificado, permitiendo acceso', {
           is_superuser: user?.is_superuser,
           is_staff: user?.is_staff,
           role: user?.role,

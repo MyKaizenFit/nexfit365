@@ -157,20 +157,15 @@ export function WorkoutDashboardEnhanced() {
             try {
               const data = JSON.parse(text)
               completed[day.id] = data.is_completed || false
-              console.log(`✅ Verificación servidor - WorkoutDay ${day.id}: ${data.is_completed ? 'Completado' : 'No completado'}`)
             } catch (parseError) {
-              console.error(`Error parseando respuesta para ${day.id}:`, parseError, text)
             }
           }
         } else {
-          console.warn(`⚠️ Respuesta no OK al verificar ${day.id}:`, response.status)
         }
       } catch (error) {
-        console.error(`❌ Error verificando entrenamiento ${day.id}:`, error)
       }
     }
 
-    console.log('📊 Entrenamientos completados hoy:', completed)
     setTodayWorkoutCompleted(completed)
   }, [activeProgram, workoutLogs, isAuthenticated])
 
@@ -317,7 +312,6 @@ export function WorkoutDashboardEnhanced() {
         }
       }
     } catch (error) {
-      console.error('Error al cargar ejercicios completados:', error)
     }
 
     return completedSet
@@ -1355,7 +1349,6 @@ export function WorkoutDashboardEnhanced() {
                   errorMessage = String(error) || 'Error desconocido al guardar entrenamiento'
                 }
                 
-                console.error('Error al guardar entrenamiento:', errorMessage, error)
                 throw new Error(errorMessage)
               })
 
@@ -1397,9 +1390,7 @@ export function WorkoutDashboardEnhanced() {
                   
                   try {
                     localStorage.setItem(saveKey, JSON.stringify(completedExerciseIds))
-                    console.log('✅ Ejercicios completados guardados en localStorage:', completedExerciseIds)
                   } catch (error) {
-                    console.error('Error guardando ejercicios completados en localStorage:', error)
                   }
                 }
               }
@@ -1457,7 +1448,6 @@ export function WorkoutDashboardEnhanced() {
                 }
               }
               
-              console.error('Error completo al guardar entrenamiento:', error)
               
               toast({
                 title: "Error",

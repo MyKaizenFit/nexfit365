@@ -136,7 +136,6 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
   // Debug: Log de datos de workouts
   useEffect(() => {
     if (userId) {
-      console.log("🏋️ [UserDetailV2] Workouts state:", {
         loading: workouts.loading,
         error: workouts.error,
         logsCount: workouts.logs?.length || 0,
@@ -155,7 +154,6 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
           setUserId(resolved.id)
         }
       } catch (err) {
-        console.error("[UserDetailV2] Error resolviendo params:", err)
         setError("Error al cargar la página")
       }
     }

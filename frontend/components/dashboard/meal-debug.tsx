@@ -16,7 +16,6 @@ export function MealDebug() {
     if (breakfastMeal) {
       const options = getMealOptions('Desayuno')
       if (options.length > 0) {
-        console.log('🧪 Prueba: Seleccionando desayuno:', options[0])
         selectMealOption(breakfastMeal.id, options[0])
       }
     }

@@ -49,7 +49,6 @@ export function useFeedback() {
       setSuccess(data.message)
       return true
     } catch (err) {
-      console.error('Error submitting feedback:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
       return false
     } finally {

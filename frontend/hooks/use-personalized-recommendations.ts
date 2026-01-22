@@ -71,7 +71,6 @@ export function usePersonalizedRecommendations() {
       })
       setError(null)
     } catch (err) {
-      console.error('Error fetching personalized recommendations:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
       setLoading(false)

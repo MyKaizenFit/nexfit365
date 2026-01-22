@@ -63,7 +63,6 @@ class PushService {
       const subscription = await registration.pushManager.getSubscription()
       return subscription
     } catch (error) {
-      console.error('Error obteniendo suscripción:', error)
       return null
     }
   }
@@ -100,7 +99,6 @@ class PushService {
 
       return subscription
     } catch (error) {
-      console.error('Error creando suscripción:', error)
       throw error
     }
   }
@@ -117,7 +115,6 @@ class PushService {
       }
       return false
     } catch (error) {
-      console.error('Error cancelando suscripción:', error)
       return false
     }
   }

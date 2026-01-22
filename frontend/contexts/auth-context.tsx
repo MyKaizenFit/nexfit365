@@ -83,7 +83,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             const user = await authService.getCurrentUser()
             // NO loguear datos del usuario por seguridad
             if (process.env.NODE_ENV === 'development') {
-              console.log('🔍 AuthContext - Usuario autenticado correctamente')
             }
             setState({
               user,
@@ -95,7 +94,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           } catch (userError: any) {
             // NO limpiar tokens si es un error de rate limiting (429)
             if (userError.message?.includes('Demasiadas solicitudes') || userError.message?.includes('Too Many Requests')) {
-              console.warn('⚠️ Rate limit alcanzado, manteniendo sesión activa. Reintentará automáticamente...')
               setState({
                 user: null,
                 isAuthenticated: true, // Mantener como autenticado
@@ -104,7 +102,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 mustChangePassword: false,
               })
             } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
-              console.warn('Error al obtener usuario, limpiando tokens inválidos:', userError)
               // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
               const authService = getAuthService()
               authService.clearTokens()
@@ -138,7 +135,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       } catch (error) {
         // Solo mostrar warning si no es un error de autenticación esperado
         if (error instanceof Error && !error.message.includes('Sesión expirada')) {
-          console.warn('Error al inicializar autenticación (continuando en modo offline):', error)
         }
         // En lugar de hacer logout, simplemente marcar como no autenticado
         setState({
@@ -170,7 +166,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const mustChangePassword = authResponse.must_change_password || authResponse.user.must_change_password || false
 
       // Debug: verificar datos del usuario ANTES de guardar
-      console.log('🔍 AuthContext - Datos del usuario recibidos del login:', {
         email: authResponse.user.email,
         is_superuser: authResponse.user.is_superuser,
         is_staff: authResponse.user.is_staff,
@@ -190,7 +185,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Si debe cambiar contraseña, redirigir a la página de cambio
       if (mustChangePassword) {
-        console.log('🔀 Usuario debe cambiar contraseña, redirigiendo a /auth/change-password')
         router.push('/auth/change-password')
         return
       }
@@ -200,7 +194,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // NO loguear datos del usuario por seguridad
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 AuthContext - Login exitoso')
       }
 
       // También verificar el token JWT directamente para obtener la información de admin
@@ -215,7 +208,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Error al decodificar token:', tokenError)
         }
       }
 
@@ -226,7 +218,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Esto es necesario porque router.push hace navegación del lado del cliente y el middleware
       // puede no ver las cookies recién guardadas
       if (isAdmin) {
-        console.log('🔀 Redirigiendo a /admin (usuario administrador)')
         // Pequeño delay para asegurar que las cookies se guarden
         await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = '/admin'
@@ -234,11 +225,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Verificar si el formulario inicial está completo
         const formCompleted = localStorage.getItem('initial_form_completed')
         if (!formCompleted || formCompleted !== 'true') {
-          console.log('🔀 Redirigiendo a /initial-registration (formulario pendiente)')
           await new Promise(resolve => setTimeout(resolve, 100))
           window.location.href = '/initial-registration'
         } else {
-          console.log('🔀 Redirigiendo a /dashboard (usuario normal)')
           await new Promise(resolve => setTimeout(resolve, 100))
           window.location.href = '/dashboard'
         }
@@ -274,7 +263,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // LIMPIAR DATOS DE SESIÓN ANTERIOR antes de registrar
       // Esto previene que datos de otra cuenta interfieran
-      console.log('🧹 Limpiando datos de sesión anterior...')
       localStorage.removeItem('initial_form_completed')
       localStorage.removeItem('user_profile')
       localStorage.removeItem('form_version')
@@ -297,7 +285,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       authNotifications.showRegisterSuccess(authResponse.user.first_name)
 
       // Debug: verificar datos del usuario
-      console.log('🔍 Datos del usuario después del registro:', {
         email: authResponse.user.email,
         is_superuser: authResponse.user.is_superuser,
         is_staff: authResponse.user.is_staff,
@@ -316,7 +303,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn('Error al decodificar token:', tokenError)
         }
       }
 
@@ -325,12 +311,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
       // Usar window.location.href para forzar un reload completo
       if (isAdmin) {
-        console.log('🔀 Redirigiendo a /admin (usuario administrador)')
         await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = '/admin'
       } else {
         // SIEMPRE redirigir al formulario de registro inicial después de registrar
-        console.log('🔀 Redirigiendo a /initial-registration (formulario de registro inicial)')
         await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = '/initial-registration'
       }
@@ -374,7 +358,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Redirigir al login
       router.push('/auth')
     } catch (error) {
-      console.error('Error al hacer logout:', error)
 
       // Mostrar notificación de error
       authNotifications.showLogoutError('Error al cerrar sesión')
@@ -407,7 +390,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const user = await authService.getCurrentUser()
         // NO loguear datos del usuario por seguridad
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔍 AuthContext - Usuario refrescado')
         }
         setState(prev => ({
           ...prev,
@@ -415,7 +397,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }))
       }
     } catch (error) {
-      console.error('Error al refrescar usuario:', error)
       // Si hay error, hacer logout
       await logout()
     }
@@ -558,7 +539,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         'Content-Type': 'application/json',
       }
     } catch (error) {
-      console.error('Error al obtener headers de autenticación:', error)
       throw error
     }
   }
@@ -587,7 +567,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         // Si el estado dice "autenticado" pero ya no hay tokens, forzar logout/redirect
         if (!authService.hasValidTokens()) {
-          console.warn('⚠️ Tokens no válidos detectados durante sesión activa. Redirigiendo a /auth...')
           setState({
             user: null,
             isAuthenticated: false,
@@ -601,18 +580,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         // Verificar si el token está próximo a expirar
         if (authService.isTokenExpiringSoon()) {
-          console.log('🔄 Token próximo a expirar, refrescando proactivamente...')
           
           const refreshResult = await authService.refreshAccessToken()
           
           if (refreshResult.success) {
-            console.log('✅ Token refrescado proactivamente con éxito')
           } else {
             // Si el refresh falla por sesión expirada/401, authService puede limpiar tokens.
             // En ese caso, no dejar el estado inconsistente: forzar logout/redirect.
             const err = refreshResult.error || ''
             if (err.includes('Sesión expirada') || err.includes('expired') || err.includes('401') || !authService.hasValidTokens()) {
-              console.warn('⚠️ Refresh falló y la sesión ya no es válida. Redirigiendo a /auth...')
               setState({
                 user: null,
                 isAuthenticated: false,
@@ -628,7 +604,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             // El token se refrescará bajo demanda cuando haya un 401
             // Solo loguear en modo desarrollo para debugging
             if (process.env.NODE_ENV === 'development') {
-              console.warn('⚠️ No se pudo refrescar el token proactivamente:', refreshResult.error)
             }
           }
         }
@@ -636,7 +611,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Manejar errores de red/CORS de forma silenciosa
         // No hacer logout automático, el token se refrescará bajo demanda cuando sea necesario
         if (process.env.NODE_ENV === 'development') {
-          console.warn('⚠️ Error en refresh proactivo (se ignorará):', error)
         }
       }
     }

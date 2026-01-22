@@ -24,24 +24,18 @@ export function useProgressPhotos() {
     try {
       setLoading(true)
       setError(null)
-      console.log('🔄 Fetching progress photos...')
 
       const data = await userService.getProgressPhotos()
-      console.log('📥 Datos recibidos del backend:', data)
       
       // Asegurar que siempre sea un array
       const photosArray = Array.isArray(data) ? data : []
-      console.log(`📸 Fotos procesadas: ${photosArray.length} fotos`)
       
       setPhotos(photosArray)
-      console.log('✅ Estado de fotos actualizado en el hook')
     } catch (err) {
-      console.error('❌ Error fetching progress photos:', err)
       setError(err instanceof Error ? err.message : 'Error al obtener fotos')
       setPhotos([])
     } finally {
       setLoading(false)
-      console.log('🏁 Fetch completado, loading: false')
     }
   }
 
@@ -53,14 +47,9 @@ export function useProgressPhotos() {
   ) => {
     try {
       setError(null)
-      console.log('📤 Subiendo nueva foto...')
       
       // Verificar autenticación antes de subir
       const authService = getAuthService()
-      console.log('🔐 Estado de autenticación:')
-      console.log('  - isAuthenticated:', isAuthenticated)
-      console.log('  - Usuario actual:', user)
-      console.log('  - Token disponible:', !!authService.getAccessToken())
       
       if (!isAuthenticated) {
         throw new Error('Usuario no autenticado')
@@ -71,22 +60,18 @@ export function useProgressPhotos() {
       }
       
       const newPhoto = await userService.uploadProgressPhoto(file, weight, notes, photoType)
-      console.log('✅ Foto subida exitosamente:', newPhoto)
       
       // Agregar la nueva foto al estado inmediatamente
       setPhotos(prev => {
         const updatedPhotos = [newPhoto, ...prev] // Nueva foto al principio
-        console.log(`🔄 Estado actualizado: ${updatedPhotos.length} fotos`)
         return updatedPhotos
       })
       
       // NO recargar todas las fotos - mantener el estado local
-      console.log('✅ Foto agregada al estado local sin recargar del backend')
       
       return newPhoto
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al subir foto'
-      console.error('❌ Error al subir foto:', errorMessage)
       setError(errorMessage)
       throw new Error(errorMessage)
     }
@@ -104,7 +89,6 @@ export function useProgressPhotos() {
   }
 
   const refreshPhotos = async () => {
-    console.log('🔄 Refrescando fotos desde el backend...')
     await fetchProgressPhotos()
   }
 

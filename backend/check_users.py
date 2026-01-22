@@ -19,25 +19,12 @@ def check_users():
     try:
         users = User.objects.all()
         
-        print(f"📊 Total de usuarios en la base de datos: {users.count()}")
-        print("\n" + "="*60)
         
         for user in users:
-            print(f"👤 Usuario ID: {user.id}")
-            print(f"   Email: {user.email}")
-            print(f"   Nombre: {user.first_name} {user.last_name}")
-            print(f"   is_superuser: {user.is_superuser}")
-            print(f"   is_staff: {user.is_staff}")
-            print(f"   is_active: {user.is_active}")
-            print(f"   role: {user.role}")
-            print(f"   date_joined: {user.date_joined}")
-            print(f"   last_login: {user.last_login}")
-            print("-" * 40)
         
         return True
         
     except Exception as e:
-        print(f"❌ Error verificando usuarios: {e}")
         return False
 
 if __name__ == "__main__":

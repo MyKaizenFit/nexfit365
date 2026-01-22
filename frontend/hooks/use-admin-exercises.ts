@@ -110,7 +110,6 @@ export const useAdminExercises = () => {
       const pageSize = 10000 // Usar el máximo permitido por el backend
       let hasMore = true
 
-      console.log('🔄 Iniciando carga de ejercicios...')
 
       // Cargar todas las páginas automáticamente
       while (hasMore) {
@@ -132,7 +131,6 @@ export const useAdminExercises = () => {
 
         if (!response.ok) {
           const errorText = await response.text().catch(() => '')
-          console.error('❌ Error en respuesta:', response.status, errorText)
           throw new Error(`Error ${response.status}: ${response.statusText}`)
         }
 
@@ -145,7 +143,6 @@ export const useAdminExercises = () => {
 
         if (exercisesData.length > 0) {
           allExercises = [...allExercises, ...exercisesData]
-          console.log(`📦 Página ${page}: ${exercisesData.length} ejercicios cargados (Total acumulado: ${allExercises.length})`)
           
           // Verificar si hay más páginas
           // Si la respuesta tiene 'next' y no es null/undefined, hay más páginas
@@ -153,7 +150,6 @@ export const useAdminExercises = () => {
           const totalCount = data.count || allExercises.length
           const hasNext = data.next !== null && data.next !== undefined && data.next !== ''
           
-          console.log(`📊 Total esperado: ${totalCount}, Cargados: ${allExercises.length}, Next: ${hasNext}`)
           
           // Si ya cargamos todos o no hay más páginas, terminar
           if (!hasNext || allExercises.length >= totalCount) {
@@ -169,11 +165,9 @@ export const useAdminExercises = () => {
       }
 
       setExercises(allExercises)
-      console.log(`✅ Total ejercicios cargados: ${allExercises.length}`)
       // Actualizar stats con el conteo real de ejercicios cargados
       updateStatsFromExercises(allExercises)
     } catch (err) {
-      console.error('Error fetching exercises:', err)
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
       setExercises([])
@@ -213,7 +207,6 @@ export const useAdminExercises = () => {
       const data = await response.json()
       setCategories(data)
     } catch (err) {
-      console.error('Error fetching categories:', err)
       // Fallback a categorías por defecto si falla
       setCategories([
         { value: 'strength', label: 'Fuerza' },
@@ -262,7 +255,6 @@ export const useAdminExercises = () => {
       const data = await response.json()
       setStats(data)
     } catch (err) {
-      console.error('Error fetching exercise stats:', err)
       // Si tenemos ejercicios cargados, usar ese conteo como fallback
       const exercisesToUse = exercisesList || exercises
       if (exercisesToUse.length > 0) {
@@ -627,7 +619,6 @@ export const useAdminExercises = () => {
 
       return result
     } catch (err) {
-      console.error('Error bulk creating exercises:', err)
       throw err
     }
   }

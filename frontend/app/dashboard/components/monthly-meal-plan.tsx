@@ -68,7 +68,6 @@ export function MonthlyMealPlan() {
       const selections = await nutritionService.getMonthlyMealSelections(year, month)
       setMonthlySelections(selections)
     } catch (error) {
-      console.error('Error cargando selecciones mensuales:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las selecciones del mes",
@@ -120,7 +119,6 @@ export function MonthlyMealPlan() {
         setIsModalOpen(true)
       }
     } catch (error) {
-      console.error('Error cargando opciones:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las opciones de comida",
@@ -161,7 +159,6 @@ export function MonthlyMealPlan() {
       setSelectedMeal(null)
       await loadMonthlySelections()
     } catch (error) {
-      console.error('Error guardando selección:', error)
       toast({
         title: "Error",
         description: "No se pudo guardar la selección",
@@ -236,7 +233,6 @@ export function MonthlyMealPlan() {
         await loadMonthlySelections()
       }
     } catch (error) {
-      console.error('Error copiando semana:', error)
       toast({
         title: "Error",
         description: "No se pudo copiar la semana",
@@ -298,7 +294,6 @@ export function MonthlyMealPlan() {
         await loadMonthlySelections()
       }
     } catch (error) {
-      console.error('Error aplicando a mes:', error)
       toast({
         title: "Error",
         description: "No se pudo aplicar a todo el mes",

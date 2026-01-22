@@ -97,7 +97,6 @@ export function UserWorkoutPlans() {
         setTemplates(templatesData.results || templatesData)
       }
     } catch (error) {
-      console.error('Error cargando datos:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar los datos",

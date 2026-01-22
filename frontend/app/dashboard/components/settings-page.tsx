@@ -38,7 +38,6 @@ const SettingsPage = () => {
       const settings = await helpService.getHelpSettings()
       setHelpSettings(settings)
     } catch (error) {
-      console.error('Error cargando configuración de ayuda:', error)
       // Usar valores por defecto si falla - ahora getHelpSettings ya devuelve valores por defecto
       const defaultSettings = await helpService.getHelpSettings()
       setHelpSettings(defaultSettings)

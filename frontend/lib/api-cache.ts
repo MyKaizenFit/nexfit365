@@ -151,12 +151,10 @@ export async function cachedFetch<T>(
   // Intentar obtener del caché primero
   const cached = apiCache.get<T>(cacheKey)
   if (cached) {
-    console.log(`Cache hit for ${cacheKey}`)
     return cached
   }
 
   // Si no está en caché, hacer la request
-  console.log(`Cache miss for ${cacheKey}`)
   const response = await fetch(url, options)
   
   if (!response.ok) {

@@ -267,7 +267,6 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
     }
     const unique = Array.from(uniqueMap.values())
     if (unique.length !== configurations.length) {
-      console.warn(`[DefaultPlanConfigurationsPanelV2] ⚠️ Se encontraron ${configurations.length - unique.length} duplicados, eliminados`)
     }
     return unique
   }, [configurations])

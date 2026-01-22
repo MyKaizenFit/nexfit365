@@ -17,7 +17,6 @@ export function useWeightHistory() {
       setEntries(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-      console.error('Error al obtener historial de peso:', err)
     } finally {
       setLoading(false)
     }

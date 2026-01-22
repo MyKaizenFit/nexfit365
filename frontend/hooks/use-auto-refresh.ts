@@ -23,7 +23,6 @@ export function useAutoRefresh({
       isRefreshingRef.current = true
       await onRefresh()
     } catch (error) {
-      console.error('Error en auto-refresh:', error)
     } finally {
       isRefreshingRef.current = false
     }

@@ -825,7 +825,6 @@ export function WorkoutPlanManagement() {
             })
           }))
           setWorkoutDays(convertedDays)
-          console.log('📋 Días cargados:', convertedDays.map(d => ({ 
             name: d.day_name, 
             exercises: d.exercises.map(e => e.exercise_name || e.exercise_id)
           })))
@@ -853,7 +852,6 @@ export function WorkoutPlanManagement() {
         })
       }
     } catch (error) {
-      console.error('Error loading plan detail:', error)
       toast({
         title: "❌ Error",
         description: "Error al cargar los detalles del plan",

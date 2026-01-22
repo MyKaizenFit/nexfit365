@@ -78,7 +78,6 @@ export function useThrottledApi<T = any>(
           const retryAfter = response.headers.get('Retry-After')
           const delay = retryAfter ? parseInt(retryAfter) * 1000 : 2000
           
-          console.warn(`Rate limited. Waiting ${delay}ms before retry...`)
           await new Promise(resolve => setTimeout(resolve, delay))
           
           // Reintentar una vez
@@ -107,7 +106,6 @@ export function useThrottledApi<T = any>(
       // Reintentar si está habilitado y no hemos excedido el máximo
       if (retryOnError && retryCountRef.current < maxRetries) {
         retryCountRef.current++
-        console.warn(`Reintentando request (${retryCountRef.current}/${maxRetries}):`, errorMessage)
         
         // Esperar un poco antes del reintento
         await new Promise(resolve => setTimeout(resolve, 1000 * retryCountRef.current))
@@ -115,7 +113,6 @@ export function useThrottledApi<T = any>(
         return execute(url, requestOptions)
       }
 
-      console.error('Error en request throttled:', errorMessage)
       return null
     } finally {
       setLoading(false)

@@ -25,7 +25,6 @@ export function useNotifications() {
       })
     } else {
       // Fallback: usar console.log para desarrollo
-      console.log(`[${type.toUpperCase()}] ${title || getDefaultTitle(type)}: ${message}`)
     }
   }, [])
 

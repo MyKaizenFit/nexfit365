@@ -17,7 +17,6 @@ from workouts.models import WorkoutProgram
 
 def create_common_configurations():
     """Crear configuraciones para perfiles comunes"""
-    print("🔄 Creando configuraciones comunes...\n")
     
     # Obtener planes nutricionales disponibles
     nutrition_plans = {
@@ -293,7 +292,6 @@ def create_common_configurations():
     skipped_count = 0
     errors = []
     
-    print("📝 Creando configuraciones...\n")
     
     for config_data in configurations_to_create:
         # Verificar si ya existe una configuración similar
@@ -302,7 +300,6 @@ def create_common_configurations():
         ).first()
         
         if existing:
-            print(f"⏭️  Ya existe: {config_data['name']}")
             skipped_count += 1
             continue
         
@@ -321,31 +318,17 @@ def create_common_configurations():
             
             config.save()
             
-            print(f"✅ Creado: {config.name}")
-            print(f"   Prioridad: {config.priority} | Activa: {config.is_active}")
             if nutrition_plan:
-                print(f"   📋 Plan: {nutrition_plan.name}")
             if workout_program:
-                print(f"   💪 Programa: {workout_program.name}")
-            print()
             
             created_count += 1
         except Exception as e:
             error_msg = f"Error creando {config_data['name']}: {str(e)}"
-            print(f"❌ {error_msg}")
             errors.append(error_msg)
     
-    print(f"\n{'='*60}")
-    print(f"✅ Proceso completado")
-    print(f"   Configuraciones creadas: {created_count}")
-    print(f"   Configuraciones existentes: {skipped_count}")
     if errors:
-        print(f"   Errores: {len(errors)}")
-    print(f"   Total configuraciones: {DefaultPlanConfiguration.objects.count()}")
-    print(f"{'='*60}\n")
     
     # Mostrar resumen por objetivo
-    print("📊 Resumen por objetivo:")
     for goal in ['lose_weight', 'gain_muscle', 'body_recomposition', 'maintain']:
         count = DefaultPlanConfiguration.objects.filter(main_goal=goal, is_active=True).count()
         goal_name = {
@@ -354,7 +337,6 @@ def create_common_configurations():
             'body_recomposition': 'Recomposición Corporal',
             'maintain': 'Mantenimiento'
         }.get(goal, goal)
-        print(f"   {goal_name}: {count} configuraciones activas")
 
 if __name__ == '__main__':
     create_common_configurations()

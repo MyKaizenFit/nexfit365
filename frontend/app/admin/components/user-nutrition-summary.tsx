@@ -39,7 +39,6 @@ export function UserNutritionSummary({ userId }: { userId: string }) {
       })
       setEditing(null)
     } catch (err) {
-      console.error(err)
     } finally {
       setSaving(false)
     }

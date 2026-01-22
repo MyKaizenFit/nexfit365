@@ -124,7 +124,6 @@ export function UserWellnessPanel({ userId }: Props) {
       setShowDialog(false)
       await refetch()
     } catch (err) {
-      console.error(err)
     } finally {
       setSaving(false)
     }

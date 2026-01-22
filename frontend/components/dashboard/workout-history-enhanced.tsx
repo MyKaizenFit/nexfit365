@@ -100,10 +100,8 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
     
     // Log para depuración
-    console.log('📊 Logs completados para historial:', logs.length)
     logs.forEach((log, index) => {
       if (index < 3) { // Solo los primeros 3 para no saturar
-        console.log(`📊 Log ${index + 1}:`, {
           id: log.id,
           date: log.date,
           has_exercises_data: !!(log as any).exercises_data,
@@ -125,7 +123,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       const exercisesData = (log as any).exercises_data || []
       
       if (exercisesData.length === 0) {
-        console.warn('⚠️ Log sin exercises_data:', log.id, log.date)
         return
       }
       
@@ -178,7 +175,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     })
 
     const result = Object.values(stats).sort((a, b) => b.totalVolume - a.totalVolume)
-    console.log('📊 Estadísticas de ejercicios calculadas:', result.length, result)
     return result
   }, [completedLogs])
 

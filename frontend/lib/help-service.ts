@@ -71,7 +71,6 @@ class HelpService {
   async getHelpSettings(): Promise<HelpSettings> {
     try {
       const url = buildApiUrl('help-settings/active/')
-      console.log('🔍 Obteniendo configuración de ayuda desde:', url)
       
       const response = await fetch(url, {
         method: 'GET',
@@ -81,11 +80,9 @@ class HelpService {
         },
       })
 
-      console.log('📡 Respuesta del servidor:', response.status, response.statusText)
 
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Error en respuesta:', errorText)
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
 
@@ -99,10 +96,8 @@ class HelpService {
         throw new Error('No se recibieron datos de configuración de ayuda')
       }
 
-      console.log('✅ Configuración obtenida:', result.data)
       return result.data
     } catch (error) {
-      console.error('❌ Error obteniendo configuración de ayuda:', error)
       // Devolver configuración por defecto en caso de error
       return {
         id: '',
@@ -158,7 +153,6 @@ class HelpService {
 
       return result.data
     } catch (error) {
-      console.error('Error creando reporte de problema:', error)
       throw error
     }
   }

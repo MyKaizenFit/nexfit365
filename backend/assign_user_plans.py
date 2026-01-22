@@ -16,24 +16,16 @@ from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise, Exer
 from nutrition.models import NutritionPlan, PlanMeal, Recipe, MealLog
 
 def main():
-    print("=" * 80)
-    print("📋 ASIGNANDO PLANES A USUARIO")
-    print("=" * 80)
-    print()
     
     # Obtener usuario
     try:
         user = CustomUser.objects.get(email='usuario@test.com')
-        print(f"✅ Usuario: {user.email} (ID: {user.id})")
     except CustomUser.DoesNotExist:
-        print("❌ Usuario no encontrado")
         return
     
     # =========================================================================
     # 1. CREAR PROGRAMA DE ENTRENAMIENTO
     # =========================================================================
-    print()
-    print("🏋️ CREANDO PROGRAMA DE ENTRENAMIENTO...")
     
     # Eliminar programas anteriores del usuario
     WorkoutProgram.objects.filter(user=user).delete()
@@ -68,7 +60,6 @@ def main():
         start_date=date.today(),
         end_date=date.today() + timedelta(weeks=8)
     )
-    print(f"  ✅ Programa creado: {program.name}")
     
     # Día 1: Pecho + Tríceps
     day1 = WorkoutDay.objects.create(
@@ -109,7 +100,6 @@ def main():
             )
             order += 1
     
-    print(f"  ✅ {day1.name} - {order} ejercicios")
     
     # Día 2: Espalda + Bíceps
     day2 = WorkoutDay.objects.create(
@@ -150,7 +140,6 @@ def main():
             )
             order += 1
     
-    print(f"  ✅ {day2.name} - {order} ejercicios")
     
     # Día 3: Descanso
     day3 = WorkoutDay.objects.create(
@@ -164,7 +153,6 @@ def main():
         notes="Caminar 20-30 min o estiramientos suaves.",
         order_index=2
     )
-    print(f"  ✅ {day3.name} - Descanso")
     
     # Día 4: Piernas + Glúteos
     day4 = WorkoutDay.objects.create(
@@ -204,7 +192,6 @@ def main():
         )
         order += 1
     
-    print(f"  ✅ {day4.name} - {order} ejercicios")
     
     # Día 5: Full Body
     day5 = WorkoutDay.objects.create(
@@ -239,7 +226,6 @@ def main():
             )
             order += 1
     
-    print(f"  ✅ {day5.name} - {order} ejercicios")
     
     # Días 6-7: Descanso
     day6 = WorkoutDay.objects.create(
@@ -258,13 +244,10 @@ def main():
         is_rest_day=True,
         order_index=6
     )
-    print(f"  ✅ Días 6-7: Descanso")
     
     # =========================================================================
     # 2. CREAR PLAN DE NUTRICIÓN
     # =========================================================================
-    print()
-    print("🥗 CREANDO PLAN DE NUTRICIÓN...")
     
     # Eliminar planes anteriores del usuario
     NutritionPlan.objects.filter(user=user).delete()
@@ -273,7 +256,6 @@ def main():
     recipes = list(Recipe.objects.filter(is_active=True)[:10])
     
     if len(recipes) < 5:
-        print("  ⚠️ No hay suficientes recetas, creando algunas...")
         
         # Crear recetas de ejemplo
         recipe_data = [
@@ -393,7 +375,6 @@ def main():
                 defaults=data
             )
             if created:
-                print(f"    ✅ Receta creada: {recipe.name}")
             recipes.append(recipe)
     
     recipes = list(Recipe.objects.filter(is_active=True)[:10])
@@ -416,9 +397,6 @@ def main():
         start_date=date.today(),
         end_date=date.today() + timedelta(weeks=8)
     )
-    print(f"  ✅ Plan creado: {plan.name}")
-    print(f"     Calorías: {plan.daily_calories} kcal")
-    print(f"     Proteína: {plan.protein_grams}g | Carbos: {plan.carbs_grams}g | Grasa: {plan.fat_grams}g")
     
     # Asignar comidas al plan
     meal_types = ['breakfast', 'snack', 'lunch', 'snack', 'dinner']
@@ -448,31 +426,11 @@ def main():
             )
             # Añadir receta sugerida
             plan_meal.suggested_recipes.add(recipe)
-            print(f"    ✅ {meal_name} ({meal_time}): {recipe.name}")
     
     # =========================================================================
     # 3. RESUMEN
     # =========================================================================
-    print()
-    print("=" * 80)
-    print("📊 RESUMEN")
-    print("=" * 80)
-    print(f"Usuario: {user.email}")
-    print()
-    print("🏋️ Programa de entrenamiento:")
-    print(f"   - Nombre: {program.name}")
-    print(f"   - Duración: {program.duration_weeks} semanas")
-    print(f"   - Días/semana: {program.days_per_week}")
     total_exercises = sum(day.exercises.count() for day in program.days.all())
-    print(f"   - Total ejercicios: {total_exercises}")
-    print()
-    print("🥗 Plan de nutrición:")
-    print(f"   - Nombre: {plan.name}")
-    print(f"   - Calorías diarias: {plan.daily_calories} kcal")
-    print(f"   - Comidas/día: {plan.meals_per_day}")
-    print(f"   - Macros: P:{plan.protein_grams}g C:{plan.carbs_grams}g G:{plan.fat_grams}g")
-    print()
-    print("✅ ¡Listo! El usuario puede iniciar sesión y ver sus planes.")
 
 if __name__ == "__main__":
     main()

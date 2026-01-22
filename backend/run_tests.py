@@ -33,7 +33,6 @@ def run_tests():
     if failures:
         sys.exit(1)
     else:
-        print("✅ Todos los tests pasaron correctamente!")
 
 if __name__ == '__main__':
     run_tests()

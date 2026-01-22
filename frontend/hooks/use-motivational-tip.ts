@@ -39,7 +39,6 @@ export function useMotivationalTip() {
       const data = await response.json()
       setTip(data)
     } catch (err) {
-      console.error('Error fetching motivational tip:', err)
       setError(err instanceof Error ? err.message : 'Error desconocido')
       
       // Consejo por defecto si falla la conexión

@@ -2,7 +2,6 @@
 // Copia y pega esto en la consola del navegador (F12 > Console)
 
 (function clearUserData() {
-  console.log('🧹 Limpiando datos del usuario en localStorage...')
   
   const keysToRemove = []
   
@@ -22,7 +21,6 @@
   
   // Eliminar claves encontradas
   keysToRemove.forEach(key => {
-    console.log(`   🗑️  Eliminando: ${key}`)
     localStorage.removeItem(key)
   })
   
@@ -30,7 +28,6 @@
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.getRegistrations().then(registrations => {
       registrations.forEach(reg => reg.unregister())
-      console.log('   🗑️  Service Worker desregistrado')
     })
   }
   
@@ -38,12 +35,9 @@
     caches.keys().then(cacheNames => {
       cacheNames.forEach(name => {
         caches.delete(name)
-        console.log(`   🗑️  Cache eliminado: ${name}`)
       })
     })
   }
   
-  console.log(`✅ Limpiados ${keysToRemove.length} elementos de localStorage`)
-  console.log('💡 Recarga la página con Ctrl+Shift+R para aplicar cambios')
 })()
 

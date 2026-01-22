@@ -287,7 +287,6 @@ def initial_registration_status(request):
         default_days = [1, 3, 5, 6, 7][:user.training_days_per_week]
         user.training_days = default_days
         user.save()
-        print(f'✅ Auto-generados training_days para {user.email}: {default_days}')
     
     # Campos requeridos (versión 2: birth_date en lugar de age, training_days agregado)
     required_fields = [

@@ -21,14 +21,11 @@ export function UserProgressPanel({ userId }: Props) {
 
   // Debug logs
   useEffect(() => {
-    console.log("📊 [UserProgressPanel] Rendering with userId:", userId)
-    console.log("📊 [UserProgressPanel] Progress state:", {
       loading: progress.loading,
       error: progress.error,
       entriesCount: progress.entries?.length || 0,
       summary: progress.summary,
     })
-    console.log("📊 [UserProgressPanel] Wellness state:", {
       loading: wellness.loading,
       error: wellness.error,
       entriesCount: wellness.entries?.length || 0,

@@ -93,7 +93,6 @@ export function WorkoutPlanTemplates() {
         setTemplates(data.results || data)
       }
     } catch (error) {
-      console.error('Error cargando plantillas:', error)
       toast({
         title: "Error",
         description: "No se pudieron cargar las plantillas",

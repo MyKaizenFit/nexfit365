@@ -116,7 +116,6 @@ export function useAdminUsers() {
       setUsers(mappedUsers)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-      console.error('Error fetching users:', err)
     } finally {
       setLoading(false)
     }
@@ -136,7 +135,6 @@ export function useAdminUsers() {
       const data = await response.json()
       setStats(data)
     } catch (err) {
-      console.error('Error fetching user stats:', err)
       // Usar datos por defecto cuando el endpoint no esté disponible
       setStats({
         total_users: 0,

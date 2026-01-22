@@ -156,7 +156,6 @@ export function UserProfileForm({ onProfileUpdate }: UserProfileFormProps) {
     setIsLoading(true)
     try {
       // Aquí enviarías los datos al backend para actualizar el perfil
-      console.log('Actualizando perfil del usuario:', data)
       
       // Simular actualización
       await new Promise(resolve => setTimeout(resolve, 1000))
@@ -693,7 +692,6 @@ export function UserProfileForm({ onProfileUpdate }: UserProfileFormProps) {
     setIsLoading(true)
     try {
       // Aquí enviarías los datos al backend para actualizar el perfil
-      console.log('Actualizando perfil del usuario:', data)
       
       // Simular actualización
       await new Promise(resolve => setTimeout(resolve, 1000))

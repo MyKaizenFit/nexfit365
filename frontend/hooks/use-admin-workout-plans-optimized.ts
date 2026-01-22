@@ -130,7 +130,6 @@ export const useAdminWorkoutPlansOptimized = () => {
       
       const url = buildFetchUrl(page, filters)
       
-      console.log('📡 Fetching plans from:', buildApiUrl(url))
       const response = await authenticatedFetch(url, {
         // Evitar caches HTTP intermedios / navegador (reduce casos de "lista vieja")
         cache: 'no-store',
@@ -142,7 +141,6 @@ export const useAdminWorkoutPlansOptimized = () => {
       
       const data: PaginatedResponse<WorkoutPlan> = await response.json()
       
-      console.log('📊 Datos recibidos:', {
         count: data.count,
         results: data.results?.length || 0,
         page: page
@@ -153,13 +151,11 @@ export const useAdminWorkoutPlansOptimized = () => {
         setTotalCount(data.count || 0)
         setCurrentPage(page)
       } else {
-        console.error('Expected paginated response but got:', typeof data)
         setPlans([])
         setTotalCount(0)
       }
       
     } catch (err) {
-      console.error('Error fetching workout plans:', err)
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
       setPlans([])
@@ -186,7 +182,6 @@ export const useAdminWorkoutPlansOptimized = () => {
         setExercises(exercisesData)
       }
     } catch (err) {
-      console.error('Error fetching exercises:', err)
     }
   }
 
@@ -211,7 +206,6 @@ export const useAdminWorkoutPlansOptimized = () => {
           activeCount = activeData.count || 0
         }
       } catch (err) {
-        console.warn('Error fetching active plans:', err)
       }
       
       // Obtener planes recientes (últimos 7 días)
@@ -225,7 +219,6 @@ export const useAdminWorkoutPlansOptimized = () => {
           recentCount = recentData.count || 0
         }
       } catch (err) {
-        console.warn('Error fetching recent plans:', err)
       }
       
       // Obtener planes por dificultad - hacer en paralelo con mejor manejo de errores
@@ -241,7 +234,6 @@ export const useAdminWorkoutPlansOptimized = () => {
           }
           return { difficulty, count: 0 }
         } catch (err) {
-          console.warn(`Error fetching plans for difficulty ${difficulty}:`, err)
           return { difficulty, count: 0 }
         }
       })
@@ -267,10 +259,8 @@ export const useAdminWorkoutPlansOptimized = () => {
         recent_programs: recentCount
       }
       
-      console.log('📊 Estadísticas de planes de entrenamiento calculadas:', stats)
       setStats(stats)
     } catch (err) {
-      console.error('Error calculating stats:', err)
       // Calcular desde los planes cargados como fallback
       const activePlans = plans.filter(p => p.is_active).length
       const sevenDaysAgo = new Date()
@@ -342,10 +332,8 @@ export const useAdminWorkoutPlansOptimized = () => {
       }
       
       const planDetail = await response.json()
-      console.log('📋 Detalle del plan cargado:', planDetail.name, '- Días:', planDetail.days?.length || 0)
       return planDetail
     } catch (err) {
-      console.error('Error fetching plan detail:', err)
       return null
     }
   }, [fetchPlans, currentPage, filters])

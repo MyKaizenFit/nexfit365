@@ -38,7 +38,6 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 def log(message):
     """Imprimir con timestamp"""
-    print(f"[{datetime.now().strftime('%H:%M:%S')}] {message}")
 
 
 def export_exercises():
@@ -326,7 +325,6 @@ DATA_DIR = Path('/srv/mykaizenfit/export/migration_data')
 
 def import_users():
     """Importar usuarios"""
-    print("👤 Importando usuarios...")
     
     with open(DATA_DIR / 'users.json', 'r') as f:
         users_data = json.load(f)
@@ -337,21 +335,17 @@ def import_users():
         
         # Verificar si ya existe
         if User.objects.filter(email=user_data['email']).exists():
-            print(f"   ⏭️  Usuario {user_data['email']} ya existe, saltando...")
             continue
         
         # Crear usuario con el password hasheado original
         user = User(**user_data)
         user.password = password  # Ya está hasheado
         user.save()
-        print(f"   ✅ Usuario {user.email} importado")
     
-    print(f"   Total: {User.objects.count()} usuarios")
 
 
 def import_exercises():
     """Importar ejercicios"""
-    print("🏋️ Importando ejercicios...")
     
     with open(DATA_DIR / 'exercises.json', 'r') as f:
         exercises_data = json.load(f)
@@ -367,13 +361,10 @@ def import_exercises():
         Exercise.objects.create(**ex_data)
         created += 1
     
-    print(f"   ✅ {created} ejercicios importados")
-    print(f"   Total: {Exercise.objects.count()} ejercicios")
 
 
 def import_recipes():
     """Importar recetas"""
-    print("🍽️ Importando recetas...")
     
     with open(DATA_DIR / 'recipes.json', 'r') as f:
         recipes_data = json.load(f)
@@ -389,25 +380,14 @@ def import_recipes():
         Recipe.objects.create(**recipe_data)
         created += 1
     
-    print(f"   ✅ {created} recetas importadas")
-    print(f"   Total: {Recipe.objects.count()} recetas")
 
 
 if __name__ == '__main__':
-    print("=" * 50)
-    print("IMPORTACIÓN DE DATOS")
-    print("=" * 50)
     
     import_users()
-    print()
     import_exercises()
-    print()
     import_recipes()
     
-    print()
-    print("=" * 50)
-    print("✅ IMPORTACIÓN COMPLETADA")
-    print("=" * 50)
 '''
     
     output_file = OUTPUT_DIR.parent / 'import_data.py'
@@ -426,10 +406,6 @@ if __name__ == '__main__':
 
 def main():
     """Función principal"""
-    print("=" * 60)
-    print("MIGRACIÓN DE DATOS - REESTRUCTURACIÓN BD")
-    print("=" * 60)
-    print()
     
     # Exportar datos
     export_exercises()
@@ -437,26 +413,11 @@ def main():
     export_users()
     export_motivational_tips()
     
-    print()
     
     # Generar scripts
     generate_import_script()
     generate_import_python_script()
     
-    print()
-    print("=" * 60)
-    print("✅ EXPORTACIÓN COMPLETADA")
-    print(f"   Archivos en: {OUTPUT_DIR}")
-    print("=" * 60)
-    print()
-    print("PRÓXIMOS PASOS:")
-    print("1. Revisar los archivos JSON exportados")
-    print("2. Ejecutar migraciones en pro:")
-    print("   cd /srv/mykaizenfit/pro")
-    print("   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d")
-    print("   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec backend python manage.py migrate")
-    print("3. Importar datos:")
-    print("   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec backend python manage.py shell < scripts/import_data.py")
 
 
 if __name__ == '__main__':

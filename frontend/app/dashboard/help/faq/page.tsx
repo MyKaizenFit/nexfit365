@@ -25,7 +25,6 @@ export default function FAQPage() {
       const settings = await helpService.getHelpSettings()
       setHelpSettings(settings)
     } catch (error) {
-      console.error('Error cargando configuración:', error)
       toast({
         title: "Error",
         description: "No se pudo cargar la configuración de ayuda",

@@ -25,7 +25,6 @@ export function useAdminUserProfileHistory(userId: string | number) {
       if (!res.ok) {
         // Si es un error 500 o similar, devolver array vacío en lugar de error
         if (res.status >= 500) {
-          console.warn(`[useAdminUserProfileHistory] ⚠️ Error del servidor (${res.status}), devolviendo array vacío`)
           setData([])
           setError(null) // No mostrar error al usuario si es un problema del servidor
           return
@@ -36,7 +35,6 @@ export function useAdminUserProfileHistory(userId: string | number) {
       const historyData = json.history || json || []
       setData(Array.isArray(historyData) ? historyData : [])
     } catch (err) {
-      console.error('[useAdminUserProfileHistory] Error:', err)
       // En caso de error, establecer array vacío para evitar errores de .filter()
       setData([])
       setError(err instanceof Error ? err.message : "Error desconocido")

@@ -266,7 +266,6 @@ export function ProgressDashboard() {
           description: "Tu foto de progreso y peso han sido registrados correctamente.",
         })
       } catch (weightError) {
-        console.warn("No se pudo registrar el peso automáticamente:", weightError)
         toast({
           title: "✅ ¡Foto añadida!",
           description: "Tu nueva foto de progreso ha sido guardada correctamente.",
@@ -281,7 +280,6 @@ export function ProgressDashboard() {
       setIsUploadDialogOpen(false)
       setPreviewUrl(null)
     } catch (error) {
-      console.error('Error al subir foto:', error)
       toast({
         title: "❌ Error",
         description: `No se pudo subir la foto: ${error instanceof Error ? error.message : 'Error desconocido'}`,

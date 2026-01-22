@@ -72,10 +72,6 @@ def get_download_url(file_id):
     return f"https://drive.google.com/uc?export=download&id={file_id}"
 
 def main():
-    print("=" * 80)
-    print("📹 ACTUALIZANDO VIDEOS DE EJERCICIOS CON IDs DE GOOGLE DRIVE")
-    print("=" * 80)
-    print()
     
     updated = 0
     not_found = 0
@@ -93,8 +89,6 @@ def main():
                 exercise.video_url = get_streaming_url(file_id)
                 exercise.save()
                 
-                print(f"  ✅ {exercise.name}")
-                print(f"     📹 {exercise.video_url}")
                 updated += 1
             else:
                 # Intentar buscar con variaciones (mayúsculas/minúsculas)
@@ -106,27 +100,16 @@ def main():
                         exercise.video_url = get_streaming_url(file_id)
                         exercise.save()
                         
-                        print(f"  ✅ {exercise.name} (match aproximado)")
-                        print(f"     📹 {exercise.video_url}")
                         updated += 1
                         found = True
                         break
                 
                 if not found:
-                    print(f"  ⚠️ {exercise.name} - Video no encontrado: {filename}")
                     not_found += 1
     
-    print()
-    print("=" * 80)
-    print("📊 RESUMEN")
-    print("=" * 80)
-    print(f"✅ Ejercicios actualizados: {updated}")
-    print(f"⚠️  Videos no encontrados: {not_found}")
-    print()
     
     # Verificar resultados
     with_video = Exercise.objects.exclude(google_drive_file_id='').exclude(google_drive_file_id__isnull=True).count()
-    print(f"📹 Total ejercicios con video: {with_video}")
 
 if __name__ == "__main__":
     main()

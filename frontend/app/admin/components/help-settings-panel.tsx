@@ -28,7 +28,6 @@ export function HelpSettingsPanel() {
       const data = await helpService.getHelpSettings()
       setSettings(data)
     } catch (error) {
-      console.error('Error cargando configuración:', error)
       toast({
         title: "Error",
         description: "No se pudo cargar la configuración de ayuda",

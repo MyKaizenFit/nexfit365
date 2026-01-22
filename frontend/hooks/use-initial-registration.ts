@@ -56,18 +56,15 @@ export function useInitialRegistration() {
   // Obtener datos del usuario para prellenar el formulario
   const getUserData = async () => {
     if (user) {
-      console.log('🔍 Datos del usuario obtenidos:', user);
       const data: Partial<InitialRegistrationData> = {
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
         phone_number: user.phone || '',
       };
-      console.log('🔍 Datos procesados para el formulario:', data);
       setUserData(data);
       setUserDataLoaded(true);
     } else {
-      console.log('🔍 No hay datos de usuario disponibles');
       setUserDataLoaded(true);
     }
   };
@@ -88,7 +85,6 @@ export function useInitialRegistration() {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('🔍 Estado del formulario desde el backend:', data);
           
           // Obtener userId del token para validar
           let currentUserId = null;
@@ -100,7 +96,6 @@ export function useInitialRegistration() {
               currentUserId = payload.user_id || payload.id;
             }
           } catch (e) {
-            console.warn('No se pudo obtener userId del token:', e);
           }
           
           // Verificar que el localStorage corresponde al usuario actual
@@ -110,7 +105,6 @@ export function useInitialRegistration() {
           if (data.is_complete) {
             // Verificar que el userId coincide antes de usar localStorage
             if (currentUserId && storedUserId && currentUserId !== storedUserId) {
-              console.warn('⚠️ userId no coincide, limpiando localStorage');
               localStorage.removeItem('initial_form_completed');
               localStorage.removeItem('user_profile');
               localStorage.removeItem('form_version');
@@ -151,7 +145,6 @@ export function useInitialRegistration() {
           });
         }
       } catch (apiError) {
-        console.error('Error verificando en el backend:', apiError);
         // Si falla, asumir que no está completo
         setStatus({
           is_complete: false,
@@ -162,7 +155,6 @@ export function useInitialRegistration() {
         });
       }
     } catch (error) {
-      console.error('Error checking registration status:', error);
     }
   };
 
@@ -184,16 +176,11 @@ export function useInitialRegistration() {
         processedData.phone_number = String(processedData.phone_number).replace(/\D/g, '');
       }
       
-      console.log('📤 Enviando datos del formulario al backend:', JSON.stringify(processedData, null, 2));
-      console.log('📤 URL:', buildApiUrl(USER_ENDPOINTS.COMPLETE_INITIAL_REGISTRATION));
-      console.log('📤 Headers:', getAuthHeaders());
       
       // Llamar al endpoint del backend
       const apiUrl = buildApiUrl(USER_ENDPOINTS.COMPLETE_INITIAL_REGISTRATION);
       const headers = getAuthHeaders();
       
-      console.log('📤 URL completa:', apiUrl);
-      console.log('📤 Headers completos:', headers);
       
       let response: Response;
       try {
@@ -204,14 +191,12 @@ export function useInitialRegistration() {
         });
       } catch (fetchError) {
         // Capturar errores de red (Failed to fetch)
-        console.error('❌ Error de red al conectar con el servidor:', fetchError);
         const errorMessage = fetchError instanceof Error 
           ? `No se pudo conectar con el servidor: ${fetchError.message}. Verifica que el backend esté corriendo en ${apiUrl}`
           : 'No se pudo conectar con el servidor. Verifica que el backend esté corriendo.';
         throw new Error(errorMessage);
       }
       
-      console.log('📥 Respuesta del servidor:', response.status, response.statusText);
       
       if (!response.ok) {
         let errorData: any = {};
@@ -223,15 +208,12 @@ export function useInitialRegistration() {
           } else {
             // Si no es JSON, intentar leer como texto
             const text = await response.text();
-            console.error('❌ Respuesta del servidor (texto):', text);
             errorData = { detail: text || 'Error al completar el registro' };
           }
         } catch (parseError) {
-          console.error('❌ Error al parsear respuesta del servidor:', parseError);
           errorData = { detail: 'Error al completar el registro' };
         }
         
-        console.error('❌ Error del servidor completo:', {
           status: response.status,
           statusText: response.statusText,
           errorData,
@@ -271,7 +253,6 @@ export function useInitialRegistration() {
       }
       
       const result = await response.json();
-      console.log('Respuesta del backend:', result);
       
       // Guardar en localStorage que el formulario está completo
       localStorage.setItem('initial_form_completed', 'true');
@@ -304,7 +285,6 @@ export function useInitialRegistration() {
       
       return result;
     } catch (error) {
-      console.error('Error completing registration:', error);
       
       // Mensaje de error más descriptivo
       let errorMessage = 'Error al completar el registro';

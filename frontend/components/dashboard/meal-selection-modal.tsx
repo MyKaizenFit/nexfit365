@@ -65,7 +65,6 @@ export function MealSelectionModal({
             const recipe = await nutritionService.getRecipe(recipeId)
             return recipe
           } catch (error) {
-            console.warn(`Error cargando receta ${recipeId}:`, error)
             return null
           }
         })
@@ -77,7 +76,6 @@ export function MealSelectionModal({
       // Si no hay recetas específicas o hay pocas, cargar todas las recetas disponibles
       // y filtrarlas por tipo de comida
       if (loadedRecipes.length === 0) {
-        console.log('📚 Cargando todas las recetas disponibles...')
         const allRecipes = await nutritionService.listRecipes()
         
         // Filtrar recetas por tipo de comida si es posible
@@ -92,12 +90,10 @@ export function MealSelectionModal({
         })
         
         loadedRecipes = filteredRecipes.length > 0 ? filteredRecipes : allRecipes
-        console.log(`✅ Cargadas ${loadedRecipes.length} recetas para ${mealName}`)
       }
       
       setAllRecipes(loadedRecipes)
     } catch (error) {
-      console.error('Error cargando recetas:', error)
       alert('Error al cargar las recetas. Por favor, intenta de nuevo.')
       setAllRecipes([])
     } finally {
@@ -122,15 +118,12 @@ export function MealSelectionModal({
           if (uuidRegex.test(option.recipeId)) {
             // Es un UUID, usarlo como string
             recipeId = option.recipeId
-            console.log('✅ recipeId es UUID:', recipeId)
           } else {
             // Intentar convertir a número
             const parsed = parseInt(option.recipeId, 10)
             if (!isNaN(parsed) && parsed > 0) {
               recipeId = parsed
-              console.log('✅ recipeId convertido a número:', recipeId)
             } else {
-              console.error('❌ recipeId inválido (no es UUID ni número):', option.recipeId)
               setLoadingRecipe(false)
               alert(`Error: ID de receta inválido (${option.recipeId}). Esta opción no tiene una receta específica asociada.`)
               handleViewAllRecipes()
@@ -140,10 +133,8 @@ export function MealSelectionModal({
         } else {
           // Es un número
           recipeId = option.recipeId
-          console.log('✅ recipeId es número:', recipeId)
         }
         
-        console.log('✅ recipeId válido:', { 
           original: option.recipeId, 
           final: recipeId, 
           tipo: typeof recipeId,
@@ -152,14 +143,11 @@ export function MealSelectionModal({
         })
       } else {
         // Si no hay recipeId, buscar la primera receta recomendada de otras opciones
-        console.log('⚠️ Esta opción no tiene receta asociada:', option.name)
-        console.log('🔍 Buscando primera receta recomendada de otras opciones...')
         
         // Buscar la primera opción que tenga recipeId
         const optionWithRecipe = options.find(opt => opt.recipeId !== undefined && opt.recipeId !== null)
         
         if (optionWithRecipe && optionWithRecipe.recipeId) {
-          console.log('✅ Encontrada opción con receta:', optionWithRecipe.name, optionWithRecipe.recipeId)
           // Usar el recipeId de esa opción
           if (typeof optionWithRecipe.recipeId === 'string') {
             const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -176,7 +164,6 @@ export function MealSelectionModal({
           }
         } else {
           // Si ninguna opción tiene recipeId, buscar la primera receta disponible para este tipo de comida
-          console.log('📚 Ninguna opción tiene receta, buscando primera receta disponible para:', mealType)
           try {
             const allRecipes = await nutritionService.listRecipes()
             // Filtrar recetas por tipo de comida si es posible
@@ -189,20 +176,16 @@ export function MealSelectionModal({
             
             if (filteredRecipes.length > 0) {
               const firstRecipe = filteredRecipes[0]
-              console.log('✅ Encontrada primera receta disponible:', firstRecipe.name, firstRecipe.id)
               recipeId = firstRecipe.id
             } else if (allRecipes.length > 0) {
               const firstRecipe = allRecipes[0]
-              console.log('✅ Encontrada primera receta disponible (sin filtro):', firstRecipe.name, firstRecipe.id)
               recipeId = firstRecipe.id
             } else {
-              console.error('❌ No hay recetas disponibles')
               setLoadingRecipe(false)
               alert('No hay recetas disponibles para esta comida. Por favor, intenta más tarde.')
               return
             }
           } catch (error) {
-            console.error('❌ Error buscando recetas:', error)
             setLoadingRecipe(false)
             alert('Error al buscar recetas. Por favor, intenta de nuevo.')
             return
@@ -210,10 +193,8 @@ export function MealSelectionModal({
         }
         
         // Continuar con el flujo normal usando el recipeId encontrado
-        console.log('✅ Usando recipeId encontrado:', recipeId)
       }
 
-      console.log('🔍 Cargando receta personalizada:', { 
         recipeId, 
         mealType: resolvedMealType, 
         mealName,
@@ -229,7 +210,6 @@ export function MealSelectionModal({
         const loadedId = String(data.recipe.id)
         const expectedId = String(recipeId)
         
-        console.log('✅ Receta cargada:', { 
           loadedRecipeId: data.recipe.id, 
           loadedRecipeName: data.recipe.name,
           expectedRecipeId: recipeId,
@@ -239,7 +219,6 @@ export function MealSelectionModal({
         
         // Verificar que el ID de la receta cargada coincide con el esperado
         if (loadedId !== expectedId) {
-          console.error('❌ ERROR: La receta cargada no coincide con el ID esperado!', {
             expected: recipeId,
             expectedString: expectedId,
             received: data.recipe.id,
@@ -253,7 +232,6 @@ export function MealSelectionModal({
       }
 
       if (data && data.recipe) {
-        console.log('✅ Receta cargada exitosamente:', data.recipe.name)
         setRecipeData({
           recipe: data.recipe,
           personalized: data.personalized_quantities,
@@ -261,10 +239,8 @@ export function MealSelectionModal({
         })
         setShowRecipe(true)
       } else {
-        console.warn('⚠️ No se recibieron datos de la receta personalizada, intentando receta básica...')
         // Si ya tenemos la receta de la búsqueda, usarla directamente
         if (recipe) {
-          console.log('✅ Usando receta encontrada por búsqueda:', recipe.name)
           const mappedIngredients = (recipe.ingredients || []).map((ing: any) => ({
             name: ing.name || 'Ingrediente',
             amount: ing.amount || null,
@@ -305,7 +281,6 @@ export function MealSelectionModal({
           // Intentar cargar la receta básica como fallback
           const basicRecipe = await nutritionService.getRecipe(recipeId)
           if (basicRecipe) {
-            console.log('✅ Receta básica cargada:', basicRecipe.name)
             // Crear datos básicos de personalización
             // Mapear ingredientes al formato correcto
             const mappedIngredients = (basicRecipe.ingredients || []).map((ing: any) => ({
@@ -345,19 +320,16 @@ export function MealSelectionModal({
             })
             setShowRecipe(true)
           } else {
-            console.error('❌ No se pudo cargar la receta básica (404), abriendo modal de todas las recetas')
             // Si no se puede cargar la receta básica, abrir el modal de todas las recetas
             handleViewAllRecipes()
           }
         }
       }
     } catch (error: any) {
-      console.error('❌ Error cargando receta:', error)
       const errorMessage = error?.message || 'Error desconocido al cargar la receta'
       
       // Si es un error 404 (receta no encontrada), abrir el modal de todas las recetas
       if (errorMessage.includes('404') || errorMessage.includes('Not Found') || errorMessage.includes('No Recipe matches')) {
-        console.log('⚠️ Receta no encontrada (404), abriendo modal de todas las recetas disponibles')
         setLoadingRecipe(false)
         handleViewAllRecipes()
         return
@@ -616,13 +588,11 @@ export function MealSelectionModal({
           loading={loadingRecipes}
           onClose={() => setShowAllRecipes(false)}
           onSelectRecipe={async (recipe: Recipe) => {
-            console.log('📋 Seleccionando receta del modal:', recipe.name, recipe.id)
             try {
               setLoadingRecipe(true)
               const mealType = mealTypeMap[mealName] || "lunch"
               
               // Cerrar el modal de todas las recetas PRIMERO
-              console.log('🔒 Cerrando modal de todas las recetas')
               setShowAllRecipes(false)
               
               // Pequeño delay para asegurar que el modal se cierre antes de mostrar el nuevo
@@ -631,34 +601,26 @@ export function MealSelectionModal({
               // Intentar obtener receta personalizada
               let data = null
               try {
-                console.log('🔍 Intentando cargar receta personalizada:', recipe.id, mealType)
                 data = await nutritionService.getPersonalizedRecipe(recipe.id, mealType)
-                console.log('✅ Receta personalizada cargada:', data?.recipe?.name)
               } catch (error: any) {
-                console.warn('⚠️ No se pudo obtener receta personalizada, intentando básica:', error)
                 // Si es 404, usar la receta básica directamente
                 if (error?.message?.includes('404') || error?.message?.includes('Not Found')) {
-                  console.log('⚠️ Receta personalizada no encontrada (404), usando receta básica')
                 }
               }
               
               if (data && data.recipe && data.personalized_quantities) {
                 // Mostrar modal de detalle con receta personalizada
-                console.log('📝 Configurando datos de receta personalizada')
                 setRecipeData({
                   recipe: data.recipe,
                   personalized: data.personalized_quantities,
                   userProfile: data.user_profile
                 })
-                console.log('✅ Abriendo modal de detalle de receta')
                 setShowRecipe(true)
               } else {
                 // Fallback a receta básica
                 try {
-                  console.log('🔍 Cargando receta básica:', recipe.id)
                   const basicRecipe = await nutritionService.getRecipe(recipe.id)
                   if (basicRecipe) {
-                    console.log('✅ Receta básica cargada:', basicRecipe.name)
                     // Mapear ingredientes al formato correcto
                     const mappedIngredients = (basicRecipe.ingredients || []).map((ing: any) => ({
                       name: ing.name || 'Ingrediente',
@@ -682,7 +644,6 @@ export function MealSelectionModal({
                       original_calories: basicRecipe.calories || 0
                     }
                     
-                    console.log('📝 Configurando datos de receta básica')
                     setRecipeData({
                       recipe: basicRecipe,
                       personalized: basicPersonalized,
@@ -696,20 +657,16 @@ export function MealSelectionModal({
                         daily_calories_target: 2000
                       }
                     })
-                    console.log('✅ Abriendo modal de detalle de receta')
                     setShowRecipe(true)
                   } else {
-                    console.error('❌ No se pudo cargar la receta básica')
                     alert('No se pudo cargar la receta. Por favor, intenta de nuevo.')
                   }
                 } catch (basicError: any) {
-                  console.error('❌ Error cargando receta básica:', basicError)
                   // Si también falla la receta básica, mostrar error pero no abrir modal de todas las recetas
                   alert('Error al cargar la receta. Por favor, intenta de nuevo.')
                 }
               }
             } catch (error) {
-              console.error('❌ Error general cargando receta:', error)
               alert('Error al cargar la receta. Por favor, intenta de nuevo.')
             } finally {
               setLoadingRecipe(false)
@@ -1113,7 +1070,6 @@ function AllRecipesModal({
                     key={recipe.id}
                     className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all cursor-pointer group"
                     onClick={async () => {
-                      console.log('🔘 Tarjeta de receta clickeada:', recipe.name)
                       await onSelectRecipe(recipe)
                     }}
                   >
@@ -1171,7 +1127,6 @@ function AllRecipesModal({
                       type="button"
                       onClick={async (e) => {
                         e.stopPropagation()
-                        console.log('🔘 Botón Seleccionar clickeado para:', recipe.name)
                         await onSelectRecipe(recipe)
                       }}
                       className="w-full mt-3 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg transition-all"

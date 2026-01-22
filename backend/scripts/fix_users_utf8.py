@@ -116,7 +116,6 @@ def fix_user(user):
         old_first_name = user.first_name
         user.first_name = fix_string(user.first_name)
         if user.first_name != old_first_name:
-            print(f"  OK first_name: '{old_first_name}' -> '{user.first_name}'")
             updated = True
     
     # Corregir last_name
@@ -124,32 +123,23 @@ def fix_user(user):
         old_last_name = user.last_name
         user.last_name = fix_string(user.last_name)
         if user.last_name != old_last_name:
-            print(f"  OK last_name: '{old_last_name}' -> '{user.last_name}'")
             updated = True
     
     return updated
 
 def main():
-    print("=" * 70)
-    print("CORRIGIENDO CODIFICACION UTF-8 EN USUARIOS")
-    print("=" * 70)
     
     # Verificar codificación de la base de datos
     try:
         with connection.cursor() as cursor:
             cursor.execute("SHOW client_encoding;")
             client_encoding = cursor.fetchone()[0]
-            print(f"\nCodificacion del cliente: {client_encoding}")
             
             if client_encoding.upper() != 'UTF8':
-                print(f"ADVERTENCIA: Estableciendo UTF8...")
                 cursor.execute("SET client_encoding TO 'UTF8';")
-                print(f"OK: Codificacion establecida a UTF8")
     except Exception as e:
-        print(f"ADVERTENCIA: Error al verificar codificacion: {e}")
     
     # Buscar usuarios con problemas
-    print(f"\nBuscando usuarios con problemas de codificacion...")
     
     users_with_issues = CustomUser.objects.filter(
         Q(first_name__contains='??') |
@@ -159,38 +149,24 @@ def main():
     ).distinct()
     
     total_issues = users_with_issues.count()
-    print(f"Usuarios con problemas encontrados: {total_issues}\n")
     
     if total_issues == 0:
-        print("OK: No se encontraron problemas de codificacion en usuarios")
         return
     
     fixed_count = 0
     for user in users_with_issues:
-        print(f"\nCorrigiendo usuario: {user.email}")
-        print(f"   Nombre actual: {user.first_name} {user.last_name}")
         
         if fix_user(user):
             try:
                 user.save()
                 fixed_count += 1
-                print(f"   OK: Usuario corregido y guardado")
-                print(f"   Nombre corregido: {user.first_name} {user.last_name}")
             except Exception as e:
-                print(f"   ERROR: Error guardando usuario: {e}")
         else:
-            print(f"   Sin cambios necesarios")
     
-    print(f"\n{'='*70}")
-    print(f"PROCESO COMPLETADO")
-    print(f"   Usuarios corregidos: {fixed_count}/{total_issues}")
-    print(f"{'='*70}\n")
     
     # Mostrar algunos ejemplos de usuarios
     all_users = CustomUser.objects.all()[:10]
-    print("\nEjemplos de usuarios (primeros 10):")
     for user in all_users:
-        print(f"   - {user.email}: {user.first_name} {user.last_name}")
 
 if __name__ == '__main__':
     main()

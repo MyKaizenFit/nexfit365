@@ -63,7 +63,6 @@ function replaceInFile(filePath) {
       }
     }
     fs.writeFileSync(filePath, content, 'utf8');
-    console.log(`✅ Corregido: ${filePath}`);
     return true;
   }
   return false;
@@ -83,5 +82,4 @@ files.forEach(file => {
   }
 });
 
-console.log(`\n✅ Total de archivos corregidos: ${totalFixed}`);
 

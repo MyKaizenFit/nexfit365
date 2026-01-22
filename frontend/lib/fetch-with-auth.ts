@@ -8,7 +8,6 @@ import { HeadersInit } from 'react'
  * Retorna los nuevos headers o null si no se pudo refrescar
  */
 export async function handle401AndRefresh(getAuthHeaders: () => Promise<HeadersInit>): Promise<HeadersInit | null> {
-  console.log('🔄 Token expirado, intentando refrescar...')
   
   try {
     const { getAuthService } = await import('@/lib/auth-service')
@@ -16,18 +15,15 @@ export async function handle401AndRefresh(getAuthHeaders: () => Promise<HeadersI
     const refreshResult = await authService.refreshAccessToken()
     
     if (refreshResult.success && refreshResult.newToken) {
-      console.log('✅ Token refrescado exitosamente')
       const newHeaders = await getAuthHeaders()
       return newHeaders
     } else {
-      console.error('❌ No se pudo refrescar el token:', refreshResult.error)
       if (typeof window !== 'undefined') {
         window.location.href = '/auth'
       }
       return null
     }
   } catch (error) {
-    console.error('Error al refrescar token:', error)
     if (typeof window !== 'undefined') {
       window.location.href = '/auth'
     }

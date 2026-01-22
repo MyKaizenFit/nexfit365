@@ -67,7 +67,6 @@ const setCookie = (name: string, value: string, days: number = 7) => {
   // Verificar que se guardó correctamente
   const saved = getCookie(name)
   if (!saved && process.env.NODE_ENV === 'development') {
-    console.error(`❌ Error: Cookie ${name} NO se guardó`)
   }
 }
 
@@ -118,7 +117,6 @@ export class AuthService {
 
       // Solo loguear en modo desarrollo (sin información sensible)
       if (process.env.NODE_ENV === 'development') {
-        console.log('🍪 Tokens obtenidos de cookies (solo en desarrollo)')
       }
 
       // Verificar si estamos en modo offline (sin backend)
@@ -154,7 +152,6 @@ export class AuthService {
         this.isOfflineMode = false
       }
     } catch (error) {
-      console.warn('Backend no disponible, activando modo offline:', error)
       this.isOfflineMode = true
     }
   }
@@ -208,7 +205,6 @@ export class AuthService {
       // 5 min da margen suficiente sin causar rotaciones excesivas.
       return timeUntilExpiration < 5 * 60 * 1000
     } catch (error) {
-      console.warn('Error al verificar expiración del token:', error)
       return false
     }
   }
@@ -262,7 +258,6 @@ export class AuthService {
 
       // NO loguear credenciales por seguridad
       if (process.env.NODE_ENV === 'development') {
-        console.log('Enviando datos de login (sin credenciales)')
       }
 
       // Agregar un pequeño delay para evitar rate limiting
@@ -277,7 +272,6 @@ export class AuthService {
       // Manejar diferentes códigos de respuesta
       if (response.status === 400) {
         const errorData = await response.json()
-        console.error('Error 400 del backend (login):', errorData)
 
         // Extraer mensaje de error específico con mejor formato
         let errorMessage = 'Credenciales inválidas'
@@ -343,7 +337,6 @@ export class AuthService {
 
       // El backend devuelve { access, refresh, user } en la respuesta del login
       const responseData = await response.json()
-      console.log('🔍 AuthService - login - Respuesta completa del backend:', responseData)
 
       if (!responseData.access || !responseData.refresh) {
         throw new Error('No se recibieron tokens de autenticación')
@@ -361,7 +354,6 @@ export class AuthService {
       // Intentar usar el usuario de la respuesta del login si está disponible
       let user: User
       if (responseData.user) {
-        console.log('🔍 AuthService - login - Usando usuario de la respuesta del login:', responseData.user)
         // Convertir el usuario del backend al formato esperado
         user = {
           id: parseInt(responseData.user.id) || responseData.user.id,
@@ -376,10 +368,8 @@ export class AuthService {
           must_change_password: responseData.user.must_change_password || responseData.must_change_password || false,
           ...responseData.user
         } as User
-        console.log('🔍 AuthService - login - Usuario convertido:', user)
       } else {
         // Si no está en la respuesta, obtenerlo del endpoint /me/
-        console.log('🔍 AuthService - login - Usuario no en respuesta, obteniendo de /me/')
         user = await this.getCurrentUser()
       }
 
@@ -392,11 +382,9 @@ export class AuthService {
         must_change_password: responseData.must_change_password || user.must_change_password || false
       }
     } catch (error) {
-      console.error('Error en login:', error)
 
       // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
       if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('Backend no disponible, activando modo offline')
         this.isOfflineMode = true
         return this.login(credentials) // Reintentar en modo offline
       }
@@ -467,7 +455,6 @@ export class AuthService {
         role: credentials.role || "basic" // Usar "basic" como valor por defecto
       }
 
-      console.log('Enviando datos de registro:', {
         email: correctedCredentials.email,
         password: correctedCredentials.password,
         password_confirm: correctedCredentials.password_confirm,
@@ -488,7 +475,6 @@ export class AuthService {
       // Manejar diferentes códigos de respuesta
       if (response.status === 400) {
         const errorData = await response.json()
-        console.error('Error 400 del backend:', errorData)
 
         // Extraer mensaje de error específico con mejor formato
         let errorMessage = 'Error en el formulario'
@@ -568,11 +554,9 @@ export class AuthService {
         }
       }
     } catch (error: any) {
-      console.error('Error en register:', error)
 
       // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
       if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn('Backend no disponible, activando modo offline')
         this.isOfflineMode = true
         return this.register(credentials) // Reintentar en modo offline
       }
@@ -595,7 +579,6 @@ export class AuthService {
         this.accessToken = cookieToken
         // No loguear información sensible
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 Token recuperado de cookies')
         }
       }
     }
@@ -611,7 +594,6 @@ export class AuthService {
         this.refreshToken = cookieToken
         // No loguear información sensible
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 Refresh token recuperado de cookies')
         }
       }
     }
@@ -672,7 +654,6 @@ export class AuthService {
 
         const result = await handleApiResponse<User>(response)
 
-        console.log('🔍 AuthService - getCurrentUser - Respuesta del endpoint /me/:', result)
 
         if (result.error) {
           throw new Error(result.error)
@@ -682,7 +663,6 @@ export class AuthService {
           throw new Error('No se recibieron datos del usuario')
         }
 
-        console.log('🔍 AuthService - getCurrentUser - Datos del usuario:', {
           email: result.data.email,
           is_superuser: result.data.is_superuser,
           is_staff: result.data.is_staff,
@@ -701,7 +681,6 @@ export class AuthService {
     } catch (error) {
       // Solo mostrar error en consola si no es un error de autenticación esperado
       if (error instanceof Error && !error.message.includes('No hay token de acceso válido')) {
-        console.error('Error en getCurrentUser:', error)
       }
       throw handleFetchError(error)
     }
@@ -711,7 +690,6 @@ export class AuthService {
   async refreshAccessToken(): Promise<{ success: boolean; newToken?: string; error?: string }> {
     // Evitar múltiples renovaciones simultáneas
     if (this.isRefreshing) {
-      console.log('⏳ Renovación de token ya en progreso, esperando...')
       // Esperar un poco y retornar el token actual si está disponible
       await new Promise(resolve => setTimeout(resolve, 500))
       if (this.accessToken) {
@@ -754,7 +732,6 @@ export class AuthService {
         
         // Detectar errores de red específicos
         if (errorMessage.includes('NetworkError') || errorMessage.includes('Failed to fetch') || errorMessage.includes('CORS')) {
-          console.warn('⚠️ Error de red/CORS al refrescar token. El token se refrescará bajo demanda cuando sea necesario.')
           return { success: false, error: 'Error de red. El token se refrescará automáticamente cuando sea necesario.' }
         }
         
@@ -772,7 +749,6 @@ export class AuthService {
       // Manejar errores de timeout (504) y otros errores HTTP
       if (!response.ok && response.status === 504) {
         this.isRefreshing = false
-        console.warn('⚠️ Timeout (504) al refrescar token. El token se refrescará bajo demanda cuando sea necesario.')
         return { success: false, error: 'Timeout del servidor. El token se refrescará automáticamente cuando sea necesario.' }
       }
 
@@ -803,7 +779,6 @@ export class AuthService {
         setCookie('refreshToken', result.data.refresh, 7) // 7 días
         // No loguear información sensible
         if (process.env.NODE_ENV === 'development') {
-          console.log('✅ Nuevo refresh token guardado')
         }
       }
 
@@ -827,7 +802,6 @@ export class AuthService {
         try {
           // NO loguear tokens por seguridad
           if (process.env.NODE_ENV === 'development') {
-            console.log('🔐 Intentando logout en backend')
           }
 
           const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
@@ -837,30 +811,23 @@ export class AuthService {
           })
 
           if (!response.ok) {
-            console.warn(`⚠️ Logout en backend falló con status ${response.status}:`, response.statusText)
             // Intentar obtener más detalles del error
             try {
               const errorData = await response.json()
-              console.warn('📋 Detalles del error:', errorData)
             } catch (parseError) {
-              console.warn('❌ No se pudo parsear el error del backend')
             }
           } else {
-            console.log('✅ Logout en backend exitoso')
           }
         } catch (error) {
           // Si falla el logout en el backend, continuamos con la limpieza local
-          console.warn('⚠️ Error al hacer logout en el backend:', error)
         }
       } else {
-        console.log('ℹ️ Modo offline o sin refresh token, limpiando localmente')
       }
 
       // Limpiar tokens localmente
       this.clearTokens()
     } catch (error) {
       // Asegurar que se limpien los tokens incluso si hay error
-      console.error('❌ Error en logout, limpiando tokens:', error)
       this.clearTokens()
       throw handleFetchError(error)
     }
@@ -881,7 +848,6 @@ export class AuthService {
     try {
       if (this.isOfflineMode) {
         // En modo offline, simular cambio exitoso
-        console.log('Modo offline: cambio de contraseña simulado')
         return
       }
 
@@ -913,7 +879,6 @@ export class AuthService {
     try {
       if (this.isOfflineMode) {
         // En modo offline, simular actualización exitosa
-        console.log('Modo offline: actualización de perfil simulada')
         // En modo offline, devolver un usuario mock
         const mockUser: User = {
           id: 1,

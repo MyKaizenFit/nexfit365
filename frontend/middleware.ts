@@ -59,7 +59,6 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url))
     } catch (error) {
       // Si no podemos decodificar el token, redirigir a dashboard por defecto
-      console.error('Error decodificando token en middleware (/):', error)
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
@@ -99,13 +98,11 @@ export function middleware(request: NextRequest) {
         const formCompleted = request.cookies.get('initial_form_completed')?.value
         if (!formCompleted || formCompleted !== 'true') {
           // Si el formulario no está completo, redirigir al formulario de registro inicial
-          console.log('🔒 Middleware - Bloqueando acceso: formulario pendiente, redirigiendo a /initial-registration')
           return NextResponse.redirect(new URL('/initial-registration', request.url))
         }
       }
     } catch (error) {
       // Si hay error decodificando el token, permitir el acceso (ya que se valida en el backend)
-      console.error('Error decodificando token en middleware (protected route):', error)
     }
   }
 
@@ -120,24 +117,20 @@ export function middleware(request: NextRequest) {
       
       if (isAdmin) {
         // Si es admin, redirigir al panel de administrador
-        console.log('🔀 Middleware - Redirigiendo a /admin (usuario administrador)')
         return NextResponse.redirect(new URL('/admin', request.url))
       } else {
         // Verificar si el formulario inicial está completo leyendo la cookie
         const formCompleted = request.cookies.get('initial_form_completed')?.value
         if (!formCompleted || formCompleted !== 'true') {
           // Si el formulario no está completo, redirigir al formulario de registro inicial
-          console.log('🔀 Middleware - Redirigiendo a /initial-registration (formulario pendiente)')
           return NextResponse.redirect(new URL('/initial-registration', request.url))
         } else {
           // Si es usuario normal y el formulario está completo, redirigir al dashboard
-          console.log('🔀 Middleware - Redirigiendo a /dashboard (usuario normal)')
           return NextResponse.redirect(new URL('/dashboard', request.url))
         }
       }
     } catch (error) {
       // Si hay error decodificando el token, redirigir al dashboard por defecto
-      console.error('Error decodificando token en middleware:', error)
       return NextResponse.redirect(new URL('/dashboard', request.url))
     }
   }
@@ -153,14 +146,11 @@ export function middleware(request: NextRequest) {
       
       if (!isAdmin) {
         // Si no es admin, redirigir al dashboard
-        console.log('🚫 Middleware - Usuario no es admin, redirigiendo a /dashboard')
         return NextResponse.redirect(new URL('/dashboard', request.url))
       } else {
-        console.log('✅ Middleware - Usuario es admin, permitiendo acceso')
       }
     } catch (error) {
       // Si hay error decodificando el token, redirigir al login
-      console.error('Error decodificando token en middleware admin:', error)
       return NextResponse.redirect(new URL('/auth', request.url))
     }
   }

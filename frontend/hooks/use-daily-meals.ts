@@ -322,7 +322,6 @@ export function useDailyMeals() {
       }, {} as Record<string, any>)
       
       localStorage.setItem(`meal-selections-${today}`, JSON.stringify(selections))
-      console.log('Selecciones guardadas en localStorage (backup):', selections)
     }
   }, [])
 
@@ -338,12 +337,10 @@ export function useDailyMeals() {
           
           // Validar que selections sea un objeto válido
           if (!selections || typeof selections !== 'object' || Array.isArray(selections)) {
-            console.warn('⚠️ Datos corruptos en localStorage, limpiando...')
             localStorage.removeItem(`meal-selections-${today}`)
             return meals
           }
           
-          console.log('Selecciones cargadas desde localStorage (backup):', selections)
           
           return meals.map(meal => {
             const selection = selections[meal.id]
@@ -356,12 +353,10 @@ export function useDailyMeals() {
             return meal
           })
         } catch (error) {
-          console.error('❌ Error cargando selecciones del localStorage, limpiando datos corruptos:', error)
           // Limpiar datos corruptos
           try {
             localStorage.removeItem(`meal-selections-${today}`)
           } catch (e) {
-            console.error('Error limpiando localStorage:', e)
           }
         }
       }
@@ -371,11 +366,9 @@ export function useDailyMeals() {
 
   // Seleccionar opción de comida (solo planificación, no completada)
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
-    console.log('🚀 Seleccionando opción:', { mealId, option })
     
     // Actualizar estado inmediatamente (marcar como no completada por defecto)
     setMeals(prevMeals => {
-      console.log('📝 Estado anterior de comidas:', prevMeals.map(m => ({ id: m.id, name: m.name, selected: m.selectedOption?.name })))
       
       const updatedMeals = prevMeals.map(meal => 
         meal.id === mealId 
@@ -383,14 +376,12 @@ export function useDailyMeals() {
           : meal
       )
       
-      console.log('📝 Estado actualizado de comidas:', updatedMeals.map(m => ({ id: m.id, name: m.name, selected: m.selectedOption?.name, completed: m.isCompleted })))
       
       // Guardar en localStorage como backup
       saveSelectionsToStorage(updatedMeals)
       
       // Actualizar macros (solo de comidas completadas)
       const newMacros = calculateTotalMacros(updatedMeals)
-      console.log('📊 Nuevos macros calculados:', newMacros)
       setMacros(newMacros)
       
       return updatedMeals
@@ -407,7 +398,6 @@ export function useDailyMeals() {
         if (meal) {
           const mealType = meal.mealType
           if (mealType) {
-            console.log(`💾 Guardando selección en backend: ${meal.name} -> ${mealType} (no completada)`)
             
             // Guardar como MealLog con completed=False
             const headers = await getAuthHeaders()
@@ -435,7 +425,6 @@ export function useDailyMeals() {
               requestData.custom_description = option.name || 'Comida seleccionada'
             }
             
-            console.log('📤 Enviando datos al backend:', requestData)
             
             const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
               headers: {
@@ -447,22 +436,17 @@ export function useDailyMeals() {
             })
 
             if (response.ok) {
-              console.log('✅ Selección guardada exitosamente en backend (no completada)')
             } else {
               const errorText = await response.text()
-              console.error('❌ Error guardando selección en backend:', response.status, errorText)
               try {
                 const errorData = JSON.parse(errorText)
-                console.error('Detalles del error:', errorData)
               } catch (e) {
-                console.error('Error no es JSON:', errorText)
               }
             }
           }
         }
 
       } catch (error) {
-        console.error('❌ Error sincronizando con backend:', error)
       } finally {
         setSyncing(false)
       }
@@ -480,7 +464,6 @@ export function useDailyMeals() {
       })
 
       if (!response.ok) {
-        console.error('Error obteniendo selecciones:', response.status)
         return null
       }
 
@@ -517,7 +500,6 @@ export function useDailyMeals() {
             mealNameToShow = `${mealType} - Comida personalizada`
           }
           
-          console.log(`📋 Cargando selección para ${mealType}:`, {
             recipe_name: log.recipe_name,
             recipe: log.recipe,
             custom_description: log.custom_description,
@@ -549,7 +531,6 @@ export function useDailyMeals() {
 
       return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
     } catch (error) {
-      console.error('Error cargando selecciones del backend:', error)
       return null
     }
   }, [])
@@ -558,7 +539,6 @@ export function useDailyMeals() {
   const markMealCompleted = useCallback(async (mealId: string) => {
     const meal = meals.find(m => m.id === mealId)
     if (!meal || !meal.selectedOption) {
-      console.warn('No se puede marcar como completada: no hay opción seleccionada')
       return
     }
 
@@ -599,7 +579,6 @@ export function useDailyMeals() {
         })
 
         if (response.ok) {
-          console.log('✅ Comida marcada como completada en backend')
           // Recargar selecciones del backend para actualizar los macros
           const selections = await loadSelectionsFromBackend(today)
           if (selections) {
@@ -643,11 +622,9 @@ export function useDailyMeals() {
             }
           }
         } else {
-          console.error('❌ Error marcando comida como completada')
         }
       }
     } catch (error) {
-      console.error('❌ Error actualizando estado de completado:', error)
     }
   }, [calculateTotalMacros, meals, loadSelectionsFromBackend])
 
@@ -686,7 +663,6 @@ export function useDailyMeals() {
           })
         }
       } catch (error) {
-        console.error('Error cargando estado de completado:', error)
       }
 
       // Fallback: mostrar selecciones pero marcarlas como no completadas
@@ -743,7 +719,6 @@ export function useDailyMeals() {
             carbsGoal: planMeals.daily_macros!.carbs,
             fatGoal: planMeals.daily_macros!.fat
           }))
-          console.log('✅ Macros personalizados actualizados:', {
             calories: planMeals.daily_calories_target,
             protein: planMeals.daily_macros.protein,
             carbs: planMeals.daily_macros.carbs,
@@ -766,7 +741,6 @@ export function useDailyMeals() {
         setPlanOptionsByMealId({})
       }
     } catch (error) {
-      console.error('Error cargando opciones del plan:', error)
       // Fallback a opciones por defecto
       setPlanMealOptions(defaultMealOptions)
       setPlanMealSlots([])
@@ -822,7 +796,6 @@ export function useDailyMeals() {
           setMacros(initialMacros)
         }
       } catch (error) {
-        console.error('Error cargando datos iniciales:', error)
         if (!isMounted) return
         // Fallback: usar solo comidas sin selecciones
         const fallbackMeals = generateDailyMeals()
@@ -884,7 +857,6 @@ export function useDailyMeals() {
         // Sincronizar localStorage
         saveSelectionsToStorage(mealsWithSelections)
       } catch (error) {
-        console.error('Error refrescando datos:', error)
         // Fallback a localStorage
         const dailyMeals = generateDailyMeals()
         const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)

@@ -231,7 +231,6 @@ export function ActiveWorkoutSession({
         savedAt: Date.now()
       }))
     } catch (error) {
-      console.error('Error guardando estado del entrenamiento:', error)
     }
   }, [workoutStorageKey])
 
@@ -250,7 +249,6 @@ export function ActiveWorkoutSession({
         }
       }
     } catch (error) {
-      console.error('Error cargando estado del entrenamiento:', error)
     }
     return null
   }, [workoutStorageKey])
@@ -570,9 +568,6 @@ export function ActiveWorkoutSession({
       })
       
       // Log para depuración
-      console.log('📊 Datos de ejercicios a enviar:', JSON.stringify(exercisesData, null, 2))
-      console.log('📊 Total de ejercicios:', exercisesData.length)
-      console.log('📊 Total de sets válidos:', exercisesData.reduce((sum, ex) => sum + ex.sets.length, 0))
 
       await onComplete({
         duration_minutes: Math.ceil(elapsedSeconds / 60),

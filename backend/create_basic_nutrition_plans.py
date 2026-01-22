@@ -89,7 +89,6 @@ def create_basic_nutrition_plans():
         }
     ]
 
-    print("🍽️ Creando planes de nutrición básicos...")
     
     created_count = 0
     for plan_data in plans_data:
@@ -98,17 +97,11 @@ def create_basic_nutrition_plans():
             try:
                 DefaultNutritionPlan.objects.create(**plan_data)
                 created_count += 1
-                print(f"✅ Creado: {plan_data['name']}")
             except Exception as e:
-                print(f"❌ Error creando {plan_data['name']}: {e}")
         else:
-            print(f"⏭️  Ya existe: {plan_data['name']}")
     
-    print(f"\n🎉 ¡Proceso completado! Se crearon {created_count} nuevos planes.")
-    print(f"📊 Total de planes en la base de datos: {DefaultNutritionPlan.objects.count()}")
     
     # Mostrar resumen de recetas disponibles
-    print(f"\n📋 Recetas disponibles por categoría:")
     categories = {}
     for recipe in recipes:
         if recipe.category not in categories:
@@ -116,15 +109,10 @@ def create_basic_nutrition_plans():
         categories[recipe.category] += 1
     
     for category, count in categories.items():
-        print(f"  • {category}: {count} recetas")
     
-    print(f"\n🍳 Total de recetas disponibles: {len(recipes)}")
-    print("\n💡 Puedes usar estas recetas para crear planes de menús personalizados en el dashboard de administración.")
     
     # Mostrar planes existentes
-    print(f"\n📊 Planes de nutrición existentes:")
     for plan in DefaultNutritionPlan.objects.all():
-        print(f"  • {plan.name} - {plan.daily_calories} cal/día - {'Activo' if plan.is_active else 'Inactivo'}")
 
 if __name__ == '__main__':
     create_basic_nutrition_plans()

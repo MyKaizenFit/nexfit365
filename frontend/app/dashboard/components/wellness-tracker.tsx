@@ -50,7 +50,6 @@ export function WellnessTracker() {
         setTodayEntry(null)
       }
     } catch (error) {
-      console.error("Error cargando registro de hoy:", error)
     } finally {
       setLoading(false)
     }

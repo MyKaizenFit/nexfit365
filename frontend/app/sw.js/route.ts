@@ -29,10 +29,8 @@ const CACHE_STRATEGIES = {
 
 // Instalación del Service Worker
 self.addEventListener('install', (event) => {
-  console.log('[SW] Instalando Service Worker...')
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[SW] Cacheando assets estáticos')
       return cache.addAll(STATIC_ASSETS)
     })
   )
@@ -41,18 +39,15 @@ self.addEventListener('install', (event) => {
 
 // Activación del Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activando Service Worker v1.5 - Limpiando TODOS los caches...')
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       // Eliminar TODOS los caches (incluso los actuales) para forzar actualización completa
       return Promise.all(
         cacheNames.map((name) => {
-          console.log('[SW] Eliminando cache:', name)
           return caches.delete(name)
         })
       )
     }).then(() => {
-      console.log('[SW] Todos los caches eliminados. Forzando actualización inmediata...')
       // Forzar que todos los clientes usen el nuevo Service Worker inmediatamente
       return self.clients.claim().then(() => {
         // Notificar a todos los clientes para que recarguen
@@ -169,7 +164,6 @@ async function staleWhileRevalidateStrategy(request) {
 
 // Manejar notificaciones push
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push notification recibida')
   const data = event.data ? event.data.json() : {}
   const title = data.title || 'NEXFIT'
   const options = {
@@ -188,7 +182,6 @@ self.addEventListener('push', (event) => {
 
 // Manejar clicks en notificaciones
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Click en notificación')
   event.notification.close()
 
   const urlToOpen = event.notification.data || '/'
@@ -209,7 +202,6 @@ self.addEventListener('notificationclick', (event) => {
 
 // Background Sync
 self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync:', event.tag)
   if (event.tag === 'sync-data') {
     event.waitUntil(syncData())
   }
@@ -217,7 +209,6 @@ self.addEventListener('sync', (event) => {
 
 async function syncData() {
   // Implementar lógica de sincronización
-  console.log('[SW] Sincronizando datos...')
 }
 `
 
