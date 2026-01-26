@@ -28,6 +28,8 @@ class SensitiveDataEncryption:
         if not key:
             logger.warning("⚠️  ENCRYPTION_KEY no configurada. Usando generada en tiempo real.")
             key = Fernet.generate_key()
+        if isinstance(key, str):
+            key = key.encode()
         
         try:
             self.cipher = Fernet(key)

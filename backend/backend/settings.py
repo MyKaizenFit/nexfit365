@@ -10,6 +10,13 @@ from dotenv import load_dotenv
 from datetime import timedelta
 import logging
 
+# Soporte opcional para HEIC/HEIF (fotos iOS)
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+except Exception:
+    pass
+
 # Cargar variables de entorno desde .env
 load_dotenv()
 
@@ -31,6 +38,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ---------------------------------
 # Nunca hardcodees la clave en producción. Define SECRET_KEY en variables de entorno.
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-only-do-not-use-in-prod")
+
+# Clave de encriptación para datos sensibles (Fernet base64)
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
 
 # DEBUG debe ser "True"/"False" (string) en el entorno. Por defecto True en local.
 # ⚠️ IMPORTANTE: En producción, DEBUG debe ser "False" en backend.env.production
@@ -319,6 +329,8 @@ MEDIA_ROOT = BASE_DIR / os.getenv("UPLOAD_DIR", "media")
 # Configuración de uploads
 MAX_AVATAR_SIZE = int(os.getenv("MAX_AVATAR_MB", "2")) * 1024 * 1024  # en bytes
 MAX_PROGRESS_PHOTO_SIZE = int(os.getenv("MAX_PROGRESS_PHOTO_MB", "5")) * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_PROGRESS_PHOTO_SIZE
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_PROGRESS_PHOTO_SIZE
 
 # ---------------------------------
 # Validación de contraseñas

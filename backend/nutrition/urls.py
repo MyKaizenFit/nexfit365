@@ -26,7 +26,7 @@ urlpatterns = [
     path('monthly-meal-selections/', monthly_meal_selections, name='monthly-meal-selections'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
     # Endpoint explícito para listar recetas (tiene prioridad sobre el router)
-    path('recipes/', list_recipes, name='recipes-list'),
+    path('recipes/', list_recipes, name='recipes-list'),  # Updated to use list_recipes
     # Endpoint para obtener una receta específica (usando el ViewSet)
     path('recipes/<uuid:pk>/', RecipeViewSet.as_view({'get': 'retrieve'}), name='recipe-detail'),
     path('recipes/<uuid:pk>/personalized/', RecipeViewSet.as_view({'get': 'personalized'}), name='recipe-personalized'),

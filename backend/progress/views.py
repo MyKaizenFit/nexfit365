@@ -129,7 +129,20 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         """Crear foto con usuario autenticado"""
         try:
             # Asignar usuario automáticamente
-            serializer.save(user=self.request.user)
+            photo = serializer.save(user=self.request.user)
+
+            # Si viene peso, crear/actualizar entrada en historial
+            try:
+                weight = serializer.validated_data.get("weight")
+                date = serializer.validated_data.get("date")
+                if weight is not None:
+                    WeightEntry.objects.update_or_create(
+                        user=self.request.user,
+                        date=date,
+                        defaults={"weight": weight, "notes": "Auto desde foto de progreso"}
+                    )
+            except Exception:
+                pass
         except Exception as e:
             import logging
             logger = logging.getLogger(__name__)

@@ -22,17 +22,6 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
         return
       }
 
-        isAuthenticated,
-        hasUser: !!user,
-        userData: user ? {
-          email: user.email,
-          is_superuser: user.is_superuser,
-          is_staff: user.is_staff,
-          role: user.role,
-          id: user.id
-        } : null
-      })
-
       // Si no está autenticado, redirigir al login
       if (!isAuthenticated) {
         router.push('/auth')
@@ -48,31 +37,13 @@ export function AdminRouteGuard({ children }: AdminRouteGuardProps) {
       // Si está autenticado pero no es admin, redirigir al dashboard
       // Verificar roles de admin: superuser, staff, admin, trainer
       const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
-      
-        is_superuser: user.is_superuser,
-        is_staff: user.is_staff,
-        role: user.role,
-        roleType: typeof user.role,
-        isAdmin
-      })
-      
       if (user && !isAdmin) {
-          is_superuser: user.is_superuser,
-          is_staff: user.is_staff,
-          role: user.role,
-          roleType: typeof user.role
-        })
         router.push('/dashboard')
         return
       }
 
       // Si es admin, permitir acceso
       if (isAdmin) {
-          is_superuser: user?.is_superuser,
-          is_staff: user?.is_staff,
-          role: user?.role,
-          email: user?.email
-        })
         setIsChecking(false)
         return
       }

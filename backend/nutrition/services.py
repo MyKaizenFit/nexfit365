@@ -2,6 +2,7 @@
 from typing import Dict, List, Optional, Tuple
 from django.db.models import Q
 from django.utils import timezone
+from decimal import Decimal, ROUND_HALF_UP
 from accounts.models import CustomUser
 from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe
 import math
@@ -201,8 +202,7 @@ class PersonalizedNutritionService:
                 new_plan_name=new_plan_name,
                 changed_by=changed_by or user,
                 reason=reason,
-                notes=notes,
-                is_admin_change=is_admin_change
+                notes=notes
             )
         except Exception as e:
             # No fallar la operación principal si falla el registro del historial
@@ -639,14 +639,17 @@ class PersonalizedNutritionService:
         if plan.meals.exists():
             total_old_calories = sum(meal.calories or 0 for meal in plan.meals.all())
             if total_old_calories > 0:
-                calorie_ratio = new_daily_calories / total_old_calories
+                calorie_ratio = Decimal(str(new_daily_calories)) / Decimal(str(total_old_calories))
                 
                 for meal in plan.meals.all():
                     if meal.calories:
-                        meal.calories = int(meal.calories * calorie_ratio)
-                        meal.protein = round(meal.protein * calorie_ratio, 1) if meal.protein else None
-                        meal.carbs = round(meal.carbs * calorie_ratio, 1) if meal.carbs else None
-                        meal.fat = round(meal.fat * calorie_ratio, 1) if meal.fat else None
+                        meal.calories = int(Decimal(meal.calories) * calorie_ratio)
+                        if meal.protein is not None:
+                            meal.protein = (Decimal(meal.protein) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+                        if meal.carbs is not None:
+                            meal.carbs = (Decimal(meal.carbs) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+                        if meal.fat is not None:
+                            meal.fat = (Decimal(meal.fat) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
                         meal.save()
         
         # Crear nota descriptiva

@@ -136,12 +136,7 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
   // Debug: Log de datos de workouts
   useEffect(() => {
     if (userId) {
-        loading: workouts.loading,
-        error: workouts.error,
-        logsCount: workouts.logs?.length || 0,
-        logs: workouts.logs,
-        totals: workouts.totals,
-      })
+      // removed stray object literal
     }
   }, [userId, workouts.loading, workouts.error, workouts.logs, workouts.totals])
 

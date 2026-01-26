@@ -71,6 +71,7 @@ export interface MealLog {
   actual_foods: any[] | null
   notes: string
   rating: number | null
+  photo?: File | string | null
 }
 
 export interface MealOption {
@@ -546,13 +547,34 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
 
-      // Log de los datos que se van a enviar
+      const hasPhoto = mealData.photo instanceof File
+      let response: Response
 
-      const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
-        headers,
-        method: 'POST',
-        body: JSON.stringify(mealData),
-      })
+      if (hasPhoto) {
+        const formData = new FormData()
+        Object.entries(mealData).forEach(([key, value]) => {
+          if (value === undefined || value === null) return
+          if (key === 'photo' && value instanceof File) {
+            formData.append('photo', value)
+            return
+          }
+          formData.append(key, String(value))
+        })
+
+        response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
+          headers: {
+            Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || ''
+          },
+          method: 'POST',
+          body: formData,
+        })
+      } else {
+        response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
+          headers,
+          method: 'POST',
+          body: JSON.stringify(mealData),
+        })
+      }
 
       if (!response.ok) {
         // Intentar obtener más detalles del error
@@ -793,10 +815,12 @@ class NutritionService {
   async listRecipes(): Promise<Recipe[]> {
     try {
       const headers = await getAuthHeaders()
+      const pageSize = 200
       
       // Intentar primero con el endpoint estándar
+      let baseEndpoint = 'nutrition/recipes/'
       let response = await fetch(
-        `${buildApiUrl('nutrition/recipes/')}`,
+        `${buildApiUrl(`${baseEndpoint}?page_size=${pageSize}&page=1`)}`,
         {
           headers,
           method: 'GET',
@@ -810,7 +834,7 @@ class NutritionService {
         if (refreshResult.success && refreshResult.newToken) {
           headers['Authorization'] = `Bearer ${refreshResult.newToken}`
           response = await fetch(
-            `${buildApiUrl('nutrition/recipes/')}`,
+            `${buildApiUrl(`${baseEndpoint}?page_size=${pageSize}&page=1`)}`,
             {
               headers,
               method: 'GET',
@@ -821,8 +845,9 @@ class NutritionService {
 
       // Si aún falla con 404, intentar con el endpoint de admin
       if (response.status === 404) {
+        baseEndpoint = 'admin/nutrition/recipes/'
         response = await fetch(
-          `${buildApiUrl('admin/nutrition/recipes/')}`,
+          `${buildApiUrl(`${baseEndpoint}?page_size=${pageSize}&page=1`)}`,
           {
             headers,
             method: 'GET',
@@ -836,8 +861,34 @@ class NutritionService {
       }
 
       const data = await response.json()
-      const recipes = Array.isArray(data) ? data : (data.results || data.recipes || [])
-      return recipes
+      if (Array.isArray(data)) {
+        return data
+      }
+
+      const firstPage = Array.isArray(data.results) ? data.results : (data.recipes || [])
+      const totalPages = data.total_pages || 1
+      const count = data.count || firstPage.length
+
+      if (totalPages <= 1 || firstPage.length >= count) {
+        return firstPage
+      }
+
+      const all = [...firstPage]
+      for (let page = 2; page <= totalPages; page += 1) {
+        const pageResponse = await fetch(
+          `${buildApiUrl(`${baseEndpoint}?page_size=${pageSize}&page=${page}`)}`,
+          {
+            headers,
+            method: 'GET',
+          }
+        )
+        if (!pageResponse.ok) break
+        const pageData = await pageResponse.json()
+        const pageResults = Array.isArray(pageData.results) ? pageData.results : (pageData.recipes || [])
+        all.push(...pageResults)
+        if (all.length >= count) break
+      }
+      return all
     } catch (error) {
       return []
     }

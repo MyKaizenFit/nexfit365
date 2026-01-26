@@ -33,15 +33,9 @@ services:
   db:
     image: postgres:15
     restart: unless-stopped
-    # Límites de recursos para PostgreSQL
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'      # Máximo 1.5 CPUs
-          memory: 1.5G     # Máximo 1.5GB RAM
-        reservations:
-          cpus: '0.25'     # Mínimo 0.25 CPU garantizado
-          memory: 256M     # Mínimo 256MB RAM garantizado
+    mem_limit: 768m
+    cpus: 0.75
+    pids_limit: 200
     env_file:
       - ./docker/backend.env.production
     environment:
@@ -52,6 +46,11 @@ services:
       PGCLIENTENCODING: "UTF8"
     ports:
       - "0.0.0.0:5433:5432"  # Puerto 5433 para producción (acceso externo)
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     volumes:
       - /srv/mykaizenfit/pro/data/postgres:/var/lib/postgresql/data
       - /srv:/srv:ro  # Acceso de solo lectura a /srv
@@ -69,20 +68,19 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.25
+    pids_limit: 150
     command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
-    # Límites de recursos para Redis
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'      # Máximo 0.5 CPUs
-          memory: 512M     # Máximo 512MB RAM
-        reservations:
-          cpus: '0.1'      # Mínimo 0.1 CPU garantizado
-          memory: 128M     # Mínimo 128MB RAM garantizado
     # Redis NO expone puerto externamente por seguridad
     volumes:
       - /srv/mykaizenfit/pro/data/redis:/data
       - /srv:/srv:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -100,15 +98,9 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     user: "0:0"  # Root para evitar problemas de permisos
-    # Límites de recursos para backend
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'      # Máximo 2 CPUs
-          memory: 2G       # Máximo 2GB RAM
-        reservations:
-          cpus: '0.5'      # Mínimo 0.5 CPU garantizado
-          memory: 512M     # Mínimo 512MB RAM garantizado
+    mem_limit: 1g
+    cpus: 0.75
+    pids_limit: 300
     env_file:
       - ./docker/backend.env.production
     command: >
@@ -118,7 +110,7 @@ services:
         echo '📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput &&
         echo '🚀 Iniciando Gunicorn...' &&
-        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 6 --threads 3 --timeout 120 --worker-class gthread --max-requests 1000 --max-requests-jitter 100 --access-logfile - --error-logfile - --log-level info
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
       "
     ports:
       - "0.0.0.0:8000:8000"  # Puerto 8000 para producción
@@ -127,6 +119,11 @@ services:
       - /srv/mykaizenfit/pro/data/staticfiles:/app/staticfiles
       - /srv/mykaizenfit/pro/data/media:/app/media
       - /srv:/srv:rw
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       db:
         condition: service_healthy
@@ -154,15 +151,9 @@ services:
         - BUILDKIT_INLINE_CACHE=1
       shm_size: '256m'  # Limitar memoria compartida durante el build
     restart: unless-stopped
-    # Límites de recursos para evitar que el build cuelgue el servidor
-    deploy:
-      resources:
-        limits:
-          cpus: '1.5'      # Máximo 1.5 CPUs durante build y runtime
-          memory: 2G       # Máximo 2GB RAM durante build y runtime
-        reservations:
-          cpus: '0.25'     # Mínimo 0.25 CPU garantizado
-          memory: 256M     # Mínimo 256MB RAM garantizado
+    mem_limit: 768m
+    cpus: 0.5
+    pids_limit: 200
     env_file:
       - ./frontend/docker.env.production
     ports:
@@ -170,6 +161,11 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
       interval: 30s
@@ -185,6 +181,9 @@ services:
   db-backup:
     image: prodrigestivill/postgres-backup-local:16
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.2
+    pids_limit: 150
     env_file:
       - ./docker/backend.env.production
     environment:
@@ -204,6 +203,11 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 60s

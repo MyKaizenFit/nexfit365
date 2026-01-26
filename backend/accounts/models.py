@@ -7,6 +7,7 @@ from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 from django.forms.models import model_to_dict
+from .fields import EncryptedCharField, EncryptedTextField, EncryptedJSONField
 
 
 class CustomUserManager(BaseUserManager):
@@ -55,7 +56,9 @@ class CustomUser(AbstractUser):
     # ==========================================================================
     
     email = models.EmailField(unique=True)
-    phone_number = models.CharField(max_length=500, null=True, blank=True)  # Ampliado para datos encriptados
+    first_name = EncryptedCharField(max_length=150, blank=True)
+    last_name = EncryptedCharField(max_length=150, blank=True)
+    phone_number = EncryptedCharField(max_length=500, null=True, blank=True)
     profile_picture = models.ImageField(
         upload_to='profile_pictures/', 
         null=True, 
@@ -165,15 +168,15 @@ class CustomUser(AbstractUser):
     # INFORMACIÓN DIETÉTICA
     # ==========================================================================
     
-    dietary_restrictions = models.JSONField(
+    dietary_restrictions = EncryptedJSONField(
         default=list,
         help_text="['vegetarian', 'vegan', 'gluten-free', etc.]"
     )
-    allergies = models.JSONField(
+    allergies = EncryptedJSONField(
         default=list,
         help_text="['nuts', 'dairy', 'shellfish', etc.]"
     )
-    disliked_foods = models.TextField(
+    disliked_foods = EncryptedTextField(
         null=True,
         blank=True,
         help_text="Alimentos que no come"
@@ -183,11 +186,11 @@ class CustomUser(AbstractUser):
     # INFORMACIÓN MÉDICA
     # ==========================================================================
     
-    medical_conditions = models.JSONField(
+    medical_conditions = EncryptedJSONField(
         default=list,
         help_text="Condiciones médicas relevantes"
     )
-    injuries_or_medical_issues = models.TextField(
+    injuries_or_medical_issues = EncryptedTextField(
         null=True,
         blank=True,
         help_text="Lesiones o issues médicos"

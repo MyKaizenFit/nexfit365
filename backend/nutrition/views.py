@@ -5,6 +5,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db.models import Q
@@ -18,7 +19,9 @@ from .serializers import (
 )
 from .services import PersonalizedNutritionService
 from django.shortcuts import get_object_or_404
+from django.http import JsonResponse
 import logging
+from rest_framework_simplejwt.authentication import JWTAuthentication
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +65,6 @@ def plan_meals_for_selection(request):
     user = request.user
     logger.info(f"🍽️ Personalizando comidas para usuario: {user.email} (ID: {user.id})")
     logger.info(f"📊 Perfil del usuario: peso={user.weight}kg, altura={user.height}cm, edad={user.age}, género={user.gender}, objetivo={user.main_goal}, actividad={user.activity_level}")
-    
     service = PersonalizedNutritionService(user)
     
     # Calcular calorías y macros diarios personalizados
@@ -344,80 +346,58 @@ def plan_meals_for_selection(request):
 
             meals_by_type[meal_type].extend(meal_options)
 
-    # Si tampoco hay comidas en las plantillas del sistema, hacer fallback usando recetas activas.
-    if not meals_by_type:
-        fallback_types = [requested_meal_type] if requested_meal_type else [
-            'breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'
-        ]
-        fallback_icon = {
-            'breakfast': '🌅',
-            'morning_snack': '☕',
-            'lunch': '🍽️',
-            'afternoon_snack': '🍎',
-            'dinner': '🌙',
-        }
-
-        # Traer recetas activas. Priorizamos las del sistema si existen; si no, usamos todas.
-        recipes_qs = Recipe.objects.filter(is_active=True)
-        system_count = recipes_qs.filter(is_system=True).count()
-        if system_count > 0:
-            recipes_qs = recipes_qs.filter(is_system=True)
-
-        for mt in fallback_types:
-            if not mt:
-                continue
-
-            meals_by_type[mt] = []
-
-            # Filtrar recetas por tipo de comida:
-            # - si existe JSON meal_types y contiene mt
-            # - o si la categoría coincide (snack para morning/afternoon snack)
-            category = 'snack' if mt in ('morning_snack', 'afternoon_snack', 'evening_snack') else mt
-            candidates = recipes_qs.filter(
-                Q(meal_types__contains=[mt]) |
-                Q(meal_types=[]) |
-                Q(category=category)
-            ).order_by('-is_featured', 'name')[:12]
-
-            for recipe in candidates:
-                personalized = personalize_recipe(recipe, mt, None)
-                meals_by_type[mt].append({
-                    'id': f"recipe-{recipe.id}",
-                    'name': recipe.name,
-                    'calories': personalized['calories'],
-                    'protein': personalized['protein'],
-                    'carbs': personalized['carbs'],
-                    'fat': personalized['fat'],
-                    'category': 'balanced',
-                    'icon': fallback_icon.get(mt, '🍽️'),
-                    'description': recipe.description or '',
-                    'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                    'recipeId': recipe.id
-                })
-
+    # Si hay comidas en las plantillas del sistema, devolverlas
+    if meals_by_type:
         return Response({
             'meals_by_type': meals_by_type,
-            'meal_slots': build_standard_slots(fallback_types),
-            'options_by_meal_id': {},
-            'plan_name': None,
-            'source': 'recipes_fallback',
             'date': date_for_slots.isoformat(),
             'daily_calories_target': daily_calories,
             'daily_macros': daily_macros
         })
 
-    # Plantillas del sistema: devolver SIEMPRE slots estándar (sin duplicados) y opciones por tipo
-    if requested_meal_type:
-        slot_types = [requested_meal_type]
-    else:
-        slot_types = ['breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner']
+    # Si tampoco hay comidas en las plantillas del sistema, hacer fallback usando recetas activas.
+    fallback_types = [requested_meal_type] if requested_meal_type else [
+        'breakfast', 'morning_snack', 'lunch', 'afternoon_snack', 'dinner'
+    ]
+    fallback_icon = {
+        'breakfast': '🌅',
+        'morning_snack': '☕',
+        'lunch': '🍽️',
+        'afternoon_snack': '🍎',
+        'dinner': '🌙',
+    }
+
+    recipes_qs = Recipe.objects.filter(is_active=True)
+    for meal_type in fallback_types:
+        meal_options = []
+        candidates = recipes_qs
+        if meal_type:
+            candidates = candidates.filter(
+                models.Q(meal_types__contains=[meal_type]) |
+                models.Q(category=meal_type)
+            )
+
+        for recipe in candidates:
+            personalized = personalize_recipe(recipe, meal_type)
+            meal_options.append({
+                'id': f"recipe-{recipe.id}",
+                'name': recipe.name,
+                'calories': personalized['calories'],
+                'protein': personalized['protein'],
+                'carbs': personalized['carbs'],
+                'fat': personalized['fat'],
+                'category': 'balanced',
+                'icon': fallback_icon.get(meal_type, '🍽️'),
+                'description': recipe.description or '',
+                'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                'recipeId': recipe.id
+            })
+
+        meals_by_type[meal_type] = meal_options
 
     return Response({
         'meals_by_type': meals_by_type,
-        'meal_slots': build_standard_slots(slot_types),
-        'options_by_meal_id': {},
-        'plan_name': None,
-        'source': 'system_templates',
+        'meal_slots': build_standard_slots(fallback_types),
         'date': date_for_slots.isoformat(),
         'daily_calories_target': daily_calories,
         'daily_macros': daily_macros
@@ -1195,6 +1175,7 @@ class MealLogViewSet(viewsets.ModelViewSet):
     """ViewSet para logs de comidas"""
     serializer_class = MealLogSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     filterset_fields = ['date', 'meal_type', 'completed']
     ordering_fields = ['date', 'time', 'created_at']
@@ -1251,10 +1232,6 @@ class FoodViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'brand']
 
 
-@api_view(['GET', 'POST', 'PUT', 'DELETE', 'PATCH'])
-@permission_classes([IsAuthenticated])
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
 def list_recipes(request):
     """
     Lista todas las recetas disponibles.
@@ -1268,10 +1245,26 @@ def list_recipes(request):
     - page: Número de página (default: 1)
     - page_size: Tamaño de página (default: 100)
     """
+    auth_request = getattr(request, '_request', request)
+    auth = JWTAuthentication()
+    try:
+        auth_result = auth.authenticate(auth_request)
+    except Exception:
+        auth_result = None
+
+    if auth_result is None:
+        return JsonResponse(
+            {'detail': 'Authentication credentials were not provided.'},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    request.user = auth_result[0]
+
+    params = getattr(request, 'query_params', request.GET)
     queryset = Recipe.objects.filter(is_active=True)
     
     # Búsqueda
-    search_query = request.query_params.get('search', '')
+    search_query = params.get('search', '')
     if search_query:
         queryset = queryset.filter(
             models.Q(name__icontains=search_query) |
@@ -1280,28 +1273,28 @@ def list_recipes(request):
         )
     
     # Filtros
-    category = request.query_params.get('category')
+    category = params.get('category')
     if category:
         queryset = queryset.filter(category=category)
     
-    difficulty = request.query_params.get('difficulty')
+    difficulty = params.get('difficulty')
     if difficulty:
         queryset = queryset.filter(difficulty=difficulty)
     
-    meal_type = request.query_params.get('meal_type')
+    meal_type = params.get('meal_type')
     if meal_type:
         queryset = queryset.filter(meal_types__contains=[meal_type])
     
     # Ordenamiento
-    ordering = request.query_params.get('ordering', 'name')
+    ordering = params.get('ordering', 'name')
     if ordering.lstrip('-') in ['name', 'calories', 'prep_time_minutes', 'created_at']:
         queryset = queryset.order_by(ordering)
     else:
         queryset = queryset.order_by('name')
     
     # Paginación
-    page = int(request.query_params.get('page', 1))
-    page_size = int(request.query_params.get('page_size', 100))
+    page = int(params.get('page', 1))
+    page_size = int(params.get('page_size', 100))
     
     total = queryset.count()
     start = (page - 1) * page_size
@@ -1312,7 +1305,7 @@ def list_recipes(request):
     # Serializar
     serializer = RecipeMinimalSerializer(recipes_list, many=True)
     
-    return Response({
+    return JsonResponse({
         'results': serializer.data,
         'count': total,
         'page': page,

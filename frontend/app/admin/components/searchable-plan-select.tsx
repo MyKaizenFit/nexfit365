@@ -49,10 +49,11 @@ export function SearchablePlanSelect({
 
   // Debug: Log cuando cambian las opciones
   React.useEffect(() => {
+    console.log({
       sample: options.slice(0, 3),
       allIds: options.map(o => o.id).slice(0, 10)
-    })
-  }, [options, label])
+    });
+  }, [options, label]);
 
   const selectedOption = React.useMemo(
     () => options.find((option) => option.id === value),

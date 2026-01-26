@@ -213,12 +213,7 @@ export function useInitialRegistration() {
         } catch (parseError) {
           errorData = { detail: 'Error al completar el registro' };
         }
-        
-          status: response.status,
-          statusText: response.statusText,
-          errorData,
-          contentType
-        });
+        // (debug object removed)
         
         // Construir mensaje de error más detallado
         let errorMessage = 'Error al completar el registro';

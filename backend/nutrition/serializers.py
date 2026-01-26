@@ -113,6 +113,12 @@ class MealLogSerializer(serializers.ModelSerializer):
     recipe = serializers.SerializerMethodField()
     plan_meal_id = serializers.UUIDField(source='plan_meal.id', read_only=True, allow_null=True)
     plan_meal_meta = serializers.SerializerMethodField()
+    meal = serializers.PrimaryKeyRelatedField(
+        source='plan_meal',
+        queryset=PlanMeal.objects.all(),
+        required=False,
+        write_only=True
+    )
     
     class Meta:
         model = MealLog
@@ -121,7 +127,7 @@ class MealLogSerializer(serializers.ModelSerializer):
             "plan_meal_id", "plan_meal_meta",
             "recipe", "recipe_name", "custom_description",
             "calories", "protein", "carbs", "fat", "servings",
-            "completed", "rating", "notes", "photo",
+            "completed", "rating", "notes", "photo", "meal",
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "user", "recipe_name", "created_at", "updated_at"]

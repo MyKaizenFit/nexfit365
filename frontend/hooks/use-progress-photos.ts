@@ -67,6 +67,11 @@ export function useProgressPhotos() {
         return updatedPhotos
       })
       
+      // Notificar actualización de peso para refrescar historial si aplica
+      if (weight !== undefined && weight !== null && !isNaN(weight)) {
+        window.dispatchEvent(new CustomEvent('weightUpdated', { detail: { weight } }))
+      }
+
       // NO recargar todas las fotos - mantener el estado local
       
       return newPhoto

@@ -102,6 +102,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     // Log para depuración
     logs.forEach((log, index) => {
       if (index < 3) { // Solo los primeros 3 para no saturar
+        console.log({
           id: log.id,
           date: log.date,
           has_exercises_data: !!(log as any).exercises_data,
@@ -110,7 +111,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         })
       }
     })
-    
     return logs
   }, [workoutLogs])
 

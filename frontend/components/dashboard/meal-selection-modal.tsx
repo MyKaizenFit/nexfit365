@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
@@ -67,30 +67,31 @@ export function MealSelectionModal({
           } catch (error) {
             return null
           }
-        })
+        }) // <-- close the object and function call properly
 
         const loaded = await Promise.all(recipePromises)
         loadedRecipes = loaded.filter((recipe): recipe is Recipe => recipe !== null)
       }
 
-      // Si no hay recetas específicas o hay pocas, cargar todas las recetas disponibles
-      // y filtrarlas por tipo de comida
-      if (loadedRecipes.length === 0) {
-        const allRecipes = await nutritionService.listRecipes()
-        
-        // Filtrar recetas por tipo de comida si es posible
-        const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
-        const filteredRecipes = allRecipes.filter(r => {
-          // Si la receta tiene meal_types, verificar que coincida
-          if (r.meal_types && Array.isArray(r.meal_types)) {
-            return r.meal_types.includes(resolvedMealType) || r.meal_types.length === 0
-          }
-          // Si no tiene meal_types, incluirla de todas formas
-          return true
-        })
-        
-        loadedRecipes = filteredRecipes.length > 0 ? filteredRecipes : allRecipes
+      // Cargar todas las recetas disponibles (para evitar quedarse solo con recomendadas)
+      const allRecipes = await nutritionService.listRecipes()
+
+      // Filtrar recetas por tipo de comida si es posible
+      const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
+      const filteredRecipes = allRecipes.filter(r => {
+        if (r.meal_types && Array.isArray(r.meal_types)) {
+          return r.meal_types.includes(resolvedMealType) || r.meal_types.length === 0
+        }
+        return true
+      })
+
+      // Combinar recomendadas + filtradas evitando duplicados
+      const merged = [...loadedRecipes, ...filteredRecipes]
+      const uniqueById = new Map<string, Recipe>()
+      for (const recipe of merged) {
+        uniqueById.set(String(recipe.id), recipe)
       }
+      loadedRecipes = Array.from(uniqueById.values())
       
       setAllRecipes(loadedRecipes)
     } catch (error) {
@@ -134,13 +135,6 @@ export function MealSelectionModal({
           // Es un número
           recipeId = option.recipeId
         }
-        
-          original: option.recipeId, 
-          final: recipeId, 
-          tipo: typeof recipeId,
-          optionName: option.name,
-          optionId: option.id 
-        })
       } else {
         // Si no hay recipeId, buscar la primera receta recomendada de otras opciones
         
@@ -194,13 +188,13 @@ export function MealSelectionModal({
         
         // Continuar con el flujo normal usando el recipeId encontrado
       }
-
+      const recipeInfo = {
         recipeId, 
         mealType: resolvedMealType, 
         mealName,
         optionName: option.name,
         optionId: option.id
-      })
+      }
       
       const data = await nutritionService.getPersonalizedRecipe(recipeId, resolvedMealType)
       
@@ -209,22 +203,11 @@ export function MealSelectionModal({
         // Comparar IDs (pueden ser string o number, así que convertimos ambos a string para comparar)
         const loadedId = String(data.recipe.id)
         const expectedId = String(recipeId)
-        
-          loadedRecipeId: data.recipe.id, 
-          loadedRecipeName: data.recipe.name,
-          expectedRecipeId: recipeId,
-          optionName: option.name,
-          idsMatch: loadedId === expectedId
-        })
+        // (debug object removed)
         
         // Verificar que el ID de la receta cargada coincide con el esperado
         if (loadedId !== expectedId) {
-            expected: recipeId,
-            expectedString: expectedId,
-            received: data.recipe.id,
-            receivedString: loadedId,
-            optionName: option.name
-          })
+          // removed stray object literal
           setLoadingRecipe(false)
           alert(`Error: Se cargó una receta diferente (${data.recipe.name}) a la esperada. Por favor, intenta de nuevo.`)
           return
@@ -974,6 +957,8 @@ function AllRecipesModal({
   const [mounted, setMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
+  const [visibleCount, setVisibleCount] = useState(20)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setMounted(true)
@@ -992,12 +977,24 @@ function AllRecipesModal({
     return matchesSearch && matchesCategory
   })
 
+  useEffect(() => {
+    setVisibleCount(20)
+  }, [searchQuery, selectedCategory, recipes.length])
+
+  const handleScroll = () => {
+    const el = scrollRef.current
+    if (!el) return
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
+      setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length))
+    }
+  }
+
   // Obtener categorías únicas
   const categories = Array.from(new Set(recipes.map(r => r.category).filter(Boolean)))
 
   const modalContent = (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-4">
-      <div className="w-full max-w-4xl h-[90vh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-start sm:items-center justify-center p-4">
+      <div className="w-full max-w-4xl h-[90dvh] max-h-[90dvh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
           {/* Header */}
           <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 p-6 rounded-t-2xl flex-shrink-0">
             <div className="flex items-start justify-between mb-4">
@@ -1008,10 +1005,12 @@ function AllRecipesModal({
                 </h2>
                 <p className="text-sm text-gray-600">
                   Recetas sugeridas para {mealName} ({mealTime}) según tu plan de nutrición
-                </p>
-              </div>
-              <button
-                type="button"
+                <div
+                  ref={scrollRef}
+                  onScroll={handleScroll}
+                  className="p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
+                  style={{ WebkitOverflowScrolling: 'touch' }}
+                >
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
                 aria-label="Cerrar"
@@ -1045,7 +1044,10 @@ function AllRecipesModal({
           </div>
 
           {/* Content - Scrollable */}
-          <div className="p-6 overflow-y-auto flex-1 min-h-0">
+          <div
+            className="p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
+            style={{ WebkitOverflowScrolling: 'touch' }}
+          >
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
@@ -1065,7 +1067,7 @@ function AllRecipesModal({
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRecipes.map((recipe) => (
+                {filteredRecipes.slice(0, visibleCount).map((recipe) => (
                   <div
                     key={recipe.id}
                     className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-all cursor-pointer group"
@@ -1135,6 +1137,17 @@ function AllRecipesModal({
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+            {!loading && filteredRecipes.length > visibleCount && (
+              <div className="flex justify-center mt-6">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length))}
+                  className="px-4 py-2 text-sm font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition"
+                >
+                  Cargar más recetas
+                </button>
               </div>
             )}
           </div>

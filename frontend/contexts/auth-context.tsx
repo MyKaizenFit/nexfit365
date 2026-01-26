@@ -166,14 +166,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const mustChangePassword = authResponse.must_change_password || authResponse.user.must_change_password || false
 
       // Debug: verificar datos del usuario ANTES de guardar
-        email: authResponse.user.email,
-        is_superuser: authResponse.user.is_superuser,
-        is_staff: authResponse.user.is_staff,
-        role: authResponse.user.role,
-        roleType: typeof authResponse.user.role,
-        must_change_password: mustChangePassword,
-        fullUser: authResponse.user
-      })
+      // (debug info removed)
 
       setState({
         user: authResponse.user,
@@ -285,11 +278,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       authNotifications.showRegisterSuccess(authResponse.user.first_name)
 
       // Debug: verificar datos del usuario
-        email: authResponse.user.email,
-        is_superuser: authResponse.user.is_superuser,
-        is_staff: authResponse.user.is_staff,
-        role: authResponse.user.role
-      })
+      // (debug info removed)
 
       // También verificar el token JWT directamente para obtener la información de admin
       let isAdminFromToken = false
