@@ -103,10 +103,10 @@ body {
 .app-container {
   width: 100vw;
   max-width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
+  min-height: 100vh;
+  height: auto;
   overflow-x: hidden;
-  overflow-y: hidden;
+  overflow-y: auto;
 }
 
 /* Todos los elementos respetan el ancho del viewport */

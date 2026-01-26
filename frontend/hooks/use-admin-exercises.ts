@@ -47,6 +47,7 @@ export interface CreateExerciseData {
   instructions: string
   video_url?: string
   image_url?: string
+  tags?: string[]
 }
 
 export interface CategoryOption {
