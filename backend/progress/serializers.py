@@ -16,9 +16,8 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "user", "created_at", "updated_at"]
     
     def create(self, validated_data):
-        """Override del método create para agregar logging y registrar peso"""
+        """Override del método create para agregar logging"""
         import logging
-        from decimal import Decimal
         logger = logging.getLogger(__name__)
         
         logger.info(f"🔍 Creando ProgressPhoto con datos: {validated_data}")
@@ -32,57 +31,6 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
             
             instance = super().create(validated_data)
             logger.info(f"✅ ProgressPhoto creado exitosamente: ID={instance.id}")
-            
-            # Si la foto tiene peso, también crear una entrada en el historial de peso
-            if instance.weight and instance.weight > 0:
-                try:
-                    # Verificar si ya existe una entrada de peso para esta fecha
-                    existing_entry = WeightEntry.objects.filter(
-                        user=user,
-                        date=instance.date,
-                        weight=instance.weight
-                    ).first()
-                    
-                    if not existing_entry:
-                        weight_entry = WeightEntry.objects.create(
-                            user=user,
-                            weight=Decimal(str(instance.weight)),
-                            date=instance.date,
-                            notes=f"Peso registrado con foto de progreso"
-                        )
-                        logger.info(f"✅ Entrada de peso creada automáticamente: {weight_entry.weight} kg")
-                        
-                        # Actualizar peso actual en UserStats
-                        from dashboard.models import UserStats
-                        stats, _ = UserStats.objects.get_or_create(user=user)
-                        stats.current_weight = instance.weight
-                        stats.save()
-                        logger.info(f"✅ UserStats actualizado con peso: {instance.weight} kg")
-                        
-                        # IMPORTANTE: Actualizar también el peso en el perfil del usuario
-                        user.weight = instance.weight
-                        user.save(update_fields=['weight'])
-                        logger.info(f"✅ Peso del usuario actualizado: {instance.weight} kg")
-                except Exception as weight_error:
-                    logger.warning(f"⚠️ No se pudo crear entrada de peso automática: {weight_error}")
-            # Si no se proporcionó peso, usar el peso actual del perfil para registrar historial
-            elif user.weight:
-                try:
-                    existing_entry = WeightEntry.objects.filter(
-                        user=user,
-                        date=instance.date,
-                        weight=user.weight
-                    ).first()
-                    if not existing_entry:
-                        weight_entry = WeightEntry.objects.create(
-                            user=user,
-                            weight=Decimal(str(user.weight)),
-                            date=instance.date,
-                            notes="Peso registrado con foto de progreso (perfil)"
-                        )
-                        logger.info(f"✅ Entrada de peso creada desde perfil: {weight_entry.weight} kg")
-                except Exception as weight_error:
-                    logger.warning(f"⚠️ No se pudo crear entrada de peso desde perfil: {weight_error}")
             
             return instance
         except Exception as e:

@@ -131,16 +131,44 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
             # Asignar usuario automáticamente
             photo = serializer.save(user=self.request.user)
 
-            # Si viene peso, crear/actualizar entrada en historial
+            # Registrar peso en historial si es posible
             try:
+                from decimal import Decimal
+                from dashboard.models import UserStats
+
+                date = serializer.validated_data.get("date") or getattr(photo, "date", None)
                 weight = serializer.validated_data.get("weight")
-                date = serializer.validated_data.get("date")
-                if weight is not None:
-                    WeightEntry.objects.update_or_create(
+
+                if weight is None:
+                    weight = getattr(photo, "weight", None)
+
+                if weight is None:
+                    weight = getattr(self.request.user, "weight", None)
+
+                if weight is None:
+                    latest_entry = WeightEntry.objects.filter(
+                        user=self.request.user
+                    ).order_by("-date", "-created_at").first()
+                    if latest_entry:
+                        weight = latest_entry.weight
+
+                if weight is not None and date is not None:
+                    weight_entry, created = WeightEntry.objects.get_or_create(
                         user=self.request.user,
                         date=date,
-                        defaults={"weight": weight, "notes": "Auto desde foto de progreso"}
+                        defaults={
+                            "weight": Decimal(str(weight)),
+                            "notes": "Auto desde foto de progreso"
+                        }
                     )
+
+                    if created:
+                        stats, _ = UserStats.objects.get_or_create(user=self.request.user)
+                        stats.current_weight = weight
+                        stats.save()
+
+                        self.request.user.weight = weight
+                        self.request.user.save(update_fields=["weight"])
             except Exception:
                 pass
         except Exception as e:
