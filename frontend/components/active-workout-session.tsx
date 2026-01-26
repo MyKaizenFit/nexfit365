@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Dumbbell, Play, Pause, CheckCircle2, Circle, Clock,
-  Target, Timer, Star, Video, ChevronDown, ChevronUp,
+  Target, Timer, Star, Video,
   Save, RotateCcw, Flame
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -264,12 +264,11 @@ export function ActiveWorkoutSession({
   const [restTimerActive, setRestTimerActive] = useState(false)
 
   // Estado de cada serie por ejercicio
-  const [exerciseSets, setExerciseSets] = useState<Record<string, Array<{
-    completed: boolean
+  const [exerciseSets, setExerciseSets] = useState<Record<string, {
     reps?: number
     weight?: number
-    duration?: number
-  }>>>({})
+    effort?: number
+  }>>({})
 
   // Estado del formulario de finalización
   const [rating, setRating] = useState(0)
@@ -277,10 +276,30 @@ export function ActiveWorkoutSession({
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  // Ejercicios expandidos para ver detalles
-  const [expandedExercise, setExpandedExercise] = useState<string | null>(null)
-
   const exercises = workoutDay?.exercises || []
+
+  const normalizeExerciseSets = (data: Record<string, any> = {}) => {
+    const normalized: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
+
+    Object.entries(data || {}).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        const first = value[0] || {}
+        normalized[key] = {
+          reps: typeof first.reps === 'number' ? first.reps : undefined,
+          weight: typeof first.weight === 'number' ? first.weight : undefined,
+          effort: typeof first.effort === 'number' ? first.effort : undefined,
+        }
+      } else if (value && typeof value === 'object') {
+        normalized[key] = {
+          reps: typeof value.reps === 'number' ? value.reps : undefined,
+          weight: typeof value.weight === 'number' ? value.weight : undefined,
+          effort: typeof value.effort === 'number' ? value.effort : undefined,
+        }
+      }
+    })
+
+    return normalized
+  }
 
   // Cargar estado guardado al montar el componente
   useEffect(() => {
@@ -291,7 +310,7 @@ export function ActiveWorkoutSession({
         setIsPaused(savedState.isPaused || false)
         setWorkoutStartTime(savedState.workoutStartTime || null)
         setCompletedExercises(new Set(savedState.completedExercises || []))
-        setExerciseSets(savedState.exerciseSets || {})
+        setExerciseSets(normalizeExerciseSets(savedState.exerciseSets || {}))
         setRating(savedState.rating || 0)
         setNotes(savedState.notes || '')
 
@@ -309,16 +328,14 @@ export function ActiveWorkoutSession({
   // Inicializar sets de ejercicios
   useEffect(() => {
     if (exercises.length > 0 && Object.keys(exerciseSets).length === 0) {
-      const initialSets: Record<string, Array<any>> = {}
+      const initialSets: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
       exercises.forEach((ex: any) => {
         const exerciseId = ex.id || ex.exercise?.id
-        const numSets = ex.sets || 3
-        initialSets[exerciseId] = Array(numSets).fill(null).map(() => ({
-          completed: false,
+        initialSets[exerciseId] = {
           reps: undefined,
           weight: undefined,
-          duration: undefined
-        }))
+          effort: undefined
+        }
       })
       setExerciseSets(initialSets)
     }
@@ -424,39 +441,16 @@ export function ActiveWorkoutSession({
     })
   }
 
-  // Marcar serie como completada
-  const toggleSetCompleted = (exerciseId: string, setIndex: number) => {
-    setExerciseSets((prev) => {
-      const newSets = { ...prev }
-      if (newSets[exerciseId]) {
-        newSets[exerciseId] = [...newSets[exerciseId]]
-        newSets[exerciseId][setIndex] = {
-          ...newSets[exerciseId][setIndex],
-          completed: !newSets[exerciseId][setIndex].completed
-        }
-      }
-      return newSets
-    })
-
-    // Activar temporizador de descanso después de completar una serie
-    setShowRestTimer(true)
-  }
-
-  // Actualizar datos de serie
-  const updateSetData = (
+  const updateExerciseData = (
     exerciseId: string,
-    setIndex: number,
-    field: 'reps' | 'weight' | 'duration',
+    field: 'reps' | 'weight' | 'effort',
     value: number | undefined
   ) => {
     setExerciseSets((prev) => {
       const newSets = { ...prev }
-      if (newSets[exerciseId]) {
-        newSets[exerciseId] = [...newSets[exerciseId]]
-        newSets[exerciseId][setIndex] = {
-          ...newSets[exerciseId][setIndex],
-          [field]: value
-        }
+      newSets[exerciseId] = {
+        ...newSets[exerciseId],
+        [field]: value
       }
 
       // Guardar estado después de actualizar series
@@ -545,25 +539,25 @@ export function ActiveWorkoutSession({
     try {
       const exercisesData = exercises.map((ex: any) => {
         const exerciseId = ex.id || ex.exercise?.id
-        const sets = exerciseSets[exerciseId] || []
-        
-        // Filtrar y limpiar sets para asegurar que solo se envíen sets completados con datos válidos
-        const validSets = sets
-          .map((set: any, index: number) => ({
-            set_number: index + 1,
-            completed: set.completed || false,
-            reps: set.reps !== undefined && set.reps !== null ? Number(set.reps) : null,
-            weight: set.weight !== undefined && set.weight !== null ? Number(set.weight) : null,
-            duration: set.duration !== undefined && set.duration !== null ? Number(set.duration) : null,
-            rest_seconds: set.rest_seconds || null
-          }))
-          .filter((set: any) => set.completed && (set.reps !== null || set.weight !== null)) // Solo sets completados con al menos reps o weight
-        
+        const setData = exerciseSets[exerciseId] || {}
+        const validSets = [
+          {
+            set_number: 1,
+            completed: completedExercises.has(exerciseId),
+            reps: setData.reps !== undefined ? Number(setData.reps) : null,
+            weight: setData.weight !== undefined ? Number(setData.weight) : null,
+            duration: null,
+            rest_seconds: ex.rest_seconds || ex.rest_time || null,
+            effort: setData.effort !== undefined ? Number(setData.effort) : null
+          }
+        ]
+
         return {
           exercise_id: ex.exercise?.id || ex.id,
           exercise_name: ex.exercise?.name || ex.name,
           sets: validSets,
-          completed: completedExercises.has(exerciseId)
+          completed: completedExercises.has(exerciseId),
+          effort: setData.effort !== undefined ? Number(setData.effort) : null
         }
       })
       
@@ -696,9 +690,7 @@ export function ActiveWorkoutSession({
               const exercise = exerciseItem.exercise || exerciseItem
               const exerciseId = exerciseItem.id || exercise.id
               const isCompleted = completedExercises.has(String(exerciseId))
-              const isExpanded = expandedExercise === exerciseId
-              const sets = exerciseSets[exerciseId] || []
-              const completedSetsCount = sets.filter(s => s.completed).length
+              const setData = exerciseSets[exerciseId] || {}
               const restSeconds = exerciseItem.rest_seconds || exerciseItem.rest_time || 60
 
               return (
@@ -770,88 +762,59 @@ export function ActiveWorkoutSession({
                           )}
                         </div>
 
-                        {/* Expandir/Colapsar series */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setExpandedExercise(isExpanded ? null : exerciseId)}
-                          className="mt-2 text-purple-600 hover:text-purple-700"
-                          disabled={!isStarted}
-                        >
-                          {isExpanded ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-1" />
-                              Ocultar series
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-1" />
-                              Registrar series ({completedSetsCount}/{sets.length})
-                            </>
-                          )}
-                        </Button>
-
-                        {/* Detalle de series */}
-                        {isExpanded && (
-                          <div className="mt-3 space-y-2 bg-gray-50 rounded-lg p-3">
-                            {sets.map((set, setIdx) => (
-                              <div
-                                key={setIdx}
-                                className={cn(
-                                  'flex items-center gap-3 p-2 rounded-lg transition-colors',
-                                  set.completed ? 'bg-green-100' : 'bg-white border'
+                        {/* Registro rápido del ejercicio */}
+                        <div className="mt-3 bg-gray-50 rounded-lg p-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                placeholder={exerciseItem.reps || 'Reps'}
+                                className="h-8 text-sm"
+                                value={setData.reps ?? ''}
+                                onChange={(e) => updateExerciseData(
+                                  exerciseId,
+                                  'reps',
+                                  e.target.value ? parseInt(e.target.value) : undefined
                                 )}
-                              >
-                                <button
-                                  onClick={() => toggleSetCompleted(exerciseId, setIdx)}
-                                  className={cn(
-                                    'transition-colors',
-                                    set.completed ? 'text-green-600' : 'text-gray-400'
-                                  )}
-                                >
-                                  {set.completed ? (
-                                    <CheckCircle2 className="h-5 w-5" />
-                                  ) : (
-                                    <Circle className="h-5 w-5" />
-                                  )}
-                                </button>
+                                disabled={!isStarted}
+                              />
+                              <span className="text-gray-500 text-sm">reps</span>
+                            </div>
 
-                                <span className="font-medium w-16">
-                                  Serie {setIdx + 1}
-                                </span>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                placeholder="Kg"
+                                className="h-8 text-sm"
+                                value={setData.weight ?? ''}
+                                onChange={(e) => updateExerciseData(
+                                  exerciseId,
+                                  'weight',
+                                  e.target.value ? parseFloat(e.target.value) : undefined
+                                )}
+                                disabled={!isStarted}
+                              />
+                              <span className="text-gray-500 text-sm">kg</span>
+                            </div>
 
-                                <div className="flex items-center gap-2">
-                                  <Input
-                                    type="number"
-                                    placeholder="Reps"
-                                    className="w-20 h-8 text-sm"
-                                    value={set.reps || ''}
-                                    onChange={(e) => updateSetData(
-                                      exerciseId,
-                                      setIdx,
-                                      'reps',
-                                      e.target.value ? parseInt(e.target.value) : undefined
-                                    )}
-                                  />
-                                  <span className="text-gray-500 text-sm">×</span>
-                                  <Input
-                                    type="number"
-                                    placeholder="Kg"
-                                    className="w-20 h-8 text-sm"
-                                    value={set.weight || ''}
-                                    onChange={(e) => updateSetData(
-                                      exerciseId,
-                                      setIdx,
-                                      'weight',
-                                      e.target.value ? parseFloat(e.target.value) : undefined
-                                    )}
-                                  />
-                                  <span className="text-gray-500 text-sm">kg</span>
-                                </div>
-                              </div>
-                            ))}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={1}
+                                max={10}
+                                placeholder="Esfuerzo 1-10"
+                                className="h-8 text-sm"
+                                value={setData.effort ?? ''}
+                                onChange={(e) => {
+                                  const value = e.target.value ? parseInt(e.target.value) : undefined
+                                  updateExerciseData(exerciseId, 'effort', value)
+                                }}
+                                disabled={!isStarted}
+                              />
+                              <span className="text-gray-500 text-sm">1-10</span>
+                            </div>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
