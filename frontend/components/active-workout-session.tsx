@@ -735,12 +735,6 @@ export function ActiveWorkoutSession({
                             </h4>
                             <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-600">
                               <span className="flex items-center gap-1">
-                                <Target className="h-4 w-4" />
-                                {exerciseItem.sets || 3} series
-                              </span>
-                              <span>×</span>
-                              <span>{exerciseItem.reps || '10'} reps</span>
-                              <span className="flex items-center gap-1">
                                 <Timer className="h-4 w-4" />
                                 {restSeconds}s descanso
                               </span>
