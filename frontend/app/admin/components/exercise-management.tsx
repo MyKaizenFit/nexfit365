@@ -84,6 +84,7 @@ export function ExerciseManagement() {
     muscle_groups: '',
     equipment: '',
     difficulty: '',
+    location: 'any',
     instructions: '',
     video_url: '',
     image_url: ''
@@ -180,6 +181,33 @@ export function ExerciseManagement() {
     }
   }
 
+  const normalizeTags = (tags?: string[]) =>
+    (tags || [])
+      .map(tag => String(tag).toLowerCase().trim())
+      .filter(tag => tag.length > 0)
+
+  const getLocationFromTags = (tags?: string[]) => {
+    const normalized = new Set(normalizeTags(tags))
+    const hasHome = normalized.has('home')
+    const hasGym = normalized.has('gym')
+
+    if (hasHome && !hasGym) return 'home'
+    if (hasGym && !hasHome) return 'gym'
+    return 'any'
+  }
+
+  const buildTagsWithLocation = (location: string, existingTags: string[] = []) => {
+    const baseTags = normalizeTags(existingTags).filter(tag => tag !== 'home' && tag !== 'gym')
+
+    if (location === 'home') {
+      baseTags.push('home')
+    } else if (location === 'gym') {
+      baseTags.push('gym')
+    }
+
+    return Array.from(new Set(baseTags))
+  }
+
   const handleCreate = async () => {
     try {
       setIsLoading(true)
@@ -193,6 +221,8 @@ export function ExerciseManagement() {
         .map(e => e.trim())
         .filter(e => e.length > 0)
 
+      const locationTags = buildTagsWithLocation(formData.location)
+
       await createExercise({
         name: formData.name,
         description: formData.description || undefined,
@@ -202,7 +232,8 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
-        image_url: formData.image_url || undefined
+        image_url: formData.image_url || undefined,
+        tags: locationTags
       })
 
       toast({
@@ -239,6 +270,11 @@ export function ExerciseManagement() {
         .map(e => e.trim())
         .filter(e => e.length > 0)
 
+      const locationTags = buildTagsWithLocation(
+        formData.location,
+        editingExercise.tags || []
+      )
+
       await updateExercise(editingExercise.id, {
         name: formData.name,
         description: formData.description || undefined,
@@ -248,7 +284,8 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
-        image_url: formData.image_url || undefined
+        image_url: formData.image_url || undefined,
+        tags: locationTags
       })
 
       toast({
@@ -326,6 +363,7 @@ export function ExerciseManagement() {
       muscle_groups: '',
       equipment: '',
       difficulty: '',
+      location: 'any',
       instructions: '',
       video_url: '',
       image_url: ''
@@ -343,6 +381,7 @@ export function ExerciseManagement() {
       muscle_groups: fixEncodingArray(exercise.muscle_groups || []).join(', '),
       equipment: fixEncodingArray(exercise.equipment || []).join(', '),
       difficulty: exercise.difficulty || '',
+      location: getLocationFromTags(exercise.tags || []),
       instructions: fixEncoding(exercise.instructions || ''),
       video_url: exercise.video_url || '',
       image_url: exercise.image_url || ''
@@ -984,6 +1023,23 @@ export function ExerciseManagement() {
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            <div>
+              <FormLabel>Lugar de entrenamiento</FormLabel>
+              <Select
+                value={formData.location}
+                onValueChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Seleccionar lugar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="any">Ambos</SelectItem>
+                  <SelectItem value="home">Casa</SelectItem>
+                  <SelectItem value="gym">Gimnasio</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div>
