@@ -44,11 +44,7 @@ const toOptions = (items: unknown): PlanOption[] => {
       const hasName = "name" in item
       
       if (!hasId || !hasName) {
-          hasId,
-          hasName,
-          keys: Object.keys(item),
-          item
-        })
+        // (removed misplaced object)
         return null
       }
       
@@ -69,13 +65,7 @@ const toOptions = (items: unknown): PlanOption[] => {
 }
 
 const extractResults = (payload: any): DefaultPlanConfiguration[] => {
-    isNull: payload === null,
-    isUndefined: payload === undefined,
-    type: typeof payload,
-    isArray: Array.isArray(payload),
-    hasResults: payload && typeof payload === "object" && "results" in payload,
-    keys: payload && typeof payload === "object" ? Object.keys(payload) : "N/A"
-  })
+  // (debug object removed)
   
   if (!payload) {
     return []
@@ -144,13 +134,8 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
 
       const contentType = response.headers.get("content-type") ?? ""
       const payload = contentType.includes("application/json") ? await response.json() : await response.text()
-
-        isArray: Array.isArray(payload),
-        hasResults: payload && typeof payload === "object" && "results" in payload,
-        type: typeof payload,
-        keys: payload && typeof payload === "object" ? Object.keys(payload) : "N/A",
-        payload: payload && typeof payload === "object" ? JSON.stringify(payload).substring(0, 200) : String(payload).substring(0, 200)
-      })
+      // (debug object removed)
+      // removed stray parenthesis
 
       if (!response.ok) {
         const message =
@@ -298,20 +283,13 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       
       if (!response.ok) {
         const errorText = await response.text()
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText.substring(0, 500),
-        })
+        // removed stray object literal
         return
       }
       
       const payload: any = await response.json()
-        hasCount: 'count' in payload,
-        hasResults: 'results' in payload,
-        isArray: Array.isArray(payload),
-        count: payload.count,
-        resultsLength: Array.isArray(payload) ? payload.length : (payload.results?.length || 0)
-      })
+      // removed stray object literal
+      // removed orphaned parenthesis
       
       const programs = Array.isArray(payload) ? payload : (payload.results || [])
       

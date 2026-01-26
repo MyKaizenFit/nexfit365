@@ -14,6 +14,10 @@ RUN apt-get update \
         libpq-dev \
         gettext \
         curl \
+        libjpeg62-turbo-dev \
+        zlib1g-dev \
+        libpng-dev \
+        libheif-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Crear directorio de trabajo

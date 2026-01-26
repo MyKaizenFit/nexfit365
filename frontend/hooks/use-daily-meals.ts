@@ -499,12 +499,12 @@ export function useDailyMeals() {
           if (mealNameToShow === 'Sin nombre') {
             mealNameToShow = `${mealType} - Comida personalizada`
           }
-          
+          return {
             recipe_name: log.recipe_name,
             recipe: log.recipe,
             custom_description: log.custom_description,
             nombre_final: mealNameToShow
-          })
+          }
           
           // Crear MealOption con el nombre correcto
           // Asegurar que los valores nutricionales sean números, no null/undefined
@@ -719,11 +719,13 @@ export function useDailyMeals() {
             carbsGoal: planMeals.daily_macros!.carbs,
             fatGoal: planMeals.daily_macros!.fat
           }))
+          setMacros(prev => ({
+            ...prev,
             calories: planMeals.daily_calories_target,
             protein: planMeals.daily_macros.protein,
             carbs: planMeals.daily_macros.carbs,
             fat: planMeals.daily_macros.fat
-          })
+          }))
         } else if (currentPlan && currentPlan.daily_calories && currentPlan.target_macros) {
           // Fallback a valores del plan si no hay personalización
           setMacros(prev => ({

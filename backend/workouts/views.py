@@ -195,94 +195,51 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return WorkoutLog.objects.filter(user=self.request.user)
     
-    def create(self, request, *args, **kwargs):
-        """
-        Crear una nueva plantilla de plan de entrenamiento con días y ejercicios anidados
-        """
-        # Hacer una copia mutable de request.data
-        data = request.data.copy()
-        days_data = data.pop('days', [])
-        
-        # Asegurar que se crea como plantilla
-        data['is_template'] = True
-        data['is_system'] = False
-        
-        # Crear el programa base
-        serializer = self.get_serializer(data=data)
-        serializer.is_valid(raise_exception=True)
-        program = serializer.save(created_by=request.user)
-        
-        # Crear los días y ejercicios
-        for day_index, day_data in enumerate(days_data):
-            # Mapear day_name a name si es necesario
-            day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
-            
-            # Determinar day_of_week basado en day_number
-            day_number = day_data.get('day_number', day_index + 1)
-            day_of_week_map = {
-                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
-                5: 'friday', 6: 'saturday', 7: 'sunday'
-            }
-            day_of_week = day_of_week_map.get(day_number, 'monday')
-            
-            workout_day = WorkoutDay.objects.create(
-                program=program,
-                name=day_name,
-                day_number=day_number,
-                day_of_week=day_of_week,
-                is_rest_day=day_data.get('is_rest_day', False),
-                duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
-                notes=day_data.get('notes', ''),
-                order_index=day_index
-            )
-            
-            # Crear los ejercicios del día
-            exercises_data = day_data.get('exercises', [])
-            for ex_index, exercise_data in enumerate(exercises_data):
-                # El frontend puede enviar exercise_id o exercise
-                exercise_id = exercise_data.get('exercise_id') or exercise_data.get('exercise')
-                
-                if exercise_id:
-                    try:
-                        exercise = Exercise.objects.get(id=exercise_id, is_active=True)
-                        
-                        WorkoutDayExercise.objects.create(
-                            workout_day=workout_day,
-                            exercise=exercise,
-                            sets=exercise_data.get('sets', 3),
-                            reps=exercise_data.get('reps', '10-12'),
-                            weight=exercise_data.get('weight') or 0,
-                            rest_seconds=exercise_data.get('rest_time') or exercise_data.get('rest_seconds', 60),
-                            duration_seconds=exercise_data.get('duration') or None,
-                            notes=exercise_data.get('notes', ''),
-                            order_index=ex_index
-                        )
-                    except Exercise.DoesNotExist:
-                        # Si el ejercicio no existe, continuar sin agregarlo
-                        continue
-        
-        # Retornar el programa creado con todos sus días y ejercicios
-        response_serializer = self.get_serializer(program)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
-    
     def perform_create(self, serializer):
+        """Crear log de entrenamiento para el usuario autenticado"""
         serializer.save(user=self.request.user)
-    
-    @action(detail=False, methods=['get'])
+
+    def create(self, request, *args, **kwargs):
+        """Upsert del log: si ya existe para user+date+workout_day, actualizar en vez de fallar."""
+        user = request.user
+        workout_day = request.data.get('workout_day')
+        date = request.data.get('date')
+
+        if workout_day and date:
+            existing = WorkoutLog.objects.filter(
+                user=user,
+                workout_day_id=workout_day,
+                date=date
+            ).first()
+            if existing:
+                serializer = self.get_serializer(existing, data=request.data, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(user=user)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+
+        return super().create(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
+        """Crear log de entrenamiento"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['get'], url_path='check_today')
     def check_today(self, request):
-        """Verificar si ya existe un log completado para un workout_day hoy"""
+        """Verificar si un día de entrenamiento ya está completado hoy"""
         from django.utils import timezone
-        from django.shortcuts import get_object_or_404
-        
         workout_day_id = request.query_params.get('workout_day')
         if not workout_day_id:
             return Response({'error': 'workout_day es requerido'}, status=400)
-        
+
         try:
             workout_day = WorkoutDay.objects.get(id=workout_day_id)
         except WorkoutDay.DoesNotExist:
             return Response({'error': 'WorkoutDay no encontrado'}, status=404)
-        
+
         today = timezone.localdate()
         existing_log = WorkoutLog.objects.filter(
             user=request.user,
@@ -290,14 +247,9 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             date=today,
             completed=True
         ).first()
-        
+
         is_completed = existing_log is not None
-        
-        # Log para debugging
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f'check_today - User: {request.user.email}, WorkoutDay: {workout_day.id}, Today: {today}, Completed: {is_completed}')
-        
+
         return Response({
             'is_completed': is_completed,
             'workout_day_id': str(workout_day.id),

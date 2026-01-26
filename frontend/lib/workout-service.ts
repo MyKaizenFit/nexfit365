@@ -98,7 +98,7 @@ class WorkoutService {
   // Obtener logs de entrenamiento
   async getWorkoutLogs(): Promise<{ data: WorkoutLog[] | null; error: string | null }> {
     try {
-      const url = buildApiUrl('workout-sessions/')
+      const url = buildApiUrl('workout-logs/')
       const response = await fetch(url, {
         headers: getAuthHeaders()
       })
@@ -120,7 +120,7 @@ class WorkoutService {
   // Crear un nuevo log de entrenamiento
   async createWorkoutLog(logData: CreateWorkoutLogData): Promise<{ data: WorkoutLog | null; error: string | null }> {
     try {
-      const url = buildApiUrl('workout-sessions/')
+      const url = buildApiUrl('workout-logs/')
       const response = await fetch(url, {
         method: 'POST',
         headers: getAuthHeaders(),

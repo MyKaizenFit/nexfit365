@@ -21,15 +21,7 @@ export function UserProgressPanel({ userId }: Props) {
 
   // Debug logs
   useEffect(() => {
-      loading: progress.loading,
-      error: progress.error,
-      entriesCount: progress.entries?.length || 0,
-      summary: progress.summary,
-    })
-      loading: wellness.loading,
-      error: wellness.error,
-      entriesCount: wellness.entries?.length || 0,
-    })
+    // removed stray object literal
   }, [userId, progress.loading, progress.error, progress.entries, progress.summary, wellness.loading, wellness.error, wellness.entries])
 
   const isLoading = progress.loading || wellness.loading

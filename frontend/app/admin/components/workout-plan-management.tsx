@@ -825,10 +825,9 @@ export function WorkoutPlanManagement() {
             })
           }))
           setWorkoutDays(convertedDays)
-            name: d.day_name, 
-            exercises: d.exercises.map(e => e.exercise_name || e.exercise_id)
-          })))
-        } else {
+          // Si necesitas depurar, usa console.log o estructura el objeto correctamente
+        // <-- removed stray closing parenthesis
+      } else {
           setWorkoutDays([{
             id: '1',
             day_name: 'Día 1',

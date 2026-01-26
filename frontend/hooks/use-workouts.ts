@@ -270,12 +270,7 @@ export function useWorkouts() {
         // Log para depuración
         if (logs.length > 0) {
           const lastLog = logs[0] // El más reciente
-            id: lastLog.id,
-            date: lastLog.date,
-            completed: lastLog.completed,
-            has_exercises_data: !!lastLog.exercises_data,
-            exercises_data_length: lastLog.exercises_data?.length || 0
-          })
+          // (debug object removed)
         }
       } else {
         throw new Error(data.detail || 'Error al obtener logs de entrenamiento')
@@ -429,10 +424,6 @@ export function useWorkouts() {
         }
       } else {
         // Si no es JSON, usar el texto directamente
-          contentType,
-          status: response.status,
-          text: cleanedText.substring(0, 200)
-        })
 
         if (response.ok) {
           // Respuesta exitosa pero no JSON

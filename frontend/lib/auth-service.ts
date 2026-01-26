@@ -454,14 +454,8 @@ export class AuthService {
         ...credentials,
         role: credentials.role || "basic" // Usar "basic" como valor por defecto
       }
-
-        email: correctedCredentials.email,
-        password: correctedCredentials.password,
-        password_confirm: correctedCredentials.password_confirm,
-        first_name: correctedCredentials.first_name,
-        last_name: correctedCredentials.last_name,
-        role: correctedCredentials.role
-      })
+      // (debug object removed)
+      // (debug object removed)
 
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REGISTER), {
         method: 'POST',
@@ -662,14 +656,7 @@ export class AuthService {
         if (!result.data) {
           throw new Error('No se recibieron datos del usuario')
         }
-
-          email: result.data.email,
-          is_superuser: result.data.is_superuser,
-          is_staff: result.data.is_staff,
-          role: result.data.role,
-          roleType: typeof result.data.role,
-          fullUser: result.data
-        })
+        // removed stray object literal
 
         return result.data
       })

@@ -65,6 +65,24 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
                         logger.info(f"✅ Peso del usuario actualizado: {instance.weight} kg")
                 except Exception as weight_error:
                     logger.warning(f"⚠️ No se pudo crear entrada de peso automática: {weight_error}")
+            # Si no se proporcionó peso, usar el peso actual del perfil para registrar historial
+            elif user.weight:
+                try:
+                    existing_entry = WeightEntry.objects.filter(
+                        user=user,
+                        date=instance.date,
+                        weight=user.weight
+                    ).first()
+                    if not existing_entry:
+                        weight_entry = WeightEntry.objects.create(
+                            user=user,
+                            weight=Decimal(str(user.weight)),
+                            date=instance.date,
+                            notes="Peso registrado con foto de progreso (perfil)"
+                        )
+                        logger.info(f"✅ Entrada de peso creada desde perfil: {weight_entry.weight} kg")
+                except Exception as weight_error:
+                    logger.warning(f"⚠️ No se pudo crear entrada de peso desde perfil: {weight_error}")
             
             return instance
         except Exception as e:
@@ -138,14 +156,14 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
                 )
             
             # Validar tipo de archivo
-            allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/webp"]
+            allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/webp", "image/heic", "image/heif", "application/octet-stream"]
             logger.info(f"🔍 Tipo de archivo recibido: {value.content_type}")
             logger.info(f"🔍 Tipos permitidos: {allowed_types}")
             
             if value.content_type not in allowed_types:
                 # También verificar por extensión del archivo
                 file_extension = value.name.lower().split('.')[-1] if '.' in value.name else ''
-                allowed_extensions = ['jpg', 'jpeg', 'png', 'webp']
+                allowed_extensions = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif']
                 
                 logger.info(f"🔍 Extensión del archivo: {file_extension}")
                 logger.info(f"🔍 Extensiones permitidas: {allowed_extensions}")

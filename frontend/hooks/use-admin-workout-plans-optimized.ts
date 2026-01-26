@@ -140,11 +140,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       }
       
       const data: PaginatedResponse<WorkoutPlan> = await response.json()
-      
-        count: data.count,
-        results: data.results?.length || 0,
-        page: page
-      })
+      // (removed misplaced object)
       
       if (Array.isArray(data.results)) {
         setPlans(data.results)

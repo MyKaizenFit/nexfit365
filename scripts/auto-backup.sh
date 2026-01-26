@@ -24,15 +24,15 @@ backup_sql_with_retry() {
     while [ $attempt -le $MAX_RETRIES ]; do
         echo "[$(date)] Intento $attempt/$MAX_RETRIES de backup SQL..." >> "$LOG_FILE"
         
-        if COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f /srv/mykaizenfit/pro/docker-compose.prod.yml exec -T db pg_dump -U postgres -d mykaizenfit > "$backup_file" 2>> "$LOG_FILE"; then
+        if COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f /srv/mykaizenfit/pro/docker-compose.prod.yml exec -T db pg_dump -U postgres -d mykaizenfit 2>> "$LOG_FILE" | grep -v "\\\\restrict\|\\\\unrestrict" > "$backup_file"; then
             SIZE=$(du -h "$backup_file" | cut -f1)
             
             # Comprimir si es mayor a 100MB
             if [ $(stat -c%s "$backup_file") -gt 104857600 ]; then
                 gzip "$backup_file"
-                echo "[$(date)] ✅ Backup SQL completado y comprimido: $SIZE" >> "$LOG_FILE"
+                echo "[$(date)] ✅ Backup SQL completado y comprimido (limpiado): $SIZE" >> "$LOG_FILE"
             else
-                echo "[$(date)] ✅ Backup SQL completado: $SIZE" >> "$LOG_FILE"
+                echo "[$(date)] ✅ Backup SQL completado (limpiado): $SIZE" >> "$LOG_FILE"
             fi
             return 0
         fi
