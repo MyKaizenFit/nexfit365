@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   Dumbbell, Play, Pause, CheckCircle2, Circle, Clock,
-  Target, Timer, Star, Video,
+  Timer, Star, Video,
   Save, RotateCcw, Flame
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -275,8 +275,10 @@ export function ActiveWorkoutSession({
   const [notes, setNotes] = useState('')
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [confirmMissingExercises, setConfirmMissingExercises] = useState(false)
 
   const exercises = workoutDay?.exercises || []
+  const hasMissingExercises = completedExercises.size < exercises.length
 
   const normalizeExerciseSets = (data: Record<string, any> = {}) => {
     const normalized: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
@@ -517,6 +519,7 @@ export function ActiveWorkoutSession({
   const handlePrepareFinish = () => {
     // Pausar el temporizador cuando se abre el diálogo de finalización
     setIsPaused(true)
+    setConfirmMissingExercises(false)
     setShowFinishDialog(true)
 
     // Guardar estado al pausar
@@ -534,6 +537,10 @@ export function ActiveWorkoutSession({
 
   // Finalizar entrenamiento
   const handleFinish = async () => {
+    if (hasMissingExercises && !confirmMissingExercises) {
+      setConfirmMissingExercises(true)
+      return
+    }
     setIsSaving(true)
 
     try {
@@ -835,6 +842,9 @@ export function ActiveWorkoutSession({
           open={showFinishDialog}
           onOpenChange={(open) => {
             setShowFinishDialog(open)
+            if (!open) {
+              setConfirmMissingExercises(false)
+            }
             // Si se cierra el diálogo sin completar, reanudar el temporizador
             if (!open && isStarted && !isSaving) {
               setIsPaused(false)
@@ -864,6 +874,12 @@ export function ActiveWorkoutSession({
                   <span className="font-bold text-purple-700">{completedExercises.size}/{exercises.length}</span>
                 </div>
               </div>
+
+              {hasMissingExercises && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Faltan ejercicios por completar. ¿Seguro que quieres guardar?
+                </div>
+              )}
 
               {/* Calificación con estrellas */}
               <div className="space-y-2">
@@ -901,7 +917,7 @@ export function ActiveWorkoutSession({
                   className="flex-1 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  {isSaving ? 'Guardando...' : 'Guardar'}
+                  {isSaving ? 'Guardando...' : (hasMissingExercises && !confirmMissingExercises ? 'Guardar de todos modos' : 'Guardar')}
                 </Button>
               </div>
             </div>
