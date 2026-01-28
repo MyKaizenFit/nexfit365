@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
-  Dumbbell, Play, Pause, CheckCircle2, Circle, Clock,
+  Dumbbell, Play, Pause, Clock,
   Timer, Star, Video,
   Save, RotateCcw, Flame
 } from 'lucide-react'
@@ -410,39 +410,6 @@ export function ActiveWorkoutSession({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }, [])
 
-  // Toggle ejercicio completado
-  const toggleExerciseCompleted = (exerciseId: string) => {
-    setCompletedExercises((prev) => {
-      const newSet = new Set(prev)
-      if (newSet.has(exerciseId)) {
-        newSet.delete(exerciseId)
-      } else {
-        newSet.add(exerciseId)
-        // Mostrar temporizador de descanso si no es el último ejercicio
-        const currentIndex = exercises.findIndex((ex: any) =>
-          (ex.id || ex.exercise?.id) === exerciseId
-        )
-        if (currentIndex < exercises.length - 1) {
-          setShowRestTimer(true)
-        }
-      }
-
-      // Guardar estado después de cambiar ejercicios completados
-      saveWorkoutState({
-        isStarted,
-        isPaused,
-        elapsedSeconds,
-        workoutStartTime,
-        completedExercises: Array.from(newSet),
-        exerciseSets,
-        rating,
-        notes
-      })
-
-      return newSet
-    })
-  }
-
   const updateExerciseData = (
     exerciseId: string,
     field: 'reps' | 'weight' | 'effort',
@@ -455,16 +422,32 @@ export function ActiveWorkoutSession({
         [field]: value
       }
 
-      // Guardar estado después de actualizar series
-      saveWorkoutState({
-        isStarted,
-        isPaused,
-        elapsedSeconds,
-        workoutStartTime,
-        completedExercises: Array.from(completedExercises),
-        exerciseSets: newSets,
-        rating,
-        notes
+      const updated = newSets[exerciseId] || {}
+      const hasData =
+        (updated.reps !== undefined && updated.reps !== null && updated.reps > 0) ||
+        (updated.weight !== undefined && updated.weight !== null && updated.weight > 0) ||
+        (updated.effort !== undefined && updated.effort !== null && updated.effort > 0)
+
+      setCompletedExercises((prevCompleted) => {
+        const next = new Set(prevCompleted)
+        if (hasData) {
+          next.add(String(exerciseId))
+        } else {
+          next.delete(String(exerciseId))
+        }
+
+        saveWorkoutState({
+          isStarted,
+          isPaused,
+          elapsedSeconds,
+          workoutStartTime,
+          completedExercises: Array.from(next),
+          exerciseSets: newSets,
+          rating,
+          notes
+        })
+
+        return next
       })
 
       return newSets
@@ -712,24 +695,6 @@ export function ActiveWorkoutSession({
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
-                      {/* Checkbox */}
-                      <button
-                        onClick={() => toggleExerciseCompleted(String(exerciseId))}
-                        className={cn(
-                          'mt-1 transition-all',
-                          isCompleted
-                            ? 'text-green-600'
-                            : 'text-gray-400 hover:text-purple-600'
-                        )}
-                        disabled={!isStarted}
-                      >
-                        {isCompleted ? (
-                          <CheckCircle2 className="h-7 w-7" />
-                        ) : (
-                          <Circle className="h-7 w-7" />
-                        )}
-                      </button>
-
                       {/* Info del ejercicio */}
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
