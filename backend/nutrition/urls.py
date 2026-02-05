@@ -26,9 +26,12 @@ urlpatterns = [
     path('monthly-meal-selections/', monthly_meal_selections, name='monthly-meal-selections'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
     # Endpoint explícito para listar recetas (tiene prioridad sobre el router)
-    path('recipes/', list_recipes, name='recipes-list'),  # Updated to use list_recipes
-    # Endpoint para obtener una receta específica (usando el ViewSet)
-    path('recipes/<uuid:pk>/', RecipeViewSet.as_view({'get': 'retrieve'}), name='recipe-detail'),
+    path('recipes/', list_recipes, name='recipes-list'),
+    # Endpoints para recetas específicas
+    path('recipes/<uuid:pk>/', RecipeViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='recipe-detail'),
     path('recipes/<uuid:pk>/personalized/', RecipeViewSet.as_view({'get': 'personalized'}), name='recipe-personalized'),
+    path('recipes/<uuid:pk>/ingredients/', RecipeViewSet.as_view({'get': 'ingredients', 'post': 'ingredients'}), name='recipe-ingredients'),
+    path('recipes/<uuid:pk>/ingredients/<uuid:ingredient_id>/', RecipeViewSet.as_view({'put': 'ingredient_detail', 'delete': 'ingredient_detail'}), name='recipe-ingredient-detail'),
+    path('recipes/<uuid:pk>/recalculate_macros/', RecipeViewSet.as_view({'post': 'recalculate_macros'}), name='recipe-recalculate-macros'),
     path('', include(router.urls)),
 ]

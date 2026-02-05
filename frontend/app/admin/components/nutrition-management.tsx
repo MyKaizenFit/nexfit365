@@ -26,8 +26,10 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Salad
 } from "lucide-react"
+import { RecipeIngredientsEditor } from "./recipe-ingredients-editor"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +71,10 @@ export function NutritionManagement() {
   const [editingNutrition, setEditingNutrition] = useState<Nutrition | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Editor de ingredientes
+  const [ingredientsEditorOpen, setIngredientsEditorOpen] = useState(false)
+  const [selectedRecipeForIngredients, setSelectedRecipeForIngredients] = useState<Nutrition | null>(null)
   
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -580,6 +586,13 @@ export function NutritionManagement() {
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setSelectedRecipeForIngredients(item)
+                              setIngredientsEditorOpen(true)
+                            }}>
+                              <Salad className="h-4 w-4 mr-2" />
+                              Editar Ingredientes
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => deleteNutrition(item.id.toString())}
@@ -758,6 +771,16 @@ export function NutritionManagement() {
                             >
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setSelectedRecipeForIngredients(item)
+                                setIngredientsEditorOpen(true)
+                              }}
+                              className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
+                            >
+                              <Salad className="h-4 w-4 mr-2" />
+                              Editar Ingredientes
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -1086,6 +1109,29 @@ export function NutritionManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      {/* Editor de ingredientes */}
+      {selectedRecipeForIngredients && (
+        <RecipeIngredientsEditor
+          recipe={{
+            id: selectedRecipeForIngredients.id.toString(),
+            name: selectedRecipeForIngredients.name,
+            servings: selectedRecipeForIngredients.servings || 1,
+            calories: selectedRecipeForIngredients.calories_per_serving || 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0
+          }}
+          isOpen={ingredientsEditorOpen}
+          onClose={() => {
+            setIngredientsEditorOpen(false)
+            setSelectedRecipeForIngredients(null)
+          }}
+          onUpdate={() => {
+            refetch()
+          }}
+        />
+      )}
     </div>
   )
 }

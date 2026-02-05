@@ -1,0 +1,220 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    .import-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    .stat-card {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        border: 1px solid #dee2e6;
+    }
+    .stat-card h3 {
+        margin: 0;
+        font-size: 2em;
+        color: #417690;
+    }
+    .stat-card p {
+        margin: 5px 0 0;
+        color: #666;
+    }
+    .form-section {
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        padding: 25px;
+        margin-bottom: 20px;
+    }
+    .form-section h2 {
+        margin-top: 0;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #417690;
+        color: #417690;
+    }
+    .form-row {
+        margin-bottom: 20px;
+    }
+    .form-row label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+        color: #333;
+    }
+    .form-row input[type="text"],
+    .form-row input[type="number"] {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .form-row .help {
+        color: #666;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+    .submit-row {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+    }
+    .submit-row input[type="submit"] {
+        background: #417690;
+        color: white;
+        border: none;
+        padding: 12px 30px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    .submit-row input[type="submit"]:hover {
+        background: #205067;
+    }
+    .submit-row a {
+        padding: 12px 30px;
+        border-radius: 4px;
+        text-decoration: none;
+        color: #666;
+        border: 1px solid #ccc;
+    }
+    .categories-list {
+        margin-top: 15px;
+        padding: 10px;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+    .categories-list span {
+        display: inline-block;
+        background: #417690;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 15px;
+        margin: 3px;
+        font-size: 12px;
+    }
+    .info-box {
+        background: #e7f3fe;
+        border-left: 4px solid #2196F3;
+        padding: 15px;
+        margin-bottom: 20px;
+    }
+    .info-box h4 {
+        margin: 0 0 10px 0;
+        color: #1976D2;
+    }
+    .info-box ul {
+        margin: 0;
+        padding-left: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Inicio</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_label|capfirst }}</a>
+    &rsaquo; <a href="{% url 'admin:nutrition_food_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+    &rsaquo; Importar alimentos
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="import-container">
+    <h1>📥 {{ title }}</h1>
+    
+    <!-- Estadísticas -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <h3>{{ total_foods }}</h3>
+            <p>Total de alimentos</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ verified_foods }}</h3>
+            <p>Verificados</p>
+        </div>
+        <div class="stat-card">
+            <h3>{{ categories|length }}</h3>
+            <p>Categorías</p>
+        </div>
+    </div>
+    
+    <!-- Info Box -->
+    <div class="info-box">
+        <h4>ℹ️ Información sobre la importación</h4>
+        <ul>
+            <li>Los alimentos se importan desde <strong>OpenFoodFacts</strong>, una base de datos gratuita y colaborativa.</li>
+            <li>Los valores nutricionales son <strong>por 100g</strong> del alimento.</li>
+            <li>Se omiten alimentos duplicados (mismo nombre).</li>
+            <li>Solo se importan alimentos que tengan información de calorías.</li>
+            <li>Puedes verificar manualmente los alimentos importados después.</li>
+        </ul>
+    </div>
+    
+    <!-- Formulario -->
+    <div class="form-section">
+        <h2>🔍 Buscar e importar alimentos</h2>
+        
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="form-row">
+                <label for="id_search_term">{{ form.search_term.label }}</label>
+                {{ form.search_term }}
+                <p class="help">{{ form.search_term.help_text }}</p>
+            </div>
+            
+            <div class="form-row">
+                <label for="id_max_results">{{ form.max_results.label }}</label>
+                {{ form.max_results }}
+                <p class="help">{{ form.max_results.help_text }}</p>
+            </div>
+            
+            <div class="submit-row">
+                <input type="submit" value="🚀 Importar alimentos">
+                <a href="{% url 'admin:nutrition_food_changelist' %}">Cancelar</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Categorías existentes -->
+    {% if categories %}
+    <div class="form-section">
+        <h2>📂 Categorías existentes</h2>
+        <p>Estas son las categorías de alimentos que ya tienes en la base de datos:</p>
+        <div class="categories-list">
+            {% for cat in categories %}
+            <span>{{ cat }}</span>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Sugerencias -->
+    <div class="form-section">
+        <h2>💡 Sugerencias de búsqueda</h2>
+        <p>Algunos términos útiles para importar:</p>
+        <ul>
+            <li><strong>Proteínas:</strong> pollo, pechuga, atún, salmón, huevo, ternera, pavo</li>
+            <li><strong>Carbohidratos:</strong> arroz, pasta, pan, avena, patata, quinoa</li>
+            <li><strong>Lácteos:</strong> leche, yogur, queso, requesón</li>
+            <li><strong>Verduras:</strong> espinaca, brócoli, zanahoria, tomate, lechuga</li>
+            <li><strong>Frutas:</strong> manzana, plátano, naranja, fresa, kiwi</li>
+            <li><strong>Legumbres:</strong> lentejas, garbanzos, judías, alubias</li>
+            <li><strong>Suplementos:</strong> proteína whey, creatina, caseína</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

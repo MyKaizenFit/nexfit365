@@ -233,22 +233,20 @@ class PersonalizedNutritionService:
         """Crea las comidas del plan nutricional"""
         from datetime import time
         
-        # Distribución de calorías por comida
+        # Distribución de calorías por comida (4 comidas)
         meal_distribution = {
             'Desayuno': 0.25,
-            'Snack Mañana': 0.10,
-            'Almuerzo': 0.30,
-            'Snack Tarde': 0.10,
+            'Comida': 0.35,
+            'Merienda': 0.15,
             'Cena': 0.25
         }
         
         # Horarios de las comidas
         meal_times = {
             'Desayuno': time(8, 0),
-            'Snack Mañana': time(11, 0),
-            'Almuerzo': time(14, 0),
-            'Snack Tarde': time(17, 0),
-            'Cena': time(20, 0)
+            'Comida': time(14, 0),
+            'Merienda': time(17, 30),
+            'Cena': time(21, 0)
         }
         
         for meal_name, percentage in meal_distribution.items():

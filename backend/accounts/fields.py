@@ -26,8 +26,7 @@ class EncryptedCharField(models.CharField):
         if isinstance(value, str):
             try:
                 return decrypt_sensitive_field(value)
-            except Exception:
-                return value
+            except Exception:                return value
         return value
 
 
