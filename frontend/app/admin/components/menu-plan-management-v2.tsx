@@ -14,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, User, XCircle } from "lucide-react"
+import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Percent, Plus, Search, Trash2, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
+import { MacroPercentageEditor } from "./macro-percentage-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl } from "@/lib/api"
@@ -138,6 +139,10 @@ export function MenuPlanManagementV2() {
   const [duplicating, setDuplicating] = useState(false)
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
   const [duplicateUserId, setDuplicateUserId] = useState<string>("none")
+
+  // Editor de macros por porcentaje
+  const [showMacroEditor, setShowMacroEditor] = useState(false)
+  const [macroEditorPlan, setMacroEditorPlan] = useState<Plan | null>(null)
 
   const [form, setForm] = useState({
     name: "",
@@ -868,6 +873,12 @@ export function MenuPlanManagementV2() {
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setMacroEditorPlan(p)
+                                setShowMacroEditor(true)
+                              }}>
+                                <Percent className="h-4 w-4 mr-2" /> Editar Macros (%)
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
                               </DropdownMenuItem>
@@ -984,6 +995,12 @@ export function MenuPlanManagementV2() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => {
+                                setMacroEditorPlan(p)
+                                setShowMacroEditor(true)
+                              }}>
+                                <Percent className="h-4 w-4 mr-2" /> Editar Macros (%)
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
@@ -1439,6 +1456,38 @@ export function MenuPlanManagementV2() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Editor de Macros por porcentaje */}
+      {macroEditorPlan && (
+        <MacroPercentageEditor
+          isOpen={showMacroEditor}
+          onClose={() => {
+            setShowMacroEditor(false)
+            setMacroEditorPlan(null)
+          }}
+          plan={{
+            id: macroEditorPlan.id,
+            name: macroEditorPlan.name,
+            daily_calories: macroEditorPlan.daily_calories,
+            protein_grams: 0,
+            carbs_grams: 0,
+            fat_grams: 0,
+            protein_percentage: macroEditorPlan.protein_percentage,
+            carbs_percentage: macroEditorPlan.carbs_percentage,
+            fat_percentage: macroEditorPlan.fat_percentage,
+            macro_percentages: {
+              protein: macroEditorPlan.protein_percentage || 30,
+              carbs: macroEditorPlan.carbs_percentage || 40,
+              fat: macroEditorPlan.fat_percentage || 30,
+            }
+          }}
+          onUpdate={() => {
+            fetchPlans()
+            setShowMacroEditor(false)
+            setMacroEditorPlan(null)
+          }}
+        />
+      )}
     </div>
   )
 }

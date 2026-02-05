@@ -106,6 +106,7 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "description",
             "daily_calories", "protein_grams", "carbs_grams", "fat_grams", "fiber_grams",
+            "protein_percentage", "carbs_percentage", "fat_percentage",
             "macro_percentages",
             "goal", "diet_type", "meals_per_day", "duration_weeks",
             "is_template", "is_system", "is_active",

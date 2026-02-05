@@ -375,6 +375,26 @@ class NutritionPlan(TimeStampedModel):
         help_text="Fibra diaria en gramos"
     )
     
+    # Porcentajes de macros (opcionales - si se definen, tienen prioridad)
+    protein_percentage = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="% de calorías de proteína (opcional)"
+    )
+    carbs_percentage = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="% de calorías de carbohidratos (opcional)"
+    )
+    fat_percentage = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+        help_text="% de calorías de grasa (opcional)"
+    )
+    
     # Configuración
     goal = models.CharField(
         max_length=50, 
@@ -447,7 +467,16 @@ class NutritionPlan(TimeStampedModel):
     
     @property
     def macro_percentages(self):
-        """Calcula porcentajes de macros"""
+        """Calcula porcentajes de macros - usa los definidos o calcula desde gramos"""
+        # Si hay porcentajes definidos, usarlos
+        if self.protein_percentage is not None and self.carbs_percentage is not None and self.fat_percentage is not None:
+            return {
+                'protein': self.protein_percentage,
+                'carbs': self.carbs_percentage,
+                'fat': self.fat_percentage,
+            }
+        
+        # Calcular desde gramos
         total_cals = (self.protein_grams * 4) + (self.carbs_grams * 4) + (self.fat_grams * 9)
         if total_cals == 0:
             return {'protein': 0, 'carbs': 0, 'fat': 0}
@@ -456,6 +485,41 @@ class NutritionPlan(TimeStampedModel):
             'carbs': round((self.carbs_grams * 4 / total_cals) * 100, 1),
             'fat': round((self.fat_grams * 9 / total_cals) * 100, 1),
         }
+    
+    def set_macros_from_percentages(self, protein_pct: int, carbs_pct: int, fat_pct: int, save: bool = True):
+        """
+        Establece los gramos de macros basándose en porcentajes y calorías diarias.
+        Proteína y carbos = 4 cal/g, Grasa = 9 cal/g
+        """
+        self.protein_percentage = protein_pct
+        self.carbs_percentage = carbs_pct
+        self.fat_percentage = fat_pct
+        
+        # Calcular gramos
+        self.protein_grams = int((self.daily_calories * protein_pct / 100) / 4)
+        self.carbs_grams = int((self.daily_calories * carbs_pct / 100) / 4)
+        self.fat_grams = int((self.daily_calories * fat_pct / 100) / 9)
+        
+        if save:
+            self.save()
+    
+    def set_macros_from_grams(self, protein_g: int, carbs_g: int, fat_g: int, save: bool = True):
+        """
+        Establece los gramos de macros y calcula los porcentajes automáticamente.
+        """
+        self.protein_grams = protein_g
+        self.carbs_grams = carbs_g
+        self.fat_grams = fat_g
+        
+        # Calcular porcentajes
+        total_cals = (protein_g * 4) + (carbs_g * 4) + (fat_g * 9)
+        if total_cals > 0:
+            self.protein_percentage = round((protein_g * 4 / total_cals) * 100)
+            self.carbs_percentage = round((carbs_g * 4 / total_cals) * 100)
+            self.fat_percentage = round((fat_g * 9 / total_cals) * 100)
+        
+        if save:
+            self.save()
 
 
 # =============================================================================

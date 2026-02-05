@@ -1261,6 +1261,88 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
             'message': 'Plan activado correctamente. Otros planes activos han sido desactivados.',
             'plan': serializer.data
         }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['post'])
+    def update_macros(self, request, pk=None):
+        """
+        Actualiza los macros del plan por porcentaje o por gramos.
+        POST /api/nutrition/plans/{id}/update_macros/
+        
+        Body (por porcentaje):
+        {
+            "mode": "percentage",
+            "protein": 30,
+            "carbs": 40,
+            "fat": 30
+        }
+        
+        Body (por gramos):
+        {
+            "mode": "grams",
+            "protein": 150,
+            "carbs": 200,
+            "fat": 65
+        }
+        """
+        plan = self.get_object()
+        
+        # Verificar permisos (solo admin o dueño del plan)
+        if not request.user.is_staff and plan.user != request.user:
+            return Response(
+                {'error': 'No tienes permiso para modificar este plan'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        mode = request.data.get('mode', 'percentage')
+        protein = request.data.get('protein')
+        carbs = request.data.get('carbs')
+        fat = request.data.get('fat')
+        calories = request.data.get('calories')
+        
+        if protein is None or carbs is None or fat is None:
+            return Response(
+                {'error': 'Debes proporcionar protein, carbs y fat'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            protein = int(protein)
+            carbs = int(carbs)
+            fat = int(fat)
+            
+            # Actualizar calorías si se proporcionan
+            if calories:
+                plan.daily_calories = int(calories)
+            
+            if mode == 'percentage':
+                # Validar que sumen ~100%
+                total = protein + carbs + fat
+                if total < 95 or total > 105:
+                    return Response(
+                        {'error': f'Los porcentajes deben sumar ~100% (actual: {total}%)'},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                plan.set_macros_from_percentages(protein, carbs, fat)
+            else:  # mode == 'grams'
+                plan.set_macros_from_grams(protein, carbs, fat)
+            
+            return Response({
+                'message': 'Macros actualizados correctamente',
+                'daily_calories': plan.daily_calories,
+                'protein_grams': plan.protein_grams,
+                'carbs_grams': plan.carbs_grams,
+                'fat_grams': plan.fat_grams,
+                'protein_percentage': plan.protein_percentage,
+                'carbs_percentage': plan.carbs_percentage,
+                'fat_percentage': plan.fat_percentage,
+                'macro_percentages': plan.macro_percentages,
+            })
+            
+        except ValueError as e:
+            return Response(
+                {'error': f'Valores inválidos: {str(e)}'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 
 class MealLogViewSet(viewsets.ModelViewSet):
