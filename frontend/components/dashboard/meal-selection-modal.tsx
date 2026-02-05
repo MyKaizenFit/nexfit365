@@ -1005,12 +1005,10 @@ function AllRecipesModal({
                 </h2>
                 <p className="text-sm text-gray-600">
                   Recetas sugeridas para {mealName} ({mealTime}) según tu plan de nutrición
-                <div
-                  ref={scrollRef}
-                  onScroll={handleScroll}
-                  className="p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
-                  style={{ WebkitOverflowScrolling: 'touch' }}
-                >
+                </p>
+              </div>
+              <button
+                type="button"
                 onClick={onClose}
                 className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
                 aria-label="Cerrar"
@@ -1045,6 +1043,8 @@ function AllRecipesModal({
 
           {/* Content - Scrollable */}
           <div
+            ref={scrollRef}
+            onScroll={handleScroll}
             className="p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
             style={{ WebkitOverflowScrolling: 'touch' }}
           >

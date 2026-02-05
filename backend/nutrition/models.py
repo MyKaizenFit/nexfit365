@@ -198,6 +198,122 @@ class Recipe(TimeStampedModel):
             'carbs': float(self.carbs),
             'fat': float(self.fat),
         }
+    
+    def calculate_macros_from_ingredients(self, save=True):
+        """
+        Calcula los macros totales basándose en los ingredientes vinculados.
+        Los valores se calculan por porción (dividido entre servings).
+        """
+        ingredients = self.recipe_ingredients.all()
+        
+        if not ingredients.exists():
+            return False
+        
+        total_calories = 0
+        total_protein = 0
+        total_carbs = 0
+        total_fat = 0
+        total_fiber = 0
+        total_sugar = 0
+        total_sodium = 0
+        
+        for ingredient in ingredients:
+            # Calcular proporción (cantidad usada / 100g base del alimento)
+            ratio = float(ingredient.quantity) / 100
+            
+            total_calories += ingredient.food.calories * ratio
+            total_protein += float(ingredient.food.protein) * ratio
+            total_carbs += float(ingredient.food.carbs) * ratio
+            total_fat += float(ingredient.food.fat) * ratio
+            total_fiber += float(ingredient.food.fiber) * ratio
+            total_sugar += float(ingredient.food.sugar) * ratio
+            total_sodium += float(ingredient.food.sodium) * ratio
+        
+        # Dividir por porciones
+        servings = self.servings if self.servings > 0 else 1
+        
+        self.calories = int(total_calories / servings)
+        self.protein = round(total_protein / servings, 2)
+        self.carbs = round(total_carbs / servings, 2)
+        self.fat = round(total_fat / servings, 2)
+        self.fiber = round(total_fiber / servings, 2)
+        self.sugar = round(total_sugar / servings, 2)
+        self.sodium = round(total_sodium / servings, 2)
+        
+        if save:
+            self.save()
+        
+        return True
+
+
+class RecipeIngredient(TimeStampedModel):
+    """
+    Ingrediente de una receta vinculado a un alimento de la BD.
+    Permite calcular macros automáticamente.
+    """
+    
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name='recipe_ingredients'
+    )
+    food = models.ForeignKey(
+        'Food',
+        on_delete=models.CASCADE,
+        related_name='used_in_recipes'
+    )
+    
+    # Cantidad en gramos (o unidad según el alimento)
+    quantity = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        default=100,
+        help_text="Cantidad en gramos"
+    )
+    unit = models.CharField(
+        max_length=30,
+        default="g",
+        help_text="Unidad de medida"
+    )
+    
+    # Notas opcionales (ej: "picado", "cocido")
+    notes = models.CharField(max_length=100, blank=True)
+    
+    # Orden en la lista de ingredientes
+    order = models.PositiveIntegerField(default=0)
+    
+    class Meta:
+        ordering = ['order', 'created_at']
+        verbose_name = "Ingrediente de receta"
+        verbose_name_plural = "Ingredientes de receta"
+    
+    def __str__(self):
+        return f"{self.quantity}{self.unit} {self.food.name}"
+    
+    @property
+    def calculated_macros(self):
+        """Macros calculados para esta cantidad de ingrediente"""
+        ratio = float(self.quantity) / 100
+        return {
+            'calories': int(self.food.calories * ratio),
+            'protein': round(float(self.food.protein) * ratio, 2),
+            'carbs': round(float(self.food.carbs) * ratio, 2),
+            'fat': round(float(self.food.fat) * ratio, 2),
+            'fiber': round(float(self.food.fiber) * ratio, 2),
+            'sugar': round(float(self.food.sugar) * ratio, 2),
+            'sodium': round(float(self.food.sodium) * ratio, 2),
+        }
+    
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Recalcular macros de la receta al guardar ingrediente
+        self.recipe.calculate_macros_from_ingredients()
+    
+    def delete(self, *args, **kwargs):
+        recipe = self.recipe
+        super().delete(*args, **kwargs)
+        # Recalcular macros después de eliminar
+        recipe.calculate_macros_from_ingredients()
 
 
 # =============================================================================
@@ -354,13 +470,9 @@ class PlanMeal(TimeStampedModel):
     
     MEAL_TYPE_CHOICES = [
         ('breakfast', 'Desayuno'),
-        ('morning_snack', 'Snack Mañana'),
-        ('lunch', 'Almuerzo'),
-        ('afternoon_snack', 'Snack Tarde'),
+        ('lunch', 'Comida'),
+        ('snack', 'Merienda'),
         ('dinner', 'Cena'),
-        ('evening_snack', 'Snack Noche'),
-        ('pre_workout', 'Pre-Entreno'),
-        ('post_workout', 'Post-Entreno'),
     ]
 
     DAY_OF_WEEK_CHOICES = [
@@ -569,12 +681,9 @@ class MealLog(TimeStampedModel):
     
     MEAL_TYPE_CHOICES = [
         ('breakfast', 'Desayuno'),
-        ('morning_snack', 'Snack Mañana'),
-        ('lunch', 'Almuerzo'),
-        ('afternoon_snack', 'Snack Tarde'),
+        ('lunch', 'Comida'),
+        ('snack', 'Merienda'),
         ('dinner', 'Cena'),
-        ('evening_snack', 'Snack Noche'),
-        ('other', 'Otro'),
     ]
     
     user = models.ForeignKey(

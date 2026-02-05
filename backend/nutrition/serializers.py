@@ -2,13 +2,54 @@
 # Serializers para la nueva estructura simplificada
 
 from rest_framework import serializers
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient
+
+
+class FoodMinimalSerializer(serializers.ModelSerializer):
+    """Serializer minimal para alimentos en ingredientes"""
+    class Meta:
+        model = Food
+        fields = ['id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'category']
+
+
+class RecipeIngredientSerializer(serializers.ModelSerializer):
+    """Serializer para ingredientes de recetas"""
+    food_detail = FoodMinimalSerializer(source='food', read_only=True)
+    calculated_macros = serializers.DictField(read_only=True)
+    food_id = serializers.UUIDField(write_only=True, required=False)
+    
+    class Meta:
+        model = RecipeIngredient
+        fields = [
+            'id', 'recipe', 'food', 'food_id', 'food_detail',
+            'quantity', 'unit', 'notes', 'order',
+            'calculated_macros', 'created_at'
+        ]
+        read_only_fields = ['id', 'calculated_macros', 'created_at']
+        extra_kwargs = {
+            'food': {'required': False},
+            'recipe': {'required': False}
+        }
+    
+    def create(self, validated_data):
+        food_id = validated_data.pop('food_id', None)
+        if food_id:
+            validated_data['food'] = Food.objects.get(id=food_id)
+        return super().create(validated_data)
+    
+    def update(self, instance, validated_data):
+        food_id = validated_data.pop('food_id', None)
+        if food_id:
+            validated_data['food'] = Food.objects.get(id=food_id)
+        return super().update(instance, validated_data)
 
 
 class RecipeSerializer(serializers.ModelSerializer):
     """Serializer para recetas"""
     total_time_minutes = serializers.IntegerField(read_only=True)
     macros_summary = serializers.DictField(read_only=True)
+    recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
+    ingredients_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Recipe
@@ -18,13 +59,16 @@ class RecipeSerializer(serializers.ModelSerializer):
             "servings", "total_time_minutes",
             "calories", "protein", "carbs", "fat", "fiber", "sugar", "sodium",
             "macros_summary",
-            "ingredients", "instructions",
+            "ingredients", "recipe_ingredients", "ingredients_count", "instructions",
             "diet_types", "meal_types", "allergens", "tags",
             "image_url", "video_url",
             "is_system", "is_active", "is_featured",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "total_time_minutes", "macros_summary", "created_at", "updated_at"]
+        read_only_fields = ["id", "total_time_minutes", "macros_summary", "recipe_ingredients", "ingredients_count", "created_at", "updated_at"]
+    
+    def get_ingredients_count(self, obj):
+        return obj.recipe_ingredients.count()
 
 
 class RecipeMinimalSerializer(serializers.ModelSerializer):

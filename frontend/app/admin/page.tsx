@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X, Utensils } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -38,6 +38,7 @@ const AdminProfile = lazy(() => import("./components/admin-profile").then(module
 const ExerciseManagement = lazy(() => import("./components/exercise-management").then(module => ({ default: module.ExerciseManagement })))
 const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-management").then(module => ({ default: module.WorkoutPlanManagement })))
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
+const FoodManagement = lazy(() => import("./components/food-management").then(module => ({ default: module.FoodManagement })))
 const MenuPlanManagementV2 = lazy(() => import("./components/menu-plan-management-v2").then(module => ({ default: module.MenuPlanManagementV2 })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
 const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-v2").then(module => ({ default: module.DefaultPlanConfigurationsPanelV2 })))
@@ -134,6 +135,7 @@ function AdminPageContent() {
     | 'profile'
     | 'exercises'
     | 'workout-plans'
+    | 'foods'
     | 'nutrition'
     | 'nutrition-plans'
     | 'user-nutrition-plans'
@@ -676,6 +678,7 @@ function AdminPageContent() {
                 { id: 'profile', label: 'Mi Perfil', icon: User, gradient: 'from-blue-500 to-cyan-500' },
                 { id: 'exercises', label: 'Ejercicios', icon: Dumbbell, gradient: 'from-orange-500 to-red-500' },
                 { id: 'workout-plans', label: 'Planes de Entrenamiento', icon: Dumbbell, gradient: 'from-purple-500 to-violet-500' },
+                { id: 'foods', label: 'Alimentos', icon: Utensils, gradient: 'from-amber-500 to-orange-500' },
                 { id: 'nutrition', label: 'Recetas', icon: Apple, gradient: 'from-green-500 to-emerald-500' },
                 { id: 'nutrition-plans', label: 'Planes de Menús', icon: Apple, gradient: 'from-orange-500 to-amber-500' },
                 { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
@@ -805,6 +808,18 @@ function AdminPageContent() {
                       Planes de Entrenamiento
                     </Button>
                     <Button
+                      variant={activeSection === 'foods' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('foods')}
+                      className={`flex items-center gap-2 ${
+                        activeSection === 'foods' 
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' 
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      <Utensils className="h-4 w-4" />
+                      Alimentos
+                    </Button>
+                    <Button
                       variant={activeSection === 'nutrition' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('nutrition')}
                       className={`flex items-center gap-2 ${
@@ -911,6 +926,8 @@ function AdminPageContent() {
             <ExerciseManagement />
           ) : activeSection === 'workout-plans' ? (
             <WorkoutPlanManagement />
+          ) : activeSection === 'foods' ? (
+            <FoodManagement />
           ) : activeSection === 'nutrition' ? (
             <NutritionManagement />
           ) : activeSection === 'nutrition-plans' ? (

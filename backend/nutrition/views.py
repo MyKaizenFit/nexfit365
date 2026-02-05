@@ -10,12 +10,12 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db.models import Q
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
-    NutritionPlanHistorySerializer
+    NutritionPlanHistorySerializer, RecipeIngredientSerializer
 )
 from .services import PersonalizedNutritionService
 from django.shortcuts import get_object_or_404
@@ -1080,6 +1080,98 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'daily_calories_target': daily_calories
             }
         })
+    
+    @action(detail=True, methods=['get', 'post'])
+    def ingredients(self, request, pk=None):
+        """
+        GET: Lista ingredientes de una receta
+        POST: Añade un ingrediente a la receta
+        """
+        recipe = self.get_object()
+        
+        if request.method == 'GET':
+            ingredients = recipe.recipe_ingredients.all()
+            serializer = RecipeIngredientSerializer(ingredients, many=True)
+            return Response(serializer.data)
+        
+        elif request.method == 'POST':
+            # Solo admin puede modificar
+            if not request.user.is_staff:
+                return Response(
+                    {'error': 'Solo administradores pueden añadir ingredientes'},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+            
+            serializer = RecipeIngredientSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save(recipe=recipe)
+                # Recalcular macros
+                recipe.calculate_macros_from_ingredients()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    @action(detail=True, methods=['put', 'delete'], url_path='ingredients/(?P<ingredient_id>[^/.]+)')
+    def ingredient_detail(self, request, pk=None, ingredient_id=None):
+        """
+        PUT: Actualiza un ingrediente
+        DELETE: Elimina un ingrediente
+        """
+        recipe = self.get_object()
+        
+        # Solo admin puede modificar
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Solo administradores pueden modificar ingredientes'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        try:
+            ingredient = recipe.recipe_ingredients.get(id=ingredient_id)
+        except RecipeIngredient.DoesNotExist:
+            return Response(
+                {'error': 'Ingrediente no encontrado'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        if request.method == 'PUT':
+            serializer = RecipeIngredientSerializer(ingredient, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif request.method == 'DELETE':
+            ingredient.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+    
+    @action(detail=True, methods=['post'])
+    def recalculate_macros(self, request, pk=None):
+        """Recalcula los macros de la receta basándose en los ingredientes"""
+        recipe = self.get_object()
+        
+        if not request.user.is_staff:
+            return Response(
+                {'error': 'Solo administradores pueden recalcular macros'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        success = recipe.calculate_macros_from_ingredients()
+        
+        if success:
+            return Response({
+                'message': 'Macros recalculados correctamente',
+                'calories': recipe.calories,
+                'protein': float(recipe.protein),
+                'carbs': float(recipe.carbs),
+                'fat': float(recipe.fat),
+                'fiber': float(recipe.fiber),
+                'sugar': float(recipe.sugar),
+                'sodium': float(recipe.sodium),
+            })
+        else:
+            return Response({
+                'message': 'No hay ingredientes para calcular macros'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class NutritionPlanViewSet(viewsets.ModelViewSet):
@@ -1229,7 +1321,113 @@ class FoodViewSet(viewsets.ModelViewSet):
     serializer_class = FoodSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter]
-    search_fields = ['name', 'brand']
+    search_fields = ['name', 'brand', 'category']
+    
+    @action(detail=False, methods=['post'], url_path='import')
+    def import_foods(self, request):
+        """Importar alimentos desde OpenFoodFacts"""
+        from .fatsecret_client import OpenFoodFactsClient
+        
+        search_term = request.data.get('search_term', '')
+        max_results = min(int(request.data.get('max_results', 50)), 100)
+        
+        if not search_term:
+            return Response({'detail': 'search_term es requerido'}, status=400)
+        
+        client = OpenFoodFactsClient()
+        
+        try:
+            results = client.search_foods(search_term, page_size=max_results)
+            
+            imported = 0
+            skipped = 0
+            
+            for product in results:
+                name = client.get_food_name(product)
+                if not name:
+                    continue
+                
+                # Verificar si ya existe
+                if Food.objects.filter(name=name).exists():
+                    skipped += 1
+                    continue
+                
+                nutrients = client.parse_nutrients(product)
+                
+                # Solo importar si tiene al menos calorías
+                if nutrients['calories'] > 0:
+                    Food.objects.create(
+                        name=name,
+                        brand=product.get('brands', '')[:100] if product.get('brands') else '',
+                        calories=nutrients['calories'],
+                        protein=nutrients['protein'],
+                        carbs=nutrients['carbs'],
+                        fat=nutrients['fat'],
+                        fiber=nutrients['fiber'],
+                        sugar=nutrients['sugar'],
+                        sodium=nutrients['sodium'],
+                        serving_size=100,
+                        serving_unit='g',
+                        category=search_term.capitalize(),
+                        is_verified=False,
+                        created_by=request.user
+                    )
+                    imported += 1
+            
+            return Response({
+                'imported': imported,
+                'skipped': skipped
+            })
+            
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+    
+    @action(detail=False, methods=['post'], url_path='import_from_api')
+    def import_from_api(self, request):
+        """Alias para import_foods - usado por el frontend"""
+        return self.import_foods(request)
+    
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Obtener estadísticas de alimentos"""
+        total = Food.objects.count()
+        verified = Food.objects.filter(is_verified=True).count()
+        categories = list(Food.objects.exclude(category='').values_list('category', flat=True).distinct())
+        
+        return Response({
+            'total': total,
+            'verified': verified,
+            'categories': categories
+        })
+    
+    @action(detail=False, methods=['post'])
+    def bulk_verify(self, request):
+        """Verificar/desverificar alimentos en lote"""
+        food_ids = request.data.get('food_ids', [])
+        is_verified = request.data.get('is_verified', True)
+        
+        if not food_ids:
+            return Response({'detail': 'food_ids es requerido'}, status=400)
+        
+        updated = Food.objects.filter(id__in=food_ids).update(is_verified=is_verified)
+        
+        return Response({
+            'updated': updated
+        })
+    
+    def get_queryset(self):
+        """Filtrar por categoría y verificación"""
+        queryset = Food.objects.all()
+        
+        category = self.request.query_params.get('category')
+        if category:
+            queryset = queryset.filter(category=category)
+        
+        is_verified = self.request.query_params.get('is_verified')
+        if is_verified is not None:
+            queryset = queryset.filter(is_verified=is_verified.lower() == 'true')
+        
+        return queryset.order_by('name')
 
 
 def list_recipes(request):

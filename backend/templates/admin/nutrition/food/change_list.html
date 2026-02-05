@@ -1,0 +1,287 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+    /* Estilos para filas expandibles */
+    .food-detail-row {
+        display: none;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    }
+    .food-detail-row.expanded {
+        display: table-row;
+    }
+    .food-detail-content {
+        padding: 20px;
+        margin: 0;
+    }
+    .food-detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+    }
+    .detail-card {
+        background: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .detail-card h4 {
+        margin: 0 0 10px 0;
+        color: #417690;
+        font-size: 14px;
+        border-bottom: 2px solid #417690;
+        padding-bottom: 5px;
+    }
+    .detail-card .value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #333;
+    }
+    .detail-card .unit {
+        font-size: 12px;
+        color: #666;
+    }
+    .detail-card .label {
+        font-size: 11px;
+        color: #888;
+        text-transform: uppercase;
+    }
+    .macros-bar {
+        display: flex;
+        height: 20px;
+        border-radius: 10px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+    .macros-bar .protein { background: #e74c3c; }
+    .macros-bar .carbs { background: #f39c12; }
+    .macros-bar .fat { background: #3498db; }
+    .expand-btn {
+        cursor: pointer;
+        background: #417690;
+        color: white;
+        border: none;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+        transition: all 0.2s;
+    }
+    .expand-btn:hover {
+        background: #205067;
+    }
+    .expand-btn.active {
+        background: #c9302c;
+    }
+    .nutrient-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .nutrient-list li {
+        display: flex;
+        justify-content: space-between;
+        padding: 5px 0;
+        border-bottom: 1px solid #eee;
+    }
+    .nutrient-list li:last-child {
+        border-bottom: none;
+    }
+    .nutrient-list .name {
+        color: #666;
+    }
+    .nutrient-list .value {
+        font-weight: bold;
+        color: #333;
+    }
+    /* Tag de verificado */
+    .verified-tag {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: bold;
+    }
+    .verified-tag.yes {
+        background: #d4edda;
+        color: #155724;
+    }
+    .verified-tag.no {
+        background: #fff3cd;
+        color: #856404;
+    }
+    /* Botón ver info en cada fila */
+    .action-checkbox-column + td {
+        position: relative;
+    }
+</style>
+{% endblock %}
+
+{% block object-tools-items %}
+<li>
+    <a href="{% url 'admin:nutrition_food_import' %}" class="addlink">
+        📥 Importar alimentos desde OpenFoodFacts
+    </a>
+</li>
+{{ block.super }}
+{% endblock %}
+
+{% block result_list %}
+{{ block.super }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Añadir botones de expandir a cada fila
+    const rows = document.querySelectorAll('#result_list tbody tr');
+    
+    rows.forEach(function(row, index) {
+        if (row.classList.contains('food-detail-row')) return;
+        
+        // Obtener el ID del alimento desde el checkbox
+        const checkbox = row.querySelector('input[type="checkbox"]');
+        if (!checkbox) return;
+        
+        const foodId = checkbox.value;
+        
+        // Crear botón de expandir
+        const firstCell = row.querySelector('th');
+        if (firstCell) {
+            const btn = document.createElement('button');
+            btn.className = 'expand-btn';
+            btn.innerHTML = '👁️ Ver';
+            btn.type = 'button';
+            btn.style.marginRight = '10px';
+            btn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleDetail(foodId, row, btn);
+            };
+            firstCell.insertBefore(btn, firstCell.firstChild);
+        }
+    });
+});
+
+function toggleDetail(foodId, row, btn) {
+    const existingDetail = document.getElementById('detail-' + foodId);
+    
+    if (existingDetail) {
+        // Toggle visibility
+        if (existingDetail.classList.contains('expanded')) {
+            existingDetail.classList.remove('expanded');
+            btn.innerHTML = '👁️ Ver';
+            btn.classList.remove('active');
+        } else {
+            existingDetail.classList.add('expanded');
+            btn.innerHTML = '✖️ Cerrar';
+            btn.classList.add('active');
+        }
+    } else {
+        // Fetch and create detail row
+        btn.innerHTML = '⏳ Cargando...';
+        btn.disabled = true;
+        
+        fetch('/api/v1/nutrition/foods/' + foodId + '/detail/')
+            .then(response => response.json())
+            .then(data => {
+                const detailRow = createDetailRow(foodId, data);
+                row.parentNode.insertBefore(detailRow, row.nextSibling);
+                btn.innerHTML = '✖️ Cerrar';
+                btn.classList.add('active');
+                btn.disabled = false;
+            })
+            .catch(error => {
+                // Fallback: usar datos de la fila
+                const cells = row.querySelectorAll('td');
+                const data = extractDataFromRow(row);
+                const detailRow = createDetailRow(foodId, data);
+                row.parentNode.insertBefore(detailRow, row.nextSibling);
+                btn.innerHTML = '✖️ Cerrar';
+                btn.classList.add('active');
+                btn.disabled = false;
+            });
+    }
+}
+
+function extractDataFromRow(row) {
+    const cells = row.querySelectorAll('td');
+    const link = row.querySelector('th a');
+    return {
+        name: link ? link.textContent : 'N/A',
+        brand: cells[0] ? cells[0].textContent : '',
+        category: cells[1] ? cells[1].textContent : '',
+        calories: cells[2] ? parseInt(cells[2].textContent) || 0 : 0,
+        protein: cells[3] ? parseFloat(cells[3].textContent) || 0 : 0,
+        carbs: cells[4] ? parseFloat(cells[4].textContent) || 0 : 0,
+        fat: cells[5] ? parseFloat(cells[5].textContent) || 0 : 0,
+        fiber: cells[6] ? parseFloat(cells[6].textContent) || 0 : 0,
+        sugar: cells[7] ? parseFloat(cells[7].textContent) || 0 : 0,
+        is_verified: cells[8] ? cells[8].querySelector('img[alt="True"]') !== null : false,
+        serving_size: 100,
+        serving_unit: 'g',
+        sodium: 0
+    };
+}
+
+function createDetailRow(foodId, data) {
+    const tr = document.createElement('tr');
+    tr.id = 'detail-' + foodId;
+    tr.className = 'food-detail-row expanded';
+    
+    const colSpan = document.querySelectorAll('#result_list thead th').length;
+    
+    const totalMacros = (parseFloat(data.protein) || 0) + (parseFloat(data.carbs) || 0) + (parseFloat(data.fat) || 0);
+    const proteinPct = totalMacros > 0 ? ((parseFloat(data.protein) || 0) / totalMacros * 100).toFixed(1) : 0;
+    const carbsPct = totalMacros > 0 ? ((parseFloat(data.carbs) || 0) / totalMacros * 100).toFixed(1) : 0;
+    const fatPct = totalMacros > 0 ? ((parseFloat(data.fat) || 0) / totalMacros * 100).toFixed(1) : 0;
+    
+    tr.innerHTML = `
+        <td colspan="${colSpan}" class="food-detail-content">
+            <div class="food-detail-grid">
+                <div class="detail-card">
+                    <h4>📋 Información General</h4>
+                    <ul class="nutrient-list">
+                        <li><span class="name">Nombre</span><span class="value">${data.name || 'N/A'}</span></li>
+                        <li><span class="name">Marca</span><span class="value">${data.brand || '-'}</span></li>
+                        <li><span class="name">Categoría</span><span class="value">${data.category || '-'}</span></li>
+                        <li><span class="name">Porción</span><span class="value">${data.serving_size || 100}${data.serving_unit || 'g'}</span></li>
+                        <li><span class="name">Verificado</span><span class="value"><span class="verified-tag ${data.is_verified ? 'yes' : 'no'}">${data.is_verified ? '✓ Sí' : '✗ No'}</span></span></li>
+                    </ul>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>🔥 Calorías</h4>
+                    <div class="value">${data.calories || 0}<span class="unit"> kcal</span></div>
+                    <div class="label">por 100g</div>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>💪 Macronutrientes</h4>
+                    <ul class="nutrient-list">
+                        <li><span class="name">🥩 Proteínas</span><span class="value">${data.protein || 0}g <small>(${proteinPct}%)</small></span></li>
+                        <li><span class="name">🍚 Carbohidratos</span><span class="value">${data.carbs || 0}g <small>(${carbsPct}%)</small></span></li>
+                        <li><span class="name">🧈 Grasas</span><span class="value">${data.fat || 0}g <small>(${fatPct}%)</small></span></li>
+                    </ul>
+                    <div class="macros-bar">
+                        <div class="protein" style="width: ${proteinPct}%"></div>
+                        <div class="carbs" style="width: ${carbsPct}%"></div>
+                        <div class="fat" style="width: ${fatPct}%"></div>
+                    </div>
+                    <small style="color:#666">🔴 Proteína | 🟡 Carbos | 🔵 Grasa</small>
+                </div>
+                
+                <div class="detail-card">
+                    <h4>🌿 Otros Nutrientes</h4>
+                    <ul class="nutrient-list">
+                        <li><span class="name">🌾 Fibra</span><span class="value">${data.fiber || 0}g</span></li>
+                        <li><span class="name">🍬 Azúcar</span><span class="value">${data.sugar || 0}g</span></li>
+                        <li><span class="name">🧂 Sodio</span><span class="value">${data.sodium || 0}mg</span></li>
+                    </ul>
+                </div>
+            </div>
+        </td>
+    `;
+    
+    return tr;
+}
+</script>
+{% endblock %}
