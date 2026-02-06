@@ -72,7 +72,7 @@ class OpenFoodFactsClient:
         response = self.session.get(
             OPENFOODFACTS_SEARCH_URL,
             params=params,
-            timeout=30,
+            timeout=60,
         )
         response.raise_for_status()
         data = response.json()
@@ -88,7 +88,7 @@ class OpenFoodFactsClient:
         """Obtiene un producto por código de barras"""
         response = self.session.get(
             f"{OPENFOODFACTS_PRODUCT_URL}/{barcode}.json",
-            timeout=30,
+            timeout=60,
         )
         if response.status_code == 404:
             return None
