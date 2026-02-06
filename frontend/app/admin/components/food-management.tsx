@@ -81,11 +81,16 @@ export function FoodManagement() {
   const [totalPages, setTotalPages] = useState(1)
   const itemsPerPage = 20
 
-  // Modal de importar
+  // Modal de importar (flujo: buscar → preview → seleccionar → importar)
   const [importModalOpen, setImportModalOpen] = useState(false)
   const [importSearchTerm, setImportSearchTerm] = useState("")
-  const [importMaxResults, setImportMaxResults] = useState(50)
+  const [importMaxResults, setImportMaxResults] = useState(20)
   const [importing, setImporting] = useState(false)
+  const [searching, setSearching] = useState(false)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [selectedToImport, setSelectedToImport] = useState<string[]>([])
+  const [importCategory, setImportCategory] = useState("")
+  const [importStep, setImportStep] = useState<"search" | "results">("search")
 
   const { getAuthHeaders } = useAuth()
 
@@ -96,7 +101,7 @@ export function FoodManagement() {
         page: currentPage.toString(),
         page_size: itemsPerPage.toString(),
       })
-      
+
       if (searchTerm) params.append('search', searchTerm)
       if (categoryFilter !== 'all') params.append('category', categoryFilter)
       if (verifiedFilter !== 'all') params.append('is_verified', verifiedFilter === 'verified' ? 'true' : 'false')
@@ -105,7 +110,7 @@ export function FoodManagement() {
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params}`, {
         headers
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setFoods(data.results || data)
@@ -131,7 +136,7 @@ export function FoodManagement() {
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/stats/`, {
         headers
       })
-      
+
       if (response.ok) {
         const data = await response.json()
         setStats(data)
@@ -146,7 +151,8 @@ export function FoodManagement() {
     fetchStats()
   }, [fetchFoods, fetchStats])
 
-  const handleImportFoods = async () => {
+  // Paso 1: Buscar alimentos en OpenFoodFacts (preview)
+  const handleSearchFoods = async () => {
     if (!importSearchTerm.trim()) {
       toast({
         title: "Error",
@@ -156,10 +162,11 @@ export function FoodManagement() {
       return
     }
 
-    setImporting(true)
+    setSearching(true)
+    setSearchResults([])
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_from_api/`, {
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/search_api/`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -170,12 +177,64 @@ export function FoodManagement() {
 
       if (response.ok) {
         const data = await response.json()
+        setSearchResults(data.results || [])
+        setSelectedToImport([])
+        setImportCategory(importSearchTerm.charAt(0).toUpperCase() + importSearchTerm.slice(1))
+        setImportStep("results")
+        
+        if (data.results?.length === 0) {
+          toast({
+            title: "Sin resultados",
+            description: "No se encontraron alimentos con ese término",
+          })
+        }
+      } else {
+        const error = await response.json()
+        throw new Error(error.detail || 'Error en la búsqueda')
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Error al buscar alimentos",
+        variant: "destructive"
+      })
+    } finally {
+      setSearching(false)
+    }
+  }
+
+  // Paso 2: Importar alimentos seleccionados
+  const handleImportSelected = async () => {
+    if (selectedToImport.length === 0) {
+      toast({
+        title: "Error",
+        description: "Selecciona al menos un alimento para importar",
+        variant: "destructive"
+      })
+      return
+    }
+
+    setImporting(true)
+    try {
+      const headers = await getAuthHeaders()
+      const foodsToImport = searchResults.filter(f => selectedToImport.includes(f.code || f.id))
+      
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_selected/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          foods: foodsToImport,
+          category: importCategory
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
         toast({
           title: "✅ Importación completada",
           description: `${data.imported} alimentos importados, ${data.skipped} omitidos`,
         })
-        setImportModalOpen(false)
-        setImportSearchTerm("")
+        resetImportModal()
         fetchFoods()
         fetchStats()
       } else {
@@ -193,6 +252,31 @@ export function FoodManagement() {
     }
   }
 
+  const resetImportModal = () => {
+    setImportModalOpen(false)
+    setImportSearchTerm("")
+    setSearchResults([])
+    setSelectedToImport([])
+    setImportCategory("")
+    setImportStep("search")
+  }
+
+  const toggleSelectFood = (code: string) => {
+    setSelectedToImport(prev => 
+      prev.includes(code) 
+        ? prev.filter(c => c !== code)
+        : [...prev, code]
+    )
+  }
+
+  const selectAllResults = () => {
+    if (selectedToImport.length === searchResults.length) {
+      setSelectedToImport([])
+    } else {
+      setSelectedToImport(searchResults.map(f => f.barcode || f.code || f.id))
+    }
+  }
+
   const handleToggleVerified = async (foodId: string, currentStatus: boolean) => {
     try {
       const headers = await getAuthHeaders()
@@ -203,7 +287,7 @@ export function FoodManagement() {
       })
 
       if (response.ok) {
-        setFoods(foods.map(f => 
+        setFoods(foods.map(f =>
           f.id === foodId ? { ...f, is_verified: !currentStatus } : f
         ))
         toast({
@@ -263,7 +347,7 @@ export function FoodManagement() {
       })
 
       if (response.ok) {
-        setFoods(foods.map(f => 
+        setFoods(foods.map(f =>
           selectedFoods.includes(f.id) ? { ...f, is_verified: verified } : f
         ))
         setSelectedFoods([])
@@ -282,13 +366,46 @@ export function FoodManagement() {
     }
   }
 
-  const getMacroPercentages = (food: Food) => {
-    const total = (food.protein || 0) + (food.carbs || 0) + (food.fat || 0)
-    if (total === 0) return { protein: 0, carbs: 0, fat: 0 }
+  const getMacroPercentages = (food: Food): { protein: string, carbs: string, fat: string } => {
+    // Calcular porcentaje basado en calorías, no en gramos
+    // 1g proteína = 4 kcal, 1g carbos = 4 kcal, 1g grasa = 9 kcal
+    const proteinCal = (Number(food.protein) || 0) * 4
+    const carbsCal = (Number(food.carbs) || 0) * 4
+    const fatCal = (Number(food.fat) || 0) * 9
+    const totalCal = Number(food.calories) || 0
+
+    // Si no hay calorías, usar la suma de macros como fallback
+    const effectiveTotal = totalCal > 0 ? totalCal : (proteinCal + carbsCal + fatCal)
+
+    if (effectiveTotal <= 0) {
+      return { protein: '—', carbs: '—', fat: '—' }
+    }
+
+    const proteinPct = Math.round((proteinCal / effectiveTotal) * 100)
+    const carbsPct = Math.round((carbsCal / effectiveTotal) * 100)
+    const fatPct = Math.round((fatCal / effectiveTotal) * 100)
+
+    // Verificar que no sean NaN
     return {
-      protein: Math.round((food.protein / total) * 100),
-      carbs: Math.round((food.carbs / total) * 100),
-      fat: Math.round((food.fat / total) * 100)
+      protein: isNaN(proteinPct) ? '—' : String(proteinPct),
+      carbs: isNaN(carbsPct) ? '—' : String(carbsPct),
+      fat: isNaN(fatPct) ? '—' : String(fatPct)
+    }
+  }
+
+  // Valores numéricos para la barra de progreso
+  const getMacroBarWidths = (food: Food): { protein: number, carbs: number, fat: number } => {
+    const proteinCal = (Number(food.protein) || 0) * 4
+    const carbsCal = (Number(food.carbs) || 0) * 4
+    const fatCal = (Number(food.fat) || 0) * 9
+    const totalCal = Number(food.calories) || (proteinCal + carbsCal + fatCal)
+
+    if (totalCal <= 0) return { protein: 0, carbs: 0, fat: 0 }
+
+    return {
+      protein: Math.round((proteinCal / totalCal) * 100) || 0,
+      carbs: Math.round((carbsCal / totalCal) * 100) || 0,
+      fat: Math.round((fatCal / totalCal) * 100) || 0
     }
   }
 
@@ -329,8 +446,8 @@ export function FoodManagement() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-green-600">{stats.verified}</div>
-            <Progress 
-              value={stats.total > 0 ? (stats.verified / stats.total) * 100 : 0} 
+            <Progress
+              value={stats.total > 0 ? (stats.verified / stats.total) * 100 : 0}
               className="mt-2 h-2"
             />
           </CardContent>
@@ -429,7 +546,7 @@ export function FoodManagement() {
               {foods.map((food) => {
                 const macros = getMacroPercentages(food)
                 const isExpanded = expandedFood === food.id
-                
+
                 return (
                   <Collapsible
                     key={food.id}
@@ -448,7 +565,7 @@ export function FoodManagement() {
                             }
                           }}
                         />
-                        
+
                         <CollapsibleTrigger asChild>
                           <button className="flex-1 flex items-center gap-4 text-left hover:bg-gray-50 rounded p-2 -m-2">
                             <div className="flex-1 min-w-0">
@@ -464,7 +581,7 @@ export function FoodManagement() {
                                 <p className="text-sm text-gray-500 truncate">{food.brand}</p>
                               )}
                             </div>
-                            
+
                             <div className="hidden md:flex items-center gap-6 text-sm">
                               <div className="text-center">
                                 <div className="font-bold text-amber-600">{food.calories}</div>
@@ -483,7 +600,7 @@ export function FoodManagement() {
                                 <div className="text-xs text-gray-500">Grasa</div>
                               </div>
                             </div>
-                            
+
                             {isExpanded ? (
                               <ChevronUp className="h-5 w-5 text-gray-400" />
                             ) : (
@@ -492,7 +609,7 @@ export function FoodManagement() {
                           </button>
                         </CollapsibleTrigger>
                       </div>
-                      
+
                       <CollapsibleContent>
                         <div className="px-4 pb-4 border-t border-gray-100 pt-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -516,7 +633,7 @@ export function FoodManagement() {
                                 </div>
                               </div>
                             </div>
-                            
+
                             {/* Macros */}
                             <div className="space-y-3">
                               <h4 className="font-semibold text-gray-700 flex items-center gap-2">
@@ -542,14 +659,19 @@ export function FoodManagement() {
                                   <span className="text-xs text-gray-400">({macros.fat}%)</span>
                                 </div>
                                 {/* Barra de macros */}
-                                <div className="flex h-3 rounded-full overflow-hidden mt-2">
-                                  <div className="bg-red-500" style={{ width: `${macros.protein}%` }}></div>
-                                  <div className="bg-yellow-500" style={{ width: `${macros.carbs}%` }}></div>
-                                  <div className="bg-blue-500" style={{ width: `${macros.fat}%` }}></div>
-                                </div>
+                                {(() => {
+                                  const barWidths = getMacroBarWidths(food)
+                                  return (
+                                    <div className="flex h-3 rounded-full overflow-hidden mt-2">
+                                      <div className="bg-red-500" style={{ width: `${barWidths.protein}%` }}></div>
+                                      <div className="bg-yellow-500" style={{ width: `${barWidths.carbs}%` }}></div>
+                                      <div className="bg-blue-500" style={{ width: `${barWidths.fat}%` }}></div>
+                                    </div>
+                                  )
+                                })()}
                               </div>
                             </div>
-                            
+
                             {/* Otros nutrientes */}
                             <div className="space-y-3">
                               <h4 className="font-semibold text-gray-700 flex items-center gap-2">
@@ -571,7 +693,7 @@ export function FoodManagement() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Actions */}
                           <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
                             <Button
@@ -630,79 +752,178 @@ export function FoodManagement() {
         </CardContent>
       </Card>
 
-      {/* Import Modal */}
-      <Dialog open={importModalOpen} onOpenChange={setImportModalOpen}>
-        <DialogContent className="max-w-md">
+      {/* Import Modal - Flujo de 2 pasos */}
+      <Dialog open={importModalOpen} onOpenChange={(open) => { if (!open) resetImportModal() }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5 text-amber-500" />
               Importar Alimentos
+              {importStep === "results" && (
+                <Badge variant="secondary" className="ml-2">
+                  {selectedToImport.length} / {searchResults.length} seleccionados
+                </Badge>
+              )}
             </DialogTitle>
             <DialogDescription>
-              Importa alimentos desde OpenFoodFacts, una base de datos gratuita y colaborativa.
+              {importStep === "search" 
+                ? "Busca alimentos en OpenFoodFacts para importarlos a tu base de datos."
+                : "Selecciona los alimentos que deseas importar."}
             </DialogDescription>
           </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label>Término de búsqueda</Label>
-              <Input
-                placeholder="Ej: pollo, arroz, pasta..."
-                value={importSearchTerm}
-                onChange={(e) => setImportSearchTerm(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                Busca alimentos por nombre en español o inglés
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Máximo de resultados</Label>
-              <Select value={importMaxResults.toString()} onValueChange={(v) => setImportMaxResults(parseInt(v))}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10 alimentos</SelectItem>
-                  <SelectItem value="25">25 alimentos</SelectItem>
-                  <SelectItem value="50">50 alimentos</SelectItem>
-                  <SelectItem value="100">100 alimentos</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
-              <strong>💡 Sugerencias:</strong>
-              <ul className="mt-1 space-y-1 list-disc list-inside">
-                <li>Proteínas: pollo, atún, salmón, huevo</li>
-                <li>Carbohidratos: arroz, pasta, pan, avena</li>
-                <li>Lácteos: leche, yogur, queso</li>
-                <li>Verduras: brócoli, espinaca, tomate</li>
-              </ul>
-            </div>
-          </div>
+          {importStep === "search" ? (
+            // Paso 1: Búsqueda
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Término de búsqueda</Label>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Ej: pollo, arroz, tomate..."
+                    value={importSearchTerm}
+                    onChange={(e) => setImportSearchTerm(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchFoods()}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleSearchFoods}
+                    disabled={searching || !importSearchTerm.trim()}
+                    className="bg-gradient-to-r from-amber-500 to-orange-500"
+                  >
+                    {searching ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Search className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-gray-500">
+                  Busca alimentos por nombre en español o inglés
+                </p>
+              </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setImportModalOpen(false)}>
+              <div className="space-y-2">
+                <Label>Máximo de resultados</Label>
+                <Select value={importMaxResults.toString()} onValueChange={(v) => setImportMaxResults(parseInt(v))}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10 alimentos</SelectItem>
+                    <SelectItem value="20">20 alimentos</SelectItem>
+                    <SelectItem value="30">30 alimentos</SelectItem>
+                    <SelectItem value="50">50 alimentos</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-lg text-sm text-blue-700">
+                <strong>💡 Sugerencias:</strong>
+                <ul className="mt-1 space-y-1 list-disc list-inside">
+                  <li>Proteínas: pollo, atún, salmón, huevo</li>
+                  <li>Carbohidratos: arroz, pasta, pan, avena</li>
+                  <li>Lácteos: leche, yogur, queso</li>
+                  <li>Verduras: brócoli, espinaca, tomate</li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            // Paso 2: Resultados y selección
+            <div className="flex-1 overflow-hidden flex flex-col">
+              <div className="flex items-center justify-between gap-4 py-2">
+                <Button variant="ghost" size="sm" onClick={() => setImportStep("search")}>
+                  ← Volver a buscar
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="category">Categoría:</Label>
+                  <Input
+                    id="category"
+                    value={importCategory}
+                    onChange={(e) => setImportCategory(e.target.value)}
+                    className="w-40"
+                    placeholder="Categoría"
+                  />
+                </div>
+                <Button variant="outline" size="sm" onClick={selectAllResults}>
+                  {selectedToImport.length === searchResults.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+                </Button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto border rounded-lg">
+                {searchResults.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    No se encontraron resultados
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {searchResults.map((food) => {
+                      const code = food.barcode || food.code || food.id
+                      const isSelected = selectedToImport.includes(code)
+                      return (
+                        <div 
+                          key={code}
+                          className={`p-3 cursor-pointer hover:bg-gray-50 transition-colors ${isSelected ? 'bg-amber-50' : ''}`}
+                          onClick={() => toggleSelectFood(code)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleSelectFood(code)}
+                              className="mt-1"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium text-sm truncate">{food.name}</div>
+                              {food.brand && (
+                                <div className="text-xs text-gray-500">{food.brand}</div>
+                              )}
+                              <div className="flex flex-wrap gap-2 mt-1 text-xs">
+                                <span className="px-2 py-0.5 bg-gray-100 rounded">
+                                  {food.calories || 0} kcal
+                                </span>
+                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
+                                  P: {food.protein?.toFixed(1) || 0}g
+                                </span>
+                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded">
+                                  C: {food.carbs?.toFixed(1) || 0}g
+                                </span>
+                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
+                                  G: {food.fat?.toFixed(1) || 0}g
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={resetImportModal}>
               Cancelar
             </Button>
-            <Button 
-              onClick={handleImportFoods}
-              disabled={importing || !importSearchTerm.trim()}
-              className="bg-gradient-to-r from-amber-500 to-orange-500"
-            >
-              {importing ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Importando...
-                </>
-              ) : (
-                <>
-                  <Download className="h-4 w-4 mr-2" />
-                  Importar
-                </>
-              )}
-            </Button>
+            {importStep === "results" && (
+              <Button
+                onClick={handleImportSelected}
+                disabled={importing || selectedToImport.length === 0}
+                className="bg-gradient-to-r from-amber-500 to-orange-500"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Importando...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4 mr-2" />
+                    Importar {selectedToImport.length} alimento{selectedToImport.length !== 1 ? 's' : ''}
+                  </>
+                )}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

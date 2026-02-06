@@ -1405,6 +1405,108 @@ class FoodViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['name', 'brand', 'category']
     
+    @action(detail=False, methods=['post'], url_path='search_api')
+    def search_api(self, request):
+        """Buscar alimentos en OpenFoodFacts sin importar (solo preview)"""
+        from .fatsecret_client import OpenFoodFactsClient
+        
+        search_term = request.data.get('search_term', '')
+        max_results = min(int(request.data.get('max_results', 20)), 50)
+        
+        if not search_term:
+            return Response({'detail': 'search_term es requerido'}, status=400)
+        
+        client = OpenFoodFactsClient()
+        
+        try:
+            results = client.search_foods(search_term, page_size=max_results)
+            
+            foods_preview = []
+            for product in results:
+                name = client.get_food_name(product)
+                if not name:
+                    continue
+                
+                nutrients = client.parse_nutrients(product)
+                
+                # Solo mostrar si tiene al menos calorías
+                if nutrients['calories'] > 0:
+                    barcode = product.get('code', product.get('_id', ''))
+                    # Verificar si ya existe en BD
+                    already_exists = Food.objects.filter(name=name).exists()
+                    
+                    foods_preview.append({
+                        'barcode': barcode,
+                        'name': name,
+                        'brand': product.get('brands', '')[:100] if product.get('brands') else '',
+                        'calories': nutrients['calories'],
+                        'protein': nutrients['protein'],
+                        'carbs': nutrients['carbs'],
+                        'fat': nutrients['fat'],
+                        'fiber': nutrients['fiber'],
+                        'sugar': nutrients['sugar'],
+                        'sodium': nutrients['sodium'],
+                        'image_url': product.get('image_small_url', '') or product.get('image_url', ''),
+                        'already_exists': already_exists
+                    })
+            
+            return Response({
+                'count': len(foods_preview),
+                'results': foods_preview
+            })
+            
+        except Exception as e:
+            return Response({'detail': str(e)}, status=500)
+    
+    @action(detail=False, methods=['post'], url_path='import_selected')
+    def import_selected(self, request):
+        """Importar alimentos seleccionados desde la preview"""
+        foods_to_import = request.data.get('foods', [])
+        category = request.data.get('category', 'General')
+        
+        if not foods_to_import:
+            return Response({'detail': 'foods es requerido'}, status=400)
+        
+        imported = 0
+        skipped = 0
+        
+        for food_data in foods_to_import:
+            name = food_data.get('name', '')
+            if not name:
+                skipped += 1
+                continue
+            
+            # Verificar si ya existe
+            if Food.objects.filter(name=name).exists():
+                skipped += 1
+                continue
+            
+            try:
+                Food.objects.create(
+                    name=name,
+                    brand=food_data.get('brand', '')[:100],
+                    calories=food_data.get('calories', 0),
+                    protein=food_data.get('protein', 0),
+                    carbs=food_data.get('carbs', 0),
+                    fat=food_data.get('fat', 0),
+                    fiber=food_data.get('fiber', 0),
+                    sugar=food_data.get('sugar', 0),
+                    sodium=food_data.get('sodium', 0),
+                    serving_size=100,
+                    serving_unit='g',
+                    category=category.strip().title(),
+                    is_verified=False,
+                    created_by=request.user
+                )
+                imported += 1
+            except Exception:
+                skipped += 1
+        
+        return Response({
+            'imported': imported,
+            'skipped': skipped
+        })
+    
     @action(detail=False, methods=['post'], url_path='import')
     def import_foods(self, request):
         """Importar alimentos desde OpenFoodFacts"""
@@ -1474,7 +1576,17 @@ class FoodViewSet(viewsets.ModelViewSet):
         """Obtener estadísticas de alimentos"""
         total = Food.objects.count()
         verified = Food.objects.filter(is_verified=True).count()
-        categories = list(Food.objects.exclude(category='').values_list('category', flat=True).distinct())
+        
+        # Normalizar categorías: strip, lowercase para comparar, pero mantener original
+        raw_categories = Food.objects.exclude(category='').exclude(category__isnull=True).values_list('category', flat=True)
+        # Usar dict para deduplicar manteniendo la versión con capitalización correcta
+        seen = {}
+        for cat in raw_categories:
+            normalized = cat.strip().lower()
+            if normalized not in seen:
+                # Capitalizar primera letra de cada palabra
+                seen[normalized] = cat.strip().title() if cat.strip() else cat.strip()
+        categories = sorted(seen.values())
         
         return Response({
             'total': total,
