@@ -1419,10 +1419,11 @@ class FoodViewSet(viewsets.ModelViewSet):
         client = OpenFoodFactsClient()
         
         try:
-            results = client.search_foods(search_term, page_size=max_results)
+            response = client.search_foods(search_term, page_size=max_results)
+            products = response.get('products', []) if isinstance(response, dict) else response
             
             foods_preview = []
-            for product in results:
+            for product in products:
                 name = client.get_food_name(product)
                 if not name:
                     continue
@@ -1521,12 +1522,13 @@ class FoodViewSet(viewsets.ModelViewSet):
         client = OpenFoodFactsClient()
         
         try:
-            results = client.search_foods(search_term, page_size=max_results)
+            response = client.search_foods(search_term, page_size=max_results)
+            products = response.get('products', []) if isinstance(response, dict) else response
             
             imported = 0
             skipped = 0
             
-            for product in results:
+            for product in products:
                 name = client.get_food_name(product)
                 if not name:
                     continue
@@ -1615,7 +1617,7 @@ class FoodViewSet(viewsets.ModelViewSet):
         
         category = self.request.query_params.get('category')
         if category:
-            queryset = queryset.filter(category=category)
+            queryset = queryset.filter(category__iexact=category)
         
         is_verified = self.request.query_params.get('is_verified')
         if is_verified is not None:
