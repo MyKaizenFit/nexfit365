@@ -217,7 +217,7 @@ export function FoodManagement() {
     setImporting(true)
     try {
       const headers = await getAuthHeaders()
-      const foodsToImport = searchResults.filter(f => selectedToImport.includes(f.code || f.id))
+      const foodsToImport = searchResults.filter(f => selectedToImport.includes(f.barcode))
       
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_selected/`, {
         method: 'POST',

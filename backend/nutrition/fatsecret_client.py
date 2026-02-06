@@ -25,6 +25,14 @@ class ParsedNutrients:
     fiber: Optional[float] = None
     sugar: Optional[float] = None
     sodium: Optional[float] = None
+    
+    def __getitem__(self, key):
+        """Permite acceso con nutrients['calories'] además de nutrients.calories"""
+        return getattr(self, key)
+    
+    def get(self, key, default=None):
+        """Permite usar .get() como un diccionario"""
+        return getattr(self, key, default)
 
 
 class OpenFoodFactsClient:
