@@ -50,6 +50,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     macros_summary = serializers.DictField(read_only=True)
     recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
     ingredients_count = serializers.SerializerMethodField()
+    adjusted_macros = serializers.SerializerMethodField()
     
     class Meta:
         model = Recipe
@@ -58,17 +59,25 @@ class RecipeSerializer(serializers.ModelSerializer):
             "difficulty", "prep_time_minutes", "cook_time_minutes",
             "servings", "total_time_minutes",
             "calories", "protein", "carbs", "fat", "fiber", "sugar", "sodium",
-            "macros_summary",
+            "macros_summary", "adjusted_macros",
             "ingredients", "recipe_ingredients", "ingredients_count", "instructions",
             "diet_types", "meal_types", "allergens", "tags",
             "image_url", "video_url",
             "is_system", "is_active", "is_featured",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "total_time_minutes", "macros_summary", "recipe_ingredients", "ingredients_count", "created_at", "updated_at"]
+        read_only_fields = ["id", "total_time_minutes", "macros_summary", "adjusted_macros", "recipe_ingredients", "ingredients_count", "created_at", "updated_at"]
     
     def get_ingredients_count(self, obj):
         return obj.recipe_ingredients.count()
+    
+    def get_adjusted_macros(self, obj):
+        """
+        Devuelve macros ajustados según el multiplicador del contexto.
+        Se puede pasar 'portion_multiplier' en el contexto del serializer.
+        """
+        multiplier = self.context.get('portion_multiplier', 1.0)
+        return obj.get_adjusted_macros(multiplier)
 
 
 class RecipeMinimalSerializer(serializers.ModelSerializer):
@@ -100,6 +109,7 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
     """Serializer para planes de nutrición"""
     meals = PlanMealSerializer(many=True, read_only=True)
     macro_percentages = serializers.DictField(read_only=True)
+    recommended_multiplier = serializers.SerializerMethodField()
     
     class Meta:
         model = NutritionPlan
@@ -109,13 +119,18 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
             "protein_percentage", "carbs_percentage", "fat_percentage",
             "macro_percentages",
             "goal", "diet_type", "meals_per_day", "duration_weeks",
+            "portion_multiplier", "recommended_multiplier",
             "is_template", "is_system", "is_active",
             "start_date", "end_date",
             "tags", "image_url",
             "meals",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "macro_percentages", "created_at", "updated_at"]
+        read_only_fields = ["id", "macro_percentages", "recommended_multiplier", "created_at", "updated_at"]
+    
+    def get_recommended_multiplier(self, obj):
+        """Retorna el multiplicador recomendado según el objetivo"""
+        return obj.get_portion_multiplier_for_goal()
     
     def update(self, instance, validated_data):
         """
@@ -144,6 +159,7 @@ class NutritionPlanMinimalSerializer(serializers.ModelSerializer):
             "id", "name", "description", "daily_calories", 
             "protein_grams", "carbs_grams", "fat_grams",
             "goal", "diet_type", "meals_per_day", "duration_weeks",
+            "portion_multiplier",
             "is_system", "is_template", "is_active",
             "meals_count"
         ]

@@ -244,6 +244,23 @@ class Recipe(TimeStampedModel):
             self.save()
         
         return True
+    
+    def get_adjusted_macros(self, multiplier=1.0):
+        """
+        Devuelve los macros ajustados según un multiplicador.
+        Útil para planes de pérdida de peso (0.85) o ganancia muscular (1.15).
+        """
+        mult = float(multiplier)
+        return {
+            'calories': int(self.calories * mult),
+            'protein': round(float(self.protein) * mult, 1),
+            'carbs': round(float(self.carbs) * mult, 1),
+            'fat': round(float(self.fat) * mult, 1),
+            'fiber': round(float(self.fiber) * mult, 1),
+            'sugar': round(float(self.sugar) * mult, 1),
+            'sodium': round(float(self.sodium) * mult, 1),
+            'multiplier': mult,
+        }
 
 
 class RecipeIngredient(TimeStampedModel):
@@ -416,6 +433,15 @@ class NutritionPlan(TimeStampedModel):
         help_text="Duración en semanas"
     )
     
+    # Multiplicador de porciones según objetivo
+    # Permite ajustar las porciones de las recetas automáticamente
+    portion_multiplier = models.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        default=1.0,
+        help_text="Multiplicador de porciones (0.8 = 80%, 1.0 = 100%, 1.2 = 120%)"
+    )
+    
     # Flags
     is_template = models.BooleanField(
         default=False, 
@@ -518,6 +544,49 @@ class NutritionPlan(TimeStampedModel):
             self.carbs_percentage = round((carbs_g * 4 / total_cals) * 100)
             self.fat_percentage = round((fat_g * 9 / total_cals) * 100)
         
+        if save:
+            self.save()
+    
+    def get_adjusted_recipe_macros(self, recipe):
+        """
+        Retorna los macros de una receta ajustados según el multiplicador del plan.
+        
+        Args:
+            recipe: Objeto Recipe
+        
+        Returns:
+            dict con macros ajustados
+        """
+        multiplier = float(self.portion_multiplier) if self.portion_multiplier else 1.0
+        
+        return {
+            'calories': int(recipe.calories * multiplier),
+            'protein': round(float(recipe.protein) * multiplier, 2),
+            'carbs': round(float(recipe.carbs) * multiplier, 2),
+            'fat': round(float(recipe.fat) * multiplier, 2),
+            'fiber': round(float(recipe.fiber) * multiplier, 2),
+            'portion_multiplier': multiplier,
+            'original_calories': recipe.calories,
+        }
+    
+    def get_portion_multiplier_for_goal(self):
+        """
+        Retorna el multiplicador recomendado según el objetivo.
+        """
+        multipliers = {
+            'lose_weight': 0.85,       # 85% de la porción normal
+            'maintain': 1.0,           # 100% porción normal
+            'gain_muscle': 1.15,       # 115% de la porción normal
+            'body_recomposition': 1.0, # 100% porción normal
+            'performance': 1.2,        # 120% de la porción normal
+        }
+        return multipliers.get(self.goal, 1.0)
+    
+    def apply_goal_multiplier(self, save=True):
+        """
+        Aplica el multiplicador recomendado según el objetivo.
+        """
+        self.portion_multiplier = self.get_portion_multiplier_for_goal()
         if save:
             self.save()
 
