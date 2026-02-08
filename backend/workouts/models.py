@@ -145,6 +145,59 @@ class Exercise(TimeStampedModel):
             return f"https://drive.google.com/file/d/{self.google_drive_file_id}/preview"
         return self.video_url
 
+    def get_substitutes(self):
+        """Retorna ejercicios sustitutos ordenados por prioridad."""
+        return [
+            relation.substitute
+            for relation in self.substitutions.all().select_related("substitute").order_by("priority", "created_at")
+        ]
+
+
+class ExerciseSubstitution(TimeStampedModel):
+    """
+    Relacion global de ejercicios sustitutos.
+    Permite definir alternativas para un ejercicio en cualquier contexto.
+    """
+
+    exercise = models.ForeignKey(
+        Exercise,
+        on_delete=models.CASCADE,
+        related_name="substitutions",
+        help_text="Ejercicio base que se desea sustituir",
+    )
+    substitute = models.ForeignKey(
+        Exercise,
+        on_delete=models.CASCADE,
+        related_name="substituted_in",
+        help_text="Ejercicio sustituto",
+    )
+    priority = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Orden de preferencia (1 = mas recomendado)",
+    )
+    notes = models.TextField(
+        blank=True,
+        help_text="Notas o contexto para usar este sustituto",
+    )
+
+    class Meta:
+        ordering = ["priority", "created_at"]
+        verbose_name = "Sustituto de Ejercicio"
+        verbose_name_plural = "Sustitutos de Ejercicios"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["exercise", "substitute"],
+                name="unique_exercise_substitute",
+            ),
+            models.CheckConstraint(
+                check=~models.Q(exercise=models.F("substitute")),
+                name="exercise_cannot_substitute_itself",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.exercise.name} -> {self.substitute.name}"
+
 
 # =============================================================================
 # PROGRAMAS DE ENTRENAMIENTO

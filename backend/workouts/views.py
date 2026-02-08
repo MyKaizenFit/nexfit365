@@ -30,6 +30,11 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'difficulty', 'is_system']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+
+    def get_queryset(self):
+        return Exercise.objects.filter(is_active=True).prefetch_related(
+            'substitutions__substitute'
+        )
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -72,7 +77,10 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
             is_active=True
         ).filter(
             models.Q(is_system=True) | models.Q(user=user)
-        ).prefetch_related('days__exercises__exercise')
+        ).prefetch_related(
+            'days__exercises__exercise',
+            'days__exercises__exercise__substitutions__substitute',
+        )
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -95,7 +103,10 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         
         program = WorkoutProgram.objects.filter(
             user=request.user, is_active=True
-        ).prefetch_related('days__exercises__exercise').order_by('-created_at').first()
+        ).prefetch_related(
+            'days__exercises__exercise',
+            'days__exercises__exercise__substitutions__substitute',
+        ).order_by('-created_at').first()
         
         if program:
             # Verificar y reiniciar si es necesario (reinicio semanal)
@@ -118,7 +129,10 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         """Plantillas disponibles para asignar (alias de templates)"""
         templates = WorkoutProgram.objects.filter(
             is_template=True, is_active=True
-        ).prefetch_related('days__exercises__exercise')
+        ).prefetch_related(
+            'days__exercises__exercise',
+            'days__exercises__exercise__substitutions__substitute',
+        )
         serializer = WorkoutProgramMinimalSerializer(templates, many=True)
         return Response(serializer.data)
     
@@ -415,7 +429,10 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
         # Devolver plantillas y programas del sistema
         return WorkoutProgram.objects.filter(
             models.Q(is_template=True) | models.Q(is_system=True)
-        ).prefetch_related('days__exercises__exercise')
+        ).prefetch_related(
+            'days__exercises__exercise',
+            'days__exercises__exercise__substitutions__substitute',
+        )
     
     def get_serializer_class(self):
         if self.action == 'list':

@@ -21,6 +21,7 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
+    substitutes = serializers.SerializerMethodField()
     
     class Meta:
         model = Exercise
@@ -29,6 +30,7 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
             "category", "muscle_groups", "equipment", "difficulty",
             "video_url", "image_url", "google_drive_file_id",
             "has_video", "video_display_url",
+            "substitutes",
             "is_system", "is_active", "tags",
             "created_at", "updated_at"
         ]
@@ -38,23 +40,51 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         """Retorna la URL del video"""
         return obj.get_video_url()
 
+    def get_substitutes(self, obj):
+        substitutes = obj.get_substitutes()
+        return ExerciseSubstituteSerializer(substitutes, many=True).data
+
+
+class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    """Serializer minimo para sustitutos"""
+    has_video = serializers.BooleanField(read_only=True)
+    video_display_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Exercise
+        fields = [
+            "id", "name", "category", "muscle_groups", "equipment", "difficulty",
+            "description", "instructions",
+            "video_url", "google_drive_file_id", "has_video", "video_display_url",
+        ]
+
+    def get_video_display_url(self, obj):
+        """Retorna la URL del video"""
+        return obj.get_video_url()
+
 
 class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer minimal para listas - incluye datos de video para reproducción"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
+    substitutes = serializers.SerializerMethodField()
     
     class Meta:
         model = Exercise
         fields = [
             "id", "name", "category", "muscle_groups", "difficulty",
             "description", "instructions",
-            "video_url", "google_drive_file_id", "has_video", "video_display_url"
+            "video_url", "google_drive_file_id", "has_video", "video_display_url",
+            "substitutes",
         ]
     
     def get_video_display_url(self, obj):
         """Retorna la URL del video"""
         return obj.get_video_url()
+
+    def get_substitutes(self, obj):
+        substitutes = obj.get_substitutes()
+        return ExerciseSubstituteSerializer(substitutes, many=True).data
 
 
 class WorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):

@@ -33,7 +33,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
 
 class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     """Admin ViewSet para programas"""
-    queryset = WorkoutProgram.objects.all().select_related("user", "created_by").prefetch_related('days__exercises__exercise')
+    queryset = WorkoutProgram.objects.all().select_related("user", "created_by").prefetch_related(
+        'days__exercises__exercise',
+        'days__exercises__exercise__substitutions__substitute',
+    )
     serializer_class = AdminWorkoutProgramSerializer
     permission_classes = [IsAdminUser]
 
@@ -191,7 +194,10 @@ def admin_user_program(request, user_id: int):
     Programa activo o más reciente de un usuario, con días y ejercicios.
     """
     user = get_object_or_404(User, pk=user_id)
-    program = WorkoutProgram.objects.filter(user=user).prefetch_related('days__exercises__exercise').order_by('-is_active', '-created_at').first()
+    program = WorkoutProgram.objects.filter(user=user).prefetch_related(
+        'days__exercises__exercise',
+        'days__exercises__exercise__substitutions__substitute',
+    ).order_by('-is_active', '-created_at').first()
 
     if not program:
         return Response({
