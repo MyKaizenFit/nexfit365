@@ -1,9 +1,15 @@
 # workouts/admin.py
 from django.contrib import admin
 from .models import (
-    Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
+    Exercise, ExerciseSubstitution, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
     WorkoutLog, WorkoutLogExercise, WorkoutLogSet
 )
+
+
+class ExerciseSubstitutionInline(admin.TabularInline):
+    model = ExerciseSubstitution
+    fk_name = 'exercise'
+    extra = 0
 
 
 @admin.register(Exercise)
@@ -12,6 +18,7 @@ class ExerciseAdmin(admin.ModelAdmin):
     list_filter = ['category', 'difficulty', 'is_system', 'is_active']
     search_fields = ['name', 'description']
     ordering = ['name']
+    inlines = [ExerciseSubstitutionInline]
 
 
 class WorkoutDayInline(admin.TabularInline):

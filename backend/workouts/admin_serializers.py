@@ -15,9 +15,36 @@ class EncodingFixMixin:
 
 
 class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    substitutes = serializers.SerializerMethodField()
+
     class Meta:
         model = Exercise
         fields = '__all__'
+
+    def get_substitutes(self, obj):
+        substitutes = obj.get_substitutes()
+        return AdminExerciseSubstituteSerializer(substitutes, many=True).data
+
+
+class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    class Meta:
+        model = Exercise
+        fields = [
+            "id",
+            "name",
+            "category",
+            "muscle_groups",
+            "equipment",
+            "difficulty",
+            "description",
+            "instructions",
+            "video_url",
+            "image_url",
+            "google_drive_file_id",
+            "is_system",
+            "is_active",
+            "tags",
+        ]
 
 
 class AdminWorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
