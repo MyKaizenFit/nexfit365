@@ -57,6 +57,9 @@ export function ExerciseManagement() {
     bulkDeleteExercises,
     uploadExerciseVideo,
     uploadExerciseThumbnail,
+    getExerciseSubstitutes,
+    addExerciseSubstitute,
+    removeExerciseSubstitute,
     refetch
   } = useAdminExercises()
 
@@ -95,6 +98,13 @@ export function ExerciseManagement() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
   const [uploadingVideo, setUploadingVideo] = useState(false)
   const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
+
+  // Estado para gestión de sustitutos
+  const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
+  const [substitutesExercise, setSubstitutesExercise] = useState<Exercise | null>(null)
+  const [substitutes, setSubstitutes] = useState<Array<{id: number, substitute_id: string, substitute_name: string, category?: string, priority: number, notes: string}>>([])
+  const [substituteSearch, setSubstituteSearch] = useState("")
+  const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
 
   // Asegurar que exercises sea un array
   const exercisesArray = Array.isArray(exercises) ? exercises : []
@@ -394,6 +404,67 @@ export function ExerciseManagement() {
     setShowCreateDialog(true)
   }
 
+  // === Gestión de Sustitutos ===
+  const openSubstitutesDialog = async (exercise: Exercise) => {
+    setSubstitutesExercise(exercise)
+    setSubstituteSearch("")
+    setShowSubstitutesDialog(true)
+    setLoadingSubstitutes(true)
+    try {
+      const subs = await getExerciseSubstitutes(exercise.id)
+      setSubstitutes(subs)
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudieron cargar los sustitutos",
+        variant: "destructive"
+      })
+    } finally {
+      setLoadingSubstitutes(false)
+    }
+  }
+
+  const handleAddSubstitute = async (substituteId: number | string) => {
+    if (!substitutesExercise) return
+    try {
+      await addExerciseSubstitute(substitutesExercise.id, substituteId)
+      const subs = await getExerciseSubstitutes(substitutesExercise.id)
+      setSubstitutes(subs)
+      toast({ title: "✅ Sustituto añadido" })
+    } catch (err: any) {
+      toast({
+        title: "❌ Error",
+        description: err.message || "No se pudo añadir",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleRemoveSubstitute = async (substituteId: string) => {
+    if (!substitutesExercise) return
+    try {
+      await removeExerciseSubstitute(substitutesExercise.id, substituteId)
+      setSubstitutes(prev => prev.filter(s => s.substitute_id !== substituteId))
+      toast({ title: "✅ Sustituto eliminado" })
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudo eliminar",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Ejercicios disponibles para añadir como sustitutos (excluyendo el actual y los ya añadidos)
+  const availableForSubstitute = exercisesArray.filter(ex => {
+    if (!substitutesExercise) return false
+    if (ex.id === substitutesExercise.id) return false
+    if (substitutes.some(s => s.substitute_id === String(ex.id))) return false
+    const q = substituteSearch.toLowerCase()
+    if (q && !fixEncoding(ex.name).toLowerCase().includes(q)) return false
+    return true
+  })
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -574,6 +645,10 @@ export function ExerciseManagement() {
                             <DropdownMenuItem onClick={() => openEditDialog(exercise)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openSubstitutesDialog(exercise)}>
+                              <Dumbbell className="h-4 w-4 mr-2" />
+                              Sustitutos
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDelete(exercise.id)}
@@ -775,6 +850,10 @@ export function ExerciseManagement() {
                             <DropdownMenuItem onClick={() => openEditDialog(exercise)}>
                               <Edit className="h-4 w-4 mr-2" />
                               Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openSubstitutesDialog(exercise)}>
+                              <Dumbbell className="h-4 w-4 mr-2" />
+                              Sustitutos
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDelete(exercise.id)}
@@ -1213,6 +1292,117 @@ export function ExerciseManagement() {
             >
               {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {editingExercise ? 'Actualizar' : 'Crear'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para gestionar sustitutos */}
+      <Dialog open={showSubstitutesDialog} onOpenChange={(open) => {
+        if (!open) {
+          setShowSubstitutesDialog(false)
+          setSubstitutesExercise(null)
+          setSubstitutes([])
+          setSubstituteSearch("")
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Dumbbell className="h-5 w-5 text-blue-500" />
+              Sustitutos de: {substitutesExercise && fixEncoding(substitutesExercise.name)}
+            </DialogTitle>
+            <DialogDescription>
+              Añade ejercicios alternativos que pueden usarse como sustitutos.
+            </DialogDescription>
+          </DialogHeader>
+
+          {loadingSubstitutes ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+            </div>
+          ) : (
+            <div className="flex-1 overflow-hidden flex flex-col gap-4">
+              {/* Lista de sustitutos actuales */}
+              <div>
+                <h4 className="font-medium text-sm mb-2">Sustitutos actuales ({substitutes.length})</h4>
+                {substitutes.length === 0 ? (
+                  <div className="text-sm text-muted-foreground p-4 bg-gray-50 rounded-lg text-center">
+                    No hay sustitutos configurados
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto">
+                    {substitutes.map(sub => (
+                      <div key={sub.id} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
+                        <div>
+                          <span className="font-medium">{fixEncoding(sub.substitute_name)}</span>
+                          {sub.category && (
+                            <Badge variant="outline" className="ml-2 text-xs">{sub.category}</Badge>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveSubstitute(sub.substitute_id)}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Buscar y añadir */}
+              <div>
+                <h4 className="font-medium text-sm mb-2">Añadir sustituto</h4>
+                <div className="relative mb-2">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Buscar ejercicios..."
+                    value={substituteSearch}
+                    onChange={(e) => setSubstituteSearch(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <div className="max-h-48 overflow-y-auto border rounded-lg">
+                  {availableForSubstitute.length === 0 ? (
+                    <div className="p-4 text-sm text-muted-foreground text-center">
+                      {substituteSearch ? "No se encontraron ejercicios" : "Escribe para buscar ejercicios"}
+                    </div>
+                  ) : (
+                    <div className="divide-y">
+                      {availableForSubstitute.slice(0, 10).map(ex => (
+                        <div
+                          key={ex.id}
+                          className="flex items-center justify-between p-2 hover:bg-gray-50 cursor-pointer"
+                          onClick={() => handleAddSubstitute(ex.id)}
+                        >
+                          <div>
+                            <span className="font-medium text-sm">{fixEncoding(ex.name)}</span>
+                            {ex.category && (
+                              <Badge variant="outline" className="ml-2 text-xs">{ex.category}</Badge>
+                            )}
+                          </div>
+                          <Plus className="h-4 w-4 text-blue-500" />
+                        </div>
+                      ))}
+                      {availableForSubstitute.length > 10 && (
+                        <div className="p-2 text-xs text-muted-foreground text-center">
+                          +{availableForSubstitute.length - 10} más...
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSubstitutesDialog(false)}>
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

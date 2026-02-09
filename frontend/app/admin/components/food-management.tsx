@@ -49,6 +49,7 @@ interface Food {
   name: string
   brand: string
   category: string
+  store: string
   calories: number
   protein: number
   carbs: number
@@ -62,18 +63,34 @@ interface Food {
   created_at: string
 }
 
+// Mapeo de stores a nombres legibles
+const STORE_LABELS: Record<string, string> = {
+  'mercadona': 'Mercadona',
+  'carrefour': 'Carrefour',
+  'lidl': 'Lidl',
+  'aldi': 'Aldi',
+  'dia': 'Día',
+  'alcampo': 'Alcampo',
+  'eroski': 'Eroski',
+  'consum': 'Consum',
+  'hipercor': 'Hipercor',
+  'otro': 'Otro',
+}
+
 interface FoodStats {
   total: number
   verified: number
   categories: string[]
+  stores: [string, string][]
 }
 
 export function FoodManagement() {
   const [foods, setFoods] = useState<Food[]>([])
-  const [stats, setStats] = useState<FoodStats>({ total: 0, verified: 0, categories: [] })
+  const [stats, setStats] = useState<FoodStats>({ total: 0, verified: 0, categories: [], stores: [] })
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [storeFilter, setStoreFilter] = useState("all")
   const [verifiedFilter, setVerifiedFilter] = useState("all")
   const [selectedFoods, setSelectedFoods] = useState<string[]>([])
   const [expandedFood, setExpandedFood] = useState<string | null>(null)
@@ -90,6 +107,7 @@ export function FoodManagement() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [selectedToImport, setSelectedToImport] = useState<string[]>([])
   const [importCategory, setImportCategory] = useState("")
+  const [importStore, setImportStore] = useState("")
   const [importStep, setImportStep] = useState<"search" | "results">("search")
 
   const { getAuthHeaders } = useAuth()
@@ -104,6 +122,7 @@ export function FoodManagement() {
 
       if (searchTerm) params.append('search', searchTerm)
       if (categoryFilter !== 'all') params.append('category', categoryFilter)
+      if (storeFilter !== 'all') params.append('store', storeFilter)
       if (verifiedFilter !== 'all') params.append('is_verified', verifiedFilter === 'verified' ? 'true' : 'false')
 
       const headers = await getAuthHeaders()
@@ -128,7 +147,7 @@ export function FoodManagement() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, searchTerm, categoryFilter, verifiedFilter, getAuthHeaders])
+  }, [currentPage, searchTerm, categoryFilter, storeFilter, verifiedFilter, getAuthHeaders])
 
   const fetchStats = useCallback(async () => {
     try {
@@ -224,7 +243,8 @@ export function FoodManagement() {
         headers,
         body: JSON.stringify({
           foods: foodsToImport,
-          category: importCategory
+          category: importCategory,
+          store: importStore
         })
       })
 
@@ -258,6 +278,7 @@ export function FoodManagement() {
     setSearchResults([])
     setSelectedToImport([])
     setImportCategory("")
+    setImportStore("")
     setImportStep("search")
   }
 
@@ -491,6 +512,17 @@ export function FoodManagement() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={storeFilter} onValueChange={(v) => { setStoreFilter(v); setCurrentPage(1) }}>
+              <SelectTrigger className="w-full md:w-[160px]">
+                <SelectValue placeholder="Supermercado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los supermercados</SelectItem>
+                {stats.stores?.map(([value, label]) => (
+                  <SelectItem key={value} value={value}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={verifiedFilter} onValueChange={(v) => { setVerifiedFilter(v); setCurrentPage(1) }}>
               <SelectTrigger className="w-full md:w-[150px]">
                 <SelectValue placeholder="Estado" />
@@ -622,6 +654,10 @@ export function FoodManagement() {
                                 <div className="flex justify-between">
                                   <span className="text-gray-500">Categoría</span>
                                   <span className="font-medium">{food.category || '-'}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">Supermercado</span>
+                                  <span className="font-medium">{food.store ? STORE_LABELS[food.store] || food.store : '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-gray-500">Porción</span>
@@ -834,15 +870,31 @@ export function FoodManagement() {
                 <Button variant="ghost" size="sm" onClick={() => setImportStep("search")}>
                   ← Volver a buscar
                 </Button>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="category">Categoría:</Label>
-                  <Input
-                    id="category"
-                    value={importCategory}
-                    onChange={(e) => setImportCategory(e.target.value)}
-                    className="w-40"
-                    placeholder="Categoría"
-                  />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="category">Categoría:</Label>
+                    <Input
+                      id="category"
+                      value={importCategory}
+                      onChange={(e) => setImportCategory(e.target.value)}
+                      className="w-36"
+                      placeholder="Categoría"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="store">Supermercado:</Label>
+                    <Select value={importStore} onValueChange={setImportStore}>
+                      <SelectTrigger className="w-36">
+                        <SelectValue placeholder="(ninguno)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Ninguno</SelectItem>
+                        {Object.entries(STORE_LABELS).map(([value, label]) => (
+                          <SelectItem key={value} value={value}>{label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <Button variant="outline" size="sm" onClick={selectAllResults}>
                   {selectedToImport.length === searchResults.length ? 'Deseleccionar todos' : 'Seleccionar todos'}

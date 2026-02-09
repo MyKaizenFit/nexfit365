@@ -940,8 +940,27 @@ class Food(TimeStampedModel):
     Alimento base para tracking detallado
     """
     
+    STORE_CHOICES = [
+        ('mercadona', 'Mercadona'),
+        ('carrefour', 'Carrefour'),
+        ('lidl', 'Lidl'),
+        ('aldi', 'Aldi'),
+        ('dia', 'Día'),
+        ('alcampo', 'Alcampo'),
+        ('eroski', 'Eroski'),
+        ('consum', 'Consum'),
+        ('hipercor', 'Hipercor'),
+        ('otro', 'Otro'),
+    ]
+    
     name = models.CharField(max_length=200, unique=True)
     brand = models.CharField(max_length=100, blank=True)
+    store = models.CharField(
+        max_length=50, 
+        choices=STORE_CHOICES,
+        blank=True,
+        help_text="Supermercado donde se puede encontrar"
+    )
     
     # Por 100g o por unidad
     serving_size = models.DecimalField(
