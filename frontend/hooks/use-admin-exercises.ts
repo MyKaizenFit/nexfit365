@@ -624,6 +624,73 @@ export const useAdminExercises = () => {
     }
   }
 
+  // === Gestión de Sustitutos ===
+  const getExerciseSubstitutes = async (exerciseId: number | string): Promise<any[]> => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/substitutes/`), {
+        headers
+      })
+      if (response.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (!newHeaders) throw new Error('Sesión expirada')
+        headers = newHeaders
+        response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/substitutes/`), { headers })
+      }
+      if (!response.ok) throw new Error('Error al obtener sustitutos')
+      return await response.json()
+    } catch (err) {
+      console.error('Error fetching substitutes:', err)
+      return []
+    }
+  }
+
+  const addExerciseSubstitute = async (exerciseId: number | string, substituteId: number | string, priority = 1, notes = ''): Promise<any> => {
+    let headers = await getAuthHeaders()
+    let response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/add_substitute/`), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ substitute_id: substituteId, priority, notes })
+    })
+    if (response.status === 401) {
+      const newHeaders = await handle401AndRefresh(getAuthHeaders)
+      if (!newHeaders) throw new Error('Sesión expirada')
+      headers = newHeaders
+      response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/add_substitute/`), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ substitute_id: substituteId, priority, notes })
+      })
+    }
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}))
+      throw new Error(err.error || 'Error al añadir sustituto')
+    }
+    return await response.json()
+  }
+
+  const removeExerciseSubstitute = async (exerciseId: number | string, substituteId: number | string): Promise<boolean> => {
+    let headers = await getAuthHeaders()
+    let response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/remove_substitute/`), {
+      method: 'POST',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ substitute_id: substituteId })
+    })
+    if (response.status === 401) {
+      const newHeaders = await handle401AndRefresh(getAuthHeaders)
+      if (!newHeaders) throw new Error('Sesión expirada')
+      headers = newHeaders
+      response = await fetch(buildApiUrl(`admin/exercises/exercises/${exerciseId}/remove_substitute/`), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ substitute_id: substituteId })
+      })
+    }
+    if (!response.ok) throw new Error('Error al eliminar sustituto')
+    const data = await response.json()
+    return data.removed
+  }
+
   return {
     exercises,
     stats,
@@ -640,6 +707,9 @@ export const useAdminExercises = () => {
     bulkCreateExercises,
     uploadExerciseVideo,
     uploadExerciseThumbnail,
+    getExerciseSubstitutes,
+    addExerciseSubstitute,
+    removeExerciseSubstitute,
     refetch: () => { fetchExercises(); fetchStats(); fetchCategories() }
   }
 }

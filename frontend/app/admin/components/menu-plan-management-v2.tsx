@@ -152,6 +152,7 @@ export function MenuPlanManagementV2() {
     carbs: 40,
     fat: 30,
     user_id: "none" as string,
+    portion_multiplier: 1.0,
   })
 
   const resetForm = useCallback(() => {
@@ -163,6 +164,7 @@ export function MenuPlanManagementV2() {
       carbs: 40,
       fat: 30,
       user_id: "none",
+      portion_multiplier: 1.0,
     })
     setCreateStep("basic")
     setDraftActiveDay("1")
@@ -306,6 +308,7 @@ export function MenuPlanManagementV2() {
         percents: derivedPercents,
         user_id: userId,
         meals: mealsPayload,
+        portion_multiplier: form.portion_multiplier,
       })
       toast({ title: "✅ Plan creado", description: configureWeekly ? "Ahora configura el menú semanal." : "Creado correctamente." })
       setShowCreateDialog(false)
@@ -1133,6 +1136,32 @@ export function MenuPlanManagementV2() {
                         Media diaria estimada: {Math.round(computedPlanAverages.calories)} kcal · P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g
                       </div>
                     )}
+                  </div>
+                  
+                  {/* Multiplicador de porciones */}
+                  <div className="md:col-span-2">
+                    <div className="text-sm font-medium mb-2">Multiplicador de porciones</div>
+                    <div className="flex items-center gap-4">
+                      <Select 
+                        value={form.portion_multiplier.toString()} 
+                        onValueChange={(v) => setForm({ ...form, portion_multiplier: parseFloat(v) })}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0.75">0.75x (Déficit alto)</SelectItem>
+                          <SelectItem value="0.85">0.85x (Pérdida de peso)</SelectItem>
+                          <SelectItem value="1.0">1.0x (Mantenimiento)</SelectItem>
+                          <SelectItem value="1.1">1.1x (Ganancia leve)</SelectItem>
+                          <SelectItem value="1.15">1.15x (Ganancia muscular)</SelectItem>
+                          <SelectItem value="1.25">1.25x (Volumen)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-muted-foreground">
+                        Ajusta las porciones de recetas según el objetivo
+                      </span>
+                    </div>
                   </div>
                 </div>
 

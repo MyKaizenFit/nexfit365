@@ -1464,6 +1464,7 @@ class FoodViewSet(viewsets.ModelViewSet):
         """Importar alimentos seleccionados desde la preview"""
         foods_to_import = request.data.get('foods', [])
         category = request.data.get('category', 'General')
+        store = request.data.get('store', '')
         
         if not foods_to_import:
             return Response({'detail': 'foods es requerido'}, status=400)
@@ -1496,6 +1497,7 @@ class FoodViewSet(viewsets.ModelViewSet):
                     serving_size=100,
                     serving_unit='g',
                     category=category.strip().title(),
+                    store=store,
                     is_verified=False,
                     created_by=request.user
                 )
@@ -1590,10 +1592,17 @@ class FoodViewSet(viewsets.ModelViewSet):
                 seen[normalized] = cat.strip().title() if cat.strip() else cat.strip()
         categories = sorted(seen.values())
         
+        # Obtener supermercados disponibles (solo los que tienen alimentos)
+        stores_used = Food.objects.exclude(store='').exclude(store__isnull=True).values_list('store', flat=True).distinct()
+        # Mapear a display names
+        store_choices = dict(Food.STORE_CHOICES)
+        stores = [(s, store_choices.get(s, s)) for s in sorted(set(stores_used))]
+        
         return Response({
             'total': total,
             'verified': verified,
-            'categories': categories
+            'categories': categories,
+            'stores': stores
         })
     
     @action(detail=False, methods=['post'])
@@ -1612,7 +1621,7 @@ class FoodViewSet(viewsets.ModelViewSet):
         })
     
     def get_queryset(self):
-        """Filtrar por categoría y verificación"""
+        """Filtrar por categoría, verificación y supermercado"""
         queryset = Food.objects.all()
         
         category = self.request.query_params.get('category')
@@ -1622,6 +1631,10 @@ class FoodViewSet(viewsets.ModelViewSet):
         is_verified = self.request.query_params.get('is_verified')
         if is_verified is not None:
             queryset = queryset.filter(is_verified=is_verified.lower() == 'true')
+        
+        store = self.request.query_params.get('store')
+        if store:
+            queryset = queryset.filter(store__iexact=store)
         
         return queryset.order_by('name')
 

@@ -148,6 +148,7 @@ export function useAdminMenuPlans() {
     percents: { protein: number; carbs: number; fat: number }
     user_id?: number | null
     meals?: any[]
+    portion_multiplier?: number
   }) => {
     const grams = percentsToGrams(data.daily_calories, data.percents)
     const payload: any = {
@@ -159,6 +160,7 @@ export function useAdminMenuPlans() {
       is_active: true,
       user_id: data.user_id ?? null,
       is_template: data.user_id ? false : true,
+      portion_multiplier: data.portion_multiplier ?? 1.0,
     }
     if (Array.isArray(data.meals)) payload.meals = data.meals
 
