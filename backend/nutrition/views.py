@@ -1411,48 +1411,126 @@ class FoodViewSet(viewsets.ModelViewSet):
         from .fatsecret_client import OpenFoodFactsClient
         
         search_term = request.data.get('search_term', '')
-        max_results = min(int(request.data.get('max_results', 20)), 50)
+        page = max(int(request.data.get('page', 1)), 1)
+        page_size = min(int(request.data.get('page_size', 20)), 50)
+        store_filter = (request.data.get('store') or '').strip().lower()
+        category_filter = (request.data.get('category') or '').strip().lower()
         
         if not search_term:
             return Response({'detail': 'search_term es requerido'}, status=400)
         
         client = OpenFoodFactsClient()
+        store_labels = dict(Food.STORE_CHOICES)
+        allowed_store_values = [value for value, _label in Food.STORE_CHOICES if value != 'otro']
+        allowed_store_labels = [store_labels[value].lower() for value in allowed_store_values]
+        store_label = store_labels.get(store_filter, store_filter).lower() if store_filter else ''
         
         try:
-            response = client.search_foods(search_term, page_size=max_results)
-            products = response.get('products', []) if isinstance(response, dict) else response
-            
             foods_preview = []
-            for product in products:
-                name = client.get_food_name(product)
-                if not name:
-                    continue
-                
-                nutrients = client.parse_nutrients(product)
-                
-                # Solo mostrar si tiene al menos calorías
-                if nutrients['calories'] > 0:
-                    barcode = product.get('code', product.get('_id', ''))
-                    # Verificar si ya existe en BD
-                    already_exists = Food.objects.filter(name=name).exists()
-                    
-                    foods_preview.append({
-                        'barcode': barcode,
-                        'name': name,
-                        'brand': product.get('brands', '')[:100] if product.get('brands') else '',
-                        'calories': nutrients['calories'],
-                        'protein': nutrients['protein'],
-                        'carbs': nutrients['carbs'],
-                        'fat': nutrients['fat'],
-                        'fiber': nutrients['fiber'],
-                        'sugar': nutrients['sugar'],
-                        'sodium': nutrients['sodium'],
-                        'image_url': product.get('image_small_url', '') or product.get('image_url', ''),
-                        'already_exists': already_exists
-                    })
+            seen_codes = set()
+            total_count = None
+            max_pages = 5
+            current_page = page
+
+            while len(foods_preview) < page_size and current_page < page + max_pages:
+                response = client.search_foods(search_term, page=current_page, page_size=page_size)
+                products = response.get('products', []) if isinstance(response, dict) else response
+                if total_count is None and isinstance(response, dict):
+                    total_count = response.get('count', 0)
+                if not products:
+                    break
+
+                for product in products:
+                    name = client.get_food_name(product)
+                    if not name:
+                        continue
+
+                    stores_text = (product.get('stores') or '').lower()
+                    stores_tags = product.get('stores_tags') or []
+                    stores_tags = [s.lower() for s in stores_tags if isinstance(s, str)]
+
+                    if store_filter:
+                        stores_text = (product.get('stores') or '').lower()
+                        matches_store = (
+                            store_filter in stores_text
+                            or store_label in stores_text
+                            or store_filter in stores_tags
+                            or store_label in stores_tags
+                        )
+                        if not matches_store:
+                            continue
+                    else:
+                        matches_allowed = any(value in stores_text for value in allowed_store_values)
+                        matches_allowed = matches_allowed or any(label in stores_text for label in allowed_store_labels)
+                        matches_allowed = matches_allowed or any(value in stores_tags for value in allowed_store_values)
+                        matches_allowed = matches_allowed or any(label in stores_tags for label in allowed_store_labels)
+                        if not matches_allowed:
+                            continue
+
+                    if category_filter:
+                        categories_text = (product.get('categories') or '').lower()
+                        categories_tags = product.get('categories_tags') or []
+                        categories_tags = [c.lower() for c in categories_tags if isinstance(c, str)]
+                        matches_category = (
+                            category_filter in categories_text
+                            or any(category_filter in tag for tag in categories_tags)
+                        )
+                        if not matches_category:
+                            continue
+
+                    nutrients = client.parse_nutrients(product)
+
+                    categories_tags = product.get('categories_tags') or []
+                    categories_tags = [c for c in categories_tags if isinstance(c, str)]
+                    category_value = ''
+                    if categories_tags:
+                        category_tag = categories_tags[0]
+                        category_value = category_tag.split(':', 1)[1] if ':' in category_tag else category_tag
+                    elif product.get('categories'):
+                        category_value = (product.get('categories') or '').split(',')[0].strip()
+
+                    # Solo mostrar si tiene al menos calorías
+                    if nutrients['calories'] > 0:
+                        barcode = product.get('code', product.get('_id', ''))
+                        if barcode and barcode in seen_codes:
+                            continue
+                        # Verificar si ya existe en BD
+                        if Food.objects.filter(name=name).exists():
+                            continue
+
+                        if barcode:
+                            seen_codes.add(barcode)
+
+                        foods_preview.append({
+                            'barcode': barcode,
+                            'name': name,
+                            'brand': product.get('brands', '')[:100] if product.get('brands') else '',
+                            'stores': product.get('stores', ''),
+                            'stores_tags': product.get('stores_tags', []),
+                            'category': category_value.title() if category_value else '',
+                            'calories': nutrients['calories'],
+                            'protein': nutrients['protein'],
+                            'carbs': nutrients['carbs'],
+                            'fat': nutrients['fat'],
+                            'fiber': nutrients['fiber'],
+                            'sugar': nutrients['sugar'],
+                            'sodium': nutrients['sodium'],
+                            'image_url': product.get('image_small_url', '') or product.get('image_url', ''),
+                            'already_exists': False
+                        })
+                        if len(foods_preview) >= page_size:
+                            break
+
+                if isinstance(response, dict):
+                    response_page_size = response.get('page_size', page_size)
+                    if total_count and current_page * response_page_size >= total_count:
+                        break
+                current_page += 1
             
             return Response({
-                'count': len(foods_preview),
+                'count': total_count if total_count is not None else len(foods_preview),
+                'page': page,
+                'page_size': page_size,
                 'results': foods_preview
             })
             
@@ -1592,11 +1670,8 @@ class FoodViewSet(viewsets.ModelViewSet):
                 seen[normalized] = cat.strip().title() if cat.strip() else cat.strip()
         categories = sorted(seen.values())
         
-        # Obtener supermercados disponibles (solo los que tienen alimentos)
-        stores_used = Food.objects.exclude(store='').exclude(store__isnull=True).values_list('store', flat=True).distinct()
-        # Mapear a display names
-        store_choices = dict(Food.STORE_CHOICES)
-        stores = [(s, store_choices.get(s, s)) for s in sorted(set(stores_used))]
+        # Mostrar todos los supermercados disponibles en el sistema
+        stores = list(Food.STORE_CHOICES)
         
         return Response({
             'total': total,
