@@ -60,6 +60,7 @@ export function NutritionManagement() {
     updateNutrition,
     deleteNutrition,
     bulkDeleteNutrition,
+    uploadRecipeImage,
     refetch
   } = useAdminNutrition()
 
@@ -67,10 +68,13 @@ export function NutritionManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [difficultyFilter, setDifficultyFilter] = useState<string>("all")
+  const [goalFilter, setGoalFilter] = useState<string>("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingNutrition, setEditingNutrition] = useState<Nutrition | null>(null)
   const [isViewMode, setIsViewMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   
   // Editor de ingredientes
   const [ingredientsEditorOpen, setIngredientsEditorOpen] = useState(false)
@@ -91,24 +95,58 @@ export function NutritionManagement() {
     difficulty: 'easy',
     prep_time_minutes: 30,
     servings: 1,
-    calories_per_serving: 300,
+    calories_per_serving: 0,
     ingredients: '',
     instructions: '',
     image_url: '',
-    tags: ''
+    tags: '',
+    goal_category: ''
   })
+
+  const goalOptions = [
+    { value: '', label: 'Sin objetivo' },
+    { value: 'lose_weight', label: 'Perder peso' },
+    { value: 'gain_muscle', label: 'Ganar músculo' },
+    { value: 'maintain', label: 'Mantener peso' },
+    { value: 'body_recomposition', label: 'Recomposición corporal' },
+    { value: 'performance', label: 'Rendimiento deportivo' },
+  ]
+
+  const formatIngredientLine = (ingredient: any) => {
+    if (!ingredient) return ''
+    if (typeof ingredient === 'string') return ingredient
+    if (typeof ingredient === 'object') {
+      if (ingredient.food_detail) {
+        const name = ingredient.food_detail?.name || ''
+        const amount = ingredient.quantity ?? ''
+        const unit = ingredient.unit || ''
+        const amountLabel = [amount, unit].filter(Boolean).join(' ')
+        return [name, amountLabel].filter(Boolean).join(' ').trim()
+      }
+      const name = ingredient.name || ''
+      const amount = ingredient.amount || ingredient.quantity || ''
+      const unit = ingredient.unit || ''
+      const amountLabel = [amount, unit].filter(Boolean).join(' ')
+      return [name, amountLabel].filter(Boolean).join(' ').trim()
+    }
+    return ''
+  }
 
   // Filtrar recetas - asegurar que nutrition sea un array
   const nutritionArray = Array.isArray(nutrition) ? nutrition : []
   const filteredNutrition = nutritionArray.filter(item => {
     if (!item) return false
+    const ingredientText = Array.isArray(item.ingredients)
+      ? item.ingredients.map(formatIngredientLine).join(' ').toLowerCase()
+      : ''
     const matchesSearch = item.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          item.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (Array.isArray(item.ingredients) && item.ingredients.some(ing => ing?.toLowerCase().includes(searchTerm.toLowerCase())))
+                         ingredientText.includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter
     const matchesDifficulty = difficultyFilter === "all" || item.difficulty === difficultyFilter
+    const matchesGoal = goalFilter === "all" || (item.goal_category || '') === goalFilter
     
-    return matchesSearch && matchesCategory && matchesDifficulty
+    return matchesSearch && matchesCategory && matchesDifficulty && matchesGoal
   })
   
   // Ordenamiento - asegurar que filteredNutrition sea un array
@@ -131,8 +169,8 @@ export function NutritionManagement() {
         bValue = b.difficulty || ''
         break
       case 'calories':
-        aValue = a.calories_per_serving || 0
-        bValue = b.calories_per_serving || 0
+        aValue = a.calories ?? a.calories_per_serving ?? 0
+        bValue = b.calories ?? b.calories_per_serving ?? 0
         break
       case 'time':
         aValue = a.prep_time_minutes || 0
@@ -174,7 +212,16 @@ export function NutritionManagement() {
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, categoryFilter, difficultyFilter])
+  }, [searchTerm, categoryFilter, difficultyFilter, goalFilter])
+
+  useEffect(() => {
+    if (!editingNutrition) return
+    const updated = nutritionArray.find(item => item?.id === editingNutrition.id)
+    if (updated) {
+      setEditingNutrition(updated)
+      loadNutritionData(updated)
+    }
+  }, [nutritionArray, editingNutrition?.id])
 
   // Obtener categorías únicas - asegurar que nutrition sea un array
   const categories = Array.from(new Set(nutritionArray.map(item => item?.category).filter(Boolean)))
@@ -185,18 +232,29 @@ export function NutritionManagement() {
   }
 
   const loadNutritionData = (nutrition: Nutrition) => {
+    const linkedIngredients = Array.isArray(nutrition.recipe_ingredients)
+      ? nutrition.recipe_ingredients.map(formatIngredientLine).filter(Boolean)
+      : []
+    const ingredientsLines = linkedIngredients.length > 0
+      ? linkedIngredients
+      : Array.isArray(nutrition.ingredients)
+        ? nutrition.ingredients.map(formatIngredientLine).filter(Boolean)
+        : []
     setFormData({
       name: nutrition.name || '',
       category: nutrition.category || '',
       difficulty: nutrition.difficulty || 'easy',
       prep_time_minutes: nutrition.prep_time_minutes || 30,
       servings: nutrition.servings || 1,
-      calories_per_serving: nutrition.calories_per_serving || 300,
-      ingredients: nutrition.ingredients?.join('\n') || '',
+      calories_per_serving: nutrition.calories ?? nutrition.calories_per_serving ?? 0,
+      ingredients: ingredientsLines.join('\n'),
       instructions: nutrition.instructions || '',
       image_url: nutrition.image_url || '',
-      tags: nutrition.tags?.join(', ') || ''
+      tags: nutrition.tags?.join(', ') || '',
+      goal_category: nutrition.goal_category || ''
     })
+    setImageFile(null)
+    setUploadingImage(false)
   }
 
   const handleEditNutrition = (nutrition: Nutrition) => {
@@ -220,12 +278,15 @@ export function NutritionManagement() {
       difficulty: 'easy',
       prep_time_minutes: 30,
       servings: 1,
-      calories_per_serving: 300,
+      calories_per_serving: 0,
       ingredients: '',
       instructions: '',
       image_url: '',
-      tags: ''
+      tags: '',
+      goal_category: ''
     })
+    setImageFile(null)
+    setUploadingImage(false)
     setShowCreateDialog(false)
     setEditingNutrition(null)
     setIsViewMode(false)
@@ -257,11 +318,12 @@ export function NutritionManagement() {
         difficulty: formData.difficulty as "easy" | "medium" | "hard",
         prep_time_minutes: formData.prep_time_minutes,
         servings: formData.servings,
-        calories_per_serving: formData.calories_per_serving,
+        calories: formData.calories_per_serving,
         ingredients: formData.ingredients.split('\n').filter(ing => ing.trim()),
         instructions: formData.instructions.trim(),
         image_url: formData.image_url.trim() || undefined,
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        tags: formData.tags.split(',').map(tag => tag.trim()).filter(Boolean),
+        goal_category: formData.goal_category || undefined
       }
 
       if (editingNutrition) {
@@ -420,7 +482,7 @@ export function NutritionManagement() {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div>
               <FormLabel>Buscar</FormLabel>
               <div className="relative">
@@ -458,6 +520,22 @@ export function NutritionManagement() {
                   <SelectItem value="easy">Fácil</SelectItem>
                   <SelectItem value="medium">Medio</SelectItem>
                   <SelectItem value="hard">Difícil</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <FormLabel>Objetivo</FormLabel>
+              <Select value={goalFilter} onValueChange={setGoalFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos los objetivos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {goalOptions.map(option => (
+                    <SelectItem key={option.value || 'none'} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -566,7 +644,7 @@ export function NutritionManagement() {
                             {item.name}
                           </div>
                           <div className="text-xs text-muted-foreground mb-2">
-                            {Array.isArray(item.ingredients) ? item.ingredients.length : 0} ingredientes
+                            {(item.recipe_ingredients?.length ?? (Array.isArray(item.ingredients) ? item.ingredients.length : 0))} ingredientes
                           </div>
                         </div>
                         <DropdownMenu>
@@ -611,6 +689,11 @@ export function NutritionManagement() {
                             {item.category}
                           </Badge>
                         )}
+                        {item.goal_category && (
+                          <Badge variant="secondary" className="text-xs">
+                            {goalOptions.find(option => option.value === item.goal_category)?.label || item.goal_category}
+                          </Badge>
+                        )}
                         {getDifficultyBadge(item.difficulty)}
                       </div>
 
@@ -625,7 +708,7 @@ export function NutritionManagement() {
                         </div>
                         <div className="flex items-center gap-1">
                           <Flame className="h-3 w-3" />
-                          <span>{item.calories_per_serving} cal</span>
+                          <span>{item.calories ?? item.calories_per_serving ?? 0} kcal</span>
                         </div>
                       </div>
                     </div>
@@ -719,7 +802,7 @@ export function NutritionManagement() {
                           <div>
                             <div className="font-medium">{item.name}</div>
                             <div className="text-sm text-muted-foreground">
-                              {Array.isArray(item.ingredients) ? item.ingredients.length : 0} ingredientes
+                              {(item.recipe_ingredients?.length ?? (Array.isArray(item.ingredients) ? item.ingredients.length : 0))} ingredientes
                             </div>
                           </div>
                         </div>
@@ -745,7 +828,7 @@ export function NutritionManagement() {
                       <td className="p-3">
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Flame className="h-4 w-4 mr-1" />
-                          {item.calories_per_serving} cal
+                          {item.calories ?? item.calories_per_serving ?? 0} kcal
                         </div>
                       </td>
                       <td className="p-3">
@@ -942,7 +1025,7 @@ export function NutritionManagement() {
           resetForm()
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isViewMode ? 'Ver Receta' : editingNutrition ? 'Editar Receta' : 'Crear Nueva Receta'}
@@ -1017,26 +1100,81 @@ export function NutritionManagement() {
             </div>
             
             <div>
-              <FormLabel>Calorías por Porción</FormLabel>
+              <FormLabel>Calorías por Porción (auto)</FormLabel>
               <Input
                 type="number"
                 value={formData.calories_per_serving}
-                onChange={(e) => handleFormChange('calories_per_serving', parseInt(e.target.value) || 300)}
-                readOnly={isViewMode}
-                className={isViewMode ? "bg-gray-50" : ""}
+                readOnly
+                className="bg-gray-50"
               />
+              {formData.calories_per_serving <= 0 && (
+                <p className="mt-1 text-xs text-amber-600">
+                  Pendiente de calcular: añade ingredientes vinculados para obtener macros fiables.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <FormLabel>Objetivo</FormLabel>
+              <Select
+                value={formData.goal_category}
+                onValueChange={(value) => handleFormChange('goal_category', value)}
+                disabled={isViewMode}
+              >
+                <SelectTrigger className={isViewMode ? "bg-gray-50" : ""}>
+                  <SelectValue placeholder="Sin objetivo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {goalOptions.map(option => (
+                    <SelectItem key={option.value || 'none'} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             
             <div>
-              <FormLabel>Ingredientes *</FormLabel>
-              <Textarea
-                placeholder="Lista los ingredientes, uno por línea..."
-                value={formData.ingredients}
-                onChange={(e) => handleFormChange('ingredients', e.target.value)}
-                rows={4}
-                readOnly={isViewMode}
-                className={isViewMode ? "bg-gray-50" : ""}
-              />
+              <div className="flex items-center justify-between gap-2">
+                <FormLabel>Ingredientes *</FormLabel>
+                {editingNutrition && !isViewMode && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedRecipeForIngredients(editingNutrition)
+                      setIngredientsEditorOpen(true)
+                    }}
+                  >
+                    Añadir alimentos y cantidades
+                  </Button>
+                )}
+              </div>
+              {editingNutrition ? (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                  {formData.ingredients.trim() ? (
+                    <div className="flex flex-wrap gap-2">
+                      {formData.ingredients
+                        .split('\n')
+                        .map(line => line.trim())
+                        .filter(Boolean)
+                        .map((line, index) => (
+                          <Badge key={`${line}-${index}`} variant="outline">
+                            {line}
+                          </Badge>
+                        ))}
+                    </div>
+                  ) : (
+                    <p>
+                      Sin ingredientes vinculados. Usa "Añadir alimentos y cantidades" para cargarlos.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-md border p-3 text-sm text-muted-foreground">
+                  Guarda la receta para poder cargar alimentos y cantidades.
+                </div>
+              )}
             </div>
             
             <div>
@@ -1050,6 +1188,7 @@ export function NutritionManagement() {
                 className={isViewMode ? "bg-gray-50" : ""}
               />
             </div>
+
             
             <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -1073,6 +1212,55 @@ export function NutritionManagement() {
                 />
               </div>
             </div>
+
+            {editingNutrition && !isViewMode && (
+              <div>
+                <FormLabel>Subir Imagen (JPG, PNG, WebP - máx. 5MB)</FormLabel>
+                <Input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+                  className="cursor-pointer"
+                />
+                {imageFile && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Seleccionado: {imageFile.name} ({(imageFile.size / 1024 / 1024).toFixed(2)} MB)
+                  </p>
+                )}
+                {imageFile && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        setUploadingImage(true)
+                        await uploadRecipeImage(editingNutrition.id, imageFile)
+                        toast({
+                          title: "✅ Imagen subida",
+                          description: "La imagen se ha subido correctamente",
+                        })
+                        setImageFile(null)
+                        refetch()
+                      } catch (error) {
+                        toast({
+                          title: "❌ Error",
+                          description: error instanceof Error ? error.message : "Error al subir imagen",
+                          variant: "destructive",
+                        })
+                      } finally {
+                        setUploadingImage(false)
+                      }
+                    }}
+                    disabled={uploadingImage}
+                    className="mt-2"
+                  >
+                    {uploadingImage && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Subir Imagen
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
           
           <DialogFooter>
@@ -1117,7 +1305,7 @@ export function NutritionManagement() {
             id: selectedRecipeForIngredients.id.toString(),
             name: selectedRecipeForIngredients.name,
             servings: selectedRecipeForIngredients.servings || 1,
-            calories: selectedRecipeForIngredients.calories_per_serving || 0,
+            calories: selectedRecipeForIngredients.calories ?? selectedRecipeForIngredients.calories_per_serving ?? 0,
             protein: 0,
             carbs: 0,
             fat: 0

@@ -27,6 +27,28 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = AdminRecipeSerializer
     permission_classes = [IsAdminUser]
+
+    @action(detail=True, methods=['post'], url_path='upload-image')
+    def upload_image(self, request, pk=None):
+        recipe = self.get_object()
+        image = request.FILES.get('image')
+
+        if not image:
+            return Response({'detail': 'image es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp'}
+        if image.content_type not in allowed_types:
+            return Response({'detail': 'Formato no soportado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        max_size_bytes = 5 * 1024 * 1024
+        if image.size and image.size > max_size_bytes:
+            return Response({'detail': 'La imagen excede 5MB'}, status=status.HTTP_400_BAD_REQUEST)
+
+        recipe.image = image
+        recipe.save(update_fields=['image'])
+
+        serializer = self.get_serializer(recipe)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):

@@ -61,8 +61,8 @@ class RecipeSerializer(serializers.ModelSerializer):
             "calories", "protein", "carbs", "fat", "fiber", "sugar", "sodium",
             "macros_summary", "adjusted_macros",
             "ingredients", "recipe_ingredients", "ingredients_count", "instructions",
-            "diet_types", "meal_types", "allergens", "tags",
-            "image_url", "video_url",
+            "diet_types", "meal_types", "allergens", "tags", "goal_category",
+            "image", "image_url", "video_url",
             "is_system", "is_active", "is_featured",
             "created_at", "updated_at"
         ]
@@ -88,7 +88,7 @@ class RecipeMinimalSerializer(serializers.ModelSerializer):
             "id", "name", "category", "description",
             "calories", "protein", "carbs", "fat",
             "prep_time_minutes", "cook_time_minutes", "difficulty",
-            "servings", "image_url"
+            "servings", "image", "image_url", "goal_category"
         ]
 
 

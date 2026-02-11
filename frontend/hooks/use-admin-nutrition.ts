@@ -10,11 +10,15 @@ export interface Nutrition {
   difficulty: 'easy' | 'medium' | 'hard'
   prep_time_minutes: number
   servings: number
-  calories_per_serving: number
-  ingredients: string[]
+  calories?: number
+  calories_per_serving?: number
+  ingredients: Array<string | { name?: string; amount?: string; unit?: string; quantity?: number }>
+  recipe_ingredients?: RecipeIngredient[]
   instructions: string
+  image?: string
   image_url?: string
   tags: string[]
+  goal_category?: string
   created_at: string
   updated_at: string
 }
@@ -32,11 +36,23 @@ export interface CreateNutritionData {
   difficulty: 'easy' | 'medium' | 'hard'
   prep_time_minutes: number
   servings: number
-  calories_per_serving: number
-  ingredients: string[]
+  calories?: number
+  calories_per_serving?: number
+  ingredients: Array<string | { name?: string; amount?: string; unit?: string; quantity?: number }>
   instructions: string
   image_url?: string
   tags: string[]
+  goal_category?: string
+}
+
+export interface RecipeIngredient {
+  id: string
+  quantity: number
+  unit: string
+  food_detail?: {
+    name?: string
+    brand?: string
+  }
 }
 
 export const useAdminNutrition = () => {
@@ -316,6 +332,50 @@ export const useAdminNutrition = () => {
     }
   }
 
+  const uploadRecipeImage = async (recipeId: number | string, imageFile: File): Promise<Nutrition> => {
+    try {
+      let headers = await getAuthHeaders()
+      const formData = new FormData()
+      formData.append('image', imageFile)
+
+      let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${recipeId}/upload-image/`), {
+        method: 'POST',
+        headers: {
+          ...headers,
+        },
+        body: formData
+      })
+
+      if (response.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (!newHeaders) throw new Error('Sesión expirada')
+        headers = newHeaders
+        response = await fetch(buildApiUrl(`admin/nutrition/recipes/${recipeId}/upload-image/`), {
+          method: 'POST',
+          headers: {
+            ...headers,
+          },
+          body: formData
+        })
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `Error ${response.status}`)
+      }
+
+      const updatedRecipe = await response.json()
+      setNutrition(prev => prev.map(recipe =>
+        String(recipe.id) === String(recipeId) ? updatedRecipe : recipe
+      ))
+      return updatedRecipe
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
   useEffect(() => {
     fetchNutrition()
     fetchStats()
@@ -374,6 +434,7 @@ export const useAdminNutrition = () => {
     updateNutrition,
     deleteNutrition,
     bulkDeleteNutrition,
+    uploadRecipeImage,
     refetch: () => { fetchNutrition(); fetchStats() }
   }
 }
