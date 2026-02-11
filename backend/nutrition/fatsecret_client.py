@@ -74,7 +74,7 @@ class OpenFoodFactsClient:
             "page_size": page_size,
             "lc": language,
             "cc": country[:2].lower(),  # ES para Spain
-            "fields": "code,product_name,brands,nutriments,serving_size,image_url,categories_tags",
+            "fields": "code,product_name,brands,nutriments,serving_size,image_url,categories_tags,stores,stores_tags",
         }
         
         response = self.session.get(
