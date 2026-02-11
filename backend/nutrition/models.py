@@ -1,6 +1,7 @@
 # nutrition/models.py
 # Modelos de nutrición - Versión reestructurada y simplificada
 
+import re
 import uuid
 from django.conf import settings
 from django.db import models
@@ -44,6 +45,15 @@ class Recipe(TimeStampedModel):
         ('snack', 'Snack'),
         ('dessert', 'Postre'),
         ('drink', 'Bebida'),
+    ]
+
+    GOAL_CATEGORY_CHOICES = [
+        ('', 'Sin objetivo'),
+        ('lose_weight', 'Perder peso'),
+        ('gain_muscle', 'Ganar músculo'),
+        ('maintain', 'Mantener peso'),
+        ('body_recomposition', 'Recomposición corporal'),
+        ('performance', 'Rendimiento deportivo'),
     ]
     
     # Información básica
@@ -133,6 +143,13 @@ class Recipe(TimeStampedModel):
         blank=True,
         help_text="Tipos de dieta: ['vegetarian', 'vegan', 'gluten-free', 'keto', 'paleo']"
     )
+    goal_category = models.CharField(
+        max_length=30,
+        choices=GOAL_CATEGORY_CHOICES,
+        default='',
+        blank=True,
+        help_text="Objetivo principal para filtrar recetas"
+    )
     meal_types = models.JSONField(
         default=list, 
         blank=True,
@@ -150,6 +167,11 @@ class Recipe(TimeStampedModel):
     )
     
     # Media
+    image = models.ImageField(
+        upload_to='recipes/images/',
+        blank=True,
+        null=True
+    )
     image_url = models.URLField(blank=True, help_text="URL de imagen")
     video_url = models.URLField(blank=True, help_text="URL de video de preparación")
     
@@ -244,6 +266,104 @@ class Recipe(TimeStampedModel):
             self.save()
         
         return True
+
+    def calculate_macros_from_ingredient_names(self, save=True):
+        """
+        Calcula macros desde el campo JSON de ingredientes cuando no hay ingredientes vinculados.
+        Intenta resolver alimentos por nombre y cantidades en gramos.
+        """
+        if not isinstance(self.ingredients, list) or not self.ingredients:
+            return False
+
+        total_calories = 0
+        total_protein = 0
+        total_carbs = 0
+        total_fat = 0
+        total_fiber = 0
+        total_sugar = 0
+        total_sodium = 0
+
+        def parse_line(line: str):
+            # Busca patrones como "200g pollo" o "200 g pollo".
+            match = re.search(r"(\d+(?:\.\d+)?)\s*(g|ml)", line.lower())
+            if match:
+                qty = float(match.group(1))
+                unit = match.group(2)
+                name = re.sub(r"\d+(?:\.\d+)?\s*(g|ml)", "", line, flags=re.IGNORECASE).strip()
+                return name, qty, unit
+            return line.strip(), 100.0, "g"
+
+        for ingredient in self.ingredients:
+            if isinstance(ingredient, dict):
+                name = (ingredient.get('name') or '').strip()
+                quantity = float(ingredient.get('amount') or ingredient.get('quantity') or 100)
+                unit = (ingredient.get('unit') or 'g').lower()
+            elif isinstance(ingredient, str):
+                name, quantity, unit = parse_line(ingredient)
+            else:
+                continue
+
+            if not name:
+                continue
+
+            food = Food.objects.filter(name__iexact=name).first()
+            if not food:
+                food = Food.objects.filter(name__icontains=name).first()
+            if not food:
+                continue
+
+            ratio = float(quantity) / 100
+            total_calories += food.calories * ratio
+            total_protein += float(food.protein) * ratio
+            total_carbs += float(food.carbs) * ratio
+            total_fat += float(food.fat) * ratio
+            total_fiber += float(food.fiber) * ratio
+            total_sugar += float(food.sugar) * ratio
+            total_sodium += float(food.sodium) * ratio
+
+        if total_calories == 0:
+            return False
+
+        servings = self.servings if self.servings > 0 else 1
+
+        self.calories = int(total_calories / servings)
+        self.protein = round(total_protein / servings, 2)
+        self.carbs = round(total_carbs / servings, 2)
+        self.fat = round(total_fat / servings, 2)
+        self.fiber = round(total_fiber / servings, 2)
+        self.sugar = round(total_sugar / servings, 2)
+        self.sodium = round(total_sodium / servings, 2)
+
+        if save:
+            self.save()
+
+        return True
+
+    def calculate_macros_from_ingredients_source(self) -> bool:
+        """
+        Calcula macros con la mejor fuente disponible.
+        Prioriza ingredientes vinculados, luego el JSON de ingredientes.
+        """
+        if self.recipe_ingredients.exists():
+            return self.calculate_macros_from_ingredients(save=False)
+        return self.calculate_macros_from_ingredient_names(save=False)
+
+    def save(self, *args, **kwargs):
+        skip_recalc = kwargs.pop('_skip_macro_recalc', False)
+        super().save(*args, **kwargs)
+        if skip_recalc:
+            return
+
+        if self.calculate_macros_from_ingredients_source():
+            Recipe.objects.filter(pk=self.pk).update(
+                calories=self.calories,
+                protein=self.protein,
+                carbs=self.carbs,
+                fat=self.fat,
+                fiber=self.fiber,
+                sugar=self.sugar,
+                sodium=self.sodium,
+            )
     
     def get_adjusted_macros(self, multiplier=1.0):
         """
@@ -600,6 +720,32 @@ class PlanMeal(TimeStampedModel):
     Comida dentro de un plan de nutrición
     Define las comidas del día y sus objetivos calóricos
     """
+
+    day_of_week = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        choices=[
+            (1, 'Lunes'),
+            (2, 'Martes'),
+            (3, 'Miércoles'),
+            (4, 'Jueves'),
+            (5, 'Viernes'),
+            (6, 'Sábado'),
+            (7, 'Domingo'),
+        ],
+        help_text="Día de la semana (1=Lunes..7=Domingo). Null = aplica a cualquier día."
+    )
+
+    name = models.CharField(
+        max_length=200,
+        help_text="Nombre de la comida (ej: 'Desayuno energético')"
+    )
+
+    plan = models.ForeignKey(
+        NutritionPlan,
+        on_delete=models.CASCADE,
+        related_name='meals'
+    )
     
     MEAL_TYPE_CHOICES = [
         ('breakfast', 'Desayuno'),
@@ -608,34 +754,6 @@ class PlanMeal(TimeStampedModel):
         ('dinner', 'Cena'),
     ]
 
-    DAY_OF_WEEK_CHOICES = [
-        (1, 'Lunes'),
-        (2, 'Martes'),
-        (3, 'Miércoles'),
-        (4, 'Jueves'),
-        (5, 'Viernes'),
-        (6, 'Sábado'),
-        (7, 'Domingo'),
-    ]
-    
-    plan = models.ForeignKey(
-        NutritionPlan, 
-        on_delete=models.CASCADE, 
-        related_name='meals'
-    )
-
-    # Día de la semana (opcional). Si es null, la comida aplica a cualquier día (compatibilidad).
-    day_of_week = models.PositiveSmallIntegerField(
-        null=True,
-        blank=True,
-        choices=DAY_OF_WEEK_CHOICES,
-        help_text="Día de la semana (1=Lunes..7=Domingo). Null = aplica a cualquier día."
-    )
-    
-    name = models.CharField(
-        max_length=200, 
-        help_text="Nombre de la comida (ej: 'Desayuno energético')"
-    )
     meal_type = models.CharField(
         max_length=50, 
         choices=MEAL_TYPE_CHOICES,

@@ -2,11 +2,14 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe
+from .serializers import RecipeIngredientSerializer
 
 User = get_user_model()
 
 
 class AdminRecipeSerializer(serializers.ModelSerializer):
+    recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
+
     class Meta:
         model = Recipe
         fields = '__all__'
@@ -19,7 +22,7 @@ class RecipeMinimalForMealSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'category', 
             'calories', 'protein', 'carbs', 'fat',
-            'prep_time_minutes', 'difficulty', 'image_url'
+            'prep_time_minutes', 'difficulty', 'image', 'image_url'
         ]
 
 

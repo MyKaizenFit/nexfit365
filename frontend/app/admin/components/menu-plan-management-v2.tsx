@@ -28,6 +28,7 @@ interface AdminRecipe {
   id: string
   name: string
   category?: string
+  goal_category?: string
   calories?: number
   protein?: number
   carbs?: number
@@ -70,13 +71,18 @@ const DAY_LABELS: Record<DayKey, string> = {
 
 const MEAL_TYPES: Array<{ value: string; label: string }> = [
   { value: "breakfast", label: "Desayuno" },
-  { value: "morning_snack", label: "Snack Mañana" },
   { value: "lunch", label: "Almuerzo" },
-  { value: "afternoon_snack", label: "Snack Tarde" },
+  { value: "snack", label: "Merienda" },
   { value: "dinner", label: "Cena" },
-  { value: "evening_snack", label: "Snack Noche" },
-  { value: "pre_workout", label: "Pre-Entreno" },
-  { value: "post_workout", label: "Post-Entreno" },
+]
+
+const GOAL_OPTIONS = [
+  { value: "all", label: "Todos" },
+  { value: "lose_weight", label: "Perder peso" },
+  { value: "gain_muscle", label: "Ganar músculo" },
+  { value: "maintain", label: "Mantener peso" },
+  { value: "body_recomposition", label: "Recomposición corporal" },
+  { value: "performance", label: "Rendimiento deportivo" },
 ]
 
 function toNumber(value: unknown, fallback = 0) {
@@ -132,6 +138,7 @@ export function MenuPlanManagementV2() {
   const [draftMeals, setDraftMeals] = useState<PlanMealDraft[]>([])
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
   const [recipeSearch, setRecipeSearch] = useState("")
+  const [recipeGoalFilter, setRecipeGoalFilter] = useState("all")
   const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
 
   // Duplicar a usuario
@@ -546,6 +553,7 @@ export function MenuPlanManagementV2() {
   const openRecipePickerForDraftMeal = (draftIndex: number) => {
     setTargetMealIndex(draftIndex)
     setRecipeSearch("")
+    setRecipeGoalFilter("all")
     setShowRecipeSelector(true)
   }
 
@@ -643,9 +651,12 @@ export function MenuPlanManagementV2() {
 
   const filteredRecipes = useMemo(() => {
     const q = recipeSearch.trim().toLowerCase()
-    if (!q) return availableRecipes
-    return availableRecipes.filter((r) => (r.name || "").toLowerCase().includes(q))
-  }, [availableRecipes, recipeSearch])
+    return availableRecipes.filter((r) => {
+      const matchesSearch = !q || (r.name || "").toLowerCase().includes(q)
+      const matchesGoal = recipeGoalFilter === "all" || (r.goal_category || "") === recipeGoalFilter
+      return matchesSearch && matchesGoal
+    })
+  }, [availableRecipes, recipeSearch, recipeGoalFilter])
 
   const addRecipeToDraftMeal = (recipe: AdminRecipe) => {
     if (targetMealIndex == null) return
@@ -1309,6 +1320,13 @@ export function MenuPlanManagementV2() {
                                     <div key={r.id} className="border rounded-md p-3 flex items-center justify-between gap-3">
                                       <div className="min-w-0">
                                         <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
+                                        {r.goal_category && (
+                                          <div className="mt-1">
+                                            <Badge variant="secondary" className="text-[10px]">
+                                              {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
+                                            </Badge>
+                                          </div>
+                                        )}
                                         <div className="text-xs text-muted-foreground">
                                           {toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}
                                         </div>
@@ -1433,6 +1451,22 @@ export function MenuPlanManagementV2() {
             <Input className="pl-8" placeholder="Buscar receta..." value={recipeSearch} onChange={(e) => setRecipeSearch(e.target.value)} />
           </div>
 
+          <div>
+            <FormLabel>Objetivo</FormLabel>
+            <Select value={recipeGoalFilter} onValueChange={setRecipeGoalFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                {GOAL_OPTIONS.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {filteredRecipes.map((r) => (
               <Button
@@ -1446,6 +1480,18 @@ export function MenuPlanManagementV2() {
               >
                 <div className="text-left">
                   <div className="font-medium text-sm">{fixEncoding(r.name)}</div>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {r.category && (
+                      <Badge variant="outline" className="text-[10px]">
+                        {r.category}
+                      </Badge>
+                    )}
+                    {r.goal_category && (
+                      <Badge variant="secondary" className="text-[10px]">
+                        {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
+                      </Badge>
+                    )}
+                  </div>
                   <div className="text-xs text-muted-foreground">
                     {toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}
                   </div>
