@@ -585,6 +585,13 @@ class NutritionPlan(TimeStampedModel):
         related_name='nutrition_plans',
         help_text="Usuario (null = plantilla/sistema)"
     )
+    assigned_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        through='NutritionPlanAssignment',
+        related_name='assigned_nutrition_plans',
+        blank=True,
+        help_text="Usuarios asignados al plan (multiusuario)"
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         null=True, 
@@ -709,6 +716,38 @@ class NutritionPlan(TimeStampedModel):
         self.portion_multiplier = self.get_portion_multiplier_for_goal()
         if save:
             self.save()
+
+
+class NutritionPlanAssignment(TimeStampedModel):
+    """
+    Asignación de plan a usuario (permite multiusuario).
+    is_active es por usuario, no global.
+    """
+
+    plan = models.ForeignKey(
+        NutritionPlan,
+        on_delete=models.CASCADE,
+        related_name='assignments'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='nutrition_plan_assignments'
+    )
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Plan activo para este usuario"
+    )
+    assigned_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['plan', 'user']
+        ordering = ['-assigned_at']
+        verbose_name = "Asignacion de Plan"
+        verbose_name_plural = "Asignaciones de Plan"
+
+    def __str__(self):
+        return f"{self.plan.name} -> {self.user.email}"
 
 
 # =============================================================================

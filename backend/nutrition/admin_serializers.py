@@ -7,6 +7,12 @@ from .serializers import RecipeIngredientSerializer
 User = get_user_model()
 
 
+class AdminUserLiteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'email']
+
+
 class AdminRecipeSerializer(serializers.ModelSerializer):
     recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
 
@@ -94,6 +100,8 @@ class AdminNutritionPlanSerializer(serializers.ModelSerializer):
     protein_percentage = serializers.SerializerMethodField()
     carbs_percentage = serializers.SerializerMethodField()
     fat_percentage = serializers.SerializerMethodField()
+    assigned_users = AdminUserLiteSerializer(many=True, read_only=True)
+    assigned_user_ids = serializers.SerializerMethodField()
     user_id = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(),
         source='user',
@@ -110,8 +118,8 @@ class AdminNutritionPlanSerializer(serializers.ModelSerializer):
             'daily_calories', 'protein_grams', 'carbs_grams', 'fat_grams', 'fiber_grams',
             'protein_percentage', 'carbs_percentage', 'fat_percentage',
             'goal', 'diet_type', 'meals_per_day', 'duration_weeks',
-            'is_template', 'is_system', 'is_active',
-            'user_id', 'user_email',
+            'portion_multiplier', 'is_template', 'is_system', 'is_active',
+            'user_id', 'user_email', 'assigned_users', 'assigned_user_ids',
             'start_date', 'end_date', 'tags', 'image_url',
             'meals', 'created_at', 'updated_at'
         ]
@@ -131,6 +139,9 @@ class AdminNutritionPlanSerializer(serializers.ModelSerializer):
             return round((obj.fat_grams * 9) / obj.daily_calories * 100, 1)
         return 30  # valor por defecto
 
+    def get_assigned_user_ids(self, obj):
+        return list(obj.assigned_users.values_list('id', flat=True))
+
 
 class AdminNutritionPlanMinimalSerializer(serializers.ModelSerializer):
     """Serializer minimal para listados en admin (incluye información de usuario y conteos)"""
@@ -140,6 +151,8 @@ class AdminNutritionPlanMinimalSerializer(serializers.ModelSerializer):
     meals_count = serializers.SerializerMethodField()
     user_id = serializers.IntegerField(source='user.id', read_only=True)
     user_email = serializers.EmailField(source='user.email', read_only=True)
+    assigned_users = AdminUserLiteSerializer(many=True, read_only=True)
+    assigned_user_ids = serializers.SerializerMethodField()
 
     class Meta:
         model = NutritionPlan
@@ -148,8 +161,8 @@ class AdminNutritionPlanMinimalSerializer(serializers.ModelSerializer):
             'daily_calories',
             'protein_percentage', 'carbs_percentage', 'fat_percentage',
             'goal', 'diet_type', 'meals_per_day', 'duration_weeks',
-            'is_template', 'is_system', 'is_active',
-            'user_id', 'user_email',
+            'portion_multiplier', 'is_template', 'is_system', 'is_active',
+            'user_id', 'user_email', 'assigned_users', 'assigned_user_ids',
             'meals_count',
             'created_at', 'updated_at'
         ]
@@ -174,6 +187,9 @@ class AdminNutritionPlanMinimalSerializer(serializers.ModelSerializer):
         if obj.daily_calories and obj.fat_grams:
             return round((obj.fat_grams * 9) / obj.daily_calories * 100, 1)
         return 30
+
+    def get_assigned_user_ids(self, obj):
+        return list(obj.assigned_users.values_list('id', flat=True))
 
 
 class AdminFoodSerializer(serializers.ModelSerializer):

@@ -10,7 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db.models import Q
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
@@ -26,6 +26,17 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 logger = logging.getLogger(__name__)
 
 
+def get_active_plan_for_user(user):
+    assignment = NutritionPlanAssignment.objects.filter(
+        user=user,
+        is_active=True,
+        plan__is_active=True,
+    ).select_related('plan').order_by('-assigned_at').first()
+    if assignment:
+        return assignment.plan
+    return NutritionPlan.objects.filter(user=user, is_active=True).order_by('-created_at').first()
+
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_plan(request):
@@ -33,13 +44,12 @@ def current_plan(request):
     Obtener el plan de nutrición actual del usuario.
     Devuelve el plan más reciente asignado al usuario o null si no tiene ninguno.
     """
-    plan = NutritionPlan.objects.filter(
-        user=request.user,
-        is_active=True
-    ).select_related('user').prefetch_related(
-        'meals',
-        'meals__suggested_recipes'
-    ).order_by('-created_at').first()
+    plan = get_active_plan_for_user(request.user)
+    if plan:
+        plan = NutritionPlan.objects.filter(pk=plan.pk).select_related('user').prefetch_related(
+            'meals',
+            'meals__suggested_recipes'
+        ).first()
     
     if plan:
         serializer = NutritionPlanSerializer(plan)
@@ -213,10 +223,13 @@ def plan_meals_for_selection(request):
         return slots
 
     # Primero intentar obtener comidas del plan actual del usuario
-    user_plan = NutritionPlan.objects.filter(
-        user=user,
-        is_active=True
-    ).prefetch_related('meals__suggested_recipes').first()
+    user_plan = get_active_plan_for_user(user)
+    if user_plan:
+        user_plan = NutritionPlan.objects.filter(pk=user_plan.pk).prefetch_related(
+            'meals__suggested_recipes',
+            'meals__meal_recipes',
+            'meals__meal_recipes__recipe',
+        ).first()
     
     meals_by_type = {}
     # Nuevo: devolver slots (comidas del día) y opciones por slot
@@ -246,9 +259,30 @@ def plan_meals_for_selection(request):
             
             # Crear opciones basadas en la comida y sus recetas sugeridas
             meal_options = []
-            
+
+            # Si hay recetas configuradas (PlanMealRecipe), crear una opción por receta
+            if meal.meal_recipes.exists():
+                for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
+                    recipe = meal_recipe.recipe
+                    calories = meal_recipe.get_display_calories()
+                    protein = meal_recipe.get_display_protein()
+                    carbs = meal_recipe.get_display_carbs()
+                    fat = meal_recipe.get_display_fat()
+                    meal_options.append({
+                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                        'name': recipe.name,
+                        'calories': int(calories),
+                        'protein': round(float(protein), 1),
+                        'carbs': round(float(carbs), 1),
+                        'fat': round(float(fat), 1),
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': recipe.description or meal.description,
+                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                        'recipeId': recipe.id
+                    })
             # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
-            if meal.suggested_recipes.exists():
+            elif meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
@@ -301,7 +335,11 @@ def plan_meals_for_selection(request):
     system_plans = NutritionPlan.objects.filter(
         is_system=True,
         is_active=True
-    ).prefetch_related('meals__suggested_recipes')
+    ).prefetch_related(
+        'meals__suggested_recipes',
+        'meals__meal_recipes',
+        'meals__meal_recipes__recipe',
+    )
     
     for plan in system_plans:
         for meal in plan.meals.all().order_by('order_index', 'id'):
@@ -313,7 +351,27 @@ def plan_meals_for_selection(request):
             
             # Crear opciones basadas en la comida y sus recetas sugeridas (sin límite)
             meal_options = []
-            if meal.suggested_recipes.exists():
+            if meal.meal_recipes.exists():
+                for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
+                    recipe = meal_recipe.recipe
+                    calories = meal_recipe.get_display_calories()
+                    protein = meal_recipe.get_display_protein()
+                    carbs = meal_recipe.get_display_carbs()
+                    fat = meal_recipe.get_display_fat()
+                    meal_options.append({
+                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                        'name': recipe.name,
+                        'calories': int(calories),
+                        'protein': round(float(protein), 1),
+                        'carbs': round(float(carbs), 1),
+                        'fat': round(float(fat), 1),
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': recipe.description or meal.description,
+                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                        'recipeId': recipe.id
+                    })
+            elif meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
@@ -464,9 +522,9 @@ def daily_meal_selections(request):
         serializer = MealLogSerializer(meal_logs, many=True)
         
         # También obtener las comidas del plan si existe
-        user_plan = NutritionPlan.objects.filter(
-            user=user, is_active=True
-        ).prefetch_related('meals__suggested_recipes').first()
+        user_plan = get_active_plan_for_user(user)
+        if user_plan:
+            user_plan = NutritionPlan.objects.filter(pk=user_plan.pk).prefetch_related('meals__suggested_recipes').first()
         
         plan_meals = []
         if user_plan:
@@ -490,7 +548,9 @@ def daily_meal_selections(request):
         plan_meal = None
         if plan_meal_id:
             try:
-                active_plan = NutritionPlan.objects.filter(user=user, is_active=True).prefetch_related('meals').first()
+                active_plan = get_active_plan_for_user(user)
+                if active_plan:
+                    active_plan = NutritionPlan.objects.filter(pk=active_plan.pk).prefetch_related('meals').first()
                 if active_plan:
                     plan_meal = active_plan.meals.filter(id=plan_meal_id).first()
             except Exception:
@@ -951,7 +1011,9 @@ def weekly_meal_selections(request):
                 plan_meal = None
                 if plan_meal_id:
                     try:
-                        active_plan = NutritionPlan.objects.filter(user=user, is_active=True).prefetch_related('meals').first()
+                        active_plan = get_active_plan_for_user(user)
+                        if active_plan:
+                            active_plan = NutritionPlan.objects.filter(pk=active_plan.pk).prefetch_related('meals').first()
                         if active_plan:
                             plan_meal = active_plan.meals.filter(id=plan_meal_id).first()
                     except Exception:
@@ -1189,10 +1251,11 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         return NutritionPlan.objects.filter(
             is_active=True
         ).filter(
-            models.Q(is_system=True) | models.Q(user=user)
-        ).select_related('user').prefetch_related(
+            models.Q(is_system=True) | models.Q(user=user) | models.Q(assignments__user=user)
+        ).distinct().select_related('user').prefetch_related(
             'meals',
-            'meals__suggested_recipes'
+            'meals__suggested_recipes',
+            'assignments__user'
         )
     
     def get_serializer_class(self):
@@ -1203,7 +1266,10 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def my_plans(self, request):
         """Planes del usuario"""
-        plans = NutritionPlan.objects.filter(user=request.user, is_active=True)
+        plans = NutritionPlan.objects.filter(
+            Q(user=request.user) | Q(assignments__user=request.user),
+            is_active=True
+        ).distinct()
         return Response(NutritionPlanMinimalSerializer(plans, many=True).data)
     
     @action(detail=False, methods=['get'])
@@ -1221,9 +1287,10 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         """
         plan = get_object_or_404(NutritionPlan, pk=pk)
         user = request.user
+        assignment = NutritionPlanAssignment.objects.filter(plan=plan, user=user).first()
         
         # Validar que el plan pertenece al usuario o es una plantilla del sistema
-        if plan.user and plan.user != user:
+        if plan.user and plan.user != user and not assignment:
             return Response(
                 {'error': 'No tienes permiso para activar este plan.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -1231,7 +1298,7 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         
         # Solo se pueden activar planes de usuarios (no plantillas directamente)
         # Si es una plantilla, el admin debe crear una copia para el usuario primero
-        if plan.is_template or (plan.is_system and not plan.user):
+        if plan.is_template or (plan.is_system and not assignment and not plan.user):
             return Response(
                 {'error': 'No puedes activar directamente una plantilla. Un administrador debe asignártela primero.'},
                 status=status.HTTP_400_BAD_REQUEST
@@ -1239,14 +1306,21 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         
         # IMPORTANTE: Desactivar TODOS los otros planes activos del usuario
         # Esto garantiza que solo un plan esté activo a la vez
-        NutritionPlan.objects.filter(
+        NutritionPlanAssignment.objects.filter(
             user=user,
             is_active=True
-        ).exclude(pk=pk).update(is_active=False)
-        
-        # Activar el plan solicitado
-        plan.is_active = True
-        plan.save(update_fields=['is_active'])
+        ).exclude(plan=plan).update(is_active=False)
+
+        if assignment:
+            assignment.is_active = True
+            assignment.save(update_fields=['is_active'])
+        elif plan.user == user:
+            NutritionPlan.objects.filter(
+                user=user,
+                is_active=True
+            ).exclude(pk=pk).update(is_active=False)
+            plan.is_active = True
+            plan.save(update_fields=['is_active'])
         
         # Registrar en el historial si existe el servicio
         try:
@@ -1287,7 +1361,7 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         plan = self.get_object()
         
         # Verificar permisos (solo admin o dueño del plan)
-        if not request.user.is_staff and plan.user != request.user:
+        if not request.user.is_staff and plan.user != request.user and not plan.assignments.filter(user=request.user).exists():
             return Response(
                 {'error': 'No tienes permiso para modificar este plan'},
                 status=status.HTTP_403_FORBIDDEN

@@ -14,9 +14,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Percent, Plus, Search, Trash2, User, XCircle } from "lucide-react"
+import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
-import { MacroPercentageEditor } from "./macro-percentage-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl } from "@/lib/api"
@@ -90,17 +89,38 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
-function getCategory(plan: { is_system: boolean; user_id?: number | null; is_template: boolean }) {
-  if (plan.user_id) return "Usuario"
+function formatRange(min: number, max: number, decimals = 0) {
+  const round = (v: number) => Number(v.toFixed(decimals))
+  const minVal = round(min)
+  const maxVal = round(max)
+  if (minVal === maxVal) return `${minVal}`
+  return `${minVal}-${maxVal}`
+}
+
+function getCategory(plan: { is_system: boolean; user_id?: number | null; is_template: boolean; assigned_user_ids?: number[] }) {
+  if ((plan.assigned_user_ids && plan.assigned_user_ids.length > 0) || plan.user_id) return "Usuario"
   if (plan.is_system) return "Sistema"
   if (plan.is_template) return "Plantilla"
   return "Plantilla"
 }
 
-function CategoryBadge({ plan }: { plan: { is_system: boolean; user_id?: number | null; is_template: boolean } }) {
+function CategoryBadge({ plan }: { plan: { is_system: boolean; user_id?: number | null; is_template: boolean; assigned_user_ids?: number[] } }) {
   const cat = getCategory(plan)
   const variant = cat === "Usuario" ? "default" : cat === "Sistema" ? "secondary" : "outline"
   return <Badge variant={variant}>{cat}</Badge>
+}
+
+function getAssignedEmails(plan: { assigned_users?: Array<{ email: string }>; user_email?: string | null }) {
+  if (Array.isArray(plan.assigned_users) && plan.assigned_users.length > 0) {
+    return plan.assigned_users.map((u) => u.email)
+  }
+  return plan.user_email ? [plan.user_email] : []
+}
+
+function formatAssignedLabel(emails: string[]) {
+  if (emails.length === 0) return "—"
+  if (emails.length <= 2) return emails.join(", ")
+  return `${emails[0]}, ${emails[1]} +${emails.length - 2}`
 }
 
 export function MenuPlanManagementV2() {
@@ -126,7 +146,6 @@ export function MenuPlanManagementV2() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
   const [createStep, setCreateStep] = useState<"basic" | "week">("basic")
-  const [autoComputeMacros, setAutoComputeMacros] = useState(true)
 
   // Editor semanal (reutiliza NutritionTemplatePlanEditor)
   const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
@@ -147,18 +166,12 @@ export function MenuPlanManagementV2() {
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
   const [duplicateUserId, setDuplicateUserId] = useState<string>("none")
 
-  // Editor de macros por porcentaje
-  const [showMacroEditor, setShowMacroEditor] = useState(false)
-  const [macroEditorPlan, setMacroEditorPlan] = useState<Plan | null>(null)
+  const [editSummary, setEditSummary] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null)
 
   const [form, setForm] = useState({
     name: "",
     description: "",
-    daily_calories: 2000,
-    protein: 30,
-    carbs: 40,
-    fat: 30,
-    user_id: "none" as string,
+    assigned_user_ids: [] as string[],
     portion_multiplier: 1.0,
   })
 
@@ -166,11 +179,7 @@ export function MenuPlanManagementV2() {
     setForm({
       name: "",
       description: "",
-      daily_calories: 2000,
-      protein: 30,
-      carbs: 40,
-      fat: 30,
-      user_id: "none",
+      assigned_user_ids: [],
       portion_multiplier: 1.0,
     })
     setCreateStep("basic")
@@ -179,7 +188,7 @@ export function MenuPlanManagementV2() {
     setShowRecipeSelector(false)
     setRecipeSearch("")
     setTargetMealIndex(null)
-    setAutoComputeMacros(true)
+    setEditSummary(null)
   }, [])
 
   const openCreate = () => {
@@ -272,28 +281,20 @@ export function MenuPlanManagementV2() {
   const handleCreate = async (configureWeekly: boolean) => {
     try {
       setSaving(true)
-      const userId = form.user_id === "none" ? null : Number(form.user_id)
-      const shouldAuto = autoComputeMacros && computedPlanAverages.calories > 0
-      const derivedDailyCalories = shouldAuto ? Math.round(computedPlanAverages.calories) : (Number(form.daily_calories) || 0)
-      const derivedPercents = shouldAuto
-        ? {
-            protein: Math.round(computedPlanAverages.proteinPct || 0),
-            carbs: Math.round(computedPlanAverages.carbsPct || 0),
-            fat: Math.round(computedPlanAverages.fatPct || 0),
-          }
-        : { protein: Number(form.protein) || 0, carbs: Number(form.carbs) || 0, fat: Number(form.fat) || 0 }
+      const userIds = form.assigned_user_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
+      const derivedDailyCalories = Math.round(computedPlanAverages.calories || 0)
+      const derivedPercents = {
+        protein: Math.round(computedPlanAverages.proteinPct || 0),
+        carbs: Math.round(computedPlanAverages.carbsPct || 0),
+        fat: Math.round(computedPlanAverages.fatPct || 0),
+      }
 
       const mealsPayload = draftMeals.map((m) => {
-        const computed = autoComputeMacros ? computeMealAverages(m) : null
         return {
         day_of_week: m.day_of_week,
         name: m.name,
         meal_type: m.meal_type,
         time: m.time,
-        calories: computed ? Math.round(toNumber(computed.calories)) : toNumber(m.calories),
-        protein: computed ? Math.round(toNumber(computed.protein)) : toNumber(m.protein),
-        carbs: computed ? Math.round(toNumber(computed.carbs)) : toNumber(m.carbs),
-        fat: computed ? Math.round(toNumber(computed.fat)) : toNumber(m.fat),
         description: m.description || "",
         order_index: toNumber(m.order_index, 1),
         suggested_recipes_ids: m.meal_recipes.map((r) => r.recipe_id),
@@ -313,7 +314,7 @@ export function MenuPlanManagementV2() {
         description: form.description || "",
         daily_calories: derivedDailyCalories,
         percents: derivedPercents,
-        user_id: userId,
+        user_ids: userIds,
         meals: mealsPayload,
         portion_multiplier: form.portion_multiplier,
       })
@@ -359,16 +360,12 @@ export function MenuPlanManagementV2() {
         description: detail.description || "",
         daily_calories: Number(detail.daily_calories) || 0,
         percents: { protein: Number(detail.protein_percentage) || 30, carbs: Number(detail.carbs_percentage) || 40, fat: Number(detail.fat_percentage) || 30 },
-        user_id: userId,
+        user_ids: [userId],
         meals: Array.isArray(detail.meals) ? detail.meals.map((m: any) => ({
           day_of_week: m.day_of_week ?? null,
           name: m.name,
           meal_type: m.meal_type,
           time: m.time,
-          calories: m.calories,
-          protein: m.protein,
-          carbs: m.carbs,
-          fat: m.fat,
           description: m.description,
           order_index: m.order_index,
           suggested_recipes_ids: Array.isArray(m.suggested_recipes) ? m.suggested_recipes.map((r: any) => (typeof r === "object" ? r.id : r)) : [],
@@ -466,14 +463,20 @@ export function MenuPlanManagementV2() {
       setEditingPlanId(planId)
       const detail = await fetchPlanDetail(planId)
       if (!detail) throw new Error("No se pudo cargar el plan")
+      const assignedIds = Array.isArray(detail.assigned_user_ids) && detail.assigned_user_ids.length > 0
+        ? detail.assigned_user_ids
+        : (detail.user_id ? [detail.user_id] : [])
       setForm({
         name: fixEncoding(detail.name || ""),
         description: fixEncoding(detail.description || ""),
-        daily_calories: Number(detail.daily_calories) || 0,
-        protein: Number((detail as any).protein_percentage ?? detail.protein_percentage ?? 30) || 30,
-        carbs: Number((detail as any).carbs_percentage ?? detail.carbs_percentage ?? 40) || 40,
-        fat: Number((detail as any).fat_percentage ?? detail.fat_percentage ?? 30) || 30,
-        user_id: detail.user_id ? String(detail.user_id) : "none",
+        assigned_user_ids: assignedIds.map((id) => String(id)),
+        portion_multiplier: (detail as any).portion_multiplier ?? 1.0,
+      })
+      setEditSummary({
+        calories: Number(detail.daily_calories) || 0,
+        protein: Number((detail as any).protein_grams ?? detail.protein_grams ?? 0) || 0,
+        carbs: Number((detail as any).carbs_grams ?? detail.carbs_grams ?? 0) || 0,
+        fat: Number((detail as any).fat_grams ?? detail.fat_grams ?? 0) || 0,
       })
       setShowCreateDialog(true)
     } catch (e) {
@@ -488,16 +491,12 @@ export function MenuPlanManagementV2() {
     if (!editingPlanId) return
     try {
       setSaving(true)
-      const userId = form.user_id === "none" ? null : Number(form.user_id)
+      const userIds = form.assigned_user_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
       await updatePlan(editingPlanId, {
         name: form.name.trim(),
         description: form.description || "",
-        daily_calories: Number(form.daily_calories) || 0,
-        user_id: userId,
-        // El backend calcula %/g según campos disponibles; para mantener consistente, mandamos porcentajes directos.
-        protein_percentage: Number(form.protein) || 0,
-        carbs_percentage: Number(form.carbs) || 0,
-        fat_percentage: Number(form.fat) || 0,
+        assigned_user_ids: userIds,
+        portion_multiplier: form.portion_multiplier,
       })
       toast({ title: "✅ Plan actualizado" })
       setShowCreateDialog(false)
@@ -517,6 +516,11 @@ export function MenuPlanManagementV2() {
     const dayNum = Number(draftActiveDay)
     return draftMeals.filter((m) => m.day_of_week === dayNum).sort((a, b) => a.order_index - b.order_index)
   }, [draftMeals, draftActiveDay])
+
+  const missingDraftDays = useMemo(() => {
+    const days = [1, 2, 3, 4, 5, 6, 7]
+    return days.filter((day) => !draftMeals.some((m) => m.day_of_week === day))
+  }, [draftMeals])
 
   const addDraftMeal = () => {
     const dayNum = Number(draftActiveDay)
@@ -597,11 +601,33 @@ export function MenuPlanManagementV2() {
     }
   }, [computeRecipeMacros, recipesById])
 
+  const computeMealRange = useCallback((meal: PlanMealDraft) => {
+    const opts = Array.isArray(meal.meal_recipes) ? meal.meal_recipes : []
+    const used = opts
+      .map((o) => ({ o, r: recipesById.get(String(o.recipe_id)) }))
+      .filter((x) => x.r)
+      .map((x) => computeRecipeMacros(x.r!, x.o))
+    if (used.length === 0) return null
+
+    const pickRange = (key: "calories" | "protein" | "carbs" | "fat") => {
+      const values = used.map((m) => m[key])
+      return { min: Math.min(...values), max: Math.max(...values) }
+    }
+
+    return {
+      calories: pickRange("calories"),
+      protein: pickRange("protein"),
+      carbs: pickRange("carbs"),
+      fat: pickRange("fat"),
+      count: used.length,
+    }
+  }, [computeRecipeMacros, recipesById])
+
   const computeDayTotals = useCallback((day: number) => {
     const meals = draftMeals.filter((m) => m.day_of_week === day)
     const totals = meals.reduce(
       (acc, m) => {
-        const base = autoComputeMacros ? computeMealAverages(m) : { calories: m.calories, protein: m.protein, carbs: m.carbs, fat: m.fat }
+        const base = computeMealAverages(m)
         return {
           calories: acc.calories + toNumber(base.calories),
           protein: acc.protein + toNumber(base.protein),
@@ -612,7 +638,7 @@ export function MenuPlanManagementV2() {
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     )
     return totals
-  }, [autoComputeMacros, computeMealAverages, draftMeals])
+  }, [computeMealAverages, draftMeals])
 
   const computedPlanAverages = useMemo(() => {
     // Promedio diario sobre los días que tengan al menos 1 comida
@@ -722,7 +748,7 @@ export function MenuPlanManagementV2() {
             <Badge variant="outline">Template</Badge>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sortedPlans.filter((p) => !p.user_id && !p.is_system).length}</div>
+            <div className="text-2xl font-bold">{sortedPlans.filter((p) => (!p.assigned_user_ids || p.assigned_user_ids.length === 0) && !p.user_id && !p.is_system).length}</div>
           </CardContent>
         </Card>
         <Card className="hidden lg:block">
@@ -731,7 +757,7 @@ export function MenuPlanManagementV2() {
             <User className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{sortedPlans.filter((p) => Boolean(p.user_id)).length}</div>
+            <div className="text-2xl font-bold">{sortedPlans.filter((p) => (p.assigned_user_ids && p.assigned_user_ids.length > 0) || p.user_id).length}</div>
           </CardContent>
         </Card>
       </div>
@@ -887,12 +913,6 @@ export function MenuPlanManagementV2() {
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setMacroEditorPlan(p)
-                                setShowMacroEditor(true)
-                              }}>
-                                <Percent className="h-4 w-4 mr-2" /> Editar Macros (%)
-                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
                               </DropdownMenuItem>
@@ -922,7 +942,7 @@ export function MenuPlanManagementV2() {
                           </div>
                           <div className="flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            <span className="truncate">{p.user_email || "—"}</span>
+                            <span className="truncate">{formatAssignedLabel(getAssignedEmails(p))}</span>
                           </div>
                         </div>
                       </div>
@@ -975,10 +995,10 @@ export function MenuPlanManagementV2() {
                               <div className="flex items-center gap-2">
                                 <div className="font-medium truncate max-w-[420px]">{fixEncoding(p.name)}</div>
                                 <CategoryBadge plan={p} />
-                                {p.user_email && (
-                                  <Badge variant="outline" className="truncate max-w-[200px]">
+                                {getAssignedEmails(p).length > 0 && (
+                                  <Badge variant="outline" className="truncate max-w-[220px]">
                                     <User className="w-3 h-3 mr-1" />
-                                    {p.user_email}
+                                    {formatAssignedLabel(getAssignedEmails(p))}
                                   </Badge>
                                 )}
                               </div>
@@ -1009,12 +1029,6 @@ export function MenuPlanManagementV2() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => {
-                                setMacroEditorPlan(p)
-                                setShowMacroEditor(true)
-                              }}>
-                                <Percent className="h-4 w-4 mr-2" /> Editar Macros (%)
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
@@ -1071,82 +1085,56 @@ export function MenuPlanManagementV2() {
               </TabsList>
 
               <TabsContent value="basic" className="space-y-4">
-                <Card className="border-dashed">
-                  <CardContent className="p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="text-sm font-medium">Cálculo automático de macros</div>
-                      <Checkbox checked={autoComputeMacros} onCheckedChange={(v) => setAutoComputeMacros(Boolean(v))} />
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      Si está activado, la media diaria de kcal/macros se calcula usando las recetas seleccionadas en la semana (media de opciones por comida).
-                    </div>
-                  </CardContent>
-                </Card>
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Nombre</label>
                     <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
                   </div>
-                  <div>
-                    <label className="text-sm font-medium">Calorías diarias</label>
-                    <Input
-                      type="number"
-                      value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.calories) : form.daily_calories}
-                      onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })}
-                      disabled={autoComputeMacros && computedPlanAverages.calories > 0}
-                    />
-                  </div>
                   <div className="md:col-span-2">
-                    <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
-                    <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
-                        {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-sm font-medium">Asignar a usuarios (opcional)</label>
+                    <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                      {users.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">No hay usuarios cargados.</div>
+                      ) : (
+                        users.map((u) => {
+                          const checked = form.assigned_user_ids.includes(String(u.id))
+                          return (
+                            <label key={u.id} className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  const isChecked = Boolean(v)
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    assigned_user_ids: isChecked
+                                      ? Array.from(new Set([...prev.assigned_user_ids, String(u.id)]))
+                                      : prev.assigned_user_ids.filter((id) => id !== String(u.id)),
+                                  }))
+                                }}
+                              />
+                              <span className="truncate">{u.email}</span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium">Descripción</label>
                     <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
                   </div>
                   <div className="md:col-span-2">
-                    <div className="text-sm font-medium mb-2">Macros (%)</div>
-                    <div className="grid grid-cols-3 gap-3">
-                      <div>
-                        <Input
-                          type="number"
-                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.proteinPct) : form.protein}
-                          onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })}
-                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
-                        />
-                        <div className="text-xs text-gray-500 mt-1">Proteína</div>
-                      </div>
-                      <div>
-                        <Input
-                          type="number"
-                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.carbsPct) : form.carbs}
-                          onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })}
-                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
-                        />
-                        <div className="text-xs text-gray-500 mt-1">Carbos</div>
-                      </div>
-                      <div>
-                        <Input
-                          type="number"
-                          value={autoComputeMacros && computedPlanAverages.calories > 0 ? Math.round(computedPlanAverages.fatPct) : form.fat}
-                          onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })}
-                          disabled={autoComputeMacros && computedPlanAverages.calories > 0}
-                        />
-                        <div className="text-xs text-gray-500 mt-1">Grasas</div>
-                      </div>
+                    <div className="text-sm font-medium mb-2">Resumen diario estimado</div>
+                    <div className="text-xs text-muted-foreground">
+                      {computedPlanAverages.calories > 0 ? (
+                        <div>
+                          {Math.round(computedPlanAverages.calories)} kcal · P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g
+                        </div>
+                      ) : (
+                        <div>Añade recetas en la semana para calcular el total.</div>
+                      )}
                     </div>
-                    {autoComputeMacros && computedPlanAverages.calories > 0 && (
-                      <div className="text-xs text-muted-foreground mt-2">
-                        Media diaria estimada: {Math.round(computedPlanAverages.calories)} kcal · P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g
-                      </div>
-                    )}
                   </div>
                   
                   {/* Multiplicador de porciones */}
@@ -1188,24 +1176,22 @@ export function MenuPlanManagementV2() {
                   Configura la semana completa: añade comidas por día y selecciona varias recetas como opciones por cada comida (igual que en entrenos con ejercicios).
                 </div>
 
-                {autoComputeMacros && (
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm">Media diaria (calculada)</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm text-muted-foreground">
-                      {computedPlanAverages.calories > 0 ? (
-                        <div>
-                          <div><b>{Math.round(computedPlanAverages.calories)} kcal</b></div>
-                          <div>P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g</div>
-                          <div className="text-xs mt-1">P {Math.round(computedPlanAverages.proteinPct)}% · C {Math.round(computedPlanAverages.carbsPct)}% · G {Math.round(computedPlanAverages.fatPct)}%</div>
-                        </div>
-                      ) : (
-                        <div>Añade recetas a la semana para calcular la media diaria.</div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Media diaria (calculada)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm text-muted-foreground">
+                    {computedPlanAverages.calories > 0 ? (
+                      <div>
+                        <div><b>{Math.round(computedPlanAverages.calories)} kcal</b></div>
+                        <div>P {Math.round(computedPlanAverages.protein)}g · C {Math.round(computedPlanAverages.carbs)}g · G {Math.round(computedPlanAverages.fat)}g</div>
+                        <div className="text-xs mt-1">P {Math.round(computedPlanAverages.proteinPct)}% · C {Math.round(computedPlanAverages.carbsPct)}% · G {Math.round(computedPlanAverages.fatPct)}%</div>
+                      </div>
+                    ) : (
+                      <div>Añade recetas a la semana para calcular la media diaria.</div>
+                    )}
+                  </CardContent>
+                </Card>
 
                 <Tabs value={draftActiveDay} onValueChange={(v) => setDraftActiveDay(v as DayKey)}>
                   {/* En móvil: 2 filas (sin scroll horizontal). En desktop: 7 columnas. */}
@@ -1236,7 +1222,8 @@ export function MenuPlanManagementV2() {
                   <div className="space-y-3">
                     {draftMealsForDay.map((meal) => {
                       const draftIndex = draftMeals.findIndex((m) => m === meal)
-                      const computed = autoComputeMacros ? computeMealAverages(meal) : null
+                      const computed = computeMealAverages(meal)
+                      const range = computeMealRange(meal)
                       const recipeOptions = meal.meal_recipes
                         .slice()
                         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -1274,30 +1261,15 @@ export function MenuPlanManagementV2() {
                               </div>
                             </div>
 
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                              <div className="space-y-1">
-                                <FormLabel className="text-xs">Kcal</FormLabel>
-                                <Input type="number" className="h-11" value={meal.calories} onChange={(e) => updateDraftMeal(draftIndex, { calories: toNumber(e.target.value) })} />
-                              </div>
-                              <div className="space-y-1">
-                                <FormLabel className="text-xs">Proteína (g)</FormLabel>
-                                <Input type="number" className="h-11" value={meal.protein} onChange={(e) => updateDraftMeal(draftIndex, { protein: toNumber(e.target.value) })} />
-                              </div>
-                              <div className="space-y-1">
-                                <FormLabel className="text-xs">Carbos (g)</FormLabel>
-                                <Input type="number" className="h-11" value={meal.carbs} onChange={(e) => updateDraftMeal(draftIndex, { carbs: toNumber(e.target.value) })} />
-                              </div>
-                              <div className="space-y-1">
-                                <FormLabel className="text-xs">Grasas (g)</FormLabel>
-                                <Input type="number" className="h-11" value={meal.fat} onChange={(e) => updateDraftMeal(draftIndex, { fat: toNumber(e.target.value) })} />
-                              </div>
+                            <div className="text-xs text-muted-foreground">
+                              {range ? (
+                                <>
+                                  {range.count > 1 ? "Rango por opciones" : "Valores calculados"}: {formatRange(range.calories.min, range.calories.max)} kcal · P {formatRange(range.protein.min, range.protein.max, 1)} · C {formatRange(range.carbs.min, range.carbs.max, 1)} · G {formatRange(range.fat.min, range.fat.max, 1)}
+                                </>
+                              ) : (
+                                <>Sin recetas, no hay macros calculados.</>
+                              )}
                             </div>
-
-                            {autoComputeMacros && computed && meal.meal_recipes.length > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                Calculado (media de opciones): {Math.round(computed.calories)} kcal · P {Math.round(computed.protein)} · C {Math.round(computed.carbs)} · G {Math.round(computed.fat)}
-                              </div>
-                            )}
 
                             <div className="space-y-1">
                               <FormLabel className="text-xs">Notas / descripción</FormLabel>
@@ -1346,9 +1318,15 @@ export function MenuPlanManagementV2() {
                   </div>
                 )}
 
+                {missingDraftDays.length > 0 && (
+                  <div className="text-xs text-amber-600">
+                    Faltan comidas en: {missingDraftDays.map((d) => DAY_LABELS[String(d) as DayKey]).join(", ")}
+                  </div>
+                )}
+
                 <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <Button variant="outline" onClick={() => setCreateStep("basic")} className="h-11">← Volver</Button>
-                  <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim()} className="h-11">
+                  <Button onClick={() => handleCreate(false)} disabled={saving || !form.name.trim() || missingDraftDays.length > 0} className="h-11">
                     {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creando...</> : "Crear con semana"}
                   </Button>
                 </div>
@@ -1362,30 +1340,74 @@ export function MenuPlanManagementV2() {
                   <label className="text-sm font-medium">Nombre</label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">Calorías diarias</label>
-                  <Input type="number" value={form.daily_calories} onChange={(e) => setForm({ ...form, daily_calories: Number(e.target.value) || 0 })} />
-                </div>
                 <div className="md:col-span-2">
-                  <label className="text-sm font-medium">Asignar a usuario (opcional)</label>
-                  <Select value={form.user_id} onValueChange={(v) => setForm({ ...form, user_id: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin asignar (Plantilla)</SelectItem>
-                      {users.map((u) => <SelectItem key={u.id} value={String(u.id)}>{u.email}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
+                  <label className="text-sm font-medium">Asignar a usuarios (opcional)</label>
+                  <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                    {users.length === 0 ? (
+                      <div className="text-xs text-muted-foreground">No hay usuarios cargados.</div>
+                    ) : (
+                      users.map((u) => {
+                        const checked = form.assigned_user_ids.includes(String(u.id))
+                        return (
+                          <label key={u.id} className="flex items-center gap-2 text-sm">
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={(v) => {
+                                const isChecked = Boolean(v)
+                                setForm((prev) => ({
+                                  ...prev,
+                                  assigned_user_ids: isChecked
+                                    ? Array.from(new Set([...prev.assigned_user_ids, String(u.id)]))
+                                    : prev.assigned_user_ids.filter((id) => id !== String(u.id)),
+                                }))
+                              }}
+                            />
+                            <span className="truncate">{u.email}</span>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
                 </div>
                 <div className="md:col-span-2">
                   <label className="text-sm font-medium">Descripción</label>
                   <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
                 </div>
                 <div className="md:col-span-2">
-                  <div className="text-sm font-medium mb-2">Macros (%)</div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div><Input type="number" value={form.protein} onChange={(e) => setForm({ ...form, protein: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Proteína</div></div>
-                    <div><Input type="number" value={form.carbs} onChange={(e) => setForm({ ...form, carbs: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Carbos</div></div>
-                    <div><Input type="number" value={form.fat} onChange={(e) => setForm({ ...form, fat: Number(e.target.value) || 0 })} /><div className="text-xs text-gray-500 mt-1">Grasas</div></div>
+                  <div className="text-sm font-medium mb-2">Multiplicador de porciones</div>
+                  <div className="flex items-center gap-4">
+                    <Select 
+                      value={form.portion_multiplier.toString()} 
+                      onValueChange={(v) => setForm({ ...form, portion_multiplier: parseFloat(v) })}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="0.75">0.75x (Déficit alto)</SelectItem>
+                        <SelectItem value="0.85">0.85x (Pérdida de peso)</SelectItem>
+                        <SelectItem value="1.0">1.0x (Mantenimiento)</SelectItem>
+                        <SelectItem value="1.1">1.1x (Ganancia leve)</SelectItem>
+                        <SelectItem value="1.15">1.15x (Ganancia muscular)</SelectItem>
+                        <SelectItem value="1.25">1.25x (Volumen)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <span className="text-sm text-muted-foreground">
+                      Ajusta las porciones de recetas según el objetivo
+                    </span>
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <div className="text-sm font-medium mb-2">Resumen diario actual</div>
+                  <div className="text-xs text-muted-foreground">
+                    {editSummary ? (
+                      <div>
+                        {Math.round(editSummary.calories)} kcal · P {Math.round(editSummary.protein)}g · C {Math.round(editSummary.carbs)}g · G {Math.round(editSummary.fat)}g
+                      </div>
+                    ) : (
+                      <div>Sin datos de macros.</div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1532,37 +1554,6 @@ export function MenuPlanManagementV2() {
         </DialogContent>
       </Dialog>
 
-      {/* Editor de Macros por porcentaje */}
-      {macroEditorPlan && (
-        <MacroPercentageEditor
-          isOpen={showMacroEditor}
-          onClose={() => {
-            setShowMacroEditor(false)
-            setMacroEditorPlan(null)
-          }}
-          plan={{
-            id: macroEditorPlan.id,
-            name: macroEditorPlan.name,
-            daily_calories: macroEditorPlan.daily_calories,
-            protein_grams: 0,
-            carbs_grams: 0,
-            fat_grams: 0,
-            protein_percentage: macroEditorPlan.protein_percentage,
-            carbs_percentage: macroEditorPlan.carbs_percentage,
-            fat_percentage: macroEditorPlan.fat_percentage,
-            macro_percentages: {
-              protein: macroEditorPlan.protein_percentage || 30,
-              carbs: macroEditorPlan.carbs_percentage || 40,
-              fat: macroEditorPlan.fat_percentage || 30,
-            }
-          }}
-          onUpdate={() => {
-            fetchPlans()
-            setShowMacroEditor(false)
-            setMacroEditorPlan(null)
-          }}
-        />
-      )}
     </div>
   )
 }
