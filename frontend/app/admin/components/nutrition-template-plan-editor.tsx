@@ -16,7 +16,7 @@ import { Loader2, Plus, Trash2, Search } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 
-type DayKey = "any" | "1" | "2" | "3" | "4" | "5" | "6" | "7"
+type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
 export interface AdminRecipe {
   id: string
@@ -44,7 +44,7 @@ interface MealRecipeOption {
 
 interface PlanMealDraft {
   id?: string
-  day_of_week: number | null
+  day_of_week: number
   name: string
   meal_type: string
   time: string
@@ -58,7 +58,6 @@ interface PlanMealDraft {
 }
 
 const DAY_LABELS: Record<DayKey, string> = {
-  any: "General",
   "1": "Lun",
   "2": "Mar",
   "3": "Mié",
@@ -89,8 +88,16 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
+function formatRange(min: number, max: number, decimals = 0) {
+  const round = (v: number) => Number(v.toFixed(decimals))
+  const minVal = round(min)
+  const maxVal = round(max)
+  if (minVal === maxVal) return `${minVal}`
+  return `${minVal}-${maxVal}`
+}
+
 function dayKeyFromMeal(meal: PlanMealDraft): DayKey {
-  return meal.day_of_week ? (String(meal.day_of_week) as DayKey) : "any"
+  return meal.day_of_week ? (String(meal.day_of_week) as DayKey) : "1"
 }
 
 export function NutritionTemplatePlanEditor({
@@ -122,6 +129,62 @@ export function NutritionTemplatePlanEditor({
     for (const r of availableRecipes) map.set(String(r.id), r)
     return map
   }, [availableRecipes])
+
+  const computeRecipeMacros = useCallback((recipe: AdminRecipe | undefined | null, option?: MealRecipeOption) => {
+    if (!recipe) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    const servings = option?.servings != null ? toNumber(option.servings, 1) : 1
+    const calories = option?.custom_calories != null ? toNumber(option.custom_calories) : toNumber(recipe.calories) * servings
+    const protein = option?.custom_protein != null ? toNumber(option.custom_protein) : toNumber(recipe.protein) * servings
+    const carbs = option?.custom_carbs != null ? toNumber(option.custom_carbs) : toNumber(recipe.carbs) * servings
+    const fat = option?.custom_fat != null ? toNumber(option.custom_fat) : toNumber(recipe.fat) * servings
+    return { calories, protein, carbs, fat }
+  }, [])
+
+  const computeMealAverages = useCallback((meal: PlanMealDraft) => {
+    const opts = Array.isArray(meal.meal_recipes) ? meal.meal_recipes : []
+    const used = opts
+      .map((o) => ({ o, r: recipesById.get(String(o.recipe_id)) }))
+      .filter((x) => x.r)
+      .map((x) => computeRecipeMacros(x.r!, x.o))
+    if (used.length === 0) return { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    const sum = used.reduce(
+      (acc, m) => ({
+        calories: acc.calories + m.calories,
+        protein: acc.protein + m.protein,
+        carbs: acc.carbs + m.carbs,
+        fat: acc.fat + m.fat,
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    )
+    return {
+      calories: sum.calories / used.length,
+      protein: sum.protein / used.length,
+      carbs: sum.carbs / used.length,
+      fat: sum.fat / used.length,
+    }
+  }, [computeRecipeMacros, recipesById])
+
+  const computeMealRange = useCallback((meal: PlanMealDraft) => {
+    const opts = Array.isArray(meal.meal_recipes) ? meal.meal_recipes : []
+    const used = opts
+      .map((o) => ({ o, r: recipesById.get(String(o.recipe_id)) }))
+      .filter((x) => x.r)
+      .map((x) => computeRecipeMacros(x.r!, x.o))
+    if (used.length === 0) return null
+
+    const pickRange = (key: "calories" | "protein" | "carbs" | "fat") => {
+      const values = used.map((m) => m[key])
+      return { min: Math.min(...values), max: Math.max(...values) }
+    }
+
+    return {
+      calories: pickRange("calories"),
+      protein: pickRange("protein"),
+      carbs: pickRange("carbs"),
+      fat: pickRange("fat"),
+      count: used.length,
+    }
+  }, [computeRecipeMacros, recipesById])
 
   const filteredRecipes = useMemo(() => {
     const q = recipeSearch.trim().toLowerCase()
@@ -185,7 +248,7 @@ export function NutritionTemplatePlanEditor({
         const mealRecipes = Array.isArray(m.meal_recipes) ? m.meal_recipes : []
         return {
           id: m.id ? String(m.id) : undefined,
-          day_of_week: m.day_of_week ?? null,
+          day_of_week: m.day_of_week ?? 1,
           name: fixEncoding(m.name || `Comida ${idx + 1}`),
           meal_type: m.meal_type || "lunch",
           time: m.time || "12:00",
@@ -225,7 +288,7 @@ export function NutritionTemplatePlanEditor({
   }, [planId])
 
   const addMealForActiveDay = () => {
-    const dayNum = activeDay === "any" ? null : Number(activeDay)
+    const dayNum = Number(activeDay)
     const nextOrder =
       Math.max(
         0,
@@ -234,7 +297,7 @@ export function NutritionTemplatePlanEditor({
 
     const newMeal: PlanMealDraft = {
       day_of_week: dayNum,
-      name: dayNum ? `Comida ${nextOrder} (${DAY_LABELS[activeDay]})` : `Comida ${nextOrder}`,
+      name: `Comida ${nextOrder} (${DAY_LABELS[activeDay]})`,
       meal_type: "breakfast",
       time: "08:00",
       calories: 0,
@@ -314,10 +377,6 @@ export function NutritionTemplatePlanEditor({
         name: m.name,
         meal_type: m.meal_type,
         time: m.time,
-        calories: toNumber(m.calories),
-        protein: toNumber(m.protein),
-        carbs: toNumber(m.carbs),
-        fat: toNumber(m.fat),
         description: m.description,
         order_index: toNumber(m.order_index, 1),
         // Mantener compatibilidad: el panel de usuario usa suggested_recipes para generar "opciones" (max 3).
@@ -371,15 +430,15 @@ export function NutritionTemplatePlanEditor({
       </div>
 
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
-        <TabsList className="grid grid-cols-8">
-          {(["any", "1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => (
+        <TabsList className="grid grid-cols-7">
+          {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => (
             <TabsTrigger key={d} value={d} className="text-xs">
               {DAY_LABELS[d]}
             </TabsTrigger>
           ))}
         </TabsList>
 
-        {(["any", "1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => (
+        {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => (
           <TabsContent key={d} value={d} className="space-y-3">
             {mealsForDay.length === 0 ? (
               <Card className="border-dashed">
@@ -389,6 +448,8 @@ export function NutritionTemplatePlanEditor({
               </Card>
             ) : (
               mealsForDay.map((meal) => {
+                const computed = computeMealAverages(meal)
+                const range = computeMealRange(meal)
                 const recipeOptions = meal.meal_recipes
                   .slice()
                   .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -448,51 +509,14 @@ export function NutritionTemplatePlanEditor({
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Kcal</Label>
-                          <Input
-                            type="number"
-                            className="h-9"
-                            value={meal.calories}
-                            onChange={(e) =>
-                              updateMeal({ indexInMeals: meals.findIndex((m) => m === meal) }, { calories: toNumber(e.target.value) })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Proteína (g)</Label>
-                          <Input
-                            type="number"
-                            className="h-9"
-                            value={meal.protein}
-                            onChange={(e) =>
-                              updateMeal({ indexInMeals: meals.findIndex((m) => m === meal) }, { protein: toNumber(e.target.value) })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Carbos (g)</Label>
-                          <Input
-                            type="number"
-                            className="h-9"
-                            value={meal.carbs}
-                            onChange={(e) =>
-                              updateMeal({ indexInMeals: meals.findIndex((m) => m === meal) }, { carbs: toNumber(e.target.value) })
-                            }
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Grasas (g)</Label>
-                          <Input
-                            type="number"
-                            className="h-9"
-                            value={meal.fat}
-                            onChange={(e) =>
-                              updateMeal({ indexInMeals: meals.findIndex((m) => m === meal) }, { fat: toNumber(e.target.value) })
-                            }
-                          />
-                        </div>
+                      <div className="text-xs text-muted-foreground">
+                        {range ? (
+                          <>
+                            {range.count > 1 ? "Rango por opciones" : "Valores calculados"}: {formatRange(range.calories.min, range.calories.max)} kcal · P {formatRange(range.protein.min, range.protein.max, 1)} · C {formatRange(range.carbs.min, range.carbs.max, 1)} · G {formatRange(range.fat.min, range.fat.max, 1)}
+                          </>
+                        ) : (
+                          <>Sin recetas, no hay macros calculados.</>
+                        )}
                       </div>
 
                       <div className="space-y-2">

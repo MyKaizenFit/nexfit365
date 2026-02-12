@@ -21,6 +21,9 @@ export interface MenuPlanListItem {
   is_active: boolean
   user_id?: number | null
   user_email?: string | null
+  assigned_users?: Array<{ id: number; email: string }>
+  assigned_user_ids?: number[]
+  portion_multiplier?: number
   meals_count?: number
   created_at: string
   updated_at: string
@@ -31,6 +34,7 @@ export interface MenuPlanDetail extends MenuPlanListItem {
   carbs_grams?: number
   fat_grams?: number
   meals?: any[]
+  portion_multiplier?: number
 }
 
 export type MenuPlanTypeFilter = "all" | "templates" | "system" | "users"
@@ -146,7 +150,7 @@ export function useAdminMenuPlans() {
     description: string
     daily_calories: number
     percents: { protein: number; carbs: number; fat: number }
-    user_id?: number | null
+    user_ids?: number[]
     meals?: any[]
     portion_multiplier?: number
   }) => {
@@ -158,8 +162,8 @@ export function useAdminMenuPlans() {
       ...grams,
       is_system: false,
       is_active: true,
-      user_id: data.user_id ?? null,
-      is_template: data.user_id ? false : true,
+      user_ids: data.user_ids ?? [],
+      is_template: data.user_ids && data.user_ids.length > 0 ? false : true,
       portion_multiplier: data.portion_multiplier ?? 1.0,
     }
     if (Array.isArray(data.meals)) payload.meals = data.meals

@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
-from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe
+from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe, NutritionPlanAssignment
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer,
@@ -109,7 +109,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['is_template', 'is_system', 'is_active', 'user']
-    search_fields = ['name', 'description', 'user__email']
+    search_fields = ['name', 'description', 'user__email', 'assignments__user__email']
     ordering_fields = ['created_at', 'updated_at', 'name', 'daily_calories', 'user__email', 'is_template', 'is_system', 'is_active']
     ordering = ['-created_at']
 
@@ -120,15 +120,167 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = NutritionPlan.objects.all()
+        user_param = self.request.query_params.get('user')
+        user_isnull = self.request.query_params.get('user__isnull')
+
+        if user_param:
+            qs = qs.filter(Q(user_id=user_param) | Q(assignments__user_id=user_param))
+
+        if user_isnull == 'true':
+            qs = qs.filter(Q(user__isnull=True) & Q(assignments__isnull=True))
+        elif user_isnull == 'false':
+            qs = qs.filter(Q(user__isnull=False) | Q(assignments__isnull=False))
+
+        qs = qs.distinct()
         # Listado: evita cargar todo el árbol de comidas por defecto
         if getattr(self, 'action', None) == 'list':
-            return qs.prefetch_related('meals').select_related('user')
+            return qs.prefetch_related('meals', 'assignments__user').select_related('user')
         return qs.prefetch_related(
             'meals',
             'meals__suggested_recipes',
             'meals__meal_recipes',
             'meals__meal_recipes__recipe',
+            'assignments__user',
         ).select_related('user')
+
+    def _extract_assigned_user_ids(self, data):
+        has_assigned = 'assigned_user_ids' in data or 'user_ids' in data or 'user_id' in data
+        raw_ids = data.get('assigned_user_ids') or data.get('user_ids')
+        if raw_ids is None and data.get('user_id') is not None:
+            raw_ids = [data.get('user_id')]
+        if raw_ids is None and not has_assigned:
+            return None
+        if raw_ids is None:
+            return []
+        if not isinstance(raw_ids, list):
+            raw_ids = [raw_ids]
+        normalized = []
+        for uid in raw_ids:
+            if uid is None or uid == 'none':
+                continue
+            try:
+                normalized.append(int(uid))
+            except (TypeError, ValueError):
+                continue
+        return list(dict.fromkeys(normalized))
+
+    def _sync_assignments(self, plan: NutritionPlan, user_ids):
+        user_ids = list(dict.fromkeys(user_ids))
+        existing_ids = set(plan.assignments.values_list('user_id', flat=True))
+        incoming_ids = set(user_ids)
+
+        remove_ids = existing_ids - incoming_ids
+        if remove_ids:
+            plan.assignments.filter(user_id__in=remove_ids).delete()
+
+        add_ids = incoming_ids - existing_ids
+        for uid in add_ids:
+            NutritionPlanAssignment.objects.create(
+                plan=plan,
+                user_id=uid,
+                is_active=plan.is_active,
+            )
+
+        if incoming_ids:
+            plan.assignments.filter(user_id__in=incoming_ids).update(is_active=plan.is_active)
+
+        if len(user_ids) == 1:
+            if plan.user_id != user_ids[0]:
+                plan.user_id = user_ids[0]
+                plan.save(update_fields=['user'])
+        else:
+            if plan.user_id is not None:
+                plan.user = None
+                plan.save(update_fields=['user'])
+
+    def _build_recipe_map(self, meals_payload):
+        recipe_ids = set()
+        for meal_data in meals_payload or []:
+            if not isinstance(meal_data, dict):
+                continue
+            for mr in meal_data.get('meal_recipes') or []:
+                if not isinstance(mr, dict):
+                    continue
+                recipe_id = mr.get('recipe_id') or (mr.get('recipe') or {}).get('id')
+                if recipe_id:
+                    recipe_ids.add(str(recipe_id))
+        recipes = Recipe.objects.filter(id__in=list(recipe_ids))
+        return {str(r.id): r for r in recipes}
+
+    def _compute_meal_macros(self, meal_recipes, recipe_map):
+        if not meal_recipes:
+            return {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+
+        options = []
+        for mr in meal_recipes:
+            if not isinstance(mr, dict):
+                continue
+            recipe_id = mr.get('recipe_id') or (mr.get('recipe') or {}).get('id')
+            recipe = recipe_map.get(str(recipe_id)) if recipe_id else None
+            if not recipe:
+                continue
+
+            servings = float(mr.get('servings') or 1)
+            calories = mr.get('custom_calories')
+            protein = mr.get('custom_protein')
+            carbs = mr.get('custom_carbs')
+            fat = mr.get('custom_fat')
+
+            options.append({
+                'calories': float(calories) if calories is not None else float(recipe.calories or 0) * servings,
+                'protein': float(protein) if protein is not None else float(recipe.protein or 0) * servings,
+                'carbs': float(carbs) if carbs is not None else float(recipe.carbs or 0) * servings,
+                'fat': float(fat) if fat is not None else float(recipe.fat or 0) * servings,
+            })
+
+        if not options:
+            return {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+
+        total = {
+            'calories': sum(o['calories'] for o in options),
+            'protein': sum(o['protein'] for o in options),
+            'carbs': sum(o['carbs'] for o in options),
+            'fat': sum(o['fat'] for o in options),
+        }
+        count = len(options)
+        return {
+            'calories': total['calories'] / count,
+            'protein': total['protein'] / count,
+            'carbs': total['carbs'] / count,
+            'fat': total['fat'] / count,
+        }
+
+    def _recompute_plan_macros(self, plan: NutritionPlan):
+        day_totals = {}
+        meals = list(plan.meals.all())
+
+        for day in range(1, 8):
+            totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
+            for meal in meals:
+                if meal.day_of_week and meal.day_of_week != day:
+                    continue
+                totals['calories'] += float(meal.calories or 0)
+                totals['protein'] += float(meal.protein or 0)
+                totals['carbs'] += float(meal.carbs or 0)
+                totals['fat'] += float(meal.fat or 0)
+            day_totals[day] = totals
+
+        active_days = [t for t in day_totals.values() if sum(t.values()) > 0]
+        if not active_days:
+            return
+
+        avg = {
+            'calories': sum(t['calories'] for t in active_days) / len(active_days),
+            'protein': sum(t['protein'] for t in active_days) / len(active_days),
+            'carbs': sum(t['carbs'] for t in active_days) / len(active_days),
+            'fat': sum(t['fat'] for t in active_days) / len(active_days),
+        }
+
+        plan.daily_calories = int(round(avg['calories']))
+        plan.protein_grams = int(round(avg['protein']))
+        plan.carbs_grams = int(round(avg['carbs']))
+        plan.fat_grams = int(round(avg['fat']))
+        plan.save(update_fields=['daily_calories', 'protein_grams', 'carbs_grams', 'fat_grams'])
 
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
@@ -141,6 +293,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return
         if not isinstance(meals_payload, list):
             return
+
+        recipe_map = self._build_recipe_map(meals_payload)
 
         # Eliminar comidas anteriores (cascade elimina PlanMealRecipe)
         plan.meals.all().delete()
@@ -158,10 +312,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 name=meal_data.get('name') or f'Comida {idx + 1}',
                 meal_type=meal_data.get('meal_type') or 'lunch',
                 time=meal_data.get('time') or None,
-                calories=meal_data.get('calories') or 0,
-                protein=meal_data.get('protein') or 0,
-                carbs=meal_data.get('carbs') or 0,
-                fat=meal_data.get('fat') or 0,
+                calories=0,
+                protein=0,
+                carbs=0,
+                fat=0,
                 description=meal_data.get('description') or '',
                 order_index=meal_data.get('order_index') or (idx + 1),
             )
@@ -169,6 +323,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             # ManyToMany simple
             if isinstance(suggested_ids, list) and suggested_ids:
                 meal.suggested_recipes.set(Recipe.objects.filter(id__in=suggested_ids))
+
+            effective_meal_recipes = []
 
             # Cantidades personalizadas por receta
             if isinstance(meal_recipes, list) and meal_recipes:
@@ -194,25 +350,55 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                         'custom_fat': mr.get('custom_fat', None),
                     }
                     PlanMealRecipe.objects.create(**payload)
+                    effective_meal_recipes.append(mr)
+
+            # Compatibilidad: si no hay meal_recipes, crear desde suggested_ids
+            if not effective_meal_recipes and isinstance(suggested_ids, list) and suggested_ids:
+                for idx_s, recipe_id in enumerate(suggested_ids):
+                    try:
+                        recipe = Recipe.objects.get(id=recipe_id)
+                    except Recipe.DoesNotExist:
+                        continue
+                    PlanMealRecipe.objects.create(
+                        meal=meal,
+                        recipe=recipe,
+                        servings=1.0,
+                        display_order=idx_s,
+                    )
+                    effective_meal_recipes.append({'recipe_id': recipe_id, 'servings': 1.0, 'display_order': idx_s})
+
+            computed = self._compute_meal_macros(effective_meal_recipes, recipe_map)
+            PlanMeal.objects.filter(pk=meal.pk).update(
+                calories=int(round(computed['calories'])),
+                protein=round(computed['protein'], 2),
+                carbs=round(computed['carbs'], 2),
+                fat=round(computed['fat'], 2),
+            )
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         meals_payload = request.data.get('meals')
+        assigned_user_ids = self._extract_assigned_user_ids(request.data)
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         plan = serializer.save()
 
+        if assigned_user_ids is not None:
+            self._sync_assignments(plan, assigned_user_ids)
+
         # Normalizar flags según si es plan de usuario o plantilla
-        if plan.user_id and not plan.is_system:
+        has_assignees = plan.assignments.exists()
+        if (plan.user_id or has_assignees) and not plan.is_system:
             if plan.is_template:
                 plan.is_template = False
                 plan.save(update_fields=['is_template'])
-        if not plan.user_id and not plan.is_system and not plan.is_template:
+        if not plan.user_id and not has_assignees and not plan.is_system and not plan.is_template:
             # Por defecto, un admin creando sin usuario asignado es plantilla
             plan.is_template = True
             plan.save(update_fields=['is_template'])
 
         self._replace_plan_meals(plan, meals_payload)
+        self._recompute_plan_macros(plan)
 
         plan.refresh_from_db()
         plan = NutritionPlan.objects.prefetch_related(
@@ -220,6 +406,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'meals__suggested_recipes',
             'meals__meal_recipes',
             'meals__meal_recipes__recipe',
+            'assignments__user',
         ).get(pk=plan.pk)
         return Response(self.get_serializer(plan).data, status=status.HTTP_201_CREATED)
 
@@ -228,21 +415,31 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         meals_payload = request.data.get('meals')
+        assigned_user_ids = self._extract_assigned_user_ids(request.data)
+        prev_is_active = instance.is_active
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         plan = serializer.save()
 
+        if plan.is_active != prev_is_active:
+            plan.assignments.all().update(is_active=plan.is_active)
+
+        if assigned_user_ids is not None:
+            self._sync_assignments(plan, assigned_user_ids)
+
         # Normalizar flags si cambió asignación de usuario
-        if plan.user_id and not plan.is_system:
+        has_assignees = plan.assignments.exists()
+        if (plan.user_id or has_assignees) and not plan.is_system:
             if plan.is_template:
                 plan.is_template = False
                 plan.save(update_fields=['is_template'])
-        if not plan.user_id and not plan.is_system and not plan.is_template:
+        if not plan.user_id and not has_assignees and not plan.is_system and not plan.is_template:
             plan.is_template = True
             plan.save(update_fields=['is_template'])
 
         self._replace_plan_meals(plan, meals_payload)
+        self._recompute_plan_macros(plan)
 
         plan.refresh_from_db()
         plan = NutritionPlan.objects.prefetch_related(
@@ -250,6 +447,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'meals__suggested_recipes',
             'meals__meal_recipes',
             'meals__meal_recipes__recipe',
+            'assignments__user',
         ).get(pk=plan.pk)
         return Response(self.get_serializer(plan).data, status=status.HTTP_200_OK)
 
