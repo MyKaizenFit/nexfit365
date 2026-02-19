@@ -1,5 +1,7 @@
 # 🏋️‍♂️ NexFit365 - Sistema Integral de Fitness y Nutrición
 
+_Test commit automático: verificación de push y autor correcto (IagoPL)_
+
 [![Next.js](https://img.shields.io/badge/Next.js-14.0-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Django](https://img.shields.io/badge/Django-4.2-green?style=for-the-badge&logo=django)](https://django.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org/)
