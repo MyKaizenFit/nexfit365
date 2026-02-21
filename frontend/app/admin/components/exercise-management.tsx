@@ -45,6 +45,93 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fixEncoding, fixEncodingArray } from "@/lib/encoding-fix"
 
 export function ExerciseManagement() {
+      // --- Importación CSV/Excel ---
+      const [importing, setImporting] = useState(false);
+      const [importFile, setImportFile] = useState<File | null>(null);
+      const [showImportDialog, setShowImportDialog] = useState(false);
+
+      const handleImport = async () => {
+        if (!importFile) return;
+        setImporting(true);
+        try {
+          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+          let endpoint = '/admin/exercises/import-csv/';
+          if (importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')) {
+            endpoint = '/admin/exercises/import-excel/';
+          }
+          const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
+          const formData = new FormData();
+          formData.append('file', importFile);
+          const response = await fetch(url, {
+            method: 'POST',
+            credentials: 'include',
+            body: formData,
+          });
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(errorText || 'Error al importar');
+          }
+          let data = null;
+          try {
+            data = await response.json();
+          } catch {}
+          toast({
+            title: '✅ Importación',
+            description: data?.message || 'Ejercicios importados y actualizados correctamente.'
+          });
+          setShowImportDialog(false);
+          setImportFile(null);
+          refetch(); // Refresca la lista en tiempo real
+        } catch (error) {
+          toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' });
+        } finally {
+          setImporting(false);
+        }
+      };
+    // --- Exportación CSV y Excel ---
+    const handleExportCSV = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+        const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-csv/`;
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!response.ok) throw new Error('Error al exportar CSV');
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = 'exercises_export.csv';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: '✅ Exportación CSV', description: 'Archivo descargado correctamente.' });
+      } catch (error) {
+        toast({ title: '❌ Error', description: 'No se pudo exportar el CSV', variant: 'destructive' });
+      }
+    };
+
+    const handleExportExcel = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+        const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-excel/`;
+        const response = await fetch(url, {
+          method: 'GET',
+          credentials: 'include',
+        });
+        if (!response.ok) throw new Error('Error al exportar Excel');
+        const blob = await response.blob();
+        const link = document.createElement('a');
+        link.href = window.URL.createObjectURL(blob);
+        link.download = 'exercises_export.xlsx';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast({ title: '✅ Exportación Excel', description: 'Archivo descargado correctamente.' });
+      } catch (error) {
+        toast({ title: '❌ Error', description: 'No se pudo exportar el Excel', variant: 'destructive' });
+      }
+    };
   const {
     exercises,
     stats,
@@ -488,6 +575,48 @@ export function ExerciseManagement() {
 
   return (
     <div className="space-y-6">
+      {/* Botones de exportación/importación */}
+      <div className="flex gap-2 mb-4">
+        <Button variant="outline" onClick={handleExportCSV}>Exportar CSV</Button>
+        <Button variant="outline" onClick={handleExportExcel}>Exportar Excel</Button>
+        <Button variant="outline" onClick={() => setShowImportDialog(true)}>Importar CSV/Excel</Button>
+      </div>
+
+      {/* Dialog de importación */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importar Ejercicios (CSV/Excel)</DialogTitle>
+            <DialogDescription>
+              Selecciona un archivo CSV o Excel para importar ejercicios. Los ejercicios existentes se actualizarán si el nombre coincide.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              type="file"
+              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+              onChange={e => setImportFile(e.target.files?.[0] || null)}
+              disabled={importing}
+            />
+            {importFile && (
+              <div className="text-sm text-muted-foreground">Archivo seleccionado: {importFile.name}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
+              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Importar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Botones de exportación/importación */}
+      <div className="flex gap-2 mb-4">
+        <Button variant="outline" onClick={handleExportCSV}>Exportar CSV</Button>
+        <Button variant="outline" onClick={handleExportExcel}>Exportar Excel</Button>
+        {/* Aquí irán los botones de importación en el siguiente paso */}
+      </div>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

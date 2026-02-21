@@ -520,22 +520,23 @@ def daily_meal_selections(request):
         # Obtener los logs de comidas del día
         meal_logs = MealLog.objects.filter(user=user, date=date)
         serializer = MealLogSerializer(meal_logs, many=True)
-        
+
         # También obtener las comidas del plan si existe
         user_plan = get_active_plan_for_user(user)
         if user_plan:
             user_plan = NutritionPlan.objects.filter(pk=user_plan.pk).prefetch_related('meals__suggested_recipes').first()
-        
+
         plan_meals = []
         if user_plan:
             plan_meals = PlanMealSerializer(user_plan.meals.all(), many=True).data
-        
+
+        # Siempre devolver 200 y un array vacío si no hay selecciones
         return Response({
             'date': date.isoformat(),
-            'selections': serializer.data,
+            'selections': serializer.data if serializer.data else [],
             'plan_meals': plan_meals,
             'has_plan': user_plan is not None
-        })
+        }, status=200)
     
     elif request.method == 'POST':
         # Guardar selección de comida
