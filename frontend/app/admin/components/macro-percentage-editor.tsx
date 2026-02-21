@@ -10,14 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog"
 
 // Helper para obtener la URL de la API
 const getApiUrl = (): string => {
@@ -59,31 +52,31 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
   const { getAuthHeaders } = useAuth()
   const [saving, setSaving] = useState(false)
   const [mode, setMode] = useState<'percentage' | 'grams'>('percentage')
-  
+
   // Estado para porcentajes
   const [proteinPct, setProteinPct] = useState(30)
   const [carbsPct, setCarbsPct] = useState(40)
   const [fatPct, setFatPct] = useState(30)
-  
+
   // Estado para gramos
   const [proteinGrams, setProteinGrams] = useState(150)
   const [carbsGrams, setCarbsGrams] = useState(200)
   const [fatGrams, setFatGrams] = useState(65)
-  
+
   // Estado para calorías
   const [calories, setCalories] = useState(2000)
-  
+
   // Calcular totales
   const totalPct = proteinPct + carbsPct + fatPct
   const caloriesFromGrams = (proteinGrams * 4) + (carbsGrams * 4) + (fatGrams * 9)
-  
+
   // Calcular gramos desde porcentajes
   const gramsFromPct = {
     protein: Math.round((calories * proteinPct / 100) / 4),
     carbs: Math.round((calories * carbsPct / 100) / 4),
     fat: Math.round((calories * fatPct / 100) / 9),
   }
-  
+
   // Calcular porcentajes desde gramos
   const pctFromGrams = caloriesFromGrams > 0 ? {
     protein: Math.round((proteinGrams * 4 / caloriesFromGrams) * 100),
@@ -108,7 +101,7 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
       setProteinGrams(plan.protein_grams)
       setCarbsGrams(plan.carbs_grams)
       setFatGrams(plan.fat_grams)
-      
+
       if (plan.macro_percentages) {
         setProteinPct(Math.round(plan.macro_percentages.protein))
         setCarbsPct(Math.round(plan.macro_percentages.carbs))
@@ -128,11 +121,11 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
   const adjustSlider = (macro: 'protein' | 'carbs' | 'fat', value: number) => {
     const current = { protein: proteinPct, carbs: carbsPct, fat: fatPct }
     const diff = value - current[macro]
-    
+
     // Distribuir la diferencia entre los otros dos
     const others = (['protein', 'carbs', 'fat'] as const).filter(m => m !== macro)
     const otherSum = others.reduce((sum, m) => sum + current[m], 0)
-    
+
     if (otherSum > 0) {
       others.forEach(m => {
         const proportion = current[m] / otherSum
@@ -142,7 +135,7 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
         if (m === 'fat') setFatPct(newVal)
       })
     }
-    
+
     if (macro === 'protein') setProteinPct(value)
     if (macro === 'carbs') setCarbsPct(value)
     if (macro === 'fat') setFatPct(value)
@@ -153,23 +146,23 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
     setSaving(true)
     try {
       const headers = await getAuthHeaders()
-      
-      const body = mode === 'percentage' 
+
+      const body = mode === 'percentage'
         ? {
-            mode: 'percentage',
-            protein: proteinPct,
-            carbs: carbsPct,
-            fat: fatPct,
-            calories: calories,
-          }
+          mode: 'percentage',
+          protein: proteinPct,
+          carbs: carbsPct,
+          fat: fatPct,
+          calories: calories,
+        }
         : {
-            mode: 'grams',
-            protein: proteinGrams,
-            carbs: carbsGrams,
-            fat: fatGrams,
-            calories: caloriesFromGrams,
-          }
-      
+          mode: 'grams',
+          protein: proteinGrams,
+          carbs: carbsGrams,
+          fat: fatGrams,
+          calories: caloriesFromGrams,
+        }
+
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/plans/${plan.id}/update_macros/`,
         {
@@ -181,7 +174,7 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
           body: JSON.stringify(body)
         }
       )
-      
+
       if (response.ok) {
         const data = await response.json()
         toast({
@@ -420,19 +413,19 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
         <div className="space-y-2">
           <Label>Distribución visual</Label>
           <div className="flex h-8 rounded-lg overflow-hidden">
-            <div 
+            <div
               className="bg-red-500 flex items-center justify-center text-white text-xs font-medium"
               style={{ width: `${mode === 'percentage' ? proteinPct : pctFromGrams.protein}%` }}
             >
               {mode === 'percentage' ? proteinPct : pctFromGrams.protein}%
             </div>
-            <div 
+            <div
               className="bg-amber-500 flex items-center justify-center text-white text-xs font-medium"
               style={{ width: `${mode === 'percentage' ? carbsPct : pctFromGrams.carbs}%` }}
             >
               {mode === 'percentage' ? carbsPct : pctFromGrams.carbs}%
             </div>
-            <div 
+            <div
               className="bg-blue-500 flex items-center justify-center text-white text-xs font-medium"
               style={{ width: `${mode === 'percentage' ? fatPct : pctFromGrams.fat}%` }}
             >
@@ -454,7 +447,7 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
           <Button variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button 
+          <Button
             onClick={handleSave}
             disabled={saving || (mode === 'percentage' && totalPct !== 100)}
             className="bg-orange-600 hover:bg-orange-700"

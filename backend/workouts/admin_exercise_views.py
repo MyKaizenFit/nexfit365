@@ -20,6 +20,174 @@ class LargeResultsSetPagination(PageNumberPagination):
 
 
 class AdminExerciseViewSet(viewsets.ModelViewSet):
+    @action(detail=False, methods=['post'], url_path='import-csv')
+    def import_csv(self, request):
+                """Importa ejercicios desde un archivo CSV. Solo añade o modifica, nunca elimina."""
+                import csv
+                from django.core.files.uploadedfile import UploadedFile
+                file = request.FILES.get('file')
+                if not file or not isinstance(file, UploadedFile):
+                    return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+                decoded = file.read().decode('utf-8')
+                reader = csv.DictReader(decoded.splitlines())
+                updated, created, skipped = 0, 0, 0
+                for row in reader:
+                    name = row.get('name')
+                    if not name:
+                        skipped += 1
+                        continue
+                    exercise = Exercise.objects.filter(name=name).first()
+                    fields = {
+                        'description': row.get('description', ''),
+                        'instructions': row.get('instructions', ''),
+                        'category': row.get('category', ''),
+                        'muscle_groups': [m.strip() for m in row.get('muscle_groups', '').split(',') if m.strip()],
+                        'equipment': [e.strip() for e in row.get('equipment', '').split(',') if e.strip()],
+                        'difficulty': row.get('difficulty', ''),
+                        'video_url': row.get('video_url', ''),
+                        'image_url': row.get('image_url', ''),
+                        'google_drive_file_id': row.get('google_drive_file_id', ''),
+                        'is_system': row.get('is_system', '') == 'True',
+                        'is_active': row.get('is_active', '') == 'True',
+                        'tags': [t.strip() for t in row.get('tags', '').split(',') if t.strip()],
+                    }
+                    if exercise:
+                        for k, v in fields.items():
+                            setattr(exercise, k, v)
+                        exercise.save()
+                        updated += 1
+                    else:
+                        Exercise.objects.create(name=name, **fields)
+                        created += 1
+                return Response({
+                    'created': created,
+                    'updated': updated,
+                    'skipped': skipped,
+                    'message': f"Se subió el archivo correctamente. {created} ejercicios añadidos, {updated} modificados. Los ejercicios no presentes en el archivo no se eliminaron."
+                }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='import-excel')
+    def import_excel(self, request):
+                """Importa ejercicios desde un archivo Excel. Solo añade o modifica, nunca elimina."""
+                import openpyxl
+                from django.core.files.uploadedfile import UploadedFile
+                file = request.FILES.get('file')
+                if not file or not isinstance(file, UploadedFile):
+                    return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+                wb = openpyxl.load_workbook(file)
+                ws = wb.active
+                headers = [cell.value for cell in ws[1]]
+                updated, created, skipped = 0, 0, 0
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    row_dict = dict(zip(headers, row))
+                    name = row_dict.get('name')
+                    if not name:
+                        skipped += 1
+                        continue
+                    exercise = Exercise.objects.filter(name=name).first()
+                    fields = {
+                        'description': row_dict.get('description', ''),
+                        'instructions': row_dict.get('instructions', ''),
+                        'category': row_dict.get('category', ''),
+                        'muscle_groups': [m.strip() for m in (row_dict.get('muscle_groups', '') or '').split(',') if m.strip()],
+                        'equipment': [e.strip() for e in (row_dict.get('equipment', '') or '').split(',') if e.strip()],
+                        'difficulty': row_dict.get('difficulty', ''),
+                        'video_url': row_dict.get('video_url', ''),
+                        'image_url': row_dict.get('image_url', ''),
+                        'google_drive_file_id': row_dict.get('google_drive_file_id', ''),
+                        'is_system': row_dict.get('is_system', '') == 'True',
+                        'is_active': row_dict.get('is_active', '') == 'True',
+                        'tags': [t.strip() for t in (row_dict.get('tags', '') or '').split(',') if t.strip()],
+                    }
+                    if exercise:
+                        for k, v in fields.items():
+                            setattr(exercise, k, v)
+                        exercise.save()
+                        updated += 1
+                    else:
+                        Exercise.objects.create(name=name, **fields)
+                        created += 1
+                return Response({
+                    'created': created,
+                    'updated': updated,
+                    'skipped': skipped,
+                    'message': f"Se subió el archivo correctamente. {created} ejercicios añadidos, {updated} modificados. Los ejercicios no presentes en el archivo no se eliminaron."
+                }, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+            """Exporta todos los ejercicios en formato CSV"""
+            import csv
+            from django.http import HttpResponse
+        
+            exercises = self.get_queryset()
+            response = HttpResponse(content_type='text/csv')
+            response['Content-Disposition'] = 'attachment; filename="exercises_export.csv"'
+        
+            fieldnames = [
+                'id', 'name', 'description', 'instructions', 'category', 'muscle_groups',
+                'equipment', 'difficulty', 'video_url', 'image_url', 'google_drive_file_id',
+                'is_system', 'is_active', 'tags'
+            ]
+            writer = csv.DictWriter(response, fieldnames=fieldnames)
+            writer.writeheader()
+            for exercise in exercises:
+                writer.writerow({
+                    'id': str(exercise.id),
+                    'name': exercise.name,
+                    'description': exercise.description or '',
+                    'instructions': exercise.instructions or '',
+                    'category': exercise.category or '',
+                    'muscle_groups': ','.join(exercise.muscle_groups or []),
+                    'equipment': ','.join(exercise.equipment or []),
+                    'difficulty': exercise.difficulty or '',
+                    'video_url': exercise.video_url or '',
+                    'image_url': exercise.image_url or '',
+                    'google_drive_file_id': exercise.google_drive_file_id or '',
+                    'is_system': exercise.is_system if hasattr(exercise, 'is_system') else '',
+                    'is_active': exercise.is_active if hasattr(exercise, 'is_active') else '',
+                    'tags': ','.join(exercise.tags or []),
+                })
+            return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+            """Exporta todos los ejercicios en formato Excel (XLSX)"""
+            import io
+            import xlsxwriter
+            from django.http import HttpResponse
+        
+            exercises = self.get_queryset()
+            output = io.BytesIO()
+            workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+            worksheet = workbook.add_worksheet('Ejercicios')
+        
+            headers = [
+                'id', 'name', 'description', 'instructions', 'category', 'muscle_groups',
+                'equipment', 'difficulty', 'video_url', 'image_url', 'google_drive_file_id',
+                'is_system', 'is_active', 'tags'
+            ]
+            for col, header in enumerate(headers):
+                worksheet.write(0, col, header)
+            for row_idx, exercise in enumerate(exercises, start=1):
+                worksheet.write(row_idx, 0, str(exercise.id))
+                worksheet.write(row_idx, 1, exercise.name)
+                worksheet.write(row_idx, 2, exercise.description or '')
+                worksheet.write(row_idx, 3, exercise.instructions or '')
+                worksheet.write(row_idx, 4, exercise.category or '')
+                worksheet.write(row_idx, 5, ','.join(exercise.muscle_groups or []))
+                worksheet.write(row_idx, 6, ','.join(exercise.equipment or []))
+                worksheet.write(row_idx, 7, exercise.difficulty or '')
+                worksheet.write(row_idx, 8, exercise.video_url or '')
+                worksheet.write(row_idx, 9, exercise.image_url or '')
+                worksheet.write(row_idx, 10, exercise.google_drive_file_id or '')
+                worksheet.write(row_idx, 11, getattr(exercise, 'is_system', ''))
+                worksheet.write(row_idx, 12, getattr(exercise, 'is_active', ''))
+                worksheet.write(row_idx, 13, ','.join(exercise.tags or []))
+            workbook.close()
+            output.seek(0)
+            response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = 'attachment; filename="exercises_export.xlsx"'
+            return response
     """ViewSet para gestión de ejercicios por administradores"""
     permission_classes = [IsAdminOrStaff]
     pagination_class = LargeResultsSetPagination
