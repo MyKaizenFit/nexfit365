@@ -887,7 +887,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
                   <SelectValue placeholder="Selecciona un plan existente" />
                 </SelectTrigger>
                 <SelectContent>
-                  {availablePlans.map((p) => (
+                  {availablePlans.filter(p => p.id && p.id.toString().trim() !== '').map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.name}
                     </SelectItem>

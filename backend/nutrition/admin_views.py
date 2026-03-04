@@ -1,8 +1,9 @@
 # nutrition/admin_views.py
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes as perm_classes
+from rest_framework.decorators import action, api_view, permission_classes as perm_classes, parser_classes as parser_decorator
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from django.db.models import Count, Avg, Sum, Min, Max, Q
 from django.contrib.auth import get_user_model
@@ -27,6 +28,15 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
     queryset = Recipe.objects.all()
     serializer_class = AdminRecipeSerializer
     permission_classes = [IsAdminUser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]  # Agregado JSONParser para crear recetas con JSON
+
+    def list(self, request, *args, **kwargs):
+        """Override list to add cache prevention headers"""
+        response = super().list(request, *args, **kwargs)
+        response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
+        return response
 
     @action(detail=True, methods=['post'], url_path='upload-image')
     def upload_image(self, request, pk=None):
@@ -96,6 +106,489 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                 } for r in popular_recipes
             ]
         })
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """Exporta todas las recetas en formato CSV con ingredientes estructurados.
+        Formato ingredientes: 'Nombre|cantidad|unidad|notas; Nombre2|cantidad|unidad|notas'
+        Las macros se muestran como referencia pero se recalculan automáticamente al importar.
+        """
+        import csv
+        from django.http import HttpResponse
+        recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="recipes_export.csv"'
+        fieldnames = [
+            'name', 'description', 'category', 'difficulty', 'servings', 'prep_time_minutes',
+            'ingredients', 'instructions',
+            'calories_ref', 'protein_ref', 'carbs_ref', 'fat_ref'
+        ]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        
+        for recipe in recipes:
+            # Formato de ingredientes estructurado: Nombre|cantidad|unidad|notas; ....
+            recipe_ingredients = recipe.recipe_ingredients.all()
+            ingredients_str = ''
+            if recipe_ingredients:
+                ingredient_parts = []
+                for ing in recipe_ingredients:
+                    # Formato: NombreAlimento|cantidad|unidad|notas
+                    part = f"{ing.food.name}|{ing.quantity}|{ing.unit}|{ing.notes or ''}"
+                    ingredient_parts.append(part)
+                ingredients_str = '; '.join(ingredient_parts)
+            
+            writer.writerow({
+                'name': recipe.name,
+                'description': recipe.description or '',
+                'category': recipe.category or '',
+                'difficulty': recipe.difficulty or '',
+                'servings': recipe.servings or 1,
+                'prep_time_minutes': recipe.prep_time_minutes or 0,
+                'ingredients': ingredients_str,
+                'instructions': recipe.instructions or '',
+                'calories_ref': recipe.calories or 0,
+                'protein_ref': recipe.protein or 0,
+                'carbs_ref': recipe.carbs or 0,
+                'fat_ref': recipe.fat or 0,
+            })
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exporta recetas en Excel con dos hojas:
+        1. Recetas: Todas las recetas con ingredientes estructurados
+        2. Ingredientes disponibles: Listado de todos los ingredientes con códigos para validación
+        """
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+        from collections import defaultdict
+        
+        recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        
+        # ========== HOJA 1: RECETAS ==========
+        worksheet = workbook.add_worksheet('Recetas')
+        
+        headers = [
+            'name', 'description', 'category', 'difficulty', 'servings', 'prep_time_minutes',
+            'ingredients', 'instructions',
+            'calories_ref', 'protein_ref', 'carbs_ref', 'fat_ref'
+        ]
+        
+        # Escribir headers con formato
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, header_format)
+        
+        # Recopilar ingredientes únicos mientras escribimos las recetas
+        all_ingredients = defaultdict(set)
+        
+        for row_idx, recipe in enumerate(recipes, start=1):
+            recipe_ingredients = recipe.recipe_ingredients.all()
+            ingredients_str = ''
+            if recipe_ingredients:
+                ingredient_parts = []
+                for ing in recipe_ingredients:
+                    # Recopilar ingredientes
+                    all_ingredients[ing.food.name].add((ing.unit, ing.food.id))
+                    # Formato: NombreAlimento|cantidad|unidad|notas
+                    part = f"{ing.food.name}|{ing.quantity}|{ing.unit}|{ing.notes or ''}"
+                    ingredient_parts.append(part)
+                ingredients_str = '; '.join(ingredient_parts)
+            
+            worksheet.write(row_idx, 0, recipe.name)
+            worksheet.write(row_idx, 1, recipe.description or '')
+            worksheet.write(row_idx, 2, recipe.category or '')
+            worksheet.write(row_idx, 3, recipe.difficulty or '')
+            worksheet.write(row_idx, 4, recipe.servings or 1)
+            worksheet.write(row_idx, 5, recipe.prep_time_minutes or 0)
+            worksheet.write(row_idx, 6, ingredients_str)
+            worksheet.write(row_idx, 7, recipe.instructions or '')
+            worksheet.write(row_idx, 8, recipe.calories or 0)
+            worksheet.write(row_idx, 9, float(recipe.protein or 0))
+            worksheet.write(row_idx, 10, float(recipe.carbs or 0))
+            worksheet.write(row_idx, 11, float(recipe.fat or 0))
+        
+        # ========== HOJA 2: INGREDIENTES DISPONIBLES ==========
+        ing_worksheet = workbook.add_worksheet('Ingredientes_Disponibles')
+        
+        # Headers para ingredientes
+        ing_headers = ['Nombre Alimento', 'Unidad Recomendada', 'Calorías/100g', 'Proteína/100g', 'Carbos/100g', 'Grasa/100g', 'ID_BD']
+        for col, header in enumerate(ing_headers):
+            ing_worksheet.write(0, col, header, header_format)
+        
+        # Escribir todos los ingredientes disponibles ordenados alfabéticamente
+        all_foods = Food.objects.all().order_by('name')
+        for row_idx, food in enumerate(all_foods, start=1):
+            ing_worksheet.write(row_idx, 0, food.name)
+            ing_worksheet.write(row_idx, 1, 'g')  # Unidad recomendada
+            ing_worksheet.write(row_idx, 2, food.calories or 0)
+            ing_worksheet.write(row_idx, 3, float(food.protein or 0))
+            ing_worksheet.write(row_idx, 4, float(food.carbs or 0))
+            ing_worksheet.write(row_idx, 5, float(food.fat or 0))
+            ing_worksheet.write(row_idx, 6, str(food.id))
+        
+        # Ajustar ancho de columnas
+        ing_worksheet.set_column('A:A', 30)
+        ing_worksheet.set_column('B:B', 15)
+        
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="recipes_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'], url_path='import-csv')
+    @parser_decorator([MultiPartParser, FormParser])
+    def import_csv(self, request):
+        """Importa recetas desde CSV con ingredientes estructurados.
+        
+        Formato ingredientes: 'NombreAlimento|cantidad|unidad|notas; NombreAlimento2|...'
+        Las macros se calculan AUTOMÁTICAMENTE basándose en los ingredientes.
+        Las columnas *_ref se ignoran (son solo de referencia).
+        
+        - Busca recetas existentes por nombre
+        - Actualiza si hay cambios
+        - Crea nuevas recetas si no existen  
+        - Recalcula macros automáticamente
+        - Nunca borra
+        """
+        import csv
+        import io
+        from django.http import JsonResponse
+        from .models import RecipeIngredient
+        
+        try:
+            file = request.FILES.get('file')
+            if not file:
+                return JsonResponse({'error': 'No file provided'}, status=400)
+            
+            text_file = io.TextIOWrapper(file.file, encoding='utf-8')
+            reader = csv.DictReader(text_file)
+            
+            created_count = 0
+            updated_count = 0
+            skipped_count = 0
+            errors = []
+            
+            for row_num, row in enumerate(reader, start=2):
+                try:
+                    name = row.get('name', '').strip()
+                    if not name:
+                        errors.append(f"Row {row_num}: name is required")
+                        continue
+                    
+                    # Buscar receta existente por nombre
+                    existing_recipe = Recipe.objects.filter(name=name).first()
+                    
+                    # Preparar datos básicos (SIN MACROS - se calculan después)
+                    recipe_data = {
+                        'name': name,
+                        'description': row.get('description', '') or '',
+                        'category': row.get('category', '') or '',
+                        'difficulty': row.get('difficulty', '') or '',
+                        'servings': int(row.get('servings', 1) or 1),
+                        'prep_time_minutes': int(row.get('prep_time_minutes', 0) or 0),
+                        'instructions': row.get('instructions', '') or '',
+                    }
+                    
+                    # Parsear ingredientes (formato: Nombre|cantidad|unidad|notas; ...)
+                    ingredients_str = row.get('ingredients', '') or ''
+                    parsed_ingredients = []
+                    
+                    if ingredients_str:
+                        ingredient_parts = [p.strip() for p in ingredients_str.split(';') if p.strip()]
+                        for part in ingredient_parts:
+                            try:
+                                fields = [f.strip() for f in part.split('|')]
+                                if len(fields) >= 3:
+                                    food_name = fields[0]
+                                    quantity = float(fields[1])
+                                    unit = fields[2]
+                                    notes = fields[3] if len(fields) > 3 else ''
+                                    
+                                    # Buscar alimento en la BD
+                                    food = Food.objects.filter(name__iexact=food_name).first()
+                                    if not food:
+                                        errors.append(f"Row {row_num}: Food '{food_name}' not found")
+                                        continue
+                                    
+                                    parsed_ingredients.append({
+                                        'food': food,
+                                        'quantity': quantity,
+                                        'unit': unit,
+                                        'notes': notes
+                                    })
+                            except (ValueError, IndexError) as e:
+                                errors.append(f"Row {row_num}: Invalid ingredient format '{part}': {str(e)}")
+                                continue
+                    
+                    # Crear o actualizar receta
+                    if existing_recipe:
+                        # Actualizar campos básicos
+                        has_changes = False
+                        for field, value in recipe_data.items():
+                            if getattr(existing_recipe, field) != value:
+                                setattr(existing_recipe, field, value)
+                                has_changes = True
+                        
+                        # Limpiar ingredientes anteriores y crear nuevos
+                        existing_recipe.recipe_ingredients.all().delete()
+                        for idx, ing_data in enumerate(parsed_ingredients):
+                            RecipeIngredient.objects.create(
+                                recipe=existing_recipe,
+                                food=ing_data['food'],
+                                quantity=ing_data['quantity'],
+                                unit=ing_data['unit'],
+                                notes=ing_data['notes'],
+                                order=idx
+                            )
+                        
+                        # Recalcular macros automáticamente
+                        if parsed_ingredients:
+                            existing_recipe.calculate_macros_from_ingredients()
+                        
+                        if has_changes or parsed_ingredients:
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        # Crear nueva receta
+                        new_recipe = Recipe.objects.create(**recipe_data)
+                        
+                        # Crear ingredientes
+                        for idx, ing_data in enumerate(parsed_ingredients):
+                            RecipeIngredient.objects.create(
+                                recipe=new_recipe,
+                                food=ing_data['food'],
+                                quantity=ing_data['quantity'],
+                                unit=ing_data['unit'],
+                                notes=ing_data['notes'],
+                                order=idx
+                            )
+                        
+                        # Recalcular macros automáticamente
+                        if parsed_ingredients:
+                            new_recipe.calculate_macros_from_ingredients()
+                        
+                        created_count += 1
+                        
+                except Exception as e:
+                    errors.append(f"Row {row_num}: {str(e)}")
+                    continue
+            
+            message = f"Import completed: {created_count} created, {updated_count} updated, {skipped_count} skipped"
+            if errors:
+                message += f". {len(errors)} error(s) found."
+            
+            return JsonResponse({
+                'success': True,
+                'created': created_count,
+                'updated': updated_count,
+                'skipped': skipped_count,
+                'message': message,
+                'errors': errors[:10]
+            })
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+    @action(detail=False, methods=['post'], url_path='import-excel')
+    @parser_decorator([MultiPartParser, FormParser])
+    def import_excel(self, request):
+        """Importa recetas desde Excel con validación inteligente de ingredientes.
+        
+        Formato ingredientes: 'NombreAlimento|cantidad|unidad|notas; NombreAlimento2|...'
+        
+        VALIDACIÓN: 
+        - Valida TODOS los ingredientes ANTES de procesar
+        - Si hay ingredientes inválidos/inexistentes, NO procesa esa receta
+        - Continúa procesando las demás recetas válidas
+        - Notifica cuáles recetas fueron rechazadas y por qué
+        
+        Las macros se calculan AUTOMÁTICAMENTE basándose en los ingredientes.
+        Las columnas *_ref se ignoran (son solo de referencia).
+        """
+        from openpyxl import load_workbook
+        from django.http import JsonResponse
+        from .models import RecipeIngredient
+        import io
+        
+        try:
+            file = request.FILES.get('file')
+            if not file:
+                return JsonResponse({'error': 'No file provided'}, status=400)
+            
+            # Leer archivo Excel
+            workbook = load_workbook(io.BytesIO(file.read()))
+            worksheet = workbook.active
+            
+            # Obtener headers desde la primera fila
+            headers = []
+            for cell in worksheet[1]:
+                if cell.value:
+                    headers.append(cell.value)
+            
+            created_count = 0
+            updated_count = 0
+            skipped_count = 0
+            failed_count = 0
+            errors = []
+            rejections = []  # Recetas rechazadas por ingredientes inválidos
+            
+            # Procesar filas de datos
+            for row_num, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
+                try:
+                    # Crear diccionario con headers y valores
+                    row_data = {}
+                    for idx, header in enumerate(headers):
+                        if idx < len(row):
+                            row_data[header] = row[idx]
+                    
+                    name = (row_data.get('name') or '').strip()
+                    if not name:
+                        errors.append(f"Row {row_num}: name is required")
+                        continue
+                    
+                    # ========== VALIDACIÓN DE INGREDIENTES PRIMERO ==========
+                    ingredients_str = row_data.get('ingredients', '') or ''
+                    parsed_ingredients = []
+                    invalid_ingredients = []  # Registrar cuáles ingredientes son inválidos
+                    
+                    if ingredients_str:
+                        ingredient_parts = [p.strip() for p in str(ingredients_str).split(';') if p.strip()]
+                        for part in ingredient_parts:
+                            try:
+                                fields = [f.strip() for f in part.split('|')]
+                                if len(fields) >= 3:
+                                    food_name = fields[0]
+                                    quantity_str = fields[1]
+                                    unit = fields[2]
+                                    notes = fields[3] if len(fields) > 3 else ''
+                                    
+                                    # Validar cantidad
+                                    try:
+                                        quantity = float(quantity_str)
+                                    except ValueError:
+                                        invalid_ingredients.append(f"'{food_name}': invalid quantity '{quantity_str}'")
+                                        continue
+                                    
+                                    # Buscar alimento en la BD
+                                    food = Food.objects.filter(name__iexact=food_name).first()
+                                    if not food:
+                                        invalid_ingredients.append(f"'{food_name}': food not found in database")
+                                        continue
+                                    
+                                    parsed_ingredients.append({
+                                        'food': food,
+                                        'quantity': quantity,
+                                        'unit': unit,
+                                        'notes': notes
+                                    })
+                            except (ValueError, IndexError) as e:
+                                invalid_ingredients.append(f"'{part}': {str(e)}")
+                                continue
+                    
+                    # Si hay ingredientes INVÁLIDOS, RECHAZAR la receta completamente
+                    if invalid_ingredients:
+                        rejection_msg = f"Row {row_num} ('{name}'): Rejected - Invalid ingredients: {', '.join(invalid_ingredients)}"
+                        rejections.append(rejection_msg)
+                        failed_count += 1
+                        continue
+                    
+                    # ========== PROCESAMIENTO SOLO SI TODO ES VÁLIDO ==========
+                    recipe_data = {
+                        'name': name,
+                        'description': (row_data.get('description') or '') or '',
+                        'category': (row_data.get('category') or '') or '',
+                        'difficulty': (row_data.get('difficulty') or '') or '',
+                        'servings': int(row_data.get('servings') or 1),
+                        'prep_time_minutes': int(row_data.get('prep_time_minutes') or 0),
+                        'instructions': (row_data.get('instructions') or '') or '',
+                    }
+                    
+                    # Buscar receta existente por nombre
+                    existing_recipe = Recipe.objects.filter(name=name).first()
+                    
+                    if existing_recipe:
+                        # Actualizar campos básicos
+                        has_changes = False
+                        for field, value in recipe_data.items():
+                            if getattr(existing_recipe, field) != value:
+                                setattr(existing_recipe, field, value)
+                                has_changes = True
+                        
+                        # Limpiar ingredientes anteriores y crear nuevos
+                        existing_recipe.recipe_ingredients.all().delete()
+                        for idx, ing_data in enumerate(parsed_ingredients):
+                            RecipeIngredient.objects.create(
+                                recipe=existing_recipe,
+                                food=ing_data['food'],
+                                quantity=ing_data['quantity'],
+                                unit=ing_data['unit'],
+                                notes=ing_data['notes'],
+                                order=idx
+                            )
+                        
+                        # Recalcular macros automáticamente
+                        if parsed_ingredients:
+                            existing_recipe.calculate_macros_from_ingredients()
+                        
+                        if has_changes or parsed_ingredients:
+                            updated_count += 1
+                        else:
+                            skipped_count += 1
+                    else:
+                        # Crear nueva receta
+                        new_recipe = Recipe.objects.create(**recipe_data)
+                        
+                        # Crear ingredientes
+                        for idx, ing_data in enumerate(parsed_ingredients):
+                            RecipeIngredient.objects.create(
+                                recipe=new_recipe,
+                                food=ing_data['food'],
+                                quantity=ing_data['quantity'],
+                                unit=ing_data['unit'],
+                                notes=ing_data['notes'],
+                                order=idx
+                            )
+                        
+                        # Recalcular macros automáticamente
+                        if parsed_ingredients:
+                            new_recipe.calculate_macros_from_ingredients()
+                        
+                        created_count += 1
+                        
+                except Exception as e:
+                    errors.append(f"Row {row_num}: Unexpected error - {str(e)}")
+                    continue
+            
+            message = f"Import completed: {created_count} created, {updated_count} updated, {skipped_count} skipped, {failed_count} REJECTED (invalid ingredients)"
+            
+            result = {
+                'success': True,
+                'created': created_count,
+                'updated': updated_count,
+                'skipped': skipped_count,
+                'rejected': failed_count,
+                'message': message,
+            }
+            
+            # Incluir detalles sobre recetas rechazadas
+            if rejections:
+                result['rejections'] = rejections[:20]  # Primeras 20 rechazos
+                result['rejection_count'] = len(rejections)
+            
+            # Incluir otros errores si existen
+            if errors:
+                result['errors'] = errors[:10]
+                result['error_count'] = len(errors)
+            
+            return JsonResponse(result)
+        except Exception as e:
+            return JsonResponse({'error': f'File processing error: {str(e)}'}, status=400)
 
 
 class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
@@ -462,6 +955,343 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
     queryset = Food.objects.all()
     serializer_class = AdminFoodSerializer
     permission_classes = [IsAdminUser]
+
+    @action(detail=False, methods=['get'], url_path='list-for-recipes')
+    def list_for_recipes(self, request):
+        """Devuelve lista simplificada de alimentos para seleccionar en recetas"""
+        from .serializers import FoodMinimalSerializer
+        foods = self.get_queryset().order_by('name')
+        serializer = FoodMinimalSerializer(foods, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """Exporta todos los alimentos en formato CSV"""
+        import csv
+        from django.http import HttpResponse
+        foods = self.get_queryset()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="foods_export.csv"'
+        fieldnames = [
+            'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium',
+            'serving_size', 'serving_unit', 'category', 'store', 'is_verified'
+        ]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        for food in foods:
+            writer.writerow({
+                'id': str(food.id),
+                'name': food.name,
+                'brand': food.brand or '',
+                'calories': food.calories or 0,
+                'protein': food.protein or 0,
+                'carbs': food.carbs or 0,
+                'fat': food.fat or 0,
+                'fiber': food.fiber or 0,
+                'sugar': food.sugar or 0,
+                'sodium': food.sodium or 0,
+                'serving_size': food.serving_size or 0,
+                'serving_unit': food.serving_unit or '',
+                'category': food.category or '',
+                'store': food.store or '',
+                'is_verified': food.is_verified,
+            })
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exporta todos los alimentos en formato Excel (XLSX)"""
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+        foods = self.get_queryset()
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Alimentos')
+        headers = [
+            'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium',
+            'serving_size', 'serving_unit', 'category', 'store', 'is_verified'
+        ]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+        for row_idx, food in enumerate(foods, start=1):
+            worksheet.write(row_idx, 0, str(food.id))
+            worksheet.write(row_idx, 1, food.name)
+            worksheet.write(row_idx, 2, food.brand or '')
+            worksheet.write(row_idx, 3, food.calories or 0)
+            worksheet.write(row_idx, 4, food.protein or 0)
+            worksheet.write(row_idx, 5, food.carbs or 0)
+            worksheet.write(row_idx, 6, food.fat or 0)
+            worksheet.write(row_idx, 7, food.fiber or 0)
+            worksheet.write(row_idx, 8, food.sugar or 0)
+            worksheet.write(row_idx, 9, food.sodium or 0)
+            worksheet.write(row_idx, 10, food.serving_size or 0)
+            worksheet.write(row_idx, 11, food.serving_unit or '')
+            worksheet.write(row_idx, 12, food.category or '')
+            worksheet.write(row_idx, 13, food.store or '')
+            worksheet.write(row_idx, 14, food.is_verified)
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="foods_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'], url_path='import-csv')
+    def import_csv(self, request):
+        """Importa alimentos desde un archivo CSV. Añade o modifica, nunca elimina."""
+        import csv
+        from django.core.files.uploadedfile import UploadedFile
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        decoded = file.read().decode('utf-8')
+        reader = csv.DictReader(decoded.splitlines())
+        updated, created, skipped = 0, 0, 0
+        for row in reader:
+            name = row.get('name')
+            if not name:
+                skipped += 1
+                continue
+            food = Food.objects.filter(name=name).first()
+            fields = {
+                'brand': row.get('brand', ''),
+                'calories': float(row.get('calories', 0)),
+                'protein': float(row.get('protein', 0)),
+                'carbs': float(row.get('carbs', 0)),
+                'fat': float(row.get('fat', 0)),
+                'fiber': float(row.get('fiber', 0)),
+                'sugar': float(row.get('sugar', 0)),
+                'sodium': float(row.get('sodium', 0)),
+                'serving_size': float(row.get('serving_size', 0)),
+                'serving_unit': row.get('serving_unit', ''),
+                'category': row.get('category', ''),
+                'store': row.get('store', ''),
+                'is_verified': row.get('is_verified', '').lower() == 'true',
+            }
+            if food:
+                for k, v in fields.items():
+                    setattr(food, k, v)
+                food.save()
+                updated += 1
+            else:
+                Food.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Se subió el archivo correctamente. {created} alimentos añadidos, {updated} modificados. Los alimentos no presentes en el archivo no se eliminaron."
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='import-excel')
+    def import_excel(self, request):
+        """Importa alimentos desde un archivo Excel. Añade o modifica, nunca elimina."""
+        import openpyxl
+        from django.core.files.uploadedfile import UploadedFile
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        headers = [cell.value for cell in ws[1]]
+        updated, created, skipped = 0, 0, 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_dict = dict(zip(headers, row))
+            name = row_dict.get('name')
+            if not name:
+                skipped += 1
+                continue
+            food = Food.objects.filter(name=name).first()
+            fields = {
+                'brand': row_dict.get('brand', ''),
+                'calories': float(row_dict.get('calories', 0)),
+                'protein': float(row_dict.get('protein', 0)),
+                'carbs': float(row_dict.get('carbs', 0)),
+                'fat': float(row_dict.get('fat', 0)),
+                'fiber': float(row_dict.get('fiber', 0)),
+                'sugar': float(row_dict.get('sugar', 0)),
+                'sodium': float(row_dict.get('sodium', 0)),
+                'serving_size': float(row_dict.get('serving_size', 0)),
+                'serving_unit': row_dict.get('serving_unit', ''),
+                'category': row_dict.get('category', ''),
+                'store': row_dict.get('store', ''),
+                'is_verified': str(row_dict.get('is_verified', '')).lower() == 'true',
+            }
+            if food:
+                for k, v in fields.items():
+                    setattr(food, k, v)
+                food.save()
+                updated += 1
+            else:
+                Food.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Se subió el archivo correctamente. {created} alimentos añadidos, {updated} modificados. Los alimentos no presentes en el archivo no se eliminaron."
+        }, status=status.HTTP_200_OK)
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """Exporta todas las recetas en formato CSV"""
+        import csv
+        from django.http import HttpResponse
+        recipes = self.get_queryset()
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = 'attachment; filename="recipes_export.csv"'
+        fieldnames = [
+            'id', 'name', 'description', 'category', 'calories', 'protein', 'carbs', 'fat', 'difficulty', 'image_url', 'ingredients', 'instructions'
+        ]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        for recipe in recipes:
+            writer.writerow({
+                'id': str(recipe.id),
+                'name': recipe.name,
+                'description': recipe.description or '',
+                'category': recipe.category or '',
+                'calories': recipe.calories or 0,
+                'protein': recipe.protein or 0,
+                'carbs': recipe.carbs or 0,
+                'fat': recipe.fat or 0,
+                'difficulty': recipe.difficulty or '',
+                'image_url': recipe.image.url if recipe.image else '',
+                'ingredients': ', '.join([i.name for i in getattr(recipe, 'ingredients', [])]) if hasattr(recipe, 'ingredients') else '',
+                'instructions': recipe.instructions or '',
+            })
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exporta todas las recetas en formato Excel (XLSX)"""
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+        recipes = self.get_queryset()
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Recetas')
+        headers = [
+            'id', 'name', 'description', 'category', 'calories', 'protein', 'carbs', 'fat', 'difficulty', 'image_url', 'ingredients', 'instructions'
+        ]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header)
+        for row_idx, recipe in enumerate(recipes, start=1):
+            # Manejo de ingredientes que pueden ser listas de dicts o de objetos
+            ingredients = getattr(recipe, 'ingredients', []) or []
+            ingredients_str = ''
+            if ingredients:
+                try:
+                    ingredients_str = ', '.join([
+                        i['name'] if isinstance(i, dict) else i.name 
+                        for i in ingredients
+                    ])
+                except (KeyError, AttributeError, TypeError):
+                    ingredients_str = ''
+            
+            worksheet.write(row_idx, 0, str(recipe.id))
+            worksheet.write(row_idx, 1, recipe.name)
+            worksheet.write(row_idx, 2, recipe.description or '')
+            worksheet.write(row_idx, 3, recipe.category or '')
+            worksheet.write(row_idx, 4, recipe.calories or 0)
+            worksheet.write(row_idx, 5, recipe.protein or 0)
+            worksheet.write(row_idx, 6, recipe.carbs or 0)
+            worksheet.write(row_idx, 7, recipe.fat or 0)
+            worksheet.write(row_idx, 8, recipe.difficulty or '')
+            worksheet.write(row_idx, 9, recipe.image.url if recipe.image else '')
+            worksheet.write(row_idx, 10, ingredients_str)
+            worksheet.write(row_idx, 11, recipe.instructions or '')
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="recipes_export.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'], url_path='import-csv')
+    def import_csv(self, request):
+        """Importa recetas desde un archivo CSV. Añade o modifica, nunca elimina."""
+        import csv
+        from django.core.files.uploadedfile import UploadedFile
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        decoded = file.read().decode('utf-8')
+        reader = csv.DictReader(decoded.splitlines())
+        updated, created, skipped = 0, 0, 0
+        for row in reader:
+            name = row.get('name')
+            if not name:
+                skipped += 1
+                continue
+            recipe = Recipe.objects.filter(name=name).first()
+            fields = {
+                'description': row.get('description', ''),
+                'category': row.get('category', ''),
+                'calories': float(row.get('calories', 0)),
+                'protein': float(row.get('protein', 0)),
+                'carbs': float(row.get('carbs', 0)),
+                'fat': float(row.get('fat', 0)),
+                'difficulty': row.get('difficulty', ''),
+                'instructions': row.get('instructions', ''),
+            }
+            if recipe:
+                for k, v in fields.items():
+                    setattr(recipe, k, v)
+                recipe.save()
+                updated += 1
+            else:
+                Recipe.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Se subió el archivo correctamente. {created} recetas añadidas, {updated} modificadas. Las recetas no presentes en el archivo no se eliminaron."
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='import-excel')
+    def import_excel(self, request):
+        """Importa recetas desde un archivo Excel. Añade o modifica, nunca elimina."""
+        import openpyxl
+        from django.core.files.uploadedfile import UploadedFile
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        headers = [cell.value for cell in ws[1]]
+        updated, created, skipped = 0, 0, 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_dict = dict(zip(headers, row))
+            name = row_dict.get('name')
+            if not name:
+                skipped += 1
+                continue
+            recipe = Recipe.objects.filter(name=name).first()
+            fields = {
+                'description': row_dict.get('description', ''),
+                'category': row_dict.get('category', ''),
+                'calories': float(row_dict.get('calories', 0)),
+                'protein': float(row_dict.get('protein', 0)),
+                'carbs': float(row_dict.get('carbs', 0)),
+                'fat': float(row_dict.get('fat', 0)),
+                'difficulty': row_dict.get('difficulty', ''),
+                'instructions': row_dict.get('instructions', ''),
+            }
+            if recipe:
+                for k, v in fields.items():
+                    setattr(recipe, k, v)
+                recipe.save()
+                updated += 1
+            else:
+                Recipe.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Se subió el archivo correctamente. {created} recetas añadidas, {updated} modificadas. Las recetas no presentes en el archivo no se eliminaron."
+        }, status=status.HTTP_200_OK)
 
 
 class AdminPlanMealRecipeViewSet(viewsets.ModelViewSet):

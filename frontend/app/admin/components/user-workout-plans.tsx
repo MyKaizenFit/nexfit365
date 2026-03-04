@@ -53,8 +53,8 @@ export function UserWorkoutPlans() {
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [filterUser, setFilterUser] = useState("")
-  const [filterActive, setFilterActive] = useState("")
+  const [filterUser, setFilterUser] = useState("all")
+  const [filterActive, setFilterActive] = useState("all")
 
   // Estados para asignar plan
   const [assignFormData, setAssignFormData] = useState({
@@ -73,8 +73,8 @@ export function UserWorkoutPlans() {
       // Cargar planes de usuarios
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
-      if (filterUser) params.append('user', filterUser)
-      if (filterActive) params.append('is_active', filterActive)
+      if (filterUser && filterUser !== 'all') params.append('user', filterUser)
+      if (filterActive && filterActive !== 'all') params.append('is_active', filterActive)
       
       const [plansResponse, usersResponse, templatesResponse] = await Promise.all([
         fetch(`/api/user-workout-plans/?${params}`),
@@ -297,7 +297,7 @@ export function UserWorkoutPlans() {
                   <SelectValue placeholder="Todos los usuarios" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los usuarios</SelectItem>
+                  <SelectItem value="all">Todos los usuarios</SelectItem>
                   {users.map((user) => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.first_name} {user.last_name} ({user.email})
@@ -313,7 +313,7 @@ export function UserWorkoutPlans() {
                   <SelectValue placeholder="Todos los estados" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los estados</SelectItem>
+                  <SelectItem value="all">Todos los estados</SelectItem>
                   <SelectItem value="true">Activos</SelectItem>
                   <SelectItem value="false">Inactivos</SelectItem>
                 </SelectContent>
@@ -324,8 +324,8 @@ export function UserWorkoutPlans() {
                 variant="outline" 
                 onClick={() => {
                   setSearchTerm("")
-                  setFilterUser("")
-                  setFilterActive("")
+                  setFilterUser("all")
+                  setFilterActive("all")
                 }}
                 className="w-full"
               >

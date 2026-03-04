@@ -15,8 +15,6 @@ export interface Nutrition {
   ingredients: Array<string | { name?: string; amount?: string; unit?: string; quantity?: number }>
   recipe_ingredients?: RecipeIngredient[]
   instructions: string
-  image?: string
-  image_url?: string
   tags: string[]
   goal_category?: string
   created_at: string
@@ -40,7 +38,6 @@ export interface CreateNutritionData {
   calories_per_serving?: number
   ingredients: Array<string | { name?: string; amount?: string; unit?: string; quantity?: number }>
   instructions: string
-  image_url?: string
   tags: string[]
   goal_category?: string
 }

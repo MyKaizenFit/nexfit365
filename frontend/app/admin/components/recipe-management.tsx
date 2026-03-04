@@ -1,0 +1,986 @@
+"use client"
+
+import { useState, useEffect, useMemo, useCallback } from "react"
+import { useAuth } from "@/contexts/auth-context"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/hooks/use-toast"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Download, Upload, Loader2, Plus, Edit2, Trash2, Eye, X, Search, Clock, Users, ChefHat, Flame, Zap, Trophy, GripVertical } from "lucide-react"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { MoreHorizontal } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+const getApiUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  if (envUrl) {
+    return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
+  }
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://api.nexfit365.dpdns.org'
+  }
+  return 'http://localhost:8001'
+}
+
+interface Food {
+  id: string
+  name: string
+  brand?: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  category?: string
+}
+
+interface RecipeIngredient {
+  id?: string
+  food_id?: string
+  food?: Food
+  quantity: number
+  unit: string
+  notes?: string
+  order?: number
+  calculated_macros?: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+  }
+}
+
+interface Recipe {
+  id: string
+  name: string
+  description?: string
+  category?: string
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
+  difficulty?: string
+  instructions?: string
+  recipe_ingredients?: RecipeIngredient[]
+}
+
+interface FormData {
+  name: string
+  description: string
+  category: string
+  difficulty: string
+  instructions: string
+  recipe_ingredients: RecipeIngredient[]
+}
+
+export function RecipeManagement() {
+  const { getAuthHeaders } = useAuth()
+  const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [foods, setFoods] = useState<Food[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingFoods, setLoadingFoods] = useState(false)
+
+  // Dialogs
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+
+  // Files and forms
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Editing/Creating
+  const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
+  const [formData, setFormData] = useState<FormData>({
+    name: '',
+    description: '',
+    category: '',
+    difficulty: '',
+    instructions: '',
+    recipe_ingredients: [],
+  })
+  const [ingredientSearch, setIngredientSearch] = useState('')
+  const [ingredientInputValue, setIngredientInputValue] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [ingredientCategory, setIngredientCategory] = useState('')
+  const [ingredientCaloriesFilter, setIngredientCaloriesFilter] = useState('')
+  const [ingredientProteinFilter, setIngredientProteinFilter] = useState('')
+
+  const fetchRecipes = async () => {
+    setLoading(true)
+    try {
+      const headers = await getAuthHeaders()
+      const timestamp = new Date().getTime()
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/?cache=${timestamp}`, {
+        method: 'GET',
+        headers: headers,
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const recipeList = Array.isArray(data) ? data : (data.results || [])
+        setRecipes(recipeList)
+      } else if (response.status === 401) {
+        toast({ title: "Error", description: "No autorizado. Por favor, inicia sesión nuevamente.", variant: "destructive" })
+      }
+    } catch (error) {
+      toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudieron cargar las recetas", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const fetchFoods = async () => {
+    setLoadingFoods(true)
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/list-for-recipes/`, {
+        method: 'GET',
+        headers: headers,
+      })
+      if (response.ok) {
+        const data = await response.json()
+        setFoods(Array.isArray(data) ? data : [])
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron cargar los ingredientes", variant: "destructive" })
+    } finally {
+      setLoadingFoods(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRecipes()
+    fetchFoods()
+  }, [])
+
+  const calculateMacros = (ingredients: RecipeIngredient[]) => {
+    let totalCals = 0, totalProt = 0, totalCarbs = 0, totalFat = 0
+    ingredients.forEach((ing) => {
+      if (ing.food) {
+        const ratio = ing.quantity / 100
+        totalCals += ing.food.calories * ratio
+        totalProt += ing.food.protein * ratio
+        totalCarbs += ing.food.carbs * ratio
+        totalFat += ing.food.fat * ratio
+      }
+    })
+    return { calories: Math.round(totalCals), protein: Math.round(totalProt * 100) / 100, carbs: Math.round(totalCarbs * 100) / 100, fat: Math.round(totalFat * 100) / 100 }
+  }
+
+  const handleExport = async (type: 'csv' | 'excel') => {
+    try {
+      const headers = await getAuthHeaders()
+      const url = `${getApiUrl()}/api/admin/nutrition/recipes/export-${type}/`
+      const response = await fetch(url, { method: 'GET', headers: headers })
+      if (!response.ok) throw new Error(`Error ${response.status}`)
+      const blob = await response.blob()
+      const link = document.createElement('a')
+      link.href = window.URL.createObjectURL(blob)
+      link.download = type === 'csv' ? 'recipes_export.csv' : 'recipes_export.xlsx'
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(link.href)
+      toast({ title: `✅ Exportación ${type.toUpperCase()}`, description: 'Archivo descargado correctamente.' })
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo exportar', variant: 'destructive' })
+    }
+  }
+
+  const handleImport = async () => {
+    if (!importFile) return
+    setImporting(true)
+    try {
+      const headers = await getAuthHeaders()
+      const formDataObj = new FormData()
+      formDataObj.append('file', importFile)
+      const fileType = importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls') ? 'excel' : 'csv'
+      const url = `${getApiUrl()}/api/admin/nutrition/recipes/import-${fileType}/`
+
+      const token = (headers as Record<string, string>)['Authorization']
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': token },
+        body: formDataObj,
+      })
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || `Error ${response.status}`)
+      }
+      const data = await response.json()
+      toast({ title: '✅ Importación', description: data?.message || 'Recetas importadas correctamente.' })
+      setImportDialogOpen(false)
+      setImportFile(null)
+      fetchRecipes()
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handleOpenCreate = () => {
+    setEditingRecipe(null)
+    setFormData({ name: '', description: '', category: '', difficulty: '', instructions: '', recipe_ingredients: [] })
+    setIngredientInputValue('')
+    setShowSuggestions(false)
+    setCreateDialogOpen(true)
+  }
+
+  const handleOpenEdit = (recipe: Recipe) => {
+    setEditingRecipe(recipe)
+    setFormData({
+      name: recipe.name || '',
+      description: recipe.description || '',
+      category: recipe.category || '',
+      difficulty: recipe.difficulty || '',
+      instructions: recipe.instructions || '',
+      recipe_ingredients: recipe.recipe_ingredients || [],
+    })
+    setIngredientInputValue('')
+    setShowSuggestions(false)
+    setEditDialogOpen(true)
+  }
+
+  const handleOpenView = (recipe: Recipe) => {
+    setEditingRecipe(recipe)
+    setViewDialogOpen(true)
+  }
+
+  const handleAddIngredient = (food: Food) => {
+    const newIngredient: RecipeIngredient = {
+      food_id: food.id,
+      food: food,
+      quantity: 100,
+      unit: 'g',
+      order: formData.recipe_ingredients.length,
+    }
+    setFormData({
+      ...formData,
+      recipe_ingredients: [...formData.recipe_ingredients, newIngredient],
+    })
+    setIngredientInputValue('')
+    setShowSuggestions(false)
+  }
+
+  const isIngredientValid = (ingredient: RecipeIngredient): boolean => {
+    if (!ingredient.food) return false
+    return foods.some(f => f.id === ingredient.food?.id)
+  }
+
+  const handleIngredientInputChange = (value: string) => {
+    setIngredientInputValue(value)
+    setShowSuggestions(true)
+  }
+
+  const getAutocompleteSuggestions = (): Food[] => {
+    if (!ingredientInputValue.trim()) return []
+    const query = ingredientInputValue.toLowerCase()
+    return foods
+      .filter(food => 
+        food.name.toLowerCase().includes(query) ||
+        (food.brand && food.brand.toLowerCase().includes(query))
+      )
+      .slice(0, 8)
+  }
+
+  const handleRemoveIngredient = (index: number) => {
+    setFormData({
+      ...formData,
+      recipe_ingredients: formData.recipe_ingredients.filter((_, i) => i !== index),
+    })
+  }
+
+  const handleUpdateIngredientQuantity = (index: number, quantity: number) => {
+    const updated = [...formData.recipe_ingredients]
+    updated[index].quantity = quantity
+    setFormData({ ...formData, recipe_ingredients: updated })
+  }
+
+  const handleSaveRecipe = async () => {
+    if (!formData.name.trim()) {
+      toast({ title: 'Error', description: 'El nombre es requerido', variant: 'destructive' })
+      return
+    }
+
+    setSaving(true)
+    try {
+      const headers = await getAuthHeaders()
+      const macros = calculateMacros(formData.recipe_ingredients)
+
+      const payload = {
+        name: formData.name,
+        description: formData.description || '',
+        category: formData.category || '',
+        difficulty: formData.difficulty || '',
+        instructions: formData.instructions || '',
+        calories: macros.calories,
+        protein: macros.protein,
+        carbs: macros.carbs,
+        fat: macros.fat,
+        servings: 1,
+        recipe_ingredients: formData.recipe_ingredients.map((ing) => ({
+          food_id: ing.food?.id || ing.food_id,
+          quantity: ing.quantity,
+          unit: ing.unit,
+          notes: ing.notes || '',
+          order: ing.order || 0,
+        })),
+      }
+
+      const url = editingRecipe
+        ? `${getApiUrl()}/api/admin/nutrition/recipes/${editingRecipe.id}/`
+        : `${getApiUrl()}/api/admin/nutrition/recipes/`
+
+      const method = editingRecipe ? 'PUT' : 'POST'
+
+      const response = await fetch(url, {
+        method,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(errorText || `Error ${response.status}`)
+      }
+
+      toast({
+        title: '✅ Éxito',
+        description: editingRecipe ? 'Receta actualizada correctamente' : 'Receta creada correctamente',
+      })
+      setCreateDialogOpen(false)
+      setEditDialogOpen(false)
+      fetchRecipes()
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo guardar', variant: 'destructive' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDeleteRecipe = async (recipe: Recipe) => {
+    if (!recipe.id) return
+    if (!window.confirm(`¿Estás seguro que deseas eliminar "${recipe.name}"?`)) return
+
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${recipe.id}/`, {
+        method: 'DELETE',
+        headers: headers,
+      })
+      if (!response.ok) throw new Error(`Error ${response.status}`)
+      toast({ title: '✅ Eliminado', description: 'Receta eliminada correctamente' })
+      fetchRecipes()
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo eliminar', variant: 'destructive' })
+    }
+  }
+
+  const foodCategories = Array.from(
+    new Set(foods.map((food) => food.category).filter((category) => category && category.trim()))
+  ).sort()
+
+  const filteredFoods = foods.filter((food) => {
+    const search = ingredientSearch.trim().toLowerCase()
+    const matchesSearch = !search ||
+      food.name.toLowerCase().includes(search) ||
+      (food.brand && food.brand.toLowerCase().includes(search))
+    const matchesCategory = !ingredientCategory || food.category === ingredientCategory
+    
+    // Filtro por calorías
+    let matchesCalories = true
+    if (ingredientCaloriesFilter === 'bajo') matchesCalories = food.calories < 100
+    else if (ingredientCaloriesFilter === 'medio') matchesCalories = food.calories >= 100 && food.calories < 300
+    else if (ingredientCaloriesFilter === 'alto') matchesCalories = food.calories >= 300
+    
+    // Filtro por proteína
+    let matchesProtein = true
+    if (ingredientProteinFilter === 'bajo') matchesProtein = food.protein < 5
+    else if (ingredientProteinFilter === 'medio') matchesProtein = food.protein >= 5 && food.protein < 15
+    else if (ingredientProteinFilter === 'alto') matchesProtein = food.protein >= 15
+    
+    return matchesSearch && matchesCategory && matchesCalories && matchesProtein
+  })
+
+  const macros = calculateMacros(formData.recipe_ingredients)
+
+  return (
+    <div className="space-y-6">
+      {/* Card de Exportación/Importación */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>📁 Importar/Exportar Recetas</CardTitle>
+              <CardDescription>Gestiona tus recetas con archivos CSV o Excel</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={() => handleExport('csv')}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => handleExport('excel')}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </Button>
+              <Button 
+                onClick={() => setImportDialogOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Importar CSV/Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Header con botón Nueva Receta */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Gestión de Recetas</h2>
+          <p className="text-muted-foreground">
+            Administra todas las recetas disponibles en el sistema
+          </p>
+        </div>
+        <Button onClick={handleOpenCreate} className="bg-blue-600 hover:bg-blue-700">
+          <Plus className="mr-2 h-4 w-4" /> Nueva Receta
+        </Button>
+      </div>
+
+      {/* Tabla de recetas */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Listado de Recetas</CardTitle>
+          <CardDescription>Vista completa de todas las recetas creadas</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center min-h-[200px]">
+              <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+          ) : recipes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay recetas disponibles</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Categoría</TableHead>
+                    <TableHead>Calorías</TableHead>
+                    <TableHead>Dificultad</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {recipes.map((recipe) => (
+                    <TableRow key={recipe.id}>
+                      <TableCell className="font-medium">{recipe.name}</TableCell>
+                      <TableCell>{recipe.category || '-'}</TableCell>
+                      <TableCell>{recipe.calories || '-'}</TableCell>
+                      <TableCell>{recipe.difficulty || '-'}</TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleOpenView(recipe)}>
+                              <Eye className="mr-2 h-4 w-4" /> Ver
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleOpenEdit(recipe)}>
+                              <Edit2 className="mr-2 h-4 w-4" /> Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDeleteRecipe(recipe)} className="text-red-600">
+                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Dialog: Importar */}
+      {/* Dialog de importación mejorado */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>📥 Importar Recetas</DialogTitle>
+            <DialogDescription>
+              Sube un archivo CSV o Excel para importar o actualizar recetas. Las recetas existentes se actualizarán si el nombre coincide.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label className="font-semibold">Selecciona el archivo</Label>
+              <Input
+                type="file"
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                disabled={importing}
+                className="mt-2"
+              />
+              {importFile && (
+                <div className="text-sm text-green-600 mt-2">
+                  ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-700">
+                <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, categoría, dificultad, calorías, proteína, carbohidratos, grasa e ingredientes.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)} disabled={importing}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
+              {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {importing ? 'Importando...' : 'Importar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Ver */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingRecipe?.name}</DialogTitle>
+          </DialogHeader>
+          {editingRecipe && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <strong>Categoría:</strong> {editingRecipe.category || '-'}
+                </div>
+                <div>
+                  <strong>Dificultad:</strong> {editingRecipe.difficulty || '-'}
+                </div>
+                <div>
+                  <strong>Calorías:</strong> {editingRecipe.calories || '-'}
+                </div>
+                <div>
+                  <strong>Proteína:</strong> {editingRecipe.protein}g
+                </div>
+                <div>
+                  <strong>Carbos:</strong> {editingRecipe.carbs}g
+                </div>
+                <div>
+                  <strong>Grasa:</strong> {editingRecipe.fat}g
+                </div>
+              </div>
+              {editingRecipe.description && (
+                <div>
+                  <strong>Descripción:</strong>
+                  <p className="mt-2 text-sm text-muted-foreground">{editingRecipe.description}</p>
+                </div>
+              )}
+              {editingRecipe.recipe_ingredients && editingRecipe.recipe_ingredients.length > 0 && (
+                <div>
+                  <strong>Ingredientes:</strong>
+                  <ul className="mt-2 text-sm space-y-1">
+                    {editingRecipe.recipe_ingredients.map((ing, idx) => (
+                      <li key={idx}>
+                        {ing.quantity}{ing.unit} de {ing.food ? ing.food.name : 'Desconocido'}
+                        {ing.notes && ` (${ing.notes})`}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {editingRecipe.instructions && (
+                <div>
+                  <strong>Instrucciones:</strong>
+                  <p className="mt-2 text-sm text-muted-foreground">{editingRecipe.instructions}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setViewDialogOpen(false)}>Cerrar</Button>
+            {editingRecipe && (
+              <Button
+                onClick={() => {
+                  setViewDialogOpen(false)
+                  handleOpenEdit(editingRecipe)
+                }}
+                className="bg-blue-600"
+              >
+                <Edit2 className="mr-2 h-4 w-4" /> Editar
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Crear/Editar - INTERFAZ MEJORADA */}
+      <Dialog open={createDialogOpen || editDialogOpen} onOpenChange={(open) => {
+        if (!open) {
+          setCreateDialogOpen(false)
+          setEditDialogOpen(false)
+        }
+      }}>
+        <DialogContent className="w-full max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex-shrink-0">
+            <DialogTitle className="text-2xl">{editingRecipe ? '✏️ Editar Receta' : '🍳 Nueva Receta'}</DialogTitle>
+            <DialogDescription>Crea o edita tu receta de forma sencilla</DialogDescription>
+          </DialogHeader>
+
+          {/* TABS para PC / Acordeones para Móvil */}
+          <div className="flex-1 overflow-y-auto">
+            <Tabs defaultValue="basicos" className="w-full">
+              <TabsList className="grid w-full grid-cols-4 mb-4">
+                <TabsTrigger value="basicos" className="text-xs sm:text-sm">📝 Básicos</TabsTrigger>
+                <TabsTrigger value="ingredientes" className="text-xs sm:text-sm">🥘 Ingredientes</TabsTrigger>
+                <TabsTrigger value="instrucciones" className="text-xs sm:text-sm">📖 Pasos</TabsTrigger>
+                <TabsTrigger value="preview" className="text-xs sm:text-sm">👁️ Vista Previa</TabsTrigger>
+              </TabsList>
+
+              {/* TAB 1: Datos Básicos */}
+              <TabsContent value="basicos" className="space-y-4 px-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="font-semibold text-sm">Nombre *</Label>
+                    <Input
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Ej: Pechuga de pollo al ajillo"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="font-semibold text-sm">Categoría</Label>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-sans"
+                    >
+                      <option value="">Selecciona...</option>
+                      {[
+                        {val: 'Desayuno', label: 'Desayuno'},
+                        {val: 'Almuerzo', label: 'Almuerzo'},
+                        {val: 'Cena', label: 'Cena'},
+                        {val: 'Snack', label: 'Snack'},
+                        {val: 'Postre', label: 'Postre'},
+                        {val: 'Bebida', label: 'Bebida'}
+                      ].map((cat) => (
+                        <option key={cat.val} value={cat.val}>{cat.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <Label className="font-semibold text-sm">Dificultad</Label>
+                    <select
+                      value={formData.difficulty}
+                      onChange={(e) => setFormData({ ...formData, difficulty: e.target.value })}
+                      className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 font-sans"
+                    >
+                      <option value="">Selecciona...</option>
+                      {[
+                        {val: 'Fácil', label: 'Fácil'},
+                        {val: 'Medio', label: 'Medio'},
+                        {val: 'Difícil', label: 'Difícil'}
+                      ].map((dif) => (
+                        <option key={dif.val} value={dif.val}>{dif.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Info rápida mejorada */}
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-sm">⏱️ Tiempo preparación (min)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Ej: 20"
+                      min="0"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label className="font-semibold text-sm">Descripción</Label>
+                  <Textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="Ej: Una deliciosa pechuga a base de ajillo fresco y limón."
+                    className="mt-1 min-h-24"
+                  />
+                </div>
+
+                {/* Cards rápidas de info */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-4 border-t">
+                  {[
+                    { icon: '🔥', label: 'Calorías', value: macros.calories },
+                    { icon: '💪', label: 'Proteína', value: `${macros.protein.toFixed(1)}g` },
+                    { icon: '🍞', label: 'Carbos', value: `${macros.carbs.toFixed(1)}g` },
+                    { icon: '🧈', label: 'Grasa', value: `${macros.fat.toFixed(1)}g` },
+                  ].map((macro, idx) => (
+                    <div key={idx} className="bg-gradient-to-br from-orange-50 to-yellow-50 p-3 rounded-lg text-center border border-orange-200">
+                      <div className="text-2xl">{macro.icon}</div>
+                      <p className="text-xs text-gray-600 mt-1">{macro.label}</p>
+                      <p className="font-semibold text-sm mt-1">{macro.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              {/* TAB 2: Ingredientes con búsqueda mejorada */}
+              <TabsContent value="ingredientes" className="space-y-4 px-1">
+                <div className="space-y-3">
+                  {/* INPUT CON AUTOCOMPLETE */}
+                  <div className="space-y-2">
+                    <Label className="font-semibold text-sm">🔍 Buscar y agregar ingrediente</Label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                      <Input
+                        value={ingredientInputValue}
+                        onChange={(e) => handleIngredientInputChange(e.target.value)}
+                        onFocus={() => ingredientInputValue && setShowSuggestions(true)}
+                        onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+                        placeholder="Escribe nombre del alimento..."
+                        className="pl-10"
+                      />
+                      
+                      {/* DROPDOWN CON SUGERENCIAS */}
+                      {showSuggestions && getAutocompleteSuggestions().length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-50">
+                          {getAutocompleteSuggestions().map((food) => (
+                            <button
+                              key={food.id}
+                              onClick={() => {
+                                handleAddIngredient(food)
+                              }}
+                              className="w-full text-left flex items-center gap-3 p-3 hover:bg-orange-50 border-b last:border-b-0 transition"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{food.name}</p>
+                                {food.brand && <p className="text-xs text-gray-500">{food.brand}</p>}
+                                <p className="text-xs text-gray-500 mt-0.5">
+                                  {food.calories} cal/100g • P:{food.protein}g • C:{food.carbs}g • F:{food.fat}g
+                                </p>
+                              </div>
+                              <Plus className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {showSuggestions && ingredientInputValue && getAutocompleteSuggestions().length === 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 z-50 text-center text-sm text-gray-500">
+                          Sin resultados
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Ingredientes seleccionados */}
+                {formData.recipe_ingredients.length > 0 && (
+                  <div className="space-y-2 pt-4 border-t">
+                    <h4 className="font-semibold text-sm">📦 Ingredientes seleccionados ({formData.recipe_ingredients.length})</h4>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {formData.recipe_ingredients.map((ing, idx) => {
+                        const isValid = isIngredientValid(ing)
+                        return (
+                          <div 
+                            key={idx} 
+                            className={`p-3 rounded-lg border flex items-center justify-between gap-2 group hover:shadow-md transition ${
+                              isValid 
+                                ? 'bg-orange-50 border-orange-200' 
+                                : 'bg-red-100 border-red-400'
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-sm font-medium truncate">{ing.food?.name || 'Ingrediente desconocido'}</p>
+                                {!isValid && (
+                                  <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded text-nowrap">⚠️ No existe</span>
+                                )}
+                              </div>
+                              <p className={`text-xs mt-0.5 ${isValid ? 'text-gray-600' : 'text-red-700'}`}>
+                                {ing.food?.calories || '?'} cal/100g
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdateIngredientQuantity(idx, Math.max(1, ing.quantity - 10))}
+                                className="h-7 w-7 p-0 text-xs"
+                              >
+                                −
+                              </Button>
+                              <Input
+                                type="number"
+                                value={ing.quantity}
+                                onChange={(e) => handleUpdateIngredientQuantity(idx, parseFloat(e.target.value) || 0)}
+                                className={`w-16 h-7 text-center text-xs p-0 ${!isValid ? 'border-red-400' : ''}`}
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleUpdateIngredientQuantity(idx, ing.quantity + 10)}
+                                className="h-7 w-7 p-0 text-xs"
+                              >
+                                +
+                              </Button>
+                              <span className="text-xs text-gray-500 w-8">{ing.unit}</span>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveIngredient(idx)}
+                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 ml-1"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+              </TabsContent>
+
+              {/* TAB 3: Instrucciones paso a paso */}
+              <TabsContent value="instrucciones" className="space-y-4 px-1">
+                <div>
+                  <Label className="font-semibold text-sm">📖 Modo de preparación</Label>
+                  <Textarea
+                    value={formData.instructions}
+                    onChange={(e) => setFormData({ ...formData, instructions: e.target.value })}
+                    placeholder="Describe los pasos:
+1. Precalienta el horno...
+2. Mezcla los ingredientes...
+3. Hornea a..."
+                    className="mt-2 min-h-40 font-mono text-sm"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">💡 Tip: Usa números o viñetas para cada paso</p>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-700">
+                    <strong>Consejo:</strong> Las instrucciones claras y bien organizadas ayudan a otros a preparar mejor tu receta
+                  </p>
+                </div>
+              </TabsContent>
+
+              {/* TAB 4: Vista Previa */}
+              <TabsContent value="preview" className="space-y-4 px-1">
+                <Card className="border-orange-200 bg-gradient-to-br from-orange-50 to-yellow-50">
+                  <CardHeader>
+                    <CardTitle className="text-xl">{formData.name || 'Tu Receta'}</CardTitle>
+                    <CardDescription>{formData.description || 'Sin descripción'}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Datos rápidos */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {[
+                        { icon: '🔥', label: 'Calorías', value: macros.calories },
+                        { icon: '💪', label: 'Proteína', value: `${macros.protein.toFixed(1)}g` },
+                        { icon: '🍞', label: 'Carbos', value: `${macros.carbs.toFixed(1)}g` },
+                        { icon: '🧈', label: 'Grasa', value: `${macros.fat.toFixed(1)}g` },
+                      ].map((macro, idx) => (
+                        <div key={idx} className="bg-white p-3 rounded-lg text-center shadow-sm border border-orange-200">
+                          <div className="text-2xl">{macro.icon}</div>
+                          <p className="text-xs text-gray-600 mt-1">{macro.label}</p>
+                          <p className="font-bold text-lg mt-1">{macro.value}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ingredientes resumido */}
+                    {formData.recipe_ingredients.length > 0 && (
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold text-sm mb-2">Ingredientes ({formData.recipe_ingredients.length})</h4>
+                        <ul className="space-y-1 text-sm">
+                          {formData.recipe_ingredients.map((ing, idx) => (
+                            <li key={idx} className="flex justify-between">
+                              <span>{ing.food?.name}</span>
+                              <span className="text-gray-600">{ing.quantity}{ing.unit}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Instrucciones resumidas */}
+                    {formData.instructions && (
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold text-sm mb-2">Instrucciones</h4>
+                        <p className="text-sm whitespace-pre-wrap text-gray-700">{formData.instructions}</p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Footer con botones */}
+          <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4 gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCreateDialogOpen(false)
+                setEditDialogOpen(false)
+              }}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveRecipe} disabled={saving} className="bg-orange-600 hover:bg-orange-700">
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingRecipe ? '💾 Actualizar' : '✨ Crear Receta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}

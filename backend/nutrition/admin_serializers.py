@@ -1,8 +1,8 @@
 # nutrition/admin_serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe
-from .serializers import RecipeIngredientSerializer
+from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, RecipeIngredient
+from .serializers import RecipeIngredientSerializer, FoodMinimalSerializer
 
 User = get_user_model()
 
@@ -13,12 +13,58 @@ class AdminUserLiteSerializer(serializers.ModelSerializer):
         fields = ['id', 'email']
 
 
+class AdminRecipeIngredientSerializer(serializers.ModelSerializer):
+    """Serializer writable para ingredientes de recetas en el admin"""
+    food = FoodMinimalSerializer(read_only=True)
+    calculated_macros = serializers.DictField(read_only=True)
+    food_id = serializers.PrimaryKeyRelatedField(
+        queryset=Food.objects.all(),
+        source='food',
+        write_only=True,
+        required=True
+    )
+
+    class Meta:
+        model = RecipeIngredient
+        fields = [
+            'id', 'food_id', 'food',
+            'quantity', 'unit', 'notes', 'order',
+            'calculated_macros'
+        ]
+        read_only_fields = ['id', 'calculated_macros', 'food']
+
+
 class AdminRecipeSerializer(serializers.ModelSerializer):
-    recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
+    recipe_ingredients = AdminRecipeIngredientSerializer(many=True, required=False)
 
     class Meta:
         model = Recipe
         fields = '__all__'
+
+    def create(self, validated_data):
+        ingredients_data = validated_data.pop('recipe_ingredients', [])
+        recipe = Recipe.objects.create(**validated_data)
+        
+        for ingredient_data in ingredients_data:
+            RecipeIngredient.objects.create(recipe=recipe, **ingredient_data)
+        
+        return recipe
+
+    def update(self, instance, validated_data):
+        ingredients_data = validated_data.pop('recipe_ingredients', None)
+        
+        # Actualizar campos de la receta
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # Actualizar ingredientes si se proporcionan
+        if ingredients_data is not None:
+            instance.recipe_ingredients.all().delete()
+            for ingredient_data in ingredients_data:
+                RecipeIngredient.objects.create(recipe=instance, **ingredient_data)
+        
+        return instance
 
 
 class RecipeMinimalForMealSerializer(serializers.ModelSerializer):

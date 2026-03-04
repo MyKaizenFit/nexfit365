@@ -100,11 +100,11 @@ export function NutritionManagement() {
     instructions: '',
     image_url: '',
     tags: '',
-    goal_category: ''
+    goal_category: 'none'
   })
 
   const goalOptions = [
-    { value: '', label: 'Sin objetivo' },
+    { value: 'none', label: 'Sin objetivo' },
     { value: 'lose_weight', label: 'Perder peso' },
     { value: 'gain_muscle', label: 'Ganar músculo' },
     { value: 'maintain', label: 'Mantener peso' },
@@ -144,7 +144,7 @@ export function NutritionManagement() {
                          ingredientText.includes(searchTerm.toLowerCase())
     const matchesCategory = categoryFilter === "all" || item.category === categoryFilter
     const matchesDifficulty = difficultyFilter === "all" || item.difficulty === difficultyFilter
-    const matchesGoal = goalFilter === "all" || (item.goal_category || '') === goalFilter
+    const matchesGoal = goalFilter === "all" || (item.goal_category || 'none') === goalFilter
     
     return matchesSearch && matchesCategory && matchesDifficulty && matchesGoal
   })
@@ -251,7 +251,7 @@ export function NutritionManagement() {
       instructions: nutrition.instructions || '',
       image_url: nutrition.image_url || '',
       tags: nutrition.tags?.join(', ') || '',
-      goal_category: nutrition.goal_category || ''
+      goal_category: nutrition.goal_category || 'none'
     })
     setImageFile(null)
     setUploadingImage(false)
@@ -283,7 +283,7 @@ export function NutritionManagement() {
       instructions: '',
       image_url: '',
       tags: '',
-      goal_category: ''
+      goal_category: 'none'
     })
     setImageFile(null)
     setUploadingImage(false)
@@ -532,7 +532,7 @@ export function NutritionManagement() {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   {goalOptions.map(option => (
-                    <SelectItem key={option.value || 'none'} value={option.value}>
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
@@ -1126,7 +1126,7 @@ export function NutritionManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   {goalOptions.map(option => (
-                    <SelectItem key={option.value || 'none'} value={option.value}>
+                    <SelectItem key={option.value} value={option.value}>
                       {option.label}
                     </SelectItem>
                   ))}
