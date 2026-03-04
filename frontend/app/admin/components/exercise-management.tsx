@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminExercises, Exercise } from "@/hooks/use-admin-exercises"
+import { getAuthHeaders } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -21,7 +22,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Download,
+  Upload
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -42,7 +45,92 @@ import {
 import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { fixEncoding, fixEncodingArray } from "@/lib/encoding-fix"
+
+// Funciones de traducción y capitalización
+const translateCategory = (category: string): string => {
+  const translations: Record<string, string> = {
+    'cardio': 'Cardio',
+    'strength': 'Fuerza',
+    'flexibility': 'Flexibilidad',
+    'bodyweight': 'Peso Corporal',
+    'hiit': 'HIIT',
+    'yoga': 'Yoga',
+    'pilates': 'Pilates',
+    'crossfit': 'CrossFit',
+    'powerlifting': 'Powerlifting',
+    'olympic': 'Olímpico',
+    'functional': 'Funcional',
+    'mobility': 'Movilidad',
+    'core': 'Core',
+    'stretching': 'Estiramiento'
+  }
+  return translations[category?.toLowerCase()] || category?.charAt(0).toUpperCase() + category?.slice(1).toLowerCase() || category
+}
+
+const translateMuscleGroup = (muscleGroup: string): string => {
+  const translations: Record<string, string> = {
+    'chest': 'Pecho',
+    'back': 'Espalda',
+    'shoulders': 'Hombros',
+    'biceps': 'Bíceps',
+    'triceps': 'Tríceps',
+    'forearms': 'Antebrazos',
+    'abs': 'Abdominales',
+    'core': 'Core',
+    'obliques': 'Oblicuos',
+    'quads': 'Cuádriceps',
+    'hamstrings': 'Isquiotibiales',
+    'glutes': 'Glúteos',
+    'calves': 'Gemelos',
+    'legs': 'Piernas',
+    'upper body': 'Tren Superior',
+    'lower body': 'Tren Inferior',
+    'full body': 'Cuerpo Completo',
+    'lats': 'Dorsales',
+    'traps': 'Trapecios',
+    'delts': 'Deltoides'
+  }
+  return translations[muscleGroup?.toLowerCase()] || muscleGroup?.charAt(0).toUpperCase() + muscleGroup?.slice(1).toLowerCase() || muscleGroup
+}
+
+const translateEquipment = (equipment: string): string => {
+  const translations: Record<string, string> = {
+    'barbell': 'Barra',
+    'dumbbells': 'Mancuernas',
+    'kettlebell': 'Kettlebell',
+    'resistance bands': 'Bandas Elásticas',
+    'bodyweight': 'Peso Corporal',
+    'machine': 'Máquina',
+    'cable': 'Polea',
+    'bench': 'Banco',
+    'pull-up bar': 'Barra de Dominadas',
+    'treadmill': 'Cinta de Correr',
+    'bike': 'Bicicleta',
+    'rower': 'Remo',
+    'elliptical': 'Elíptica',
+    'trx': 'TRX',
+    'foam roller': 'Rodillo de Espuma',
+    'yoga mat': 'Esterilla',
+    'medicine ball': 'Balón Medicinal',
+    'box': 'Cajón',
+    'rope': 'Cuerda',
+    'sled': 'Trineo',
+    'none': 'Ninguno',
+    '-': '-'
+  }
+  return translations[equipment?.toLowerCase()] || equipment?.charAt(0).toUpperCase() + equipment?.slice(1).toLowerCase() || equipment
+}
+
+const translateDifficulty = (difficulty: string): string => {
+  const translations: Record<string, string> = {
+    'beginner': 'Principiante',
+    'intermediate': 'Intermedio',
+    'advanced': 'Avanzado'
+  }
+  return translations[difficulty?.toLowerCase()] || difficulty?.charAt(0).toUpperCase() + difficulty?.slice(1).toLowerCase() || difficulty
+}
 
 export function ExerciseManagement() {
       // --- Importación CSV/Excel ---
@@ -62,9 +150,10 @@ export function ExerciseManagement() {
           const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
           const formData = new FormData();
           formData.append('file', importFile);
+          const headers = await getAuthHeaders();
           const response = await fetch(url, {
             method: 'POST',
-            credentials: 'include',
+            headers,
             body: formData,
           });
           if (!response.ok) {
@@ -93,9 +182,10 @@ export function ExerciseManagement() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
         const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-csv/`;
+        const headers = await getAuthHeaders();
         const response = await fetch(url, {
           method: 'GET',
-          credentials: 'include',
+          headers,
         });
         if (!response.ok) throw new Error('Error al exportar CSV');
         const blob = await response.blob();
@@ -115,9 +205,10 @@ export function ExerciseManagement() {
       try {
         const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
         const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-excel/`;
+        const headers = await getAuthHeaders();
         const response = await fetch(url, {
           method: 'GET',
-          credentials: 'include',
+          headers,
         });
         if (!response.ok) throw new Error('Error al exportar Excel');
         const blob = await response.blob();
@@ -157,6 +248,7 @@ export function ExerciseManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [currentTab, setCurrentTab] = useState('basicos')
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
@@ -176,8 +268,7 @@ export function ExerciseManagement() {
     difficulty: '',
     location: 'any',
     instructions: '',
-    video_url: '',
-    image_url: ''
+    video_url: ''
   })
 
   // Estado para archivos de video y miniatura
@@ -329,7 +420,6 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
-        image_url: formData.image_url || undefined,
         tags: locationTags
       })
 
@@ -381,7 +471,6 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
-        image_url: formData.image_url || undefined,
         tags: locationTags
       })
 
@@ -462,8 +551,7 @@ export function ExerciseManagement() {
       difficulty: '',
       location: 'any',
       instructions: '',
-      video_url: '',
-      image_url: ''
+      video_url: ''
     })
     setVideoFile(null)
     setThumbnailFile(null)
@@ -480,14 +568,14 @@ export function ExerciseManagement() {
       difficulty: exercise.difficulty || '',
       location: getLocationFromTags(exercise.tags || []),
       instructions: fixEncoding(exercise.instructions || ''),
-      video_url: exercise.video_url || '',
-      image_url: exercise.image_url || ''
+      video_url: exercise.video_url || ''
     })
   }
 
   const openCreateDialog = () => {
     setEditingExercise(null)
     resetForm()
+    setCurrentTab('basicos')
     setShowCreateDialog(true)
   }
 
@@ -575,48 +663,83 @@ export function ExerciseManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Botones de exportación/importación */}
-      <div className="flex gap-2 mb-4">
-        <Button variant="outline" onClick={handleExportCSV}>Exportar CSV</Button>
-        <Button variant="outline" onClick={handleExportExcel}>Exportar Excel</Button>
-        <Button variant="outline" onClick={() => setShowImportDialog(true)}>Importar CSV/Excel</Button>
-      </div>
+      {/* Card de Exportación/Importación */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>📁 Importar/Exportar Ejercicios</CardTitle>
+              <CardDescription>Gestiona tus ejercicios con archivos CSV o Excel</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                onClick={handleExportCSV}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleExportExcel}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </Button>
+              <Button 
+                onClick={() => setShowImportDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700 gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Importar CSV/Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
-      {/* Dialog de importación */}
+      {/* Dialog de importación mejorado */}
       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Importar Ejercicios (CSV/Excel)</DialogTitle>
+            <DialogTitle>📥 Importar Ejercicios</DialogTitle>
             <DialogDescription>
-              Selecciona un archivo CSV o Excel para importar ejercicios. Los ejercicios existentes se actualizarán si el nombre coincide.
+              Sube un archivo CSV o Excel para importar o actualizar ejercicios. Los ejercicios existentes se actualizarán si el nombre coincide.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <Input
-              type="file"
-              accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              onChange={e => setImportFile(e.target.files?.[0] || null)}
-              disabled={importing}
-            />
-            {importFile && (
-              <div className="text-sm text-muted-foreground">Archivo seleccionado: {importFile.name}</div>
-            )}
+            <div>
+              <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
+              <Input
+                type="file"
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={e => setImportFile(e.target.files?.[0] || null)}
+                disabled={importing}
+                className="mt-2"
+              />
+              {importFile && (
+                <div className="text-sm text-green-600 mt-2">
+                  ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-700">
+                <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, categoría, grupos musculares, equipamiento, dificultad e instrucciones.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
-              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              Importar
+              {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {importing ? 'Importando...' : 'Importar'}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Botones de exportación/importación */}
-      <div className="flex gap-2 mb-4">
-        <Button variant="outline" onClick={handleExportCSV}>Exportar CSV</Button>
-        <Button variant="outline" onClick={handleExportExcel}>Exportar Excel</Button>
-        {/* Aquí irán los botones de importación en el siguiente paso */}
-      </div>
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -631,20 +754,7 @@ export function ExerciseManagement() {
         </Button>
       </div>
 
-      {/* Estadísticas */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Ejercicios</CardTitle>
-            <Dumbbell className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {stats?.total_exercises ?? exercisesArray.length}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+
 
       {/* Filtros */}
       <Card>
@@ -793,7 +903,7 @@ export function ExerciseManagement() {
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         {exercise.category && (
                           <Badge variant="outline" className="text-xs">
-                            {exercise.category}
+                            {translateCategory(exercise.category)}
                           </Badge>
                         )}
                         {exercise.difficulty && (
@@ -805,9 +915,7 @@ export function ExerciseManagement() {
                                   exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
                             }`}
                           >
-                            {exercise.difficulty === 'beginner' ? 'Principiante' :
-                              exercise.difficulty === 'intermediate' ? 'Intermedio' :
-                                exercise.difficulty === 'advanced' ? 'Avanzado' : exercise.difficulty}
+                            {translateDifficulty(exercise.difficulty)}
                           </Badge>
                         )}
                         {exercise.has_video && (
@@ -824,7 +932,7 @@ export function ExerciseManagement() {
                             <div className="flex flex-wrap gap-1 mt-1">
                               {fixEncodingArray(exercise.muscle_groups || []).map((group, idx) => (
                                 <Badge key={idx} variant="secondary" className="text-xs">
-                                  {group}
+                                  {translateMuscleGroup(group)}
                                 </Badge>
                               ))}
                             </div>
@@ -836,7 +944,7 @@ export function ExerciseManagement() {
                             <div className="flex flex-wrap gap-1 mt-1">
                               {fixEncodingArray(exercise.equipment || []).map((item, idx) => (
                                 <Badge key={idx} variant="outline" className="text-xs">
-                                  {item}
+                                  {translateEquipment(item)}
                                 </Badge>
                               ))}
                             </div>
@@ -908,7 +1016,7 @@ export function ExerciseManagement() {
                       )}
                     </td>
                     <td className="p-3">
-                      <Badge variant="outline">{exercise.category || '-'}</Badge>
+                      <Badge variant="outline">{translateCategory(exercise.category) || '-'}</Badge>
                     </td>
                     <td className="p-3">
                       {exercise.difficulty ? (
@@ -920,9 +1028,7 @@ export function ExerciseManagement() {
                                 exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
                           }
                         >
-                          {exercise.difficulty === 'beginner' ? 'Principiante' :
-                            exercise.difficulty === 'intermediate' ? 'Intermedio' :
-                              exercise.difficulty === 'advanced' ? 'Avanzado' : exercise.difficulty}
+                          {translateDifficulty(exercise.difficulty)}
                         </Badge>
                       ) : '-'}
                     </td>
@@ -930,7 +1036,7 @@ export function ExerciseManagement() {
                       <div className="flex flex-wrap gap-1">
                         {fixEncodingArray(exercise.muscle_groups || []).slice(0, 2).map((group, idx) => (
                           <Badge key={idx} variant="secondary" className="text-xs">
-                            {group}
+                            {translateMuscleGroup(group)}
                           </Badge>
                         ))}
                         {(exercise.muscle_groups || []).length > 2 && (
@@ -945,7 +1051,7 @@ export function ExerciseManagement() {
                       <div className="flex flex-wrap gap-1">
                         {fixEncodingArray(exercise.equipment || []).slice(0, 2).map((item, idx) => (
                           <Badge key={idx} variant="outline" className="text-xs">
-                            {item}
+                            {translateEquipment(item)}
                           </Badge>
                         ))}
                         {(exercise.equipment || []).length > 2 && (
@@ -1143,15 +1249,16 @@ export function ExerciseManagement() {
         </CardContent>
       </Card>
 
-      {/* Dialog de creación/edición */}
+      {/* Dialog de creación/edición con pestañas */}
       <Dialog open={showCreateDialog || !!editingExercise} onOpenChange={(open) => {
         if (!open) {
           setShowCreateDialog(false)
           setEditingExercise(null)
           resetForm()
+          setCurrentTab('basicos')
         }
       }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingExercise ? 'Editar Ejercicio' : 'Nuevo Ejercicio'}
@@ -1161,248 +1268,263 @@ export function ExerciseManagement() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <FormLabel>Nombre *</FormLabel>
-              <Input
-                value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="Ej: Press de Banca en Multipower"
-              />
-            </div>
+          <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="basicos">📋 Básicos</TabsTrigger>
+              <TabsTrigger value="musculos">💪 Músculos</TabsTrigger>
+              <TabsTrigger value="instrucciones">📖 Instrucciones</TabsTrigger>
+            </TabsList>
 
-            <div>
-              <FormLabel>Descripción breve</FormLabel>
-              <Textarea
-                value={formData.description}
-                onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                placeholder="Breve descripción del ejercicio..."
-                rows={2}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
+            {/* TAB 1: Básicos */}
+            <TabsContent value="basicos" className="space-y-4">
               <div>
-                <FormLabel>Categoría *</FormLabel>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar categoría" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.length > 0 ? (
-                      categories.map((cat) => (
-                        <SelectItem key={cat.value} value={cat.value}>
-                          {cat.label}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      // Fallback mientras cargan las categorías
-                      <>
-                        <SelectItem value="strength">Fuerza</SelectItem>
-                        <SelectItem value="cardio">Cardio</SelectItem>
-                        <SelectItem value="flexibility">Flexibilidad</SelectItem>
-                        <SelectItem value="hiit">HIIT</SelectItem>
-                        <SelectItem value="bodyweight">Peso corporal</SelectItem>
-                        <SelectItem value="functional">Funcional</SelectItem>
-                        <SelectItem value="plyometrics">Pliometría</SelectItem>
-                        <SelectItem value="balance">Equilibrio</SelectItem>
-                      </>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div>
-                <FormLabel>Dificultad *</FormLabel>
-                <Select
-                  value={formData.difficulty}
-                  onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar dificultad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="beginner">Principiante</SelectItem>
-                    <SelectItem value="intermediate">Intermedio</SelectItem>
-                    <SelectItem value="advanced">Avanzado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <FormLabel>Lugar de entrenamiento</FormLabel>
-              <Select
-                value={formData.location}
-                onValueChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar lugar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="any">Ambos</SelectItem>
-                  <SelectItem value="home">Casa</SelectItem>
-                  <SelectItem value="gym">Gimnasio</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <FormLabel>Grupos Musculares (separados por comas) *</FormLabel>
-              <Input
-                value={formData.muscle_groups}
-                onChange={(e) => setFormData(prev => ({ ...prev, muscle_groups: e.target.value }))}
-                placeholder="Ej: pectorales, tríceps, deltoides anterior"
-              />
-            </div>
-
-            <div>
-              <FormLabel>Equipamiento (separado por comas)</FormLabel>
-              <Input
-                value={formData.equipment}
-                onChange={(e) => setFormData(prev => ({ ...prev, equipment: e.target.value }))}
-                placeholder="Ej: multipower, banco plano"
-              />
-            </div>
-
-            <div>
-              <FormLabel>Instrucciones detalladas *</FormLabel>
-              <Textarea
-                value={formData.instructions}
-                onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
-                placeholder="1. Primer paso...&#10;2. Segundo paso...&#10;3. Tercer paso..."
-                rows={6}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <FormLabel>URL del Video (opcional)</FormLabel>
+                <FormLabel className="font-semibold">Nombre del ejercicio *</FormLabel>
                 <Input
-                  value={formData.video_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
-                  placeholder="https://drive.google.com/file/d/..."
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Ej: Press de Banca en Multipower"
+                  className="mt-2"
                 />
               </div>
 
               <div>
-                <FormLabel>URL de la Imagen (opcional)</FormLabel>
-                <Input
-                  value={formData.image_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, image_url: e.target.value }))}
-                  placeholder="https://..."
+                <FormLabel className="font-semibold">Descripción breve</FormLabel>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Breve descripción del ejercicio..."
+                  rows={2}
+                  className="mt-2"
                 />
               </div>
-            </div>
 
-            {/* Subir archivo de video */}
-            {editingExercise && (
-              <>
-                <div className="border-t pt-4">
-                  <FormLabel>Subir Video (MP4, WebM - máx. 50MB)</FormLabel>
-                  <Input
-                    type="file"
-                    accept="video/mp4,video/webm,video/ogg,video/quicktime"
-                    onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                    className="cursor-pointer"
-                  />
-                  {videoFile && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Seleccionado: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </p>
-                  )}
-                  {editingExercise.has_video && (
-                    <p className="text-sm text-blue-600 mt-1">
-                      Este ejercicio ya tiene un video. Subir uno nuevo lo reemplazará.
-                    </p>
-                  )}
-                  {videoFile && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          setUploadingVideo(true)
-                          await uploadExerciseVideo(editingExercise.id, videoFile)
-                          toast({
-                            title: "✅ Video subido",
-                            description: "El video se ha subido correctamente",
-                          })
-                          setVideoFile(null)
-                          refetch()
-                        } catch (error) {
-                          toast({
-                            title: "❌ Error",
-                            description: error instanceof Error ? error.message : "Error al subir video",
-                            variant: "destructive",
-                          })
-                        } finally {
-                          setUploadingVideo(false)
-                        }
-                      }}
-                      disabled={uploadingVideo}
-                      className="mt-2"
-                    >
-                      {uploadingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Subir Video
-                    </Button>
-                  )}
-                </div>
-
-                {/* Subir miniatura */}
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FormLabel>Subir Miniatura (JPG, PNG, WebP - máx. 5MB)</FormLabel>
-                  <Input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
-                    className="cursor-pointer"
-                  />
-                  {thumbnailFile && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Seleccionado: {thumbnailFile.name} ({(thumbnailFile.size / 1024 / 1024).toFixed(2)} MB)
-                    </p>
-                  )}
-                  {thumbnailFile && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={async () => {
-                        try {
-                          setUploadingThumbnail(true)
-                          await uploadExerciseThumbnail(editingExercise.id, thumbnailFile)
-                          toast({
-                            title: "✅ Miniatura subida",
-                            description: "La miniatura se ha subido correctamente",
-                          })
-                          setThumbnailFile(null)
-                          refetch()
-                        } catch (error) {
-                          toast({
-                            title: "❌ Error",
-                            description: error instanceof Error ? error.message : "Error al subir miniatura",
-                            variant: "destructive",
-                          })
-                        } finally {
-                          setUploadingThumbnail(false)
-                        }
-                      }}
-                      disabled={uploadingThumbnail}
-                      className="mt-2"
-                    >
-                      {uploadingThumbnail && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                      Subir Miniatura
-                    </Button>
-                  )}
+                  <FormLabel className="font-semibold">Categoría *</FormLabel>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Seleccionar categoría" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.length > 0 ? (
+                        categories.map((cat) => (
+                          <SelectItem key={cat.value} value={cat.value}>
+                            {cat.label}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <>
+                          <SelectItem value="strength">Fuerza</SelectItem>
+                          <SelectItem value="cardio">Cardio</SelectItem>
+                          <SelectItem value="flexibility">Flexibilidad</SelectItem>
+                          <SelectItem value="hiit">HIIT</SelectItem>
+                          <SelectItem value="bodyweight">Peso corporal</SelectItem>
+                          <SelectItem value="functional">Funcional</SelectItem>
+                          <SelectItem value="plyometrics">Pliometría</SelectItem>
+                          <SelectItem value="balance">Equilibrio</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </>
-            )}
-          </div>
+
+                <div>
+                  <FormLabel className="font-semibold">Dificultad *</FormLabel>
+                  <Select
+                    value={formData.difficulty}
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, difficulty: value }))}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Seleccionar dificultad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">Principiante</SelectItem>
+                      <SelectItem value="intermediate">Intermedio</SelectItem>
+                      <SelectItem value="advanced">Avanzado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <FormLabel className="font-semibold">Lugar de entrenamiento</FormLabel>
+                <Select
+                  value={formData.location}
+                  onValueChange={(value) => setFormData(prev => ({ ...prev, location: value }))}
+                >
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Seleccionar lugar" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="any">Ambos (Casa y Gimnasio)</SelectItem>
+                    <SelectItem value="home">Casa</SelectItem>
+                    <SelectItem value="gym">Gimnasio</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </TabsContent>
+
+            {/* TAB 2: Músculos y Equipamiento */}
+            <TabsContent value="musculos" className="space-y-4">
+              <div>
+                <FormLabel className="font-semibold">Grupos Musculares (separados por coma) *</FormLabel>
+                <Input
+                  value={formData.muscle_groups}
+                  onChange={(e) => setFormData(prev => ({ ...prev, muscle_groups: e.target.value }))}
+                  placeholder="Ej: pectorales, tríceps, deltoides anterior"
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500 mt-2">💡 Separa cada grupo muscular con una coma</p>
+              </div>
+
+              <div>
+                <FormLabel className="font-semibold">Equipamiento (opcional)</FormLabel>
+                <Input
+                  value={formData.equipment}
+                  onChange={(e) => setFormData(prev => ({ ...prev, equipment: e.target.value }))}
+                  placeholder="Ej: multipower, banco plano, mancernas"
+                  className="mt-2"
+                />
+                <p className="text-xs text-gray-500 mt-2">💡 Separa cada equipo con una coma</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <FormLabel className="font-semibold">URL del Video (opcional)</FormLabel>
+                  <Input
+                    value={formData.video_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
+                    placeholder="https://drive.google.com/file/d/..."
+                    className="mt-2"
+                  />
+                </div>
+
+
+              </div>
+            </TabsContent>
+
+            {/* TAB 3: Instrucciones */}
+            <TabsContent value="instrucciones" className="space-y-4">
+              <div>
+                <FormLabel className="font-semibold">Instrucciones detalladas *</FormLabel>
+                <Textarea
+                  value={formData.instructions}
+                  onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+                  placeholder="1. Posición inicial...&#10;2. Ejecución del movimiento...&#10;3. Punto de máxima contracción...&#10;4. Retorno..."
+                  rows={8}
+                  className="mt-2 font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-2">💡 Usa números o viñetas para cada paso</p>
+              </div>
+
+              {/* Subir archivos - solo si está editando */}
+              {editingExercise && (
+                <>
+                  <div className="border-t pt-4">
+                    <FormLabel className="font-semibold">📹 Subir Video (MP4, WebM - máx. 50MB)</FormLabel>
+                    <Input
+                      type="file"
+                      accept="video/mp4,video/webm,video/ogg,video/quicktime"
+                      onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                      className="cursor-pointer mt-2"
+                    />
+                    {videoFile && (
+                      <p className="text-sm text-blue-600 mt-2">
+                        ✓ Seleccionado: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
+                    {editingExercise.has_video && !videoFile && (
+                      <p className="text-sm text-green-600 mt-2">
+                        ✓ Este ejercicio ya tiene un video
+                      </p>
+                    )}
+                    {videoFile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setUploadingVideo(true)
+                            await uploadExerciseVideo(editingExercise.id, videoFile)
+                            toast({
+                              title: "✅ Video subido",
+                              description: "El video se ha subido correctamente",
+                            })
+                            setVideoFile(null)
+                            refetch()
+                          } catch (error) {
+                            toast({
+                              title: "❌ Error",
+                              description: error instanceof Error ? error.message : "Error al subir video",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setUploadingVideo(false)
+                          }
+                        }}
+                        disabled={uploadingVideo}
+                        className="mt-2"
+                      >
+                        {uploadingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Subir Video
+                      </Button>
+                    )}
+                  </div>
+
+                  <div>
+                    <FormLabel className="font-semibold">🖼️ Subir Miniatura (JPG, PNG, WebP - máx. 5MB)</FormLabel>
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                      className="cursor-pointer mt-2"
+                    />
+                    {thumbnailFile && (
+                      <p className="text-sm text-blue-600 mt-2">
+                        ✓ Seleccionado: {thumbnailFile.name} ({(thumbnailFile.size / 1024 / 1024).toFixed(2)} MB)
+                      </p>
+                    )}
+                    {thumbnailFile && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setUploadingThumbnail(true)
+                            await uploadExerciseThumbnail(editingExercise.id, thumbnailFile)
+                            toast({
+                              title: "✅ Miniatura subida",
+                              description: "La miniatura se ha subido correctamente",
+                            })
+                            setThumbnailFile(null)
+                            refetch()
+                          } catch (error) {
+                            toast({
+                              title: "❌ Error",
+                              description: error instanceof Error ? error.message : "Error al subir miniatura",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setUploadingThumbnail(false)
+                          }
+                        }}
+                        disabled={uploadingThumbnail}
+                        className="mt-2"
+                      >
+                        {uploadingThumbnail && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                        Subir Miniatura
+                      </Button>
+                    )}
+                  </div>
+                </>
+              )}
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button
@@ -1411,6 +1533,7 @@ export function ExerciseManagement() {
                 setShowCreateDialog(false)
                 setEditingExercise(null)
                 resetForm()
+                setCurrentTab('basicos')
               }}
             >
               Cancelar
@@ -1418,9 +1541,10 @@ export function ExerciseManagement() {
             <Button
               onClick={editingExercise ? handleUpdate : handleCreate}
               disabled={isLoading || !formData.name || !formData.category || !formData.instructions}
+              className="bg-blue-600 hover:bg-blue-700"
             >
               {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {editingExercise ? 'Actualizar' : 'Crear'}
+              {editingExercise ? 'Actualizar Ejercicio' : 'Crear Ejercicio'}
             </Button>
           </DialogFooter>
         </DialogContent>

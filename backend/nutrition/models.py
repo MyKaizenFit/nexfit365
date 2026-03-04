@@ -33,18 +33,18 @@ class Recipe(TimeStampedModel):
     """
     
     DIFFICULTY_CHOICES = [
-        ('easy', 'Fácil'),
-        ('medium', 'Medio'),
-        ('hard', 'Difícil'),
+        ('Fácil', 'Fácil'),
+        ('Medio', 'Medio'),
+        ('Difícil', 'Difícil'),
     ]
     
     CATEGORY_CHOICES = [
-        ('breakfast', 'Desayuno'),
-        ('lunch', 'Almuerzo'),
-        ('dinner', 'Cena'),
-        ('snack', 'Snack'),
-        ('dessert', 'Postre'),
-        ('drink', 'Bebida'),
+        ('Desayuno', 'Desayuno'),
+        ('Almuerzo', 'Almuerzo'),
+        ('Cena', 'Cena'),
+        ('Snack', 'Snack'),
+        ('Postre', 'Postre'),
+        ('Bebida', 'Bebida'),
     ]
 
     GOAL_CATEGORY_CHOICES = [
@@ -62,7 +62,7 @@ class Recipe(TimeStampedModel):
     category = models.CharField(
         max_length=50, 
         choices=CATEGORY_CHOICES,
-        default='lunch',
+        default='Almuerzo',
         help_text="Categoría principal"
     )
     
@@ -70,7 +70,7 @@ class Recipe(TimeStampedModel):
     difficulty = models.CharField(
         max_length=20, 
         choices=DIFFICULTY_CHOICES, 
-        default='easy'
+        default='Fácil'
     )
     prep_time_minutes = models.PositiveIntegerField(
         default=15,

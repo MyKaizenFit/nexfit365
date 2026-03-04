@@ -61,8 +61,8 @@ export function WorkoutPlanTemplates() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
-  const [filterDifficulty, setFilterDifficulty] = useState("")
-  const [filterGoal, setFilterGoal] = useState("")
+  const [filterDifficulty, setFilterDifficulty] = useState("all")
+  const [filterGoal, setFilterGoal] = useState("all")
 
   // Estados para crear/editar plantilla
   const [formData, setFormData] = useState({
@@ -84,8 +84,8 @@ export function WorkoutPlanTemplates() {
       setLoading(true)
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
-      if (filterDifficulty) params.append('difficulty', filterDifficulty)
-      if (filterGoal) params.append('goal', filterGoal)
+      if (filterDifficulty && filterDifficulty !== 'all') params.append('difficulty', filterDifficulty)
+      if (filterGoal && filterGoal !== 'all') params.append('goal', filterGoal)
       
       const response = await fetch(`/api/workout-plan-templates/?${params}`)
       if (response.ok) {
@@ -307,7 +307,7 @@ export function WorkoutPlanTemplates() {
                   <SelectValue placeholder="Todas las dificultades" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todas las dificultades</SelectItem>
+                  <SelectItem value="all">Todas las dificultades</SelectItem>
                   <SelectItem value="beginner">Principiante</SelectItem>
                   <SelectItem value="intermediate">Intermedio</SelectItem>
                   <SelectItem value="advanced">Avanzado</SelectItem>
@@ -321,7 +321,7 @@ export function WorkoutPlanTemplates() {
                   <SelectValue placeholder="Todos los objetivos" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Todos los objetivos</SelectItem>
+                  <SelectItem value="all">Todos los objetivos</SelectItem>
                   <SelectItem value="weight_loss">Pérdida de peso</SelectItem>
                   <SelectItem value="muscle_gain">Ganancia muscular</SelectItem>
                   <SelectItem value="strength_building">Fuerza</SelectItem>
@@ -335,8 +335,8 @@ export function WorkoutPlanTemplates() {
                 variant="outline" 
                 onClick={() => {
                   setSearchTerm("")
-                  setFilterDifficulty("")
-                  setFilterGoal("")
+                  setFilterDifficulty("all")
+                  setFilterGoal("all")
                 }}
                 className="w-full"
               >

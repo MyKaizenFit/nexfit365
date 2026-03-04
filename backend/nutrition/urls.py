@@ -25,6 +25,9 @@ urlpatterns = [
     path('weekly-meal-selections/', weekly_meal_selections, name='weekly-meal-selections'),
     path('monthly-meal-selections/', monthly_meal_selections, name='monthly-meal-selections'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),
+    # Endpoints de exportación para recetas (ANTES de la ruta genérica)
+    path('recipes/export-csv/', RecipeViewSet.as_view({'get': 'export_csv'}), name='recipe-export-csv'),
+    path('recipes/export-excel/', RecipeViewSet.as_view({'get': 'export_excel'}), name='recipe-export-excel'),
     # Endpoint explícito para listar recetas (tiene prioridad sobre el router)
     path('recipes/', list_recipes, name='recipes-list'),
     # Endpoints para recetas específicas
