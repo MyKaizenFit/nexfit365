@@ -450,7 +450,7 @@ export function WorkoutPlanManagement() {
   const handleExportCSV = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/export-csv/`;
+      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/workouts/export_csv/`;
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'GET',
@@ -473,7 +473,7 @@ export function WorkoutPlanManagement() {
   const handleExportExcel = async () => {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/export-excel/`;
+      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/workouts/export_excel/`;
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'GET',
@@ -502,9 +502,9 @@ export function WorkoutPlanManagement() {
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      let endpoint = '/api/admin/workouts/import-csv/';
+      let endpoint = '/api/admin/workouts/workouts/import_csv/';
       if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        endpoint = '/api/admin/workouts/import-excel/';
+        endpoint = '/api/admin/workouts/workouts/import_excel/';
       }
       
       const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
