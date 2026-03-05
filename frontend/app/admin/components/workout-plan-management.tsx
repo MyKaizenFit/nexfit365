@@ -34,7 +34,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Download,
-  Upload
+  Upload,
+  Shield
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -157,6 +158,14 @@ export function WorkoutPlanManagement() {
       rest_time?: number
       notes: string
       order: number
+      substitutes?: Array<{
+        id: number
+        substitute_id: string
+        substitute_name: string
+        category?: string
+        priority: number
+        notes: string
+      }>
     }>
   }>>([
     {
@@ -1135,7 +1144,8 @@ export function WorkoutPlanManagement() {
                 duration: ex.duration_seconds || 0,
                 rest_time: ex.rest_seconds || 60,
                 notes: ex.notes || '',
-                order: ex.order_index || 0
+                order: ex.order_index || 0,
+                substitutes: ex.substitutes || (exerciseObj?.substitutes || [])  // Preservar substitutes del ejercicio
               }
             })
           }))
@@ -2728,12 +2738,23 @@ export function WorkoutPlanManagement() {
                                 // Usar el nombre guardado si no se encuentra en el array
                                 const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
                                 const displayCategory = exerciseData?.category || ''
+                                // Obtener substitutes del ejercicio
+                                const exerciseSubstitutes = exercise.substitutes || exerciseData?.substitutes || []
+                                const hasSubstitutes = Array.isArray(exerciseSubstitutes) && exerciseSubstitutes.length > 0
                                 return (
-                                  <Card key={exerciseIndex} className="border border-gray-200">
+                                  <Card key={exerciseIndex} className={hasSubstitutes ? "border-2 border-amber-200 bg-amber-50/20" : "border border-gray-200"}>
                                     <CardContent className="pt-4">
                                       <div className="flex items-center justify-between mb-3">
-                                        <div>
-                                          <h4 className="font-medium">{displayName}</h4>
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-2">
+                                            <h4 className="font-medium">{displayName}</h4>
+                                            {hasSubstitutes && (
+                                              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] px-1.5 py-0.5">
+                                                <Shield className="h-3 w-3 mr-1" />
+                                                {exerciseSubstitutes.length} respaldo{exerciseSubstitutes.length > 1 ? 's' : ''}
+                                              </Badge>
+                                            )}
+                                          </div>
                                           <p className="text-sm text-muted-foreground">{displayCategory}</p>
                                         </div>
                                         <Button
@@ -2797,23 +2818,30 @@ export function WorkoutPlanManagement() {
                                       </div>
 
                                       {/* Mostrar ejercicios de respaldo */}
-                                      {Array.isArray(exercise.substitutes) && exercise.substitutes.length > 0 && (
-                                        <div className="mt-4 pt-4 border-t">
-                                          <FormLabel className="text-xs font-semibold">Ejercicios de Respaldo ({exercise.substitutes.length})</FormLabel>
+                                      {hasSubstitutes && (
+                                        <div className="mt-4 pt-4 border-t border-amber-200">
+                                          <FormLabel className="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                                            <Shield className="h-3.5 w-3.5" />
+                                            Ejercicios de Respaldo ({exerciseSubstitutes.length})
+                                          </FormLabel>
                                           <div className="flex flex-wrap gap-2 mt-2">
-                                            {exercise.substitutes.map((substitute, subIndex) => (
+                                            {exerciseSubstitutes.map((substitute: any, subIndex: number) => (
                                               <Badge
                                                 key={subIndex}
                                                 variant="secondary"
-                                                className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border-amber-300"
+                                                className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
                                               >
-                                                <span className="text-xs">
-                                                  {substitute.substitute_name}
-                                                  {substitute.notes && ` (${substitute.notes})`}
-                                                </span>
+                                                <Shield className="h-3 w-3 mr-1 inline" />
+                                                {substitute.substitute_name || substitute.name}
+                                                {substitute.notes && (
+                                                  <span className="ml-1 text-[10px] opacity-70">({substitute.notes})</span>
+                                                )}
                                               </Badge>
                                             ))}
                                           </div>
+                                          <p className="text-[10px] text-amber-700 mt-2 italic">
+                                            El usuario puede usar estos ejercicios si no puede realizar el principal.
+                                          </p>
                                         </div>
                                       )}
                                     </CardContent>
