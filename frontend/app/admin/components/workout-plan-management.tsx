@@ -2795,6 +2795,27 @@ export function WorkoutPlanManagement() {
                                           className="h-8"
                                         />
                                       </div>
+
+                                      {/* Mostrar ejercicios de respaldo */}
+                                      {Array.isArray(exercise.substitutes) && exercise.substitutes.length > 0 && (
+                                        <div className="mt-4 pt-4 border-t">
+                                          <FormLabel className="text-xs font-semibold">Ejercicios de Respaldo ({exercise.substitutes.length})</FormLabel>
+                                          <div className="flex flex-wrap gap-2 mt-2">
+                                            {exercise.substitutes.map((substitute, subIndex) => (
+                                              <Badge
+                                                key={subIndex}
+                                                variant="secondary"
+                                                className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border-amber-300"
+                                              >
+                                                <span className="text-xs">
+                                                  {substitute.substitute_name}
+                                                  {substitute.notes && ` (${substitute.notes})`}
+                                                </span>
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </CardContent>
                                   </Card>
                                 )

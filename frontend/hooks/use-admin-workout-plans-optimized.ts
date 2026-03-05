@@ -13,6 +13,14 @@ export interface Exercise {
   image_url: string
   difficulty?: string
   description?: string
+  substitutes?: Array<{
+    id: string
+    substitute_id: string
+    substitute_name: string
+    category: string
+    priority: number
+    notes: string
+  }>
 }
 
 export interface WorkoutPlan {
@@ -58,6 +66,14 @@ export interface WorkoutDayExercise {
   rest_time?: number
   notes: string
   order: number
+  substitutes?: Array<{
+    id: string
+    substitute_id: string
+    substitute_name: string
+    category: string
+    priority: number
+    notes: string
+  }>
 }
 
 export interface WorkoutPlanStats {

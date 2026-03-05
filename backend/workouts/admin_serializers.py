@@ -49,10 +49,19 @@ class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSeria
 
 class AdminWorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     exercise_name = serializers.CharField(source='exercise.name', read_only=True)
+    exercise_category = serializers.CharField(source='exercise.category', read_only=True)
+    substitutes = serializers.SerializerMethodField()
     
     class Meta:
         model = WorkoutDayExercise
         fields = '__all__'
+    
+    def get_substitutes(self, obj):
+        """Obtener los ejercicios de reemplazo para este ejercicio"""
+        if not hasattr(obj, 'exercise') or not obj.exercise:
+            return []
+        substitutes = obj.exercise.get_substitutes()
+        return AdminExerciseSubstituteSerializer(substitutes, many=True).data
 
 
 class AdminWorkoutDaySerializer(EncodingFixMixin, serializers.ModelSerializer):
