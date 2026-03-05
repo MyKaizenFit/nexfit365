@@ -166,7 +166,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 day_of_week=day_of_week,
                 is_rest_day=day_data.get('is_rest_day', False),
                 duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
-                notes=day_data.get('notes', ''),
+                notes=day_data.get('notes') or '',
                 order_index=day_index
             )
 
@@ -180,16 +180,24 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 except Exercise.DoesNotExist:
                     continue
 
+                sets_value = exercise_data.get('sets')
+                if sets_value is None:
+                    sets_value = exercise_data.get('series')
+
+                rest_seconds_value = exercise_data.get('rest_time')
+                if rest_seconds_value is None:
+                    rest_seconds_value = exercise_data.get('rest_seconds')
+
                 from .models import WorkoutDayExercise
                 WorkoutDayExercise.objects.create(
                     workout_day=workout_day,
                     exercise=exercise,
-                    sets=exercise_data.get('sets', 3),
-                    reps=exercise_data.get('reps', '10-12'),
-                    weight=exercise_data.get('weight') or 0,
-                    rest_seconds=exercise_data.get('rest_time') or exercise_data.get('rest_seconds', 60),
+                    sets=sets_value if sets_value is not None else 3,
+                    reps=exercise_data.get('reps') or '10-12',
+                    weight=exercise_data.get('weight') or '',
+                    rest_seconds=rest_seconds_value if rest_seconds_value is not None else 60,
                     duration_seconds=exercise_data.get('duration') or None,
-                    notes=exercise_data.get('notes', ''),
+                    notes=exercise_data.get('notes') or '',
                     order_index=ex_index
                 )
 
