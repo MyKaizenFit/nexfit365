@@ -59,6 +59,7 @@ import { fixEncoding } from "@/lib/encoding-fix"
 import { WorkoutTemplatePlanEditor } from "./workout-template-plan-editor"
 
 export function WorkoutPlanManagement() {
+  const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
   const {
     plans,
     exercises,
@@ -870,6 +871,114 @@ export function WorkoutPlanManagement() {
       toast({
         title: "❌ Error",
         description: error instanceof Error ? error.message : "Error al guardar plan",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Nueva función para el flujo unificado: crear plan + ejercicios
+  const handleSubmitCreatePlanWithExercises = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Crear el plan básico
+      const planData = {
+        name: formData.name,
+        description: formData.description,
+        difficulty: formData.difficulty,
+        duration_weeks: formData.duration_weeks,
+        min_role_required: formData.min_role_required,
+        estimated_duration_minutes: formData.estimated_duration_minutes,
+        user: formData.user,
+        days: [] // Enviar los días vacíos por ahora
+      }
+      
+      const created = await createPlan(planData)
+      
+      // Luego actualizar con ejercicios si el plan fue creado
+      if (created?.id) {
+        // Luego de que el editor guarde, cerramos el diálogo
+        toast({
+          title: "✅ Plan creado exitosamente",
+          description: "El plan de entrenamiento ha sido creado con los ejercicios configurados.",
+        })
+        
+        setShowCreateDialog(false)
+        resetForm()
+        refetch()
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "Error al crear plan",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Función para manejar el botón "Siguiente" - crear plan básico y pasar a step 2
+  const handleMoveToExercisesStep = async () => {
+    try {
+      setIsLoading(true)
+
+      const planData = {
+        name: formData.name,
+        description: formData.description,
+        difficulty: formData.difficulty,
+        duration_weeks: formData.duration_weeks,
+        min_role_required: formData.min_role_required,
+        estimated_duration_minutes: formData.estimated_duration_minutes,
+        user: formData.user,
+        days: []
+      }
+
+      const created = await createPlan(planData)
+
+      if (created?.id) {
+        setWorkoutEditorPlanId(String(created.id))
+        setCreateStep("exercises")
+        toast({
+          title: "✅ Plan creado",
+          description: "Ahora configura los ejercicios.",
+        })
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "Error al crear plan",
+        variant: "destructive",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Función para guardar los ejercicios y crear el plan completo
+  const handleSaveExercisesAndCreate = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Llamar al save del editor incrustado
+      if (editorRef.current?.handleSave) {
+        await editorRef.current.handleSave()
+      }
+
+      toast({
+        title: "✅ Plan completado",
+        description: "El plan de entrenamiento ha sido creado con éxito.",
+      })
+
+      setShowCreateDialog(false)
+      resetForm()
+      refetch()
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "Error al guardar ejercicios",
         variant: "destructive",
       })
     } finally {
@@ -1836,146 +1945,215 @@ export function WorkoutPlanManagement() {
       </Card>
 
       {/* Create/Edit Dialog - PASO 1: Información Básica */}
+      {/* Unified Create Dialog - Flujo unificado con ambos pasos */}
       <Dialog open={showCreateDialog && !editingPlan} onOpenChange={(open) => {
         if (!open) {
           resetForm()
         }
       }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className={createStep === "basic" ? "max-w-2xl" : "max-w-6xl max-h-[90vh] overflow-y-auto"}>
           <DialogHeader>
-            <DialogTitle>Crear Nuevo Plan de Entrenamiento</DialogTitle>
-            <DialogDescription>
-              Configura la información básica del plan. Después podrás agregar los ejercicios.
-            </DialogDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>
+                  {createStep === "basic" ? "Crear Nuevo Plan - Información Básica" : "Crear Nuevo Plan - Configurar Ejercicios"}
+                </DialogTitle>
+                <DialogDescription>
+                  {createStep === "basic" 
+                    ? "Paso 1 de 2: Configura los detalles del plan"
+                    : "Paso 2 de 2: Agrega ejercicios para cada día"}
+                </DialogDescription>
+              </div>
+              <Badge variant="outline" className="text-sm">
+                {createStep === "basic" ? "Paso 1/2" : "Paso 2/2"}
+              </Badge>
+            </div>
           </DialogHeader>
           
-          <div className="space-y-4">
-            {/* Información básica */}
-            <div className="grid gap-4 md:grid-cols-2">
+          {createStep === "basic" ? (
+            // STEP 1: Información Básica
+            <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <FormLabel>Nombre del Plan *</FormLabel>
+                  <Input
+                    placeholder="Ej: Rutina de Fuerza para Principiantes"
+                    value={formData.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <FormLabel>Dificultad *</FormLabel>
+                  <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona la dificultad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">Principiante</SelectItem>
+                      <SelectItem value="intermediate">Intermedio</SelectItem>
+                      <SelectItem value="advanced">Avanzado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              
               <div>
-                <FormLabel>Nombre del Plan *</FormLabel>
-                <Input
-                  placeholder="Ej: Rutina de Fuerza para Principiantes"
-                  value={formData.name}
-                  onChange={(e) => handleFormChange('name', e.target.value)}
+                <FormLabel>Descripción *</FormLabel>
+                <Textarea
+                  placeholder="Describe el objetivo y características del plan..."
+                  value={formData.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  rows={3}
                 />
               </div>
+              
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <FormLabel>Duración (semanas) *</FormLabel>
+                  <Input
+                    type="number"
+                    placeholder="4"
+                    value={formData.duration_weeks}
+                    onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
+                  />
+                </div>
+                <div>
+                  <FormLabel>Duración Sesión (min)</FormLabel>
+                  <Input
+                    type="number"
+                    placeholder="60"
+                    value={formData.estimated_duration_minutes}
+                    onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
+                  />
+                </div>
+                <div>
+                  <FormLabel>Rol Mínimo Requerido *</FormLabel>
+                  <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona el rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Básico</SelectItem>
+                      <SelectItem value="pro">Pro</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
               <div>
-                <FormLabel>Dificultad *</FormLabel>
-                <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
+                <FormLabel>Asignar a Usuario (opcional)</FormLabel>
+                <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecciona la dificultad" />
+                    <SelectValue placeholder="Plantilla (sin usuario)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="beginner">Principiante</SelectItem>
-                    <SelectItem value="intermediate">Intermedio</SelectItem>
-                    <SelectItem value="advanced">Avanzado</SelectItem>
+                    <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
+                    {usersList.map((u) => (
+                      <SelectItem key={u.id} value={u.id}>
+                        {u.email}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            
-            <div>
-              <FormLabel>Descripción *</FormLabel>
-              <Textarea
-                placeholder="Describe el objetivo y características del plan..."
-                value={formData.description}
-                onChange={(e) => handleFormChange('description', e.target.value)}
-                rows={3}
+          ) : (
+            // STEP 2: Configuración de Ejercicios
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                <p className="font-medium">💡 Configura los ejercicios por día</p>
+                <p className="text-xs mt-1">Ordena los ejercicios con las flechas arriba/abajo. Los días sin ejercicios se marcarán automáticamente como descanso.</p>
+              </div>
+
+              <WorkoutTemplatePlanEditor
+                ref={editorRef}
+                planId={workoutEditorPlanId || 'new'}
+                availableExercises={Array.isArray(exercises) ? exercises : []}
+                onSaved={async () => {
+                  // Handled by handleSaveExercisesAndCreate
+                }}
+                onClose={() => {
+                  // Go back to step 1
+                  setCreateStep("basic")
+                }}
+                isEmbedded={true}
               />
             </div>
-            
-            <div className="grid gap-4 md:grid-cols-3">
-              <div>
-                <FormLabel>Duración (semanas) *</FormLabel>
-                <Input
-                  type="number"
-                  placeholder="4"
-                  value={formData.duration_weeks}
-                  onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
-                />
-              </div>
-              <div>
-                <FormLabel>Duración Sesión (min)</FormLabel>
-                <Input
-                  type="number"
-                  placeholder="60"
-                  value={formData.estimated_duration_minutes}
-                  onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
-                />
-              </div>
-              <div>
-                <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona el rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Básico</SelectItem>
-                    <SelectItem value="pro">Pro</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <FormLabel>Asignar a Usuario (opcional)</FormLabel>
-              <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Plantilla (sin usuario)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
-                  {usersList.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>
-                      {u.email}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
           
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>
               Cancelar
             </Button>
-            <Button 
-              variant="outline"
-              onClick={() => handleSubmitPlan(false)}
-              disabled={!formData.name || !formData.description || isLoading}
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear sin ejercicios
-                </>
-              )}
-            </Button>
-            <Button 
-              onClick={() => handleSubmitPlan(true)}
-              disabled={!formData.name || !formData.description || isLoading}
-              className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Crear y configurar ejercicios
-                </>
-              )}
-            </Button>
+            {createStep === "basic" ? (
+              <>
+                <Button 
+                  variant="outline"
+                  onClick={() => handleSubmitPlan(false)}
+                  disabled={!formData.name || !formData.description || isLoading}
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Crear sin ejercicios
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  onClick={handleMoveToExercisesStep}
+                  disabled={!formData.name || !formData.description || isLoading}
+                  className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Siguiendo...
+                    </>
+                  ) : (
+                    <>
+                      Siguiente
+                      <ArrowRight className="h-4 w-4 ml-2" />
+                    </>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button 
+                  variant="outline"
+                  onClick={() => setCreateStep("basic")}
+                >
+                  <>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Atrás
+                  </>
+                </Button>
+                <Button 
+                  onClick={handleSaveExercisesAndCreate}
+                  disabled={!formData.name || !formData.description || isLoading}
+                  className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Creando...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Crear Plan
+                    </>
+                  )}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2488,43 +2666,6 @@ export function WorkoutPlanManagement() {
         </DialogContent>
       </Dialog>
 
-      {/* Editor de ejercicios en modal separado */}
-      {showWorkoutEditor && workoutEditorPlanId && (
-        <Dialog open={showWorkoutEditor} onOpenChange={(open) => {
-          if (!open) {
-            setShowWorkoutEditor(false)
-            setWorkoutEditorPlanId(null)
-            resetForm()
-            refetch()
-          }
-        }}>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Configurar Ejercicios del Plan</DialogTitle>
-              <DialogDescription>
-                Agrega ejercicios para cada día de la semana
-              </DialogDescription>
-            </DialogHeader>
-            
-            <WorkoutTemplatePlanEditor
-              planId={workoutEditorPlanId}
-              availableExercises={Array.isArray(exercises) ? exercises : []}
-              onSaved={async () => {
-                setShowWorkoutEditor(false)
-                setWorkoutEditorPlanId(null)
-                resetForm()
-                refetch()
-              }}
-              onClose={() => {
-                setShowWorkoutEditor(false)
-                setWorkoutEditorPlanId(null)
-                resetForm()
-                refetch()
-              }}
-            />
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState, forwardRef, useImperativeHandle } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -76,23 +76,39 @@ function toNumber(value: unknown, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
-export function WorkoutTemplatePlanEditor({
-  planId,
-  availableExercises,
-  onSaved,
-  onClose,
-}: {
-  planId: string
-  availableExercises: Exercise[]
-  onSaved: () => void | Promise<void>
-  onClose: () => void
-}) {
+export const WorkoutTemplatePlanEditor = forwardRef<
+  { handleSave: () => Promise<void> },
+  {
+    planId: string
+    availableExercises: Exercise[]
+    onSaved: () => void | Promise<void>
+    onClose: () => void
+    isEmbedded?: boolean
+  }
+>(function WorkoutTemplatePlanEditor(
+  {
+    planId,
+    availableExercises,
+    onSaved,
+    onClose,
+    isEmbedded = false,
+  },
+  ref
+) {
   const { getAuthHeaders } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
 
   const [days, setDays] = useState<WorkoutDayDraft[]>(createDefaultWeekDays())
+
+  // Expose handleSave via ref
+  useImperativeHandle(ref, () => ({
+    handleSave: async () => {
+      // handleSave defined below
+      await handleSaveImpl()
+    },
+  }))
 
   // selector ejercicios
   const [showExerciseSelector, setShowExerciseSelector] = useState(false)
@@ -331,7 +347,7 @@ export function WorkoutTemplatePlanEditor({
     })
   }
 
-  const handleSave = async () => {
+  const handleSaveImpl = async () => {
     try {
       setSaving(true)
 
@@ -578,19 +594,23 @@ export function WorkoutTemplatePlanEditor({
       </Tabs>
 
       <div className="flex justify-end gap-2 pt-4">
-        <Button variant="outline" onClick={onClose} disabled={saving}>
-          Cerrar
-        </Button>
-        <Button onClick={handleSave} disabled={saving}>
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            "Guardar plan"
-          )}
-        </Button>
+        {!isEmbedded && (
+          <>
+            <Button variant="outline" onClick={onClose} disabled={saving}>
+              Cerrar
+            </Button>
+            <Button onClick={handleSaveImpl} disabled={saving}>
+              {saving ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                "Guardar plan"
+              )}
+            </Button>
+          </>
+        )}
       </div>
 
       <Dialog open={showExerciseSelector} onOpenChange={setShowExerciseSelector}>
@@ -706,4 +726,5 @@ export function WorkoutTemplatePlanEditor({
       </Dialog>
     </div>
   )
-}
+})
+
