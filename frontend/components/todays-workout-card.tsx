@@ -307,6 +307,18 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                             </span>
                           )}
                         </div>
+                        {Array.isArray(exerciseData.substitutes) && exerciseData.substitutes.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs text-muted-foreground mb-1">Respaldo disponible:</p>
+                            <div className="flex flex-wrap gap-1">
+                              {exerciseData.substitutes.map((sub: any) => (
+                                <Badge key={sub.id} variant="secondary" className="text-[10px]">
+                                  {sub.name}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                       {/* Botón de video si está disponible */}

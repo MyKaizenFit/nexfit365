@@ -36,6 +36,15 @@ interface WorkoutDayDraft {
   exercises: Array<{ exercise_id: string | number; series?: number; reps?: string; rest_seconds?: number; notes?: string }>
 }
 
+interface ExerciseSubstituteItem {
+  id: number
+  substitute_id: string
+  substitute_name: string
+  category?: string
+  priority: number
+  notes: string
+}
+
 const DAY_LABELS: Record<DayKey, string> = {
   "1": "Lun",
   "2": "Mar",
@@ -117,6 +126,13 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState("all")
   const [targetDayIndex, setTargetDayIndex] = useState<number | null>(null)
 
+  const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
+  const [substitutesExerciseId, setSubstitutesExerciseId] = useState<string | null>(null)
+  const [substitutesExerciseName, setSubstitutesExerciseName] = useState("")
+  const [substitutes, setSubstitutes] = useState<ExerciseSubstituteItem[]>([])
+  const [substituteSearch, setSubstituteSearch] = useState("")
+  const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
+
   const exercisesById = useMemo(() => {
     const map = new Map<string, Exercise>()
     for (const e of availableExercises) map.set(String(e.id), e)
@@ -184,6 +200,30 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       headers = newHeaders
       res = await fetch(buildApiUrl(url), {
         method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+    }
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      throw new Error(errData.detail || errData.error || `Error ${res.status}`)
+    }
+    return await res.json().catch(() => null)
+  }, [getAuthHeaders])
+
+  const postJsonWithAuth = useCallback(async (url: string, body: any) => {
+    let headers = await getAuthHeaders()
+    let res = await fetch(buildApiUrl(url), {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+    if (res.status === 401) {
+      const newHeaders = await handle401AndRefresh(getAuthHeaders)
+      if (!newHeaders) throw new Error("Sesión expirada")
+      headers = newHeaders
+      res = await fetch(buildApiUrl(url), {
+        method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),
       })
@@ -346,6 +386,78 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       return next
     })
   }
+
+  const openSubstitutesDialog = async (exerciseId: string | number) => {
+    const baseId = String(exerciseId)
+    const baseExercise = exercisesById.get(baseId)
+    setSubstitutesExerciseId(baseId)
+    setSubstitutesExerciseName(baseExercise ? fixEncoding(baseExercise.name) : `Ejercicio ${baseId}`)
+    setSubstituteSearch("")
+    setShowSubstitutesDialog(true)
+    setLoadingSubstitutes(true)
+    try {
+      const data = await fetchJsonWithAuth(`admin/exercises/${baseId}/substitutes/`)
+      setSubstitutes(Array.isArray(data) ? data : [])
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: e instanceof Error ? e.message : "No se pudieron cargar los ejercicios de respaldo",
+        variant: "destructive",
+      })
+      setSubstitutes([])
+    } finally {
+      setLoadingSubstitutes(false)
+    }
+  }
+
+  const handleAddSubstitute = async (substituteId: string | number) => {
+    if (!substitutesExerciseId) return
+    try {
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
+        substitute_id: String(substituteId),
+        priority: 1,
+        notes: "",
+      })
+      const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
+      setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
+      toast({ title: "✅ Ejercicio de respaldo asignado" })
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: e instanceof Error ? e.message : "No se pudo asignar el respaldo",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRemoveSubstitute = async (substituteId: string | number) => {
+    if (!substitutesExerciseId) return
+    try {
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/remove_substitute/`, {
+        substitute_id: String(substituteId),
+      })
+      setSubstitutes((prev) => prev.filter((s) => String(s.substitute_id) !== String(substituteId)))
+      toast({ title: "✅ Ejercicio de respaldo eliminado" })
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: e instanceof Error ? e.message : "No se pudo eliminar el respaldo",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const availableForSubstitute = useMemo(() => {
+    if (!substitutesExerciseId) return [] as Exercise[]
+    const q = substituteSearch.trim().toLowerCase()
+    return availableExercises.filter((ex) => {
+      const exId = String(ex.id)
+      if (exId === String(substitutesExerciseId)) return false
+      if (substitutes.some((s) => String(s.substitute_id) === exId)) return false
+      if (!q) return true
+      return (ex.name || "").toLowerCase().includes(q)
+    })
+  }, [availableExercises, substitutesExerciseId, substituteSearch, substitutes])
 
   const handleSaveImpl = async () => {
     try {
@@ -534,6 +646,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openSubstitutesDialog(exercise.exercise_id)}
+                                      className="h-8 px-2 text-xs"
+                                      title="Asignar ejercicios de respaldo"
+                                    >
+                                      Respaldo
+                                    </Button>
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -752,6 +873,82 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowExerciseSelector(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showSubstitutesDialog} onOpenChange={setShowSubstitutesDialog}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Ejercicios de respaldo</DialogTitle>
+            <DialogDescription>
+              Define alternativas para <strong>{substitutesExerciseName}</strong> cuando el usuario no pueda realizar el ejercicio principal.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-xs">Respaldos actuales</Label>
+              {loadingSubstitutes ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cargando respaldos...
+                </div>
+              ) : substitutes.length === 0 ? (
+                <div className="text-sm text-muted-foreground mt-2">No hay respaldos asignados.</div>
+              ) : (
+                <div className="space-y-2 mt-2">
+                  {substitutes.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-2 border rounded-md p-2">
+                      <div className="text-sm">
+                        <div className="font-medium">{fixEncoding(s.substitute_name)}</div>
+                        {s.category && <div className="text-xs text-muted-foreground">{fixEncoding(s.category)}</div>}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveSubstitute(s.substitute_id)}
+                        title="Eliminar respaldo"
+                      >
+                        <Trash2 className="h-4 w-4 text-red-600" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <Label className="text-xs">Agregar respaldo</Label>
+              <Input
+                className="mt-2"
+                placeholder="Buscar ejercicio alternativo..."
+                value={substituteSearch}
+                onChange={(e) => setSubstituteSearch(e.target.value)}
+              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
+                {availableForSubstitute.map((e) => (
+                  <Button
+                    key={e.id}
+                    variant="outline"
+                    className="justify-between h-auto py-2"
+                    onClick={() => handleAddSubstitute(e.id)}
+                  >
+                    <div className="text-left">
+                      <div className="text-sm font-medium">{fixEncoding(e.name)}</div>
+                      {e.category && <div className="text-xs text-muted-foreground">{fixEncoding(e.category)}</div>}
+                    </div>
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSubstitutesDialog(false)}>
               Cerrar
             </Button>
           </DialogFooter>
