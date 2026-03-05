@@ -198,7 +198,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const loadPlan = async () => {
     setLoading(true)
     try {
-      const data = await fetchJsonWithAuth(`admin/workouts/plans/${planId}/`)
+      const data = await fetchJsonWithAuth(`admin/workouts/programs/${planId}/`)
 
       const incomingDays = Array.isArray(data.days) ? data.days : []
       const mapped: WorkoutDayDraft[] = incomingDays.map((d: any) => {
@@ -374,7 +374,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         }
       })
 
-      await patchJsonWithAuth(`admin/workouts/plans/${planId}/`, { days: daysPayload })
+      await patchJsonWithAuth(`admin/workouts/programs/${planId}/`, { days: daysPayload })
 
       toast({ title: "✅ Plan de entrenamiento guardado", description: "Todos los cambios se han actualizado." })
       await loadPlan()
