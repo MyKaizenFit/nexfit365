@@ -36,6 +36,7 @@ export interface WorkoutPlan {
   updated_at: string
   days?: WorkoutDay[]
   days_count?: number
+  training_days?: number
 }
 
 export interface WorkoutDay {
