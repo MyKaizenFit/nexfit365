@@ -164,7 +164,7 @@ export const useAdminWorkoutPlansOptimized = () => {
   const fetchExercises = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/exercises/exercises/`), {
+      const response = await fetch(buildApiUrl(`admin/exercises/`), {
         headers
       })
 
