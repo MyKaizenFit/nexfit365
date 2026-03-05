@@ -400,6 +400,37 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-3 text-center">
+            <div className="text-lg">📅</div>
+            <div className="text-xs text-muted-foreground">Día activo</div>
+            <div className="text-base font-bold">{DAY_LABELS[activeDay]}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-emerald-200 bg-emerald-50">
+          <CardContent className="p-3 text-center">
+            <div className="text-lg">🏋️</div>
+            <div className="text-xs text-muted-foreground">Ejercicios hoy</div>
+            <div className="text-base font-bold">{currentDayExercises.length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-orange-200 bg-orange-50">
+          <CardContent className="p-3 text-center">
+            <div className="text-lg">✅</div>
+            <div className="text-xs text-muted-foreground">Días con rutina</div>
+            <div className="text-base font-bold">{days.filter((d) => d.exercises.length > 0).length}</div>
+          </CardContent>
+        </Card>
+        <Card className="border-violet-200 bg-violet-50">
+          <CardContent className="p-3 text-center">
+            <div className="text-lg">💤</div>
+            <div className="text-xs text-muted-foreground">Descanso</div>
+            <div className="text-base font-bold">{days.filter((d) => d.exercises.length === 0 || d.is_rest_day).length}</div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
           Configura ejercicios por día y su orden. Los días sin ejercicios se guardarán automáticamente como descanso.
@@ -407,12 +438,12 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       </div>
 
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
-        <TabsList className="grid grid-cols-7">
+        <TabsList className="grid grid-cols-7 rounded-lg bg-muted p-1 h-auto">
           {WEEK_DAY_KEYS.map((d) => {
             const dayNum = Number(d)
             const day = days.find((x) => x.day_number === dayNum)
             return (
-              <TabsTrigger key={d} value={d} className="text-xs">
+              <TabsTrigger key={d} value={d} className="text-xs rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
                 {DAY_LABELS[d]}
               </TabsTrigger>
             )
