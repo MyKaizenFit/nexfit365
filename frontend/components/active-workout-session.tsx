@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Dumbbell, Play, Pause, Clock,
   Timer, Star, Video,
-  Save, RotateCcw, Flame
+  Save, RotateCcw, Flame, Shield
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -712,15 +712,26 @@ export function ActiveWorkoutSession({
                               </span>
                             </div>
                             {Array.isArray(exercise.substitutes) && exercise.substitutes.length > 0 && (
-                              <div className="mt-2">
-                                <p className="text-xs text-muted-foreground mb-1">Ejercicios de respaldo:</p>
-                                <div className="flex flex-wrap gap-1">
+                              <div className="mt-3 pt-2 border-t border-amber-100 bg-amber-50/50 rounded-md p-2.5">
+                                <p className="text-xs font-semibold text-amber-900 mb-1.5 flex items-center gap-1">
+                                  <Shield className="h-3.5 w-3.5" />
+                                  Ejercicios de respaldo disponibles ({exercise.substitutes.length})
+                                </p>
+                                <div className="flex flex-wrap gap-1.5">
                                   {exercise.substitutes.map((sub: any) => (
-                                    <Badge key={sub.id} variant="secondary" className="text-[10px]">
-                                      {sub.name}
+                                    <Badge
+                                      key={sub.id}
+                                      variant="secondary"
+                                      className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2 py-1"
+                                    >
+                                      <Shield className="h-2.5 w-2.5 mr-1 inline" />
+                                      {sub.substitute_name || sub.name}
                                     </Badge>
                                   ))}
                                 </div>
+                                <p className="text-[10px] text-amber-700 mt-1.5 italic">
+                                  Usa estos ejercicios alternativos si no puedes realizar el principal.
+                                </p>
                               </div>
                             )}
                           </div>
