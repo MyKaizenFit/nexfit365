@@ -1653,6 +1653,10 @@ export function WorkoutPlanManagement() {
                             <Calendar className="h-3 w-3" />
                             <span>{plan.duration_weeks} semanas</span>
                           </div>
+                          <div className="flex items-center gap-1">
+                            <Activity className="h-3 w-3" />
+                            <span>{plan.days_per_week || 0} entrenamientos/semana</span>
+                          </div>
                           {plan.estimated_duration_minutes && (
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
@@ -1796,6 +1800,10 @@ export function WorkoutPlanManagement() {
                         <div className="flex items-center text-sm text-muted-foreground">
                           <Calendar className="h-4 w-4 mr-1" />
                           {plan.duration_weeks} semanas
+                        </div>
+                        <div className="flex items-center text-sm text-muted-foreground">
+                          <Activity className="h-4 w-4 mr-1" />
+                          {plan.days_per_week || 0} entrenamientos/semana
                         </div>
                         {plan.estimated_duration_minutes && (
                           <div className="flex items-center text-sm text-muted-foreground">
