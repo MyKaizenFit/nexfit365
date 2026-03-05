@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
-import { authenticatedFetch } from "@/lib/api"
+import { authenticatedFetch, getAuthHeaders } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -32,7 +32,9 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Download,
+  Upload
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -54,6 +56,7 @@ import { Label as FormLabel } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { fixEncoding } from "@/lib/encoding-fix"
+import { WorkoutTemplatePlanEditor } from "./workout-template-plan-editor"
 
 export function WorkoutPlanManagement() {
   const {
@@ -92,6 +95,14 @@ export function WorkoutPlanManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  
+  // Estados para flujo de dos pasos (similar a menu-plan-management-v2)
+  const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
+  const [showWorkoutEditor, setShowWorkoutEditor] = useState(false)
+  const [workoutEditorPlanId, setWorkoutEditorPlanId] = useState<string | null>(null)
 
   const [usersList, setUsersList] = useState<Array<{ id: string; email: string }>>([])
   
@@ -435,6 +446,107 @@ export function WorkoutPlanManagement() {
     }
   }
 
+  // --- Exportación CSV y Excel ---
+  const handleExportCSV = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/export-csv/`;
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      if (!response.ok) throw new Error('Error al exportar CSV');
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'workout_plans_export.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: '✅ Exportación CSV', description: 'Archivo descargado correctamente.' });
+    } catch (error) {
+      toast({ title: '❌ Error', description: 'No se pudo exportar el CSV', variant: 'destructive' });
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/export-excel/`;
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      if (!response.ok) throw new Error('Error al exportar Excel');
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'workout_plans_export.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: '✅ Exportación Excel', description: 'Archivo descargado correctamente.' });
+    } catch (error) {
+      toast({ title: '❌ Error', description: 'No se pudo exportar el Excel', variant: 'destructive' });
+    }
+  };
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    setImportFile(file);
+    setImporting(true);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      let endpoint = '/api/admin/workouts/import-csv/';
+      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
+        endpoint = '/api/admin/workouts/import-excel/';
+      }
+      
+      const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al importar');
+      }
+      
+      let data = null;
+      try {
+        data = await response.json();
+      } catch {}
+      
+      toast({
+        title: '✅ Importación',
+        description: data?.message || 'Planes importados correctamente.'
+      });
+      
+      setImportFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      refetch();
+    } catch (error) {
+      toast({ 
+        title: '❌ Error', 
+        description: error instanceof Error ? error.message : 'No se pudo importar', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setImporting(false);
+    }
+  };
+
   // Funciones para manejar el formulario
   const handleFormChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
@@ -697,56 +809,58 @@ export function WorkoutPlanManagement() {
     })
   }
 
-  const handleSubmitPlan = async () => {
+  const handleSubmitPlan = async (configureExercises: boolean = false) => {
     try {
       setIsLoading(true)
       
-      const planData = {
-        ...formData,
-        days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
-          day_name: day.day_name,
-          day_number: day.day_number,
-          is_rest_day: day.is_rest_day,
-          notes: day.notes,
-          exercises: day.exercises
-        }))
-      }
-
+      // Si estamos editando, guardamos todo (info básica + días/ejercicios)
       if (editingPlan) {
+        const planData = {
+          ...formData,
+          days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
+            day_name: day.day_name,
+            day_number: day.day_number,
+            is_rest_day: day.is_rest_day,
+            notes: day.notes,
+            exercises: day.exercises
+          }))
+        }
         await updatePlan(editingPlan.id, planData)
         toast({
           title: "✅ Plan actualizado",
           description: "El plan de entrenamiento ha sido actualizado correctamente",
         })
+        resetForm()
+        refetch()
       } else {
-        await createPlan(planData)
+        // Si creamos nuevo, guardamos solo la info básica
+        const planData = {
+          name: formData.name,
+          description: formData.description,
+          difficulty: formData.difficulty,
+          duration_weeks: formData.duration_weeks,
+          min_role_required: formData.min_role_required,
+          estimated_duration_minutes: formData.estimated_duration_minutes,
+          user: formData.user,
+          days: [] // No enviar días en la creación inicial
+        }
+        
+        const created = await createPlan(planData)
         toast({
           title: "✅ Plan creado",
-          description: "El plan de entrenamiento ha sido creado correctamente",
+          description: configureExercises ? "Ahora configura los ejercicios." : "Creado correctamente.",
         })
+        setShowCreateDialog(false)
+        setCreateStep("basic")
+        
+        if (configureExercises && created?.id) {
+          setWorkoutEditorPlanId(String(created.id))
+          setShowWorkoutEditor(true)
+        } else {
+          resetForm()
+          refetch()
+        }
       }
-
-      // Reset form
-      setFormData({
-        name: '',
-        description: '',
-        difficulty: 'beginner',
-        duration_weeks: 4,
-        min_role_required: 'basic',
-        estimated_duration_minutes: 60,
-        user: ''
-      })
-      setWorkoutDays([{
-        id: '1',
-        day_name: 'Día 1 - Tren Superior',
-        day_number: 1,
-        is_rest_day: false,
-        notes: '',
-        exercises: []
-      }])
-      setShowCreateDialog(false)
-      setEditingPlan(null)
-      
     } catch (error) {
       toast({
         title: "❌ Error",
@@ -756,6 +870,11 @@ export function WorkoutPlanManagement() {
     } finally {
       setIsLoading(false)
     }
+  }
+
+  const handleEditWorkout = async (planId: string) => {
+    setWorkoutEditorPlanId(planId)
+    setShowWorkoutEditor(true)
   }
 
   const resetForm = () => {
@@ -780,6 +899,9 @@ export function WorkoutPlanManagement() {
     setShowExerciseSelector({})
     setShowCreateDialog(false)
     setEditingPlan(null)
+    setCreateStep("basic")
+    setShowWorkoutEditor(false)
+    setWorkoutEditorPlanId(null)
   }
 
   // Función para cargar los detalles completos de un plan y abrir el editor
@@ -889,58 +1011,47 @@ export function WorkoutPlanManagement() {
             Administra las rutinas de entrenamiento disponibles para los usuarios
           </p>
         </div>
-        <Button
-          onClick={() => setShowCreateDialog(true)}
-          className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Nuevo Plan
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      {stats && (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Planes</CardTitle>
-              <Dumbbell className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.total_programs}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Planes Activos</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.active_programs}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Recientes</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{stats.recent_programs}</div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Por Rol</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">
-                {Object.keys(stats.programs_by_role || {}).length}
-              </div>
-            </CardContent>
-          </Card>
+        <div className="flex gap-2">
+          <Button
+            onClick={handleExportCSV}
+            variant="outline"
+            className="border-purple-200 hover:bg-purple-50"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            CSV
+          </Button>
+          <Button
+            onClick={handleExportExcel}
+            variant="outline"
+            className="border-purple-200 hover:bg-purple-50"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Excel
+          </Button>
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            variant="outline"
+            className="border-purple-200 hover:bg-purple-50"
+          >
+            <Upload className="h-4 w-4 mr-2" />
+            Importar
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.xlsx,.xls"
+            onChange={handleImportFile}
+            className="hidden"
+          />
+          <Button
+            onClick={() => setShowCreateDialog(true)}
+            className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Plan
+          </Button>
         </div>
-      )}
+      </div>
 
       {/* Filters and Search */}
       <Card>
@@ -1253,6 +1364,10 @@ export function WorkoutPlanManagement() {
                                   <Edit className="h-4 w-4 mr-2" />
                                 )}
                                 Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleEditWorkout(plan.id)}>
+                                <Dumbbell className="h-4 w-4 mr-2" />
+                                Editar Ejercicios
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleToggleActive(plan.id)}>
                                 {plan.is_active ? (
@@ -1670,19 +1785,162 @@ export function WorkoutPlanManagement() {
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
-      <Dialog open={showCreateDialog || !!editingPlan} onOpenChange={(open) => {
+      {/* Create/Edit Dialog - PASO 1: Información Básica */}
+      <Dialog open={showCreateDialog && !editingPlan} onOpenChange={(open) => {
+        if (!open) {
+          resetForm()
+        }
+      }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Crear Nuevo Plan de Entrenamiento</DialogTitle>
+            <DialogDescription>
+              Configura la información básica del plan. Después podrás agregar los ejercicios.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Información básica */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <FormLabel>Nombre del Plan *</FormLabel>
+                <Input
+                  placeholder="Ej: Rutina de Fuerza para Principiantes"
+                  value={formData.name}
+                  onChange={(e) => handleFormChange('name', e.target.value)}
+                />
+              </div>
+              <div>
+                <FormLabel>Dificultad *</FormLabel>
+                <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona la dificultad" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="beginner">Principiante</SelectItem>
+                    <SelectItem value="intermediate">Intermedio</SelectItem>
+                    <SelectItem value="advanced">Avanzado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div>
+              <FormLabel>Descripción *</FormLabel>
+              <Textarea
+                placeholder="Describe el objetivo y características del plan..."
+                value={formData.description}
+                onChange={(e) => handleFormChange('description', e.target.value)}
+                rows={3}
+              />
+            </div>
+            
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <FormLabel>Duración (semanas) *</FormLabel>
+                <Input
+                  type="number"
+                  placeholder="4"
+                  value={formData.duration_weeks}
+                  onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
+                />
+              </div>
+              <div>
+                <FormLabel>Duración Sesión (min)</FormLabel>
+                <Input
+                  type="number"
+                  placeholder="60"
+                  value={formData.estimated_duration_minutes}
+                  onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
+                />
+              </div>
+              <div>
+                <FormLabel>Rol Mínimo Requerido *</FormLabel>
+                <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona el rol" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="basic">Básico</SelectItem>
+                    <SelectItem value="pro">Pro</SelectItem>
+                    <SelectItem value="premium">Premium</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <FormLabel>Asignar a Usuario (opcional)</FormLabel>
+              <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Plantilla (sin usuario)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
+                  {usersList.map((u) => (
+                    <SelectItem key={u.id} value={u.id}>
+                      {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={resetForm}>
+              Cancelar
+            </Button>
+            <Button 
+              variant="outline"
+              onClick={() => handleSubmitPlan(false)}
+              disabled={!formData.name || !formData.description || isLoading}
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear sin ejercicios
+                </>
+              )}
+            </Button>
+            <Button 
+              onClick={() => handleSubmitPlan(true)}
+              disabled={!formData.name || !formData.description || isLoading}
+              className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Crear y configurar ejercicios
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog - Edición completa de plan existente */}
+      <Dialog open={!!editingPlan} onOpenChange={(open) => {
         if (!open) {
           resetForm()
         }
       }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {editingPlan ? 'Editar Plan de Entrenamiento' : 'Crear Nuevo Plan de Entrenamiento'}
-            </DialogTitle>
+            <DialogTitle>Editar Plan de Entrenamiento</DialogTitle>
             <DialogDescription>
-              {editingPlan ? 'Modifica la información del plan de entrenamiento' : 'Crea una nueva rutina de entrenamiento usando los ejercicios disponibles'}
+              Modifica la información y ejercicios del plan
             </DialogDescription>
           </DialogHeader>
           
@@ -2161,24 +2419,62 @@ export function WorkoutPlanManagement() {
               Cancelar
             </Button>
             <Button 
-              onClick={handleSubmitPlan}
+              onClick={() => handleSubmitPlan()}
               disabled={!formData.name || !formData.description || isLoading}
               className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
             >
               {isLoading ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {editingPlan ? 'Actualizando...' : 'Creando...'}
+                  Actualizando...
                 </>
               ) : (
                 <>
-                  {editingPlan ? 'Actualizar' : 'Crear'} Plan
+                  Actualizar Plan
                 </>
               )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Editor de ejercicios en modal separado */}
+      {showWorkoutEditor && workoutEditorPlanId && (
+        <Dialog open={showWorkoutEditor} onOpenChange={(open) => {
+          if (!open) {
+            setShowWorkoutEditor(false)
+            setWorkoutEditorPlanId(null)
+            resetForm()
+            refetch()
+          }
+        }}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Configurar Ejercicios del Plan</DialogTitle>
+              <DialogDescription>
+                Agrega ejercicios para cada día de la semana
+              </DialogDescription>
+            </DialogHeader>
+            
+            <WorkoutTemplatePlanEditor
+              planId={workoutEditorPlanId}
+              availableExercises={Array.isArray(exercises) ? exercises : []}
+              onSaved={async () => {
+                setShowWorkoutEditor(false)
+                setWorkoutEditorPlanId(null)
+                resetForm()
+                refetch()
+              }}
+              onClose={() => {
+                setShowWorkoutEditor(false)
+                setWorkoutEditorPlanId(null)
+                resetForm()
+                refetch()
+              }}
+            />
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
