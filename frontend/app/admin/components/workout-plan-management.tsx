@@ -119,7 +119,7 @@ export function WorkoutPlanManagement() {
     duration_weeks: 4,
     min_role_required: 'basic' as 'basic' | 'pro' | 'premium' | 'admin',
     estimated_duration_minutes: 60,
-    user: '' // opcional: si se setea, se crea/edita como plan de usuario
+    assigned_users: [] as string[] // Array de IDs de usuarios (permite asignar a múltiples)
   })
 
   // Cargar usuarios para filtros/asignación
@@ -823,6 +823,9 @@ export function WorkoutPlanManagement() {
       if (editingPlan) {
         const planData = {
           ...formData,
+          // En modo edición, mantener el usuario original (no permitir cambio)
+          user: editingPlan.user_id || undefined,
+          assigned_users: undefined, // No enviar assigned_users en edición
           days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
             day_name: day.day_name,
             day_number: day.day_number,
@@ -839,32 +842,87 @@ export function WorkoutPlanManagement() {
         resetForm()
         refetch()
       } else {
-        // Si creamos nuevo, guardamos solo la info básica
-        const planData = {
-          name: formData.name,
-          description: formData.description,
-          difficulty: formData.difficulty,
-          duration_weeks: formData.duration_weeks,
-          min_role_required: formData.min_role_required,
-          estimated_duration_minutes: formData.estimated_duration_minutes,
-          user: formData.user,
-          days: [] // No enviar días en la creación inicial
-        }
-        
-        const created = await createPlan(planData)
-        toast({
-          title: "✅ Plan creado",
-          description: configureExercises ? "Ahora configura los ejercicios." : "Creado correctamente.",
-        })
-        setShowCreateDialog(false)
-        setCreateStep("basic")
-        
-        if (configureExercises && created?.id) {
-          setWorkoutEditorPlanId(String(created.id))
-          setShowWorkoutEditor(true)
+        // Si NO hay usuarios seleccionados, crear como plantilla
+        if (formData.assigned_users.length === 0) {
+          const planData = {
+            name: formData.name,
+            description: formData.description,
+            difficulty: formData.difficulty,
+            duration_weeks: formData.duration_weeks,
+            min_role_required: formData.min_role_required,
+            estimated_duration_minutes: formData.estimated_duration_minutes,
+            user: undefined, // Sin usuario = plantilla
+            days: []
+          }
+          
+          const created = await createPlan(planData)
+          toast({
+            title: "✅ Plantilla creada",
+            description: configureExercises ? "Ahora configura los ejercicios." : "Creada correctamente.",
+          })
+          setShowCreateDialog(false)
+          setCreateStep("basic")
+          
+          if (configureExercises && created?.id) {
+            setWorkoutEditorPlanId(String(created.id))
+            setShowWorkoutEditor(true)
+          } else {
+            resetForm()
+            refetch()
+          }
         } else {
-          resetForm()
-          refetch()
+          // Si HAY usuarios seleccionados, crear una copia del plan por cada uno
+          const createdPlans: any[] = []
+          
+          for (const userId of formData.assigned_users) {
+            const planData = {
+              name: formData.name,
+              description: formData.description,
+              difficulty: formData.difficulty,
+              duration_weeks: formData.duration_weeks,
+              min_role_required: formData.min_role_required,
+              estimated_duration_minutes: formData.estimated_duration_minutes,
+              user: userId, // Asignar a este usuario específico
+              days: []
+            }
+            
+            try {
+              const created = await createPlan(planData)
+              createdPlans.push(created)
+            } catch (error) {
+              console.error(`Error creating plan for user ${userId}:`, error)
+              // Continuar con los demás usuarios
+            }
+          }
+          
+          if (createdPlans.length > 0) {
+            toast({
+              title: `✅ ${createdPlans.length} plan(es) creado(s)`,
+              description: `Se asignó el plan a ${createdPlans.length} usuario(s)`,
+            })
+            
+            setShowCreateDialog(false)
+            setCreateStep("basic")
+            
+            // Si solo se creó un plan y se quiere configurar ejercicios
+            if (configureExercises && createdPlans.length === 1 && createdPlans[0]?.id) {
+              setWorkoutEditorPlanId(String(createdPlans[0].id))
+              setShowWorkoutEditor(true)
+            } else if (configureExercises && createdPlans.length > 1) {
+              toast({
+                title: "ℹ️ Múltiples usuarios",
+                description: "Para configurar ejercicios, edita cada plan individualmente",
+                variant: "default"
+              })
+              resetForm()
+              refetch()
+            } else {
+              resetForm()
+              refetch()
+            }
+          } else {
+            throw new Error("No se pudo crear ningún plan")
+          }
         }
       }
     } catch (error) {
@@ -883,6 +941,16 @@ export function WorkoutPlanManagement() {
     try {
       setIsLoading(true)
       
+      // Solo permitir este flujo si hay 0 o 1 usuario seleccionado
+      if (formData.assigned_users.length > 1) {
+        toast({
+          title: "⚠️ Múltiples usuarios",
+          description: "Para asignar a múltiples usuarios, usa 'Crear Plan Básico' y edita cada uno individualmente",
+          variant: "default"
+        })
+        return
+      }
+      
       // Crear el plan básico
       const planData = {
         name: formData.name,
@@ -891,7 +959,7 @@ export function WorkoutPlanManagement() {
         duration_weeks: formData.duration_weeks,
         min_role_required: formData.min_role_required,
         estimated_duration_minutes: formData.estimated_duration_minutes,
-        user: formData.user,
+        user: formData.assigned_users.length === 1 ? formData.assigned_users[0] : undefined,
         days: [] // Enviar los días vacíos por ahora
       }
       
@@ -925,6 +993,17 @@ export function WorkoutPlanManagement() {
     try {
       setIsLoading(true)
 
+      // Solo permitir este flujo si hay 0 o 1 usuario seleccionado
+      if (formData.assigned_users.length > 1) {
+        toast({
+          title: "⚠️ Múltiples usuarios",
+          description: "Para asignar a múltiples usuarios, crea el plan primero y asigna luego",
+          variant: "default"
+        })
+        setIsLoading(false)
+        return
+      }
+
       const planData = {
         name: formData.name,
         description: formData.description,
@@ -932,7 +1011,7 @@ export function WorkoutPlanManagement() {
         duration_weeks: formData.duration_weeks,
         min_role_required: formData.min_role_required,
         estimated_duration_minutes: formData.estimated_duration_minutes,
-        user: formData.user,
+        user: formData.assigned_users.length === 1 ? formData.assigned_users[0] : undefined,
         days: []
       }
 
@@ -999,7 +1078,7 @@ export function WorkoutPlanManagement() {
       duration_weeks: 4,
       min_role_required: 'basic',
       estimated_duration_minutes: 60,
-      user: ''
+      assigned_users: [] // Limpiar array de usuarios
     })
     setWorkoutDays([{
       id: '1',
@@ -1033,7 +1112,7 @@ export function WorkoutPlanManagement() {
           duration_weeks: planDetail.duration_weeks || 4,
           min_role_required: planDetail.min_role_required || 'basic',
           estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
-          user: planDetail.user ? String(planDetail.user) : ''
+          assigned_users: [] // En modo edición no permitimos cambiar usuarios
         })
         
         // Convertir días del plan al formato del formulario
@@ -2071,20 +2150,49 @@ export function WorkoutPlanManagement() {
                 </div>
 
                 <div>
-                  <FormLabel>Asignar a Usuario (opcional)</FormLabel>
-                  <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Plantilla (sin usuario)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
-                      {usersList.map((u) => (
-                        <SelectItem key={u.id} value={u.id}>
-                          {u.email}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>
+                    Asignar a Usuarios (opcional)
+                    {formData.assigned_users.length > 0 && (
+                      <span className="ml-2 text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+                        {formData.assigned_users.length} {formData.assigned_users.length === 1 ? 'usuario' : 'usuarios'}
+                      </span>
+                    )}
+                  </FormLabel>
+                  <div className="space-y-2">
+                    <div className="border rounded-md p-2 max-h-48 overflow-y-auto">
+                      <div className="space-y-1">
+                        {usersList.map((u) => (
+                          <div key={u.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50 rounded">
+                            <Checkbox
+                              id={`user-${u.id}`}
+                              checked={formData.assigned_users.includes(u.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  handleFormChange('assigned_users', [...formData.assigned_users, u.id])
+                                } else {
+                                  handleFormChange('assigned_users', formData.assigned_users.filter(id => id !== u.id))
+                                }
+                              }}
+                            />
+                            <label htmlFor={`user-${u.id}`} className="text-sm cursor-pointer flex-1">
+                              {u.email}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    {formData.assigned_users.length > 0 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleFormChange('assigned_users', [])}
+                        className="w-full text-xs"
+                      >
+                        Limpiar selección
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -2116,7 +2224,9 @@ export function WorkoutPlanManagement() {
                   <CardContent className="p-3 text-center">
                     <div className="text-lg">👤</div>
                     <div className="text-xs text-muted-foreground">Tipo</div>
-                    <div className="text-base font-bold">{formData.user ? "Usuario" : "Plantilla"}</div>
+                    <div className="text-base font-bold">
+                      {formData.assigned_users.length > 0 ? `${formData.assigned_users.length} Usuario${formData.assigned_users.length > 1 ? 's' : ''}` : "Plantilla"}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -2297,20 +2407,19 @@ export function WorkoutPlanManagement() {
                 />
               </div>
               <div>
-                <FormLabel>Asignar a Usuario (opcional)</FormLabel>
-                <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Plantilla (sin usuario)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
-                    {usersList.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <FormLabel>
+                  Usuario Asignado
+                  {editingPlan?.user_email && (
+                    <span className="ml-2 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
+                      {editingPlan.user_email}
+                    </span>
+                  )}
+                </FormLabel>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {editingPlan?.user_email 
+                    ? "No se puede cambiar el usuario de un plan existente" 
+                    : "Este plan es una plantilla (no asignado a ningún usuario)"}
+                </p>
               </div>
               <div>
                 <FormLabel>Rol Mínimo Requerido *</FormLabel>
