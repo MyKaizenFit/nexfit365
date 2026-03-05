@@ -2,10 +2,12 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from . import admin_views
+from .admin_workout_plan_views import AdminWorkoutPlanExportImportViewSet
 
 router = DefaultRouter()
 router.register(r'exercises', admin_views.AdminExerciseViewSet, basename='admin-exercises')
 router.register(r'programs', admin_views.AdminWorkoutProgramViewSet, basename='admin-programs')
+router.register(r'workouts', AdminWorkoutPlanExportImportViewSet, basename='admin-workouts')
 router.register(r'days', admin_views.AdminWorkoutDayViewSet, basename='admin-days')
 
 urlpatterns = [
