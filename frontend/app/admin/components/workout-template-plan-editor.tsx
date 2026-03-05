@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Loader2, Plus, Trash2, Search, Filter } from "lucide-react"
+import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 
@@ -46,6 +46,31 @@ const DAY_LABELS: Record<DayKey, string> = {
   "7": "Dom",
 }
 
+const DAY_FULL_NAMES: Record<DayKey, string> = {
+  "1": "Lunes",
+  "2": "Martes",
+  "3": "Miércoles",
+  "4": "Jueves",
+  "5": "Viernes",
+  "6": "Sábado",
+  "7": "Domingo",
+}
+
+const WEEK_DAY_KEYS: DayKey[] = ["1", "2", "3", "4", "5", "6", "7"]
+
+function createDefaultWeekDays(): WorkoutDayDraft[] {
+  return WEEK_DAY_KEYS.map((key) => {
+    const dayNumber = Number(key)
+    return {
+      day_number: dayNumber,
+      day_name: `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`,
+      is_rest_day: true,
+      notes: "",
+      exercises: [],
+    }
+  })
+}
+
 function toNumber(value: unknown, fallback = 0) {
   const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN
   return Number.isFinite(n) ? n : fallback
@@ -67,7 +92,7 @@ export function WorkoutTemplatePlanEditor({
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
 
-  const [days, setDays] = useState<WorkoutDayDraft[]>([])
+  const [days, setDays] = useState<WorkoutDayDraft[]>(createDefaultWeekDays())
 
   // selector ejercicios
   const [showExerciseSelector, setShowExerciseSelector] = useState(false)
@@ -177,7 +202,24 @@ export function WorkoutTemplatePlanEditor({
         }
       })
 
-      setDays(mapped)
+      const daysByNumber = new Map<number, WorkoutDayDraft>()
+      mapped.forEach((day) => {
+        daysByNumber.set(day.day_number, day)
+      })
+
+      const normalizedDays = WEEK_DAY_KEYS.map((key) => {
+        const dayNumber = Number(key)
+        const existing = daysByNumber.get(dayNumber)
+        return existing || {
+          day_number: dayNumber,
+          day_name: `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`,
+          is_rest_day: true,
+          notes: "",
+          exercises: [],
+        }
+      })
+
+      setDays(normalizedDays)
     } catch (e) {
       toast({
         title: "❌ Error",
@@ -228,6 +270,36 @@ export function WorkoutTemplatePlanEditor({
         ...day.exercises,
         { exercise_id: String(exercise.id), series: 3, reps: "8-12", rest_seconds: 60, notes: "" },
       ]
+      day.is_rest_day = false
+      return next
+    })
+  }
+
+  const moveExerciseUp = (dayNum: number, exerciseIndex: number) => {
+    if (exerciseIndex === 0) return
+    setDays((prev) => {
+      const next = [...prev]
+      const day = next.find((d) => d.day_number === dayNum)
+      if (!day) return prev
+      const currentExercises = [...day.exercises]
+      const temp = currentExercises[exerciseIndex]
+      currentExercises[exerciseIndex] = currentExercises[exerciseIndex - 1]
+      currentExercises[exerciseIndex - 1] = temp
+      day.exercises = currentExercises
+      return next
+    })
+  }
+
+  const moveExerciseDown = (dayNum: number, exerciseIndex: number) => {
+    setDays((prev) => {
+      const next = [...prev]
+      const day = next.find((d) => d.day_number === dayNum)
+      if (!day || exerciseIndex >= day.exercises.length - 1) return prev
+      const currentExercises = [...day.exercises]
+      const temp = currentExercises[exerciseIndex]
+      currentExercises[exerciseIndex] = currentExercises[exerciseIndex + 1]
+      currentExercises[exerciseIndex + 1] = temp
+      day.exercises = currentExercises
       return next
     })
   }
@@ -263,19 +335,28 @@ export function WorkoutTemplatePlanEditor({
     try {
       setSaving(true)
 
-      const daysPayload = days.map((d) => ({
-        day_number: d.day_number,
-        day_name: d.day_name,
-        is_rest_day: d.is_rest_day,
-        notes: d.notes,
-        exercises: d.exercises.map((e) => ({
-          exercise_id: e.exercise_id,
-          series: e.series != null ? toNumber(e.series) : null,
-          reps: e.reps || null,
-          rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : null,
-          notes: e.notes || null,
-        })),
-      }))
+      const daysPayload = WEEK_DAY_KEYS.map((key) => {
+        const dayNumber = Number(key)
+        const day = days.find((d) => d.day_number === dayNumber)
+        const fallbackDayName = `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`
+        const dayName = day?.day_name?.trim() ? day.day_name : fallbackDayName
+        const exercises = Array.isArray(day?.exercises) ? day!.exercises : []
+        const hasExercises = exercises.length > 0
+
+        return {
+          day_number: dayNumber,
+          day_name: dayName,
+          is_rest_day: hasExercises ? false : true,
+          notes: day?.notes || "",
+          exercises: exercises.map((e) => ({
+            exercise_id: e.exercise_id,
+            series: e.series != null ? toNumber(e.series) : null,
+            reps: e.reps || null,
+            rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : null,
+            notes: e.notes || null,
+          })),
+        }
+      })
 
       await patchJsonWithAuth(`admin/workouts/plans/${planId}/`, { days: daysPayload })
 
@@ -305,13 +386,13 @@ export function WorkoutTemplatePlanEditor({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="text-sm text-muted-foreground">
-          Configura los ejercicios para cada día de la semana.
+          Configura ejercicios por día y su orden. Los días sin ejercicios se guardarán automáticamente como descanso.
         </div>
       </div>
 
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
         <TabsList className="grid grid-cols-7">
-          {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => {
+          {WEEK_DAY_KEYS.map((d) => {
             const dayNum = Number(d)
             const day = days.find((x) => x.day_number === dayNum)
             return (
@@ -322,7 +403,7 @@ export function WorkoutTemplatePlanEditor({
           })}
         </TabsList>
 
-        {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => {
+        {WEEK_DAY_KEYS.map((d) => {
           const dayNum = Number(d)
           const day = days.find((x) => x.day_number === dayNum)
           if (!day) return null
@@ -392,7 +473,8 @@ export function WorkoutTemplatePlanEditor({
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                   <div className="flex-1">
-                                    <div className="font-medium">
+                                    <div className="font-medium flex items-center gap-2">
+                                      <Badge variant="outline" className="text-[10px]">#{idx + 1}</Badge>
                                       {exerciseData ? fixEncoding(exerciseData.name) : `Ejercicio #${String(exercise.exercise_id)}`}
                                     </div>
                                     {exerciseData && (
@@ -402,14 +484,34 @@ export function WorkoutTemplatePlanEditor({
                                       </div>
                                     )}
                                   </div>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeExerciseFromDay(dayNum, exercise.exercise_id)}
-                                    title="Eliminar ejercicio"
-                                  >
-                                    <Trash2 className="h-4 w-4 text-red-600" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => moveExerciseUp(dayNum, idx)}
+                                      disabled={idx === 0}
+                                      title="Subir ejercicio"
+                                    >
+                                      <ArrowUp className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => moveExerciseDown(dayNum, idx)}
+                                      disabled={idx === day.exercises.length - 1}
+                                      title="Bajar ejercicio"
+                                    >
+                                      <ArrowDown className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => removeExerciseFromDay(dayNum, exercise.exercise_id)}
+                                      title="Eliminar ejercicio"
+                                    >
+                                      <Trash2 className="h-4 w-4 text-red-600" />
+                                    </Button>
+                                  </div>
                                 </div>
 
                                 <div className="grid gap-3 md:grid-cols-3">
