@@ -3,11 +3,13 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAdminUser
 from django.db.models import Count, Q
 from django.utils import timezone
+from django.shortcuts import get_object_or_404
 from datetime import timedelta
 
-from .models import Exercise
+from .models import Exercise, ExerciseSubstitution
 from .serializers import ExerciseSerializer
 from accounts.permissions import IsAdminOrStaff
 
@@ -509,10 +511,73 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
-
-
-
+    
+    @action(detail=True, methods=['post'], url_path='add_substitute')
+    def add_substitute(self, request, pk=None):
+        """Añadir un ejercicio sustituto"""
+        exercise = self.get_object()
+        substitute_id = request.data.get('substitute_id')
+        priority = request.data.get('priority', 1)
+        notes = request.data.get('notes', '')
+        
+        if not substitute_id:
+            return Response({'error': 'substitute_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        substitute = get_object_or_404(Exercise, id=substitute_id)
+        
+        if substitute.id == exercise.id:
+            return Response({'error': 'Un ejercicio no puede ser sustituto de sí mismo'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        sub, created = ExerciseSubstitution.objects.get_or_create(
+            exercise=exercise,
+            substitute=substitute,
+            defaults={'priority': priority, 'notes': notes}
+        )
+        
+        if not created:
+            sub.priority = priority
+            sub.notes = notes
+            sub.save()
+        
+        return Response({
+            'id': sub.id,
+            'substitute_id': str(substitute.id),
+            'substitute_name': substitute.name,
+            'priority': sub.priority,
+            'notes': sub.notes,
+            'created': created
+        })
+    
+    @action(detail=True, methods=['post'], url_path='remove_substitute')
+    def remove_substitute(self, request, pk=None):
+        """Eliminar un ejercicio sustituto"""
+        exercise = self.get_object()
+        substitute_id = request.data.get('substitute_id')
+        
+        if not substitute_id:
+            return Response({'error': 'substitute_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        deleted, _ = ExerciseSubstitution.objects.filter(
+            exercise=exercise,
+            substitute_id=substitute_id
+        ).delete()
+        
+        return Response({'removed': deleted > 0})
+    
+    @action(detail=True, methods=['get'], url_path='substitutes')
+    def list_substitutes(self, request, pk=None):
+        """Listar sustitutos de un ejercicio"""
+        exercise = self.get_object()
+        subs = exercise.substitutions.all().select_related('substitute').order_by('priority')
+        
+        return Response([{
+            'id': s.id,
+            'substitute_id': str(s.substitute.id),
+            'substitute_name': s.substitute.name,
+            'category': s.substitute.category,
+            'priority': s.priority,
+            'notes': s.notes
+        } for s in subs])
 
 
 
