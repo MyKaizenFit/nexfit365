@@ -95,9 +95,9 @@ export function WorkoutPlanManagement() {
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
+   const [showImportDialog, setShowImportDialog] = useState(false)
   
   // Estados para flujo de dos pasos (similar a menu-plan-management-v2)
   const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
@@ -496,8 +496,13 @@ export function WorkoutPlanManagement() {
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    
-    setImportFile(file);
+     setImportFile(file);
+   };
+
+   const handleImport = async () => {
+     const file = importFile;
+     if (!file) return;
+   
     setImporting(true);
     
     try {
@@ -534,7 +539,7 @@ export function WorkoutPlanManagement() {
       });
       
       setImportFile(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+       setShowImportDialog(false);
       refetch();
     } catch (error) {
       toast({ 
@@ -1003,54 +1008,99 @@ export function WorkoutPlanManagement() {
 
   return (
     <div className="space-y-6">
+       {/* Card de Exportación/Importación */}
+       <Card>
+         <CardHeader>
+           <div className="flex items-center justify-between">
+             <div>
+               <CardTitle>📁 Importar/Exportar Planes</CardTitle>
+               <CardDescription>Gestiona tus planes de entrenamiento con archivos CSV o Excel</CardDescription>
+             </div>
+             <div className="flex gap-2">
+               <Button 
+                 variant="outline" 
+                 onClick={handleExportCSV}
+                 className="gap-2"
+               >
+                 <Download className="h-4 w-4" />
+                 Exportar CSV
+               </Button>
+               <Button 
+                 variant="outline" 
+                 onClick={handleExportExcel}
+                 className="gap-2"
+               >
+                 <Download className="h-4 w-4" />
+                 Exportar Excel
+               </Button>
+               <Button 
+                 onClick={() => setShowImportDialog(true)}
+                 className="bg-blue-600 hover:bg-blue-700 gap-2"
+               >
+                 <Upload className="h-4 w-4" />
+                 Importar CSV/Excel
+               </Button>
+             </div>
+           </div>
+         </CardHeader>
+       </Card>
+
+       {/* Dialog de importación mejorado */}
+       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+         <DialogContent className="max-w-md">
+           <DialogHeader>
+             <DialogTitle>📥 Importar Planes de Entrenamiento</DialogTitle>
+             <DialogDescription>
+               Sube un archivo CSV o Excel para importar o actualizar planes. Los planes existentes se actualizarán si el nombre coincide.
+             </DialogDescription>
+           </DialogHeader>
+           <div className="space-y-4">
+             <div>
+               <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
+               <Input
+                 type="file"
+                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                 onChange={e => setImportFile(e.target.files?.[0] || null)}
+                 disabled={importing}
+                 className="mt-2"
+               />
+               {importFile && (
+                 <div className="text-sm text-green-600 mt-2">
+                   ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                 </div>
+               )}
+             </div>
+             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+               <p className="text-xs text-blue-700">
+                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, dificultad, duración en semanas y rol mínimo requerido.
+               </p>
+             </div>
+           </div>
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
+             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
+               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+               {importing ? 'Importando...' : 'Importar'}
+             </Button>
+           </DialogFooter>
+         </DialogContent>
+       </Dialog>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Gestión de Planes de Entrenamiento</h2>
+           <h2 className="text-3xl font-bold tracking-tight">Gestión de Planes de Entrenamiento</h2>
           <p className="text-muted-foreground">
             Administra las rutinas de entrenamiento disponibles para los usuarios
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleExportCSV}
-            variant="outline"
-            className="border-purple-200 hover:bg-purple-50"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            CSV
-          </Button>
-          <Button
-            onClick={handleExportExcel}
-            variant="outline"
-            className="border-purple-200 hover:bg-purple-50"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Excel
-          </Button>
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            variant="outline"
-            className="border-purple-200 hover:bg-purple-50"
-          >
-            <Upload className="h-4 w-4 mr-2" />
-            Importar
-          </Button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.xlsx,.xls"
-            onChange={handleImportFile}
-            className="hidden"
-          />
-          <Button
-            onClick={() => setShowCreateDialog(true)}
-            className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Nuevo Plan
-          </Button>
-        </div>
+         <Button
+           onClick={() => setShowCreateDialog(true)}
+           className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+         >
+           <Plus className="h-4 w-4 mr-2" />
+           Nuevo Plan
+         </Button>
       </div>
 
       {/* Filters and Search */}
