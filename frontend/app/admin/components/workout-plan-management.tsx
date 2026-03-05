@@ -1951,120 +1951,198 @@ export function WorkoutPlanManagement() {
           resetForm()
         }
       }}>
-        <DialogContent className={createStep === "basic" ? "max-w-2xl" : "max-w-6xl max-h-[90vh] overflow-y-auto"}>
+        <DialogContent className={createStep === "basic" ? "max-w-4xl max-h-[90vh] overflow-y-auto" : "max-w-6xl max-h-[90vh] overflow-y-auto"}>
           <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <DialogTitle>
-                  {createStep === "basic" ? "Crear Nuevo Plan - Información Básica" : "Crear Nuevo Plan - Configurar Ejercicios"}
-                </DialogTitle>
-                <DialogDescription>
-                  {createStep === "basic" 
-                    ? "Paso 1 de 2: Configura los detalles del plan"
-                    : "Paso 2 de 2: Agrega ejercicios para cada día"}
-                </DialogDescription>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <DialogTitle>🏋️ Nuevo Plan de Entrenamiento</DialogTitle>
+                  <DialogDescription>
+                    Crea tu plan de forma sencilla con un flujo visual por pasos.
+                  </DialogDescription>
+                </div>
+                <Badge variant="outline" className="text-sm">
+                  {createStep === "basic" ? "Paso 1/2" : "Paso 2/2"}
+                </Badge>
               </div>
-              <Badge variant="outline" className="text-sm">
-                {createStep === "basic" ? "Paso 1/2" : "Paso 2/2"}
-              </Badge>
+
+              <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+                <button
+                  type="button"
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    createStep === "basic"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={() => setCreateStep("basic")}
+                >
+                  📝 Básicos
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
+                    createStep === "exercises"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground"
+                  } ${!workoutEditorPlanId ? "opacity-60 cursor-not-allowed" : ""}`}
+                  onClick={() => {
+                    if (workoutEditorPlanId) setCreateStep("exercises")
+                  }}
+                >
+                  💪 Ejercicios
+                </button>
+              </div>
             </div>
           </DialogHeader>
           
           {createStep === "basic" ? (
             // STEP 1: Información Básica
             <div className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                  <FormLabel>Nombre del Plan *</FormLabel>
-                  <Input
-                    placeholder="Ej: Rutina de Fuerza para Principiantes"
-                    value={formData.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
-                  />
+              <div className="rounded-xl border bg-card p-4 space-y-4">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <FormLabel>Nombre del Plan *</FormLabel>
+                    <Input
+                      placeholder="Ej: Rutina de Fuerza para Principiantes"
+                      value={formData.name}
+                      onChange={(e) => handleFormChange('name', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>Dificultad *</FormLabel>
+                    <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona la dificultad" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="beginner">Principiante</SelectItem>
+                        <SelectItem value="intermediate">Intermedio</SelectItem>
+                        <SelectItem value="advanced">Avanzado</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
                 <div>
-                  <FormLabel>Dificultad *</FormLabel>
-                  <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona la dificultad" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="beginner">Principiante</SelectItem>
-                      <SelectItem value="intermediate">Intermedio</SelectItem>
-                      <SelectItem value="advanced">Avanzado</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormLabel>Descripción *</FormLabel>
+                  <Textarea
+                    placeholder="Describe el objetivo y características del plan..."
+                    value={formData.description}
+                    onChange={(e) => handleFormChange('description', e.target.value)}
+                    rows={3}
+                  />
                 </div>
               </div>
               
-              <div>
-                <FormLabel>Descripción *</FormLabel>
-                <Textarea
-                  placeholder="Describe el objetivo y características del plan..."
-                  value={formData.description}
-                  onChange={(e) => handleFormChange('description', e.target.value)}
-                  rows={3}
-                />
-              </div>
-              
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <FormLabel>Duración (semanas) *</FormLabel>
-                  <Input
-                    type="number"
-                    placeholder="4"
-                    value={formData.duration_weeks}
-                    onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
-                  />
+              <div className="rounded-xl border bg-card p-4 space-y-4">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div>
+                    <FormLabel>Duración (semanas) *</FormLabel>
+                    <Input
+                      type="number"
+                      placeholder="4"
+                      value={formData.duration_weeks}
+                      onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>Duración Sesión (min)</FormLabel>
+                    <Input
+                      type="number"
+                      placeholder="60"
+                      value={formData.estimated_duration_minutes}
+                      onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
+                    />
+                  </div>
+                  <div>
+                    <FormLabel>Rol Mínimo Requerido *</FormLabel>
+                    <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona el rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="basic">Básico</SelectItem>
+                        <SelectItem value="pro">Pro</SelectItem>
+                        <SelectItem value="premium">Premium</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+
                 <div>
-                  <FormLabel>Duración Sesión (min)</FormLabel>
-                  <Input
-                    type="number"
-                    placeholder="60"
-                    value={formData.estimated_duration_minutes}
-                    onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
-                  />
-                </div>
-                <div>
-                  <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                  <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
+                  <FormLabel>Asignar a Usuario (opcional)</FormLabel>
+                  <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Selecciona el rol" />
+                      <SelectValue placeholder="Plantilla (sin usuario)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="basic">Básico</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
+                      {usersList.map((u) => (
+                        <SelectItem key={u.id} value={u.id}>
+                          {u.email}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
-              <div>
-                <FormLabel>Asignar a Usuario (opcional)</FormLabel>
-                <Select value={formData.user || 'none'} onValueChange={(value) => handleFormChange('user', value === 'none' ? '' : value)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Plantilla (sin usuario)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Plantilla (sin usuario)</SelectItem>
-                    {usersList.map((u) => (
-                      <SelectItem key={u.id} value={u.id}>
-                        {u.email}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <Card className="border-orange-200 bg-orange-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-lg">📅</div>
+                    <div className="text-xs text-muted-foreground">Semanas</div>
+                    <div className="text-base font-bold">{formData.duration_weeks || 0}</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-lg">⏱️</div>
+                    <div className="text-xs text-muted-foreground">Sesión</div>
+                    <div className="text-base font-bold">{formData.estimated_duration_minutes || 0}m</div>
+                  </CardContent>
+                </Card>
+                <Card className="border-emerald-200 bg-emerald-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-lg">🎯</div>
+                    <div className="text-xs text-muted-foreground">Dificultad</div>
+                    <div className="text-base font-bold">
+                      {formData.difficulty === "beginner" ? "Inicio" : formData.difficulty === "intermediate" ? "Medio" : "Avanz."}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="border-purple-200 bg-purple-50">
+                  <CardContent className="p-3 text-center">
+                    <div className="text-lg">👤</div>
+                    <div className="text-xs text-muted-foreground">Tipo</div>
+                    <div className="text-base font-bold">{formData.user ? "Usuario" : "Plantilla"}</div>
+                  </CardContent>
+                </Card>
               </div>
             </div>
           ) : (
             // STEP 2: Configuración de Ejercicios
             <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
-                <p className="font-medium">💡 Configura los ejercicios por día</p>
-                <p className="text-xs mt-1">Ordena los ejercicios con las flechas arriba/abajo. Los días sin ejercicios se marcarán automáticamente como descanso.</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-semibold text-blue-800">📆 Semana completa</p>
+                    <p className="text-xs text-blue-700">Configura Lunes a Domingo</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-emerald-200 bg-emerald-50">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-semibold text-emerald-800">🔀 Orden visual</p>
+                    <p className="text-xs text-emerald-700">Reordena ejercicios con flechas</p>
+                  </CardContent>
+                </Card>
+                <Card className="border-violet-200 bg-violet-50">
+                  <CardContent className="p-3">
+                    <p className="text-sm font-semibold text-violet-800">💤 Descanso automático</p>
+                    <p className="text-xs text-violet-700">Días vacíos se guardan como descanso</p>
+                  </CardContent>
+                </Card>
               </div>
 
               <WorkoutTemplatePlanEditor
