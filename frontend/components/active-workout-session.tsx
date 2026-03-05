@@ -711,6 +711,18 @@ export function ActiveWorkoutSession({
                                 {restSeconds}s descanso
                               </span>
                             </div>
+                            {Array.isArray(exercise.substitutes) && exercise.substitutes.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-xs text-muted-foreground mb-1">Ejercicios de respaldo:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {exercise.substitutes.map((sub: any) => (
+                                    <Badge key={sub.id} variant="secondary" className="text-[10px]">
+                                      {sub.name}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Botón de video */}
