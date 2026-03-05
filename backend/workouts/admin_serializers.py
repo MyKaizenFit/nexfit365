@@ -79,6 +79,7 @@ class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSe
     user_email = serializers.SerializerMethodField()
     created_by_email = serializers.SerializerMethodField()
     days_count = serializers.SerializerMethodField()
+    training_days = serializers.SerializerMethodField()
 
     class Meta:
         model = WorkoutProgram
@@ -100,6 +101,7 @@ class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSe
             "user_email",
             "created_by_email",
             "days_count",
+            "training_days",
             "created_at",
             "updated_at",
         ]
@@ -119,5 +121,11 @@ class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSe
     def get_days_count(self, obj):
         try:
             return obj.days.count()
+        except Exception:
+            return 0
+
+    def get_training_days(self, obj):
+        try:
+            return sum(1 for day in obj.days.all() if not day.is_rest_day)
         except Exception:
             return 0
