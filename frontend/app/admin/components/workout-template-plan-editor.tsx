@@ -209,8 +209,8 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           is_rest_day: d.is_rest_day || false,
           notes: fixEncoding(d.notes || ""),
           exercises: exercises.map((ex: any) => ({
-            exercise_id: String(ex.exercise_id || ex.id || ""),
-            series: ex.series != null ? toNumber(ex.series) : undefined,
+            exercise_id: String(ex.exercise_id || ex.exercise || ex.id || ""),
+            series: ex.series != null ? toNumber(ex.series) : (ex.sets != null ? toNumber(ex.sets) : undefined),
             reps: ex.reps ? String(ex.reps) : undefined,
             rest_seconds: ex.rest_seconds != null ? toNumber(ex.rest_seconds) : undefined,
             notes: ex.notes ? fixEncoding(String(ex.notes)) : undefined,
@@ -364,13 +364,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           day_name: dayName,
           is_rest_day: hasExercises ? false : true,
           notes: day?.notes || "",
-          exercises: exercises.map((e) => ({
-            exercise_id: e.exercise_id,
-            series: e.series != null ? toNumber(e.series) : null,
-            reps: e.reps || null,
-            rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : null,
-            notes: e.notes || null,
-          })),
+          exercises: exercises
+            .filter((e) => e.exercise_id)
+            .map((e) => ({
+              exercise_id: e.exercise_id,
+              sets: e.series != null ? toNumber(e.series) : 3,
+              reps: (e.reps || "10-12").toString(),
+              rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : 60,
+              notes: e.notes || "",
+            })),
         }
       })
 
