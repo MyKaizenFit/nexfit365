@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown } from "lucide-react"
+import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 
@@ -26,6 +26,7 @@ export interface Exercise {
   category?: string
   muscle_groups?: string[]
   description?: string
+  substitutes?: ExerciseSubstituteItem[]
 }
 
 interface WorkoutDayDraft {
@@ -629,14 +630,22 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                       <div className="space-y-3">
                         {day.exercises.map((exercise, idx) => {
                           const exerciseData = exercisesById.get(String(exercise.exercise_id))
+                          const exerciseSubstitutes = exerciseData?.substitutes || []
+                          const hasSubstitutes = exerciseSubstitutes.length > 0
                           return (
-                            <Card key={idx} className="border">
+                            <Card key={idx} className={hasSubstitutes ? "border-2 border-amber-200 bg-amber-50/30" : "border"}>
                               <CardContent className="p-4">
                                 <div className="flex items-start justify-between gap-3 mb-3">
                                   <div className="flex-1">
                                     <div className="font-medium flex items-center gap-2">
                                       <Badge variant="outline" className="text-[10px]">#{idx + 1}</Badge>
                                       {exerciseData ? fixEncoding(exerciseData.name) : `Ejercicio #${String(exercise.exercise_id)}`}
+                                      {hasSubstitutes && (
+                                        <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] px-1.5 py-0.5">
+                                          <Shield className="h-3 w-3 mr-1" />
+                                          {exerciseSubstitutes.length} respaldo{exerciseSubstitutes.length > 1 ? 's' : ''}
+                                        </Badge>
+                                      )}
                                     </div>
                                     {exerciseData && (
                                       <div className="text-xs text-muted-foreground mt-1">
@@ -647,12 +656,13 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Button
-                                      variant="outline"
+                                      variant={hasSubstitutes ? "default" : "outline"}
                                       size="sm"
                                       onClick={() => openSubstitutesDialog(exercise.exercise_id)}
-                                      className="h-8 px-2 text-xs"
+                                      className={hasSubstitutes ? "h-8 px-2 text-xs bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white" : "h-8 px-2 text-xs"}
                                       title="Asignar ejercicios de respaldo"
                                     >
+                                      <Shield className="h-3 w-3 mr-1" />
                                       Respaldo
                                     </Button>
                                     <Button
@@ -719,6 +729,30 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                     />
                                   </div>
                                 </div>
+
+                                {/* Mostrar respaldos asignados */}
+                                {hasSubstitutes && (
+                                  <div className="mt-3 pt-3 border-t border-amber-200">
+                                    <Label className="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                                      <Shield className="h-3 w-3" />
+                                      Ejercicios de respaldo disponibles:
+                                    </Label>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      {exerciseSubstitutes.map((sub: ExerciseSubstituteItem, subIdx: number) => (
+                                        <Badge
+                                          key={subIdx}
+                                          variant="secondary"
+                                          className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
+                                        >
+                                          {fixEncoding(sub.substitute_name)}
+                                          {sub.notes && (
+                                            <span className="ml-1 text-[10px] opacity-70">({fixEncoding(sub.notes)})</span>
+                                          )}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
 
                                 {exercise.notes && (
                                   <div className="mt-2 text-xs text-muted-foreground">
@@ -882,37 +916,58 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       <Dialog open={showSubstitutesDialog} onOpenChange={setShowSubstitutesDialog}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Ejercicios de respaldo</DialogTitle>
-            <DialogDescription>
-              Define alternativas para <strong>{substitutesExerciseName}</strong> cuando el usuario no pueda realizar el ejercicio principal.
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-600" />
+              Ejercicios de respaldo
+            </DialogTitle>
+            <DialogDescription className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-2">
+              <div className="flex items-start gap-2">
+                <Shield className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="text-sm">
+                  Define alternativas para <strong className="text-amber-900">{substitutesExerciseName}</strong> en esta rutina. 
+                  Los usuarios podrán ver y elegir estos ejercicios de respaldo si no pueden realizar el ejercicio principal.
+                </div>
+              </div>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
-              <Label className="text-xs">Respaldos actuales</Label>
+              <Label className="text-xs font-semibold flex items-center gap-1">
+                <Shield className="h-3 w-3" />
+                Respaldos actuales
+              </Label>
               {loadingSubstitutes ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Cargando respaldos...
                 </div>
               ) : substitutes.length === 0 ? (
-                <div className="text-sm text-muted-foreground mt-2">No hay respaldos asignados.</div>
+                <div className="text-sm text-muted-foreground mt-2 bg-gray-50 rounded-md p-3 text-center border border-dashed">
+                  No hay respaldos asignados. Agrega ejercicios alternativos abajo.
+                </div>
               ) : (
                 <div className="space-y-2 mt-2">
                   {substitutes.map((s) => (
-                    <div key={s.id} className="flex items-center justify-between gap-2 border rounded-md p-2">
-                      <div className="text-sm">
-                        <div className="font-medium">{fixEncoding(s.substitute_name)}</div>
-                        {s.category && <div className="text-xs text-muted-foreground">{fixEncoding(s.category)}</div>}
+                    <div key={s.id} className="flex items-center justify-between gap-2 border-2 border-amber-200 bg-amber-50/50 rounded-md p-3">
+                      <div className="text-sm flex-1">
+                        <div className="font-medium flex items-center gap-2">
+                          <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px]">
+                            Respaldo #{substitutes.indexOf(s) + 1}
+                          </Badge>
+                          {fixEncoding(s.substitute_name)}
+                        </div>
+                        {s.category && <div className="text-xs text-muted-foreground mt-1">{fixEncoding(s.category)}</div>}
+                        {s.notes && <div className="text-xs text-amber-700 mt-1 italic">{fixEncoding(s.notes)}</div>}
                       </div>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleRemoveSubstitute(s.substitute_id)}
                         title="Eliminar respaldo"
+                        className="h-8 w-8 hover:bg-red-100"
                       >
-                        <Trash2 className="h-4 w-4 text-red-600" />
+                        <X className="h-4 w-4 text-red-600" />
                       </Button>
                     </div>
                   ))}
@@ -920,8 +975,8 @@ export const WorkoutTemplatePlanEditor = forwardRef<
               )}
             </div>
 
-            <div>
-              <Label className="text-xs">Agregar respaldo</Label>
+            <div className="border-t pt-4">
+              <Label className="text-xs font-semibold">Agregar nuevo respaldo</Label>
               <Input
                 className="mt-2"
                 placeholder="Buscar ejercicio alternativo..."
