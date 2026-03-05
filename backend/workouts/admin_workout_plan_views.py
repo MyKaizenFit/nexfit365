@@ -19,7 +19,8 @@ from .models import WorkoutProgram, Exercise
 class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
     """ViewSet para export/import de planes de entrenamiento"""
     permission_classes = [IsAdminUser]
-
+    queryset = WorkoutProgram.objects.all()  # Required for router registration
+    
     @action(detail=False, methods=['get'])
     def export_csv(self, request):
         """Exporta todos los planes de entrenamiento a CSV"""
