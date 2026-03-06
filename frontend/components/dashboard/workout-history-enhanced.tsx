@@ -93,6 +93,31 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'all'>('month')
 
+  // Función auxiliar para extraer ejercicios de un log (soporta ambos formatos)
+  const getExercisesFromLog = (log: any) => {
+    // Caso 1: log_exercises (WorkoutLogExercise con WorkoutLogSet)
+    if (log.log_exercises && log.log_exercises.length > 0) {
+      return log.log_exercises.map((logEx: any) => ({
+        exercise_id: logEx.exercise || logEx.id,
+        exercise_name: logEx.exercise_name,
+        sets: (logEx.sets || []).map((s: any) => ({
+          completed: s.completed !== false,
+          weight: s.weight,
+          reps: s.reps,
+          set_number: s.set_number,
+          duration_seconds: s.duration_seconds
+        }))
+      }))
+    }
+    
+    // Caso 2: exercises_data (snapshot JSON - entrenamientos desde la app)
+    if (log.exercises_data && log.exercises_data.length > 0) {
+      return log.exercises_data
+    }
+    
+    return []
+  }
+
   // Filtrar logs completados y ordenar por fecha
   const completedLogs = useMemo(() => {
     const logs = workoutLogs
@@ -119,8 +144,8 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     const stats: Record<string, ExerciseStats> = {}
 
     completedLogs.forEach(log => {
-      // Usar exercises_data si está disponible
-      const exercisesData = (log as any).exercises_data || []
+      // Obtener ejercicios usando la función auxiliar (soporta ambos formatos)
+      const exercisesData = getExercisesFromLog(log)
       
       if (exercisesData.length === 0) {
         return
@@ -184,7 +209,8 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
 
     completedLogs.forEach(log => {
       const date = log.date
-      const exercisesData = (log as any).exercises_data || []
+      // Obtener ejercicios usando la función auxiliar (soporta ambos formatos)
+      const exercisesData = getExercisesFromLog(log)
       
       let dayTonnage = 0
       let exerciseCount = 0
