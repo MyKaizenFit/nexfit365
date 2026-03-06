@@ -308,7 +308,7 @@ export function ActiveWorkoutSession({
     } catch {
       setSubstituteSelections(initialSubstituteSelections || {})
     }
-  }, [isOpen, substituteStorageKey, initialSubstituteSelections])
+  }, [isOpen, substituteStorageKey])
 
   const persistSubstituteSelections = useCallback((nextState: Record<string, any>) => {
     setSubstituteSelections(nextState)
@@ -668,6 +668,9 @@ export function ActiveWorkoutSession({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+        <DialogDescription className="sr-only">
+          Sesión de entrenamiento activo - completa los ejercicios y guarda tu progreso
+        </DialogDescription>
         {/* Header con temporizador */}
         <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-t-lg">
           <div className="flex items-center justify-between">
