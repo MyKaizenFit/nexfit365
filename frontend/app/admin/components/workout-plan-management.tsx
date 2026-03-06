@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
-import { authenticatedFetch, getAuthHeaders } from "@/lib/api"
+import { authenticatedFetch } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -471,14 +471,15 @@ export function WorkoutPlanManagement() {
   // --- Exportación CSV y Excel ---
   const handleExportCSV = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/workouts/export_csv/`;
-      const headers = await getAuthHeaders();
-      const response = await fetch(url, {
+      const response = await authenticatedFetch('admin/workouts/workouts/export_csv/', {
         method: 'GET',
-        headers,
       });
-      if (!response.ok) throw new Error('Error al exportar CSV');
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al exportar CSV');
+      }
+
       const blob = await response.blob();
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
@@ -488,20 +489,21 @@ export function WorkoutPlanManagement() {
       document.body.removeChild(link);
       toast({ title: '✅ Exportación CSV', description: 'Archivo descargado correctamente.' });
     } catch (error) {
-      toast({ title: '❌ Error', description: 'No se pudo exportar el CSV', variant: 'destructive' });
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo exportar el CSV', variant: 'destructive' });
     }
   };
 
   const handleExportExcel = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/api/admin/workouts/workouts/export_excel/`;
-      const headers = await getAuthHeaders();
-      const response = await fetch(url, {
+      const response = await authenticatedFetch('admin/workouts/workouts/export_excel/', {
         method: 'GET',
-        headers,
       });
-      if (!response.ok) throw new Error('Error al exportar Excel');
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al exportar Excel');
+      }
+
       const blob = await response.blob();
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
@@ -511,7 +513,7 @@ export function WorkoutPlanManagement() {
       document.body.removeChild(link);
       toast({ title: '✅ Exportación Excel', description: 'Archivo descargado correctamente.' });
     } catch (error) {
-      toast({ title: '❌ Error', description: 'No se pudo exportar el Excel', variant: 'destructive' });
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo exportar el Excel', variant: 'destructive' });
     }
   };
 
@@ -528,20 +530,16 @@ export function WorkoutPlanManagement() {
     setImporting(true);
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      let endpoint = '/api/admin/workouts/workouts/import_csv/';
-      if (file.name.endsWith('.xlsx') || file.name.endsWith('.xls')) {
-        endpoint = '/api/admin/workouts/workouts/import_excel/';
-      }
-      
-      const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
+      const endpoint = (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))
+        ? 'admin/workouts/workouts/import_excel/'
+        : 'admin/workouts/workouts/import_csv/';
+
       const formData = new FormData();
       formData.append('file', file);
-      
-      const headers = await getAuthHeaders();
-      const response = await fetch(url, {
+
+      // No enviar Content-Type manualmente: el navegador añade el boundary multipart
+      const response = await authenticatedFetch(endpoint, {
         method: 'POST',
-        headers,
         body: formData,
       });
       
@@ -561,7 +559,7 @@ export function WorkoutPlanManagement() {
       });
       
       setImportFile(null);
-       setShowImportDialog(false);
+      setShowImportDialog(false);
       refetch();
     } catch (error) {
       toast({ 
