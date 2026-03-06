@@ -819,35 +819,35 @@ export function ActiveWorkoutSession({
                                 </p>
                               </div>
                             )}
-                          </div>
 
-                          {/* Botones de video */}
-                          <div className="flex gap-2 flex-wrap mt-2">
+                            {/* Botones de video - VISIBLE Y ACCESIBLE */}
                             {(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url) && (
-                              <ExerciseVideoPlayer exercise={mainExercise}>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  className={cn(
-                                    'flex items-center gap-1',
-                                    isCompleted
-                                      ? 'bg-green-50 border-green-300 hover:bg-green-100 text-green-700'
-                                      : ''
-                                  )}
-                                >
-                                  {isCompleted ? (
-                                    <>
-                                      <Play className="h-4 w-4" />
-                                      Ver cómo lo hiciste
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Video className="h-4 w-4" />
-                                      Ver técnica
-                                    </>
-                                  )}
-                                </Button>
-                              </ExerciseVideoPlayer>
+                              <div className="flex gap-2 flex-wrap mt-4">
+                                <ExerciseVideoPlayer exercise={mainExercise}>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className={cn(
+                                      'flex items-center gap-1',
+                                      isCompleted
+                                        ? 'bg-green-50 border-green-300 hover:bg-green-100 text-green-700'
+                                        : 'bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-700'
+                                    )}
+                                  >
+                                    {isCompleted ? (
+                                      <>
+                                        <Play className="h-4 w-4" />
+                                        Ver cómo lo hiciste
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Video className="h-4 w-4" />
+                                        Ver técnica
+                                      </>
+                                    )}
+                                  </Button>
+                                </ExerciseVideoPlayer>
+                              </div>
                             )}
                           </div>
                         </div>
