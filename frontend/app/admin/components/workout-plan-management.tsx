@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -35,7 +35,10 @@ import {
   ArrowRight,
   Download,
   Upload,
-  Shield
+  Shield,
+  ChevronUp,
+  ChevronDown,
+  X
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -96,6 +99,7 @@ export function WorkoutPlanManagement() {
   const [planTypeFilter, setPlanTypeFilter] = useState<string>("all") // all | templates | users
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
+  const [isViewMode, setIsViewMode] = useState(false) // Modo solo lectura
   const [isLoading, setIsLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
@@ -107,6 +111,14 @@ export function WorkoutPlanManagement() {
   const [workoutEditorPlanId, setWorkoutEditorPlanId] = useState<string | null>(null)
 
   const [usersList, setUsersList] = useState<Array<{ id: string; email: string }>>([])
+  
+  // Estados para edición de respaldos en planes existentes
+  const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
+  const [substitutesExerciseId, setSubstitutesExerciseId] = useState<string | null>(null)
+  const [substitutesExerciseName, setSubstitutesExerciseName] = useState("")
+  const [substitutes, setSubstitutes] = useState<any[]>([])
+  const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
+  const [substituteSearch, setSubstituteSearch] = useState("")
   
   // Ordenamiento (cliente - solo para los 50 planes cargados)
   const [sortColumn, setSortColumn] = useState<string>("name")
@@ -564,10 +576,12 @@ export function WorkoutPlanManagement() {
 
   // Funciones para manejar el formulario
   const handleFormChange = (field: string, value: any) => {
+    if (isViewMode) return
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
   const addWorkoutDay = () => {
+    if (isViewMode) return
     const newDayNumber = workoutDays.length + 1
     setWorkoutDays(prev => [...prev, {
       id: Date.now().toString(),
@@ -580,6 +594,7 @@ export function WorkoutPlanManagement() {
   }
 
   const removeWorkoutDay = (dayId: string) => {
+    if (isViewMode) return
     const daysArray = Array.isArray(workoutDays) ? workoutDays : []
     if (daysArray.length > 1) {
       setWorkoutDays(prev => {
@@ -590,6 +605,7 @@ export function WorkoutPlanManagement() {
   }
 
   const updateWorkoutDay = (dayId: string, field: string, value: any) => {
+    if (isViewMode) return
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => 
@@ -599,6 +615,7 @@ export function WorkoutPlanManagement() {
   }
 
   const addExerciseToDay = (dayId: string, exerciseId: string) => {
+    if (isViewMode) return
     const exercisesArray = Array.isArray(exercises) ? exercises : []
     const exercise = exercisesArray.find(e => String(e.id) === String(exerciseId))
     if (!exercise) return
@@ -634,6 +651,7 @@ export function WorkoutPlanManagement() {
 
   // Funciones para el selector múltiple de ejercicios
   const toggleExerciseSelector = (dayId: string) => {
+    if (isViewMode) return
     setShowExerciseSelector(prev => ({
       ...prev,
       [dayId]: !prev[dayId]
@@ -641,6 +659,7 @@ export function WorkoutPlanManagement() {
   }
 
   const toggleExerciseSelection = (dayId: string, exerciseId: string) => {
+    if (isViewMode) return
     setSelectedExercisesForDay(prev => {
       const current = Array.isArray(prev[dayId]) ? prev[dayId] : []
       const isSelected = Array.isArray(current) && current.includes(exerciseId)
@@ -655,6 +674,7 @@ export function WorkoutPlanManagement() {
   }
 
   const addSelectedExercisesToDay = (dayId: string) => {
+    if (isViewMode) return
     const selectedIds = Array.isArray(selectedExercisesForDay[dayId]) ? selectedExercisesForDay[dayId] : []
     
     selectedIds.forEach(exerciseId => {
@@ -681,6 +701,7 @@ export function WorkoutPlanManagement() {
   }
 
   const clearExerciseSelection = (dayId: string) => {
+    if (isViewMode) return
     setSelectedExercisesForDay(prev => ({
       ...prev,
       [dayId]: []
@@ -758,6 +779,7 @@ export function WorkoutPlanManagement() {
 
   // Funciones para reordenar días
   const moveDayUp = (dayIndex: number) => {
+    if (isViewMode) return
     if (dayIndex > 0) {
       setWorkoutDays(prev => {
         const newDays = [...prev]
@@ -775,6 +797,7 @@ export function WorkoutPlanManagement() {
   }
 
   const moveDayDown = (dayIndex: number) => {
+    if (isViewMode) return
     if (dayIndex < workoutDays.length - 1) {
       setWorkoutDays(prev => {
         const newDays = [...prev]
@@ -792,6 +815,7 @@ export function WorkoutPlanManagement() {
   }
 
   const removeExerciseFromDay = (dayId: string, exerciseIndex: number) => {
+    if (isViewMode) return
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => {
@@ -806,6 +830,7 @@ export function WorkoutPlanManagement() {
   }
 
   const updateExerciseInDay = (dayId: string, exerciseIndex: number, field: string, value: any) => {
+    if (isViewMode) return
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => {
@@ -825,6 +850,14 @@ export function WorkoutPlanManagement() {
   }
 
   const handleSubmitPlan = async (configureExercises: boolean = false) => {
+    if (isViewMode) {
+      toast({
+        title: "ℹ️ Modo vista",
+        description: "Este plan está abierto en solo lectura",
+      })
+      return
+    }
+
     try {
       setIsLoading(true)
       
@@ -1107,9 +1140,10 @@ export function WorkoutPlanManagement() {
   }
 
   // Función para cargar los detalles completos de un plan y abrir el editor
-  const handleEditPlan = async (planId: string) => {
+  const handleEditPlan = async (planId: string, viewOnly: boolean = false) => {
     try {
       setLoadingDetail(true)
+      setIsViewMode(viewOnly) // Establecer modo vista
       const planDetail = await fetchPlanDetail(planId)
       
       if (planDetail) {
@@ -1185,6 +1219,207 @@ export function WorkoutPlanManagement() {
       setLoadingDetail(false)
     }
   }
+
+  // Funciones para manejar substitutes en planes existentes
+  const openSubstitutesDialog = async (exerciseId: string, exerciseName: string) => {
+    if (isViewMode) return
+    try {
+      setLoadingSubstitutes(true)
+      setSubstitutesExerciseId(exerciseId)
+      setSubstitutesExerciseName(exerciseName)
+      setSubstituteSearch("")
+      
+      // Obtener substitutes existentes del ejercicio en el plan actual
+      const currentExercise = workoutDays
+        .flatMap(day => day.exercises)
+        .find(ex => String(ex.exercise_id) === String(exerciseId))
+      
+      if (currentExercise?.substitutes) {
+        setSubstitutes(currentExercise.substitutes)
+      } else {
+        setSubstitutes([])
+      }
+      
+      setShowSubstitutesDialog(true)
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudieron cargar los substitutes",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingSubstitutes(false)
+    }
+  }
+
+  const handleAddSubstitute = async (substituteId: string) => {
+    try {
+      if (!substitutesExerciseId) return
+
+      // Validar límite de 3 substitutes
+      if (substitutes.length >= 3) {
+        toast({
+          title: "⚠️ Límite alcanzado",
+          description: "Un ejercicio no puede tener más de 3 ejercicios de respaldo",
+          variant: "destructive",
+        })
+        return
+      }
+
+      const substituteExists = substitutes.some((s: any) =>
+        String(s?.substitute_id ?? s?.id) === String(substituteId)
+      )
+      if (substituteExists) return
+
+      const exercisesArray = Array.isArray(exercises) ? exercises : []
+      const substituteExercise = exercisesArray.find((ex) => String(ex.id) === String(substituteId))
+      if (!substituteExercise) {
+        toast({
+          title: "❌ Error",
+          description: "No se encontró el ejercicio de respaldo seleccionado",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Agregar al array local con prioridad
+      const newSubstitute = {
+        id: `sub-${Date.now()}-${substituteId}`,
+        substitute_id: String(substituteExercise.id),
+        substitute_name: substituteExercise.name,
+        category: substituteExercise.category,
+        priority: substitutes.length + 1
+      }
+      
+      const updatedSubstitutes = [...substitutes, newSubstitute]
+      setSubstitutes(updatedSubstitutes)
+      
+      // Actualizar en workoutDays
+      setWorkoutDays(prev => {
+        const prevArray = Array.isArray(prev) ? prev : []
+        return prevArray.map(day => ({
+          ...day,
+          exercises: (day.exercises || []).map(ex =>
+            String(ex.exercise_id) === String(substitutesExerciseId)
+              ? { ...ex, substitutes: updatedSubstitutes }
+              : ex
+          )
+        }))
+      })
+      
+      setSubstituteSearch("")
+      toast({
+        title: "✅ Substituto agregado",
+        description: `Ejercicio de respaldo agregado (${updatedSubstitutes.length}/3)`,
+      })
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudo agregar el substituto",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleRemoveSubstitute = (substituteId: string) => {
+    const updatedSubstitutes = substitutes
+      .filter((s: any) => String(s?.substitute_id ?? s?.id) !== String(substituteId))
+      .map((sub: any, idx: number) => ({
+        ...sub,
+        priority: idx + 1
+      }))
+    setSubstitutes(updatedSubstitutes)
+    
+    // Actualizar en workoutDays
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => ({
+        ...day,
+        exercises: (day.exercises || []).map(ex =>
+            String(ex.exercise_id) === String(substitutesExerciseId)
+            ? { ...ex, substitutes: updatedSubstitutes }
+            : ex
+        )
+      }))
+    })
+    
+    toast({
+      title: "✅ Substituto eliminado",
+      description: `Ejercicio de respaldo removido (${updatedSubstitutes.length}/3)`,
+    })
+  }
+
+  const moveSubstituteUp = (index: number) => {
+    if (index <= 0) return
+    const newSubstitutes = [...substitutes]
+    ;[newSubstitutes[index], newSubstitutes[index - 1]] = [newSubstitutes[index - 1], newSubstitutes[index]]
+    
+    // Actualizar prioridades
+    newSubstitutes.forEach((sub, idx) => {
+      sub.priority = idx + 1
+    })
+    
+    setSubstitutes(newSubstitutes)
+    
+    // Actualizar en workoutDays
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => ({
+        ...day,
+        exercises: (day.exercises || []).map(ex =>
+            String(ex.exercise_id) === String(substitutesExerciseId)
+            ? { ...ex, substitutes: newSubstitutes }
+            : ex
+        )
+      }))
+    })
+  }
+
+  const moveSubstituteDown = (index: number) => {
+    if (index >= substitutes.length - 1) return
+    const newSubstitutes = [...substitutes]
+    ;[newSubstitutes[index], newSubstitutes[index + 1]] = [newSubstitutes[index + 1], newSubstitutes[index]]
+    
+    // Actualizar prioridades
+    newSubstitutes.forEach((sub, idx) => {
+      sub.priority = idx + 1
+    })
+    
+    setSubstitutes(newSubstitutes)
+    
+    // Actualizar en workoutDays
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => ({
+        ...day,
+        exercises: (day.exercises || []).map(ex =>
+            String(ex.exercise_id) === String(substitutesExerciseId)
+            ? { ...ex, substitutes: newSubstitutes }
+            : ex
+        )
+      }))
+    })
+  }
+
+  const availableForSubstitute = useMemo(() => {
+    if (!substitutesExerciseId) return [] as Exercise[]
+
+    const q = substituteSearch.trim().toLowerCase()
+    const currentExerciseId = String(substitutesExerciseId)
+    const usedSubstituteIds = new Set(
+      substitutes.map((s: any) => String(s?.substitute_id ?? s?.id))
+    )
+
+    const exercisesArray = Array.isArray(exercises) ? exercises : []
+    return exercisesArray.filter((ex) => {
+      if (!ex) return false
+      const exId = String(ex.id)
+      if (exId === currentExerciseId) return false
+      if (usedSubstituteIds.has(exId)) return false
+      if (!q) return true
+      return fixEncoding(ex.name || "").toLowerCase().includes(q)
+    })
+  }, [exercises, substitutesExerciseId, substituteSearch, substitutes])
 
   if (loading) {
     return (
@@ -1592,7 +1827,7 @@ export function WorkoutPlanManagement() {
                               <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => handleEditPlan(plan.id)}
+                                onClick={() => handleEditPlan(plan.id, true)}
                                 disabled={loadingDetail}
                               >
                                 {loadingDetail ? (
@@ -1603,7 +1838,7 @@ export function WorkoutPlanManagement() {
                                 Ver Detalles
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleEditPlan(plan.id)}
+                                onClick={() => handleEditPlan(plan.id, false)}
                                 disabled={loadingDetail}
                               >
                                 {loadingDetail ? (
@@ -1840,7 +2075,7 @@ export function WorkoutPlanManagement() {
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              onClick={() => handleEditPlan(plan.id)}
+                              onClick={() => handleEditPlan(plan.id, true)}
                               className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
                               disabled={loadingDetail}
                             >
@@ -1852,7 +2087,7 @@ export function WorkoutPlanManagement() {
                               Ver Detalles
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleEditPlan(plan.id)}
+                              onClick={() => handleEditPlan(plan.id, false)}
                               className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
                               disabled={loadingDetail}
                             >
@@ -2153,8 +2388,12 @@ export function WorkoutPlanManagement() {
                   </div>
                   <div>
                     <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                    <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
-                      <SelectTrigger>
+                      <Select 
+                        value={formData.min_role_required} 
+                        onValueChange={(value) => handleFormChange('min_role_required', value)}
+                        disabled={isViewMode}
+                      >
+                        <SelectTrigger disabled={isViewMode}>
                         <SelectValue placeholder="Selecciona el rol" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2368,13 +2607,18 @@ export function WorkoutPlanManagement() {
       <Dialog open={!!editingPlan} onOpenChange={(open) => {
         if (!open) {
           resetForm()
+          setIsViewMode(false) // Reset view mode
         }
       }}>
         <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Editar Plan de Entrenamiento</DialogTitle>
+            <DialogTitle>
+              {isViewMode ? '👁️ Ver Detalles del Plan' : '✏️ Editar Plan de Entrenamiento'}
+            </DialogTitle>
             <DialogDescription>
-              Modifica la información y ejercicios del plan
+              {isViewMode 
+                ? 'Visualiza la información y ejercicios del plan (solo lectura)' 
+                : 'Modifica la información y ejercicios del plan'}
             </DialogDescription>
           </DialogHeader>
           
@@ -2387,12 +2631,17 @@ export function WorkoutPlanManagement() {
                   placeholder="Ej: Rutina de Fuerza para Principiantes"
                   value={formData.name}
                   onChange={(e) => handleFormChange('name', e.target.value)}
+                  disabled={isViewMode}
                 />
               </div>
               <div>
                 <FormLabel>Dificultad *</FormLabel>
-                <Select value={formData.difficulty} onValueChange={(value) => handleFormChange('difficulty', value)}>
-                  <SelectTrigger>
+                <Select 
+                  value={formData.difficulty} 
+                  onValueChange={(value) => handleFormChange('difficulty', value)}
+                  disabled={isViewMode}
+                >
+                  <SelectTrigger disabled={isViewMode}>
                     <SelectValue placeholder="Selecciona la dificultad" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2411,6 +2660,7 @@ export function WorkoutPlanManagement() {
                 value={formData.description}
                 onChange={(e) => handleFormChange('description', e.target.value)}
                 rows={3}
+                disabled={isViewMode}
               />
             </div>
             
@@ -2422,6 +2672,7 @@ export function WorkoutPlanManagement() {
                   placeholder="4"
                   value={formData.duration_weeks}
                   onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
+                  disabled={isViewMode}
                 />
               </div>
               <div>
@@ -2441,8 +2692,12 @@ export function WorkoutPlanManagement() {
               </div>
               <div>
                 <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                <Select value={formData.min_role_required} onValueChange={(value) => handleFormChange('min_role_required', value)}>
-                  <SelectTrigger>
+                <Select
+                  value={formData.min_role_required}
+                  onValueChange={(value) => handleFormChange('min_role_required', value)}
+                  disabled={isViewMode}
+                >
+                  <SelectTrigger disabled={isViewMode}>
                     <SelectValue placeholder="Selecciona el rol" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2460,6 +2715,7 @@ export function WorkoutPlanManagement() {
                   placeholder="60"
                   value={formData.estimated_duration_minutes}
                   onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
+                   disabled={isViewMode}
                 />
               </div>
             </div>
@@ -2468,15 +2724,17 @@ export function WorkoutPlanManagement() {
             <div>
               <div className="flex items-center justify-between mb-4">
                 <FormLabel className="text-lg font-semibold">Días de Entrenamiento</FormLabel>
-                <Button 
-                  size="sm" 
-                  variant="outline"
-                  onClick={addWorkoutDay}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Día
-                </Button>
+                {!isViewMode && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={addWorkoutDay}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Día
+                  </Button>
+                )}
               </div>
               
               <div className="space-y-4">
@@ -2492,43 +2750,47 @@ export function WorkoutPlanManagement() {
                             value={day.day_name}
                             onChange={(e) => updateWorkoutDay(day.id, 'day_name', e.target.value)}
                             className="font-medium text-lg border-0 bg-transparent p-0 h-auto"
+                            disabled={isViewMode}
                           />
                           <Checkbox
                             checked={day.is_rest_day}
                             onCheckedChange={(checked) => updateWorkoutDay(day.id, 'is_rest_day', checked)}
+                            disabled={isViewMode}
                           />
                           <span className="text-sm text-muted-foreground">Día de descanso</span>
                         </div>
-                        <div className="flex items-center space-x-2">
-                          {/* Botones de reordenar */}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => moveDayUp(dayIndex)}
-                            disabled={dayIndex === 0}
-                            className="h-8 w-8 p-0"
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => moveDayDown(dayIndex)}
-                            disabled={dayIndex === workoutDays.length - 1}
-                            className="h-8 w-8 p-0"
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
-                          {workoutDays.length > 1 && (
+                        {!isViewMode && (
+                          <div className="flex items-center space-x-2">
+                            {/* Botones de reordenar */}
                             <Button
                               size="sm"
-                              variant="destructive"
-                              onClick={() => removeWorkoutDay(day.id)}
+                              variant="ghost"
+                              onClick={() => moveDayUp(dayIndex)}
+                              disabled={dayIndex === 0}
+                              className="h-8 w-8 p-0"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <ArrowUp className="h-4 w-4" />
                             </Button>
-                          )}
-                        </div>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => moveDayDown(dayIndex)}
+                              disabled={dayIndex === workoutDays.length - 1}
+                              className="h-8 w-8 p-0"
+                            >
+                              <ArrowDown className="h-4 w-4" />
+                            </Button>
+                            {workoutDays.length > 1 && (
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => removeWorkoutDay(day.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </CardHeader>
                     
@@ -2542,6 +2804,7 @@ export function WorkoutPlanManagement() {
                               value={day.notes}
                               onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
                               rows={2}
+                              disabled={isViewMode}
                             />
                           </div>
 
@@ -2549,15 +2812,17 @@ export function WorkoutPlanManagement() {
                           <div>
                             <div className="flex items-center justify-between mb-3">
                               <FormLabel>Agregar Ejercicios</FormLabel>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => toggleExerciseSelector(day.id)}
-                                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                              >
-                                <Plus className="h-4 w-4 mr-2" />
-                                {showExerciseSelector[day.id] ? 'Cancelar' : 'Seleccionar Ejercicios'}
-                              </Button>
+                              {!isViewMode && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => toggleExerciseSelector(day.id)}
+                                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                                >
+                                  <Plus className="h-4 w-4 mr-2" />
+                                  {showExerciseSelector[day.id] ? 'Cancelar' : 'Seleccionar Ejercicios'}
+                                </Button>
+                              )}
                             </div>
 
                             {/* Selector múltiple expandible */}
@@ -2757,13 +3022,15 @@ export function WorkoutPlanManagement() {
                                           </div>
                                           <p className="text-sm text-muted-foreground">{displayCategory}</p>
                                         </div>
-                                        <Button
-                                          size="sm"
-                                          variant="destructive"
-                                          onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                        {!isViewMode && (
+                                          <Button
+                                            size="sm"
+                                            variant="destructive"
+                                            onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        )}
                                       </div>
                                       
                                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -2774,6 +3041,7 @@ export function WorkoutPlanManagement() {
                                             value={exercise.sets}
                                             onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'sets', parseInt(e.target.value) || 0)}
                                             className="h-8"
+                                            disabled={isViewMode}
                                           />
                                         </div>
                                         <div>
@@ -2784,6 +3052,7 @@ export function WorkoutPlanManagement() {
                                             value={exercise.reps || ''}
                                             onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
                                             className="h-8"
+                                            disabled={isViewMode}
                                           />
                                         </div>
                                         <div>
@@ -2794,6 +3063,7 @@ export function WorkoutPlanManagement() {
                                             value={exercise.weight || ''}
                                             onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
                                             className="h-8"
+                                            disabled={isViewMode}
                                           />
                                         </div>
                                         <div>
@@ -2803,6 +3073,7 @@ export function WorkoutPlanManagement() {
                                             value={exercise.rest_time || ''}
                                             onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'rest_time', parseInt(e.target.value) || 0)}
                                             className="h-8"
+                                            disabled={isViewMode}
                                           />
                                         </div>
                                       </div>
@@ -2814,36 +3085,53 @@ export function WorkoutPlanManagement() {
                                           value={exercise.notes}
                                           onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'notes', e.target.value)}
                                           className="h-8"
+                                          disabled={isViewMode}
                                         />
                                       </div>
 
                                       {/* Mostrar ejercicios de respaldo */}
-                                      {hasSubstitutes && (
-                                        <div className="mt-4 pt-4 border-t border-amber-200">
+                                      <div className="mt-4 pt-4 border-t border-amber-200">
+                                        <div className="flex items-center justify-between mb-2">
                                           <FormLabel className="text-xs font-semibold text-amber-900 flex items-center gap-1">
                                             <Shield className="h-3.5 w-3.5" />
-                                            Ejercicios de Respaldo ({exerciseSubstitutes.length})
+                                            Ejercicios de Respaldo ({exerciseSubstitutes.length}/3)
                                           </FormLabel>
-                                          <div className="flex flex-wrap gap-2 mt-2">
-                                            {exerciseSubstitutes.map((substitute: any, subIndex: number) => (
+                                          {!isViewMode && (
+                                            <Button
+                                              type="button"
+                                              size="sm"
+                                              variant="outline"
+                                              className="h-6 px-2 text-xs border-amber-300 hover:bg-amber-50"
+                                              onClick={() => openSubstitutesDialog(exercise.exercise_id, exercise.exercise_name || 'Ejercicio')}
+                                            >
+                                              <Edit className="h-3 w-3 mr-1" />
+                                              Editar
+                                            </Button>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                          {exerciseSubstitutes.length > 0 ? (
+                                            exerciseSubstitutes.map((substitute: any, subIndex: number) => (
                                               <Badge
                                                 key={subIndex}
                                                 variant="secondary"
                                                 className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
                                               >
                                                 <Shield className="h-3 w-3 mr-1 inline" />
-                                                {substitute.substitute_name || substitute.name}
+                                                #{subIndex + 1} {substitute.substitute_name || substitute.name}
                                                 {substitute.notes && (
                                                   <span className="ml-1 text-[10px] opacity-70">({substitute.notes})</span>
                                                 )}
                                               </Badge>
-                                            ))}
-                                          </div>
-                                          <p className="text-[10px] text-amber-700 mt-2 italic">
-                                            El usuario puede usar estos ejercicios si no puede realizar el principal.
-                                          </p>
+                                            ))
+                                          ) : (
+                                            <p className="text-[10px] text-gray-500 italic">Sin ejercicios de respaldo configurados</p>
+                                          )}
                                         </div>
-                                      )}
+                                        <p className="text-[10px] text-amber-700 mt-2 italic">
+                                          El usuario puede usar estos ejercicios si no puede realizar el principal.
+                                        </p>
+                                      </div>
                                     </CardContent>
                                   </Card>
                                 )
@@ -2888,23 +3176,199 @@ export function WorkoutPlanManagement() {
           
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>
-              Cancelar
+              {isViewMode ? 'Cerrar' : 'Cancelar'}
             </Button>
-            <Button 
-              onClick={() => handleSubmitPlan()}
-              disabled={!formData.name || !formData.description || isLoading}
-              className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Actualizando...
-                </>
+            {!isViewMode && (
+              <Button 
+                onClick={() => handleSubmitPlan()}
+                disabled={!formData.name || !formData.description || isLoading}
+                className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+              >
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    Actualizar Plan
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para editar substitutes */}
+      <Dialog open={showSubstitutesDialog} onOpenChange={setShowSubstitutesDialog}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-amber-600" />
+              Editar Ejercicios de Respaldo
+            </DialogTitle>
+            <DialogDescription>
+              {substitutesExerciseName && `Para: ${substitutesExerciseName}`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="text-sm font-semibold flex items-center gap-1">
+                <Shield className="h-3.5 w-3.5" />
+                Respaldos actuales ({substitutes.length}/3)
+              </FormLabel>
+
+              {loadingSubstitutes ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Cargando respaldos...
+                </div>
+              ) : substitutes.length > 0 ? (
+                <div className="space-y-2 max-h-60 overflow-y-auto mt-2">
+                  {substitutes.map((substitute: any, idx: number) => (
+                    <div
+                      key={String(substitute?.substitute_id ?? substitute?.id ?? idx)}
+                      className="flex items-center justify-between p-2 bg-amber-50 border border-amber-200 rounded-md"
+                    >
+                      <div className="flex items-center gap-2 flex-1">
+                        <Badge variant="secondary" className="bg-amber-100 text-amber-900">
+                          #{idx + 1}
+                        </Badge>
+                        <div className="text-sm text-gray-700">
+                          {fixEncoding(substitute.substitute_name || substitute.name || "Ejercicio")}
+                          {substitute.category && (
+                            <div className="text-xs text-muted-foreground">
+                              {fixEncoding(substitute.category)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => moveSubstituteUp(idx)}
+                          disabled={idx === 0}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => moveSubstituteDown(idx)}
+                          disabled={idx === substitutes.length - 1}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleRemoveSubstitute(String(substitute?.substitute_id ?? substitute?.id))}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
-                <>
-                  Actualizar Plan
-                </>
+                <div className="text-center py-4 text-gray-500 text-sm mt-2 border border-dashed rounded-md">
+                  Sin ejercicios de respaldo configurados
+                </div>
               )}
+            </div>
+
+            {/* Mensaje si no hay substitutes */}
+            {substitutes.length === 0 && (
+              <div className="text-center py-4 text-gray-500 text-sm">
+                Sin ejercicios de respaldo configurados
+              </div>
+            )}
+
+            {/* Agregar nuevos substitutes (solo si hay espacio) */}
+            {substitutes.length < 3 && (
+              <div className="space-y-2 pt-4 border-t">
+                <FormLabel className="text-sm font-semibold">
+                  Agregar Ejercicio de Respaldo
+                </FormLabel>
+                <Input
+                  type="text"
+                  placeholder="Buscar ejercicio..."
+                  value={substituteSearch}
+                  onChange={(e) => setSubstituteSearch(e.target.value)}
+                  className="text-sm"
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
+                  {availableForSubstitute.map((exerciseOption) => (
+                    <Button
+                      key={String(exerciseOption.id)}
+                      type="button"
+                      variant="outline"
+                      className="justify-between h-auto py-2"
+                      onClick={() => handleAddSubstitute(String(exerciseOption.id))}
+                    >
+                      <div className="text-left">
+                        <div className="text-sm font-medium">{fixEncoding(exerciseOption.name || '')}</div>
+                        {exerciseOption.category && (
+                          <div className="text-xs text-muted-foreground">{fixEncoding(exerciseOption.category)}</div>
+                        )}
+                      </div>
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  ))}
+                </div>
+
+                {availableForSubstitute.length === 0 && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    No hay más ejercicios disponibles con ese filtro.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {substitutes.length >= 3 && (
+              <div className="p-2 bg-amber-50 border border-amber-200 rounded-md">
+                <p className="text-xs text-amber-700">
+                  <AlertCircle className="h-3 w-3 inline mr-1" />
+                  Has alcanzado el límite de 3 ejercicios de respaldo
+                </p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setShowSubstitutesDialog(false)
+                setSubstituteSearch("")
+              }}
+            >
+              Cerrar
+            </Button>
+            <Button
+              type="button"
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+              onClick={() => {
+                setShowSubstitutesDialog(false)
+                setSubstituteSearch("")
+                toast({
+                  title: "✅ Cambios guardados",
+                  description: "Los ejercicios de respaldo se actualizarán al guardar el plan",
+                })
+              }}
+            >
+              Guardar Cambios
             </Button>
           </DialogFooter>
         </DialogContent>
