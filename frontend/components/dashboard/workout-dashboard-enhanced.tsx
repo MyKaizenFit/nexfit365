@@ -26,6 +26,8 @@ import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
 // Función para corregir encoding de nombres de ejercicios y grupos musculares
 const fixEncoding = (text: string): string => {
   if (!text || typeof text !== 'string') return text || ''
@@ -123,9 +125,13 @@ export function WorkoutDashboardEnhanced() {
 
   // Función para verificar si los entrenamientos del día ya están completados
   const checkCompletedWorkouts = useCallback(async () => {
-    if (!activeProgram?.days) return
+    if (!activeProgram?.days) {
+      setTodayWorkoutCompleted({})
+      return
+    }
 
     const completed: Record<string, boolean> = {}
+    const checkedDayIds = new Set<string>()
 
     // También verificar desde los logs locales para respuesta más rápida
     const today = new Date().toISOString().split('T')[0]
@@ -134,29 +140,37 @@ export function WorkoutDashboardEnhanced() {
     )
 
     for (const day of activeProgram.days) {
+      const dayId = String(day.id || '').trim()
+
+      if (!dayId || !UUID_REGEX.test(dayId) || checkedDayIds.has(dayId)) {
+        continue
+      }
+
+      checkedDayIds.add(dayId)
+
       if (day.is_rest_day) continue
 
       // Primero verificar en los logs locales
       const localCompleted = todayLogs.some(log =>
-        log.workout_day === day.id || log.workout_day === String(day.id)
+        log.workout_day === dayId || log.workout_day === String(dayId)
       )
 
       if (localCompleted) {
-        completed[day.id] = true
+        completed[dayId] = true
         continue
       }
 
       // Si no está en local, verificar en el servidor
       try {
         const response = await authenticatedFetch(
-          `workout-logs/check_today/?workout_day=${day.id}`
+          `workout-logs/check_today/?workout_day=${dayId}`
         )
         if (response.ok) {
           const text = await response.text()
           if (text) {
             try {
               const data = JSON.parse(text)
-              completed[day.id] = data.is_completed || false
+              completed[dayId] = data.is_completed || false
             } catch (parseError) {
             }
           }
@@ -168,6 +182,27 @@ export function WorkoutDashboardEnhanced() {
 
     setTodayWorkoutCompleted(completed)
   }, [activeProgram, workoutLogs, isAuthenticated])
+
+  // Limpiar estado local cuando cambie el plan para evitar IDs obsoletos
+  useEffect(() => {
+    if (!activeProgram?.days?.length) {
+      setTodayWorkoutCompleted({})
+      return
+    }
+
+    const validDayIds = new Set(
+      activeProgram.days
+        .map((day) => String(day.id || '').trim())
+        .filter((dayId) => UUID_REGEX.test(dayId))
+    )
+
+    setTodayWorkoutCompleted((prev) => {
+      const filtered = Object.fromEntries(
+        Object.entries(prev).filter(([dayId]) => validDayIds.has(dayId))
+      )
+      return filtered
+    })
+  }, [activeProgram])
 
   // Verificar si los entrenamientos del día ya están completados
   useEffect(() => {
