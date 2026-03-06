@@ -252,7 +252,14 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         try:
             workout_day = WorkoutDay.objects.get(id=workout_day_id)
         except WorkoutDay.DoesNotExist:
-            return Response({'error': 'WorkoutDay no encontrado'}, status=404)
+            today = timezone.localdate()
+            return Response({
+                'is_completed': False,
+                'workout_day_id': str(workout_day_id),
+                'date': str(today),
+                'log': None,
+                'exists': False,
+            })
 
         today = timezone.localdate()
         existing_log = WorkoutLog.objects.filter(
