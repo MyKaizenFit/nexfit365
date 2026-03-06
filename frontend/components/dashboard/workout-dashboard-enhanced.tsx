@@ -134,10 +134,12 @@ export function WorkoutDashboardEnhanced() {
     const checkedDayIds = new Set<string>()
 
     // También verificar desde los logs locales para respuesta más rápida
-    const today = new Date().toISOString().split('T')[0]
-    const todayLogs = workoutLogs.filter(log =>
-      log.date === today && log.completed === true
-    )
+    const today = new Date()
+    const todayLogs = workoutLogs.filter((log) => {
+      if (!log?.date || !log?.completed) return false
+      const logDate = new Date(log.date)
+      return logDate.toDateString() === today.toDateString()
+    })
 
     for (const day of activeProgram.days) {
       const dayId = String(day.id || '').trim()
@@ -350,6 +352,26 @@ export function WorkoutDashboardEnhanced() {
     }
 
     return completedSet
+  }
+
+  const isWorkoutFullyCompleted = (day: any) => {
+    if (!day?.id || !Array.isArray(day?.exercises) || day.exercises.length === 0) {
+      return false
+    }
+
+    const completedExercisesForDay = getCompletedExercisesForDay(day.id)
+    const totalExercises = day.exercises.length
+
+    let completedCount = 0
+    day.exercises.forEach((exercise: any) => {
+      const exerciseData = exercise.exercise || exercise
+      const exerciseId = String(exerciseData?.id || exercise?.id || exercise?.exercise_id || '')
+      if (exerciseId && completedExercisesForDay.has(exerciseId)) {
+        completedCount += 1
+      }
+    })
+
+    return totalExercises > 0 && completedCount >= totalExercises
   }
 
   // Generar calendario semanal con días de entrenamiento y descanso
@@ -677,6 +699,13 @@ export function WorkoutDashboardEnhanced() {
       {/* Entrenamiento de Hoy - Destacado y Completo */}
       {/* Nota: El entrenamiento de hoy se muestra más completo que los demás porque es lo más importante para el usuario */}
       {todaysWorkoutFromProfile && !todaysWorkoutFromProfile.is_rest_day ? (
+        (() => {
+          const dayId = String(todaysWorkoutFromProfile.id)
+          const completedByLog = todayWorkoutCompleted[dayId] === true
+          const completedByExercises = isWorkoutFullyCompleted(todaysWorkoutFromProfile)
+          const isTodayCompleted = completedByLog || completedByExercises
+
+          return (
         <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200/50 shadow-xl">
           <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
             <div className="flex items-center justify-between gap-2">
@@ -794,7 +823,7 @@ export function WorkoutDashboardEnhanced() {
             </div>
 
             {/* Botón para iniciar */}
-            {todayWorkoutCompleted[todaysWorkoutFromProfile.id] ? (
+            {isTodayCompleted ? (
               <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-lg py-6 shadow-lg rounded-lg flex items-center justify-center">
                 <CheckCircle2 className="h-5 w-5 mr-2" />
                 Entrenamiento Completado Hoy
@@ -810,6 +839,8 @@ export function WorkoutDashboardEnhanced() {
             )}
           </CardContent>
         </Card>
+          )
+        })()
       ) : trainingDays.length > 0 && !trainingDays.includes(todayDayNumber) ? (
         // Si hoy no es un día de entrenamiento según el perfil
         <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
