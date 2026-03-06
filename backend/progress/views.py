@@ -542,5 +542,11 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
         if entry:
             serializer = self.get_serializer(entry)
             return Response(serializer.data)
-        else:
-            return Response({"detail": "No hay registro para hoy"}, status=status.HTTP_404_NOT_FOUND)
+        return Response({
+            "id": None,
+            "date": today.isoformat(),
+            "sleep_hours": None,
+            "motivation_score": None,
+            "notes": "",
+            "exists": False,
+        })
