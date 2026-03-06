@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   Dumbbell, Play, Pause, Clock,
   Timer, Star, Video,
-  Save, RotateCcw, Flame, Shield
+  Save, RotateCcw, Flame, Shield, CheckCircle2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -286,6 +286,26 @@ export function ActiveWorkoutSession({
   const exercises = workoutDay?.exercises || []
   const hasMissingExercises = completedExercises.size < exercises.length
 
+  const getExerciseStateKey = useCallback((exerciseItem: any) => {
+    return String(exerciseItem?.id || exerciseItem?.exercise?.id || '')
+  }, [])
+
+  const normalizeCompletedExercises = useCallback((savedCompleted: any[] = []) => {
+    const savedSet = new Set((savedCompleted || []).map((value) => String(value)))
+    const normalized = new Set<string>()
+
+    exercises.forEach((exerciseItem: any) => {
+      const workoutExerciseId = getExerciseStateKey(exerciseItem)
+      const baseExerciseId = String(exerciseItem?.exercise?.id || exerciseItem?.id || '')
+
+      if (savedSet.has(workoutExerciseId) || savedSet.has(baseExerciseId)) {
+        normalized.add(workoutExerciseId)
+      }
+    })
+
+    return normalized
+  }, [exercises, getExerciseStateKey])
+
   useEffect(() => {
     if (!isOpen) return
 
@@ -365,7 +385,7 @@ export function ActiveWorkoutSession({
         setIsStarted(savedState.isStarted || false)
         setIsPaused(savedState.isPaused || false)
         setWorkoutStartTime(savedState.workoutStartTime || null)
-        setCompletedExercises(new Set(savedState.completedExercises || []))
+        setCompletedExercises(normalizeCompletedExercises(savedState.completedExercises || []))
         setExerciseSets(normalizeExerciseSets(savedState.exerciseSets || {}))
         setRating(savedState.rating || 0)
         setNotes(savedState.notes || '')
@@ -379,14 +399,14 @@ export function ActiveWorkoutSession({
         }
       }
     }
-  }, [isOpen, workoutDay, loadWorkoutState])
+  }, [isOpen, workoutDay, loadWorkoutState, normalizeCompletedExercises])
 
   // Inicializar sets de ejercicios
   useEffect(() => {
     if (exercises.length > 0 && Object.keys(exerciseSets).length === 0) {
       const initialSets: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
       exercises.forEach((ex: any) => {
-        const exerciseId = ex.id || ex.exercise?.id
+        const exerciseId = getExerciseStateKey(ex)
         initialSets[exerciseId] = {
           reps: undefined,
           weight: undefined,
@@ -395,7 +415,7 @@ export function ActiveWorkoutSession({
       })
       setExerciseSets(initialSets)
     }
-  }, [exercises])
+  }, [exercises, exerciseSets, getExerciseStateKey])
 
   // Guardar estado cuando cambian rating o notes (con debounce para evitar demasiadas escrituras)
   useEffect(() => {
@@ -505,6 +525,30 @@ export function ActiveWorkoutSession({
       })
 
       return newSets
+    })
+  }
+
+  const toggleExerciseCompletion = (exerciseId: string) => {
+    setCompletedExercises((prevCompleted) => {
+      const next = new Set(prevCompleted)
+      if (next.has(exerciseId)) {
+        next.delete(exerciseId)
+      } else {
+        next.add(exerciseId)
+      }
+
+      saveWorkoutState({
+        isStarted,
+        isPaused,
+        elapsedSeconds,
+        workoutStartTime,
+        completedExercises: Array.from(next),
+        exerciseSets,
+        rating,
+        notes
+      })
+
+      return next
     })
   }
 
@@ -744,7 +788,7 @@ export function ActiveWorkoutSession({
               const exercise = exerciseItem.exercise || exerciseItem
               const selectedSubstitute = substituteSelections[String(exercise.id)]
               const mainExercise = selectedSubstitute || exercise
-              const exerciseId = exerciseItem.id || exercise.id
+              const exerciseId = getExerciseStateKey(exerciseItem)
               const isCompleted = completedExercises.has(String(exerciseId))
               const setData = exerciseSets[exerciseId] || {}
               const restSeconds = exerciseItem.rest_seconds || exerciseItem.rest_time || 60
@@ -903,6 +947,23 @@ export function ActiveWorkoutSession({
                               />
                               <span className="text-gray-500 text-sm">1-10</span>
                             </div>
+                          </div>
+
+                          <div className="mt-3 flex justify-end">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant={isCompleted ? 'default' : 'outline'}
+                              className={cn(
+                                'gap-1.5',
+                                isCompleted ? 'bg-green-600 hover:bg-green-700 text-white' : ''
+                              )}
+                              onClick={() => toggleExerciseCompletion(String(exerciseId))}
+                              disabled={!isStarted}
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              {isCompleted ? 'Completado' : 'Marcar completado'}
+                            </Button>
                           </div>
                         </div>
                       </div>
