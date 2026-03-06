@@ -201,6 +201,7 @@ function RestTimer({ defaultSeconds, onComplete, isActive, setIsActive }: RestTi
 // =============================================
 interface ActiveWorkoutSessionProps {
   workoutDay: any
+  initialSubstituteSelections?: Record<string, any>
   isOpen: boolean
   onClose: () => void
   onComplete: (data: {
@@ -213,6 +214,7 @@ interface ActiveWorkoutSessionProps {
 
 export function ActiveWorkoutSession({
   workoutDay,
+  initialSubstituteSelections = {},
   isOpen,
   onClose,
   onComplete
@@ -220,6 +222,9 @@ export function ActiveWorkoutSession({
   // Clave para localStorage basada en el día de entrenamiento
   const workoutStorageKey = workoutDay?.id
     ? `active_workout_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
+    : null
+  const substituteStorageKey = workoutDay?.id
+    ? `workout_substitutes_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
     : null
 
   // Función para guardar estado en localStorage
@@ -276,9 +281,58 @@ export function ActiveWorkoutSession({
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [confirmMissingExercises, setConfirmMissingExercises] = useState(false)
+  const [substituteSelections, setSubstituteSelections] = useState<Record<string, any>>(initialSubstituteSelections || {})
 
   const exercises = workoutDay?.exercises || []
   const hasMissingExercises = completedExercises.size < exercises.length
+
+  useEffect(() => {
+    if (!isOpen) return
+
+    if (!substituteStorageKey || typeof window === 'undefined') {
+      setSubstituteSelections(initialSubstituteSelections || {})
+      return
+    }
+
+    try {
+      const saved = localStorage.getItem(substituteStorageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setSubstituteSelections({
+          ...(initialSubstituteSelections || {}),
+          ...(parsed && typeof parsed === 'object' ? parsed : {}),
+        })
+      } else {
+        setSubstituteSelections(initialSubstituteSelections || {})
+      }
+    } catch {
+      setSubstituteSelections(initialSubstituteSelections || {})
+    }
+  }, [isOpen, substituteStorageKey, initialSubstituteSelections])
+
+  const persistSubstituteSelections = useCallback((nextState: Record<string, any>) => {
+    setSubstituteSelections(nextState)
+    if (!substituteStorageKey || typeof window === 'undefined') return
+    try {
+      localStorage.setItem(substituteStorageKey, JSON.stringify(nextState))
+    } catch {
+    }
+  }, [substituteStorageKey])
+
+  const selectSubstitute = (baseExerciseId: string, substitute: any) => {
+    const key = String(baseExerciseId)
+    persistSubstituteSelections({
+      ...substituteSelections,
+      [key]: substitute,
+    })
+  }
+
+  const restorePrimaryExercise = (baseExerciseId: string) => {
+    const key = String(baseExerciseId)
+    const next = { ...substituteSelections }
+    delete next[key]
+    persistSubstituteSelections(next)
+  }
 
   const normalizeExerciseSets = (data: Record<string, any> = {}) => {
     const normalized: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
@@ -529,11 +583,14 @@ export function ActiveWorkoutSession({
     try {
       const exercisesData = exercises.map((ex: any) => {
         const exerciseId = ex.id || ex.exercise?.id
+        const baseExercise = ex.exercise || ex
+        const selectedSubstitute = substituteSelections[String(baseExercise.id)]
+        const mainExercise = selectedSubstitute || baseExercise
         const setData = exerciseSets[exerciseId] || {}
         const validSets = [
           {
             set_number: 1,
-            completed: completedExercises.has(exerciseId),
+            completed: completedExercises.has(String(exerciseId)),
             reps: setData.reps !== undefined ? Number(setData.reps) : null,
             weight: setData.weight !== undefined ? Number(setData.weight) : null,
             duration: null,
@@ -543,10 +600,11 @@ export function ActiveWorkoutSession({
         ]
 
         return {
-          exercise_id: ex.exercise?.id || ex.id,
-          exercise_name: ex.exercise?.name || ex.name,
+          exercise_id: mainExercise.id,
+          exercise_name: mainExercise.name,
+          original_exercise_id: baseExercise.id,
           sets: validSets,
-          completed: completedExercises.has(exerciseId),
+          completed: completedExercises.has(String(exerciseId)),
           effort: setData.effort !== undefined ? Number(setData.effort) : null
         }
       })
@@ -568,6 +626,9 @@ export function ActiveWorkoutSession({
       // Limpiar estado guardado
       if (workoutStorageKey && typeof window !== 'undefined') {
         localStorage.removeItem(workoutStorageKey)
+      }
+      if (substituteStorageKey && typeof window !== 'undefined') {
+        localStorage.removeItem(substituteStorageKey)
       }
 
       // Reset y cerrar
@@ -678,6 +739,8 @@ export function ActiveWorkoutSession({
           <div className="space-y-3">
             {exercises.map((exerciseItem: any, index: number) => {
               const exercise = exerciseItem.exercise || exerciseItem
+              const selectedSubstitute = substituteSelections[String(exercise.id)]
+              const mainExercise = selectedSubstitute || exercise
               const exerciseId = exerciseItem.id || exercise.id
               const isCompleted = completedExercises.has(String(exerciseId))
               const setData = exerciseSets[exerciseId] || {}
@@ -703,8 +766,13 @@ export function ActiveWorkoutSession({
                               'font-semibold text-lg',
                               isCompleted ? 'text-green-700 line-through' : 'text-gray-900'
                             )}>
-                              {index + 1}. {exercise.name || 'Ejercicio'}
+                              {index + 1}. {mainExercise.name || 'Ejercicio'}
                             </h4>
+                            {selectedSubstitute && (
+                              <Badge className="mt-1 bg-amber-100 text-amber-900 border border-amber-300" variant="secondary">
+                                Respaldo activo para hoy
+                              </Badge>
+                            )}
                             <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-600">
                               <span className="flex items-center gap-1">
                                 <Timer className="h-4 w-4" />
@@ -719,15 +787,29 @@ export function ActiveWorkoutSession({
                                 </p>
                                 <div className="flex flex-wrap gap-1.5">
                                   {exercise.substitutes.map((sub: any) => (
-                                    <Badge
+                                    <Button
                                       key={sub.id}
-                                      variant="secondary"
-                                      className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2 py-1"
+                                      type="button"
+                                      variant="outline"
+                                      size="sm"
+                                      className="h-6 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2"
+                                      onClick={() => selectSubstitute(String(exercise.id), sub)}
                                     >
                                       <Shield className="h-2.5 w-2.5 mr-1 inline" />
                                       {sub.substitute_name || sub.name}
-                                    </Badge>
+                                    </Button>
                                   ))}
+                                  {selectedSubstitute && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 text-[10px] text-amber-900"
+                                      onClick={() => restorePrimaryExercise(String(exercise.id))}
+                                    >
+                                      Restaurar principal
+                                    </Button>
+                                  )}
                                 </div>
                                 <p className="text-[10px] text-amber-700 mt-1.5 italic">
                                   Usa estos ejercicios alternativos si no puedes realizar el principal.
@@ -737,8 +819,8 @@ export function ActiveWorkoutSession({
                           </div>
 
                           {/* Botón de video */}
-                          {(exercise.has_video || exercise.google_drive_file_id || exercise.video_url) && (
-                            <ExerciseVideoPlayer exercise={exercise}>
+                          {(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url) && (
+                            <ExerciseVideoPlayer exercise={mainExercise}>
                               <Button
                                 variant="outline"
                                 size="sm"

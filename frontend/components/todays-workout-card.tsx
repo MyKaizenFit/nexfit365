@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +32,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   const [workoutStarted, setWorkoutStarted] = useState(false)
   const [workoutCompleted, setWorkoutCompleted] = useState(false)
   const [showActiveWorkout, setShowActiveWorkout] = useState(false)
+  const [selectedSubstitutes, setSelectedSubstitutes] = useState<Record<string, any>>({})
 
   // Obtener el día actual (1-7, donde 1 = Lunes, 7 = Domingo)
   const getTodayDayNumber = () => {
@@ -52,6 +53,54 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
   // Verificar si es día de descanso
   const isRestDay = !isTrainingDay || (todaysWorkout?.is_rest_day ?? false)
+
+  const todayIso = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const substituteStorageKey = todaysWorkout?.id
+    ? `workout_substitutes_${todaysWorkout.id}_${todayIso}`
+    : null
+
+  useEffect(() => {
+    if (!substituteStorageKey || typeof window === 'undefined') {
+      setSelectedSubstitutes({})
+      return
+    }
+
+    try {
+      const saved = localStorage.getItem(substituteStorageKey)
+      if (!saved) {
+        setSelectedSubstitutes({})
+        return
+      }
+      const parsed = JSON.parse(saved)
+      setSelectedSubstitutes(parsed && typeof parsed === 'object' ? parsed : {})
+    } catch {
+      setSelectedSubstitutes({})
+    }
+  }, [substituteStorageKey])
+
+  const persistSubstitutes = (nextState: Record<string, any>) => {
+    setSelectedSubstitutes(nextState)
+    if (!substituteStorageKey || typeof window === 'undefined') return
+    try {
+      localStorage.setItem(substituteStorageKey, JSON.stringify(nextState))
+    } catch {
+    }
+  }
+
+  const handleSelectSubstitute = (baseExerciseId: string, substitute: any) => {
+    const key = String(baseExerciseId)
+    persistSubstitutes({
+      ...selectedSubstitutes,
+      [key]: substitute,
+    })
+  }
+
+  const handleRestorePrimaryExercise = (baseExerciseId: string) => {
+    const key = String(baseExerciseId)
+    const next = { ...selectedSubstitutes }
+    delete next[key]
+    persistSubstitutes(next)
+  }
 
   // Verificar si hay logs de entrenamiento de hoy
   const todayLogs = workoutLogs.filter(log => {
@@ -260,6 +309,8 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
         <div className="space-y-3">
           {todaysWorkout.exercises?.map((exercise: any, index: number) => {
             const exerciseData = exercise.exercise || exercise
+            const substituteSelected = selectedSubstitutes[String(exerciseData.id)]
+            const mainExerciseData = substituteSelected || exerciseData
             const isCompleted = completedExercises.has(exercise.id) || isWorkoutCompletedToday
 
             return (
@@ -289,8 +340,13 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
                         <h4 className={`font-semibold ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
-                          {index + 1}. {exerciseData.name}
+                          {index + 1}. {mainExerciseData.name}
                         </h4>
+                        {substituteSelected && (
+                          <Badge className="mt-1 bg-amber-100 text-amber-900 border border-amber-300" variant="secondary">
+                            Respaldo activo para hoy
+                          </Badge>
+                        )}
                         <div className="mt-1 flex items-center gap-3 text-sm text-gray-600">
                           {exercise.sets && (
                             <span className="flex items-center gap-1">
@@ -316,15 +372,35 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                             </p>
                             <div className="flex flex-wrap gap-1.5">
                               {exerciseData.substitutes.map((sub: any) => (
-                                <Badge
+                                <Button
                                   key={sub.id}
-                                  variant="secondary"
-                                  className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2 py-0.5"
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-6 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleSelectSubstitute(String(exerciseData.id), sub)
+                                  }}
                                 >
                                   <Shield className="h-2.5 w-2.5 mr-1 inline" />
                                   {sub.substitute_name || sub.name}
-                                </Badge>
+                                </Button>
                               ))}
+                              {substituteSelected && (
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-[10px] text-amber-900"
+                                  onClick={(event) => {
+                                    event.stopPropagation()
+                                    handleRestorePrimaryExercise(String(exerciseData.id))
+                                  }}
+                                >
+                                  Restaurar principal
+                                </Button>
+                              )}
                             </div>
                             <p className="text-[10px] text-amber-700 mt-1.5 italic">Si no puedes realizar el ejercicio principal, usa estos alternativos.</p>
                           </div>
@@ -332,8 +408,8 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                       </div>
 
                       {/* Botón de video si está disponible */}
-                      {exerciseData.has_video && (
-                        <ExerciseVideoPlayer exercise={exerciseData}>
+                      {(mainExerciseData.has_video || mainExerciseData.video_url || mainExerciseData.google_drive_file_id) && (
+                        <ExerciseVideoPlayer exercise={mainExerciseData}>
                           <Button
                             variant="outline"
                             size="sm"
@@ -347,12 +423,12 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                     </div>
 
                     {/* Thumbnail del ejercicio si existe */}
-                    {(exerciseData.thumbnail_url || exerciseData.image_url) && (
-                      <ExerciseVideoPlayer exercise={exerciseData}>
+                    {(mainExerciseData.thumbnail_url || mainExerciseData.image_url) && (
+                      <ExerciseVideoPlayer exercise={mainExerciseData}>
                         <div className="mt-2 relative w-32 h-20 bg-gray-100 rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-200">
                           <img
-                            src={exerciseData.thumbnail_url || exerciseData.image_url}
-                            alt={exerciseData.name}
+                            src={mainExerciseData.thumbnail_url || mainExerciseData.image_url}
+                            alt={mainExerciseData.name}
                             className="w-full h-full object-cover"
                           />
                           <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors">
@@ -393,6 +469,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
       {todaysWorkout && (
         <ActiveWorkoutSession
           workoutDay={todaysWorkout}
+          initialSubstituteSelections={selectedSubstitutes}
           isOpen={showActiveWorkout}
           onClose={() => setShowActiveWorkout(false)}
           onComplete={async (data) => {
