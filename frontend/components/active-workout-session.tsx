@@ -390,10 +390,13 @@ export function ActiveWorkoutSession({
         setRating(savedState.rating || 0)
         setNotes(savedState.notes || '')
 
-        // Calcular tiempo transcurrido desde el inicio guardado
-        if (savedState.workoutStartTime && savedState.isStarted && !savedState.isPaused) {
-          const elapsed = Math.floor((Date.now() - savedState.workoutStartTime) / 1000)
-          setElapsedSeconds(savedState.elapsedSeconds + elapsed)
+        // Restaurar cronómetro sin doble conteo:
+        // sumar solo el tiempo transcurrido desde el último guardado (savedAt)
+        if (savedState.isStarted && !savedState.isPaused) {
+          const lastSavedAt = typeof savedState.savedAt === 'number' ? savedState.savedAt : Date.now()
+          const deltaSinceSave = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000))
+          setElapsedSeconds((savedState.elapsedSeconds || 0) + deltaSinceSave)
+          setWorkoutStartTime(Date.now())
         } else {
           setElapsedSeconds(savedState.elapsedSeconds || 0)
         }
