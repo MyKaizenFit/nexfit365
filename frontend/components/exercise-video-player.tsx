@@ -99,6 +99,39 @@ function getVideoUrl(exercise: ExerciseVideoPlayerProps['exercise']): string | n
   return null
 }
 
+function getYoutubeEmbedUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace('www.', '')
+
+    if (host === 'youtu.be') {
+      const id = parsed.pathname.replace('/', '').trim()
+      return id ? `https://www.youtube-nocookie.com/embed/${id}` : url
+    }
+
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      if (parsed.pathname === '/watch') {
+        const id = parsed.searchParams.get('v')
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : url
+      }
+
+      if (parsed.pathname.startsWith('/embed/')) {
+        const id = parsed.pathname.split('/embed/')[1]
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : url
+      }
+
+      if (parsed.pathname.startsWith('/shorts/')) {
+        const id = parsed.pathname.split('/shorts/')[1]
+        return id ? `https://www.youtube-nocookie.com/embed/${id}` : url
+      }
+    }
+  } catch {
+    return url
+  }
+
+  return url
+}
+
 export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [videoError, setVideoError] = useState(false)
@@ -159,9 +192,10 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
               <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
                 {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
                   <iframe
-                    src={videoUrl.replace('watch?v=', 'embed/').replace('youtu.be/', 'youtube.com/embed/')}
+                    src={getYoutubeEmbedUrl(videoUrl)}
                     className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    referrerPolicy="strict-origin-when-cross-origin"
                     allowFullScreen
                     onError={handleVideoError}
                   />
