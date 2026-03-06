@@ -821,19 +821,35 @@ export function ActiveWorkoutSession({
                             )}
                           </div>
 
-                          {/* Botón de video */}
-                          {(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url) && (
-                            <ExerciseVideoPlayer exercise={mainExercise}>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="flex items-center gap-1"
-                              >
-                                <Video className="h-4 w-4" />
-                                Ver
-                              </Button>
-                            </ExerciseVideoPlayer>
-                          )}
+                          {/* Botones de video */}
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url) && (
+                              <ExerciseVideoPlayer exercise={mainExercise}>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(
+                                    'flex items-center gap-1',
+                                    isCompleted
+                                      ? 'bg-green-50 border-green-300 hover:bg-green-100 text-green-700'
+                                      : ''
+                                  )}
+                                >
+                                  {isCompleted ? (
+                                    <>
+                                      <Play className="h-4 w-4" />
+                                      Ver cómo lo hiciste
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Video className="h-4 w-4" />
+                                      Ver técnica
+                                    </>
+                                  )}
+                                </Button>
+                              </ExerciseVideoPlayer>
+                            )}
+                          </div>
                         </div>
 
                         {/* Registro rápido del ejercicio */}
