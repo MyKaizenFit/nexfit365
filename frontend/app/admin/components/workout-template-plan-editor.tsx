@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X } from "lucide-react"
+import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 
@@ -413,10 +413,24 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const handleAddSubstitute = async (substituteId: string | number) => {
     if (!substitutesExerciseId) return
+    
+    // Validar máximo 3 respaldos
+    if (substitutes.length >= 3) {
+      toast({
+        title: "⚠️ Límite alcanzado",
+        description: "Solo puedes asignar un máximo de 3 ejercicios de respaldo por ejercicio",
+        variant: "destructive",
+      })
+      return
+    }
+    
     try {
+      // Calcular próxima prioridad (1 = mayor prioridad)
+      const nextPriority = substitutes.length + 1
+      
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(substituteId),
-        priority: 1,
+        priority: nextPriority,
         notes: "",
       })
       const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
@@ -437,12 +451,82 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/remove_substitute/`, {
         substitute_id: String(substituteId),
       })
-      setSubstitutes((prev) => prev.filter((s) => String(s.substitute_id) !== String(substituteId)))
+      // Recargar lista completa para actualizar prioridades
+      const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
+      setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
       toast({ title: "✅ Ejercicio de respaldo eliminado" })
     } catch (e) {
       toast({
         title: "❌ Error",
         description: e instanceof Error ? e.message : "No se pudo eliminar el respaldo",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const moveSubstituteUp = async (index: number) => {
+    if (index === 0 || !substitutesExerciseId) return
+    
+    try {
+      const newSubs = [...substitutes]
+      const temp = newSubs[index]
+      newSubs[index] = newSubs[index - 1]
+      newSubs[index - 1] = temp
+      
+      // Actualizar prioridades en el backend
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
+        substitute_id: String(newSubs[index - 1].substitute_id),
+        priority: index, // La prioridad más baja es 1
+        notes: newSubs[index - 1].notes,
+      })
+      
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
+        substitute_id: String(newSubs[index].substitute_id),
+        priority: index + 1,
+        notes: newSubs[index].notes,
+      })
+      
+      // Recargar lista
+      const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
+      setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudo reordenar",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const moveSubstituteDown = async (index: number) => {
+    if (index === substitutes.length - 1 || !substitutesExerciseId) return
+    
+    try {
+      const newSubs = [...substitutes]
+      const temp = newSubs[index]
+      newSubs[index] = newSubs[index + 1]
+      newSubs[index + 1] = temp
+      
+      // Actualizar prioridades en el backend
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
+        substitute_id: String(newSubs[index].substitute_id),
+        priority: index + 1,
+        notes: newSubs[index].notes,
+      })
+      
+      await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
+        substitute_id: String(newSubs[index + 1].substitute_id),
+        priority: index + 2,
+        notes: newSubs[index + 1].notes,
+      })
+      
+      // Recargar lista
+      const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
+      setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: "No se pudo reordenar",
         variant: "destructive",
       })
     }
@@ -935,7 +1019,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
             <div>
               <Label className="text-xs font-semibold flex items-center gap-1">
                 <Shield className="h-3 w-3" />
-                Respaldos actuales
+                Respaldos actuales {substitutes.length > 0 && `(${substitutes.length}/3)`}
               </Label>
               {loadingSubstitutes ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mt-2">
@@ -948,18 +1032,46 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                 </div>
               ) : (
                 <div className="space-y-2 mt-2">
-                  {substitutes.map((s) => (
+                  {substitutes.map((s, index) => (
                     <div key={s.id} className="flex items-center justify-between gap-2 border-2 border-amber-200 bg-amber-50/50 rounded-md p-3">
-                      <div className="text-sm flex-1">
-                        <div className="font-medium flex items-center gap-2">
-                          <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px]">
-                            Respaldo #{substitutes.indexOf(s) + 1}
-                          </Badge>
-                          {fixEncoding(s.substitute_name)}
+                      <div className="flex items-center gap-2">
+                        {/* Botones de reordenamiento */}
+                        <div className="flex flex-col gap-0.5">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveSubstituteUp(index)}
+                            disabled={index === 0}
+                            title="Subir prioridad"
+                            className="h-5 w-5 p-0 hover:bg-amber-200 disabled:opacity-30"
+                          >
+                            <ChevronUp className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => moveSubstituteDown(index)}
+                            disabled={index === substitutes.length - 1}
+                            title="Bajar prioridad"
+                            className="h-5 w-5 p-0 hover:bg-amber-200 disabled:opacity-30"
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                          </Button>
                         </div>
-                        {s.category && <div className="text-xs text-muted-foreground mt-1">{fixEncoding(s.category)}</div>}
-                        {s.notes && <div className="text-xs text-amber-700 mt-1 italic">{fixEncoding(s.notes)}</div>}
+                        
+                        {/* Info del ejercicio */}
+                        <div className="text-sm flex-1">
+                          <div className="font-medium flex items-center gap-2">
+                            <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px]">
+                              #{index + 1}
+                            </Badge>
+                            {fixEncoding(s.substitute_name)}
+                          </div>
+                          {s.category && <div className="text-xs text-muted-foreground mt-1">{fixEncoding(s.category)}</div>}
+                          {s.notes && <div className="text-xs text-amber-700 mt-1 italic">{fixEncoding(s.notes)}</div>}
+                        </div>
                       </div>
+                      
                       <Button
                         variant="ghost"
                         size="icon"
@@ -977,28 +1089,42 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
             <div className="border-t pt-4">
               <Label className="text-xs font-semibold">Agregar nuevo respaldo</Label>
-              <Input
-                className="mt-2"
-                placeholder="Buscar ejercicio alternativo..."
-                value={substituteSearch}
-                onChange={(e) => setSubstituteSearch(e.target.value)}
-              />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
-                {availableForSubstitute.map((e) => (
-                  <Button
-                    key={e.id}
-                    variant="outline"
-                    className="justify-between h-auto py-2"
-                    onClick={() => handleAddSubstitute(e.id)}
-                  >
-                    <div className="text-left">
-                      <div className="text-sm font-medium">{fixEncoding(e.name)}</div>
-                      {e.category && <div className="text-xs text-muted-foreground">{fixEncoding(e.category)}</div>}
-                    </div>
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                ))}
-              </div>
+              
+              {substitutes.length >= 3 ? (
+                <div className="mt-2 bg-amber-100 border border-amber-300 rounded-lg p-3 text-center">
+                  <div className="text-sm font-medium text-amber-900">
+                    ✅ Límite alcanzado
+                  </div>
+                  <div className="text-xs text-amber-700 mt-1">
+                    Ya tienes 3 ejercicios de respaldo asignados (máximo permitido).
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <Input
+                    className="mt-2"
+                    placeholder="Buscar ejercicio alternativo..."
+                    value={substituteSearch}
+                    onChange={(e) => setSubstituteSearch(e.target.value)}
+                  />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2 max-h-64 overflow-y-auto">
+                    {availableForSubstitute.map((e) => (
+                      <Button
+                        key={e.id}
+                        variant="outline"
+                        className="justify-between h-auto py-2"
+                        onClick={() => handleAddSubstitute(e.id)}
+                      >
+                        <div className="text-left">
+                          <div className="text-sm font-medium">{fixEncoding(e.name)}</div>
+                          {e.category && <div className="text-xs text-muted-foreground">{fixEncoding(e.category)}</div>}
+                        </div>
+                        <Plus className="h-4 w-4" />
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
