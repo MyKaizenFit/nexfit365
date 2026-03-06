@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Play, X, ExternalLink, AlertCircle } from 'lucide-react'
+import { Play, ExternalLink, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 
 interface ExerciseVideoPlayerProps {
@@ -174,16 +174,7 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>{exercise.name}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsOpen(false)}
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </DialogTitle>
+            <DialogTitle>{exercise.name}</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
