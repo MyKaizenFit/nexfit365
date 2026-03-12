@@ -1036,6 +1036,284 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(plan).data, status=status.HTTP_200_OK)
 
 
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """Exporta todos los planes de menus en formato CSV."""
+        import csv
+        from django.http import HttpResponse
+        plans = NutritionPlan.objects.select_related('user').order_by('name')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="planes_menu_exportacion.csv"'
+        fieldnames = [
+            'id', 'nombre', 'descripcion', 'objetivo', 'tipo_dieta',
+            'calorias_diarias', 'proteinas_g', 'carbohidratos_g', 'grasas_g', 'fibra_g',
+            'porcentaje_proteinas', 'porcentaje_carbohidratos', 'porcentaje_grasas',
+            'comidas_por_dia', 'duracion_semanas', 'multiplicador_porcion',
+            'es_plantilla', 'es_sistema', 'activo',
+        ]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+        for plan in plans:
+            writer.writerow({
+                'id': str(plan.id),
+                'nombre': plan.name,
+                'descripcion': plan.description or '',
+                'objetivo': plan.goal or 'maintain',
+                'tipo_dieta': plan.diet_type or 'normal',
+                'calorias_diarias': plan.daily_calories or 0,
+                'proteinas_g': plan.protein_grams or 0,
+                'carbohidratos_g': plan.carbs_grams or 0,
+                'grasas_g': plan.fat_grams or 0,
+                'fibra_g': plan.fiber_grams or 0,
+                'porcentaje_proteinas': plan.protein_percentage if plan.protein_percentage is not None else '',
+                'porcentaje_carbohidratos': plan.carbs_percentage if plan.carbs_percentage is not None else '',
+                'porcentaje_grasas': plan.fat_percentage if plan.fat_percentage is not None else '',
+                'comidas_por_dia': plan.meals_per_day or 5,
+                'duracion_semanas': plan.duration_weeks or 4,
+                'multiplicador_porcion': float(plan.portion_multiplier or 1.0),
+                'es_plantilla': 'Si' if plan.is_template else 'No',
+                'es_sistema': 'Si' if plan.is_system else 'No',
+                'activo': 'Si' if plan.is_active else 'No',
+            })
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exporta todos los planes de menus en formato Excel (XLSX)."""
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+        plans = NutritionPlan.objects.select_related('user').order_by('name')
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        worksheet = workbook.add_worksheet('Planes de Menu')
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
+        headers = [
+            'id', 'nombre', 'descripcion', 'objetivo', 'tipo_dieta',
+            'calorias_diarias', 'proteinas_g', 'carbohidratos_g', 'grasas_g', 'fibra_g',
+            'porcentaje_proteinas', 'porcentaje_carbohidratos', 'porcentaje_grasas',
+            'comidas_por_dia', 'duracion_semanas', 'multiplicador_porcion',
+            'es_plantilla', 'es_sistema', 'activo',
+        ]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, header_format)
+        for row_idx, plan in enumerate(plans, start=1):
+            worksheet.write(row_idx, 0, str(plan.id))
+            worksheet.write(row_idx, 1, plan.name)
+            worksheet.write(row_idx, 2, plan.description or '')
+            worksheet.write(row_idx, 3, plan.goal or 'maintain')
+            worksheet.write(row_idx, 4, plan.diet_type or 'normal')
+            worksheet.write(row_idx, 5, plan.daily_calories or 0)
+            worksheet.write(row_idx, 6, plan.protein_grams or 0)
+            worksheet.write(row_idx, 7, plan.carbs_grams or 0)
+            worksheet.write(row_idx, 8, plan.fat_grams or 0)
+            worksheet.write(row_idx, 9, plan.fiber_grams or 0)
+            worksheet.write(row_idx, 10, plan.protein_percentage if plan.protein_percentage is not None else '')
+            worksheet.write(row_idx, 11, plan.carbs_percentage if plan.carbs_percentage is not None else '')
+            worksheet.write(row_idx, 12, plan.fat_percentage if plan.fat_percentage is not None else '')
+            worksheet.write(row_idx, 13, plan.meals_per_day or 5)
+            worksheet.write(row_idx, 14, plan.duration_weeks or 4)
+            worksheet.write(row_idx, 15, float(plan.portion_multiplier or 1.0))
+            worksheet.write(row_idx, 16, 'Si' if plan.is_template else 'No')
+            worksheet.write(row_idx, 17, 'Si' if plan.is_system else 'No')
+            worksheet.write(row_idx, 18, 'Si' if plan.is_active else 'No')
+        worksheet.set_column('A:A', 38)
+        worksheet.set_column('B:B', 35)
+        worksheet.set_column('C:C', 40)
+        workbook.close()
+        output.seek(0)
+        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename="planes_menu_exportacion.xlsx"'
+        return response
+
+    @action(detail=False, methods=['post'], url_path='import-csv',
+            parser_classes=[MultiPartParser, FormParser])
+    def import_csv(self, request):
+        """Importa planes de menus desde CSV. Upsert por nombre; nunca elimina planes existentes."""
+        import csv
+        from django.core.files.uploadedfile import UploadedFile
+
+        plan_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'descripcion': 'description', 'description': 'description',
+            'objetivo': 'goal', 'goal': 'goal',
+            'tipo_dieta': 'diet_type', 'diet_type': 'diet_type',
+            'calorias_diarias': 'daily_calories', 'daily_calories': 'daily_calories',
+            'proteinas_g': 'protein_grams', 'protein_grams': 'protein_grams',
+            'carbohidratos_g': 'carbs_grams', 'carbs_grams': 'carbs_grams',
+            'grasas_g': 'fat_grams', 'fat_grams': 'fat_grams',
+            'fibra_g': 'fiber_grams', 'fiber_grams': 'fiber_grams',
+            'porcentaje_proteinas': 'protein_percentage', 'protein_percentage': 'protein_percentage',
+            'porcentaje_carbohidratos': 'carbs_percentage', 'carbs_percentage': 'carbs_percentage',
+            'porcentaje_grasas': 'fat_percentage', 'fat_percentage': 'fat_percentage',
+            'comidas_por_dia': 'meals_per_day', 'meals_per_day': 'meals_per_day',
+            'duracion_semanas': 'duration_weeks', 'duration_weeks': 'duration_weeks',
+            'multiplicador_porcion': 'portion_multiplier', 'portion_multiplier': 'portion_multiplier',
+            'es_plantilla': 'is_template', 'is_template': 'is_template',
+            'es_sistema': 'is_system', 'is_system': 'is_system',
+            'activo': 'is_active', 'is_active': 'is_active',
+        }
+
+        def gv(row, canonical, default=''):
+            if canonical in row:
+                return row[canonical]
+            for k, v in plan_aliases.items():
+                if v == canonical and k in row:
+                    return row[k]
+            return default
+
+        def to_bool(val):
+            return str(val).lower() in ('true', 'si', 's', '1', 'yes')
+
+        def to_int_or_none(val):
+            try:
+                v = int(float(str(val)))
+                return v if 0 <= v <= 100 else None
+            except (ValueError, TypeError):
+                return None
+
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        decoded = file.read().decode('utf-8')
+        reader = csv.DictReader(decoded.splitlines())
+        updated, created, skipped = 0, 0, 0
+        for row in reader:
+            name = gv(row, 'name', '').strip()
+            if not name:
+                skipped += 1
+                continue
+            plan = NutritionPlan.objects.filter(name=name).first()
+            fields = {
+                'description': gv(row, 'description', ''),
+                'goal': gv(row, 'goal', 'maintain') or 'maintain',
+                'diet_type': gv(row, 'diet_type', 'normal') or 'normal',
+                'daily_calories': int(float(gv(row, 'daily_calories', 2000) or 2000)),
+                'protein_grams': int(float(gv(row, 'protein_grams', 150) or 150)),
+                'carbs_grams': int(float(gv(row, 'carbs_grams', 200) or 200)),
+                'fat_grams': int(float(gv(row, 'fat_grams', 65) or 65)),
+                'fiber_grams': int(float(gv(row, 'fiber_grams', 25) or 25)),
+                'protein_percentage': to_int_or_none(gv(row, 'protein_percentage', '')),
+                'carbs_percentage': to_int_or_none(gv(row, 'carbs_percentage', '')),
+                'fat_percentage': to_int_or_none(gv(row, 'fat_percentage', '')),
+                'meals_per_day': int(float(gv(row, 'meals_per_day', 5) or 5)),
+                'duration_weeks': int(float(gv(row, 'duration_weeks', 4) or 4)),
+                'portion_multiplier': float(gv(row, 'portion_multiplier', 1.0) or 1.0),
+                'is_template': to_bool(gv(row, 'is_template', 'false')),
+                'is_system': to_bool(gv(row, 'is_system', 'false')),
+                'is_active': to_bool(gv(row, 'is_active', 'true')),
+            }
+            if plan:
+                for k, v in fields.items():
+                    setattr(plan, k, v)
+                plan.save()
+                updated += 1
+            else:
+                NutritionPlan.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Importacion completada: {created} planes creados, {updated} actualizados, {skipped} omitidos.",
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'], url_path='import-excel',
+            parser_classes=[MultiPartParser, FormParser])
+    def import_excel(self, request):
+        """Importa planes de menus desde Excel (XLSX). Upsert por nombre; nunca elimina planes existentes."""
+        import openpyxl
+        from django.core.files.uploadedfile import UploadedFile
+
+        plan_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'descripcion': 'description', 'description': 'description',
+            'objetivo': 'goal', 'goal': 'goal',
+            'tipo_dieta': 'diet_type', 'diet_type': 'diet_type',
+            'calorias_diarias': 'daily_calories', 'daily_calories': 'daily_calories',
+            'proteinas_g': 'protein_grams', 'protein_grams': 'protein_grams',
+            'carbohidratos_g': 'carbs_grams', 'carbs_grams': 'carbs_grams',
+            'grasas_g': 'fat_grams', 'fat_grams': 'fat_grams',
+            'fibra_g': 'fiber_grams', 'fiber_grams': 'fiber_grams',
+            'porcentaje_proteinas': 'protein_percentage', 'protein_percentage': 'protein_percentage',
+            'porcentaje_carbohidratos': 'carbs_percentage', 'carbs_percentage': 'carbs_percentage',
+            'porcentaje_grasas': 'fat_percentage', 'fat_percentage': 'fat_percentage',
+            'comidas_por_dia': 'meals_per_day', 'meals_per_day': 'meals_per_day',
+            'duracion_semanas': 'duration_weeks', 'duration_weeks': 'duration_weeks',
+            'multiplicador_porcion': 'portion_multiplier', 'portion_multiplier': 'portion_multiplier',
+            'es_plantilla': 'is_template', 'is_template': 'is_template',
+            'es_sistema': 'is_system', 'is_system': 'is_system',
+            'activo': 'is_active', 'is_active': 'is_active',
+        }
+
+        def gv(row_dict, canonical, default=''):
+            if canonical in row_dict:
+                return row_dict[canonical]
+            for k, v in plan_aliases.items():
+                if v == canonical and k in row_dict:
+                    return row_dict[k]
+            return default
+
+        def to_bool(val):
+            return str(val).lower() in ('true', 'si', 's', '1', 'yes')
+
+        def to_int_or_none(val):
+            try:
+                v = int(float(str(val)))
+                return v if 0 <= v <= 100 else None
+            except (ValueError, TypeError):
+                return None
+
+        file = request.FILES.get('file')
+        if not file or not isinstance(file, UploadedFile):
+            return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
+        updated, created, skipped = 0, 0, 0
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            row_dict = dict(zip(headers, row))
+            name = str(gv(row_dict, 'name') or '').strip()
+            if not name:
+                skipped += 1
+                continue
+            plan = NutritionPlan.objects.filter(name=name).first()
+            fields = {
+                'description': gv(row_dict, 'description', '') or '',
+                'goal': gv(row_dict, 'goal', 'maintain') or 'maintain',
+                'diet_type': gv(row_dict, 'diet_type', 'normal') or 'normal',
+                'daily_calories': int(float(gv(row_dict, 'daily_calories', 2000) or 2000)),
+                'protein_grams': int(float(gv(row_dict, 'protein_grams', 150) or 150)),
+                'carbs_grams': int(float(gv(row_dict, 'carbs_grams', 200) or 200)),
+                'fat_grams': int(float(gv(row_dict, 'fat_grams', 65) or 65)),
+                'fiber_grams': int(float(gv(row_dict, 'fiber_grams', 25) or 25)),
+                'protein_percentage': to_int_or_none(gv(row_dict, 'protein_percentage', '')),
+                'carbs_percentage': to_int_or_none(gv(row_dict, 'carbs_percentage', '')),
+                'fat_percentage': to_int_or_none(gv(row_dict, 'fat_percentage', '')),
+                'meals_per_day': int(float(gv(row_dict, 'meals_per_day', 5) or 5)),
+                'duration_weeks': int(float(gv(row_dict, 'duration_weeks', 4) or 4)),
+                'portion_multiplier': float(gv(row_dict, 'portion_multiplier', 1.0) or 1.0),
+                'is_template': to_bool(gv(row_dict, 'is_template', 'false')),
+                'is_system': to_bool(gv(row_dict, 'is_system', 'false')),
+                'is_active': to_bool(gv(row_dict, 'is_active', 'true')),
+            }
+            if plan:
+                for k, v in fields.items():
+                    setattr(plan, k, v)
+                plan.save()
+                updated += 1
+            else:
+                NutritionPlan.objects.create(name=name, **fields)
+                created += 1
+        return Response({
+            'created': created,
+            'updated': updated,
+            'skipped': skipped,
+            'message': f"Importacion completada: {created} planes creados, {updated} actualizados, {skipped} omitidos.",
+        }, status=status.HTTP_200_OK)
+
+
 class AdminPlanMealViewSet(viewsets.ModelViewSet):
     queryset = PlanMeal.objects.all()
     serializer_class = AdminPlanMealSerializer
