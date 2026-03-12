@@ -133,96 +133,96 @@ const translateDifficulty = (difficulty: string): string => {
 }
 
 export function ExerciseManagement() {
-      // --- Importación CSV/Excel ---
-      const [importing, setImporting] = useState(false);
-      const [importFile, setImportFile] = useState<File | null>(null);
-      const [showImportDialog, setShowImportDialog] = useState(false);
+  // --- Importación CSV/Excel ---
+  const [importing, setImporting] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
-      const handleImport = async () => {
-        if (!importFile) return;
-        setImporting(true);
-        try {
-          const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-          let endpoint = '/admin/exercises/import-csv/';
-          if (importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')) {
-            endpoint = '/admin/exercises/import-excel/';
-          }
-          const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
-          const formData = new FormData();
-          formData.append('file', importFile);
-          const headers = await getAuthHeaders();
-          const response = await fetch(url, {
-            method: 'POST',
-            headers,
-            body: formData,
-          });
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText || 'Error al importar');
-          }
-          let data = null;
-          try {
-            data = await response.json();
-          } catch {}
-          toast({
-            title: '✅ Importación',
-            description: data?.message || 'Ejercicios importados y actualizados correctamente.'
-          });
-          setShowImportDialog(false);
-          setImportFile(null);
-          refetch(); // Refresca la lista en tiempo real
-        } catch (error) {
-          toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' });
-        } finally {
-          setImporting(false);
-        }
-      };
-    // --- Exportación CSV y Excel ---
-    const handleExportCSV = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-        const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-csv/`;
-        const headers = await getAuthHeaders();
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
-        });
-        if (!response.ok) throw new Error('Error al exportar CSV');
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = 'exercises_export.csv';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ title: '✅ Exportación CSV', description: 'Archivo descargado correctamente.' });
-      } catch (error) {
-        toast({ title: '❌ Error', description: 'No se pudo exportar el CSV', variant: 'destructive' });
+  const handleImport = async () => {
+    if (!importFile) return;
+    setImporting(true);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      let endpoint = '/admin/exercises/import-csv/';
+      if (importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')) {
+        endpoint = '/admin/exercises/import-excel/';
       }
-    };
+      const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
+      const formData = new FormData();
+      formData.append('file', importFile);
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Error al importar');
+      }
+      let data = null;
+      try {
+        data = await response.json();
+      } catch { }
+      toast({
+        title: '✅ Importación',
+        description: data?.message || 'Ejercicios importados y actualizados correctamente.'
+      });
+      setShowImportDialog(false);
+      setImportFile(null);
+      refetch(); // Refresca la lista en tiempo real
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' });
+    } finally {
+      setImporting(false);
+    }
+  };
+  // --- Exportación CSV y Excel ---
+  const handleExportCSV = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-csv/`;
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      if (!response.ok) throw new Error('Error al exportar CSV');
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'exercises_export.csv';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: '✅ Exportación CSV', description: 'Archivo descargado correctamente.' });
+    } catch (error) {
+      toast({ title: '❌ Error', description: 'No se pudo exportar el CSV', variant: 'destructive' });
+    }
+  };
 
-    const handleExportExcel = async () => {
-      try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-        const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-excel/`;
-        const headers = await getAuthHeaders();
-        const response = await fetch(url, {
-          method: 'GET',
-          headers,
-        });
-        if (!response.ok) throw new Error('Error al exportar Excel');
-        const blob = await response.blob();
-        const link = document.createElement('a');
-        link.href = window.URL.createObjectURL(blob);
-        link.download = 'exercises_export.xlsx';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({ title: '✅ Exportación Excel', description: 'Archivo descargado correctamente.' });
-      } catch (error) {
-        toast({ title: '❌ Error', description: 'No se pudo exportar el Excel', variant: 'destructive' });
-      }
-    };
+  const handleExportExcel = async () => {
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
+      const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-excel/`;
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'GET',
+        headers,
+      });
+      if (!response.ok) throw new Error('Error al exportar Excel');
+      const blob = await response.blob();
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(blob);
+      link.download = 'exercises_export.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({ title: '✅ Exportación Excel', description: 'Archivo descargado correctamente.' });
+    } catch (error) {
+      toast({ title: '❌ Error', description: 'No se pudo exportar el Excel', variant: 'destructive' });
+    }
+  };
   const {
     exercises,
     stats,
@@ -280,7 +280,7 @@ export function ExerciseManagement() {
   // Estado para gestión de sustitutos
   const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
   const [substitutesExercise, setSubstitutesExercise] = useState<Exercise | null>(null)
-  const [substitutes, setSubstitutes] = useState<Array<{id: number, substitute_id: string, substitute_name: string, category?: string, priority: number, notes: string}>>([])
+  const [substitutes, setSubstitutes] = useState<Array<{ id: number, substitute_id: string, substitute_name: string, category?: string, priority: number, notes: string }>>([])
   const [substituteSearch, setSubstituteSearch] = useState("")
   const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
 
@@ -672,23 +672,23 @@ export function ExerciseManagement() {
               <CardDescription>Gestiona tus ejercicios con archivos CSV o Excel</CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleExportCSV}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 Exportar CSV
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={handleExportExcel}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 Exportar Excel
               </Button>
-              <Button 
+              <Button
                 onClick={() => setShowImportDialog(true)}
                 className="bg-blue-600 hover:bg-blue-700 gap-2"
               >
@@ -847,11 +847,10 @@ export function ExerciseManagement() {
             {currentExercises.map((exercise) => (
               <Card
                 key={exercise.id}
-                className={`border-2 transition-all ${
-                  selectedExercises.includes(exercise.id)
+                className={`border-2 transition-all ${selectedExercises.includes(exercise.id)
                     ? 'border-purple-500 bg-purple-50/50'
                     : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
-                }`}
+                  }`}
               >
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
@@ -899,7 +898,7 @@ export function ExerciseManagement() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
-                      
+
                       <div className="flex flex-wrap items-center gap-2 mb-2">
                         {exercise.category && (
                           <Badge variant="outline" className="text-xs">
@@ -909,11 +908,10 @@ export function ExerciseManagement() {
                         {exercise.difficulty && (
                           <Badge
                             variant="outline"
-                            className={`text-xs ${
-                              exercise.difficulty === 'beginner' ? 'bg-green-100 text-green-800 border-green-200' :
+                            className={`text-xs ${exercise.difficulty === 'beginner' ? 'bg-green-100 text-green-800 border-green-200' :
                                 exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
                                   exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
-                            }`}
+                              }`}
                           >
                             {translateDifficulty(exercise.difficulty)}
                           </Badge>
@@ -1138,9 +1136,9 @@ export function ExerciseManagement() {
                       } else {
                         pageNum = currentPage - 1 + i;
                       }
-                      
+
                       if (pageNum < 1 || pageNum > totalPages) return null;
-                      
+
                       return (
                         <Button
                           key={pageNum}

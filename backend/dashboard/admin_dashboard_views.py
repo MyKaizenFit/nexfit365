@@ -4,6 +4,7 @@ Vistas para el panel de administración
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from django.db import DatabaseError
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -26,56 +27,71 @@ def admin_dashboard_stats(request):
     week_start = today - timedelta(days=today.weekday())
     month_start = today.replace(day=1)
     
+    def safe_count(qs):
+        try:
+            return qs.count()
+        except DatabaseError:
+            return 0
+
     # Estadísticas de usuarios
-    total_users = CustomUser.objects.count()
-    active_users = CustomUser.objects.filter(is_active=True).count()
-    admins = CustomUser.objects.filter(
+    total_users = safe_count(CustomUser.objects.all())
+    active_users = safe_count(CustomUser.objects.filter(is_active=True))
+    admins = safe_count(CustomUser.objects.filter(
         Q(is_superuser=True) | Q(is_staff=True) | Q(role='admin') | Q(role='trainer')
-    ).count()
-    new_users_today = CustomUser.objects.filter(date_joined__date=today).count()
-    new_users_week = CustomUser.objects.filter(date_joined__date__gte=week_start).count()
-    new_users_month = CustomUser.objects.filter(date_joined__date__gte=month_start).count()
+    ))
+    new_users_today = safe_count(CustomUser.objects.filter(date_joined__date=today))
+    new_users_week = safe_count(CustomUser.objects.filter(date_joined__date__gte=week_start))
+    new_users_month = safe_count(CustomUser.objects.filter(date_joined__date__gte=month_start))
     
     # Estadísticas de entrenamientos
-    total_workout_logs = WorkoutLog.objects.count()
-    workouts_today = WorkoutLog.objects.filter(date=today).count()
-    workouts_week = WorkoutLog.objects.filter(date__gte=week_start).count()
-    total_programs = WorkoutProgram.objects.count()  # Total: activos + inactivos
-    active_programs = WorkoutProgram.objects.filter(is_active=True).count()
+    total_workout_logs = safe_count(WorkoutLog.objects.all())
+    workouts_today = safe_count(WorkoutLog.objects.filter(date=today))
+    workouts_week = safe_count(WorkoutLog.objects.filter(date__gte=week_start))
+    total_programs = safe_count(WorkoutProgram.objects.all())  # Total: activos + inactivos
+    active_programs = safe_count(WorkoutProgram.objects.filter(is_active=True))
     
     # Estadísticas de nutrición
-    total_meal_logs = MealLog.objects.count()
-    meals_today = MealLog.objects.filter(date=today).count()
-    meals_week = MealLog.objects.filter(date__gte=week_start).count()
-    total_nutrition_plans = NutritionPlan.objects.count()  # Total: activos + inactivos
-    active_nutrition_plans = NutritionPlan.objects.filter(is_active=True).count()
+    total_meal_logs = safe_count(MealLog.objects.all())
+    meals_today = safe_count(MealLog.objects.filter(date=today))
+    meals_week = safe_count(MealLog.objects.filter(date__gte=week_start))
+    total_nutrition_plans = safe_count(NutritionPlan.objects.all())  # Total: activos + inactivos
+    active_nutrition_plans = safe_count(NutritionPlan.objects.filter(is_active=True))
     
     # Estadísticas de notificaciones
-    total_notifications = Notification.objects.count()
-    unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
+    total_notifications = safe_count(Notification.objects.all())
+    unread_notifications = safe_count(Notification.objects.filter(read_at__isnull=True))
     
     # Estadísticas de progreso
-    total_weight_entries = WeightEntry.objects.count()
-    weight_entries_today = WeightEntry.objects.filter(date=today).count()
-    total_progress_photos = ProgressPhoto.objects.count()
+    total_weight_entries = safe_count(WeightEntry.objects.all())
+    weight_entries_today = safe_count(WeightEntry.objects.filter(date=today))
+    total_progress_photos = safe_count(ProgressPhoto.objects.all())
     
     # Estadísticas de logros
-    total_achievements_unlocked = UserAchievement.objects.count()
-    achievements_today = UserAchievement.objects.filter(unlocked_at__date=today).count()
-    total_points_awarded = UserAchievement.objects.aggregate(
-        total=Sum('achievement__points')
-    )['total'] or 0
+    total_achievements_unlocked = safe_count(UserAchievement.objects.all())
+    achievements_today = safe_count(UserAchievement.objects.filter(unlocked_at__date=today))
+    try:
+        total_points_awarded = UserAchievement.objects.aggregate(
+            total=Sum('achievement__points')
+        )['total'] or 0
+    except DatabaseError:
+        total_points_awarded = 0
     
     # Métricas de engagement
     # Usuarios activos en los últimos 7 días (con al menos 1 log)
-    active_last_7_days = CustomUser.objects.filter(
-        workout_logs__date__gte=today - timedelta(days=7)
-    ).distinct().count()
+    try:
+        active_last_7_days = CustomUser.objects.filter(
+            workout_logs__date__gte=today - timedelta(days=7)
+        ).distinct().count()
+    except DatabaseError:
+        active_last_7_days = 0
     
     # Usuarios activos en los últimos 30 días
-    active_last_30_days = CustomUser.objects.filter(
-        workout_logs__date__gte=today - timedelta(days=30)
-    ).distinct().count()
+    try:
+        active_last_30_days = CustomUser.objects.filter(
+            workout_logs__date__gte=today - timedelta(days=30)
+        ).distinct().count()
+    except DatabaseError:
+        active_last_30_days = 0
     
     return Response({
         "users": {

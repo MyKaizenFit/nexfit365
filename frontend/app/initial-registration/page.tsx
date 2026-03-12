@@ -99,7 +99,7 @@ export default function InitialRegistrationPage() {
               Ver Recomendaciones Personalizadas
             </Button>
             <Button onClick={() => router.push('/dashboard')} variant="outline" className="w-full">
-              Ir al Dashboard
+              Ir a Inicio
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
@@ -119,7 +119,7 @@ export default function InitialRegistrationPage() {
           className="bg-white/90 backdrop-blur-sm border-gray-300 text-gray-700 hover:bg-white hover:text-red-600 transition-all duration-300 shadow-lg"
         >
           <LogOut className="h-4 w-4 mr-2" />
-          Cerrar Sesión
+          Cerrar sesión
         </Button>
       </div>
 

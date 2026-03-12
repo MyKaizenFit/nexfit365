@@ -103,15 +103,15 @@ export function WorkoutPlanManagement() {
   const [isLoading, setIsLoading] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
-   const [showImportDialog, setShowImportDialog] = useState(false)
-  
+  const [showImportDialog, setShowImportDialog] = useState(false)
+
   // Estados para flujo de dos pasos (similar a menu-plan-management-v2)
   const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
   const [showWorkoutEditor, setShowWorkoutEditor] = useState(false)
   const [workoutEditorPlanId, setWorkoutEditorPlanId] = useState<string | null>(null)
 
   const [usersList, setUsersList] = useState<Array<{ id: string; email: string }>>([])
-  
+
   // Estados para edición de respaldos en planes existentes
   const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
   const [substitutesExerciseId, setSubstitutesExerciseId] = useState<string | null>(null)
@@ -119,11 +119,11 @@ export function WorkoutPlanManagement() {
   const [substitutes, setSubstitutes] = useState<any[]>([])
   const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
   const [substituteSearch, setSubstituteSearch] = useState("")
-  
+
   // Ordenamiento (cliente - solo para los 50 planes cargados)
   const [sortColumn, setSortColumn] = useState<string>("name")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
-  
+
   // Estados para el formulario de creación/edición
   const [formData, setFormData] = useState({
     name: '',
@@ -153,7 +153,7 @@ export function WorkoutPlanManagement() {
     }
     loadUsers()
   }, [])
-  
+
   const [workoutDays, setWorkoutDays] = useState<Array<{
     id: string
     day_name: string
@@ -191,13 +191,13 @@ export function WorkoutPlanManagement() {
   ])
 
   // Estado para el selector múltiple de ejercicios
-  const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{[dayId: string]: string[]}>({})
-  const [showExerciseSelector, setShowExerciseSelector] = useState<{[dayId: string]: boolean}>({})
-  
+  const [selectedExercisesForDay, setSelectedExercisesForDay] = useState<{ [dayId: string]: string[] }>({})
+  const [showExerciseSelector, setShowExerciseSelector] = useState<{ [dayId: string]: boolean }>({})
+
   // Estados para búsqueda y filtros de ejercicios
-  const [exerciseSearchTerm, setExerciseSearchTerm] = useState<{[dayId: string]: string}>({})
-  const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<{[dayId: string]: string}>({})
-  const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState<{[dayId: string]: string}>({})
+  const [exerciseSearchTerm, setExerciseSearchTerm] = useState<{ [dayId: string]: string }>({})
+  const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<{ [dayId: string]: string }>({})
+  const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState<{ [dayId: string]: string }>({})
 
   // Aplicar filtros del servidor y ordenamiento local - asegurar que plans sea un array
   const plansArray = Array.isArray(plans) ? plans : []
@@ -212,13 +212,13 @@ export function WorkoutPlanManagement() {
     }
     return true
   })
-  
+
   // Ordenamiento - asegurar que filteredPlans sea un array
   const sortedPlans = Array.isArray(filteredPlans) ? [...filteredPlans].sort((a, b) => {
     if (!a || !b) return 0
     let aValue: any
     let bValue: any
-    
+
     switch (sortColumn) {
       case 'name':
         aValue = (a.name || '').toLowerCase()
@@ -244,21 +244,21 @@ export function WorkoutPlanManagement() {
       default:
         return 0
     }
-    
+
     if (typeof aValue === 'string') {
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? aValue.localeCompare(bValue)
         : bValue.localeCompare(aValue)
     } else {
-      return sortDirection === 'asc' 
+      return sortDirection === 'asc'
         ? (aValue - bValue)
         : (bValue - aValue)
     }
   }) : []
-  
+
   // Usar todos los planes ordenados (ya vienen paginados del servidor)
   const currentPlans = sortedPlans
-  
+
   // Función para cambiar el ordenamiento
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -268,7 +268,7 @@ export function WorkoutPlanManagement() {
       setSortDirection('asc')
     }
   }
-  
+
   // Aplicar filtros del servidor cuando cambian
   useEffect(() => {
     const newFilters = {
@@ -280,10 +280,10 @@ export function WorkoutPlanManagement() {
       user: userFilter !== 'all' ? userFilter : undefined,
       is_template:
         planTypeFilter === 'templates' ? true :
-        planTypeFilter === 'users' ? false :
-        undefined
+          planTypeFilter === 'users' ? false :
+            undefined
     }
-    
+
     // Debounce para búsqueda
     if (searchTerm !== serverFilters.search) {
       const timer = setTimeout(() => {
@@ -520,15 +520,15 @@ export function WorkoutPlanManagement() {
   const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-     setImportFile(file);
-   };
+    setImportFile(file);
+  };
 
-   const handleImport = async () => {
-     const file = importFile;
-     if (!file) return;
-   
+  const handleImport = async () => {
+    const file = importFile;
+    if (!file) return;
+
     setImporting(true);
-    
+
     try {
       const endpoint = (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))
         ? 'admin/workouts/workouts/import_excel/'
@@ -542,30 +542,30 @@ export function WorkoutPlanManagement() {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         throw new Error(errorText || 'Error al importar');
       }
-      
+
       let data = null;
       try {
         data = await response.json();
-      } catch {}
-      
+      } catch { }
+
       toast({
         title: '✅ Importación',
         description: data?.message || 'Planes importados correctamente.'
       });
-      
+
       setImportFile(null);
       setShowImportDialog(false);
       refetch();
     } catch (error) {
-      toast({ 
-        title: '❌ Error', 
-        description: error instanceof Error ? error.message : 'No se pudo importar', 
-        variant: 'destructive' 
+      toast({
+        title: '❌ Error',
+        description: error instanceof Error ? error.message : 'No se pudo importar',
+        variant: 'destructive'
       });
     } finally {
       setImporting(false);
@@ -606,7 +606,7 @@ export function WorkoutPlanManagement() {
     if (isViewMode) return
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
-      return prevArray.map(day => 
+      return prevArray.map(day =>
         day && day.id === dayId ? { ...day, [field]: value } : day
       )
     })
@@ -661,10 +661,10 @@ export function WorkoutPlanManagement() {
     setSelectedExercisesForDay(prev => {
       const current = Array.isArray(prev[dayId]) ? prev[dayId] : []
       const isSelected = Array.isArray(current) && current.includes(exerciseId)
-      
+
       return {
         ...prev,
-        [dayId]: isSelected 
+        [dayId]: isSelected
           ? (Array.isArray(current) ? current.filter(id => id !== exerciseId) : [])
           : [...(Array.isArray(current) ? current : []), exerciseId]
       }
@@ -674,14 +674,14 @@ export function WorkoutPlanManagement() {
   const addSelectedExercisesToDay = (dayId: string) => {
     if (isViewMode) return
     const selectedIds = Array.isArray(selectedExercisesForDay[dayId]) ? selectedExercisesForDay[dayId] : []
-    
+
     selectedIds.forEach(exerciseId => {
       // Verificar si el ejercicio ya está en el día
       const workoutDaysArray = Array.isArray(workoutDays) ? workoutDays : []
       const day = workoutDaysArray.find(d => d && d.id === dayId)
       const dayExercises = Array.isArray(day?.exercises) ? day.exercises : []
       const alreadyExists = dayExercises.some(e => String(e.exercise_id) === String(exerciseId))
-      
+
       if (!alreadyExists) {
         addExerciseToDay(dayId, exerciseId)
       }
@@ -784,7 +784,7 @@ export function WorkoutPlanManagement() {
         const temp = newDays[dayIndex]
         newDays[dayIndex] = newDays[dayIndex - 1]
         newDays[dayIndex - 1] = temp
-        
+
         // Actualizar day_number
         return newDays.map((day, index) => ({
           ...day,
@@ -802,7 +802,7 @@ export function WorkoutPlanManagement() {
         const temp = newDays[dayIndex]
         newDays[dayIndex] = newDays[dayIndex + 1]
         newDays[dayIndex + 1] = temp
-        
+
         // Actualizar day_number
         return newDays.map((day, index) => ({
           ...day,
@@ -836,8 +836,8 @@ export function WorkoutPlanManagement() {
         if (day.id === dayId) {
           const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
           return {
-            ...day, 
-            exercises: exercisesArray.map((exercise, index) => 
+            ...day,
+            exercises: exercisesArray.map((exercise, index) =>
               index === exerciseIndex ? { ...exercise, [field]: value } : exercise
             )
           }
@@ -858,7 +858,7 @@ export function WorkoutPlanManagement() {
 
     try {
       setIsLoading(true)
-      
+
       // Si estamos editando, guardamos todo (info básica + días/ejercicios)
       if (editingPlan) {
         const planData = {
@@ -894,7 +894,7 @@ export function WorkoutPlanManagement() {
             user: undefined, // Sin usuario = plantilla
             days: []
           }
-          
+
           const created = await createPlan(planData)
           toast({
             title: "✅ Plantilla creada",
@@ -902,7 +902,7 @@ export function WorkoutPlanManagement() {
           })
           setShowCreateDialog(false)
           setCreateStep("basic")
-          
+
           if (configureExercises && created?.id) {
             setWorkoutEditorPlanId(String(created.id))
             setShowWorkoutEditor(true)
@@ -913,7 +913,7 @@ export function WorkoutPlanManagement() {
         } else {
           // Si HAY usuarios seleccionados, crear una copia del plan por cada uno
           const createdPlans: any[] = []
-          
+
           for (const userId of formData.assigned_users) {
             const planData = {
               name: formData.name,
@@ -925,7 +925,7 @@ export function WorkoutPlanManagement() {
               user: userId, // Asignar a este usuario específico
               days: []
             }
-            
+
             try {
               const created = await createPlan(planData)
               createdPlans.push(created)
@@ -934,16 +934,16 @@ export function WorkoutPlanManagement() {
               // Continuar con los demás usuarios
             }
           }
-          
+
           if (createdPlans.length > 0) {
             toast({
               title: `✅ ${createdPlans.length} plan(es) creado(s)`,
               description: `Se asignó el plan a ${createdPlans.length} usuario(s)`,
             })
-            
+
             setShowCreateDialog(false)
             setCreateStep("basic")
-            
+
             // Si solo se creó un plan y se quiere configurar ejercicios
             if (configureExercises && createdPlans.length === 1 && createdPlans[0]?.id) {
               setWorkoutEditorPlanId(String(createdPlans[0].id))
@@ -980,7 +980,7 @@ export function WorkoutPlanManagement() {
   const handleSubmitCreatePlanWithExercises = async () => {
     try {
       setIsLoading(true)
-      
+
       // Solo permitir este flujo si hay 0 o 1 usuario seleccionado
       if (formData.assigned_users.length > 1) {
         toast({
@@ -990,7 +990,7 @@ export function WorkoutPlanManagement() {
         })
         return
       }
-      
+
       // Crear el plan básico
       const planData = {
         name: formData.name,
@@ -1002,9 +1002,9 @@ export function WorkoutPlanManagement() {
         user: formData.assigned_users.length === 1 ? formData.assigned_users[0] : undefined,
         days: [] // Enviar los días vacíos por ahora
       }
-      
+
       const created = await createPlan(planData)
-      
+
       // Luego actualizar con ejercicios si el plan fue creado
       if (created?.id) {
         // Luego de que el editor guarde, cerramos el diálogo
@@ -1012,7 +1012,7 @@ export function WorkoutPlanManagement() {
           title: "✅ Plan creado exitosamente",
           description: "El plan de entrenamiento ha sido creado con los ejercicios configurados.",
         })
-        
+
         setShowCreateDialog(false)
         resetForm()
         refetch()
@@ -1080,7 +1080,7 @@ export function WorkoutPlanManagement() {
   const handleSaveExercisesAndCreate = async () => {
     try {
       setIsLoading(true)
-      
+
       // Llamar al save del editor incrustado
       if (editorRef.current?.handleSave) {
         await editorRef.current.handleSave()
@@ -1143,7 +1143,7 @@ export function WorkoutPlanManagement() {
       setLoadingDetail(true)
       setIsViewMode(viewOnly) // Establecer modo vista
       const planDetail = await fetchPlanDetail(planId)
-      
+
       if (planDetail) {
         // Cargar datos del formulario
         setFormData({
@@ -1155,7 +1155,7 @@ export function WorkoutPlanManagement() {
           estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
           assigned_users: [] // En modo edición no permitimos cambiar usuarios
         })
-        
+
         // Convertir días del plan al formato del formulario
         if (planDetail.days && planDetail.days.length > 0) {
           const convertedDays = planDetail.days.map((day: any) => ({
@@ -1183,8 +1183,8 @@ export function WorkoutPlanManagement() {
           }))
           setWorkoutDays(convertedDays)
           // Si necesitas depurar, usa console.log o estructura el objeto correctamente
-        // <-- removed stray closing parenthesis
-      } else {
+          // <-- removed stray closing parenthesis
+        } else {
           setWorkoutDays([{
             id: '1',
             day_name: 'Día 1',
@@ -1194,7 +1194,7 @@ export function WorkoutPlanManagement() {
             exercises: []
           }])
         }
-        
+
         setEditingPlan(planDetail)
         toast({
           title: "✅ Plan cargado",
@@ -1226,18 +1226,18 @@ export function WorkoutPlanManagement() {
       setSubstitutesExerciseId(exerciseId)
       setSubstitutesExerciseName(exerciseName)
       setSubstituteSearch("")
-      
+
       // Obtener substitutes existentes del ejercicio en el plan actual
       const currentExercise = workoutDays
         .flatMap(day => day.exercises)
         .find(ex => String(ex.exercise_id) === String(exerciseId))
-      
+
       if (currentExercise?.substitutes) {
         setSubstitutes(currentExercise.substitutes)
       } else {
         setSubstitutes([])
       }
-      
+
       setShowSubstitutesDialog(true)
     } catch (error) {
       toast({
@@ -1288,10 +1288,10 @@ export function WorkoutPlanManagement() {
         category: substituteExercise.category,
         priority: substitutes.length + 1
       }
-      
+
       const updatedSubstitutes = [...substitutes, newSubstitute]
       setSubstitutes(updatedSubstitutes)
-      
+
       // Actualizar en workoutDays
       setWorkoutDays(prev => {
         const prevArray = Array.isArray(prev) ? prev : []
@@ -1304,7 +1304,7 @@ export function WorkoutPlanManagement() {
           )
         }))
       })
-      
+
       setSubstituteSearch("")
       toast({
         title: "✅ Substituto agregado",
@@ -1327,20 +1327,20 @@ export function WorkoutPlanManagement() {
         priority: idx + 1
       }))
     setSubstitutes(updatedSubstitutes)
-    
+
     // Actualizar en workoutDays
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => ({
         ...day,
         exercises: (day.exercises || []).map(ex =>
-            String(ex.exercise_id) === String(substitutesExerciseId)
+          String(ex.exercise_id) === String(substitutesExerciseId)
             ? { ...ex, substitutes: updatedSubstitutes }
             : ex
         )
       }))
     })
-    
+
     toast({
       title: "✅ Substituto eliminado",
       description: `Ejercicio de respaldo removido (${updatedSubstitutes.length}/3)`,
@@ -1350,22 +1350,22 @@ export function WorkoutPlanManagement() {
   const moveSubstituteUp = (index: number) => {
     if (index <= 0) return
     const newSubstitutes = [...substitutes]
-    ;[newSubstitutes[index], newSubstitutes[index - 1]] = [newSubstitutes[index - 1], newSubstitutes[index]]
-    
+      ;[newSubstitutes[index], newSubstitutes[index - 1]] = [newSubstitutes[index - 1], newSubstitutes[index]]
+
     // Actualizar prioridades
     newSubstitutes.forEach((sub, idx) => {
       sub.priority = idx + 1
     })
-    
+
     setSubstitutes(newSubstitutes)
-    
+
     // Actualizar en workoutDays
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => ({
         ...day,
         exercises: (day.exercises || []).map(ex =>
-            String(ex.exercise_id) === String(substitutesExerciseId)
+          String(ex.exercise_id) === String(substitutesExerciseId)
             ? { ...ex, substitutes: newSubstitutes }
             : ex
         )
@@ -1376,22 +1376,22 @@ export function WorkoutPlanManagement() {
   const moveSubstituteDown = (index: number) => {
     if (index >= substitutes.length - 1) return
     const newSubstitutes = [...substitutes]
-    ;[newSubstitutes[index], newSubstitutes[index + 1]] = [newSubstitutes[index + 1], newSubstitutes[index]]
-    
+      ;[newSubstitutes[index], newSubstitutes[index + 1]] = [newSubstitutes[index + 1], newSubstitutes[index]]
+
     // Actualizar prioridades
     newSubstitutes.forEach((sub, idx) => {
       sub.priority = idx + 1
     })
-    
+
     setSubstitutes(newSubstitutes)
-    
+
     // Actualizar en workoutDays
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => ({
         ...day,
         exercises: (day.exercises || []).map(ex =>
-            String(ex.exercise_id) === String(substitutesExerciseId)
+          String(ex.exercise_id) === String(substitutesExerciseId)
             ? { ...ex, substitutes: newSubstitutes }
             : ex
         )
@@ -1439,99 +1439,99 @@ export function WorkoutPlanManagement() {
 
   return (
     <div className="space-y-6">
-       {/* Card de Exportación/Importación */}
-       <Card>
-         <CardHeader>
-           <div className="flex items-center justify-between">
-             <div>
-               <CardTitle>📁 Importar/Exportar Planes</CardTitle>
-               <CardDescription>Gestiona tus planes de entrenamiento con archivos CSV o Excel</CardDescription>
-             </div>
-             <div className="flex gap-2">
-               <Button 
-                 variant="outline" 
-                 onClick={handleExportCSV}
-                 className="gap-2"
-               >
-                 <Download className="h-4 w-4" />
-                 Exportar CSV
-               </Button>
-               <Button 
-                 variant="outline" 
-                 onClick={handleExportExcel}
-                 className="gap-2"
-               >
-                 <Download className="h-4 w-4" />
-                 Exportar Excel
-               </Button>
-               <Button 
-                 onClick={() => setShowImportDialog(true)}
-                 className="bg-blue-600 hover:bg-blue-700 gap-2"
-               >
-                 <Upload className="h-4 w-4" />
-                 Importar CSV/Excel
-               </Button>
-             </div>
-           </div>
-         </CardHeader>
-       </Card>
+      {/* Card de Exportación/Importación */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>📁 Importar/Exportar Planes</CardTitle>
+              <CardDescription>Gestiona tus planes de entrenamiento con archivos CSV o Excel</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleExportCSV}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar CSV
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportExcel}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Exportar Excel
+              </Button>
+              <Button
+                onClick={() => setShowImportDialog(true)}
+                className="bg-blue-600 hover:bg-blue-700 gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                Importar CSV/Excel
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+      </Card>
 
-       {/* Dialog de importación mejorado */}
-       <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
-         <DialogContent className="max-w-md">
-           <DialogHeader>
-             <DialogTitle>📥 Importar Planes de Entrenamiento</DialogTitle>
-             <DialogDescription>
-               Sube un archivo CSV o Excel para importar o actualizar planes. Los planes existentes se actualizarán si el nombre coincide.
-             </DialogDescription>
-           </DialogHeader>
-           <div className="space-y-4">
-             <div>
-               <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
-               <Input
-                 type="file"
-                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                 onChange={e => setImportFile(e.target.files?.[0] || null)}
-                 disabled={importing}
-                 className="mt-2"
-               />
-               {importFile && (
-                 <div className="text-sm text-green-600 mt-2">
-                   ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
-                 </div>
-               )}
-             </div>
-             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-               <p className="text-xs text-blue-700">
-                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, dificultad, duración en semanas y rol mínimo requerido.
-               </p>
-             </div>
-           </div>
-           <DialogFooter>
-             <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
-             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
-               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-               {importing ? 'Importando...' : 'Importar'}
-             </Button>
-           </DialogFooter>
-         </DialogContent>
-       </Dialog>
+      {/* Dialog de importación mejorado */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>📥 Importar Planes de Entrenamiento</DialogTitle>
+            <DialogDescription>
+              Sube un archivo CSV o Excel para importar o actualizar planes. Los planes existentes se actualizarán si el nombre coincide.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
+              <Input
+                type="file"
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={e => setImportFile(e.target.files?.[0] || null)}
+                disabled={importing}
+                className="mt-2"
+              />
+              {importFile && (
+                <div className="text-sm text-green-600 mt-2">
+                  ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-700">
+                <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, dificultad, duración en semanas y rol mínimo requerido.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
+              {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {importing ? 'Importando...' : 'Importar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-           <h2 className="text-3xl font-bold tracking-tight">Gestión de Planes de Entrenamiento</h2>
+          <h2 className="text-3xl font-bold tracking-tight">Gestión de Planes de Entrenamiento</h2>
           <p className="text-muted-foreground">
             Administra las rutinas de entrenamiento disponibles para los usuarios
           </p>
         </div>
-         <Button
-           onClick={() => setShowCreateDialog(true)}
-           className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-         >
-           <Plus className="h-4 w-4 mr-2" />
-           Nuevo Plan
-         </Button>
+        <Button
+          onClick={() => setShowCreateDialog(true)}
+          className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+        >
+          <Plus className="h-4 w-4 mr-2" />
+          Nuevo Plan
+        </Button>
       </div>
 
       {/* Filters and Search */}
@@ -1564,7 +1564,7 @@ export function WorkoutPlanManagement() {
                   <SelectItem value="basic">Básico</SelectItem>
                   <SelectItem value="pro">Pro</SelectItem>
                   <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1698,7 +1698,7 @@ export function WorkoutPlanManagement() {
                   <XCircle className="h-3 w-3 mr-1" />
                   Desactivar
                 </Button>
-                <Button 
+                <Button
                   size="sm"
                   variant="destructive"
                   onClick={handleBulkDelete}
@@ -1754,11 +1754,10 @@ export function WorkoutPlanManagement() {
               return (
                 <Card
                   key={plan.id}
-                  className={`border-2 transition-all ${
-                    selectedPlans.includes(plan.id)
+                  className={`border-2 transition-all ${selectedPlans.includes(plan.id)
                       ? 'border-purple-500 bg-purple-50/50'
                       : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
-                  }`}
+                    }`}
                 >
                   <CardContent className="p-4">
                     <div className="flex items-start gap-3">
@@ -1880,7 +1879,7 @@ export function WorkoutPlanManagement() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
-                        
+
                         <div className="flex flex-wrap items-center gap-2 mb-2">
                           {getCategoryBadge(plan)}
                           {getDifficultyBadge(plan.difficulty)}
@@ -1921,7 +1920,7 @@ export function WorkoutPlanManagement() {
               <table className="w-full">
                 <thead className="bg-muted/50">
                   <tr>
-                    <th 
+                    <th
                       className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => handleSort('name')}
                     >
@@ -1932,7 +1931,7 @@ export function WorkoutPlanManagement() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => handleSort('role')}
                     >
@@ -1943,7 +1942,7 @@ export function WorkoutPlanManagement() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => handleSort('difficulty')}
                     >
@@ -1954,7 +1953,7 @@ export function WorkoutPlanManagement() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => handleSort('duration')}
                     >
@@ -1965,7 +1964,7 @@ export function WorkoutPlanManagement() {
                         )}
                       </div>
                     </th>
-                    <th 
+                    <th
                       className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
                       onClick={() => handleSort('status')}
                     >
@@ -1983,163 +1982,163 @@ export function WorkoutPlanManagement() {
                   {Array.isArray(currentPlans) ? currentPlans.map((plan) => {
                     if (!plan) return null
                     return (
-                    <tr key={plan.id} className="border-t hover:bg-muted/50">
-                      <td className="p-3">
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            checked={selectedPlans.includes(plan.id)}
-                            onCheckedChange={(checked) => handleSelectPlan(plan.id, checked as boolean)}
-                          />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <div className="font-medium">{fixEncoding(plan.name)}</div>
-                              {getCategoryBadge(plan)}
-                              {plan.is_default && (
-                                <Badge className="bg-yellow-100 text-yellow-800 border-0" title="Plan por defecto">
-                                  <Star className="h-3 w-3 mr-1" />
-                                  Por defecto
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              {plan.description 
-                                ? (fixEncoding(plan.description).length > 50 
-                                    ? `${fixEncoding(plan.description).substring(0, 50)}...` 
-                                    : fixEncoding(plan.description))
-                                : 'Sin descripción'}
-                            </div>
-                            {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
-                              <div className="text-xs text-muted-foreground mt-1">
-                                Se asigna cuando: {Object.entries(plan.default_conditions).map(([key, value]) => {
-                                  const keyNames: Record<string, string> = {
-                                    'days_per_week': 'Días/semana',
-                                    'difficulty': 'Dificultad',
-                                    'goal': 'Objetivo',
-                                    'min_role_required': 'Rol'
-                                  }
-                                  const valueNames: Record<string, any> = {
-                                    'beginner': 'Principiante',
-                                    'intermediate': 'Intermedio',
-                                    'advanced': 'Avanzado',
-                                    'weight_loss': 'Pérdida de peso',
-                                    'muscle_gain': 'Ganancia muscular',
-                                    'strength_building': 'Fuerza',
-                                    'endurance': 'Resistencia',
-                                    'general_fitness': 'Fitness general',
-                                    'basic': 'Básico',
-                                    'pro': 'Pro',
-                                    'premium': 'Premium'
-                                  }
-                                  return `${keyNames[key] || key}: ${valueNames[value] || value}`
-                                }).join(', ')}
+                      <tr key={plan.id} className="border-t hover:bg-muted/50">
+                        <td className="p-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={selectedPlans.includes(plan.id)}
+                              onCheckedChange={(checked) => handleSelectPlan(plan.id, checked as boolean)}
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <div className="font-medium">{fixEncoding(plan.name)}</div>
+                                {getCategoryBadge(plan)}
+                                {plan.is_default && (
+                                  <Badge className="bg-yellow-100 text-yellow-800 border-0" title="Plan por defecto">
+                                    <Star className="h-3 w-3 mr-1" />
+                                    Por defecto
+                                  </Badge>
+                                )}
                               </div>
-                            )}
+                              <div className="text-sm text-muted-foreground">
+                                {plan.description
+                                  ? (fixEncoding(plan.description).length > 50
+                                    ? `${fixEncoding(plan.description).substring(0, 50)}...`
+                                    : fixEncoding(plan.description))
+                                  : 'Sin descripción'}
+                              </div>
+                              {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Se asigna cuando: {Object.entries(plan.default_conditions).map(([key, value]) => {
+                                    const keyNames: Record<string, string> = {
+                                      'days_per_week': 'Días/semana',
+                                      'difficulty': 'Dificultad',
+                                      'goal': 'Objetivo',
+                                      'min_role_required': 'Rol'
+                                    }
+                                    const valueNames: Record<string, any> = {
+                                      'beginner': 'Principiante',
+                                      'intermediate': 'Intermedio',
+                                      'advanced': 'Avanzado',
+                                      'weight_loss': 'Pérdida de peso',
+                                      'muscle_gain': 'Ganancia muscular',
+                                      'strength_building': 'Fuerza',
+                                      'endurance': 'Resistencia',
+                                      'general_fitness': 'Fitness general',
+                                      'basic': 'Básico',
+                                      'pro': 'Pro',
+                                      'premium': 'Premium'
+                                    }
+                                    return `${keyNames[key] || key}: ${valueNames[value] || value}`
+                                  }).join(', ')}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </td>
-                      <td className="p-3">{getCategoryBadge(plan)}</td>
-                      <td className="p-3">{getDifficultyBadge(plan.difficulty)}</td>
-                      <td className="p-3">
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4 mr-1" />
-                          {plan.duration_weeks} semanas
-                        </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Activity className="h-4 w-4 mr-1" />
-                          {(plan.training_days ?? plan.days_per_week ?? 0)} entrenamientos/semana
-                        </div>
-                        {plan.estimated_duration_minutes && (
+                        </td>
+                        <td className="p-3">{getCategoryBadge(plan)}</td>
+                        <td className="p-3">{getDifficultyBadge(plan.difficulty)}</td>
+                        <td className="p-3">
                           <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="h-4 w-4 mr-1" />
-                            {plan.estimated_duration_minutes} min/sesión
+                            <Calendar className="h-4 w-4 mr-1" />
+                            {plan.duration_weeks} semanas
                           </div>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        {plan.is_active ? (
-                          <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
-                        ) : (
-                          <Badge className="bg-gray-100 text-gray-800 border-0">Inactivo</Badge>
-                        )}
-                      </td>
-                      <td className="p-3">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleEditPlan(plan.id, true)}
-                              className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
-                              disabled={loadingDetail}
-                            >
-                              {loadingDetail ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Eye className="h-4 w-4 mr-2" />
-                              )}
-                              Ver Detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleEditPlan(plan.id, false)}
-                              className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
-                              disabled={loadingDetail}
-                            >
-                              {loadingDetail ? (
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              ) : (
-                                <Edit className="h-4 w-4 mr-2" />
-                              )}
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleToggleActive(plan.id)}
-                              className="hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50"
-                            >
-                              {plan.is_active ? (
-                                <>
-                                  <XCircle className="h-4 w-4 mr-2" />
-                                  Desactivar
-                                </>
-                              ) : (
-                                <>
-                                  <CheckCircle className="h-4 w-4 mr-2" />
-                                  Activar
-                                </>
-                              )}
-                            </DropdownMenuItem>
-                            {!plan.is_default && (
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Activity className="h-4 w-4 mr-1" />
+                            {(plan.training_days ?? plan.days_per_week ?? 0)} entrenamientos/semana
+                          </div>
+                          {plan.estimated_duration_minutes && (
+                            <div className="flex items-center text-sm text-muted-foreground">
+                              <Clock className="h-4 w-4 mr-1" />
+                              {plan.estimated_duration_minutes} min/sesión
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          {plan.is_active ? (
+                            <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-800 border-0">Inactivo</Badge>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
-                                onClick={() => handleSetAsDefault(plan.id)}
-                                className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
+                                onClick={() => handleEditPlan(plan.id, true)}
+                                className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                                disabled={loadingDetail}
                               >
-                                <Crown className="h-4 w-4 mr-2" />
-                                Establecer como por defecto
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Eye className="h-4 w-4 mr-2" />
+                                )}
+                                Ver Detalles
                               </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(plan.id)}
-                              className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </td>
-                    </tr>
+                              <DropdownMenuItem
+                                onClick={() => handleEditPlan(plan.id, false)}
+                                className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
+                                disabled={loadingDetail}
+                              >
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Edit className="h-4 w-4 mr-2" />
+                                )}
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleToggleActive(plan.id)}
+                                className="hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50"
+                              >
+                                {plan.is_active ? (
+                                  <>
+                                    <XCircle className="h-4 w-4 mr-2" />
+                                    Desactivar
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Activar
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              {!plan.is_default && (
+                                <DropdownMenuItem
+                                  onClick={() => handleSetAsDefault(plan.id)}
+                                  className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
+                                >
+                                  <Crown className="h-4 w-4 mr-2" />
+                                  Establecer como por defecto
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(plan.id)}
+                                className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50 text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
                     )
                   }) : null}
                 </tbody>
               </table>
             </div>
           </div>
-          
+
           {/* Paginación */}
           {totalCount > 50 && (
             <div className="border-t p-3 md:p-4">
@@ -2171,9 +2170,9 @@ export function WorkoutPlanManagement() {
                       } else {
                         pageNum = currentPage - 1 + i;
                       }
-                      
+
                       if (pageNum < 1 || pageNum > totalPages) return null;
-                      
+
                       return (
                         <Button
                           key={pageNum}
@@ -2222,7 +2221,7 @@ export function WorkoutPlanManagement() {
                   >
                     Anterior
                   </Button>
-                  
+
                   {/* Números de página */}
                   <div className="flex items-center gap-1">
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
@@ -2236,7 +2235,7 @@ export function WorkoutPlanManagement() {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <Button
                           key={pageNum}
@@ -2250,7 +2249,7 @@ export function WorkoutPlanManagement() {
                       );
                     })}
                   </div>
-                  
+
                   <Button
                     variant="outline"
                     size="sm"
@@ -2299,22 +2298,20 @@ export function WorkoutPlanManagement() {
               <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
                 <button
                   type="button"
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    createStep === "basic"
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${createStep === "basic"
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground"
-                  }`}
+                    }`}
                   onClick={() => setCreateStep("basic")}
                 >
                   📝 Básicos
                 </button>
                 <button
                   type="button"
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${
-                    createStep === "exercises"
+                  className={`rounded-md px-3 py-2 text-sm font-medium transition ${createStep === "exercises"
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground"
-                  } ${!workoutEditorPlanId ? "opacity-60 cursor-not-allowed" : ""}`}
+                    } ${!workoutEditorPlanId ? "opacity-60 cursor-not-allowed" : ""}`}
                   onClick={() => {
                     if (workoutEditorPlanId) setCreateStep("exercises")
                   }}
@@ -2324,7 +2321,7 @@ export function WorkoutPlanManagement() {
               </div>
             </div>
           </DialogHeader>
-          
+
           {createStep === "basic" ? (
             // STEP 1: Información Básica
             <div className="space-y-4">
@@ -2352,7 +2349,7 @@ export function WorkoutPlanManagement() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div>
                   <FormLabel>Descripción *</FormLabel>
                   <Textarea
@@ -2363,7 +2360,7 @@ export function WorkoutPlanManagement() {
                   />
                 </div>
               </div>
-              
+
               <div className="rounded-xl border bg-card p-4 space-y-4">
                 <div className="grid gap-4 md:grid-cols-3">
                   <div>
@@ -2386,19 +2383,19 @@ export function WorkoutPlanManagement() {
                   </div>
                   <div>
                     <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                      <Select 
-                        value={formData.min_role_required} 
-                        onValueChange={(value) => handleFormChange('min_role_required', value)}
-                        disabled={isViewMode}
-                      >
-                        <SelectTrigger disabled={isViewMode}>
+                    <Select
+                      value={formData.min_role_required}
+                      onValueChange={(value) => handleFormChange('min_role_required', value)}
+                      disabled={isViewMode}
+                    >
+                      <SelectTrigger disabled={isViewMode}>
                         <SelectValue placeholder="Selecciona el rol" />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="basic">Básico</SelectItem>
                         <SelectItem value="pro">Pro</SelectItem>
                         <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="admin">Admin</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -2525,14 +2522,14 @@ export function WorkoutPlanManagement() {
               />
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>
               Cancelar
             </Button>
             {createStep === "basic" ? (
               <>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => handleSubmitPlan(false)}
                   disabled={!formData.name || !formData.description || isLoading}
@@ -2549,7 +2546,7 @@ export function WorkoutPlanManagement() {
                     </>
                   )}
                 </Button>
-                <Button 
+                <Button
                   onClick={handleMoveToExercisesStep}
                   disabled={!formData.name || !formData.description || isLoading}
                   className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
@@ -2569,7 +2566,7 @@ export function WorkoutPlanManagement() {
               </>
             ) : (
               <>
-                <Button 
+                <Button
                   variant="outline"
                   onClick={() => setCreateStep("basic")}
                 >
@@ -2578,7 +2575,7 @@ export function WorkoutPlanManagement() {
                     Atrás
                   </>
                 </Button>
-                <Button 
+                <Button
                   onClick={handleSaveExercisesAndCreate}
                   disabled={!formData.name || !formData.description || isLoading}
                   className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
@@ -2614,12 +2611,12 @@ export function WorkoutPlanManagement() {
               {isViewMode ? '👁️ Ver Detalles del Plan' : '✏️ Editar Plan de Entrenamiento'}
             </DialogTitle>
             <DialogDescription>
-              {isViewMode 
-                ? 'Visualiza la información y ejercicios del plan (solo lectura)' 
+              {isViewMode
+                ? 'Visualiza la información y ejercicios del plan (solo lectura)'
                 : 'Modifica la información y ejercicios del plan'}
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-6">
             {/* Información básica */}
             <div className="grid gap-4 md:grid-cols-2">
@@ -2634,8 +2631,8 @@ export function WorkoutPlanManagement() {
               </div>
               <div>
                 <FormLabel>Dificultad *</FormLabel>
-                <Select 
-                  value={formData.difficulty} 
+                <Select
+                  value={formData.difficulty}
                   onValueChange={(value) => handleFormChange('difficulty', value)}
                   disabled={isViewMode}
                 >
@@ -2650,7 +2647,7 @@ export function WorkoutPlanManagement() {
                 </Select>
               </div>
             </div>
-            
+
             <div>
               <FormLabel>Descripción *</FormLabel>
               <Textarea
@@ -2661,7 +2658,7 @@ export function WorkoutPlanManagement() {
                 disabled={isViewMode}
               />
             </div>
-            
+
             <div className="grid gap-4 md:grid-cols-4">
               <div>
                 <FormLabel>Duración (semanas) *</FormLabel>
@@ -2683,8 +2680,8 @@ export function WorkoutPlanManagement() {
                   )}
                 </FormLabel>
                 <p className="text-xs text-muted-foreground mt-1">
-                  {editingPlan?.user_email 
-                    ? "No se puede cambiar el usuario de un plan existente" 
+                  {editingPlan?.user_email
+                    ? "No se puede cambiar el usuario de un plan existente"
                     : "Este plan es una plantilla (no asignado a ningún usuario)"}
                 </p>
               </div>
@@ -2702,7 +2699,7 @@ export function WorkoutPlanManagement() {
                     <SelectItem value="basic">Básico</SelectItem>
                     <SelectItem value="pro">Pro</SelectItem>
                     <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -2713,7 +2710,7 @@ export function WorkoutPlanManagement() {
                   placeholder="60"
                   value={formData.estimated_duration_minutes}
                   onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
-                   disabled={isViewMode}
+                  disabled={isViewMode}
                 />
               </div>
             </div>
@@ -2723,8 +2720,8 @@ export function WorkoutPlanManagement() {
               <div className="flex items-center justify-between mb-4">
                 <FormLabel className="text-lg font-semibold">Días de Entrenamiento</FormLabel>
                 {!isViewMode && (
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={addWorkoutDay}
                     className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
@@ -2734,432 +2731,431 @@ export function WorkoutPlanManagement() {
                   </Button>
                 )}
               </div>
-              
+
               <div className="space-y-4">
                 {Array.isArray(workoutDays) ? workoutDays.map((day, dayIndex) => {
                   if (!day) return null
                   return (
-                  <Card key={day.id} className="border-2 border-purple-100">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <GripVertical className="h-4 w-4 text-muted-foreground" />
-                          <Input
-                            value={day.day_name}
-                            onChange={(e) => updateWorkoutDay(day.id, 'day_name', e.target.value)}
-                            className="font-medium text-lg border-0 bg-transparent p-0 h-auto"
-                            disabled={isViewMode}
-                          />
-                          <Checkbox
-                            checked={day.is_rest_day}
-                            onCheckedChange={(checked) => updateWorkoutDay(day.id, 'is_rest_day', checked)}
-                            disabled={isViewMode}
-                          />
-                          <span className="text-sm text-muted-foreground">Día de descanso</span>
-                        </div>
-                        {!isViewMode && (
-                          <div className="flex items-center space-x-2">
-                            {/* Botones de reordenar */}
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => moveDayUp(dayIndex)}
-                              disabled={dayIndex === 0}
-                              className="h-8 w-8 p-0"
-                            >
-                              <ArrowUp className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => moveDayDown(dayIndex)}
-                              disabled={dayIndex === workoutDays.length - 1}
-                              className="h-8 w-8 p-0"
-                            >
-                              <ArrowDown className="h-4 w-4" />
-                            </Button>
-                            {workoutDays.length > 1 && (
-                              <Button
-                                size="sm"
-                                variant="destructive"
-                                onClick={() => removeWorkoutDay(day.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </CardHeader>
-                    
-                    <CardContent className="space-y-4">
-                      {!day.is_rest_day && (
-                        <>
-                          <div>
-                            <FormLabel>Notas del día</FormLabel>
-                            <Textarea
-                              placeholder="Instrucciones especiales para este día..."
-                              value={day.notes}
-                              onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
-                              rows={2}
+                    <Card key={day.id} className="border-2 border-purple-100">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <GripVertical className="h-4 w-4 text-muted-foreground" />
+                            <Input
+                              value={day.day_name}
+                              onChange={(e) => updateWorkoutDay(day.id, 'day_name', e.target.value)}
+                              className="font-medium text-lg border-0 bg-transparent p-0 h-auto"
                               disabled={isViewMode}
                             />
+                            <Checkbox
+                              checked={day.is_rest_day}
+                              onCheckedChange={(checked) => updateWorkoutDay(day.id, 'is_rest_day', checked)}
+                              disabled={isViewMode}
+                            />
+                            <span className="text-sm text-muted-foreground">Día de descanso</span>
                           </div>
-
-                          {/* Selector múltiple de ejercicios */}
-                          <div>
-                            <div className="flex items-center justify-between mb-3">
-                              <FormLabel>Agregar Ejercicios</FormLabel>
-                              {!isViewMode && (
+                          {!isViewMode && (
+                            <div className="flex items-center space-x-2">
+                              {/* Botones de reordenar */}
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => moveDayUp(dayIndex)}
+                                disabled={dayIndex === 0}
+                                className="h-8 w-8 p-0"
+                              >
+                                <ArrowUp className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => moveDayDown(dayIndex)}
+                                disabled={dayIndex === workoutDays.length - 1}
+                                className="h-8 w-8 p-0"
+                              >
+                                <ArrowDown className="h-4 w-4" />
+                              </Button>
+                              {workoutDays.length > 1 && (
                                 <Button
                                   size="sm"
-                                  variant="outline"
-                                  onClick={() => toggleExerciseSelector(day.id)}
-                                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                                  variant="destructive"
+                                  onClick={() => removeWorkoutDay(day.id)}
                                 >
-                                  <Plus className="h-4 w-4 mr-2" />
-                                  {showExerciseSelector[day.id] ? 'Cancelar' : 'Seleccionar Ejercicios'}
+                                  <Trash2 className="h-4 w-4" />
                                 </Button>
                               )}
                             </div>
+                          )}
+                        </div>
+                      </CardHeader>
 
-                            {/* Selector múltiple expandible */}
-                            {showExerciseSelector[day.id] && (
-                              <Card className="border border-green-200 bg-green-50">
-                                <CardContent className="pt-4">
-                                  <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                      <FormLabel className="text-sm font-medium">
-                                        Selecciona múltiples ejercicios:
-                                      </FormLabel>
-                                      <div className="text-sm text-muted-foreground">
-                                        {selectedExercisesForDay[day.id]?.length || 0} seleccionados
-                                      </div>
-                                    </div>
+                      <CardContent className="space-y-4">
+                        {!day.is_rest_day && (
+                          <>
+                            <div>
+                              <FormLabel>Notas del día</FormLabel>
+                              <Textarea
+                                placeholder="Instrucciones especiales para este día..."
+                                value={day.notes}
+                                onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
+                                rows={2}
+                                disabled={isViewMode}
+                              />
+                            </div>
 
-                                    {/* Búsqueda y Filtros */}
-                                    <div className="space-y-3">
-                                      {/* Buscador por nombre */}
-                                      <div className="relative">
-                                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                          placeholder="Buscar ejercicio por nombre..."
-                                          value={exerciseSearchTerm[day.id] || ''}
-                                          onChange={(e) => setExerciseSearchTerm(prev => ({
-                                            ...prev,
-                                            [day.id]: e.target.value
-                                          }))}
-                                          className="pl-9"
-                                        />
-                                      </div>
+                            {/* Selector múltiple de ejercicios */}
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <FormLabel>Agregar Ejercicios</FormLabel>
+                                {!isViewMode && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => toggleExerciseSelector(day.id)}
+                                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    {showExerciseSelector[day.id] ? 'Cancelar' : 'Seleccionar Ejercicios'}
+                                  </Button>
+                                )}
+                              </div>
 
-                                      {/* Filtros */}
-                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                        {/* Filtro por categoría */}
-                                        <Select
-                                          value={exerciseCategoryFilter[day.id] || 'all'}
-                                          onValueChange={(value) => setExerciseCategoryFilter(prev => ({
-                                            ...prev,
-                                            [day.id]: value
-                                          }))}
-                                        >
-                                          <SelectTrigger className="h-9">
-                                            <SelectValue placeholder="Filtrar por categoría" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="all">Todas las categorías</SelectItem>
-                                            {getUniqueCategories().map(category => (
-                                              <SelectItem key={category} value={category}>
-                                                {fixEncoding(category)}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-
-                                        {/* Filtro por músculo */}
-                                        <Select
-                                          value={exerciseMuscleFilter[day.id] || 'all'}
-                                          onValueChange={(value) => setExerciseMuscleFilter(prev => ({
-                                            ...prev,
-                                            [day.id]: value
-                                          }))}
-                                        >
-                                          <SelectTrigger className="h-9">
-                                            <SelectValue placeholder="Filtrar por músculo" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="all">Todos los músculos</SelectItem>
-                                            {getUniqueMuscles().map(muscle => (
-                                              <SelectItem key={muscle} value={muscle}>
-                                                {fixEncoding(muscle)}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                      </div>
-
-                                      {/* Botón para limpiar filtros */}
-                                      {(exerciseSearchTerm[day.id] || exerciseCategoryFilter[day.id] !== 'all' || exerciseMuscleFilter[day.id] !== 'all') && (
-                                        <Button
-                                          size="sm"
-                                          variant="ghost"
-                                          onClick={() => {
-                                            setExerciseSearchTerm(prev => ({ ...prev, [day.id]: '' }))
-                                            setExerciseCategoryFilter(prev => ({ ...prev, [day.id]: 'all' }))
-                                            setExerciseMuscleFilter(prev => ({ ...prev, [day.id]: 'all' }))
-                                          }}
-                                          className="w-full text-xs"
-                                        >
-                                          <Filter className="h-3 w-3 mr-1" />
-                                          Limpiar filtros
-                                        </Button>
-                                      )}
-                                    </div>
-
-                                    {/* Lista de ejercicios con checkboxes */}
-                                    <div className="max-h-60 overflow-y-auto space-y-2">
-                                      {getFilteredExercises(day.id).map((exercise) => {
-                                        if (!exercise) return null
-                                        const exerciseIdStr = String(exercise.id)
-                                        const isSelected = Array.isArray(selectedExercisesForDay[day.id]) && selectedExercisesForDay[day.id].includes(exerciseIdStr)
-                                        const dayExercises = Array.isArray(day.exercises) ? day.exercises : []
-                                        const alreadyInDay = dayExercises.some(e => String(e.exercise_id) === exerciseIdStr)
-                                        
-                                        return (
-                                          <div
-                                            key={exerciseIdStr}
-                                            className={`flex items-center space-x-3 p-2 rounded border ${
-                                              alreadyInDay 
-                                                ? 'bg-gray-100 border-gray-300' 
-                                                : isSelected 
-                                                  ? 'bg-green-100 border-green-300' 
-                                                  : 'bg-white border-gray-200 hover:bg-gray-50'
-                                            }`}
-                                          >
-                                            <Checkbox
-                                              checked={isSelected}
-                                              onCheckedChange={() => toggleExerciseSelection(day.id, exerciseIdStr)}
-                                              disabled={alreadyInDay}
-                                            />
-                                            <div className="flex-1">
-                                              <div className="font-medium text-sm">{fixEncoding(exercise.name)}</div>
-                                              <div className="text-xs text-muted-foreground">
-                                                {fixEncoding(exercise.category)} • {exercise.muscle_groups?.map(m => fixEncoding(m)).join(', ')}
-                                              </div>
-                                            </div>
-                                            {alreadyInDay && (
-                                              <Badge variant="outline" className="text-xs">
-                                                Ya agregado
-                                              </Badge>
-                                            )}
-                                          </div>
-                                        )
-                                      })}
-                                    </div>
-
-                                    {/* Mensaje si no hay resultados */}
-                                    {getFilteredExercises(day.id).length === 0 && (
-                                      <div className="text-center py-4 text-sm text-muted-foreground">
-                                        No se encontraron ejercicios con los filtros aplicados
-                                      </div>
-                                    )}
-
-                                    {/* Botones de acción */}
-                                    <div className="flex gap-2 pt-2 border-t">
-                                      <Button
-                                        size="sm"
-                                        onClick={() => addSelectedExercisesToDay(day.id)}
-                                        disabled={!selectedExercisesForDay[day.id]?.length}
-                                        className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-                                      >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Agregar Seleccionados
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => clearExerciseSelection(day.id)}
-                                        disabled={!selectedExercisesForDay[day.id]?.length}
-                                      >
-                                        Limpiar Selección
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </CardContent>
-                              </Card>
-                            )}
-                          </div>
-
-                          {/* Lista de ejercicios del día */}
-                          {Array.isArray(day.exercises) && day.exercises.length > 0 && (
-                            <div className="space-y-3">
-                              <FormLabel>Ejercicios del día ({day.exercises.length})</FormLabel>
-                              {day.exercises.map((exercise, exerciseIndex) => {
-                                // Buscar datos del ejercicio en el array de ejercicios disponibles
-                                const exercisesArray = Array.isArray(exercises) ? exercises : []
-                                const exerciseData = exercisesArray.find(e => String(e.id) === String(exercise.exercise_id))
-                                // Usar el nombre guardado si no se encuentra en el array
-                                const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
-                                const displayCategory = exerciseData?.category || ''
-                                // Obtener substitutes del ejercicio
-                                const exerciseSubstitutes = exercise.substitutes || exerciseData?.substitutes || []
-                                const hasSubstitutes = Array.isArray(exerciseSubstitutes) && exerciseSubstitutes.length > 0
-                                return (
-                                  <Card key={exerciseIndex} className={hasSubstitutes ? "border-2 border-amber-200 bg-amber-50/20" : "border border-gray-200"}>
-                                    <CardContent className="pt-4">
-                                      <div className="flex items-center justify-between mb-3">
-                                        <div className="flex-1">
-                                          <div className="flex items-center gap-2">
-                                            <h4 className="font-medium">{displayName}</h4>
-                                            {hasSubstitutes && (
-                                              <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] px-1.5 py-0.5">
-                                                <Shield className="h-3 w-3 mr-1" />
-                                                {exerciseSubstitutes.length} respaldo{exerciseSubstitutes.length > 1 ? 's' : ''}
-                                              </Badge>
-                                            )}
-                                          </div>
-                                          <p className="text-sm text-muted-foreground">{displayCategory}</p>
+                              {/* Selector múltiple expandible */}
+                              {showExerciseSelector[day.id] && (
+                                <Card className="border border-green-200 bg-green-50">
+                                  <CardContent className="pt-4">
+                                    <div className="space-y-4">
+                                      <div className="flex items-center justify-between">
+                                        <FormLabel className="text-sm font-medium">
+                                          Selecciona múltiples ejercicios:
+                                        </FormLabel>
+                                        <div className="text-sm text-muted-foreground">
+                                          {selectedExercisesForDay[day.id]?.length || 0} seleccionados
                                         </div>
-                                        {!isViewMode && (
+                                      </div>
+
+                                      {/* Búsqueda y Filtros */}
+                                      <div className="space-y-3">
+                                        {/* Buscador por nombre */}
+                                        <div className="relative">
+                                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                          <Input
+                                            placeholder="Buscar ejercicio por nombre..."
+                                            value={exerciseSearchTerm[day.id] || ''}
+                                            onChange={(e) => setExerciseSearchTerm(prev => ({
+                                              ...prev,
+                                              [day.id]: e.target.value
+                                            }))}
+                                            className="pl-9"
+                                          />
+                                        </div>
+
+                                        {/* Filtros */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                          {/* Filtro por categoría */}
+                                          <Select
+                                            value={exerciseCategoryFilter[day.id] || 'all'}
+                                            onValueChange={(value) => setExerciseCategoryFilter(prev => ({
+                                              ...prev,
+                                              [day.id]: value
+                                            }))}
+                                          >
+                                            <SelectTrigger className="h-9">
+                                              <SelectValue placeholder="Filtrar por categoría" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="all">Todas las categorías</SelectItem>
+                                              {getUniqueCategories().map(category => (
+                                                <SelectItem key={category} value={category}>
+                                                  {fixEncoding(category)}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+
+                                          {/* Filtro por músculo */}
+                                          <Select
+                                            value={exerciseMuscleFilter[day.id] || 'all'}
+                                            onValueChange={(value) => setExerciseMuscleFilter(prev => ({
+                                              ...prev,
+                                              [day.id]: value
+                                            }))}
+                                          >
+                                            <SelectTrigger className="h-9">
+                                              <SelectValue placeholder="Filtrar por músculo" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="all">Todos los músculos</SelectItem>
+                                              {getUniqueMuscles().map(muscle => (
+                                                <SelectItem key={muscle} value={muscle}>
+                                                  {fixEncoding(muscle)}
+                                                </SelectItem>
+                                              ))}
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+
+                                        {/* Botón para limpiar filtros */}
+                                        {(exerciseSearchTerm[day.id] || exerciseCategoryFilter[day.id] !== 'all' || exerciseMuscleFilter[day.id] !== 'all') && (
                                           <Button
                                             size="sm"
-                                            variant="destructive"
-                                            onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
+                                            variant="ghost"
+                                            onClick={() => {
+                                              setExerciseSearchTerm(prev => ({ ...prev, [day.id]: '' }))
+                                              setExerciseCategoryFilter(prev => ({ ...prev, [day.id]: 'all' }))
+                                              setExerciseMuscleFilter(prev => ({ ...prev, [day.id]: 'all' }))
+                                            }}
+                                            className="w-full text-xs"
                                           >
-                                            <Trash2 className="h-4 w-4" />
+                                            <Filter className="h-3 w-3 mr-1" />
+                                            Limpiar filtros
                                           </Button>
                                         )}
                                       </div>
-                                      
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                        <div>
-                                          <FormLabel className="text-xs">Series</FormLabel>
-                                          <Input
-                                            type="number"
-                                            value={exercise.sets}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'sets', parseInt(e.target.value) || 0)}
-                                            className="h-8"
-                                            disabled={isViewMode}
-                                          />
-                                        </div>
-                                        <div>
-                                          <FormLabel className="text-xs">Repeticiones</FormLabel>
-                                          <Input
-                                            type="text"
-                                            placeholder="ej: 10 o 8-12"
-                                            value={exercise.reps || ''}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
-                                            className="h-8"
-                                            disabled={isViewMode}
-                                          />
-                                        </div>
-                                        <div>
-                                          <FormLabel className="text-xs">Peso (kg)</FormLabel>
-                                          <Input
-                                            type="text"
-                                            placeholder="ej: 50 o RPE 8"
-                                            value={exercise.weight || ''}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
-                                            className="h-8"
-                                            disabled={isViewMode}
-                                          />
-                                        </div>
-                                        <div>
-                                          <FormLabel className="text-xs">Descanso (seg)</FormLabel>
-                                          <Input
-                                            type="number"
-                                            value={exercise.rest_time || ''}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'rest_time', parseInt(e.target.value) || 0)}
-                                            className="h-8"
-                                            disabled={isViewMode}
-                                          />
-                                        </div>
-                                      </div>
-                                      
-                                      <div className="mt-3">
-                                        <FormLabel className="text-xs">Notas del ejercicio</FormLabel>
-                                        <Input
-                                          placeholder="Técnica, variaciones, etc..."
-                                          value={exercise.notes}
-                                          onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'notes', e.target.value)}
-                                          className="h-8"
-                                          disabled={isViewMode}
-                                        />
+
+                                      {/* Lista de ejercicios con checkboxes */}
+                                      <div className="max-h-60 overflow-y-auto space-y-2">
+                                        {getFilteredExercises(day.id).map((exercise) => {
+                                          if (!exercise) return null
+                                          const exerciseIdStr = String(exercise.id)
+                                          const isSelected = Array.isArray(selectedExercisesForDay[day.id]) && selectedExercisesForDay[day.id].includes(exerciseIdStr)
+                                          const dayExercises = Array.isArray(day.exercises) ? day.exercises : []
+                                          const alreadyInDay = dayExercises.some(e => String(e.exercise_id) === exerciseIdStr)
+
+                                          return (
+                                            <div
+                                              key={exerciseIdStr}
+                                              className={`flex items-center space-x-3 p-2 rounded border ${alreadyInDay
+                                                  ? 'bg-gray-100 border-gray-300'
+                                                  : isSelected
+                                                    ? 'bg-green-100 border-green-300'
+                                                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                                                }`}
+                                            >
+                                              <Checkbox
+                                                checked={isSelected}
+                                                onCheckedChange={() => toggleExerciseSelection(day.id, exerciseIdStr)}
+                                                disabled={alreadyInDay}
+                                              />
+                                              <div className="flex-1">
+                                                <div className="font-medium text-sm">{fixEncoding(exercise.name)}</div>
+                                                <div className="text-xs text-muted-foreground">
+                                                  {fixEncoding(exercise.category)} • {exercise.muscle_groups?.map(m => fixEncoding(m)).join(', ')}
+                                                </div>
+                                              </div>
+                                              {alreadyInDay && (
+                                                <Badge variant="outline" className="text-xs">
+                                                  Ya agregado
+                                                </Badge>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
                                       </div>
 
-                                      {/* Mostrar ejercicios de respaldo */}
-                                      <div className="mt-4 pt-4 border-t border-amber-200">
-                                        <div className="flex items-center justify-between mb-2">
-                                          <FormLabel className="text-xs font-semibold text-amber-900 flex items-center gap-1">
-                                            <Shield className="h-3.5 w-3.5" />
-                                            Ejercicios de Respaldo ({exerciseSubstitutes.length}/3)
-                                          </FormLabel>
+                                      {/* Mensaje si no hay resultados */}
+                                      {getFilteredExercises(day.id).length === 0 && (
+                                        <div className="text-center py-4 text-sm text-muted-foreground">
+                                          No se encontraron ejercicios con los filtros aplicados
+                                        </div>
+                                      )}
+
+                                      {/* Botones de acción */}
+                                      <div className="flex gap-2 pt-2 border-t">
+                                        <Button
+                                          size="sm"
+                                          onClick={() => addSelectedExercisesToDay(day.id)}
+                                          disabled={!selectedExercisesForDay[day.id]?.length}
+                                          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                                        >
+                                          <Plus className="h-4 w-4 mr-2" />
+                                          Agregar Seleccionados
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => clearExerciseSelection(day.id)}
+                                          disabled={!selectedExercisesForDay[day.id]?.length}
+                                        >
+                                          Limpiar Selección
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </div>
+
+                            {/* Lista de ejercicios del día */}
+                            {Array.isArray(day.exercises) && day.exercises.length > 0 && (
+                              <div className="space-y-3">
+                                <FormLabel>Ejercicios del día ({day.exercises.length})</FormLabel>
+                                {day.exercises.map((exercise, exerciseIndex) => {
+                                  // Buscar datos del ejercicio en el array de ejercicios disponibles
+                                  const exercisesArray = Array.isArray(exercises) ? exercises : []
+                                  const exerciseData = exercisesArray.find(e => String(e.id) === String(exercise.exercise_id))
+                                  // Usar el nombre guardado si no se encuentra en el array
+                                  const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
+                                  const displayCategory = exerciseData?.category || ''
+                                  // Obtener substitutes del ejercicio
+                                  const exerciseSubstitutes = exercise.substitutes || exerciseData?.substitutes || []
+                                  const hasSubstitutes = Array.isArray(exerciseSubstitutes) && exerciseSubstitutes.length > 0
+                                  return (
+                                    <Card key={exerciseIndex} className={hasSubstitutes ? "border-2 border-amber-200 bg-amber-50/20" : "border border-gray-200"}>
+                                      <CardContent className="pt-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                          <div className="flex-1">
+                                            <div className="flex items-center gap-2">
+                                              <h4 className="font-medium">{displayName}</h4>
+                                              {hasSubstitutes && (
+                                                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] px-1.5 py-0.5">
+                                                  <Shield className="h-3 w-3 mr-1" />
+                                                  {exerciseSubstitutes.length} respaldo{exerciseSubstitutes.length > 1 ? 's' : ''}
+                                                </Badge>
+                                              )}
+                                            </div>
+                                            <p className="text-sm text-muted-foreground">{displayCategory}</p>
+                                          </div>
                                           {!isViewMode && (
                                             <Button
-                                              type="button"
                                               size="sm"
-                                              variant="outline"
-                                              className="h-6 px-2 text-xs border-amber-300 hover:bg-amber-50"
-                                              onClick={() => openSubstitutesDialog(exercise.exercise_id, exercise.exercise_name || 'Ejercicio')}
+                                              variant="destructive"
+                                              onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
                                             >
-                                              <Edit className="h-3 w-3 mr-1" />
-                                              Editar
+                                              <Trash2 className="h-4 w-4" />
                                             </Button>
                                           )}
                                         </div>
-                                        <div className="flex flex-wrap gap-2 mt-2">
-                                          {exerciseSubstitutes.length > 0 ? (
-                                            exerciseSubstitutes.map((substitute: any, subIndex: number) => (
-                                              <Badge
-                                                key={subIndex}
-                                                variant="secondary"
-                                                className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
-                                              >
-                                                <Shield className="h-3 w-3 mr-1 inline" />
-                                                #{subIndex + 1} {substitute.substitute_name || substitute.name}
-                                                {substitute.notes && (
-                                                  <span className="ml-1 text-[10px] opacity-70">({substitute.notes})</span>
-                                                )}
-                                              </Badge>
-                                            ))
-                                          ) : (
-                                            <p className="text-[10px] text-gray-500 italic">Sin ejercicios de respaldo configurados</p>
-                                          )}
+
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                          <div>
+                                            <FormLabel className="text-xs">Series</FormLabel>
+                                            <Input
+                                              type="number"
+                                              value={exercise.sets}
+                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'sets', parseInt(e.target.value) || 0)}
+                                              className="h-8"
+                                              disabled={isViewMode}
+                                            />
+                                          </div>
+                                          <div>
+                                            <FormLabel className="text-xs">Repeticiones</FormLabel>
+                                            <Input
+                                              type="text"
+                                              placeholder="ej: 10 o 8-12"
+                                              value={exercise.reps || ''}
+                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
+                                              className="h-8"
+                                              disabled={isViewMode}
+                                            />
+                                          </div>
+                                          <div>
+                                            <FormLabel className="text-xs">Peso (kg)</FormLabel>
+                                            <Input
+                                              type="text"
+                                              placeholder="ej: 50 o RPE 8"
+                                              value={exercise.weight || ''}
+                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
+                                              className="h-8"
+                                              disabled={isViewMode}
+                                            />
+                                          </div>
+                                          <div>
+                                            <FormLabel className="text-xs">Descanso (seg)</FormLabel>
+                                            <Input
+                                              type="number"
+                                              value={exercise.rest_time || ''}
+                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'rest_time', parseInt(e.target.value) || 0)}
+                                              className="h-8"
+                                              disabled={isViewMode}
+                                            />
+                                          </div>
                                         </div>
-                                        <p className="text-[10px] text-amber-700 mt-2 italic">
-                                          El usuario puede usar estos ejercicios si no puede realizar el principal.
-                                        </p>
-                                      </div>
-                                    </CardContent>
-                                  </Card>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </>
-                      )}
-                      
-                      {day.is_rest_day && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <Calendar className="h-12 w-12 mx-auto mb-2" />
-                          <p>Día de descanso activo</p>
-                          <Textarea
-                            placeholder="Actividades de recuperación recomendadas..."
-                            value={day.notes}
-                            onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
-                            rows={3}
-                          />
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
+
+                                        <div className="mt-3">
+                                          <FormLabel className="text-xs">Notas del ejercicio</FormLabel>
+                                          <Input
+                                            placeholder="Técnica, variaciones, etc..."
+                                            value={exercise.notes}
+                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'notes', e.target.value)}
+                                            className="h-8"
+                                            disabled={isViewMode}
+                                          />
+                                        </div>
+
+                                        {/* Mostrar ejercicios de respaldo */}
+                                        <div className="mt-4 pt-4 border-t border-amber-200">
+                                          <div className="flex items-center justify-between mb-2">
+                                            <FormLabel className="text-xs font-semibold text-amber-900 flex items-center gap-1">
+                                              <Shield className="h-3.5 w-3.5" />
+                                              Ejercicios de Respaldo ({exerciseSubstitutes.length}/3)
+                                            </FormLabel>
+                                            {!isViewMode && (
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 px-2 text-xs border-amber-300 hover:bg-amber-50"
+                                                onClick={() => openSubstitutesDialog(exercise.exercise_id, exercise.exercise_name || 'Ejercicio')}
+                                              >
+                                                <Edit className="h-3 w-3 mr-1" />
+                                                Editar
+                                              </Button>
+                                            )}
+                                          </div>
+                                          <div className="flex flex-wrap gap-2 mt-2">
+                                            {exerciseSubstitutes.length > 0 ? (
+                                              exerciseSubstitutes.map((substitute: any, subIndex: number) => (
+                                                <Badge
+                                                  key={subIndex}
+                                                  variant="secondary"
+                                                  className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
+                                                >
+                                                  <Shield className="h-3 w-3 mr-1 inline" />
+                                                  #{subIndex + 1} {substitute.substitute_name || substitute.name}
+                                                  {substitute.notes && (
+                                                    <span className="ml-1 text-[10px] opacity-70">({substitute.notes})</span>
+                                                  )}
+                                                </Badge>
+                                              ))
+                                            ) : (
+                                              <p className="text-[10px] text-gray-500 italic">Sin ejercicios de respaldo configurados</p>
+                                            )}
+                                          </div>
+                                          <p className="text-[10px] text-amber-700 mt-2 italic">
+                                            El usuario puede usar estos ejercicios si no puede realizar el principal.
+                                          </p>
+                                        </div>
+                                      </CardContent>
+                                    </Card>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </>
+                        )}
+
+                        {day.is_rest_day && (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <Calendar className="h-12 w-12 mx-auto mb-2" />
+                            <p>Día de descanso activo</p>
+                            <Textarea
+                              placeholder="Actividades de recuperación recomendadas..."
+                              value={day.notes}
+                              onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
+                              rows={3}
+                            />
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
                   )
                 }) : null}
-                
+
                 {/* Botón para agregar día debajo de la lista */}
                 <div className="flex justify-center pt-4">
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     variant="outline"
                     onClick={addWorkoutDay}
                     className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
@@ -3171,13 +3167,13 @@ export function WorkoutPlanManagement() {
               </div>
             </div>
           </div>
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={resetForm}>
               {isViewMode ? 'Cerrar' : 'Cancelar'}
             </Button>
             {!isViewMode && (
-              <Button 
+              <Button
                 onClick={() => handleSubmitPlan()}
                 disabled={!formData.name || !formData.description || isLoading}
                 className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"

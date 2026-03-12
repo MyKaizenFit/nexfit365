@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
+from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
@@ -55,28 +56,127 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 reader = csv.DictReader(decoded.splitlines())
                 updated, created, skipped = 0, 0, 0
                 errors = []
+
+                header_aliases = {
+                    'name': 'name',
+                    'nombre': 'name',
+                    'description': 'description',
+                    'descripción': 'description',
+                    'descripcion': 'description',
+                    'instructions': 'instructions',
+                    'instrucciones': 'instructions',
+                    'category': 'category',
+                    'categoría': 'category',
+                    'categoria': 'category',
+                    'muscle_groups': 'muscle_groups',
+                    'grupos_musculares': 'muscle_groups',
+                    'equipment': 'equipment',
+                    'equipamiento': 'equipment',
+                    'difficulty': 'difficulty',
+                    'dificultad': 'difficulty',
+                    'video_url': 'video_url',
+                    'url_video': 'video_url',
+                    'google_drive_file_id': 'google_drive_file_id',
+                    'google_drive_id_archivo': 'google_drive_file_id',
+                    'is_system': 'is_system',
+                    'es_del_sistema': 'is_system',
+                    'is_active': 'is_active',
+                    'está_activo': 'is_active',
+                    'esta_activo': 'is_active',
+                    'tags': 'tags',
+                    'etiquetas': 'tags',
+                }
+                category_es_to_code = {
+                    'cardio': 'cardio',
+                    'fuerza': 'strength',
+                    'flexibilidad': 'flexibility',
+                    'peso corporal': 'bodyweight',
+                    'peso_corporal': 'bodyweight',
+                    'hiit': 'hiit',
+                }
+                difficulty_es_to_code = {
+                    'principiante': 'beginner',
+                    'intermedio': 'intermediate',
+                    'avanzado': 'advanced',
+                }
+                muscle_group_es_to_code = {
+                    'cardio': 'cardio',
+                    'pecho': 'chest',
+                    'espalda': 'back',
+                    'hombros': 'shoulders',
+                    'bíceps': 'biceps',
+                    'biceps': 'biceps',
+                    'tríceps': 'triceps',
+                    'triceps': 'triceps',
+                    'antebrazos': 'forearms',
+                    'abdominales': 'abs',
+                    'core': 'core',
+                    'oblicuos': 'obliques',
+                    'cuádriceps': 'quads',
+                    'cuadriceps': 'quads',
+                    'isquiotibiales': 'hamstrings',
+                    'glúteos': 'glutes',
+                    'gluteos': 'glutes',
+                    'pantorrillas': 'calves',
+                }
+                equipment_es_to_code = {
+                    'barra': 'barbell',
+                    'mancuernas': 'dumbbells',
+                    'kettlebell': 'kettlebell',
+                    'bandas de resistencia': 'resistance bands',
+                    'peso corporal': 'bodyweight',
+                    'máquina': 'machine',
+                    'maquina': 'machine',
+                    'cable': 'cable',
+                    'banco': 'bench',
+                    'barra de dominadas': 'pull-up bar',
+                    'cinta de correr': 'treadmill',
+                }
+
+                def normalize_code(raw_value, translation_map):
+                    value = str(raw_value).strip().lower() if raw_value is not None else ''
+                    if not value:
+                        return ''
+                    return translation_map.get(value, value)
+
+                def to_bool(raw_value, default=False):
+                    if raw_value is None or str(raw_value).strip() == '':
+                        return default
+                    return str(raw_value).strip().lower() in ['true', '1', 'yes', 'sí', 'si', 's']
+
+                def get_value(row_data, canonical_key, default=''):
+                    for raw_key, raw_value in row_data.items():
+                        mapped_key = header_aliases.get(str(raw_key).strip().lower())
+                        if mapped_key == canonical_key:
+                            return raw_value
+                    return default
                 
                 for row_num, row in enumerate(reader, start=2):
                     try:
-                        name = row.get('name', '').strip()
+                        name = str(get_value(row, 'name', '') or '').strip()
                         if not name:
                             errors.append(f"Fila {row_num}: 'name' es requerido")
                             skipped += 1
                             continue
                         
                         exercise = Exercise.objects.filter(name=name).first()
+
+                        raw_muscle_groups = [m.strip() for m in str(get_value(row, 'muscle_groups', '') or '').split(',') if m.strip()]
+                        raw_equipment = [e.strip() for e in str(get_value(row, 'equipment', '') or '').split(',') if e.strip()]
+                        raw_tags = [t.strip() for t in str(get_value(row, 'tags', '') or '').split(',') if t.strip()]
+
                         fields = {
-                            'description': row.get('description', '').strip(),
-                            'instructions': row.get('instructions', '').strip(),
-                            'category': row.get('category', '').strip(),
-                            'muscle_groups': [m.strip() for m in row.get('muscle_groups', '').split(',') if m.strip()],
-                            'equipment': [e.strip() for e in row.get('equipment', '').split(',') if e.strip()],
-                            'difficulty': row.get('difficulty', '').strip(),
-                            'video_url': row.get('video_url', '').strip(),
-                            'google_drive_file_id': row.get('google_drive_file_id', '').strip(),
-                            'is_system': row.get('is_system', '').strip().lower() in ['true', '1', 'yes'],
-                            'is_active': row.get('is_active', '').strip().lower() in ['true', '1', 'yes', ''] or row.get('is_active', '').strip() == '',
-                            'tags': [t.strip() for t in row.get('tags', '').split(',') if t.strip()],
+                            'description': str(get_value(row, 'description', '') or '').strip(),
+                            'instructions': str(get_value(row, 'instructions', '') or '').strip(),
+                            'category': normalize_code(str(get_value(row, 'category', '') or '').strip(), category_es_to_code),
+                            'muscle_groups': [normalize_code(m, muscle_group_es_to_code) for m in raw_muscle_groups],
+                            'equipment': [normalize_code(e, equipment_es_to_code) for e in raw_equipment],
+                            'difficulty': normalize_code(str(get_value(row, 'difficulty', '') or '').strip(), difficulty_es_to_code),
+                            'video_url': str(get_value(row, 'video_url', '') or '').strip(),
+                            'google_drive_file_id': str(get_value(row, 'google_drive_file_id', '') or '').strip(),
+                            'is_system': to_bool(get_value(row, 'is_system', ''), default=False),
+                            'is_active': to_bool(get_value(row, 'is_active', ''), default=True),
+                            'tags': raw_tags,
                         }
                         
                         if exercise:
@@ -138,13 +238,101 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 except Exception as e:
                     return Response({'error': f'Error al leer el archivo Excel: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
                 
-                headers = [cell.value for cell in ws[1]]
+                headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
                 updated, created, skipped = 0, 0, 0
                 errors = []
+
+                header_aliases = {
+                    'name': 'name',
+                    'nombre': 'name',
+                    'description': 'description',
+                    'descripción': 'description',
+                    'descripcion': 'description',
+                    'instructions': 'instructions',
+                    'instrucciones': 'instructions',
+                    'category': 'category',
+                    'categoría': 'category',
+                    'categoria': 'category',
+                    'muscle_groups': 'muscle_groups',
+                    'grupos_musculares': 'muscle_groups',
+                    'equipment': 'equipment',
+                    'equipamiento': 'equipment',
+                    'difficulty': 'difficulty',
+                    'dificultad': 'difficulty',
+                    'video_url': 'video_url',
+                    'url_video': 'video_url',
+                    'google_drive_file_id': 'google_drive_file_id',
+                    'google_drive_id_archivo': 'google_drive_file_id',
+                    'is_system': 'is_system',
+                    'es_del_sistema': 'is_system',
+                    'is_active': 'is_active',
+                    'está_activo': 'is_active',
+                    'esta_activo': 'is_active',
+                    'tags': 'tags',
+                    'etiquetas': 'tags',
+                }
+
+                category_es_to_code = {
+                    'cardio': 'cardio',
+                    'fuerza': 'strength',
+                    'flexibilidad': 'flexibility',
+                    'peso corporal': 'bodyweight',
+                    'peso_corporal': 'bodyweight',
+                    'hiit': 'hiit',
+                }
+                difficulty_es_to_code = {
+                    'principiante': 'beginner',
+                    'intermedio': 'intermediate',
+                    'avanzado': 'advanced',
+                }
+                muscle_group_es_to_code = {
+                    'cardio': 'cardio',
+                    'pecho': 'chest',
+                    'espalda': 'back',
+                    'hombros': 'shoulders',
+                    'bíceps': 'biceps',
+                    'biceps': 'biceps',
+                    'tríceps': 'triceps',
+                    'triceps': 'triceps',
+                    'antebrazos': 'forearms',
+                    'abdominales': 'abs',
+                    'core': 'core',
+                    'oblicuos': 'obliques',
+                    'cuádriceps': 'quads',
+                    'cuadriceps': 'quads',
+                    'isquiotibiales': 'hamstrings',
+                    'glúteos': 'glutes',
+                    'gluteos': 'glutes',
+                    'pantorrillas': 'calves',
+                }
+                equipment_es_to_code = {
+                    'barra': 'barbell',
+                    'mancuernas': 'dumbbells',
+                    'kettlebell': 'kettlebell',
+                    'bandas de resistencia': 'resistance bands',
+                    'peso corporal': 'bodyweight',
+                    'máquina': 'machine',
+                    'maquina': 'machine',
+                    'cable': 'cable',
+                    'banco': 'bench',
+                    'barra de dominadas': 'pull-up bar',
+                    'cinta de correr': 'treadmill',
+                }
+
+                def normalize_code(raw_value, translation_map):
+                    value = str(raw_value).strip().lower() if raw_value is not None else ''
+                    if not value:
+                        return ''
+                    return translation_map.get(value, value)
                 
                 for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
                     try:
-                        row_dict = dict(zip(headers, row))
+                        original_row_dict = dict(zip(headers, row))
+                        row_dict = {}
+                        for raw_key, raw_val in original_row_dict.items():
+                            normalized_key = header_aliases.get(str(raw_key).strip().lower(), str(raw_key).strip())
+                            row_dict[normalized_key] = raw_val
+
                         name = str(row_dict.get('name', '')).strip() if row_dict.get('name') else ''
                         
                         if not name:
@@ -161,15 +349,18 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                         def to_bool(val):
                             if val is None or val == '':
                                 return True  # Por defecto is_active=True
-                            return str(val).lower() in ['true', '1', 'yes']
+                            return str(val).strip().lower() in ['true', '1', 'yes', 'sí', 'si', 's']
+
+                        raw_muscle_groups = [m.strip() for m in clean_str(row_dict.get('muscle_groups', '')).split(',') if m.strip()]
+                        raw_equipment = [e.strip() for e in clean_str(row_dict.get('equipment', '')).split(',') if e.strip()]
                         
                         fields = {
                             'description': clean_str(row_dict.get('description', '')),
                             'instructions': clean_str(row_dict.get('instructions', '')),
-                            'category': clean_str(row_dict.get('category', '')),
-                            'muscle_groups': [m.strip() for m in clean_str(row_dict.get('muscle_groups', '')).split(',') if m.strip()],
-                            'equipment': [e.strip() for e in clean_str(row_dict.get('equipment', '')).split(',') if e.strip()],
-                            'difficulty': clean_str(row_dict.get('difficulty', '')),
+                            'category': normalize_code(clean_str(row_dict.get('category', '')), category_es_to_code),
+                            'muscle_groups': [normalize_code(m, muscle_group_es_to_code) for m in raw_muscle_groups],
+                            'equipment': [normalize_code(e, equipment_es_to_code) for e in raw_equipment],
+                            'difficulty': normalize_code(clean_str(row_dict.get('difficulty', '')), difficulty_es_to_code),
                             'video_url': clean_str(row_dict.get('video_url', '')),
                             'google_drive_file_id': clean_str(row_dict.get('google_drive_file_id', '')),
                             'is_system': to_bool(row_dict.get('is_system', False)),
@@ -213,26 +404,72 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             response['Content-Disposition'] = 'attachment; filename="exercises_export.csv"'
         
             fieldnames = [
-                'name', 'description', 'instructions', 'category', 'muscle_groups',
-                'equipment', 'difficulty', 'video_url', 'google_drive_file_id',
-                'is_system', 'is_active', 'tags'
+                'nombre', 'descripción', 'instrucciones', 'categoría', 'grupos_musculares',
+                'equipamiento', 'dificultad', 'url_video', 'google_drive_id_archivo',
+                'es_del_sistema', 'está_activo', 'etiquetas'
             ]
             writer = csv.DictWriter(response, fieldnames=fieldnames)
             writer.writeheader()
+
+            category_code_to_es = {
+                'cardio': 'Cardio',
+                'strength': 'Fuerza',
+                'flexibility': 'Flexibilidad',
+                'bodyweight': 'Peso corporal',
+                'hiit': 'HIIT',
+            }
+            difficulty_code_to_es = {
+                'beginner': 'Principiante',
+                'intermediate': 'Intermedio',
+                'advanced': 'Avanzado',
+            }
+            muscle_group_code_to_es = {
+                'cardio': 'Cardio',
+                'chest': 'Pecho',
+                'back': 'Espalda',
+                'shoulders': 'Hombros',
+                'biceps': 'Bíceps',
+                'triceps': 'Tríceps',
+                'forearms': 'Antebrazos',
+                'abs': 'Abdominales',
+                'core': 'Core',
+                'obliques': 'Oblicuos',
+                'quads': 'Cuádriceps',
+                'hamstrings': 'Isquiotibiales',
+                'glutes': 'Glúteos',
+                'calves': 'Pantorrillas',
+            }
+            equipment_code_to_es = {
+                'barbell': 'Barra',
+                'dumbbells': 'Mancuernas',
+                'kettlebell': 'Kettlebell',
+                'resistance bands': 'Bandas de resistencia',
+                'bodyweight': 'Peso corporal',
+                'machine': 'Máquina',
+                'cable': 'Cable',
+                'bench': 'Banco',
+                'pull-up bar': 'Barra de dominadas',
+                'treadmill': 'Cinta de correr',
+            }
+
+            def to_spanish_label(value, translation_map):
+                key = (value or '').strip().lower()
+                return translation_map.get(key, value or '')
+
             for exercise in exercises:
                 writer.writerow({
-                    'name': exercise.name,
-                    'description': exercise.description or '',
-                    'instructions': exercise.instructions or '',
-                    'category': exercise.category or '',
-                    'muscle_groups': ','.join(exercise.muscle_groups or []),
-                    'equipment': ','.join(exercise.equipment or []),
-                    'difficulty': exercise.difficulty or '',
-                    'video_url': exercise.video_url or '',
-                    'google_drive_file_id': exercise.google_drive_file_id or '',
-                    'is_system': exercise.is_system if hasattr(exercise, 'is_system') else False,
-                    'is_active': exercise.is_active if hasattr(exercise, 'is_active') else True,
-                    'tags': ','.join(exercise.tags or []),
+                    'nombre': exercise.name,
+                    'descripción': exercise.description or '',
+                    'instrucciones': exercise.instructions or '',
+                    'categoría': to_spanish_label(exercise.category, category_code_to_es),
+                    'grupos_musculares': ','.join([to_spanish_label(mg, muscle_group_code_to_es) for mg in (exercise.muscle_groups or [])]),
+                    'equipamiento': ','.join([to_spanish_label(eq, equipment_code_to_es) for eq in (exercise.equipment or [])]),
+                    'dificultad': to_spanish_label(exercise.difficulty, difficulty_code_to_es),
+                    'url_video': exercise.video_url or '',
+                    'google_drive_id_archivo': exercise.google_drive_file_id or '',
+                    'es_del_sistema': 'Sí' if (exercise.is_system if hasattr(exercise, 'is_system') else False) else 'No',
+                    'está_activo': 'Sí' if (exercise.is_active if hasattr(exercise, 'is_active') else True) else 'No',
+                    'etiquetas': ','.join(exercise.tags or []),
                 })
             return response
 
@@ -255,10 +492,55 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             worksheet = workbook.add_worksheet('Ejercicios')
         
             headers = [
-                'name', 'description', 'instructions', 'category', 'muscle_groups',
-                'equipment', 'difficulty', 'video_url', 'google_drive_file_id',
-                'is_system', 'is_active', 'tags'
+                'nombre', 'descripción', 'instrucciones', 'categoría', 'grupos_musculares',
+                'equipamiento', 'dificultad', 'url_video', 'google_drive_id_archivo',
+                'es_del_sistema', 'está_activo', 'etiquetas'
             ]
+
+            category_code_to_es = {
+                'cardio': 'Cardio',
+                'strength': 'Fuerza',
+                'flexibility': 'Flexibilidad',
+                'bodyweight': 'Peso corporal',
+                'hiit': 'HIIT',
+            }
+            difficulty_code_to_es = {
+                'beginner': 'Principiante',
+                'intermediate': 'Intermedio',
+                'advanced': 'Avanzado',
+            }
+            muscle_group_code_to_es = {
+                'cardio': 'Cardio',
+                'chest': 'Pecho',
+                'back': 'Espalda',
+                'shoulders': 'Hombros',
+                'biceps': 'Bíceps',
+                'triceps': 'Tríceps',
+                'forearms': 'Antebrazos',
+                'abs': 'Abdominales',
+                'core': 'Core',
+                'obliques': 'Oblicuos',
+                'quads': 'Cuádriceps',
+                'hamstrings': 'Isquiotibiales',
+                'glutes': 'Glúteos',
+                'calves': 'Pantorrillas',
+            }
+            equipment_code_to_es = {
+                'barbell': 'Barra',
+                'dumbbells': 'Mancuernas',
+                'kettlebell': 'Kettlebell',
+                'resistance bands': 'Bandas de resistencia',
+                'bodyweight': 'Peso corporal',
+                'machine': 'Máquina',
+                'cable': 'Cable',
+                'bench': 'Banco',
+                'pull-up bar': 'Barra de dominadas',
+                'treadmill': 'Cinta de correr',
+            }
+
+            def to_spanish_label(value, translation_map):
+                key = (value or '').strip().lower()
+                return translation_map.get(key, value or '')
             
             # Formato para headers
             header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
@@ -274,26 +556,26 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             for row_idx, exercise in enumerate(exercises, start=1):
                 # Recopilar valores únicos para referencias
                 if exercise.category:
-                    all_categories.add(exercise.category)
+                    all_categories.add(to_spanish_label(exercise.category, category_code_to_es))
                 if exercise.difficulty:
-                    all_difficulties.add(exercise.difficulty)
+                    all_difficulties.add(to_spanish_label(exercise.difficulty, difficulty_code_to_es))
                 for mg in (exercise.muscle_groups or []):
-                    all_muscle_groups.add(mg)
+                    all_muscle_groups.add(to_spanish_label(mg, muscle_group_code_to_es))
                 for eq in (exercise.equipment or []):
-                    all_equipment.add(eq)
+                    all_equipment.add(to_spanish_label(eq, equipment_code_to_es))
                 
                 # Escribir datos del ejercicio
                 worksheet.write(row_idx, 0, exercise.name)
                 worksheet.write(row_idx, 1, exercise.description or '')
                 worksheet.write(row_idx, 2, exercise.instructions or '')
-                worksheet.write(row_idx, 3, exercise.category or '')
-                worksheet.write(row_idx, 4, ','.join(exercise.muscle_groups or []))
-                worksheet.write(row_idx, 5, ','.join(exercise.equipment or []))
-                worksheet.write(row_idx, 6, exercise.difficulty or '')
+                worksheet.write(row_idx, 3, to_spanish_label(exercise.category, category_code_to_es))
+                worksheet.write(row_idx, 4, ','.join([to_spanish_label(mg, muscle_group_code_to_es) for mg in (exercise.muscle_groups or [])]))
+                worksheet.write(row_idx, 5, ','.join([to_spanish_label(eq, equipment_code_to_es) for eq in (exercise.equipment or [])]))
+                worksheet.write(row_idx, 6, to_spanish_label(exercise.difficulty, difficulty_code_to_es))
                 worksheet.write(row_idx, 7, exercise.video_url or '')
                 worksheet.write(row_idx, 8, exercise.google_drive_file_id or '')
-                worksheet.write(row_idx, 9, getattr(exercise, 'is_system', False))
-                worksheet.write(row_idx, 10, getattr(exercise, 'is_active', True))
+                worksheet.write(row_idx, 9, 'Sí' if getattr(exercise, 'is_system', False) else 'No')
+                worksheet.write(row_idx, 10, 'Sí' if getattr(exercise, 'is_active', True) else 'No')
                 worksheet.write(row_idx, 11, ','.join(exercise.tags or []))
             
             # Ajustar ancho de columnas
@@ -307,15 +589,15 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             
             # Escribir categorías
             ref_worksheet.write(0, 0, 'CATEGORÍAS DISPONIBLES', header_format)
-            sorted_categories = sorted(all_categories) if all_categories else ['cardio', 'strength', 'flexibility', 'bodyweight', 'hiit']
+            sorted_categories = sorted(all_categories) if all_categories else ['Cardio', 'Fuerza', 'Flexibilidad', 'Peso corporal', 'HIIT']
             for idx, cat in enumerate(sorted_categories, start=1):
                 ref_worksheet.write(idx, 0, cat)
             
             # Escribir grupos musculares
             ref_worksheet.write(0, 2, 'GRUPOS MUSCULARES', header_format)
             sorted_muscle_groups = sorted(all_muscle_groups) if all_muscle_groups else [
-                'chest', 'back', 'shoulders', 'biceps', 'triceps', 'forearms',
-                'abs', 'core', 'obliques', 'quads', 'hamstrings', 'glutes', 'calves'
+                'Pecho', 'Espalda', 'Hombros', 'Bíceps', 'Tríceps', 'Antebrazos',
+                'Abdominales', 'Core', 'Oblicuos', 'Cuádriceps', 'Isquiotibiales', 'Glúteos', 'Pantorrillas'
             ]
             for idx, mg in enumerate(sorted_muscle_groups, start=1):
                 ref_worksheet.write(idx, 2, mg)
@@ -323,15 +605,15 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             # Escribir equipamiento
             ref_worksheet.write(0, 4, 'EQUIPAMIENTO', header_format)
             sorted_equipment = sorted(all_equipment) if all_equipment else [
-                'barbell', 'dumbbells', 'kettlebell', 'resistance bands', 'bodyweight',
-                'machine', 'cable', 'bench', 'pull-up bar', 'treadmill'
+                'Barra', 'Mancuernas', 'Kettlebell', 'Bandas de resistencia', 'Peso corporal',
+                'Máquina', 'Cable', 'Banco', 'Barra de dominadas', 'Cinta de correr'
             ]
             for idx, eq in enumerate(sorted_equipment, start=1):
                 ref_worksheet.write(idx, 4, eq)
             
             # Escribir dificultades
             ref_worksheet.write(0, 6, 'DIFICULTADES', header_format)
-            difficulties = sorted(all_difficulties) if all_difficulties else ['beginner', 'intermediate', 'advanced']
+            difficulties = sorted(all_difficulties) if all_difficulties else ['Principiante', 'Intermedio', 'Avanzado']
             for idx, diff in enumerate(difficulties, start=1):
                 ref_worksheet.write(idx, 6, diff)
             
@@ -346,6 +628,19 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de ejercicios por administradores"""
     permission_classes = [IsAdminOrStaff]
     pagination_class = LargeResultsSetPagination
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except DatabaseError:
+            # Fallback resiliente para evitar 500 en admin si hay corrupción en algún índice/relación
+            return Response({
+                'count': 0,
+                'next': None,
+                'previous': None,
+                'results': [],
+                'warning': 'Resultados parciales por incidencia temporal en base de datos'
+            }, status=status.HTTP_200_OK)
     
     def get_queryset(self):
         return Exercise.objects.all().order_by('name')
@@ -360,26 +655,36 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Estadísticas de ejercicios"""
-        queryset = self.get_queryset()
-        
-        # Ejercicios por categoría
-        category_stats = {}
-        for exercise in queryset:
-            category = exercise.category or 'Sin categoría'
-            category_stats[category] = category_stats.get(category, 0) + 1
-        
-        # Ejercicios por grupo muscular
-        muscle_group_stats = {}
-        for exercise in queryset:
-            for muscle_group in exercise.muscle_groups or []:
-                muscle_group_stats[muscle_group] = muscle_group_stats.get(muscle_group, 0) + 1
-        
-        # Ejercicios recientes (últimos 30 días)
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        recent_exercises = queryset.filter(created_at__gte=thirty_days_ago).count()
+        try:
+            queryset = self.get_queryset()
+
+            # Ejercicios por categoría
+            category_stats = {}
+            for exercise in queryset:
+                category = exercise.category or 'Sin categoría'
+                category_stats[category] = category_stats.get(category, 0) + 1
+
+            # Ejercicios por grupo muscular
+            muscle_group_stats = {}
+            for exercise in queryset:
+                for muscle_group in exercise.muscle_groups or []:
+                    muscle_group_stats[muscle_group] = muscle_group_stats.get(muscle_group, 0) + 1
+
+            # Ejercicios recientes (últimos 30 días)
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+            recent_exercises = queryset.filter(created_at__gte=thirty_days_ago).count()
+            total_exercises = queryset.count()
+        except DatabaseError:
+            return Response({
+                'total_exercises': 0,
+                'exercises_by_category': {},
+                'exercises_by_muscle_group': {},
+                'recent_exercises': 0,
+                'warning': 'Estadísticas no disponibles temporalmente por incidencia en base de datos'
+            })
         
         stats = {
-            'total_exercises': queryset.count(),
+            'total_exercises': total_exercises,
             'exercises_by_category': category_stats,
             'exercises_by_muscle_group': muscle_group_stats,
             'recent_exercises': recent_exercises

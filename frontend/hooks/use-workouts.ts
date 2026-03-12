@@ -266,7 +266,7 @@ export function useWorkouts() {
       if (response.ok) {
         const logs = data.results || data
         setWorkoutLogs(logs)
-        
+
         // Log para depuración
         if (logs.length > 0) {
           const lastLog = logs[0] // El más reciente
@@ -417,7 +417,7 @@ export function useWorkouts() {
             await fetchWorkoutStatistics()
             return {}
           }
-          
+
           // Si no es exitosa, lanzar un error con el texto de la respuesta
           const errorMsg = cleanedText || 'Error desconocido del servidor'
           throw new Error(`Error del servidor: ${errorMsg.substring(0, 200)}`)
@@ -525,10 +525,10 @@ export function useWorkouts() {
         throw new Error(errorMessage)
       }
     } catch (err) {
-      
+
       // Extraer el mensaje de error de forma segura
       let errorMessage = 'Error desconocido al crear log de entrenamiento'
-      
+
       if (err instanceof Error) {
         // Si el mensaje está vacío o es [object Object], crear uno nuevo
         if (!err.message || err.message === '[object Object]' || err.message.includes('[object Object]')) {
@@ -579,7 +579,7 @@ export function useWorkouts() {
           errorMessage = strErr
         }
       }
-      
+
       throw new Error(errorMessage)
     }
   }
@@ -640,26 +640,37 @@ export function useWorkouts() {
 
   // Obtener progreso semanal (compatibilidad con código existente)
   const getWeeklyProgress = () => {
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setHours(0, 0, 0, 0)
+    weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))
+
+    const localRecentLogs = workoutLogs.filter((log) => {
+      if (!log?.date) return false
+      const logDate = new Date(`${log.date}T00:00:00`)
+      return logDate >= weekStart && logDate <= now
+    })
+
+    const localCompleted = localRecentLogs.filter(log => log.completed).length
+    const localMinutes = localRecentLogs
+      .filter(log => log.completed)
+      .reduce((sum, log) => sum + (log.duration_minutes || 0), 0)
+
     if (workoutStatistics) {
       return {
-        totalWorkouts: workoutStatistics.completed_this_week,
-        completedWorkouts: workoutStatistics.completed_this_week,
-        totalMinutes: workoutStatistics.total_minutes_week
+        totalWorkouts: Math.max(workoutStatistics.completed_this_week || 0, localCompleted),
+        completedWorkouts: Math.max(workoutStatistics.completed_this_week || 0, localCompleted),
+        totalMinutes: Math.max(workoutStatistics.total_minutes_week || 0, localMinutes)
       }
     }
 
     // Fallback al cálculo local si no hay estadísticas del servidor
-    const oneWeekAgo = new Date()
-    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7)
-
-    const recentLogs = workoutLogs.filter(log =>
-      new Date(log.date) >= oneWeekAgo
-    )
+    const recentLogs = localRecentLogs
 
     return {
       totalWorkouts: recentLogs.length,
-      completedWorkouts: recentLogs.filter(log => log.completed).length,
-      totalMinutes: recentLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0)
+      completedWorkouts: localCompleted,
+      totalMinutes: localMinutes
     }
   }
 

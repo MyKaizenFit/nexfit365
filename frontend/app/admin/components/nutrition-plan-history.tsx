@@ -226,7 +226,7 @@ export function NutritionPlanHistory() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Todos</SelectItem>
-                    <SelectItem value="admin">Solo cambios por admin</SelectItem>
+                    <SelectItem value="admin">Solo cambios por administrador</SelectItem>
                     <SelectItem value="user">Solo cambios por usuario</SelectItem>
                   </SelectContent>
                 </Select>
@@ -303,7 +303,7 @@ export function NutritionPlanHistory() {
                           {entry.reason_display}
                         </Badge>
                         {entry.is_admin_change && (
-                          <Badge variant="destructive">Admin</Badge>
+                          <Badge variant="destructive">Administrador</Badge>
                         )}
                         <div className="flex items-center gap-1 text-sm text-gray-500">
                           <Clock className="w-3 h-3" />

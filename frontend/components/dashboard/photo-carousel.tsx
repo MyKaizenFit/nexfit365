@@ -186,7 +186,7 @@ export function PhotoCarousel({
               </div>
             </div>
             
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">Comienza tu Transformación Visual</h3>
+            <h3 className="text-xl font-semibold text-gray-800 mb-3">Comienza tu transformación visual</h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
               Documenta tu progreso con fotos para ver cómo tu dedicación se convierte en resultados visibles
             </p>

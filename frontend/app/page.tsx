@@ -121,7 +121,7 @@ export default function HomePage() {
             <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
           </div>
           <h1 className="text-3xl font-bold mb-3 text-gray-800">Redirigiendo...</h1>
-          <p className="text-gray-600">Te estamos llevando a tu panel.</p>
+          <p className="text-gray-600">Te estamos llevando a Inicio.</p>
         </div>
       </div>
     )
@@ -183,7 +183,7 @@ export default function HomePage() {
                   className="bg-white/10 backdrop-blur-sm border-2 border-white text-white hover:bg-white/20 hover:text-white text-lg px-8 py-6 font-bold cursor-pointer transition-all duration-300"
                   onClick={() => router.push('/auth')}
                 >
-                  Iniciar Sesión
+                  Iniciar sesión
                 </Button>
               </div>
             </div>
@@ -311,7 +311,7 @@ export default function HomePage() {
               }}></div>
               <CardContent className="p-16 text-center relative">
                 <Sparkles className="w-20 h-20 mx-auto mb-8 text-yellow-300 animate-pulse" />
-                <h2 className="text-5xl font-extrabold mb-6">Comienza tu Transformación Hoy</h2>
+                <h2 className="text-5xl font-extrabold mb-6">Comienza tu transformación hoy</h2>
                 <p className="text-2xl text-blue-100 mb-10 max-w-3xl mx-auto leading-relaxed">
                   Únete a miles de personas que ya están alcanzando sus objetivos. Tu mejor versión te está esperando.
                 </p>
@@ -321,7 +321,7 @@ export default function HomePage() {
                     className="bg-white text-blue-600 hover:bg-blue-50 text-xl px-10 py-7 shadow-2xl hover:shadow-3xl transition-all duration-300 font-bold"
                     onClick={() => router.push('/auth?register=true')}
                   >
-                    Crear Cuenta Gratis <ArrowRight className="w-6 h-6 ml-2" />
+                    Crear cuenta gratis <ArrowRight className="w-6 h-6 ml-2" />
                   </Button>
                   <Button 
                     size="lg"

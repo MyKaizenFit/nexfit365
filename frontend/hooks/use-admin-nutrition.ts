@@ -81,7 +81,7 @@ export const useAdminNutrition = () => {
       }
 
       const data = await response.json()
-      
+
       // Asegurar que sea un array
       if (Array.isArray(data)) {
         setNutrition(data)
@@ -108,7 +108,7 @@ export const useAdminNutrition = () => {
       if (response.status === 401) {
         const { authService } = await import('@/lib/auth-service')
         const refreshResult = await authService.refreshAccessToken()
-        
+
         if (refreshResult.success && refreshResult.newToken) {
           headers = await getAuthHeaders()
           response = await fetch(buildApiUrl('admin/nutrition/recipes/stats/'), {
@@ -129,29 +129,29 @@ export const useAdminNutrition = () => {
       // Calcular desde los datos cargados como fallback
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      
+
       const nutritionByCategory: Record<string, number> = {}
       const nutritionByDifficulty: Record<string, number> = {}
       let recentCount = 0
-      
+
       nutrition.forEach(recipe => {
         // Por categoría
         if (recipe.category) {
           nutritionByCategory[recipe.category] = (nutritionByCategory[recipe.category] || 0) + 1
         }
-        
+
         // Por dificultad
         if (recipe.difficulty) {
           nutritionByDifficulty[recipe.difficulty] = (nutritionByDifficulty[recipe.difficulty] || 0) + 1
         }
-        
+
         // Recientes (últimos 7 días)
         const createdDate = new Date(recipe.created_at)
         if (createdDate >= sevenDaysAgo) {
           recentCount++
         }
       })
-      
+
       setStats({
         total_nutrition: nutrition.length,
         nutrition_by_category: nutritionByCategory,
@@ -194,13 +194,13 @@ export const useAdminNutrition = () => {
       }
 
       const newNutrition = await response.json()
-      
+
       // Actualizar la lista local
       setNutrition(prev => [...prev, newNutrition])
-      
+
       // Refrescar estadísticas
       await fetchStats()
-      
+
       return newNutrition
     } catch (err) {
       throw err
@@ -240,15 +240,15 @@ export const useAdminNutrition = () => {
       }
 
       const updatedNutrition = await response.json()
-      
+
       // Actualizar la lista local
-      setNutrition(prev => prev.map(item => 
+      setNutrition(prev => prev.map(item =>
         item.id === parseInt(id) ? updatedNutrition : item
       ))
-      
+
       // Refrescar estadísticas
       await fetchStats()
-      
+
       return updatedNutrition
     } catch (err) {
       throw err
@@ -280,7 +280,7 @@ export const useAdminNutrition = () => {
 
       // Actualizar la lista local
       setNutrition(prev => prev.filter(item => item.id !== parseInt(id)))
-      
+
       // Refrescar estadísticas
       await fetchStats()
     } catch (err) {
@@ -321,7 +321,7 @@ export const useAdminNutrition = () => {
 
       // Actualizar la lista local
       setNutrition(prev => prev.filter(item => !ids.includes(item.id)))
-      
+
       // Refrescar estadísticas
       await fetchStats()
     } catch (err) {
@@ -383,29 +383,29 @@ export const useAdminNutrition = () => {
     if (nutrition.length > 0) {
       const sevenDaysAgo = new Date()
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-      
+
       const nutritionByCategory: Record<string, number> = {}
       const nutritionByDifficulty: Record<string, number> = {}
       let recentCount = 0
-      
+
       nutrition.forEach(recipe => {
         // Por categoría
         if (recipe.category) {
           nutritionByCategory[recipe.category] = (nutritionByCategory[recipe.category] || 0) + 1
         }
-        
+
         // Por dificultad
         if (recipe.difficulty) {
           nutritionByDifficulty[recipe.difficulty] = (nutritionByDifficulty[recipe.difficulty] || 0) + 1
         }
-        
+
         // Recientes (últimos 7 días)
         const createdDate = new Date(recipe.created_at)
         if (createdDate >= sevenDaysAgo) {
           recentCount++
         }
       })
-      
+
       // Actualizar stats si ya existen, o crear nuevos
       setStats(prev => ({
         total_nutrition: nutrition.length,
@@ -419,7 +419,7 @@ export const useAdminNutrition = () => {
 
   // Asegurar que nutrition siempre sea un array
   const safeNutrition = Array.isArray(nutrition) ? nutrition : []
-  
+
   return {
     nutrition: safeNutrition,
     stats,

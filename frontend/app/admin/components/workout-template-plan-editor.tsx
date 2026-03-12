@@ -413,7 +413,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const handleAddSubstitute = async (substituteId: string | number) => {
     if (!substitutesExerciseId) return
-    
+
     // Validar máximo 3 respaldos
     if (substitutes.length >= 3) {
       toast({
@@ -423,11 +423,11 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       })
       return
     }
-    
+
     try {
       // Calcular próxima prioridad (1 = mayor prioridad)
       const nextPriority = substitutes.length + 1
-      
+
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(substituteId),
         priority: nextPriority,
@@ -466,26 +466,26 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const moveSubstituteUp = async (index: number) => {
     if (index === 0 || !substitutesExerciseId) return
-    
+
     try {
       const newSubs = [...substitutes]
       const temp = newSubs[index]
       newSubs[index] = newSubs[index - 1]
       newSubs[index - 1] = temp
-      
+
       // Actualizar prioridades en el backend
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(newSubs[index - 1].substitute_id),
         priority: index, // La prioridad más baja es 1
         notes: newSubs[index - 1].notes,
       })
-      
+
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(newSubs[index].substitute_id),
         priority: index + 1,
         notes: newSubs[index].notes,
       })
-      
+
       // Recargar lista
       const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
       setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
@@ -500,26 +500,26 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const moveSubstituteDown = async (index: number) => {
     if (index === substitutes.length - 1 || !substitutesExerciseId) return
-    
+
     try {
       const newSubs = [...substitutes]
       const temp = newSubs[index]
       newSubs[index] = newSubs[index + 1]
       newSubs[index + 1] = temp
-      
+
       // Actualizar prioridades en el backend
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(newSubs[index].substitute_id),
         priority: index + 1,
         notes: newSubs[index].notes,
       })
-      
+
       await postJsonWithAuth(`admin/exercises/${substitutesExerciseId}/add_substitute/`, {
         substitute_id: String(newSubs[index + 1].substitute_id),
         priority: index + 2,
         notes: newSubs[index + 1].notes,
       })
-      
+
       // Recargar lista
       const refreshed = await fetchJsonWithAuth(`admin/exercises/${substitutesExerciseId}/substitutes/`)
       setSubstitutes(Array.isArray(refreshed) ? refreshed : [])
@@ -1008,7 +1008,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
               <div className="flex items-start gap-2">
                 <Shield className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
                 <div className="text-sm">
-                  Define alternativas para <strong className="text-amber-900">{substitutesExerciseName}</strong> en esta rutina. 
+                  Define alternativas para <strong className="text-amber-900">{substitutesExerciseName}</strong> en esta rutina.
                   Los usuarios podrán ver y elegir estos ejercicios de respaldo si no pueden realizar el ejercicio principal.
                 </div>
               </div>
@@ -1058,7 +1058,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                             <ChevronDown className="h-3 w-3" />
                           </Button>
                         </div>
-                        
+
                         {/* Info del ejercicio */}
                         <div className="text-sm flex-1">
                           <div className="font-medium flex items-center gap-2">
@@ -1071,7 +1071,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                           {s.notes && <div className="text-xs text-amber-700 mt-1 italic">{fixEncoding(s.notes)}</div>}
                         </div>
                       </div>
-                      
+
                       <Button
                         variant="ghost"
                         size="icon"
@@ -1089,7 +1089,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
             <div className="border-t pt-4">
               <Label className="text-xs font-semibold">Agregar nuevo respaldo</Label>
-              
+
               {substitutes.length >= 3 ? (
                 <div className="mt-2 bg-amber-100 border border-amber-300 rounded-lg p-3 text-center">
                   <div className="text-sm font-medium text-amber-900">

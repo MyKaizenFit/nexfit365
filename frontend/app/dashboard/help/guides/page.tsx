@@ -50,8 +50,8 @@ export default function GuidesPage() {
           content: "Asegúrate de completar toda la información de tu perfil: altura, peso, objetivos, nivel de actividad y preferencias. Esta información es crucial para generar planes personalizados."
         },
         {
-          title: "Explorar el dashboard",
-          content: "El dashboard es tu centro de control. Aquí verás tus planes de entrenamiento y nutrición, tu progreso, logros y estadísticas."
+          title: "Explorar Inicio",
+          content: "Inicio es tu centro de control. Aquí verás tus planes de entrenamiento y nutrición, tu progreso, logros y estadísticas."
         }
       ]
     },

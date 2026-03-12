@@ -105,12 +105,12 @@ export function UserNotifications({ userId }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="info">Info</SelectItem>
+                    <SelectItem value="info">Información</SelectItem>
                     <SelectItem value="meal">Comida</SelectItem>
                     <SelectItem value="workout">Entrenamiento</SelectItem>
                     <SelectItem value="reminder">Recordatorio</SelectItem>
                     <SelectItem value="motivation">Motivación</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="admin">Administrador</SelectItem>
                     <SelectItem value="warning">Advertencia</SelectItem>
                   </SelectContent>
                 </Select>

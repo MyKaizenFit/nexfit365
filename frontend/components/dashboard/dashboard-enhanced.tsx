@@ -192,7 +192,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       setLastRefresh(new Date())
       toast({
         title: "✅ Datos actualizados",
-        description: "Tu dashboard ha sido actualizado correctamente.",
+        description: "Inicio se ha actualizado correctamente.",
       })
     } catch (error) {
       toast({

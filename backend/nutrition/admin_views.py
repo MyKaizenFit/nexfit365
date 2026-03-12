@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
+from django.db import DatabaseError
 from django.db.models import Count, Avg, Sum, Min, Max, Q
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
@@ -32,7 +33,17 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         """Override list to add cache prevention headers"""
-        response = super().list(request, *args, **kwargs)
+        try:
+            response = super().list(request, *args, **kwargs)
+        except DatabaseError:
+            response = Response({
+                'count': 0,
+                'next': None,
+                'previous': None,
+                'results': [],
+                'warning': 'Resultados parciales por incidencia temporal en base de datos'
+            }, status=status.HTTP_200_OK)
+
         response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
         response['Pragma'] = 'no-cache'
         response['Expires'] = '0'
@@ -117,11 +128,11 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         from django.http import HttpResponse
         recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
         response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="recipes_export.csv"'
+        response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.csv"'
         fieldnames = [
-            'name', 'description', 'category', 'difficulty', 'servings', 'prep_time_minutes',
-            'ingredients', 'instructions',
-            'calories_ref', 'protein_ref', 'carbs_ref', 'fat_ref'
+            'nombre', 'descripción', 'categoría', 'dificultad', 'porciones', 'tiempo_preparacion_minutos',
+            'ingredientes', 'instrucciones',
+            'calorias_ref', 'proteinas_ref', 'carbos_ref', 'grasas_ref'
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
@@ -139,26 +150,27 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                 ingredients_str = '; '.join(ingredient_parts)
             
             writer.writerow({
-                'name': recipe.name,
-                'description': recipe.description or '',
-                'category': recipe.category or '',
-                'difficulty': recipe.difficulty or '',
-                'servings': recipe.servings or 1,
-                'prep_time_minutes': recipe.prep_time_minutes or 0,
-                'ingredients': ingredients_str,
-                'instructions': recipe.instructions or '',
-                'calories_ref': recipe.calories or 0,
-                'protein_ref': recipe.protein or 0,
-                'carbs_ref': recipe.carbs or 0,
-                'fat_ref': recipe.fat or 0,
+                'nombre': recipe.name,
+                'descripción': recipe.description or '',
+                'categoría': recipe.category or '',
+                'dificultad': recipe.difficulty or '',
+                'porciones': recipe.servings or 1,
+                'tiempo_preparacion_minutos': recipe.prep_time_minutes or 0,
+                'ingredientes': ingredients_str,
+                'instrucciones': recipe.instructions or '',
+                'calorias_ref': recipe.calories or 0,
+                'proteinas_ref': recipe.protein or 0,
+                'carbos_ref': recipe.carbs or 0,
+                'grasas_ref': recipe.fat or 0,
             })
         return response
 
     @action(detail=False, methods=['get'], url_path='export-excel')
     def export_excel(self, request):
-        """Exporta recetas en Excel con dos hojas:
+        """Exporta recetas en Excel con tres hojas:
         1. Recetas: Todas las recetas con ingredientes estructurados
-        2. Ingredientes disponibles: Listado de todos los ingredientes con códigos para validación
+        2. Ingredientes_Disponibles: Listado de todos los ingredientes con códigos para validación
+        3. Referencias: Valores válidos para categoría y dificultad
         """
         import io
         import xlsxwriter
@@ -173,9 +185,9 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         worksheet = workbook.add_worksheet('Recetas')
         
         headers = [
-            'name', 'description', 'category', 'difficulty', 'servings', 'prep_time_minutes',
-            'ingredients', 'instructions',
-            'calories_ref', 'protein_ref', 'carbs_ref', 'fat_ref'
+            'nombre', 'descripción', 'categoría', 'dificultad', 'porciones', 'tiempo_preparacion_minutos',
+            'ingredientes', 'instrucciones',
+            'calorias_ref', 'proteinas_ref', 'carbos_ref', 'grasas_ref'
         ]
         
         # Escribir headers con formato
@@ -212,6 +224,11 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             worksheet.write(row_idx, 10, float(recipe.carbs or 0))
             worksheet.write(row_idx, 11, float(recipe.fat or 0))
         
+        worksheet.set_column('A:A', 30)
+        worksheet.set_column('B:B', 35)
+        worksheet.set_column('G:G', 60)
+        worksheet.set_column('H:H', 50)
+
         # ========== HOJA 2: INGREDIENTES DISPONIBLES ==========
         ing_worksheet = workbook.add_worksheet('Ingredientes_Disponibles')
         
@@ -231,14 +248,37 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             ing_worksheet.write(row_idx, 5, float(food.fat or 0))
             ing_worksheet.write(row_idx, 6, str(food.id))
         
-        # Ajustar ancho de columnas
         ing_worksheet.set_column('A:A', 30)
         ing_worksheet.set_column('B:B', 15)
+
+        # ========== HOJA 3: REFERENCIAS ==========
+        ref_worksheet = workbook.add_worksheet('Referencias')
+        ref_worksheet.write(0, 0, 'Campo', header_format)
+        ref_worksheet.write(0, 1, 'Valores válidos', header_format)
+        ref_worksheet.write(0, 2, 'Notas', header_format)
+        refs = [
+            ('categoría', 'Desayuno, Almuerzo, Cena, Snack, Postre, Bebida', ''),
+            ('dificultad', 'Fácil, Medio, Difícil', ''),
+            ('porciones', '1, 2, 3, 4, ...', 'Número entero positivo'),
+            ('tiempo_preparacion_minutos', '0, 5, 10, 15, 30, 60, ...', 'Número entero en minutos'),
+            ('ingredientes', 'Nombre|cantidad|unidad|notas; Nombre2|cantidad2|unidad2|notas2', 'Separar ingredientes con " ; ", campos con "|"'),
+            ('calorias_ref', 'Número', 'Solo referencia, se recalcula automáticamente'),
+            ('proteinas_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
+            ('carbos_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
+            ('grasas_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
+        ]
+        for row_idx, (campo, valores, notas) in enumerate(refs, start=1):
+            ref_worksheet.write(row_idx, 0, campo)
+            ref_worksheet.write(row_idx, 1, valores)
+            ref_worksheet.write(row_idx, 2, notas)
+        ref_worksheet.set_column('A:A', 28)
+        ref_worksheet.set_column('B:B', 55)
+        ref_worksheet.set_column('C:C', 50)
         
         workbook.close()
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="recipes_export.xlsx"'
+        response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.xlsx"'
         return response
 
     @action(detail=False, methods=['post'], url_path='import-csv')
@@ -246,9 +286,10 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
     def import_csv(self, request):
         """Importa recetas desde CSV con ingredientes estructurados.
         
+        Acepta columnas en español o inglés.
         Formato ingredientes: 'NombreAlimento|cantidad|unidad|notas; NombreAlimento2|...'
         Las macros se calculan AUTOMÁTICAMENTE basándose en los ingredientes.
-        Las columnas *_ref se ignoran (son solo de referencia).
+        Las columnas *_ref / *_ref se ignoran (son solo de referencia).
         
         - Busca recetas existentes por nombre
         - Actualiza si hay cambios
@@ -261,6 +302,33 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         from django.http import JsonResponse
         from .models import RecipeIngredient
         
+        # Mapas de alias: columna exportada → campo interno
+        field_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'descripción': 'description', 'descripcion': 'description', 'description': 'description',
+            'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'dificultad': 'difficulty', 'difficulty': 'difficulty',
+            'porciones': 'servings', 'servings': 'servings',
+            'tiempo_preparacion_minutos': 'prep_time_minutes', 'prep_time_minutes': 'prep_time_minutes',
+            'ingredientes': 'ingredients', 'ingredients': 'ingredients',
+            'instrucciones': 'instructions', 'instructions': 'instructions',
+            'calorias_ref': 'calories_ref', 'calories_ref': 'calories_ref',
+            'proteinas_ref': 'protein_ref', 'protein_ref': 'protein_ref',
+            'carbos_ref': 'carbs_ref', 'carbs_ref': 'carbs_ref',
+            'grasas_ref': 'fat_ref', 'fat_ref': 'fat_ref',
+        }
+
+        def get_value(row, canonical, default=''):
+            """Busca un campo por su nombre canónico en una fila con aliases."""
+            # Primero intentar directamente
+            if canonical in row:
+                return row[canonical]
+            # Buscar en aliases
+            for key, mapped in field_aliases.items():
+                if mapped == canonical and key in row:
+                    return row[key]
+            return default
+
         try:
             file = request.FILES.get('file')
             if not file:
@@ -276,9 +344,9 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             
             for row_num, row in enumerate(reader, start=2):
                 try:
-                    name = row.get('name', '').strip()
+                    name = get_value(row, 'name', '').strip()
                     if not name:
-                        errors.append(f"Row {row_num}: name is required")
+                        errors.append(f"Fila {row_num}: nombre es obligatorio")
                         continue
                     
                     # Buscar receta existente por nombre
@@ -287,16 +355,16 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     # Preparar datos básicos (SIN MACROS - se calculan después)
                     recipe_data = {
                         'name': name,
-                        'description': row.get('description', '') or '',
-                        'category': row.get('category', '') or '',
-                        'difficulty': row.get('difficulty', '') or '',
-                        'servings': int(row.get('servings', 1) or 1),
-                        'prep_time_minutes': int(row.get('prep_time_minutes', 0) or 0),
-                        'instructions': row.get('instructions', '') or '',
+                        'description': get_value(row, 'description', '') or '',
+                        'category': get_value(row, 'category', '') or '',
+                        'difficulty': get_value(row, 'difficulty', '') or '',
+                        'servings': int(get_value(row, 'servings', 1) or 1),
+                        'prep_time_minutes': int(get_value(row, 'prep_time_minutes', 0) or 0),
+                        'instructions': get_value(row, 'instructions', '') or '',
                     }
                     
                     # Parsear ingredientes (formato: Nombre|cantidad|unidad|notas; ...)
-                    ingredients_str = row.get('ingredients', '') or ''
+                    ingredients_str = get_value(row, 'ingredients', '') or ''
                     parsed_ingredients = []
                     
                     if ingredients_str:
@@ -313,7 +381,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                                     # Buscar alimento en la BD
                                     food = Food.objects.filter(name__iexact=food_name).first()
                                     if not food:
-                                        errors.append(f"Row {row_num}: Food '{food_name}' not found")
+                                        errors.append(f"Fila {row_num}: Alimento '{food_name}' no encontrado")
                                         continue
                                     
                                     parsed_ingredients.append({
@@ -323,7 +391,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                                         'notes': notes
                                     })
                             except (ValueError, IndexError) as e:
-                                errors.append(f"Row {row_num}: Invalid ingredient format '{part}': {str(e)}")
+                                errors.append(f"Fila {row_num}: Formato de ingrediente inválido '{part}': {str(e)}")
                                 continue
                     
                     # Crear o actualizar receta
@@ -377,12 +445,12 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                         created_count += 1
                         
                 except Exception as e:
-                    errors.append(f"Row {row_num}: {str(e)}")
+                    errors.append(f"Fila {row_num}: {str(e)}")
                     continue
             
-            message = f"Import completed: {created_count} created, {updated_count} updated, {skipped_count} skipped"
+            message = f"Importación completada: {created_count} creadas, {updated_count} actualizadas, {skipped_count} omitidas"
             if errors:
-                message += f". {len(errors)} error(s) found."
+                message += f". {len(errors)} error(es) encontrados."
             
             return JsonResponse({
                 'success': True,
@@ -400,6 +468,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
     def import_excel(self, request):
         """Importa recetas desde Excel con validación inteligente de ingredientes.
         
+        Acepta columnas en español o inglés.
         Formato ingredientes: 'NombreAlimento|cantidad|unidad|notas; NombreAlimento2|...'
         
         VALIDACIÓN: 
@@ -409,27 +478,51 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         - Notifica cuáles recetas fueron rechazadas y por qué
         
         Las macros se calculan AUTOMÁTICAMENTE basándose en los ingredientes.
-        Las columnas *_ref se ignoran (son solo de referencia).
+        Las columnas *_ref / *_ref se ignoran (son solo de referencia).
         """
         from openpyxl import load_workbook
         from django.http import JsonResponse
         from .models import RecipeIngredient
         import io
         
+        # Mapas de alias: columna exportada → campo interno
+        field_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'descripción': 'description', 'descripcion': 'description', 'description': 'description',
+            'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'dificultad': 'difficulty', 'difficulty': 'difficulty',
+            'porciones': 'servings', 'servings': 'servings',
+            'tiempo_preparacion_minutos': 'prep_time_minutes', 'prep_time_minutes': 'prep_time_minutes',
+            'ingredientes': 'ingredients', 'ingredients': 'ingredients',
+            'instrucciones': 'instructions', 'instructions': 'instructions',
+            'calorias_ref': 'calories_ref', 'calories_ref': 'calories_ref',
+            'proteinas_ref': 'protein_ref', 'protein_ref': 'protein_ref',
+            'carbos_ref': 'carbs_ref', 'carbs_ref': 'carbs_ref',
+            'grasas_ref': 'fat_ref', 'fat_ref': 'fat_ref',
+        }
+
+        def get_value(row_data, canonical, default=''):
+            if canonical in row_data:
+                return row_data[canonical]
+            for key, mapped in field_aliases.items():
+                if mapped == canonical and key in row_data:
+                    return row_data[key]
+            return default
+
         try:
             file = request.FILES.get('file')
             if not file:
                 return JsonResponse({'error': 'No file provided'}, status=400)
             
-            # Leer archivo Excel
+            # Leer archivo Excel (solo la primera hoja — ignora Referencias e Ingredientes_Disponibles)
             workbook = load_workbook(io.BytesIO(file.read()))
             worksheet = workbook.active
             
             # Obtener headers desde la primera fila
             headers = []
             for cell in worksheet[1]:
-                if cell.value:
-                    headers.append(cell.value)
+                if cell.value is not None:
+                    headers.append(str(cell.value).strip())
             
             created_count = 0
             updated_count = 0
@@ -447,15 +540,15 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                         if idx < len(row):
                             row_data[header] = row[idx]
                     
-                    name = (row_data.get('name') or '').strip()
+                    name = str(get_value(row_data, 'name') or '').strip()
                     if not name:
-                        errors.append(f"Row {row_num}: name is required")
+                        errors.append(f"Fila {row_num}: nombre es obligatorio")
                         continue
                     
                     # ========== VALIDACIÓN DE INGREDIENTES PRIMERO ==========
-                    ingredients_str = row_data.get('ingredients', '') or ''
+                    ingredients_str = get_value(row_data, 'ingredients', '') or ''
                     parsed_ingredients = []
-                    invalid_ingredients = []  # Registrar cuáles ingredientes son inválidos
+                    invalid_ingredients = []
                     
                     if ingredients_str:
                         ingredient_parts = [p.strip() for p in str(ingredients_str).split(';') if p.strip()]
@@ -472,13 +565,13 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                                     try:
                                         quantity = float(quantity_str)
                                     except ValueError:
-                                        invalid_ingredients.append(f"'{food_name}': invalid quantity '{quantity_str}'")
+                                        invalid_ingredients.append(f"'{food_name}': cantidad inválida '{quantity_str}'")
                                         continue
                                     
                                     # Buscar alimento en la BD
                                     food = Food.objects.filter(name__iexact=food_name).first()
                                     if not food:
-                                        invalid_ingredients.append(f"'{food_name}': food not found in database")
+                                        invalid_ingredients.append(f"'{food_name}': alimento no encontrado en la base de datos")
                                         continue
                                     
                                     parsed_ingredients.append({
@@ -493,7 +586,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     
                     # Si hay ingredientes INVÁLIDOS, RECHAZAR la receta completamente
                     if invalid_ingredients:
-                        rejection_msg = f"Row {row_num} ('{name}'): Rejected - Invalid ingredients: {', '.join(invalid_ingredients)}"
+                        rejection_msg = f"Fila {row_num} ('{name}'): Rechazada - Ingredientes inválidos: {', '.join(invalid_ingredients)}"
                         rejections.append(rejection_msg)
                         failed_count += 1
                         continue
@@ -501,12 +594,12 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     # ========== PROCESAMIENTO SOLO SI TODO ES VÁLIDO ==========
                     recipe_data = {
                         'name': name,
-                        'description': (row_data.get('description') or '') or '',
-                        'category': (row_data.get('category') or '') or '',
-                        'difficulty': (row_data.get('difficulty') or '') or '',
-                        'servings': int(row_data.get('servings') or 1),
-                        'prep_time_minutes': int(row_data.get('prep_time_minutes') or 0),
-                        'instructions': (row_data.get('instructions') or '') or '',
+                        'description': str(get_value(row_data, 'description') or '') or '',
+                        'category': str(get_value(row_data, 'category') or '') or '',
+                        'difficulty': str(get_value(row_data, 'difficulty') or '') or '',
+                        'servings': int(get_value(row_data, 'servings') or 1),
+                        'prep_time_minutes': int(get_value(row_data, 'prep_time_minutes') or 0),
+                        'instructions': str(get_value(row_data, 'instructions') or '') or '',
                     }
                     
                     # Buscar receta existente por nombre
@@ -562,10 +655,10 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                         created_count += 1
                         
                 except Exception as e:
-                    errors.append(f"Row {row_num}: Unexpected error - {str(e)}")
+                    errors.append(f"Fila {row_num}: Error inesperado - {str(e)}")
                     continue
             
-            message = f"Import completed: {created_count} created, {updated_count} updated, {skipped_count} skipped, {failed_count} REJECTED (invalid ingredients)"
+            message = f"Importación completada: {created_count} creadas, {updated_count} actualizadas, {skipped_count} omitidas, {failed_count} RECHAZADAS (ingredientes inválidos)"
             
             result = {
                 'success': True,
@@ -576,19 +669,17 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                 'message': message,
             }
             
-            # Incluir detalles sobre recetas rechazadas
             if rejections:
-                result['rejections'] = rejections[:20]  # Primeras 20 rechazos
+                result['rejections'] = rejections[:20]
                 result['rejection_count'] = len(rejections)
             
-            # Incluir otros errores si existen
             if errors:
                 result['errors'] = errors[:10]
                 result['error_count'] = len(errors)
             
             return JsonResponse(result)
         except Exception as e:
-            return JsonResponse({'error': f'File processing error: {str(e)}'}, status=400)
+            return JsonResponse({'error': f'Error procesando archivo: {str(e)}'}, status=400)
 
 
 class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
@@ -970,31 +1061,31 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         import csv
         from django.http import HttpResponse
         foods = self.get_queryset()
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="foods_export.csv"'
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="alimentos_exportacion.csv"'
         fieldnames = [
-            'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium',
-            'serving_size', 'serving_unit', 'category', 'store', 'is_verified'
+            'id', 'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
         for food in foods:
             writer.writerow({
                 'id': str(food.id),
-                'name': food.name,
-                'brand': food.brand or '',
-                'calories': food.calories or 0,
-                'protein': food.protein or 0,
-                'carbs': food.carbs or 0,
-                'fat': food.fat or 0,
-                'fiber': food.fiber or 0,
-                'sugar': food.sugar or 0,
-                'sodium': food.sodium or 0,
-                'serving_size': food.serving_size or 0,
-                'serving_unit': food.serving_unit or '',
-                'category': food.category or '',
-                'store': food.store or '',
-                'is_verified': food.is_verified,
+                'nombre': food.name,
+                'marca': food.brand or '',
+                'calorías': food.calories or 0,
+                'proteínas': food.protein or 0,
+                'carbohidratos': food.carbs or 0,
+                'grasas': food.fat or 0,
+                'fibra': food.fiber or 0,
+                'azúcar': food.sugar or 0,
+                'sodio': food.sodium or 0,
+                'tamaño_porcion': food.serving_size or 0,
+                'unidad_porcion': food.serving_unit or '',
+                'categoría': food.category or '',
+                'tienda': food.store or '',
+                'verificado': 'Sí' if food.is_verified else 'No',
             })
         return response
 
@@ -1008,39 +1099,73 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         worksheet = workbook.add_worksheet('Alimentos')
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [
-            'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'sodium',
-            'serving_size', 'serving_unit', 'category', 'store', 'is_verified'
+            'id', 'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
         ]
         for col, header in enumerate(headers):
-            worksheet.write(0, col, header)
+            worksheet.write(0, col, header, header_format)
         for row_idx, food in enumerate(foods, start=1):
             worksheet.write(row_idx, 0, str(food.id))
             worksheet.write(row_idx, 1, food.name)
             worksheet.write(row_idx, 2, food.brand or '')
             worksheet.write(row_idx, 3, food.calories or 0)
-            worksheet.write(row_idx, 4, food.protein or 0)
-            worksheet.write(row_idx, 5, food.carbs or 0)
-            worksheet.write(row_idx, 6, food.fat or 0)
-            worksheet.write(row_idx, 7, food.fiber or 0)
-            worksheet.write(row_idx, 8, food.sugar or 0)
-            worksheet.write(row_idx, 9, food.sodium or 0)
+            worksheet.write(row_idx, 4, float(food.protein or 0))
+            worksheet.write(row_idx, 5, float(food.carbs or 0))
+            worksheet.write(row_idx, 6, float(food.fat or 0))
+            worksheet.write(row_idx, 7, float(food.fiber or 0))
+            worksheet.write(row_idx, 8, float(food.sugar or 0))
+            worksheet.write(row_idx, 9, float(food.sodium or 0))
             worksheet.write(row_idx, 10, food.serving_size or 0)
             worksheet.write(row_idx, 11, food.serving_unit or '')
             worksheet.write(row_idx, 12, food.category or '')
             worksheet.write(row_idx, 13, food.store or '')
-            worksheet.write(row_idx, 14, food.is_verified)
+            worksheet.write(row_idx, 14, 'Sí' if food.is_verified else 'No')
+        worksheet.set_column('A:A', 38)
+        worksheet.set_column('B:B', 30)
+        worksheet.set_column('C:C', 20)
         workbook.close()
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="foods_export.xlsx"'
+        response['Content-Disposition'] = 'attachment; filename="alimentos_exportacion.xlsx"'
         return response
 
     @action(detail=False, methods=['post'], url_path='import-csv')
     def import_csv(self, request):
-        """Importa alimentos desde un archivo CSV. Añade o modifica, nunca elimina."""
+        """Importa alimentos desde un archivo CSV. Acepta columnas en español o inglés. Añade o modifica, nunca elimina."""
         import csv
         from django.core.files.uploadedfile import UploadedFile
+
+        # Aliases: columna exportada → campo interno
+        food_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'marca': 'brand', 'brand': 'brand',
+            'calorías': 'calories', 'calorias': 'calories', 'calories': 'calories',
+            'proteínas': 'protein', 'proteinas': 'protein', 'protein': 'protein',
+            'carbohidratos': 'carbs', 'carbs': 'carbs',
+            'grasas': 'fat', 'fat': 'fat',
+            'fibra': 'fiber', 'fiber': 'fiber',
+            'azúcar': 'sugar', 'azucar': 'sugar', 'sugar': 'sugar',
+            'sodio': 'sodium', 'sodium': 'sodium',
+            'tamaño_porcion': 'serving_size', 'tamano_porcion': 'serving_size', 'serving_size': 'serving_size',
+            'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
+            'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'tienda': 'store', 'store': 'store',
+            'verificado': 'is_verified', 'is_verified': 'is_verified',
+        }
+
+        def gv(row, canonical, default=''):
+            if canonical in row:
+                return row[canonical]
+            for k, v in food_aliases.items():
+                if v == canonical and k in row:
+                    return row[k]
+            return default
+
+        def to_bool(val):
+            return str(val).lower() in ('true', 'sí', 'si', 's', '1', 'yes')
+
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
             return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
@@ -1048,25 +1173,25 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         reader = csv.DictReader(decoded.splitlines())
         updated, created, skipped = 0, 0, 0
         for row in reader:
-            name = row.get('name')
+            name = gv(row, 'name', '').strip()
             if not name:
                 skipped += 1
                 continue
             food = Food.objects.filter(name=name).first()
             fields = {
-                'brand': row.get('brand', ''),
-                'calories': float(row.get('calories', 0)),
-                'protein': float(row.get('protein', 0)),
-                'carbs': float(row.get('carbs', 0)),
-                'fat': float(row.get('fat', 0)),
-                'fiber': float(row.get('fiber', 0)),
-                'sugar': float(row.get('sugar', 0)),
-                'sodium': float(row.get('sodium', 0)),
-                'serving_size': float(row.get('serving_size', 0)),
-                'serving_unit': row.get('serving_unit', ''),
-                'category': row.get('category', ''),
-                'store': row.get('store', ''),
-                'is_verified': row.get('is_verified', '').lower() == 'true',
+                'brand': gv(row, 'brand', ''),
+                'calories': float(gv(row, 'calories', 0) or 0),
+                'protein': float(gv(row, 'protein', 0) or 0),
+                'carbs': float(gv(row, 'carbs', 0) or 0),
+                'fat': float(gv(row, 'fat', 0) or 0),
+                'fiber': float(gv(row, 'fiber', 0) or 0),
+                'sugar': float(gv(row, 'sugar', 0) or 0),
+                'sodium': float(gv(row, 'sodium', 0) or 0),
+                'serving_size': float(gv(row, 'serving_size', 0) or 0),
+                'serving_unit': gv(row, 'serving_unit', ''),
+                'category': gv(row, 'category', ''),
+                'store': gv(row, 'store', ''),
+                'is_verified': to_bool(gv(row, 'is_verified', 'false')),
             }
             if food:
                 for k, v in fields.items():
@@ -1085,37 +1210,66 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='import-excel')
     def import_excel(self, request):
-        """Importa alimentos desde un archivo Excel. Añade o modifica, nunca elimina."""
+        """Importa alimentos desde un archivo Excel. Acepta columnas en español o inglés. Añade o modifica, nunca elimina."""
         import openpyxl
         from django.core.files.uploadedfile import UploadedFile
+
+        food_aliases = {
+            'nombre': 'name', 'name': 'name',
+            'marca': 'brand', 'brand': 'brand',
+            'calorías': 'calories', 'calorias': 'calories', 'calories': 'calories',
+            'proteínas': 'protein', 'proteinas': 'protein', 'protein': 'protein',
+            'carbohidratos': 'carbs', 'carbs': 'carbs',
+            'grasas': 'fat', 'fat': 'fat',
+            'fibra': 'fiber', 'fiber': 'fiber',
+            'azúcar': 'sugar', 'azucar': 'sugar', 'sugar': 'sugar',
+            'sodio': 'sodium', 'sodium': 'sodium',
+            'tamaño_porcion': 'serving_size', 'tamano_porcion': 'serving_size', 'serving_size': 'serving_size',
+            'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
+            'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'tienda': 'store', 'store': 'store',
+            'verificado': 'is_verified', 'is_verified': 'is_verified',
+        }
+
+        def gv(row_dict, canonical, default=''):
+            if canonical in row_dict:
+                return row_dict[canonical]
+            for k, v in food_aliases.items():
+                if v == canonical and k in row_dict:
+                    return row_dict[k]
+            return default
+
+        def to_bool(val):
+            return str(val).lower() in ('true', 'sí', 'si', 's', '1', 'yes')
+
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
             return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
         wb = openpyxl.load_workbook(file)
         ws = wb.active
-        headers = [cell.value for cell in ws[1]]
+        headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
         updated, created, skipped = 0, 0, 0
         for row in ws.iter_rows(min_row=2, values_only=True):
             row_dict = dict(zip(headers, row))
-            name = row_dict.get('name')
+            name = str(gv(row_dict, 'name') or '').strip()
             if not name:
                 skipped += 1
                 continue
             food = Food.objects.filter(name=name).first()
             fields = {
-                'brand': row_dict.get('brand', ''),
-                'calories': float(row_dict.get('calories', 0)),
-                'protein': float(row_dict.get('protein', 0)),
-                'carbs': float(row_dict.get('carbs', 0)),
-                'fat': float(row_dict.get('fat', 0)),
-                'fiber': float(row_dict.get('fiber', 0)),
-                'sugar': float(row_dict.get('sugar', 0)),
-                'sodium': float(row_dict.get('sodium', 0)),
-                'serving_size': float(row_dict.get('serving_size', 0)),
-                'serving_unit': row_dict.get('serving_unit', ''),
-                'category': row_dict.get('category', ''),
-                'store': row_dict.get('store', ''),
-                'is_verified': str(row_dict.get('is_verified', '')).lower() == 'true',
+                'brand': gv(row_dict, 'brand', '') or '',
+                'calories': float(gv(row_dict, 'calories', 0) or 0),
+                'protein': float(gv(row_dict, 'protein', 0) or 0),
+                'carbs': float(gv(row_dict, 'carbs', 0) or 0),
+                'fat': float(gv(row_dict, 'fat', 0) or 0),
+                'fiber': float(gv(row_dict, 'fiber', 0) or 0),
+                'sugar': float(gv(row_dict, 'sugar', 0) or 0),
+                'sodium': float(gv(row_dict, 'sodium', 0) or 0),
+                'serving_size': float(gv(row_dict, 'serving_size', 0) or 0),
+                'serving_unit': gv(row_dict, 'serving_unit', '') or '',
+                'category': gv(row_dict, 'category', '') or '',
+                'store': gv(row_dict, 'store', '') or '',
+                'is_verified': to_bool(gv(row_dict, 'is_verified', 'false')),
             }
             if food:
                 for k, v in fields.items():
@@ -1130,167 +1284,6 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             'updated': updated,
             'skipped': skipped,
             'message': f"Se subió el archivo correctamente. {created} alimentos añadidos, {updated} modificados. Los alimentos no presentes en el archivo no se eliminaron."
-        }, status=status.HTTP_200_OK)
-    @action(detail=False, methods=['get'], url_path='export-csv')
-    def export_csv(self, request):
-        """Exporta todas las recetas en formato CSV"""
-        import csv
-        from django.http import HttpResponse
-        recipes = self.get_queryset()
-        response = HttpResponse(content_type='text/csv')
-        response['Content-Disposition'] = 'attachment; filename="recipes_export.csv"'
-        fieldnames = [
-            'id', 'name', 'description', 'category', 'calories', 'protein', 'carbs', 'fat', 'difficulty', 'image_url', 'ingredients', 'instructions'
-        ]
-        writer = csv.DictWriter(response, fieldnames=fieldnames)
-        writer.writeheader()
-        for recipe in recipes:
-            writer.writerow({
-                'id': str(recipe.id),
-                'name': recipe.name,
-                'description': recipe.description or '',
-                'category': recipe.category or '',
-                'calories': recipe.calories or 0,
-                'protein': recipe.protein or 0,
-                'carbs': recipe.carbs or 0,
-                'fat': recipe.fat or 0,
-                'difficulty': recipe.difficulty or '',
-                'image_url': recipe.image.url if recipe.image else '',
-                'ingredients': ', '.join([i.name for i in getattr(recipe, 'ingredients', [])]) if hasattr(recipe, 'ingredients') else '',
-                'instructions': recipe.instructions or '',
-            })
-        return response
-
-    @action(detail=False, methods=['get'], url_path='export-excel')
-    def export_excel(self, request):
-        """Exporta todas las recetas en formato Excel (XLSX)"""
-        import io
-        import xlsxwriter
-        from django.http import HttpResponse
-        recipes = self.get_queryset()
-        output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
-        worksheet = workbook.add_worksheet('Recetas')
-        headers = [
-            'id', 'name', 'description', 'category', 'calories', 'protein', 'carbs', 'fat', 'difficulty', 'image_url', 'ingredients', 'instructions'
-        ]
-        for col, header in enumerate(headers):
-            worksheet.write(0, col, header)
-        for row_idx, recipe in enumerate(recipes, start=1):
-            # Manejo de ingredientes que pueden ser listas de dicts o de objetos
-            ingredients = getattr(recipe, 'ingredients', []) or []
-            ingredients_str = ''
-            if ingredients:
-                try:
-                    ingredients_str = ', '.join([
-                        i['name'] if isinstance(i, dict) else i.name 
-                        for i in ingredients
-                    ])
-                except (KeyError, AttributeError, TypeError):
-                    ingredients_str = ''
-            
-            worksheet.write(row_idx, 0, str(recipe.id))
-            worksheet.write(row_idx, 1, recipe.name)
-            worksheet.write(row_idx, 2, recipe.description or '')
-            worksheet.write(row_idx, 3, recipe.category or '')
-            worksheet.write(row_idx, 4, recipe.calories or 0)
-            worksheet.write(row_idx, 5, recipe.protein or 0)
-            worksheet.write(row_idx, 6, recipe.carbs or 0)
-            worksheet.write(row_idx, 7, recipe.fat or 0)
-            worksheet.write(row_idx, 8, recipe.difficulty or '')
-            worksheet.write(row_idx, 9, recipe.image.url if recipe.image else '')
-            worksheet.write(row_idx, 10, ingredients_str)
-            worksheet.write(row_idx, 11, recipe.instructions or '')
-        workbook.close()
-        output.seek(0)
-        response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename="recipes_export.xlsx"'
-        return response
-
-    @action(detail=False, methods=['post'], url_path='import-csv')
-    def import_csv(self, request):
-        """Importa recetas desde un archivo CSV. Añade o modifica, nunca elimina."""
-        import csv
-        from django.core.files.uploadedfile import UploadedFile
-        file = request.FILES.get('file')
-        if not file or not isinstance(file, UploadedFile):
-            return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
-        decoded = file.read().decode('utf-8')
-        reader = csv.DictReader(decoded.splitlines())
-        updated, created, skipped = 0, 0, 0
-        for row in reader:
-            name = row.get('name')
-            if not name:
-                skipped += 1
-                continue
-            recipe = Recipe.objects.filter(name=name).first()
-            fields = {
-                'description': row.get('description', ''),
-                'category': row.get('category', ''),
-                'calories': float(row.get('calories', 0)),
-                'protein': float(row.get('protein', 0)),
-                'carbs': float(row.get('carbs', 0)),
-                'fat': float(row.get('fat', 0)),
-                'difficulty': row.get('difficulty', ''),
-                'instructions': row.get('instructions', ''),
-            }
-            if recipe:
-                for k, v in fields.items():
-                    setattr(recipe, k, v)
-                recipe.save()
-                updated += 1
-            else:
-                Recipe.objects.create(name=name, **fields)
-                created += 1
-        return Response({
-            'created': created,
-            'updated': updated,
-            'skipped': skipped,
-            'message': f"Se subió el archivo correctamente. {created} recetas añadidas, {updated} modificadas. Las recetas no presentes en el archivo no se eliminaron."
-        }, status=status.HTTP_200_OK)
-
-    @action(detail=False, methods=['post'], url_path='import-excel')
-    def import_excel(self, request):
-        """Importa recetas desde un archivo Excel. Añade o modifica, nunca elimina."""
-        import openpyxl
-        from django.core.files.uploadedfile import UploadedFile
-        file = request.FILES.get('file')
-        if not file or not isinstance(file, UploadedFile):
-            return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
-        wb = openpyxl.load_workbook(file)
-        ws = wb.active
-        headers = [cell.value for cell in ws[1]]
-        updated, created, skipped = 0, 0, 0
-        for row in ws.iter_rows(min_row=2, values_only=True):
-            row_dict = dict(zip(headers, row))
-            name = row_dict.get('name')
-            if not name:
-                skipped += 1
-                continue
-            recipe = Recipe.objects.filter(name=name).first()
-            fields = {
-                'description': row_dict.get('description', ''),
-                'category': row_dict.get('category', ''),
-                'calories': float(row_dict.get('calories', 0)),
-                'protein': float(row_dict.get('protein', 0)),
-                'carbs': float(row_dict.get('carbs', 0)),
-                'fat': float(row_dict.get('fat', 0)),
-                'difficulty': row_dict.get('difficulty', ''),
-                'instructions': row_dict.get('instructions', ''),
-            }
-            if recipe:
-                for k, v in fields.items():
-                    setattr(recipe, k, v)
-                recipe.save()
-                updated += 1
-            else:
-                Recipe.objects.create(name=name, **fields)
-                created += 1
-        return Response({
-            'created': created,
-            'updated': updated,
-            'skipped': skipped,
-            'message': f"Se subió el archivo correctamente. {created} recetas añadidas, {updated} modificadas. Las recetas no presentes en el archivo no se eliminaron."
         }, status=status.HTTP_200_OK)
 
 

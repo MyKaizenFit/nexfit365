@@ -25,8 +25,41 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
     
     @action(detail=False, methods=['get'])
     def export_csv(self, request):
-        """Exporta CSV completo: plan + día + ejercicio + sustitutos (sin IDs)."""
+        """Exporta CSV completo: plan + día + ejercicio + sustitutos (sin IDs), en español."""
         try:
+            difficulty_map = {
+                'beginner': 'Principiante',
+                'intermediate': 'Intermedio',
+                'advanced': 'Avanzado',
+            }
+            goal_map = {
+                'weight_loss': 'Pérdida de peso',
+                'muscle_gain': 'Ganancia muscular',
+                'strength': 'Fuerza',
+                'endurance': 'Resistencia',
+                'general_fitness': 'Fitness general',
+                'body_recomposition': 'Recomposición corporal',
+            }
+            location_map = {
+                'gym': 'Gimnasio',
+                'home': 'Casa',
+                'outdoor': 'Exterior',
+                'any': 'Cualquier lugar',
+            }
+            day_map = {
+                'monday': 'Lunes',
+                'tuesday': 'Martes',
+                'wednesday': 'Miércoles',
+                'thursday': 'Jueves',
+                'friday': 'Viernes',
+                'saturday': 'Sábado',
+                'sunday': 'Domingo',
+            }
+
+            def to_spanish(value, mapping):
+                key = (value or '').strip().lower()
+                return mapping.get(key, value or '')
+
             plans = WorkoutProgram.objects.filter(is_template=True).prefetch_related(
                 'days__exercises__exercise'
             )
@@ -46,32 +79,32 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
             output = io.StringIO()
             writer = csv.DictWriter(output, fieldnames=[
-                'plan_name', 'plan_description', 'plan_difficulty', 'plan_goal', 'plan_location',
-                'plan_duration_weeks', 'plan_days_per_week', 'plan_estimated_duration_minutes',
-                'plan_equipment_needed', 'plan_tags', 'plan_image_url', 'plan_is_active', 'plan_is_template',
-                'day_number', 'day_name', 'day_of_week', 'day_is_rest_day', 'day_duration_minutes',
-                'day_focus', 'day_notes', 'day_order',
-                'exercise_order', 'exercise_name', 'sets', 'reps', 'weight',
-                'duration_seconds', 'rest_seconds', 'exercise_notes', 'superset_group',
-                'substitutes'
+                'nombre_plan', 'descripcion_plan', 'dificultad_plan', 'objetivo_plan', 'ubicacion_plan',
+                'duracion_semanas_plan', 'dias_por_semana_plan', 'duracion_estimada_minutos_plan',
+                'equipo_necesario_plan', 'etiquetas_plan', 'imagen_url_plan', 'plan_activo', 'plan_plantilla',
+                'numero_dia', 'nombre_dia', 'dia_semana', 'dia_descanso', 'duracion_dia_minutos',
+                'enfoque_dia', 'notas_dia', 'orden_dia',
+                'orden_ejercicio', 'nombre_ejercicio', 'series', 'reps', 'peso',
+                'duracion_segundos', 'descanso_segundos', 'notas_ejercicio', 'grupo_superset',
+                'sustitutos'
             ])
-            
+
             writer.writeheader()
             for plan in plans:
                 base_row = {
-                    'plan_name': plan.name or '',
-                    'plan_description': plan.description or '',
-                    'plan_difficulty': plan.difficulty or '',
-                    'plan_goal': plan.goal or '',
-                    'plan_location': plan.location or '',
-                    'plan_duration_weeks': plan.duration_weeks or 4,
-                    'plan_days_per_week': plan.days_per_week or 3,
-                    'plan_estimated_duration_minutes': plan.estimated_duration_minutes or 60,
-                    'plan_equipment_needed': ', '.join(plan.equipment_needed or []),
-                    'plan_tags': ', '.join(plan.tags or []),
-                    'plan_image_url': plan.image_url or '',
-                    'plan_is_active': 'true' if plan.is_active else 'false',
-                    'plan_is_template': 'true' if plan.is_template else 'false',
+                    'nombre_plan': plan.name or '',
+                    'descripcion_plan': plan.description or '',
+                    'dificultad_plan': to_spanish(plan.difficulty, difficulty_map),
+                    'objetivo_plan': to_spanish(plan.goal, goal_map),
+                    'ubicacion_plan': to_spanish(plan.location, location_map),
+                    'duracion_semanas_plan': plan.duration_weeks or 4,
+                    'dias_por_semana_plan': plan.days_per_week or 3,
+                    'duracion_estimada_minutos_plan': plan.estimated_duration_minutes or 60,
+                    'equipo_necesario_plan': ', '.join(plan.equipment_needed or []),
+                    'etiquetas_plan': ', '.join(plan.tags or []),
+                    'imagen_url_plan': plan.image_url or '',
+                    'plan_activo': 'Sí' if plan.is_active else 'No',
+                    'plan_plantilla': 'Sí' if plan.is_template else 'No',
                 }
 
                 days = list(plan.days.all().order_by('order_index', 'day_number'))
@@ -82,14 +115,14 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 for day in days:
                     day_row = {
                         **base_row,
-                        'day_number': day.day_number,
-                        'day_name': day.name or '',
-                        'day_of_week': day.day_of_week or '',
-                        'day_is_rest_day': 'true' if day.is_rest_day else 'false',
-                        'day_duration_minutes': day.duration_minutes or '',
-                        'day_focus': day.focus or '',
-                        'day_notes': day.notes or '',
-                        'day_order': day.order_index,
+                        'numero_dia': day.day_number,
+                        'nombre_dia': day.name or '',
+                        'dia_semana': to_spanish(day.day_of_week, day_map),
+                        'dia_descanso': 'Sí' if day.is_rest_day else 'No',
+                        'duracion_dia_minutos': day.duration_minutes or '',
+                        'enfoque_dia': day.focus or '',
+                        'notas_dia': day.notes or '',
+                        'orden_dia': day.order_index,
                     }
 
                     day_exercises = list(day.exercises.all().select_related('exercise').order_by('order_index'))
@@ -101,16 +134,16 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         substitutes = substitutions_map.get(str(workout_exercise.exercise_id), [])
                         writer.writerow({
                             **day_row,
-                            'exercise_order': workout_exercise.order_index,
-                            'exercise_name': workout_exercise.exercise.name,
-                            'sets': workout_exercise.sets or 3,
+                            'orden_ejercicio': workout_exercise.order_index,
+                            'nombre_ejercicio': workout_exercise.exercise.name,
+                            'series': workout_exercise.sets or 3,
                             'reps': workout_exercise.reps or '10',
-                            'weight': workout_exercise.weight or '',
-                            'duration_seconds': workout_exercise.duration_seconds or '',
-                            'rest_seconds': workout_exercise.rest_seconds or 60,
-                            'exercise_notes': workout_exercise.notes or '',
-                            'superset_group': workout_exercise.superset_group or '',
-                            'substitutes': ' | '.join(substitutes),
+                            'peso': workout_exercise.weight or '',
+                            'duracion_segundos': workout_exercise.duration_seconds or '',
+                            'descanso_segundos': workout_exercise.rest_seconds or 60,
+                            'notas_ejercicio': workout_exercise.notes or '',
+                            'grupo_superset': workout_exercise.superset_group or '',
+                            'sustitutos': ' | '.join(substitutes),
                         })
 
             response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
@@ -125,6 +158,39 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
         try:
             def parse_bool_label(value):
                 return 'Sí' if value else 'No'
+
+            difficulty_map = {
+                'beginner': 'Principiante',
+                'intermediate': 'Intermedio',
+                'advanced': 'Avanzado',
+            }
+            goal_map = {
+                'weight_loss': 'Pérdida de peso',
+                'muscle_gain': 'Ganancia muscular',
+                'strength': 'Fuerza',
+                'endurance': 'Resistencia',
+                'general_fitness': 'Fitness general',
+                'body_recomposition': 'Recomposición corporal',
+            }
+            location_map = {
+                'gym': 'Gimnasio',
+                'home': 'Casa',
+                'outdoor': 'Exterior',
+                'any': 'Cualquier lugar',
+            }
+            day_map = {
+                'monday': 'Lunes',
+                'tuesday': 'Martes',
+                'wednesday': 'Miércoles',
+                'thursday': 'Jueves',
+                'friday': 'Viernes',
+                'saturday': 'Sábado',
+                'sunday': 'Domingo',
+            }
+
+            def to_spanish(value, mapping):
+                key = (value or '').strip().lower()
+                return mapping.get(key, value or '')
 
             def apply_header_style(ws):
                 """Aplica estilo a la primera fila"""
@@ -175,9 +241,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 ws_plans.append([
                     plan.name or '',
                     plan.description or '',
-                    plan.difficulty or 'beginner',
-                    plan.goal or '',
-                    plan.location or '',
+                    to_spanish(plan.difficulty or 'beginner', difficulty_map),
+                    to_spanish(plan.goal or '', goal_map),
+                    to_spanish(plan.location or '', location_map),
                     plan.duration_weeks or 4,
                     plan.days_per_week or 3,
                     plan.estimated_duration_minutes or 60,
@@ -203,7 +269,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         plan.name,
                         day.day_number,
                         day.name or '',
-                        day.day_of_week or '',
+                        to_spanish(day.day_of_week or '', day_map),
                         parse_bool_label(day.is_rest_day),
                         day.duration_minutes or '',
                         day.focus or '',
@@ -277,9 +343,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     ws_summary.append([
                         plan.name or '',
                         plan.description or '',
-                        plan.difficulty or '',
-                        plan.goal or '',
-                        plan.location or '',
+                        to_spanish(plan.difficulty or '', difficulty_map),
+                        to_spanish(plan.goal or '', goal_map),
+                        to_spanish(plan.location or '', location_map),
                         plan.duration_weeks or 4,
                         plan.days_per_week or 3,
                         plan.estimated_duration_minutes or 60,
@@ -293,15 +359,15 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         ws_summary.append([
                             plan.name or '',
                             plan.description or '',
-                            plan.difficulty or '',
-                            plan.goal or '',
-                            plan.location or '',
+                            to_spanish(plan.difficulty or '', difficulty_map),
+                            to_spanish(plan.goal or '', goal_map),
+                            to_spanish(plan.location or '', location_map),
                             plan.duration_weeks or 4,
                             plan.days_per_week or 3,
                             plan.estimated_duration_minutes or 60,
                             day.day_number,
                             day.name or '',
-                            day.day_of_week or '',
+                            to_spanish(day.day_of_week or '', day_map),
                             parse_bool_label(day.is_rest_day),
                             '', '', '', '', '', '', '', '', ''
                         ])
@@ -312,15 +378,15 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         ws_summary.append([
                             plan.name or '',
                             plan.description or '',
-                            plan.difficulty or '',
-                            plan.goal or '',
-                            plan.location or '',
+                            to_spanish(plan.difficulty or '', difficulty_map),
+                            to_spanish(plan.goal or '', goal_map),
+                            to_spanish(plan.location or '', location_map),
                             plan.duration_weeks or 4,
                             plan.days_per_week or 3,
                             plan.estimated_duration_minutes or 60,
                             day.day_number,
                             day.name or '',
-                            day.day_of_week or '',
+                            to_spanish(day.day_of_week or '', day_map),
                             parse_bool_label(day.is_rest_day),
                             exercise.order_index,
                             exercise.exercise.name,
@@ -339,10 +405,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             ws_ref.append(['CAMPO', 'VALORES VÁLIDOS', 'DESCRIPCIÓN'])
             apply_header_style(ws_ref)
             
-            ws_ref.append(['Dificultad', 'beginner, intermediate, advanced', 'Nivel de dificultad'])
-            ws_ref.append(['Objetivo', 'weight_loss, muscle_gain, strength, endurance, general_fitness, body_recomposition', 'Objetivo del plan'])
-            ws_ref.append(['Ubicación', 'gym, home, outdoor, any', 'Lugar de entrenamiento'])
-            ws_ref.append(['Día Semana', 'monday, tuesday, wednesday, thursday, friday, saturday, sunday', 'Día de la semana'])
+            ws_ref.append(['Dificultad', 'Principiante, Intermedio, Avanzado', 'Nivel de dificultad'])
+            ws_ref.append(['Objetivo', 'Pérdida de peso, Ganancia muscular, Fuerza, Resistencia, Fitness general, Recomposición corporal', 'Objetivo del plan'])
+            ws_ref.append(['Ubicación', 'Gimnasio, Casa, Exterior, Cualquier lugar', 'Lugar de entrenamiento'])
+            ws_ref.append(['Día Semana', 'Lunes, Martes, Miércoles, Jueves, Viernes, Sábado, Domingo', 'Día de la semana'])
             ws_ref.append(['Es Descanso', 'Sí, No', 'Indica si es día de descanso'])
             ws_ref.append(['Activo', 'Sí, No', 'Plan activo o inactivo'])
             ws_ref.append(['Plantilla', 'Sí, No', 'Es una plantilla reutilizable'])
@@ -389,12 +455,105 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 return default
             return int(value)
 
+        difficulty_map = {
+            'principiante': 'beginner',
+            'intermedio': 'intermediate',
+            'avanzado': 'advanced',
+        }
+        goal_map = {
+            'pérdida de peso': 'weight_loss',
+            'perdida de peso': 'weight_loss',
+            'ganancia muscular': 'muscle_gain',
+            'fuerza': 'strength',
+            'resistencia': 'endurance',
+            'fitness general': 'general_fitness',
+            'recomposición corporal': 'body_recomposition',
+            'recomposicion corporal': 'body_recomposition',
+        }
+        location_map = {
+            'gimnasio': 'gym',
+            'casa': 'home',
+            'exterior': 'outdoor',
+            'cualquier lugar': 'any',
+        }
+        day_map = {
+            'lunes': 'monday',
+            'martes': 'tuesday',
+            'miércoles': 'wednesday',
+            'miercoles': 'wednesday',
+            'jueves': 'thursday',
+            'viernes': 'friday',
+            'sábado': 'saturday',
+            'sabado': 'saturday',
+            'domingo': 'sunday',
+        }
+
+        complete_aliases = {
+            'plan_name': ['plan_name', 'nombre_plan'],
+            'plan_description': ['plan_description', 'descripcion_plan', 'descripción_plan'],
+            'plan_difficulty': ['plan_difficulty', 'dificultad_plan'],
+            'plan_goal': ['plan_goal', 'objetivo_plan'],
+            'plan_location': ['plan_location', 'ubicacion_plan', 'ubicación_plan'],
+            'plan_duration_weeks': ['plan_duration_weeks', 'duracion_semanas_plan', 'duración_semanas_plan'],
+            'plan_days_per_week': ['plan_days_per_week', 'dias_por_semana_plan', 'días_por_semana_plan'],
+            'plan_estimated_duration_minutes': ['plan_estimated_duration_minutes', 'duracion_estimada_minutos_plan', 'duración_estimada_minutos_plan'],
+            'plan_equipment_needed': ['plan_equipment_needed', 'equipo_necesario_plan'],
+            'plan_tags': ['plan_tags', 'etiquetas_plan'],
+            'plan_image_url': ['plan_image_url', 'imagen_url_plan'],
+            'plan_is_active': ['plan_is_active', 'plan_activo'],
+            'plan_is_template': ['plan_is_template', 'plan_plantilla'],
+            'day_number': ['day_number', 'numero_dia', 'número_dia'],
+            'day_name': ['day_name', 'nombre_dia', 'nombre_día'],
+            'day_of_week': ['day_of_week', 'dia_semana', 'día_semana'],
+            'day_is_rest_day': ['day_is_rest_day', 'dia_descanso', 'día_descanso'],
+            'day_duration_minutes': ['day_duration_minutes', 'duracion_dia_minutos', 'duración_dia_minutos'],
+            'day_focus': ['day_focus', 'enfoque_dia', 'enfoque_día'],
+            'day_notes': ['day_notes', 'notas_dia', 'notas_día'],
+            'day_order': ['day_order', 'orden_dia', 'orden_día'],
+            'exercise_order': ['exercise_order', 'orden_ejercicio'],
+            'exercise_name': ['exercise_name', 'nombre_ejercicio'],
+            'sets': ['sets', 'series'],
+            'reps': ['reps'],
+            'weight': ['weight', 'peso'],
+            'duration_seconds': ['duration_seconds', 'duracion_segundos', 'duración_segundos'],
+            'rest_seconds': ['rest_seconds', 'descanso_segundos'],
+            'exercise_notes': ['exercise_notes', 'notas_ejercicio'],
+            'superset_group': ['superset_group', 'grupo_superset'],
+            'substitutes': ['substitutes', 'sustitutos'],
+        }
+
+        simple_aliases = {
+            'name': ['name', 'nombre'],
+            'description': ['description', 'descripcion', 'descripción'],
+            'difficulty': ['difficulty', 'dificultad'],
+            'goal': ['goal', 'objetivo'],
+            'location': ['location', 'ubicacion', 'ubicación'],
+            'duration_weeks': ['duration_weeks', 'duracion_semanas', 'duración_semanas'],
+            'days_per_week': ['days_per_week', 'dias_por_semana', 'días_por_semana'],
+            'estimated_duration_minutes': ['estimated_duration_minutes', 'duracion_estimada_minutos', 'duración_estimada_minutos'],
+            'equipment_needed': ['equipment_needed', 'equipo_necesario'],
+            'tags': ['tags', 'etiquetas'],
+            'image_url': ['image_url', 'imagen_url'],
+            'is_active': ['is_active', 'activo'],
+            'is_template': ['is_template', 'plantilla'],
+        }
+
+        def normalize_choice(value, translation_map):
+            normalized = (value or '').strip().lower()
+            return translation_map.get(normalized, (value or '').strip())
+
+        def get_value(row, aliases, default=''):
+            for key in aliases:
+                if key in row and row.get(key) not in [None, '']:
+                    return row.get(key)
+            return default
+
         reader = csv.DictReader(decoded.splitlines())
         created, updated, skipped = 0, 0, 0
         errors = []
 
-        fieldnames = set(reader.fieldnames or [])
-        is_complete_format = 'plan_name' in fieldnames
+        fieldnames = {str(name).strip().lower() for name in (reader.fieldnames or [])}
+        is_complete_format = 'plan_name' in fieldnames or 'nombre_plan' in fieldnames
 
         if is_complete_format:
             from django.db import transaction
@@ -409,9 +568,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             with transaction.atomic():
                 for row_num, row in enumerate(reader, start=2):
                     try:
-                        plan_name = (row.get('plan_name') or '').strip()
+                        plan_name = str(get_value(row, complete_aliases['plan_name'], '') or '').strip()
                         if not plan_name:
-                            errors.append(f"Fila {row_num}: 'plan_name' es requerido")
+                            errors.append(f"Fila {row_num}: 'plan_name'/'nombre_plan' es requerido")
                             stats['plans']['skipped'] += 1
                             skipped += 1
                             continue
@@ -419,18 +578,18 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         plan = WorkoutProgram.objects.filter(name=plan_name, is_template=True).first()
                         plan_fields = {
                             'name': plan_name,
-                            'description': (row.get('plan_description') or '').strip(),
-                            'difficulty': (row.get('plan_difficulty') or 'beginner').strip() or 'beginner',
-                            'goal': (row.get('plan_goal') or 'general_fitness').strip() or 'general_fitness',
-                            'location': (row.get('plan_location') or 'any').strip() or 'any',
-                            'duration_weeks': parse_int(row.get('plan_duration_weeks'), default=4),
-                            'days_per_week': parse_int(row.get('plan_days_per_week'), default=3),
-                            'estimated_duration_minutes': parse_int(row.get('plan_estimated_duration_minutes'), default=60),
-                            'equipment_needed': parse_list(row.get('plan_equipment_needed')),
-                            'tags': parse_list(row.get('plan_tags')),
-                            'image_url': (row.get('plan_image_url') or '').strip(),
-                            'is_active': parse_bool(row.get('plan_is_active'), default=True),
-                            'is_template': parse_bool(row.get('plan_is_template'), default=True),
+                            'description': str(get_value(row, complete_aliases['plan_description'], '') or '').strip(),
+                            'difficulty': normalize_choice(str(get_value(row, complete_aliases['plan_difficulty'], 'beginner') or 'beginner'), difficulty_map) or 'beginner',
+                            'goal': normalize_choice(str(get_value(row, complete_aliases['plan_goal'], 'general_fitness') or 'general_fitness'), goal_map) or 'general_fitness',
+                            'location': normalize_choice(str(get_value(row, complete_aliases['plan_location'], 'any') or 'any'), location_map) or 'any',
+                            'duration_weeks': parse_int(get_value(row, complete_aliases['plan_duration_weeks']), default=4),
+                            'days_per_week': parse_int(get_value(row, complete_aliases['plan_days_per_week']), default=3),
+                            'estimated_duration_minutes': parse_int(get_value(row, complete_aliases['plan_estimated_duration_minutes']), default=60),
+                            'equipment_needed': parse_list(get_value(row, complete_aliases['plan_equipment_needed'])),
+                            'tags': parse_list(get_value(row, complete_aliases['plan_tags'])),
+                            'image_url': str(get_value(row, complete_aliases['plan_image_url'], '') or '').strip(),
+                            'is_active': parse_bool(get_value(row, complete_aliases['plan_is_active']), default=True),
+                            'is_template': parse_bool(get_value(row, complete_aliases['plan_is_template']), default=True),
                             'is_system': False,
                         }
 
@@ -443,7 +602,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             plan = WorkoutProgram.objects.create(**plan_fields)
                             stats['plans']['created'] += 1
 
-                        day_number = parse_int(row.get('day_number'), default=None)
+                        day_number = parse_int(get_value(row, complete_aliases['day_number']), default=None)
                         if day_number is None:
                             continue
 
@@ -451,13 +610,13 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         day_fields = {
                             'program': plan,
                             'day_number': day_number,
-                            'name': (row.get('day_name') or f'Día {day_number}').strip() or f'Día {day_number}',
-                            'day_of_week': (row.get('day_of_week') or '').strip(),
-                            'is_rest_day': parse_bool(row.get('day_is_rest_day'), default=False),
-                            'duration_minutes': parse_int(row.get('day_duration_minutes'), default=None),
-                            'focus': (row.get('day_focus') or '').strip(),
-                            'notes': (row.get('day_notes') or '').strip(),
-                            'order_index': parse_int(row.get('day_order'), default=day_number),
+                            'name': (str(get_value(row, complete_aliases['day_name'], f'Día {day_number}') or f'Día {day_number}').strip()) or f'Día {day_number}',
+                            'day_of_week': normalize_choice(str(get_value(row, complete_aliases['day_of_week'], '') or '').strip(), day_map),
+                            'is_rest_day': parse_bool(get_value(row, complete_aliases['day_is_rest_day']), default=False),
+                            'duration_minutes': parse_int(get_value(row, complete_aliases['day_duration_minutes']), default=None),
+                            'focus': str(get_value(row, complete_aliases['day_focus'], '') or '').strip(),
+                            'notes': str(get_value(row, complete_aliases['day_notes'], '') or '').strip(),
+                            'order_index': parse_int(get_value(row, complete_aliases['day_order']), default=day_number),
                         }
 
                         if day:
@@ -469,7 +628,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             day = WorkoutDay.objects.create(**day_fields)
                             stats['days']['created'] += 1
 
-                        exercise_name = (row.get('exercise_name') or '').strip()
+                        exercise_name = str(get_value(row, complete_aliases['exercise_name'], '') or '').strip()
                         if not exercise_name:
                             continue
 
@@ -480,7 +639,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             skipped += 1
                             continue
 
-                        exercise_order = parse_int(row.get('exercise_order'), default=1)
+                        exercise_order = parse_int(get_value(row, complete_aliases['exercise_order']), default=1)
                         workout_exercise = WorkoutDayExercise.objects.filter(
                             workout_day=day,
                             order_index=exercise_order,
@@ -489,14 +648,14 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         exercise_fields = {
                             'workout_day': day,
                             'exercise': exercise,
-                            'sets': parse_int(row.get('sets'), default=3),
-                            'reps': (row.get('reps') or '10').strip() or '10',
-                            'weight': (row.get('weight') or '').strip(),
-                            'duration_seconds': parse_int(row.get('duration_seconds'), default=None),
-                            'rest_seconds': parse_int(row.get('rest_seconds'), default=60),
-                            'notes': (row.get('exercise_notes') or '').strip(),
+                            'sets': parse_int(get_value(row, complete_aliases['sets']), default=3),
+                            'reps': (str(get_value(row, complete_aliases['reps'], '10') or '10').strip()) or '10',
+                            'weight': str(get_value(row, complete_aliases['weight'], '') or '').strip(),
+                            'duration_seconds': parse_int(get_value(row, complete_aliases['duration_seconds']), default=None),
+                            'rest_seconds': parse_int(get_value(row, complete_aliases['rest_seconds']), default=60),
+                            'notes': str(get_value(row, complete_aliases['exercise_notes'], '') or '').strip(),
                             'order_index': exercise_order,
-                            'superset_group': parse_int(row.get('superset_group'), default=None),
+                            'superset_group': parse_int(get_value(row, complete_aliases['superset_group']), default=None),
                         }
 
                         if workout_exercise:
@@ -508,7 +667,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             WorkoutDayExercise.objects.create(**exercise_fields)
                             stats['exercises']['created'] += 1
 
-                        substitutes_raw = (row.get('substitutes') or '').strip()
+                        substitutes_raw = str(get_value(row, complete_aliases['substitutes'], '') or '').strip()
                         if substitutes_raw:
                             substitute_names = [name.strip() for name in substitutes_raw.split('|') if name and name.strip()]
                             for index, substitute_name in enumerate(substitute_names, start=1):
@@ -547,26 +706,26 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
         for row_num, row in enumerate(reader, start=2):
             try:
-                name = row.get('name', '').strip()
+                name = str(get_value(row, simple_aliases['name'], '') or '').strip()
                 if not name:
-                    errors.append(f"Fila {row_num}: 'name' es requerido")
+                    errors.append(f"Fila {row_num}: 'name'/'nombre' es requerido")
                     skipped += 1
                     continue
 
                 plan = WorkoutProgram.objects.filter(name=name, is_template=True).first()
                 fields = {
-                    'description': row.get('description', '').strip(),
-                    'difficulty': row.get('difficulty', 'beginner').strip(),
-                    'goal': row.get('goal', '').strip(),
-                    'location': row.get('location', '').strip(),
-                    'duration_weeks': int(row.get('duration_weeks', 4)) if row.get('duration_weeks') else 4,
-                    'days_per_week': int(row.get('days_per_week', 3)) if row.get('days_per_week') else 3,
-                    'estimated_duration_minutes': int(row.get('estimated_duration_minutes', 60)) if row.get('estimated_duration_minutes') else 60,
-                    'equipment_needed': parse_list(row.get('equipment_needed', '')),
-                    'tags': parse_list(row.get('tags', '')),
-                    'image_url': row.get('image_url', '').strip(),
-                    'is_active': parse_bool(row.get('is_active', 'true'), default=True),
-                    'is_template': parse_bool(row.get('is_template', 'true'), default=True),
+                    'description': str(get_value(row, simple_aliases['description'], '') or '').strip(),
+                    'difficulty': normalize_choice(str(get_value(row, simple_aliases['difficulty'], 'beginner') or 'beginner'), difficulty_map) or 'beginner',
+                    'goal': normalize_choice(str(get_value(row, simple_aliases['goal'], 'general_fitness') or 'general_fitness'), goal_map) or 'general_fitness',
+                    'location': normalize_choice(str(get_value(row, simple_aliases['location'], 'any') or 'any'), location_map) or 'any',
+                    'duration_weeks': parse_int(get_value(row, simple_aliases['duration_weeks']), default=4),
+                    'days_per_week': parse_int(get_value(row, simple_aliases['days_per_week']), default=3),
+                    'estimated_duration_minutes': parse_int(get_value(row, simple_aliases['estimated_duration_minutes']), default=60),
+                    'equipment_needed': parse_list(get_value(row, simple_aliases['equipment_needed'])),
+                    'tags': parse_list(get_value(row, simple_aliases['tags'])),
+                    'image_url': str(get_value(row, simple_aliases['image_url'], '') or '').strip(),
+                    'is_active': parse_bool(get_value(row, simple_aliases['is_active'], 'true'), default=True),
+                    'is_template': parse_bool(get_value(row, simple_aliases['is_template'], 'true'), default=True),
                     'is_system': False,
                 }
 
@@ -626,6 +785,43 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     return value
                 return [item.strip() for item in str(value).split(',') if item and item.strip()]
 
+            difficulty_map = {
+                'principiante': 'beginner',
+                'intermedio': 'intermediate',
+                'avanzado': 'advanced',
+            }
+            goal_map = {
+                'pérdida de peso': 'weight_loss',
+                'perdida de peso': 'weight_loss',
+                'ganancia muscular': 'muscle_gain',
+                'fuerza': 'strength',
+                'resistencia': 'endurance',
+                'fitness general': 'general_fitness',
+                'recomposición corporal': 'body_recomposition',
+                'recomposicion corporal': 'body_recomposition',
+            }
+            location_map = {
+                'gimnasio': 'gym',
+                'casa': 'home',
+                'exterior': 'outdoor',
+                'cualquier lugar': 'any',
+            }
+            day_map = {
+                'lunes': 'monday',
+                'martes': 'tuesday',
+                'miércoles': 'wednesday',
+                'miercoles': 'wednesday',
+                'jueves': 'thursday',
+                'viernes': 'friday',
+                'sábado': 'saturday',
+                'sabado': 'saturday',
+                'domingo': 'sunday',
+            }
+
+            def normalize_choice(value, translation_map):
+                normalized = str(value).strip().lower() if value is not None else ''
+                return translation_map.get(normalized, str(value).strip() if value is not None else '')
+
             with transaction.atomic():
                 # === IMPORTAR PLANES ===
                 if 'Planes' in wb.sheetnames:
@@ -647,9 +843,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             fields = {
                                 'name': name,
                                 'description': str(row[1]).strip() if row[1] else '',
-                                'difficulty': str(row[2]).strip() if row[2] else 'beginner',
-                                'goal': str(row[3]).strip() if row[3] else 'general_fitness',
-                                'location': str(row[4]).strip() if row[4] else 'any',
+                                'difficulty': normalize_choice(str(row[2]).strip() if row[2] else 'beginner', difficulty_map) or 'beginner',
+                                'goal': normalize_choice(str(row[3]).strip() if row[3] else 'general_fitness', goal_map) or 'general_fitness',
+                                'location': normalize_choice(str(row[4]).strip() if row[4] else 'any', location_map) or 'any',
                                 'duration_weeks': int(row[5]) if row[5] else 4,
                                 'days_per_week': int(row[6]) if row[6] else 3,
                                 'estimated_duration_minutes': int(row[7]) if row[7] else 60,
@@ -699,7 +895,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 'program': plan,
                                 'name': name,
                                 'day_number': day_number,
-                                'day_of_week': str(row[3]).strip() if row[3] else '',
+                                'day_of_week': normalize_choice(str(row[3]).strip() if row[3] else '', day_map),
                                 'is_rest_day': parse_bool(row[4], default=False),
                                 'duration_minutes': int(row[5]) if row[5] else None,
                                 'focus': str(row[6]).strip() if row[6] else '',

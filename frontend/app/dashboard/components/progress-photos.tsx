@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 export function ProgressPhotos() {
   const [currentPhoto, setCurrentPhoto] = useState(0)
   const { photos, loading, error, uploadPhoto, deletePhoto } = useProgressPhotos()
-  
+
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -61,9 +61,9 @@ export function ProgressPhotos() {
 
     try {
       const weight = parseFloat(newPhotoWeight)
-      
+
       await uploadPhoto(selectedFile, weight, `Peso: ${newPhotoWeight} kg`, 'front')
-      
+
       // Reset form
       setSelectedFile(null)
       setNewPhotoWeight("")
@@ -72,7 +72,7 @@ export function ProgressPhotos() {
 
       // Forzar re-render para actualizar la evolución del peso
       setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('weightUpdated', { 
+        window.dispatchEvent(new CustomEvent('weightUpdated', {
           detail: { weight }
         }))
       }, 100)
@@ -106,9 +106,9 @@ export function ProgressPhotos() {
     if (photo) {
       toast({
         title: `Foto del ${photo.date}`,
-        description: `${photo.photo_type === 'front' ? 'Frontal' : 
-                     photo.photo_type === 'side' ? 'Lateral' : 
-                     photo.photo_type === 'back' ? 'Espalda' : 'Detalle'} - ${photo.weight ? `${photo.weight} kg` : 'Sin peso'}`,
+        description: `${photo.photo_type === 'front' ? 'Frontal' :
+          photo.photo_type === 'side' ? 'Lateral' :
+            photo.photo_type === 'back' ? 'Espalda' : 'Detalle'} - ${photo.weight ? `${photo.weight} kg` : 'Sin peso'}`,
       })
     }
   }
@@ -187,9 +187,9 @@ export function ProgressPhotos() {
                   <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm rounded-md p-2 transform transition-all duration-500 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100">
                     <div className="text-white text-xs text-center">
                       <div className="font-medium animate-in slide-in-from-bottom-2 duration-300">
-                        {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' : 
-                         photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' : 
-                         photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
+                        {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' :
+                          photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' :
+                            photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
                       </div>
                       <div className="text-white/80 animate-in slide-in-from-bottom-2 duration-300 delay-100">
                         {photos[currentPhoto]?.weight ? `${photos[currentPhoto].weight} kg` : 'Sin peso'}
@@ -231,9 +231,9 @@ export function ProgressPhotos() {
                   <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   <span className="text-xs sm:text-sm font-medium">{photos[currentPhoto]?.date || 'Sin fecha'}</span>
                   <Badge variant="outline" className="text-xs">
-                    {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' : 
-                     photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' : 
-                     photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
+                    {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' :
+                      photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' :
+                        photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
                   </Badge>
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground">
@@ -249,11 +249,10 @@ export function ProgressPhotos() {
                   <button
                     key={photo.id}
                     onClick={() => handlePhotoClick(index)}
-                    className={`relative w-10 h-12 sm:w-12 sm:h-16 rounded-md overflow-hidden border-2 transition-all duration-500 hover:scale-110 ${
-                      index === currentPhoto
+                    className={`relative w-10 h-12 sm:w-12 sm:h-16 rounded-md overflow-hidden border-2 transition-all duration-500 hover:scale-110 ${index === currentPhoto
                         ? "border-primary shadow-md scale-105 ring-2 ring-primary/20"
                         : "border-muted hover:border-muted-foreground"
-                    }`}
+                      }`}
                     aria-label={`Ver foto ${index + 1} de ${photos.length}`}
                   >
                     <Image
@@ -286,7 +285,7 @@ export function ProgressPhotos() {
                     Selecciona una foto y especifica tu peso actual para registrar tu progreso.
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="space-y-4">
                   {/* Selección de archivo */}
                   <div>
@@ -393,19 +392,19 @@ export function ProgressPhotos() {
               >
                 <div className="flex items-center justify-between text-xs sm:text-sm">
                   <span className="text-green-700 font-medium">Progreso total:</span>
-                                     <span className="text-green-600 font-bold">
-                     {(() => {
-                       if (photos.length > 1 && photos[0]?.weight && photos[photos.length - 1]?.weight) {
-                         const firstWeight = photos[0].weight
-                         const lastWeight = photos[photos.length - 1].weight
-                         if (firstWeight && lastWeight) {
-                           return (firstWeight - lastWeight).toFixed(1)
-                         }
-                       }
-                       return '0.0'
-                     })()}{" "}
-                     kg perdidos
-                   </span>
+                  <span className="text-green-600 font-bold">
+                    {(() => {
+                      if (photos.length > 1 && photos[0]?.weight && photos[photos.length - 1]?.weight) {
+                        const firstWeight = photos[0].weight
+                        const lastWeight = photos[photos.length - 1].weight
+                        if (firstWeight && lastWeight) {
+                          return (firstWeight - lastWeight).toFixed(1)
+                        }
+                      }
+                      return '0.0'
+                    })()}{" "}
+                    kg perdidos
+                  </span>
                 </div>
               </div>
             )}

@@ -470,7 +470,7 @@ export function ProgressDashboard() {
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-amber-900 flex items-center gap-2">
               <Calendar className="h-4 w-4" />
-              Días en Transformación
+              Días en transformación
             </CardTitle>
           </CardHeader>
           <CardContent>

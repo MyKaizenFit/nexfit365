@@ -530,7 +530,7 @@ export function DayOneSheet() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Heart className="h-6 w-6 text-pink-600" />
-                  Tu Transformación Visual
+                  Tu transformación visual
                 </CardTitle>
               </CardHeader>
               <CardContent>

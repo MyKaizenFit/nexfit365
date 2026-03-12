@@ -92,7 +92,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
         </CardHeader>
         <CardContent className="text-center">
           <p className="text-gray-600 mb-4">{error || 'No se pudieron cargar las recomendaciones'}</p>
-          <Button onClick={onComplete}>Ir al Dashboard</Button>
+          <Button onClick={onComplete}>Ir a Inicio</Button>
         </CardContent>
       </Card>
     )
@@ -312,7 +312,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
             className="bg-white text-emerald-600 hover:bg-white/90 px-8 py-6 text-lg font-bold shadow-xl"
           >
             <Sparkles className="w-5 h-5 mr-2" />
-            Ir al Dashboard
+            Ir a Inicio
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
         </CardContent>

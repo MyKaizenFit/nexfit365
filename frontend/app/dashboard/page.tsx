@@ -75,8 +75,8 @@ import { useUserData } from "@/hooks/use-user-data"
 import { useUserProfile } from "@/hooks/use-user-profile"
 
 const menuItems = [
-  { title: "Dashboard", icon: Home, url: "dashboard", isActive: true },
-  { title: "Day 1", icon: Target, url: "day-one" },
+  { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
+  { title: "Día 1", icon: Target, url: "day-one" },
   // TODO: Activar en versiones posteriores
   // { title: "Recomendaciones", icon: Sparkles, url: "recommendations", disabled: true },
   // { title: "Consejos", icon: Heart, url: "tips", disabled: true },
@@ -343,11 +343,11 @@ function DashboardContent() {
                     Esta sección está en desarrollo. Pronto tendrás acceso a todas las funcionalidades. ✨
                   </p>
                   <Button
-                    onClick={() => handleMenuClick("dashboard", "Dashboard")}
+                    onClick={() => handleMenuClick("dashboard", "Inicio")}
                     className="w-full text-sm bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white border-0"
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
-                    Volver al Dashboard
+                    Volver a Inicio
                   </Button>
                 </CardContent>
               </Card>
@@ -373,7 +373,7 @@ function DashboardContent() {
                     <span className="font-bold text-orange-500">NEX</span>
                     <span className="font-bold text-gray-600">FIT</span>
                   </div>
-                  <span className="truncate text-xs text-gray-500">Dashboard</span>
+                  <span className="truncate text-xs text-gray-500">Inicio</span>
                 </div>
               </div>
             </SidebarHeader>
@@ -469,7 +469,7 @@ function DashboardContent() {
                         onClick={async () => {
                           try {
                             await logout()
-                            toast({ title: "👋 Cerrar Sesión", description: "Sesión cerrada correctamente" })
+                            toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
                           } catch (error) {
                             toast({ 
                               title: "❌ Error", 
@@ -481,7 +481,7 @@ function DashboardContent() {
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        Cerrar Sesión
+                        Cerrar sesión
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -542,7 +542,7 @@ function DashboardContent() {
                         onClick={async () => {
                           try {
                             await logout()
-                            toast({ title: "👋 Cerrar Sesión", description: "Sesión cerrada correctamente" })
+                            toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
                           } catch (error) {
                             toast({ 
                               title: "❌ Error", 
@@ -554,7 +554,7 @@ function DashboardContent() {
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >
                         <LogOut className="mr-2 h-4 w-4" />
-                        Cerrar Sesión
+                        Cerrar sesión
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

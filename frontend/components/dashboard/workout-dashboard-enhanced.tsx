@@ -31,9 +31,9 @@ const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 // Función para corregir encoding de nombres de ejercicios y grupos musculares
 const fixEncoding = (text: string): string => {
   if (!text || typeof text !== 'string') return text || ''
-  
+
   let fixed = text
-  
+
   // CASOS ESPECÍFICOS DE ENCODING MAL INTERPRETADO
   // ├│ es una codificación incorrecta de ó (UTF-8 mal interpretado como Windows-1252 o similar)
   fixed = fixed.replace(/├│/g, 'ó')
@@ -42,17 +42,17 @@ const fixEncoding = (text: string): string => {
   fixed = fixed.replace(/├¡/g, 'í')
   fixed = fixed.replace(/├║/g, 'ú')
   fixed = fixed.replace(/├▒/g, 'ñ')
-  
+
   // Casos específicos de caracteres que aparecen como barra vertical |
   fixed = fixed.replace(/Jal\|n/gi, 'Jalón')
   fixed = fixed.replace(/jal\|n/gi, 'Jalón')
   fixed = fixed.replace(/M\|quina/gi, 'Máquina')
   fixed = fixed.replace(/m\|quina/gi, 'Máquina')
-  
+
   // Casos específicos comunes sin el carácter |
   fixed = fixed.replace(/Jaln\b/gi, 'Jalón')
   fixed = fixed.replace(/Mquina\b/gi, 'Máquina')
-  
+
   // Reemplazos generales de encoding incorrecto
   fixed = fixed.replace(/b\?\?ceps/gi, 'bíceps')
   fixed = fixed.replace(/tr\?\?ceps/gi, 'tríceps')
@@ -72,12 +72,12 @@ const fixEncoding = (text: string): string => {
   fixed = fixed.replace(/â€/g, '"')
   fixed = fixed.replace(/â€"/g, '—')
   fixed = fixed.replace(/â€"/g, '–')
-  
+
   // Último recurso: reemplazar | con ó solo si no está ya corregido
   if (fixed.includes('|') && !fixed.includes('ó')) {
     fixed = fixed.replace(/\|/g, 'ó')
   }
-  
+
   return fixed
 }
 
@@ -229,33 +229,47 @@ export function WorkoutDashboardEnhanced() {
     const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
     return today === 0 ? 7 : today // Convertir domingo a día 7
   }
-  
+
   const todayDayNumber = getTodayDayNumber()
+
+  // Cálculo local robusto de semana actual (lunes -> hoy)
+  const localWeekStats = (() => {
+    const now = new Date()
+    const weekStart = new Date(now)
+    weekStart.setHours(0, 0, 0, 0)
+    weekStart.setDate(now.getDate() - now.getDay() + (now.getDay() === 0 ? -6 : 1))
+
+    const completedThisWeekLogs = workoutLogs.filter((log) => {
+      if (!log?.completed || !log?.date) return false
+      const logDate = new Date(`${log.date}T00:00:00`)
+      return logDate >= weekStart && logDate <= now
+    })
+
+    return {
+      completedThisWeek: completedThisWeekLogs.length,
+      totalMinutesWeek: completedThisWeekLogs.reduce((sum, log) => sum + (log.duration_minutes || 0), 0)
+    }
+  })()
 
   // Calcular el objetivo semanal basado en los días de entrenamiento del usuario
   // Usar profile?.training_days directamente para evitar problemas de inicialización
   const trainingDaysCount = Array.isArray(profile?.training_days) ? profile.training_days.length : 0
-  const calculatedWeeklyGoal = trainingDaysCount > 0 
-    ? trainingDaysCount 
+  const calculatedWeeklyGoal = trainingDaysCount > 0
+    ? trainingDaysCount
     : (workoutStatistics?.weekly_goal || 5)
 
   // Usar estadísticas del servidor si están disponibles, sino calcular manualmente
   // Priorizar el valor calculado del frontend sobre el del backend para asegurar precisión
   const stats = workoutStatistics ? {
-    completedThisWeek: workoutStatistics.completed_this_week,
+    completedThisWeek: Math.max(workoutStatistics.completed_this_week || 0, localWeekStats.completedThisWeek),
     weeklyGoal: calculatedWeeklyGoal, // Siempre usar el calculado basado en training_days del perfil
     totalWorkouts: workoutStatistics.total_workouts,
     averageDuration: workoutStatistics.average_duration,
     currentStreak: workoutStatistics.current_streak,
     longestStreak: workoutStatistics.longest_streak,
-    totalMinutesWeek: workoutStatistics.total_minutes_week
+    totalMinutesWeek: Math.max(workoutStatistics.total_minutes_week || 0, localWeekStats.totalMinutesWeek)
   } : {
-    completedThisWeek: workoutLogs.filter(log => {
-      const logDate = new Date(log.date)
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      return logDate >= weekAgo && log.completed
-    }).length,
+    completedThisWeek: localWeekStats.completedThisWeek,
     weeklyGoal: calculatedWeeklyGoal, // Usar el calculado basado en training_days
     totalWorkouts: workoutLogs.length,
     averageDuration: workoutLogs.filter(log => log.completed && log.duration_minutes).length > 0
@@ -265,12 +279,7 @@ export function WorkoutDashboardEnhanced() {
       : 0,
     currentStreak: 0,
     longestStreak: 0,
-    totalMinutesWeek: workoutLogs.filter(log => {
-      const logDate = new Date(log.date)
-      const now = new Date()
-      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-      return logDate >= weekAgo && log.completed
-    }).reduce((sum, log) => sum + (log.duration_minutes || 0), 0)
+    totalMinutesWeek: localWeekStats.totalMinutesWeek
   }
 
   // Obtener día actual en español
@@ -318,7 +327,7 @@ export function WorkoutDashboardEnhanced() {
     try {
       const dayIdStr = String(dayId)
       const today = new Date().toISOString().split('T')[0]
-      
+
       // Primero intentar desde localStorage
       const saveKey = `workout_completed_${dayIdStr}_${today}`
       const saved = localStorage.getItem(saveKey)
@@ -610,9 +619,9 @@ export function WorkoutDashboardEnhanced() {
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-teal-200/20"></div>
         <CardHeader className="text-center relative z-10">
           <div className="flex justify-end mb-2">
-            <Button 
-              variant="ghost" 
-              size="sm" 
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
               className="text-gray-600 hover:text-gray-900"
@@ -639,9 +648,9 @@ export function WorkoutDashboardEnhanced() {
           {/* Barra de progreso semanal */}
           {stats.weeklyGoal > 0 && (
             <div className="mt-4 space-y-2">
-              <Progress 
-                value={Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100)} 
-                className="h-3 bg-emerald-100" 
+              <Progress
+                value={Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100)}
+                className="h-3 bg-emerald-100"
               />
               <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
                 <Flame className="h-4 w-4 text-gray-600" />
@@ -706,139 +715,134 @@ export function WorkoutDashboardEnhanced() {
           const isTodayCompleted = completedByLog || completedByExercises
 
           return (
-        <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200/50 shadow-xl">
-          <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                  <Play className="h-5 w-5 md:h-7 md:w-7 text-white" />
+            <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200/50 shadow-xl">
+              <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
+                      <Play className="h-5 w-5 md:h-7 md:w-7 text-white" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-lg md:text-2xl text-blue-700 leading-tight">Entrenamiento de Hoy</CardTitle>
+                      <CardDescription className="text-blue-600/80 text-xs md:text-sm">
+                        {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
+                      </CardDescription>
+                      {userPlan && (
+                        <CardDescription className="text-blue-500/70 text-[10px] md:text-xs mt-0.5 md:mt-1 line-clamp-2">
+                          Plan: {userPlan.name} • Asignado desde panel de administración
+                        </CardDescription>
+                      )}
+                    </div>
+                  </div>
+                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 text-[10px] md:text-sm px-2 py-0.5 md:px-3 md:py-1 flex-shrink-0">
+                    {todaysWorkoutFromProfile.exercises?.length || 0} ej.
+                  </Badge>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="text-lg md:text-2xl text-blue-700 leading-tight">Entrenamiento de Hoy</CardTitle>
-                  <CardDescription className="text-blue-600/80 text-xs md:text-sm">
-                    {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
-                  </CardDescription>
-                  {userPlan && (
-                    <CardDescription className="text-blue-500/70 text-[10px] md:text-xs mt-0.5 md:mt-1 line-clamp-2">
-                      Plan: {userPlan.name} • Asignado desde panel de administración
-                    </CardDescription>
-                  )}
-                </div>
-              </div>
-              <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 text-[10px] md:text-sm px-2 py-0.5 md:px-3 md:py-1 flex-shrink-0">
-                {todaysWorkoutFromProfile.exercises?.length || 0} ej.
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4 px-3 md:px-6 pb-3 md:pb-6">
-            {/* Ejercicios completos */}
-            {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-3">
-              {todaysWorkoutFromProfile.exercises?.map((exercise, index) => {
-                const exerciseData = exercise.exercise || exercise
-                // Intentar obtener el ID del ejercicio de diferentes formas
-                const exerciseId = exerciseData.id || exercise.id || exercise.exercise_id
-                const dayId = todaysWorkoutFromProfile.id
-                const completedExercisesForDay = getCompletedExercisesForDay(dayId)
-                // Verificar si el ejercicio está completado usando diferentes formatos de ID
-                const isExerciseCompleted = exerciseId && (
-                  completedExercisesForDay.has(String(exerciseId)) ||
-                  completedExercisesForDay.has(exerciseId) ||
-                  (exerciseData.id && completedExercisesForDay.has(String(exerciseData.id))) ||
-                  (exercise.id && completedExercisesForDay.has(String(exercise.id)))
-                )
-                
-                
-                return (
-                  <Card 
-                    key={exercise.id || index} 
-                    className={`bg-white/90 border-2 transition-all touch-manipulation ${
-                      isExerciseCompleted 
-                        ? 'bg-green-50/90 border-green-300 shadow-md' 
-                        : 'border-blue-100'
-                    }`}
-                  >
-                    <CardContent className="p-3 md:p-4">
-                      <div className="flex items-start justify-between gap-2 md:gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start gap-2 md:gap-2.5 mb-2">
-                            <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white text-xs md:text-sm font-bold flex-shrink-0 ${
-                              isExerciseCompleted
-                                ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                                : 'bg-gradient-to-br from-blue-400 to-cyan-500'
-                            }`}>
-                              {isExerciseCompleted ? (
-                                <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
-                              ) : (
-                                index + 1
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h4 className={`font-semibold text-base md:text-lg leading-tight break-words ${
-                                isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
-                              }`}>
-                                {fixEncoding(exerciseData.name)}
-                              </h4>
-                              {isExerciseCompleted && (
-                                <Badge variant="outline" className="mt-1.5 bg-green-100 border-green-300 text-green-700 text-[10px] md:text-xs px-1.5 py-0.5">
-                                  Completado
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="space-y-2 md:space-y-1">
-                            <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${
-                              isExerciseCompleted ? 'text-green-700' : 'text-blue-700'
-                            }`}>
-                              <span className="font-semibold md:font-medium">{exercise.sets} series</span>
-                              <span className="font-semibold md:font-medium">{exercise.reps} rep.</span>
-                              {exercise.rest_time && (
-                                <span className="text-muted-foreground text-[11px] md:text-sm">⏱️ {exercise.rest_time}s</span>
-                              )}
-                            </div>
-                            {exerciseData.muscle_groups && exerciseData.muscle_groups.length > 0 && (
-                              <div className="flex flex-wrap gap-1 md:gap-1 mt-1.5 -mx-0.5 px-0.5">
-                                {exerciseData.muscle_groups.map((mg: string, i: number) => (
-                                  <Badge 
-                                    key={i} 
-                                    variant="outline" 
-                                    className={`text-[9px] md:text-xs px-1 py-0.5 max-w-full truncate ${
-                                      isExerciseCompleted
-                                        ? 'border-green-200 text-green-700 bg-green-50'
-                                        : 'border-blue-200 text-blue-700 bg-blue-50'
-                                    }`}
-                                  >
-                                    {fixEncoding(mg)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )
-              })}
-            </div>
+              </CardHeader>
+              <CardContent className="space-y-4 px-3 md:px-6 pb-3 md:pb-6">
+                {/* Ejercicios completos */}
+                {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-3">
+                  {todaysWorkoutFromProfile.exercises?.map((exercise, index) => {
+                    const exerciseData = exercise.exercise || exercise
+                    // Intentar obtener el ID del ejercicio de diferentes formas
+                    const exerciseId = exerciseData.id || exercise.id || exercise.exercise_id
+                    const dayId = todaysWorkoutFromProfile.id
+                    const completedExercisesForDay = getCompletedExercisesForDay(dayId)
+                    // Verificar si el ejercicio está completado usando diferentes formatos de ID
+                    const isExerciseCompleted = exerciseId && (
+                      completedExercisesForDay.has(String(exerciseId)) ||
+                      completedExercisesForDay.has(exerciseId) ||
+                      (exerciseData.id && completedExercisesForDay.has(String(exerciseData.id))) ||
+                      (exercise.id && completedExercisesForDay.has(String(exercise.id)))
+                    )
 
-            {/* Botón para iniciar */}
-            {isTodayCompleted ? (
-              <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-lg py-6 shadow-lg rounded-lg flex items-center justify-center">
-                <CheckCircle2 className="h-5 w-5 mr-2" />
-                Entrenamiento Completado Hoy
-              </div>
-            ) : (
-              <Button
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-lg py-6 shadow-lg"
-                onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
-              >
-                <Play className="h-5 w-5 mr-2" />
-                Iniciar Entrenamiento de Hoy
-              </Button>
-            )}
-          </CardContent>
-        </Card>
+
+                    return (
+                      <Card
+                        key={exercise.id || index}
+                        className={`bg-white/90 border-2 transition-all touch-manipulation ${isExerciseCompleted
+                          ? 'bg-green-50/90 border-green-300 shadow-md'
+                          : 'border-blue-100'
+                          }`}
+                      >
+                        <CardContent className="p-3 md:p-4">
+                          <div className="flex items-start justify-between gap-2 md:gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start gap-2 md:gap-2.5 mb-2">
+                                <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white text-xs md:text-sm font-bold flex-shrink-0 ${isExerciseCompleted
+                                  ? 'bg-gradient-to-br from-green-500 to-emerald-600'
+                                  : 'bg-gradient-to-br from-blue-400 to-cyan-500'
+                                  }`}>
+                                  {isExerciseCompleted ? (
+                                    <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
+                                  ) : (
+                                    index + 1
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <h4 className={`font-semibold text-base md:text-lg leading-tight break-words ${isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
+                                    }`}>
+                                    {fixEncoding(exerciseData.name)}
+                                  </h4>
+                                  {isExerciseCompleted && (
+                                    <Badge variant="outline" className="mt-1.5 bg-green-100 border-green-300 text-green-700 text-[10px] md:text-xs px-1.5 py-0.5">
+                                      Completado
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="space-y-2 md:space-y-1">
+                                <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${isExerciseCompleted ? 'text-green-700' : 'text-blue-700'
+                                  }`}>
+                                  <span className="font-semibold md:font-medium">{exercise.sets} series</span>
+                                  <span className="font-semibold md:font-medium">{exercise.reps} rep.</span>
+                                  {exercise.rest_time && (
+                                    <span className="text-muted-foreground text-[11px] md:text-sm">⏱️ {exercise.rest_time}s</span>
+                                  )}
+                                </div>
+                                {exerciseData.muscle_groups && exerciseData.muscle_groups.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 md:gap-1 mt-1.5 -mx-0.5 px-0.5">
+                                    {exerciseData.muscle_groups.map((mg: string, i: number) => (
+                                      <Badge
+                                        key={i}
+                                        variant="outline"
+                                        className={`text-[9px] md:text-xs px-1 py-0.5 max-w-full truncate ${isExerciseCompleted
+                                          ? 'border-green-200 text-green-700 bg-green-50'
+                                          : 'border-blue-200 text-blue-700 bg-blue-50'
+                                          }`}
+                                      >
+                                        {fixEncoding(mg)}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+
+                {/* Botón para iniciar */}
+                {isTodayCompleted ? (
+                  <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-lg py-6 shadow-lg rounded-lg flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 mr-2" />
+                    Entrenamiento Completado Hoy
+                  </div>
+                ) : (
+                  <Button
+                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-lg py-6 shadow-lg"
+                    onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+                  >
+                    <Play className="h-5 w-5 mr-2" />
+                    Iniciar Entrenamiento de Hoy
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
           )
         })()
       ) : trainingDays.length > 0 && !trainingDays.includes(todayDayNumber) ? (
@@ -1396,7 +1400,7 @@ export function WorkoutDashboardEnhanced() {
               ).catch((error: any) => {
                 // Manejar errores de forma más clara
                 let errorMessage = 'Error desconocido al guardar entrenamiento'
-                
+
                 if (error instanceof Error) {
                   errorMessage = error.message || 'Error desconocido al guardar entrenamiento'
                 } else if (typeof error === 'string') {
@@ -1414,7 +1418,7 @@ export function WorkoutDashboardEnhanced() {
                 } else {
                   errorMessage = String(error) || 'Error desconocido al guardar entrenamiento'
                 }
-                
+
                 throw new Error(errorMessage)
               })
 
@@ -1429,7 +1433,7 @@ export function WorkoutDashboardEnhanced() {
                 fetchWorkoutLogs(),
                 fetchWorkoutStatistics()
               ])
-              
+
               // Esperar un momento y recargar nuevamente para asegurar que los datos estén actualizados
               setTimeout(async () => {
                 await Promise.all([
@@ -1448,12 +1452,12 @@ export function WorkoutDashboardEnhanced() {
                     return String(ex.exercise_id || ex.id || ex.exercise?.id || '')
                   })
                   .filter((id: string) => id && id !== 'undefined' && id !== 'null')
-                
+
                 if (completedExerciseIds.length > 0) {
                   const dayId = selectedDay.id.toString()
                   const today = new Date().toISOString().split('T')[0]
                   const saveKey = `workout_completed_${dayId}_${today}`
-                  
+
                   try {
                     localStorage.setItem(saveKey, JSON.stringify(completedExerciseIds))
                   } catch (error) {
@@ -1482,7 +1486,7 @@ export function WorkoutDashboardEnhanced() {
             } catch (error: any) {
               // Extraer el mensaje de error de forma segura
               let errorMessage = 'Error al guardar el entrenamiento'
-              
+
               if (error) {
                 if (typeof error === 'string') {
                   errorMessage = error
@@ -1513,8 +1517,8 @@ export function WorkoutDashboardEnhanced() {
                   }
                 }
               }
-              
-              
+
+
               toast({
                 title: "Error",
                 description: errorMessage,
