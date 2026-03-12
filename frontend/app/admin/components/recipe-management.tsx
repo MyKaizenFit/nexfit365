@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,15 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Download, Upload, Loader2, Plus, Edit2, Trash2, Eye, X, Search, Clock, Users, ChefHat, Flame, Zap, Trophy, GripVertical } from "lucide-react"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Download, Upload, Loader2, Plus, Edit2, Trash2, Eye, X, Search, Clock, Users, ChefHat, Flame, Zap, Trophy, GripVertical, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +26,8 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 
 const getApiUrl = (): string => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL
@@ -112,6 +107,14 @@ export function RecipeManagement() {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState<string>('all')
+  const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [sortColumn, setSortColumn] = useState<'name' | 'category' | 'calories' | 'difficulty'>('name')
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [selectedRecipes, setSelectedRecipes] = useState<string[]>([])
+  const itemsPerPage = 25
 
   // Editing/Creating
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null>(null)
@@ -427,6 +430,104 @@ export function RecipeManagement() {
     return matchesSearch && matchesCategory && matchesCalories && matchesProtein
   })
 
+  const uniqueRecipeCategories = useMemo(
+    () => Array.from(new Set(recipes.map((recipe) => recipe.category).filter((category) => category && category.trim()))) as string[],
+    [recipes]
+  )
+
+  const uniqueRecipeDifficulties = useMemo(
+    () => Array.from(new Set(recipes.map((recipe) => recipe.difficulty).filter((difficulty) => difficulty && difficulty.trim()))) as string[],
+    [recipes]
+  )
+
+  const filteredRecipes = useMemo(() => {
+    return recipes.filter((recipe) => {
+      const normalizedSearch = searchTerm.trim().toLowerCase()
+      const matchesSearch = !normalizedSearch ||
+        recipe.name.toLowerCase().includes(normalizedSearch) ||
+        (recipe.description || '').toLowerCase().includes(normalizedSearch)
+
+      const matchesCategory = categoryFilter === 'all' || recipe.category === categoryFilter
+      const matchesDifficulty = difficultyFilter === 'all' || recipe.difficulty === difficultyFilter
+
+      return matchesSearch && matchesCategory && matchesDifficulty
+    })
+  }, [recipes, searchTerm, categoryFilter, difficultyFilter])
+
+  const sortedRecipes = useMemo(() => {
+    const recipesToSort = [...filteredRecipes]
+    recipesToSort.sort((a, b) => {
+      let aValue: string | number = ''
+      let bValue: string | number = ''
+
+      if (sortColumn === 'name') {
+        aValue = (a.name || '').toLowerCase()
+        bValue = (b.name || '').toLowerCase()
+      }
+
+      if (sortColumn === 'category') {
+        aValue = (a.category || '').toLowerCase()
+        bValue = (b.category || '').toLowerCase()
+      }
+
+      if (sortColumn === 'difficulty') {
+        aValue = (a.difficulty || '').toLowerCase()
+        bValue = (b.difficulty || '').toLowerCase()
+      }
+
+      if (sortColumn === 'calories') {
+        aValue = a.calories || 0
+        bValue = b.calories || 0
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortDirection === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue)
+      }
+
+      return sortDirection === 'asc'
+        ? Number(aValue) - Number(bValue)
+        : Number(bValue) - Number(aValue)
+    })
+
+    return recipesToSort
+  }, [filteredRecipes, sortColumn, sortDirection])
+
+  const handleSort = (column: 'name' | 'category' | 'calories' | 'difficulty') => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')
+      return
+    }
+
+    setSortColumn(column)
+    setSortDirection('asc')
+  }
+
+  const handleSelectRecipe = (recipeId: string, checked: boolean) => {
+    setSelectedRecipes((prev) => {
+      if (checked) return [...prev, recipeId]
+      return prev.filter((id) => id !== recipeId)
+    })
+  }
+
+  const handleSelectAllRecipes = (checked: boolean) => {
+    if (checked) {
+      setSelectedRecipes(currentRecipes.map((recipe) => recipe.id))
+      return
+    }
+    setSelectedRecipes([])
+  }
+
+  const totalPages = Math.max(1, Math.ceil(sortedRecipes.length / itemsPerPage))
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const endIndex = startIndex + itemsPerPage
+  const currentRecipes = sortedRecipes.slice(startIndex, endIndex)
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchTerm, categoryFilter, difficultyFilter])
+
   const macros = calculateMacros(formData.recipe_ingredients)
 
   return (
@@ -481,62 +582,295 @@ export function RecipeManagement() {
         </Button>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Filtros</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[220px]">
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar recetas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Categoría" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las categorías</SelectItem>
+                {uniqueRecipeCategories.map((category) => (
+                  <SelectItem key={category} value={category}>{category}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Dificultad" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas las dificultades</SelectItem>
+                {uniqueRecipeDifficulties.map((difficulty) => (
+                  <SelectItem key={difficulty} value={difficulty}>{difficulty}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Tabla de recetas */}
       <Card>
         <CardHeader>
-          <CardTitle>Listado de Recetas</CardTitle>
-          <CardDescription>Vista completa de todas las recetas creadas</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Listado de Recetas</CardTitle>
+              <CardDescription>Vista completa de todas las recetas creadas</CardDescription>
+            </div>
+            <div className="hidden md:flex items-center gap-2">
+              <Checkbox
+                checked={selectedRecipes.length === currentRecipes.length && currentRecipes.length > 0}
+                onCheckedChange={(checked) => handleSelectAllRecipes(Boolean(checked))}
+              />
+              <span className="text-sm text-muted-foreground">
+                {selectedRecipes.length > 0 ? `${selectedRecipes.length} seleccionadas` : 'Seleccionar todos'}
+              </span>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center min-h-[200px]">
               <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
             </div>
-          ) : recipes.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">No hay recetas disponibles</div>
+          ) : filteredRecipes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay recetas que coincidan con los filtros</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Categoría</TableHead>
-                    <TableHead>Calorías</TableHead>
-                    <TableHead>Dificultad</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {recipes.map((recipe) => (
-                    <TableRow key={recipe.id}>
-                      <TableCell className="font-medium">{recipe.name}</TableCell>
-                      <TableCell>{recipe.category || '-'}</TableCell>
-                      <TableCell>{recipe.calories || '-'}</TableCell>
-                      <TableCell>{recipe.difficulty || '-'}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm">
-                              <MoreHorizontal className="h-4 w-4" />
+            <div className="rounded-md border">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
+                        onClick={() => handleSort('name')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Receta
+                          {sortColumn === 'name' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
+                        onClick={() => handleSort('category')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Categoría
+                          {sortColumn === 'category' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
+                        onClick={() => handleSort('difficulty')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Dificultad
+                          {sortColumn === 'difficulty' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          )}
+                        </div>
+                      </th>
+                      <th
+                        className="p-3 text-left font-medium cursor-pointer hover:bg-muted/70 transition-colors"
+                        onClick={() => handleSort('calories')}
+                      >
+                        <div className="flex items-center gap-2">
+                          Calorías
+                          {sortColumn === 'calories' && (
+                            sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />
+                          )}
+                        </div>
+                      </th>
+                      <th className="p-3 text-left font-medium">Estado</th>
+                      <th className="p-3 text-left font-medium">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {currentRecipes.map((recipe) => (
+                      <tr
+                        key={recipe.id}
+                        className={`border-t hover:bg-muted/50 ${selectedRecipes.includes(recipe.id) ? 'bg-purple-50/50' : ''}`}
+                      >
+                        <td className="p-3">
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              checked={selectedRecipes.includes(recipe.id)}
+                              onCheckedChange={(checked) => handleSelectRecipe(recipe.id, Boolean(checked))}
+                            />
+                            <div>
+                              <div className="font-medium">{recipe.name}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {recipe.description
+                                  ? (recipe.description.length > 60 ? `${recipe.description.substring(0, 60)}...` : recipe.description)
+                                  : 'Sin descripción'}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <Badge className="bg-slate-100 text-slate-800 border-0">{recipe.category || 'Sin categoría'}</Badge>
+                        </td>
+                        <td className="p-3">
+                          {recipe.difficulty === 'Fácil' && <Badge className="bg-green-100 text-green-800 border-0">Fácil</Badge>}
+                          {recipe.difficulty === 'Medio' && <Badge className="bg-yellow-100 text-yellow-800 border-0">Medio</Badge>}
+                          {recipe.difficulty === 'Difícil' && <Badge className="bg-red-100 text-red-800 border-0">Difícil</Badge>}
+                          {!recipe.difficulty && <Badge className="bg-gray-100 text-gray-800 border-0">Sin definir</Badge>}
+                          {recipe.difficulty && !['Fácil', 'Medio', 'Difícil'].includes(recipe.difficulty) && (
+                            <Badge className="bg-blue-100 text-blue-800 border-0">{recipe.difficulty}</Badge>
+                          )}
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center text-sm text-muted-foreground">
+                            <Flame className="h-4 w-4 mr-1" />
+                            {recipe.calories || 0} kcal
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
+                        </td>
+                        <td className="p-3">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleOpenView(recipe)}>
+                                <Eye className="mr-2 h-4 w-4" /> Ver
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleOpenEdit(recipe)}>
+                                <Edit2 className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDeleteRecipe(recipe)} className="text-red-600">
+                                <Trash2 className="mr-2 h-4 w-4" /> Eliminar
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {filteredRecipes.length > 0 && (
+                <div className="border-t p-3 md:p-4">
+                  <div className="md:hidden space-y-3">
+                    <div className="text-xs text-center text-muted-foreground">
+                      Página {currentPage} de {totalPages} • {filteredRecipes.length} recetas
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                        className="flex-1 text-xs"
+                      >
+                        <ArrowLeft className="h-3 w-3 mr-1" />
+                        Anterior
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                        className="flex-1 text-xs"
+                      >
+                        Siguiente
+                        <ArrowRight className="h-3 w-3 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="hidden md:flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">
+                      Mostrando {startIndex + 1} - {Math.min(endIndex, sortedRecipes.length)} de {sortedRecipes.length} recetas
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(1)}
+                        disabled={currentPage === 1}
+                      >
+                        Primera
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
+                      </Button>
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                          let pageNum
+                          if (totalPages <= 5) {
+                            pageNum = i + 1
+                          } else if (currentPage <= 3) {
+                            pageNum = i + 1
+                          } else if (currentPage >= totalPages - 2) {
+                            pageNum = totalPages - 4 + i
+                          } else {
+                            pageNum = currentPage - 2 + i
+                          }
+
+                          return (
+                            <Button
+                              key={pageNum}
+                              variant={currentPage === pageNum ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setCurrentPage(pageNum)}
+                              className="w-10"
+                            >
+                              {pageNum}
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleOpenView(recipe)}>
-                              <Eye className="mr-2 h-4 w-4" /> Ver
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleOpenEdit(recipe)}>
-                              <Edit2 className="mr-2 h-4 w-4" /> Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteRecipe(recipe)} className="text-red-600">
-                              <Trash2 className="mr-2 h-4 w-4" /> Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                          )
+                        })}
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Siguiente
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(totalPages)}
+                        disabled={currentPage === totalPages}
+                      >
+                        Última
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </CardContent>
