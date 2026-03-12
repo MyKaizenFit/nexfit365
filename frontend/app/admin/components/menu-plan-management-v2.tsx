@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, User, XCircle } from "lucide-react"
+import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Download, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, Upload, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
@@ -168,6 +168,11 @@ export function MenuPlanManagementV2() {
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
   const [duplicateUserId, setDuplicateUserId] = useState<string>("none")
 
+    // Export / Import
+    const [importDialogOpen, setImportDialogOpen] = useState(false)
+    const [importFile, setImportFile] = useState<File | null>(null)
+    const [importing, setImporting] = useState(false)
+
   const [editSummary, setEditSummary] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null)
 
   const [form, setForm] = useState({
@@ -198,6 +203,57 @@ export function MenuPlanManagementV2() {
     resetForm()
     setShowCreateDialog(true)
   }
+
+    const handleExport = async (type: 'csv' | 'excel') => {
+      try {
+        const headers = await getAuthHeaders()
+        const url = buildApiUrl(`admin/nutrition/plans/export-${type}/`)
+        const response = await fetch(url, { method: 'GET', headers })
+        if (!response.ok) throw new Error(`Error ${response.status}`)
+        const blob = await response.blob()
+        const link = document.createElement('a')
+        link.href = window.URL.createObjectURL(blob)
+        link.download = type === 'csv' ? 'planes_menu_export.csv' : 'planes_menu_export.xlsx'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        window.URL.revokeObjectURL(link.href)
+        toast({ title: `✅ Exportación ${type.toUpperCase()}`, description: 'Archivo descargado correctamente.' })
+      } catch (error) {
+        toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo exportar', variant: 'destructive' })
+      }
+    }
+
+    const handleImport = async () => {
+      if (!importFile) return
+      setImporting(true)
+      try {
+        const headers = await getAuthHeaders()
+        const formDataObj = new FormData()
+        formDataObj.append('file', importFile)
+        const fileType = importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls') ? 'excel' : 'csv'
+        const url = buildApiUrl(`admin/nutrition/plans/import-${fileType}/`)
+        const token = (headers as Record<string, string>)['Authorization']
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Authorization': token },
+          body: formDataObj,
+        })
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(errorText || `Error ${response.status}`)
+        }
+        const data = await response.json()
+        toast({ title: '✅ Importación', description: data?.message || 'Planes importados correctamente.' })
+        setImportDialogOpen(false)
+        setImportFile(null)
+        fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+      } catch (error) {
+        toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' })
+      } finally {
+        setImporting(false)
+      }
+    }
 
   const loadRecipes = useCallback(async () => {
     try {
@@ -725,13 +781,27 @@ export function MenuPlanManagementV2() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold text-gray-800">Planes de Menús</h2>
-          <p className="text-gray-600 mt-1">Administra planes como en “Planes de entrenamiento”: filtros, tabla y acciones masivas.</p>
+          <h2 className="text-3xl font-bold tracking-tight">Planes de Menús</h2>
+          <p className="text-muted-foreground mt-1">Administra planes como en “Planes de entrenamiento”: filtros, tabla y acciones masivas.</p>
         </div>
-        <Button onClick={openCreate} className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Nuevo Plan
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
+            <Download className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Exportar </span>CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => handleExport('excel')}>
+            <Download className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Exportar </span>Excel
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+            <Upload className="h-4 w-4 mr-1" />
+            <span className="hidden sm:inline">Importar</span>
+          </Button>
+          <Button onClick={openCreate} className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Nuevo Plan
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -778,7 +848,7 @@ export function MenuPlanManagementV2() {
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
-        <CardContent className="p-5 md:p-4">
+        <CardContent>
           <div className="grid gap-5 md:gap-4 md:grid-cols-6">
             <div className="md:col-span-2">
               <FormLabel>Buscar</FormLabel>
@@ -858,7 +928,7 @@ export function MenuPlanManagementV2() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>Planes de menús</CardTitle>
+              <CardTitle>Planes de Menús</CardTitle>
               <div className="hidden md:flex items-center space-x-2">
                 <Checkbox
                   checked={selectedPlans.length === currentPlans.length && currentPlans.length > 0}
@@ -1656,6 +1726,47 @@ export function MenuPlanManagementV2() {
             <Button variant="outline" onClick={() => setShowDuplicateDialog(false)} disabled={duplicating}>Cancelar</Button>
             <Button onClick={handleDuplicateToUser} disabled={duplicating || duplicateUserId === "none"}>
               {duplicating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Duplicando...</> : "Duplicar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>📥 Importar Planes de Menús</DialogTitle>
+            <DialogDescription>
+              Sube un archivo CSV o Excel para importar o actualizar planes. Los planes existentes se actualizarán si el nombre coincide.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
+              <input
+                type="file"
+                accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                disabled={importing}
+                className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+              />
+              {importFile && (
+                <div className="text-sm text-green-600 mt-2">
+                  ✓ Archivo seleccionado: <strong>{importFile.name}</strong> ({(importFile.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              )}
+            </div>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <p className="text-xs text-blue-700">
+                <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, objetivo, tipo_dieta, calorías_diarias, proteínas, carbohidratos, grasas, es_plantilla, activo...
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportDialogOpen(false)} disabled={importing}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
+              {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {importing ? 'Importando...' : 'Importar'}
             </Button>
           </DialogFooter>
         </DialogContent>
