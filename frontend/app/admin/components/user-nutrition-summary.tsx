@@ -215,7 +215,7 @@ export function UserNutritionSummary({ userId }: { userId: string }) {
               <History className="h-4 w-4" />
               Historial de cambios de plan
             </CardTitle>
-            <CardDescription>Últimos ajustes realizados por admin/usuario</CardDescription>
+            <CardDescription>Últimos ajustes realizados por administrador/usuario</CardDescription>
           </div>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

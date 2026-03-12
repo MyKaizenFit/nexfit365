@@ -98,7 +98,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 user: null,
                 isAuthenticated: true, // Mantener como autenticado
                 isLoading: false,
-                error: 'Rate limit alcanzado. Por favor, espera un momento.',
+                error: 'Has alcanzado el límite de intentos. Por favor, espera un momento.',
                 mustChangePassword: false,
               })
             } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {

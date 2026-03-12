@@ -655,7 +655,7 @@ export function ActiveWorkoutSession({
           effort: setData.effort !== undefined ? Number(setData.effort) : null
         }
       })
-      
+
       // Log para depuración
 
       await onComplete({
@@ -1080,5 +1080,3 @@ export function ActiveWorkoutSession({
     </Dialog>
   )
 }
-
-

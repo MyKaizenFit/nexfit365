@@ -5,8 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { 
-  Check, Clock, Award, Calendar, TrendingUp, 
+import {
+  Check, Clock, Award, Calendar, TrendingUp,
   BarChart3, Target, Zap, Weight, Repeat,
   ChevronDown, ChevronUp, Eye, Dumbbell
 } from "lucide-react"
@@ -39,9 +39,9 @@ interface TonnageData {
 // Función para corregir encoding de nombres de ejercicios
 const fixEncoding = (text: string): string => {
   if (!text || typeof text !== 'string') return text || ''
-  
+
   let fixed = text
-  
+
   // CASOS ESPECÍFICOS DE ENCODING MAL INTERPRETADO
   // ├│ es una codificación incorrecta de ó (UTF-8 mal interpretado como Windows-1252 o similar)
   fixed = fixed.replace(/├│/g, 'ó')
@@ -50,17 +50,17 @@ const fixEncoding = (text: string): string => {
   fixed = fixed.replace(/├¡/g, 'í')
   fixed = fixed.replace(/├║/g, 'ú')
   fixed = fixed.replace(/├▒/g, 'ñ')
-  
+
   // Casos específicos de caracteres que aparecen como barra vertical |
   fixed = fixed.replace(/Jal\|n/gi, 'Jalón')
   fixed = fixed.replace(/jal\|n/gi, 'Jalón')
   fixed = fixed.replace(/M\|quina/gi, 'Máquina')
   fixed = fixed.replace(/m\|quina/gi, 'Máquina')
-  
+
   // Casos específicos comunes sin el carácter |
   fixed = fixed.replace(/Jaln\b/gi, 'Jalón')
   fixed = fixed.replace(/Mquina\b/gi, 'Máquina')
-  
+
   // Reemplazos generales de encoding incorrecto
   fixed = fixed.replace(/b\?\?ceps/gi, 'bíceps')
   fixed = fixed.replace(/tr\?\?ceps/gi, 'tríceps')
@@ -80,12 +80,12 @@ const fixEncoding = (text: string): string => {
   fixed = fixed.replace(/â€/g, '"')
   fixed = fixed.replace(/â€"/g, '—')
   fixed = fixed.replace(/â€"/g, '–')
-  
+
   // Último recurso: reemplazar | con ó solo si no está ya corregido
   if (fixed.includes('|') && !fixed.includes('ó')) {
     fixed = fixed.replace(/\|/g, 'ó')
   }
-  
+
   return fixed
 }
 
@@ -109,12 +109,12 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         }))
       }))
     }
-    
+
     // Caso 2: exercises_data (snapshot JSON - entrenamientos desde la app)
     if (log.exercises_data && log.exercises_data.length > 0) {
       return log.exercises_data
     }
-    
+
     return []
   }
 
@@ -123,7 +123,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     const logs = workoutLogs
       .filter(log => log.completed)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    
+
     // Log para depuración
     logs.forEach((log, index) => {
       if (index < 3) { // Solo los primeros 3 para no saturar
@@ -146,11 +146,11 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     completedLogs.forEach(log => {
       // Obtener ejercicios usando la función auxiliar (soporta ambos formatos)
       const exercisesData = getExercisesFromLog(log)
-      
+
       if (exercisesData.length === 0) {
         return
       }
-      
+
       exercisesData.forEach((exerciseData: any) => {
         const exerciseId = exerciseData.exercise_id || exerciseData.exercise?.id || exerciseData.id || 'unknown'
         const exerciseName = exerciseData.exercise_name || exerciseData.exercise?.name || exerciseData.name || 'Ejercicio desconocido'
@@ -177,11 +177,11 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           // Aceptar sets completados con weight y reps (pueden ser números o strings)
           const weight = set.weight !== null && set.weight !== undefined ? parseFloat(String(set.weight)) : null
           const reps = set.reps !== null && set.reps !== undefined ? parseInt(String(set.reps)) : null
-          
+
           if (set.completed && weight !== null && reps !== null && !isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
             if (weight > maxWeight) maxWeight = weight
             if (reps > maxReps) maxReps = reps
-            
+
             // Tonelaje = Peso * Repeticiones (por serie)
             volume += weight * reps
           }
@@ -211,7 +211,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       const date = log.date
       // Obtener ejercicios usando la función auxiliar (soporta ambos formatos)
       const exercisesData = getExercisesFromLog(log)
-      
+
       let dayTonnage = 0
       let exerciseCount = 0
 
@@ -623,20 +623,20 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                   >
                     <LineChart data={tonnageData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
                         className="text-[10px] md:text-xs"
                         tick={{ fontSize: 10 }}
                         interval="preserveStartEnd"
                       />
-                      <YAxis 
+                      <YAxis
                         label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '10px' } }}
                         className="text-[10px] md:text-xs"
                         tick={{ fontSize: 10 }}
                         width={50}
                       />
-                      <ChartTooltip 
+                      <ChartTooltip
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload as TonnageData
@@ -657,9 +657,9 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                           return null
                         }}
                       />
-                      <Line 
-                        type="monotone" 
-                        dataKey="tonnage" 
+                      <Line
+                        type="monotone"
+                        dataKey="tonnage"
                         stroke="hsl(142, 76%, 36%)"
                         strokeWidth={2.5}
                         dot={{ r: 4, fill: "hsl(142, 76%, 36%)" }}
@@ -695,20 +695,20 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                   >
                     <BarChart data={tonnageData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" className="stroke-gray-200" />
-                      <XAxis 
-                        dataKey="date" 
+                      <XAxis
+                        dataKey="date"
                         tickFormatter={(value) => format(new Date(value), "dd MMM", { locale: es })}
                         className="text-[10px] md:text-xs"
                         tick={{ fontSize: 10 }}
                         interval="preserveStartEnd"
                       />
-                      <YAxis 
+                      <YAxis
                         label={{ value: 'Tonelaje (kg)', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: '10px' } }}
                         className="text-[10px] md:text-xs"
                         tick={{ fontSize: 10 }}
                         width={50}
                       />
-                      <ChartTooltip 
+                      <ChartTooltip
                         content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             const data = payload[0].payload as TonnageData
@@ -729,8 +729,8 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                           return null
                         }}
                       />
-                      <Bar 
-                        dataKey="tonnage" 
+                      <Bar
+                        dataKey="tonnage"
                         fill="hsl(24, 95%, 53%)"
                         radius={[4, 4, 0, 0]}
                       />

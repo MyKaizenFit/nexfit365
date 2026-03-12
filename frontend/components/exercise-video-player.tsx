@@ -47,12 +47,12 @@ function normalizeExerciseName(name: string): string {
 function buildGoogleDriveUrl(exerciseName: string): string {
   const normalizedName = normalizeExerciseName(exerciseName)
   const folderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID || ''
-  
+
   // Si hay un folder ID configurado, construir URL para buscar en la carpeta
   // Formato: https://drive.google.com/drive/folders/{FOLDER_ID}
   // Para acceder a un archivo específico necesitaríamos el file ID
   // Por ahora, retornamos una URL base que puede ser usada con un mapeo de nombres
-  
+
   // Alternativa: si tienes un mapeo de nombres a file IDs, puedes usarlo aquí
   // Por ahora retornamos null y manejamos el fallback en el componente
   return ''
@@ -82,19 +82,19 @@ function getVideoUrl(exercise: ExerciseVideoPlayerProps['exercise']): string | n
   if (directUrl) {
     return directUrl
   }
-  
+
   // Segundo: usar google_drive_file_id directamente desde la base de datos (más confiable)
   if (exercise.google_drive_file_id) {
     return `https://drive.google.com/file/d/${exercise.google_drive_file_id}/preview`
   }
-  
+
   // Tercero: buscar en el mapeo manual como fallback (para ejercicios antiguos)
   const normalizedName = normalizeExerciseName(exercise.name)
   if (EXERCISE_VIDEO_MAP[normalizedName]) {
     const fileId = EXERCISE_VIDEO_MAP[normalizedName]
     return `https://drive.google.com/file/d/${fileId}/preview`
   }
-  
+
   // Si no hay ninguna opción, retornamos null
   return null
 }
@@ -135,20 +135,20 @@ function getYoutubeEmbedUrl(url: string): string {
 export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [videoError, setVideoError] = useState(false)
-  
+
   const videoUrl = getVideoUrl(exercise)
   const folderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID || ''
-  
+
   // Si no hay video disponible en absoluto
   if (!videoUrl && !exercise.has_video) {
     return children || null
   }
-  
+
   const handlePlay = () => {
     setIsOpen(true)
     setVideoError(false)
   }
-  
+
   const handleVideoError = () => {
     setVideoError(true)
   }
@@ -176,7 +176,7 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
           <DialogHeader>
             <DialogTitle>{exercise.name}</DialogTitle>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Video Player */}
             {videoUrl && !videoError && (

@@ -4,8 +4,8 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
 const mobileMenuItems = [
-  { title: "Dashboard", icon: Home, url: "dashboard", badge: null },
-  { title: "Day 1", icon: Target, url: "day-one", badge: null },
+  { title: "Inicio", icon: Home, url: "dashboard", badge: null },
+  { title: "Día 1", icon: Target, url: "day-one", badge: null },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals", badge: null },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3", badge: null },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null },

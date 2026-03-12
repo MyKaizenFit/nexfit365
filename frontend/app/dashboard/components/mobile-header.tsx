@@ -24,8 +24,8 @@ interface MobileHeaderProps {
 }
 
 const sectionTitles: Record<string, string> = {
-  dashboard: "Dashboard",
-  "day-one": "Day 1",
+  dashboard: "Inicio",
+  "day-one": "Día 1",
   meals: "Menús",
   workouts: "Entrenamientos",
   profile: "Mi Perfil",
@@ -48,7 +48,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   const handleLogout = async () => {
     try {
       await logout()
-      toast({ title: "👋 Cerrar Sesión", description: "Sesión cerrada correctamente" })
+      toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
       router.push('/auth')
     } catch (error) {
       toast({ title: "❌ Error", description: "Error al cerrar sesión" })
@@ -56,8 +56,8 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   }
 
   const searchOptions = [
-    { title: "Dashboard", section: "dashboard", description: "Vista general de tu progreso" },
-    { title: "Day 1", section: "day-one", description: "Tu punto de partida y transformación" },
+    { title: "Inicio", section: "dashboard", description: "Vista general de tu progreso" },
+    { title: "Día 1", section: "day-one", description: "Tu punto de partida y transformación" },
     { title: "Menús", section: "meals", description: "Plan de comidas y nutrición" },
     { title: "Entrenamientos", section: "workouts", description: "Rutinas de ejercicio" },
     { title: "Mi Perfil", section: "profile", description: "Información personal" },
@@ -163,7 +163,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
                 onClick={handleLogout}
                 className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
               >
-                Cerrar Sesión
+                Cerrar sesión
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

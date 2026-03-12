@@ -220,7 +220,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
               Añadir nuevo consejo
             </CardTitle>
             <CardDescription>
-              Comparte recomendaciones con la comunidad. Puedes destacar aquellos consejos que quieras resaltar en el dashboard.
+              Comparte recomendaciones con la comunidad. Puedes destacar aquellos consejos que quieras resaltar en Inicio.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -293,7 +293,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div>
-                      <p className="font-medium text-sm">Destacar en dashboard</p>
+                      <p className="font-medium text-sm">Destacar en Inicio</p>
                       <p className="text-xs text-muted-foreground">Los usuarios lo verán primero</p>
                     </div>
                     <Button

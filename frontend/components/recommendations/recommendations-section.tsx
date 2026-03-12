@@ -46,7 +46,7 @@ export function RecommendationsSection() {
           </Button>
           <Button variant="outline" onClick={handleGoToDashboard}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Volver al dashboard
+            Volver a Inicio
           </Button>
         </div>
       </div>

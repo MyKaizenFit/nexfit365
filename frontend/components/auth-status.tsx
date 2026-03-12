@@ -64,7 +64,7 @@ export function AuthStatus() {
                 className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3 text-lg"
                 onClick={() => window.location.href = '/auth'}
               >
-                Ir al Login <UserCheck className="w-5 h-5 ml-2" />
+                Iniciar sesión <UserCheck className="w-5 h-5 ml-2" />
               </Button>
             </div>
           </div>
@@ -185,7 +185,7 @@ export function AuthStatus() {
               onClick={() => window.location.href = '/dashboard'}
             >
               <Settings className="w-5 h-5 mr-2" />
-              Ir al Dashboard
+              Ir a Inicio
             </Button>
             <Button
               variant="destructive"
@@ -194,7 +194,7 @@ export function AuthStatus() {
               onClick={logout}
             >
               <LogOut className="w-5 h-5 mr-2" />
-              Cerrar Sesión
+              Cerrar sesión
             </Button>
           </div>
         </div>

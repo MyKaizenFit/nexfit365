@@ -49,7 +49,7 @@ export default function FAQPage() {
     },
     {
       question: "¿Cómo funcionan los planes de entrenamiento?",
-      answer: "Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección 'Entrenamientos' del dashboard.",
+      answer: "Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección 'Entrenamientos' de Inicio.",
       category: "Entrenamiento"
     },
     {
@@ -59,12 +59,12 @@ export default function FAQPage() {
     },
     {
       question: "¿Cómo registro mi progreso?",
-      answer: "Puedes registrar tu progreso subiendo fotos y registrando tu peso en la sección 'Progreso' del dashboard. Esto te ayudará a visualizar tu evolución.",
+      answer: "Puedes registrar tu progreso subiendo fotos y registrando tu peso en la sección 'Progreso' de Inicio. Esto te ayudará a visualizar tu evolución.",
       category: "Progreso"
     },
     {
       question: "¿Qué son los logros?",
-      answer: "Los logros son recompensas que obtienes al completar objetivos y mantener tu consistencia. Puedes verlos en la sección 'Logros' del dashboard.",
+      answer: "Los logros son recompensas que obtienes al completar objetivos y mantener tu consistencia. Puedes verlos en la sección 'Logros' de Inicio.",
       category: "Gamificación"
     },
     {

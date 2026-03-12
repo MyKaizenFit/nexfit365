@@ -491,7 +491,7 @@ function AdminPageContent() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-100 text-purple-800 border-0">Admin</Badge>
+        return <Badge className="bg-purple-100 text-purple-800 border-0">Administrador</Badge>
       case "premium":
         return <Badge className="bg-yellow-100 text-yellow-800 border-0">Premium</Badge>
       case "pro":

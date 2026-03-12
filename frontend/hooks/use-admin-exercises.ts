@@ -113,7 +113,7 @@ export const useAdminExercises = () => {
       // Cargar todas las páginas automáticamente
       while (hasMore) {
         let response = await fetch(
-          buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`), 
+          buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`),
           { headers }
         )
 
@@ -123,7 +123,7 @@ export const useAdminExercises = () => {
           if (!newHeaders) return // Ya redirigió al login
           headers = newHeaders
           response = await fetch(
-            buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`), 
+            buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`),
             { headers }
           )
         }
@@ -134,22 +134,22 @@ export const useAdminExercises = () => {
         }
 
         const data = await response.json()
-        
+
         // Manejar respuesta paginada o array directo
-        const exercisesData = Array.isArray(data.results) 
-          ? data.results 
+        const exercisesData = Array.isArray(data.results)
+          ? data.results
           : (Array.isArray(data) ? data : [])
 
         if (exercisesData.length > 0) {
           allExercises = [...allExercises, ...exercisesData]
-          
+
           // Verificar si hay más páginas
           // Si la respuesta tiene 'next' y no es null/undefined, hay más páginas
           // También verificar 'count' para saber el total esperado
           const totalCount = data.count || allExercises.length
           const hasNext = data.next !== null && data.next !== undefined && data.next !== ''
-          
-          
+
+
           // Si ya cargamos todos o no hay más páginas, terminar
           if (!hasNext || allExercises.length >= totalCount) {
             hasMore = false
@@ -300,10 +300,10 @@ export const useAdminExercises = () => {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        
+
         // Manejar errores de validación de Django REST Framework
         let errorMessage = errorData.detail || `Error ${response.status}`
-        
+
         // Si hay errores de campo específicos, formatearlos
         if (errorData.category) {
           const categoryError = Array.isArray(errorData.category) ? errorData.category[0] : errorData.category
@@ -319,7 +319,7 @@ export const useAdminExercises = () => {
           })
           errorMessage = errorMessages.join('; ')
         }
-        
+
         throw new Error(errorMessage)
       }
 

@@ -216,7 +216,7 @@ function AuthPageContent() {
       <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
         <CardHeader className="text-center space-y-6 pb-8 pt-10">
           <div className="flex items-center justify-center">
-            <Image src="/NexFit.png" alt="NEXFIT Logo" width={240} height={72} quality={100} priority />
+            <Image src="/NexFit.png" alt="Logo de NEXFIT" width={240} height={72} quality={100} priority />
           </div>
           <CardDescription className="text-gray-600 text-lg pt-2">
             {isLogin ? "¡Hola de nuevo! 👋 Nos alegra verte de vuelta" : "¡Únete a nosotros! 🎉 Comienza tu transformación hoy"}

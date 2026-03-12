@@ -2,6 +2,7 @@
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -48,6 +49,18 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(user_id=user_id)
         
         return queryset.order_by('-created_at')
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except DatabaseError:
+            return Response({
+                'count': 0,
+                'next': None,
+                'previous': None,
+                'results': [],
+                'warning': 'No se pudieron cargar notificaciones por incidencia temporal en base de datos'
+            }, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'])
     def send_bulk(self, request):
@@ -117,18 +130,25 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Estadísticas de notificaciones"""
-        total_notifications = Notification.objects.count()
-        read_notifications = Notification.objects.filter(read_at__isnull=False).count()
-        unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
-        
-        # Notificaciones por tipo
-        type_stats = Notification.objects.values('type').annotate(count=Count('type'))
-        
-        # Notificaciones de los últimos 30 días
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        recent_notifications = Notification.objects.filter(
-            created_at__gte=thirty_days_ago
-        ).count()
+        try:
+            total_notifications = Notification.objects.count()
+            read_notifications = Notification.objects.filter(read_at__isnull=False).count()
+            unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
+            
+            # Notificaciones por tipo
+            type_stats = Notification.objects.values('type').annotate(count=Count('type'))
+            
+            # Notificaciones de los últimos 30 días
+            thirty_days_ago = timezone.now() - timedelta(days=30)
+            recent_notifications = Notification.objects.filter(
+                created_at__gte=thirty_days_ago
+            ).count()
+        except DatabaseError:
+            total_notifications = 0
+            read_notifications = 0
+            unread_notifications = 0
+            type_stats = []
+            recent_notifications = 0
         
         return Response({
             'total_notifications': total_notifications,

@@ -301,7 +301,7 @@ export function RecipeManagement() {
     if (!ingredientInputValue.trim()) return []
     const query = ingredientInputValue.toLowerCase()
     return foods
-      .filter(food => 
+      .filter(food =>
         food.name.toLowerCase().includes(query) ||
         (food.brand && food.brand.toLowerCase().includes(query))
       )
@@ -411,19 +411,19 @@ export function RecipeManagement() {
       food.name.toLowerCase().includes(search) ||
       (food.brand && food.brand.toLowerCase().includes(search))
     const matchesCategory = !ingredientCategory || food.category === ingredientCategory
-    
+
     // Filtro por calorías
     let matchesCalories = true
     if (ingredientCaloriesFilter === 'bajo') matchesCalories = food.calories < 100
     else if (ingredientCaloriesFilter === 'medio') matchesCalories = food.calories >= 100 && food.calories < 300
     else if (ingredientCaloriesFilter === 'alto') matchesCalories = food.calories >= 300
-    
+
     // Filtro por proteína
     let matchesProtein = true
     if (ingredientProteinFilter === 'bajo') matchesProtein = food.protein < 5
     else if (ingredientProteinFilter === 'medio') matchesProtein = food.protein >= 5 && food.protein < 15
     else if (ingredientProteinFilter === 'alto') matchesProtein = food.protein >= 15
-    
+
     return matchesSearch && matchesCategory && matchesCalories && matchesProtein
   })
 
@@ -440,23 +440,23 @@ export function RecipeManagement() {
               <CardDescription>Gestiona tus recetas con archivos CSV o Excel</CardDescription>
             </div>
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => handleExport('csv')}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 Exportar CSV
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 onClick={() => handleExport('excel')}
                 className="gap-2"
               >
                 <Download className="h-4 w-4" />
                 Exportar Excel
               </Button>
-              <Button 
+              <Button
                 onClick={() => setImportDialogOpen(true)}
                 className="bg-blue-600 hover:bg-blue-700 gap-2"
               >
@@ -700,12 +700,12 @@ export function RecipeManagement() {
                     >
                       <option value="">Selecciona...</option>
                       {[
-                        {val: 'Desayuno', label: 'Desayuno'},
-                        {val: 'Almuerzo', label: 'Almuerzo'},
-                        {val: 'Cena', label: 'Cena'},
-                        {val: 'Snack', label: 'Snack'},
-                        {val: 'Postre', label: 'Postre'},
-                        {val: 'Bebida', label: 'Bebida'}
+                        { val: 'Desayuno', label: 'Desayuno' },
+                        { val: 'Almuerzo', label: 'Almuerzo' },
+                        { val: 'Cena', label: 'Cena' },
+                        { val: 'Snack', label: 'Snack' },
+                        { val: 'Postre', label: 'Postre' },
+                        { val: 'Bebida', label: 'Bebida' }
                       ].map((cat) => (
                         <option key={cat.val} value={cat.val}>{cat.label}</option>
                       ))}
@@ -721,9 +721,9 @@ export function RecipeManagement() {
                     >
                       <option value="">Selecciona...</option>
                       {[
-                        {val: 'Fácil', label: 'Fácil'},
-                        {val: 'Medio', label: 'Medio'},
-                        {val: 'Difícil', label: 'Difícil'}
+                        { val: 'Fácil', label: 'Fácil' },
+                        { val: 'Medio', label: 'Medio' },
+                        { val: 'Difícil', label: 'Difícil' }
                       ].map((dif) => (
                         <option key={dif.val} value={dif.val}>{dif.label}</option>
                       ))}
@@ -785,7 +785,7 @@ export function RecipeManagement() {
                         placeholder="Escribe nombre del alimento..."
                         className="pl-10"
                       />
-                      
+
                       {/* DROPDOWN CON SUGERENCIAS */}
                       {showSuggestions && getAutocompleteSuggestions().length > 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-50">
@@ -809,7 +809,7 @@ export function RecipeManagement() {
                           ))}
                         </div>
                       )}
-                      
+
                       {showSuggestions && ingredientInputValue && getAutocompleteSuggestions().length === 0 && (
                         <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 z-50 text-center text-sm text-gray-500">
                           Sin resultados
@@ -827,13 +827,12 @@ export function RecipeManagement() {
                       {formData.recipe_ingredients.map((ing, idx) => {
                         const isValid = isIngredientValid(ing)
                         return (
-                          <div 
-                            key={idx} 
-                            className={`p-3 rounded-lg border flex items-center justify-between gap-2 group hover:shadow-md transition ${
-                              isValid 
-                                ? 'bg-orange-50 border-orange-200' 
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-lg border flex items-center justify-between gap-2 group hover:shadow-md transition ${isValid
+                                ? 'bg-orange-50 border-orange-200'
                                 : 'bg-red-100 border-red-400'
-                            }`}
+                              }`}
                           >
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">

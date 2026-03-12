@@ -85,8 +85,8 @@ cat > "$CRONTAB_FILE" << 'EOF'
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
-# Verificar servicios cada 5 minutos
-*/5 * * * * root /srv/mykaizenfit/pro/scripts/check-services.sh >> /var/log/nexfit-check.log 2>&1
+# Verificar servicios cada minuto
+* * * * * root /srv/mykaizenfit/pro/scripts/check-services.sh >> /var/log/nexfit-check.log 2>&1
 
 # Limpiar logs antiguos (mantener últimos 7 días)
 0 0 * * * root find /var/log/nexfit-check.log -type f -mtime +7 -delete

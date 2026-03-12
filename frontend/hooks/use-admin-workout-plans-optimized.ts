@@ -110,7 +110,7 @@ export const useAdminWorkoutPlansOptimized = () => {
   const [stats, setStats] = useState<WorkoutPlanStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
+
   // Paginación del servidor
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
@@ -123,7 +123,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       page: page.toString(),
       page_size: pageSize.toString(),
     })
-    
+
     if (filters.search) params.append('search', filters.search)
     if (filters.difficulty && filters.difficulty !== 'all') params.append('difficulty', filters.difficulty)
     if (filters.goal && filters.goal !== 'all') params.append('goal', filters.goal)
@@ -135,7 +135,7 @@ export const useAdminWorkoutPlansOptimized = () => {
     if (filters.user && filters.user !== 'all') params.append('user', filters.user)
     if (filters.is_template !== undefined) params.append('is_template', filters.is_template.toString())
     if (filters.is_system !== undefined) params.append('is_system', filters.is_system.toString())
-    
+
     // Importante: devolver endpoint RELATIVO para usar authenticatedFetch (que ya aplica buildApiUrl)
     return `admin/workouts/programs/?${params.toString()}`
   }, [pageSize])
@@ -144,21 +144,21 @@ export const useAdminWorkoutPlansOptimized = () => {
     try {
       setLoading(true)
       setError(null)
-      
+
       const url = buildFetchUrl(page, filters)
-      
+
       const response = await authenticatedFetch(url, {
         // Evitar caches HTTP intermedios / navegador (reduce casos de "lista vieja")
         cache: 'no-store',
       })
-      
+
       if (!response.ok) {
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
-      
+
       const data: PaginatedResponse<WorkoutPlan> = await response.json()
       // (removed misplaced object)
-      
+
       if (Array.isArray(data.results)) {
         setPlans(data.results)
         setTotalCount(data.count || 0)
@@ -167,7 +167,7 @@ export const useAdminWorkoutPlansOptimized = () => {
         setPlans([])
         setTotalCount(0)
       }
-      
+
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
@@ -202,14 +202,14 @@ export const useAdminWorkoutPlansOptimized = () => {
     try {
       // Obtener total de planes
       const totalResponse = await authenticatedFetch(`admin/workouts/programs/?page_size=1`)
-      
+
       if (!totalResponse.ok) {
         throw new Error(`Error ${totalResponse.status}: ${totalResponse.statusText}`)
       }
-      
+
       const totalData = await totalResponse.json()
       const totalCount = totalData.count || 0
-      
+
       // Obtener planes activos
       let activeCount = 0
       try {
@@ -220,7 +220,7 @@ export const useAdminWorkoutPlansOptimized = () => {
         }
       } catch (err) {
       }
-      
+
       // Obtener planes recientes (últimos 7 días)
       let recentCount = 0
       try {
@@ -233,11 +233,11 @@ export const useAdminWorkoutPlansOptimized = () => {
         }
       } catch (err) {
       }
-      
+
       // Obtener planes por dificultad - hacer en paralelo con mejor manejo de errores
       const programsByDifficulty: Record<string, number> = {}
       const difficultyLevels = ['beginner', 'intermediate', 'advanced']
-      
+
       const difficultyPromises = difficultyLevels.map(async (difficulty) => {
         try {
           const diffResponse = await authenticatedFetch(`admin/workouts/programs/?difficulty=${difficulty}&page_size=1`)
@@ -250,20 +250,20 @@ export const useAdminWorkoutPlansOptimized = () => {
           return { difficulty, count: 0 }
         }
       })
-      
+
       const difficultyResults = await Promise.allSettled(difficultyPromises)
       difficultyResults.forEach((result) => {
         if (result.status === 'fulfilled') {
           programsByDifficulty[result.value.difficulty] = result.value.count
         }
       })
-      
+
       // Obtener planes por rol - calcular desde los planes cargados
       // Nota: min_role_required no existe en el modelo, así que calculamos desde los planes
       const programsByRole: Record<string, number> = {}
       // Como no hay campo min_role_required, dejamos esto vacío o calculamos desde otra fuente
       // Por ahora, lo dejamos vacío ya que el campo no existe en el modelo
-      
+
       const stats: WorkoutPlanStats = {
         total_programs: totalCount,
         active_programs: activeCount,
@@ -271,7 +271,7 @@ export const useAdminWorkoutPlansOptimized = () => {
         programs_by_role: programsByRole, // Vacío ya que el campo no existe
         recent_programs: recentCount
       }
-      
+
       setStats(stats)
     } catch (err) {
       // Calcular desde los planes cargados como fallback
@@ -282,17 +282,17 @@ export const useAdminWorkoutPlansOptimized = () => {
         const createdDate = new Date(p.created_at)
         return createdDate >= sevenDaysAgo
       }).length
-      
+
       const programsByDifficulty: Record<string, number> = {}
       plans.forEach(plan => {
         if (plan.difficulty) {
           programsByDifficulty[plan.difficulty] = (programsByDifficulty[plan.difficulty] || 0) + 1
         }
       })
-      
+
       // min_role_required no existe en el modelo, así que dejamos esto vacío
       const programsByRole: Record<string, number> = {}
-      
+
       setStats({
         total_programs: totalCount,
         active_programs: activePlans,
@@ -320,7 +320,7 @@ export const useAdminWorkoutPlansOptimized = () => {
     fetchPlans(1, {})
     fetchExercises()
   }, []) // Solo al montar
-  
+
   // Actualizar stats cuando cambian los planes o totalCount
   useEffect(() => {
     if (totalCount > 0 || plans.length > 0) {
@@ -334,7 +334,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
         cache: 'no-store',
       })
-      
+
       if (!response.ok) {
         // Si el plan ya no existe (o nunca se guardó), forzar refetch para limpiar la lista
         if (response.status === 404) {
@@ -343,7 +343,7 @@ export const useAdminWorkoutPlansOptimized = () => {
         }
         throw new Error(`Error ${response.status}: ${response.statusText}`)
       }
-      
+
       const planDetail = await response.json()
       return planDetail
     } catch (err) {
@@ -363,7 +363,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       throw new Error(errorData.detail || errorData.message || `Error ${response.status}`)
     }
     const newPlan = await response.json()
-    
+
     // Recargar desde la página 1 para asegurar que el nuevo plan aparezca
     // y actualizar las estadísticas inmediatamente
     setCurrentPage(1)
@@ -371,7 +371,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       fetchPlans(1, filters),
       fetchStats()
     ])
-    
+
     return newPlan
   }
 
@@ -383,13 +383,13 @@ export const useAdminWorkoutPlansOptimized = () => {
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
     const updatedPlan = await response.json()
-    
+
     // Actualizar lista y estadísticas
     await Promise.all([
       fetchPlans(currentPage, filters),
       fetchStats()
     ])
-    
+
     return updatedPlan
   }
 
@@ -398,7 +398,7 @@ export const useAdminWorkoutPlansOptimized = () => {
       method: 'DELETE',
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
-    
+
     // Actualizar lista y estadísticas
     await Promise.all([
       fetchPlans(currentPage, filters),
@@ -432,7 +432,7 @@ export const useAdminWorkoutPlansOptimized = () => {
   // Asegurar que plans y exercises siempre sean arrays
   const safePlans = Array.isArray(plans) ? plans : []
   const safeExercises = Array.isArray(exercises) ? exercises : []
-  
+
   return {
     plans: safePlans,
     exercises: safeExercises,

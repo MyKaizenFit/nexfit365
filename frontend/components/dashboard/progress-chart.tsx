@@ -85,7 +85,7 @@ export function ProgressChart({ metrics, overallProgress, className = "" }: Prog
     if (progress >= 60) return 'Buen progreso, sigue así'
     if (progress >= 40) return 'Progreso moderado'
     if (progress >= 20) return 'Comenzando bien'
-    return '¡Empieza tu viaje!'
+    return '¡Comienza tu viaje!'
   }
 
   const getMotivationalMessage = (progress: number) => {

@@ -247,63 +247,101 @@ const getAuthService = () => {
   return getAuthService()
 }
 
+let refreshInFlight: Promise<{ success: boolean; newToken?: string; error?: string }> | null = null
+
+const isRetryableStatus = (status: number): boolean => {
+  return status === 429 || status === 502 || status === 503 || status === 504
+}
+
+const isRetryableNetworkError = (error: unknown): boolean => {
+  if (!(error instanceof Error)) {
+    return false
+  }
+
+  const message = error.message.toLowerCase()
+  return message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network request failed')
+}
+
+const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
+
 // Función para hacer requests con manejo automático de renovación de tokens
 export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const authService = getAuthService()
   const token = authService.getAccessToken()
+  const method = (options.method || 'GET').toUpperCase()
+  const canRetryTransient = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
+  const maxTransientRetries = canRetryTransient ? 2 : 0
+  let transientAttempt = 0
 
   if (!token) {
     throw new Error('No hay token de acceso disponible')
   }
 
   // Agregar el token de autorización
-  const headers = {
+  const buildHeaders = (authToken: string): HeadersInit => ({
     ...options.headers,
-    'Authorization': `Bearer ${token}`
+    'Authorization': `Bearer ${authToken}`
+  })
+
+  const executeRequest = async (authToken: string): Promise<Response> => {
+    return fetch(buildApiUrl(url), {
+      ...options,
+      headers: buildHeaders(authToken)
+    })
   }
 
-  try {
-    const response = await fetch(buildApiUrl(url), {
-      ...options,
-      headers
-    })
+  while (true) {
+    try {
+      const response = await executeRequest(token)
 
-    // Si recibimos un 401, intentar refrescar el token
-    if (response.status === 401) {
+      // Si recibimos un 401, intentar refrescar el token
+      if (response.status === 401) {
 
-      try {
-        const refreshResult = await authService.refreshAccessToken()
-
-        if (refreshResult.success && refreshResult.newToken) {
-
-          // Reintentar la request con el nuevo token
-          const retryResponse = await fetch(buildApiUrl(url), {
-            ...options,
-            headers: {
-              ...options.headers,
-              'Authorization': `Bearer ${refreshResult.newToken}`
-            }
-          })
-
-          // Si el retry también falla con 401, NO cerrar sesión automáticamente
-          if (retryResponse.status === 401) {
-            // NO redirigir automáticamente, solo loguear
-            throw new Error('Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+        try {
+          if (!refreshInFlight) {
+            refreshInFlight = authService.refreshAccessToken().finally(() => {
+              refreshInFlight = null
+            })
           }
+          const refreshResult = await refreshInFlight
 
-          return retryResponse
-        } else {
-          // NO redirigir automáticamente, el usuario debe cerrar sesión manualmente
-          throw new Error(refreshResult.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+          if (refreshResult.success && refreshResult.newToken) {
+
+            // Reintentar la request con el nuevo token
+            const retryResponse = await executeRequest(refreshResult.newToken)
+
+            // Si el retry también falla con 401, NO cerrar sesión automáticamente
+            if (retryResponse.status === 401) {
+              // NO redirigir automáticamente, solo loguear
+              throw new Error('Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+            }
+
+            return retryResponse
+          } else {
+            // NO redirigir automáticamente, el usuario debe cerrar sesión manualmente
+            throw new Error(refreshResult.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+          }
+        } catch (refreshError) {
+          // NO limpiar tokens ni redirigir automáticamente
+          throw refreshError instanceof Error ? refreshError : new Error('Error de autenticación. Por favor, intenta de nuevo.')
         }
-      } catch (refreshError) {
-        // NO limpiar tokens ni redirigir automáticamente
-        throw refreshError instanceof Error ? refreshError : new Error('Error de autenticación. Por favor, intenta de nuevo.')
       }
-    }
 
-    return response
-  } catch (error) {
-    throw error
+      if (canRetryTransient && isRetryableStatus(response.status) && transientAttempt < maxTransientRetries) {
+        transientAttempt += 1
+        await delay(250 * transientAttempt)
+        continue
+      }
+
+      return response
+    } catch (error) {
+      if (canRetryTransient && isRetryableNetworkError(error) && transientAttempt < maxTransientRetries) {
+        transientAttempt += 1
+        await delay(250 * transientAttempt)
+        continue
+      }
+
+      throw error
+    }
   }
 }
