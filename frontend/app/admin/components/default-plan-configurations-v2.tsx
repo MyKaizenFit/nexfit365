@@ -1,18 +1,17 @@
 "use client"
 
 import { useMemo, useState, type JSX } from "react"
-import { Plus, RefreshCw, Settings, Target, Trash2, Edit, Eye, AlertCircle, Info, Filter, Search, X } from "lucide-react"
+import { Plus, RefreshCw, Settings, Target, Trash2, Edit, Eye, AlertCircle, Info, Filter, Search, X, Download, Upload, Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   AlertDialog,
@@ -28,6 +27,8 @@ import {
 import { UpsertDefaultPlanConfigurationPayload, DefaultPlanConfiguration, PlanOption } from "@/types"
 import { useDefaultPlanConfigurations } from "@/hooks/use-default-plan-configurations"
 import { SearchablePlanSelect } from "./searchable-plan-select"
+import { getAuthHeaders, buildApiUrl, CONFIGURATION_ENDPOINTS } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 
 type DialogMode = "create" | "edit"
 
@@ -63,33 +64,29 @@ const safeNumber = (value: string): number | null => {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-// Prioridades con descripciones claras
-const priorityOptions = [
-  { value: 10, label: "Muy Específica", description: "Gimnasio + Actividad + Objetivo" },
-  { value: 20, label: "Específica", description: "Gimnasio + Objetivo" },
-  { value: 30, label: "Moderada", description: "Objetivo + Actividad" },
-  { value: 50, label: "General", description: "Solo Objetivo" },
-  { value: 100, label: "Muy General", description: "Fallback - Sin criterios" },
-  { value: 150, label: "Personalizada", description: "Valor personalizado" },
-  { value: 200, label: "Último Recurso", description: "Solo si no hay otra opción" },
+type RulePreset = "especifica" | "balanceada" | "general" | "fallback"
+
+const presetOptions: Array<{ id: RulePreset; label: string; description: string; order: number }> = [
+  { id: "especifica", label: "Regla específica", description: "Para un perfil muy concreto", order: 1 },
+  { id: "balanceada", label: "Regla balanceada", description: "Para casos habituales", order: 5 },
+  { id: "general", label: "Regla general", description: "Cobertura amplia", order: 20 },
+  { id: "fallback", label: "Fallback", description: "Último recurso", order: 99 },
 ]
 
-// Helper para obtener la descripción de la prioridad
-const getPriorityLabel = (priority: number): string => {
-  const option = priorityOptions.find(p => p.value === priority)
-  if (option) return `${option.value} - ${option.label}`
-  
-  if (priority < 20) return `${priority} - Muy Específica`
-  if (priority < 50) return `${priority} - Específica`
-  if (priority < 100) return `${priority} - Moderada`
-  if (priority < 150) return `${priority} - General`
-  return `${priority} - Muy General`
+const priorityToOrder = (priority: number): number => {
+  const safe = Number.isFinite(priority) && priority > 0 ? priority : 100
+  return Math.max(1, Math.ceil(safe / 10))
 }
 
-const getPriorityVariant = (priority: number): "default" | "secondary" | "outline" | "destructive" => {
-  if (priority < 20) return "default"
-  if (priority < 50) return "secondary"
-  if (priority < 100) return "outline"
+const orderToPriority = (order: number): number => {
+  const normalized = Number.isFinite(order) ? Math.max(1, Math.floor(order)) : 10
+  return normalized * 10
+}
+
+const getOrderVariant = (order: number): "default" | "secondary" | "outline" | "destructive" => {
+  if (order <= 3) return "default"
+  if (order <= 10) return "secondary"
+  if (order <= 40) return "outline"
   return "secondary"
 }
 
@@ -123,6 +120,8 @@ interface ConfigDialogState {
   mode: DialogMode
   targetId: string | null
   form: UpsertDefaultPlanConfigurationPayload
+  applicationOrder: number
+  rulePreset: RulePreset
   dietaryInput: string
   equipmentInput: string
 }
@@ -148,16 +147,31 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
     mode: "create",
     targetId: null,
     form: DEFAULT_FORM,
+    applicationOrder: priorityToOrder(DEFAULT_FORM.priority),
+    rulePreset: "balanceada",
     dietaryInput: "",
     equipmentInput: "",
   })
 
+  const [currentDialogTab, setCurrentDialogTab] = useState("general")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [configToDelete, setConfigToDelete] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   const [filterPriority, setFilterPriority] = useState<string>("all")
+  const [importing, setImporting] = useState(false)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [showImportDialog, setShowImportDialog] = useState(false)
+  const { toast } = useToast()
+
+  const getPresetForOrder = (order: number): RulePreset => {
+    if (order <= 2) return "especifica"
+    if (order <= 10) return "balanceada"
+    if (order <= 40) return "general"
+    return "fallback"
+  }
 
   const handleOpenDialog = (mode: DialogMode, config?: DefaultPlanConfiguration) => {
+    setCurrentDialogTab("general")
     if (mode === "edit" && config) {
       setDialogState({
         open: true,
@@ -181,6 +195,8 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
           default_nutrition_plan_id: config.default_nutrition_plan?.id ?? null,
           default_workout_program_id: config.default_workout_program?.id ?? null,
         },
+        applicationOrder: priorityToOrder(config.priority),
+        rulePreset: getPresetForOrder(priorityToOrder(config.priority)),
         dietaryInput: formatList(config.dietary_restrictions),
         equipmentInput: formatList(config.equipment_keywords),
       })
@@ -190,6 +206,8 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
         mode: "create",
         targetId: null,
         form: DEFAULT_FORM,
+        applicationOrder: priorityToOrder(DEFAULT_FORM.priority),
+        rulePreset: "balanceada",
         dietaryInput: "",
         equipmentInput: "",
       })
@@ -198,6 +216,7 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
 
   const handleCloseDialog = () => {
     if (saving) return
+    setCurrentDialogTab("general")
     setDialogState(prev => ({
       ...prev,
       open: false,
@@ -217,7 +236,7 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
   const handleSubmit = async () => {
     const payload: UpsertDefaultPlanConfigurationPayload = {
       ...dialogState.form,
-      priority: Number(dialogState.form.priority) || 100,
+      priority: orderToPriority(dialogState.applicationOrder),
       min_training_days_per_week: safeNumber(String(dialogState.form.min_training_days_per_week ?? "")),
       max_training_days_per_week: safeNumber(String(dialogState.form.max_training_days_per_week ?? "")),
       age_min: safeNumber(String(dialogState.form.age_min ?? "")),
@@ -293,14 +312,14 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
       )
     }
 
-    // Filtrar por prioridad
+    // Filtrar por orden de aplicación
     if (filterPriority !== "all") {
-      const priorityNum = Number(filterPriority)
       filtered = filtered.filter(config => {
-        if (filterPriority === "low") return config.priority < 50
-        if (filterPriority === "medium") return config.priority >= 50 && config.priority < 100
-        if (filterPriority === "high") return config.priority >= 100
-        return config.priority === priorityNum
+        const order = priorityToOrder(config.priority)
+        if (filterPriority === "first") return order <= 3
+        if (filterPriority === "middle") return order >= 4 && order <= 20
+        if (filterPriority === "last") return order > 20
+        return true
       })
     }
 
@@ -315,8 +334,94 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
     return filteredConfigurations.filter(config => !config.is_active)
   }, [filteredConfigurations])
 
+  const handleExportCSV = async () => {
+    try {
+      const url = buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}export-csv/`)
+      const headers = getAuthHeaders()
+      const response = await fetch(url, { method: 'GET', headers })
+      if (!response.ok) throw new Error('Error al exportar')
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = 'default_plan_configurations.csv'
+      a.click()
+      URL.revokeObjectURL(objectUrl)
+      toast({ title: 'CSV exportado correctamente' })
+    } catch {
+      toast({ title: 'Error al exportar CSV', variant: 'destructive' })
+    }
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      const url = buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}export-excel/`)
+      const headers = getAuthHeaders()
+      const response = await fetch(url, { method: 'GET', headers })
+      if (!response.ok) throw new Error('Error al exportar')
+      const blob = await response.blob()
+      const objectUrl = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = objectUrl
+      a.download = 'default_plan_configurations.xlsx'
+      a.click()
+      URL.revokeObjectURL(objectUrl)
+      toast({ title: 'Excel exportado correctamente' })
+    } catch {
+      toast({ title: 'Error al exportar Excel', variant: 'destructive' })
+    }
+  }
+
+  const handleImport = async (format: 'csv' | 'excel') => {
+    if (!importFile) return
+    setImporting(true)
+    try {
+      const endpoint = format === 'csv' ? 'import-csv/' : 'import-excel/'
+      const url = buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}${endpoint}`)
+      const headers = getAuthHeaders()
+      const formData = new FormData()
+      formData.append('file', importFile)
+      const response = await fetch(url, { method: 'POST', headers, body: formData })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Error al importar')
+      toast({ title: data.message || 'Importación completada' })
+      setShowImportDialog(false)
+      setImportFile(null)
+      refetch()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al importar'
+      toast({ title: msg, variant: 'destructive' })
+    } finally {
+      setImporting(false)
+    }
+  }
+
   return (
     <div className="space-y-4 md:space-y-6 p-4 md:p-6">
+      {/* Exportar / Importar */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">Importar / Exportar</CardTitle>
+          <CardDescription>Gestiona las configuraciones en bloque mediante CSV o Excel.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={handleExportCSV}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportExcel}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar Excel
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { setImportFile(null); setShowImportDialog(true) }}>
+              <Upload className="mr-2 h-4 w-4" />
+              Importar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Header móvil-friendly */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div className="flex-1 space-y-2">
@@ -353,10 +458,10 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
             <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 space-y-1">
               <p className="text-sm font-medium text-blue-900">
-                ¿Qué es la Prioridad?
+                ¿Cómo funciona el orden de aplicación?
               </p>
               <p className="text-xs md:text-sm text-blue-800">
-                La prioridad determina el orden de evaluación. <strong>Números más bajos = mayor prioridad.</strong> Si un usuario cumple varias reglas, se aplicará la de menor número. Ejemplo: Prioridad 10 se evalúa antes que Prioridad 50.
+                Las configuraciones se evalúan por orden. <strong>1 se evalúa antes que 20.</strong> Si un usuario cumple varias reglas, se aplica la de orden más bajo.
               </p>
             </div>
           </div>
@@ -417,13 +522,13 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
             </div>
             <Select value={filterPriority} onValueChange={setFilterPriority}>
               <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Filtrar por prioridad" />
+                <SelectValue placeholder="Filtrar por orden" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las prioridades</SelectItem>
-                <SelectItem value="low">Alta (10-49)</SelectItem>
-                <SelectItem value="medium">Media (50-99)</SelectItem>
-                <SelectItem value="high">Baja (100+)</SelectItem>
+                <SelectItem value="all">Todos los órdenes</SelectItem>
+                <SelectItem value="first">Primero (1-3)</SelectItem>
+                <SelectItem value="middle">Intermedio (4-20)</SelectItem>
+                <SelectItem value="last">Final (21+)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -530,174 +635,241 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
 
       {/* Dialog de creación/edición */}
       <Dialog open={dialogState.open} onOpenChange={open => (open ? null : handleCloseDialog())}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {dialogState.mode === "create" ? "Crear configuración por defecto" : "Editar configuración"}
+              {dialogState.mode === "create" ? "Nueva Configuración por Defecto" : "Editar Configuración"}
             </DialogTitle>
+            <DialogDescription>
+              {dialogState.mode === "create"
+                ? "Completa los datos para crear una nueva regla de asignación automática"
+                : "Modifica los datos de la configuración por defecto"}
+            </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 py-2">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Nombre</Label>
-              <Input
-                id="name"
-                placeholder="Regla para principiantes - Home"
-                value={dialogState.form.name}
-                onChange={event => handleChange("name", event.target.value)}
-              />
-            </div>
+          <Tabs value={currentDialogTab} onValueChange={setCurrentDialogTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="general">📋 General</TabsTrigger>
+              <TabsTrigger value="condiciones">🎯 Condiciones</TabsTrigger>
+              <TabsTrigger value="planes">📦 Planes</TabsTrigger>
+            </TabsList>
 
-            <div className="grid gap-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                placeholder="Describe cuándo se aplica esta configuración..."
-                value={dialogState.form.description ?? ""}
-                onChange={event => handleChange("description", event.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="grid gap-2">
-                <Label htmlFor="priority">
-                  Nivel de Especificidad
-                  <span className="text-xs text-muted-foreground ml-2 block sm:inline">
-                    (Menor número = Más específica)
-                  </span>
-                </Label>
-                <Select
-                  value={String(dialogState.form.priority)}
-                  onValueChange={value => handleChange("priority", Number(value))}
-                >
-                  <SelectTrigger id="priority">
-                    <SelectValue placeholder="Selecciona nivel de especificidad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {priorityOptions.map(option => (
-                      <SelectItem key={option.value} value={String(option.value)}>
-                        <div className="flex flex-col">
-                          <span className="font-medium">{option.value} - {option.label}</span>
-                          <span className="text-xs text-muted-foreground">{option.description}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {/* TAB 1: General */}
+            <TabsContent value="general" className="space-y-4">
+              <div>
+                <Label className="font-semibold">Nombre *</Label>
+                <Input
+                  placeholder="Ej: Principiantes en Casa"
+                  value={dialogState.form.name}
+                  onChange={event => handleChange("name", event.target.value)}
+                  className="mt-2"
+                />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="is_active">Estado</Label>
-                <div className="flex items-center justify-between rounded-md border p-3">
+
+              <div>
+                <Label className="font-semibold">Descripción</Label>
+                <Textarea
+                  placeholder="Describe cuándo se aplica esta configuración..."
+                  value={dialogState.form.description ?? ""}
+                  onChange={event => handleChange("description", event.target.value)}
+                  rows={3}
+                  className="mt-2"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="font-semibold">Tipo de regla *</Label>
+                  <Select
+                    value={dialogState.rulePreset}
+                    onValueChange={value => {
+                      const preset = presetOptions.find(item => item.id === value as RulePreset)
+                      setDialogState(prev => ({
+                        ...prev,
+                        rulePreset: value as RulePreset,
+                        applicationOrder: preset ? preset.order : prev.applicationOrder,
+                      }))
+                    }}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue placeholder="Selecciona tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {presetOptions.map(option => (
+                        <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {presetOptions.find(option => option.id === dialogState.rulePreset)?.description}
+                  </p>
+                </div>
+
+                <div>
+                  <Label className="font-semibold">Orden de aplicación *</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={999}
+                    value={dialogState.applicationOrder}
+                    onChange={event => {
+                      const value = Number(event.target.value)
+                      setDialogState(prev => ({
+                        ...prev,
+                        applicationOrder: Number.isFinite(value) && value > 0 ? value : 1,
+                      }))
+                    }}
+                    className="mt-2"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">1 = se evalúa primero</p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="font-semibold">Estado</Label>
+                <div className="flex items-center justify-between rounded-md border p-3 mt-2">
                   <span className="text-sm">Configuración activa</span>
                   <Switch
-                    id="is_active"
                     checked={dialogState.form.is_active}
                     onCheckedChange={checked => handleChange("is_active", checked)}
                   />
                 </div>
               </div>
-            </div>
+            </TabsContent>
 
-            <Separator />
+            {/* TAB 2: Condiciones */}
+            <TabsContent value="condiciones" className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="font-semibold">Objetivo principal</Label>
+                  <SelectField
+                    label=""
+                    value={dialogState.form.main_goal}
+                    options={goalOptions}
+                    onChange={value => handleChange("main_goal", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Lugar de entrenamiento</Label>
+                  <SelectField
+                    label=""
+                    value={dialogState.form.training_location}
+                    options={locationOptions}
+                    onChange={value => handleChange("training_location", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Nivel de actividad</Label>
+                  <SelectField
+                    label=""
+                    value={dialogState.form.activity_level}
+                    options={activityOptions}
+                    onChange={value => handleChange("activity_level", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Género</Label>
+                  <SelectField
+                    label=""
+                    value={dialogState.form.gender}
+                    options={genderOptions}
+                    onChange={value => handleChange("gender", value)}
+                  />
+                </div>
+              </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <SelectField
-                label="Objetivo principal"
-                value={dialogState.form.main_goal}
-                options={goalOptions}
-                onChange={value => handleChange("main_goal", value)}
-              />
-              <SelectField
-                label="Lugar de entrenamiento"
-                value={dialogState.form.training_location}
-                options={locationOptions}
-                onChange={value => handleChange("training_location", value)}
-              />
-              <SelectField
-                label="Nivel de actividad"
-                value={dialogState.form.activity_level}
-                options={activityOptions}
-                onChange={value => handleChange("activity_level", value)}
-              />
-              <SelectField
-                label="Género"
-                value={dialogState.form.gender}
-                options={genderOptions}
-                onChange={value => handleChange("gender", value)}
-              />
-            </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="font-semibold">Días mínimos de entrenamiento</Label>
+                  <NumberField
+                    label=""
+                    value={dialogState.form.min_training_days_per_week}
+                    onChange={value => handleChange("min_training_days_per_week", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Días máximos de entrenamiento</Label>
+                  <NumberField
+                    label=""
+                    value={dialogState.form.max_training_days_per_week}
+                    onChange={value => handleChange("max_training_days_per_week", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Edad mínima</Label>
+                  <NumberField
+                    label=""
+                    value={dialogState.form.age_min}
+                    onChange={value => handleChange("age_min", value)}
+                  />
+                </div>
+                <div>
+                  <Label className="font-semibold">Edad máxima</Label>
+                  <NumberField
+                    label=""
+                    value={dialogState.form.age_max}
+                    onChange={value => handleChange("age_max", value)}
+                  />
+                </div>
+              </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <NumberField
-                label="Días mínimos de entrenamiento"
-                value={dialogState.form.min_training_days_per_week}
-                onChange={value => handleChange("min_training_days_per_week", value)}
-              />
-              <NumberField
-                label="Días máximos de entrenamiento"
-                value={dialogState.form.max_training_days_per_week}
-                onChange={value => handleChange("max_training_days_per_week", value)}
-              />
-              <NumberField
-                label="Edad mínima"
-                value={dialogState.form.age_min}
-                onChange={value => handleChange("age_min", value)}
-              />
-              <NumberField
-                label="Edad máxima"
-                value={dialogState.form.age_max}
-                onChange={value => handleChange("age_max", value)}
-              />
-            </div>
+              <div>
+                <Label className="font-semibold">Restricciones alimentarias</Label>
+                <Input
+                  placeholder="vegano, sin gluten (separadas por comas)"
+                  value={dialogState.dietaryInput}
+                  onChange={event => setDialogState(prev => ({ ...prev, dietaryInput: event.target.value }))}
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">💡 Separa cada restricción con una coma</p>
+              </div>
 
-            <SearchablePlanSelect
-              label="Plan de nutrición por defecto"
-              value={dialogState.form.default_nutrition_plan_id ?? null}
-              options={nutritionPlans}
-              onChange={(value) => handleChange("default_nutrition_plan_id", value)}
-              placeholder="Selecciona un plan de nutrición..."
-              emptyMessage="No se encontraron planes de nutrición."
-              loading={loadingNutritionPlans}
-            />
+              <div>
+                <Label className="font-semibold">Equipamiento requerido</Label>
+                <Input
+                  placeholder="mancuernas, bandas (separados por comas)"
+                  value={dialogState.equipmentInput}
+                  onChange={event => setDialogState(prev => ({ ...prev, equipmentInput: event.target.value }))}
+                  className="mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">💡 Separa cada equipo con una coma</p>
+              </div>
+            </TabsContent>
 
-            <SearchablePlanSelect
-              label="Programa de entrenamiento por defecto"
-              value={dialogState.form.default_workout_program_id ?? null}
-              options={workoutPrograms}
-              onChange={(value) => handleChange("default_workout_program_id", value)}
-              placeholder="Selecciona un programa de entrenamiento..."
-              emptyMessage="No se encontraron programas de entrenamiento."
-              loading={loadingWorkoutPrograms}
-            />
-
-            <div className="grid gap-2">
-              <Label htmlFor="dietary">Restricciones alimentarias (separadas por comas)</Label>
-              <Input
-                id="dietary"
-                placeholder="vegan, gluten-free"
-                value={dialogState.dietaryInput}
-                onChange={event => setDialogState(prev => ({ ...prev, dietaryInput: event.target.value }))}
+            {/* TAB 3: Planes */}
+            <TabsContent value="planes" className="space-y-4">
+              <SearchablePlanSelect
+                label="Plan de nutrición por defecto"
+                value={dialogState.form.default_nutrition_plan_id ?? null}
+                options={nutritionPlans}
+                onChange={(value) => handleChange("default_nutrition_plan_id", value)}
+                placeholder="Selecciona un plan de nutrición..."
+                emptyMessage="No se encontraron planes de nutrición."
+                loading={loadingNutritionPlans}
               />
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="equipment">Equipamiento (separado por comas)</Label>
-              <Input
-                id="equipment"
-                placeholder="mancuernas, bandas"
-                value={dialogState.equipmentInput}
-                onChange={event => setDialogState(prev => ({ ...prev, equipmentInput: event.target.value }))}
+              <SearchablePlanSelect
+                label="Programa de entrenamiento por defecto"
+                value={dialogState.form.default_workout_program_id ?? null}
+                options={workoutPrograms}
+                onChange={(value) => handleChange("default_workout_program_id", value)}
+                placeholder="Selecciona un programa de entrenamiento..."
+                emptyMessage="No se encontraron programas de entrenamiento."
+                loading={loadingWorkoutPrograms}
               />
-            </div>
-          </div>
+            </TabsContent>
+          </Tabs>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={handleCloseDialog} disabled={saving} className="w-full sm:w-auto">
+          <DialogFooter>
+            <Button variant="outline" onClick={handleCloseDialog} disabled={saving}>
               Cancelar
             </Button>
-            <Button onClick={handleSubmit} disabled={saving || !dialogState.form.name.trim()} className="w-full sm:w-auto">
-              {saving ? "Guardando..." : dialogState.mode === "create" ? "Crear configuración" : "Actualizar configuración"}
+            <Button
+              onClick={handleSubmit}
+              disabled={saving || !dialogState.form.name.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {saving ? "Guardando..." : dialogState.mode === "create" ? "Crear Configuración" : "Actualizar Configuración"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -720,6 +892,51 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Diálogo de importación */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Importar configuraciones</DialogTitle>
+            <DialogDescription>
+              Selecciona un archivo CSV o Excel. Las configuraciones existentes (por nombre) se actualizarán; las nuevas se crearán.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Archivo (CSV o Excel)</Label>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            {importFile && (
+              <p className="text-sm text-muted-foreground">Archivo seleccionado: {importFile.name}</p>
+            )}
+          </div>
+          <DialogFooter className="gap-2 flex-wrap">
+            <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>
+              Cancelar
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleImport('csv')}
+              disabled={importing || !importFile}
+            >
+              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Importar CSV
+            </Button>
+            <Button
+              onClick={() => handleImport('excel')}
+              disabled={importing || !importFile}
+            >
+              {importing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Importar Excel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -745,6 +962,7 @@ function ConfigurationCard({ configuration, onEdit, onDelete }: ConfigurationCar
   ].filter(Boolean).length
   
   const specificityLevel = criteriaCount >= 3 ? "Muy Específica" : criteriaCount >= 2 ? "Específica" : criteriaCount >= 1 ? "Moderada" : "General"
+  const applicationOrder = priorityToOrder(configuration.priority)
   
   return (
     <Card className="border-2 border-gray-200 hover:border-purple-300 hover:shadow-md transition-all">
@@ -758,11 +976,11 @@ function ConfigurationCard({ configuration, onEdit, onDelete }: ConfigurationCar
                     {configuration.name}
                   </div>
                   <Badge 
-                    variant={getPriorityVariant(configuration.priority)} 
+                    variant={getOrderVariant(applicationOrder)} 
                     className="text-xs flex-shrink-0"
                     title={`Nivel de especificidad: ${specificityLevel} (${criteriaCount} criterios)`}
                   >
-                    {getPriorityLabel(configuration.priority)}
+                    Orden {applicationOrder}
                   </Badge>
                 </div>
                 {configuration.description && (

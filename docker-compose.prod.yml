@@ -60,7 +60,9 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - internal
+      internal:
+        aliases:
+          - nexfit-pro-db
 
   # ============================================
   # REDIS (Cache y Colas) - PRODUCCIÓN
@@ -87,7 +89,9 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - internal
+      internal:
+        aliases:
+          - nexfit-pro-redis
 
   # ============================================
   # BACKEND (Django + Gunicorn) - PRODUCCIÓN
@@ -103,6 +107,9 @@ services:
     pids_limit: 300
     env_file:
       - ./docker/backend.env.production
+    environment:
+      DB_HOST: nexfit-pro-db
+      REDIS_URL: redis://nexfit-pro-redis:6379/0
     command: >
       sh -c "
         echo '🔄 Aplicando migraciones...' &&
@@ -188,7 +195,7 @@ services:
       - ./docker/backend.env.production
     environment:
       TZ: "Europe/Madrid"
-      POSTGRES_HOST: db
+      POSTGRES_HOST: nexfit-pro-db
       # Backup completo (sin limitar a schema=public)
       POSTGRES_EXTRA_OPTS: --encoding=UTF8
       PGCLIENTENCODING: UTF8
