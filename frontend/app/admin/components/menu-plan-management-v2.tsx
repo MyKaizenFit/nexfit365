@@ -149,9 +149,7 @@ export function MenuPlanManagementV2() {
   const [saving, setSaving] = useState(false)
   const [createStep, setCreateStep] = useState<"basic" | "week">("basic")
 
-  // Editor semanal (reutiliza NutritionTemplatePlanEditor)
-  const [showWeeklyEditor, setShowWeeklyEditor] = useState(false)
-  const [weeklyPlanId, setWeeklyPlanId] = useState<string | null>(null)
+  // Editor semanal embebido en el dialog de edición (no necesita estado propio)
   const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
 
   // Draft del constructor semanal (tipo planes de entrenamiento)
@@ -389,8 +387,8 @@ export function MenuPlanManagementV2() {
       setShowCreateDialog(false)
       await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
       if (configureWeekly && created?.id) {
-        setWeeklyPlanId(String(created.id))
-        setShowWeeklyEditor(true)
+        await openEdit(String(created.id))
+        setCreateStep("week")
       }
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo crear", variant: "destructive" })
@@ -400,8 +398,8 @@ export function MenuPlanManagementV2() {
   }
 
   const handleEditWeekly = async (planId: string) => {
-    setWeeklyPlanId(planId)
-    setShowWeeklyEditor(true)
+    await openEdit(planId)
+    setCreateStep("week")
   }
 
   const openDuplicateDialog = (planId: string) => {
@@ -451,8 +449,8 @@ export function MenuPlanManagementV2() {
       setShowDuplicateDialog(false)
       await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
       if (created?.id) {
-        setWeeklyPlanId(String(created.id))
-        setShowWeeklyEditor(true)
+        await openEdit(String(created.id))
+        setCreateStep("week")
       }
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo duplicar", variant: "destructive" })
@@ -527,6 +525,7 @@ export function MenuPlanManagementV2() {
   const openEdit = async (planId: string) => {
     try {
       setLoadingDetail(true)
+      setCreateStep("basic")
       setEditingPlanId(planId)
       const detail = await fetchPlanDetail(planId)
       if (!detail) throw new Error("No se pudo cargar el plan")
@@ -554,7 +553,7 @@ export function MenuPlanManagementV2() {
     }
   }
 
-  const handleSaveEdit = async (configureWeekly: boolean) => {
+  const handleSaveEdit = async () => {
     if (!editingPlanId) return
     try {
       setSaving(true)
@@ -568,10 +567,6 @@ export function MenuPlanManagementV2() {
       toast({ title: "✅ Plan actualizado" })
       setShowCreateDialog(false)
       await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
-      if (configureWeekly) {
-        setWeeklyPlanId(editingPlanId)
-        setShowWeeklyEditor(true)
-      }
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" })
     } finally {
@@ -1510,97 +1505,117 @@ export function MenuPlanManagementV2() {
               </TabsContent>
             </Tabs>
           ) : (
-            // Edición: mantenemos modal simple y el editor semanal separado
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">Nombre</label>
-                  <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-sm font-medium">Asignar a usuarios (opcional)</label>
-                  <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
-                    {users.length === 0 ? (
-                      <div className="text-xs text-muted-foreground">No hay usuarios cargados.</div>
-                    ) : (
-                      users.map((u) => {
-                        const checked = form.assigned_user_ids.includes(String(u.id))
-                        return (
-                          <label key={u.id} className="flex items-center gap-2 text-sm">
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={(v) => {
-                                const isChecked = Boolean(v)
-                                setForm((prev) => ({
-                                  ...prev,
-                                  assigned_user_ids: isChecked
-                                    ? Array.from(new Set([...prev.assigned_user_ids, String(u.id)]))
-                                    : prev.assigned_user_ids.filter((id) => id !== String(u.id)),
-                                }))
-                              }}
-                            />
-                            <span className="truncate">{u.email}</span>
-                          </label>
-                        )
-                      })
-                    )}
+            // Edición: tabs Datos / Comidas con editor semanal embebido
+            <Tabs value={createStep} onValueChange={(v) => setCreateStep(v as any)}>
+              <TabsList className="grid grid-cols-2">
+                <TabsTrigger value="basic">Datos</TabsTrigger>
+                <TabsTrigger value="week">Comidas</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="basic" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium">Nombre</label>
+                    <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ej: Plan Mediterráneo" />
                   </div>
-                  <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
-                </div>
-                <div className="md:col-span-2">
-                  <label className="text-sm font-medium">Descripción</label>
-                  <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
-                </div>
-                <div className="md:col-span-2">
-                  <div className="text-sm font-medium mb-2">Multiplicador de porciones</div>
-                  <div className="flex items-center gap-4">
-                    <Select 
-                      value={form.portion_multiplier.toString()} 
-                      onValueChange={(v) => setForm({ ...form, portion_multiplier: parseFloat(v) })}
-                    >
-                      <SelectTrigger className="w-[200px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0.75">0.75x (Déficit alto)</SelectItem>
-                        <SelectItem value="0.85">0.85x (Pérdida de peso)</SelectItem>
-                        <SelectItem value="1.0">1.0x (Mantenimiento)</SelectItem>
-                        <SelectItem value="1.1">1.1x (Ganancia leve)</SelectItem>
-                        <SelectItem value="1.15">1.15x (Ganancia muscular)</SelectItem>
-                        <SelectItem value="1.25">1.25x (Volumen)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <span className="text-sm text-muted-foreground">
-                      Ajusta las porciones de recetas según el objetivo
-                    </span>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Asignar a usuarios (opcional)</label>
+                    <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
+                      {users.length === 0 ? (
+                        <div className="text-xs text-muted-foreground">No hay usuarios cargados.</div>
+                      ) : (
+                        users.map((u) => {
+                          const checked = form.assigned_user_ids.includes(String(u.id))
+                          return (
+                            <label key={u.id} className="flex items-center gap-2 text-sm">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(v) => {
+                                  const isChecked = Boolean(v)
+                                  setForm((prev) => ({
+                                    ...prev,
+                                    assigned_user_ids: isChecked
+                                      ? Array.from(new Set([...prev.assigned_user_ids, String(u.id)]))
+                                      : prev.assigned_user_ids.filter((id) => id !== String(u.id)),
+                                  }))
+                                }}
+                              />
+                              <span className="truncate">{u.email}</span>
+                            </label>
+                          )
+                        })
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="text-sm font-medium">Descripción</label>
+                    <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Descripción..." rows={3} />
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-sm font-medium mb-2">Multiplicador de porciones</div>
+                    <div className="flex items-center gap-4">
+                      <Select
+                        value={form.portion_multiplier.toString()}
+                        onValueChange={(v) => setForm({ ...form, portion_multiplier: parseFloat(v) })}
+                      >
+                        <SelectTrigger className="w-[200px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="0.75">0.75x (Déficit alto)</SelectItem>
+                          <SelectItem value="0.85">0.85x (Pérdida de peso)</SelectItem>
+                          <SelectItem value="1.0">1.0x (Mantenimiento)</SelectItem>
+                          <SelectItem value="1.1">1.1x (Ganancia leve)</SelectItem>
+                          <SelectItem value="1.15">1.15x (Ganancia muscular)</SelectItem>
+                          <SelectItem value="1.25">1.25x (Volumen)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-muted-foreground">
+                        Ajusta las porciones de recetas según el objetivo
+                      </span>
+                    </div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <div className="text-sm font-medium mb-2">Resumen diario actual</div>
+                    <div className="text-xs text-muted-foreground">
+                      {editSummary ? (
+                        <div>
+                          {Math.round(editSummary.calories)} kcal · P {Math.round(editSummary.protein)}g · C {Math.round(editSummary.carbs)}g · G {Math.round(editSummary.fat)}g
+                        </div>
+                      ) : (
+                        <div>Sin datos de macros.</div>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="md:col-span-2">
-                  <div className="text-sm font-medium mb-2">Resumen diario actual</div>
-                  <div className="text-xs text-muted-foreground">
-                    {editSummary ? (
-                      <div>
-                        {Math.round(editSummary.calories)} kcal · P {Math.round(editSummary.protein)}g · C {Math.round(editSummary.carbs)}g · G {Math.round(editSummary.fat)}g
-                      </div>
-                    ) : (
-                      <div>Sin datos de macros.</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
+              </TabsContent>
+
+              <TabsContent value="week">
+                <NutritionTemplatePlanEditor
+                  planId={editingPlanId!}
+                  availableRecipes={availableRecipes}
+                  onSaved={async () => {
+                    await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+                  }}
+                  onClose={() => setShowCreateDialog(false)}
+                />
+              </TabsContent>
+            </Tabs>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={saving}>Cerrar</Button>
             {editingPlanId ? (
-              <>
-                <Button variant="outline" onClick={() => handleSaveEdit(true)} disabled={saving || !form.name.trim()}>
-                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : "Guardar y editar menú"}
-                </Button>
-                <Button onClick={() => handleSaveEdit(false)} disabled={saving || !form.name.trim()}>
-                  {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : "Guardar"}
-                </Button>
-              </>
+              createStep === "basic" ? (
+                <>
+                  <Button variant="outline" onClick={() => setCreateStep("week")} disabled={saving}>
+                    Editar comidas →
+                  </Button>
+                  <Button onClick={() => handleSaveEdit()} disabled={saving || !form.name.trim()}>
+                    {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Guardando...</> : "Guardar"}
+                  </Button>
+                </>
+              ) : null
             ) : (
               <>
                 <Button variant="outline" onClick={() => handleCreate(true)} disabled={saving || !form.name.trim()}>
@@ -1612,28 +1627,6 @@ export function MenuPlanManagementV2() {
               </>
             )}
           </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Editor semanal */}
-      <Dialog open={showWeeklyEditor} onOpenChange={setShowWeeklyEditor}>
-        <DialogContent className="max-w-[95vw] sm:max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Editar menú semanal</DialogTitle>
-            <DialogDescription>Configura días/comidas y añade opciones de recetas.</DialogDescription>
-          </DialogHeader>
-          {weeklyPlanId ? (
-            <NutritionTemplatePlanEditor
-              planId={weeklyPlanId}
-              availableRecipes={availableRecipes}
-              onSaved={async () => {
-                await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
-              }}
-              onClose={() => setShowWeeklyEditor(false)}
-            />
-          ) : (
-            <div className="text-sm text-muted-foreground">Selecciona un plan.</div>
-          )}
         </DialogContent>
       </Dialog>
 
