@@ -1876,12 +1876,18 @@ def list_recipes(request):
 def default_nutrition_plans(request):
     """
     Planes de nutrición predeterminados/plantillas.
-    Devuelve planes que pueden ser usados como plantillas.
+    Devuelve planes que pueden ser usados como plantillas o para asignación.
+    Los admins ven todos los planes activos; el resto solo ve templates.
     """
-    # Buscar planes que son plantillas (is_template=True) o del sistema (user=None)
-    plans = NutritionPlan.objects.filter(
-        models.Q(is_template=True) | models.Q(user__isnull=True)
-    ).distinct().prefetch_related('meals__suggested_recipes')
+    if request.user.is_staff or request.user.is_superuser:
+        # Admins pueden asignar cualquier plan activo
+        plans = NutritionPlan.objects.filter(is_active=True).distinct()
+    else:
+        # Usuarios normales solo ven plantillas/planes del sistema
+        plans = NutritionPlan.objects.filter(
+            models.Q(is_template=True) | models.Q(user__isnull=True)
+        ).distinct()
+    plans = plans.prefetch_related('meals__suggested_recipes')
     
     # Paginación
     page = int(request.query_params.get('page', 1))
