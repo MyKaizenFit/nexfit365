@@ -1039,16 +1039,29 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='export-csv')
     def export_csv(self, request):
-        """Exporta todos los planes de menus en CSV con sus comidas.
-        Formato denormalizado: filas tipo_fila='plan' para planes y tipo_fila='comida' para comidas.
-        Las comidas se enlazan al plan por el campo plan_nombre.
+        """Exporta planes en CSV con paridad de edición del panel admin.
+        Tipos de fila soportados:
+        - plan: datos del plan
+        - comida: datos de comidas por plan/día/orden
+        - opcion_receta: opciones de receta por comida (servings/custom macros/display_order)
+        - asignacion_usuario: asignaciones por email
         """
         import csv
         from django.http import HttpResponse
         plans = NutritionPlan.objects.prefetch_related(
             'meals__meal_recipes__recipe',
             'meals__suggested_recipes',
+            'assignments__user',
         ).order_by('name')
+        goal_labels = {value: label for value, label in NutritionPlan.GOAL_CHOICES}
+        diet_labels = {value: label for value, label in NutritionPlan.DIET_TYPE_CHOICES}
+        meal_type_labels = {value: label for value, label in PlanMeal.MEAL_TYPE_CHOICES}
+        meal_type_labels.update({
+            'morning_snack': 'Merienda',
+            'afternoon_snack': 'Merienda',
+            'pre_workout': 'Merienda',
+            'post_workout': 'Merienda',
+        })
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="planes_menu_exportacion.csv"'
         fieldnames = [
@@ -1059,15 +1072,23 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'comidas_por_dia', 'duracion_semanas', 'multiplicador_porcion',
             'es_plantilla', 'es_sistema', 'activo',
             # Campos exclusivos de comidas (vacíos en filas de plan)
-            'comida_nombre', 'tipo_comida', 'dia_semana', 'hora',
+            'comida_nombre', 'tipo_comida', 'dia_semana', 'orden_comida', 'hora',
             'calorias_comida', 'proteinas_comida', 'carbohidratos_comida', 'grasas_comida',
             'descripcion_comida', 'recetas_sugeridas',
+            # Campos exclusivos de opcion_receta
+            'receta_nombre', 'orden_visualizacion', 'porciones',
+            'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas',
+            # Campos exclusivos de asignacion_usuario
+            'usuario_email', 'asignacion_activa',
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
-        empty_meal = {k: '' for k in ['comida_nombre', 'tipo_comida', 'dia_semana', 'hora',
+        empty_meal = {k: '' for k in ['comida_nombre', 'tipo_comida', 'dia_semana', 'orden_comida', 'hora',
                                        'calorias_comida', 'proteinas_comida', 'carbohidratos_comida',
                                        'grasas_comida', 'descripcion_comida', 'recetas_sugeridas']}
+        empty_option = {k: '' for k in ['receta_nombre', 'orden_visualizacion', 'porciones',
+                        'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas']}
+        empty_assignment = {k: '' for k in ['usuario_email', 'asignacion_activa']}
         empty_plan = {k: '' for k in ['descripcion', 'objetivo', 'tipo_dieta',
                                        'calorias_diarias', 'proteinas_g', 'carbohidratos_g', 'grasas_g', 'fibra_g',
                                        'porcentaje_proteinas', 'porcentaje_carbohidratos', 'porcentaje_grasas',
@@ -1078,8 +1099,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 'tipo_fila': 'plan',
                 'plan_nombre': plan.name,
                 'descripcion': plan.description or '',
-                'objetivo': plan.goal or 'maintain',
-                'tipo_dieta': plan.diet_type or 'normal',
+                'objetivo': goal_labels.get(plan.goal, plan.goal or 'Mantener peso'),
+                'tipo_dieta': diet_labels.get(plan.diet_type, plan.diet_type or 'Normal'),
                 'calorias_diarias': plan.daily_calories or 0,
                 'proteinas_g': plan.protein_grams or 0,
                 'carbohidratos_g': plan.carbs_grams or 0,
@@ -1095,6 +1116,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 'es_sistema': 'Si' if plan.is_system else 'No',
                 'activo': 'Si' if plan.is_active else 'No',
                 **empty_meal,
+                **empty_option,
+                **empty_assignment,
             })
             for meal in plan.meals.order_by('day_of_week', 'order_index'):
                 recipe_names = set()
@@ -1108,8 +1131,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     'plan_nombre': plan.name,
                     **empty_plan,
                     'comida_nombre': meal.name,
-                    'tipo_comida': meal.meal_type,
+                    'tipo_comida': meal_type_labels.get(meal.meal_type, meal.meal_type),
                     'dia_semana': meal.day_of_week if meal.day_of_week is not None else '',
+                    'orden_comida': meal.order_index if meal.order_index is not None else '',
                     'hora': str(meal.time) if meal.time else '',
                     'calorias_comida': meal.calories or 0,
                     'proteinas_comida': float(meal.protein or 0),
@@ -1117,15 +1141,60 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     'grasas_comida': float(meal.fat or 0),
                     'descripcion_comida': meal.description or '',
                     'recetas_sugeridas': recetas_str,
+                    **empty_option,
+                    **empty_assignment,
+                })
+
+                for option in meal.meal_recipes.all().order_by('display_order', 'created_at'):
+                    writer.writerow({
+                        'tipo_fila': 'opcion_receta',
+                        'plan_nombre': plan.name,
+                        **empty_plan,
+                        'comida_nombre': meal.name,
+                        'tipo_comida': meal_type_labels.get(meal.meal_type, meal.meal_type),
+                        'dia_semana': meal.day_of_week if meal.day_of_week is not None else '',
+                        'orden_comida': meal.order_index if meal.order_index is not None else '',
+                        'hora': str(meal.time) if meal.time else '',
+                        'calorias_comida': meal.calories or 0,
+                        'proteinas_comida': float(meal.protein or 0),
+                        'carbohidratos_comida': float(meal.carbs or 0),
+                        'grasas_comida': float(meal.fat or 0),
+                        'descripcion_comida': meal.description or '',
+                        'recetas_sugeridas': recetas_str,
+                        'receta_nombre': option.recipe.name,
+                        'orden_visualizacion': option.display_order,
+                        'porciones': float(option.servings or 1),
+                        'calorias_personalizadas': option.custom_calories if option.custom_calories is not None else '',
+                        'proteinas_personalizadas': float(option.custom_protein) if option.custom_protein is not None else '',
+                        'carbohidratos_personalizados': float(option.custom_carbs) if option.custom_carbs is not None else '',
+                        'grasas_personalizadas': float(option.custom_fat) if option.custom_fat is not None else '',
+                        **empty_assignment,
+                    })
+
+            for assignment in plan.assignments.select_related('user').all().order_by('user__email'):
+                writer.writerow({
+                    'tipo_fila': 'asignacion_usuario',
+                    'plan_nombre': plan.name,
+                    **empty_plan,
+                    **empty_meal,
+                    **empty_option,
+                    'usuario_email': assignment.user.email,
+                    'asignacion_activa': 'Si' if assignment.is_active else 'No',
                 })
         return response
 
     @action(detail=False, methods=['get'], url_path='export-excel')
     def export_excel(self, request):
-        """Exporta planes de menus en Excel con tres hojas:
-        1. Planes: datos de cada plan (sin ID)
-        2. Comidas: comidas de cada plan referenciadas por nombre
-        3. Recetas_Disponibles: listado de recetas para consulta al importar
+        """Exporta planes de menú en Excel con paridad completa del panel admin.
+
+        Hojas:
+        1. Planes
+        2. Comidas
+        3. Opciones_Receta_Comida
+        4. Asignaciones_Usuarios
+        5. Recetas_Disponibles
+        6. Usuarios_Disponibles
+        7. Referencias
         """
         import io
         import xlsxwriter
@@ -1133,7 +1202,17 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         plans = list(NutritionPlan.objects.prefetch_related(
             'meals__meal_recipes__recipe',
             'meals__suggested_recipes',
+            'assignments__user',
         ).order_by('name'))
+        goal_labels = {value: label for value, label in NutritionPlan.GOAL_CHOICES}
+        diet_labels = {value: label for value, label in NutritionPlan.DIET_TYPE_CHOICES}
+        meal_type_labels = {value: label for value, label in PlanMeal.MEAL_TYPE_CHOICES}
+        meal_type_labels.update({
+            'morning_snack': 'Merienda',
+            'afternoon_snack': 'Merienda',
+            'pre_workout': 'Merienda',
+            'post_workout': 'Merienda',
+        })
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
@@ -1153,8 +1232,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         for row_idx, plan in enumerate(plans, start=1):
             ws_plans.write(row_idx, 0, plan.name)
             ws_plans.write(row_idx, 1, plan.description or '')
-            ws_plans.write(row_idx, 2, plan.goal or 'maintain')
-            ws_plans.write(row_idx, 3, plan.diet_type or 'normal')
+            ws_plans.write(row_idx, 2, goal_labels.get(plan.goal, plan.goal or 'Mantener peso'))
+            ws_plans.write(row_idx, 3, diet_labels.get(plan.diet_type, plan.diet_type or 'Normal'))
             ws_plans.write(row_idx, 4, plan.daily_calories or 0)
             ws_plans.write(row_idx, 5, plan.protein_grams or 0)
             ws_plans.write(row_idx, 6, plan.carbs_grams or 0)
@@ -1176,7 +1255,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         # ========== HOJA 2: COMIDAS ==========
         ws_meals = workbook.add_worksheet('Comidas')
         meal_headers = [
-            'plan_nombre', 'comida_nombre', 'tipo_comida', 'dia_semana', 'hora',
+            'plan_nombre', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida', 'hora',
             'calorias_comida', 'proteinas_comida', 'carbohidratos_comida', 'grasas_comida',
             'descripcion_comida', 'recetas_sugeridas',
         ]
@@ -1192,22 +1271,75 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     recipe_names.add(sr.name)
                 recetas_str = '; '.join(sorted(recipe_names))
                 ws_meals.write(meal_row, 0, plan.name)
-                ws_meals.write(meal_row, 1, meal.name)
-                ws_meals.write(meal_row, 2, meal.meal_type)
-                ws_meals.write(meal_row, 3, meal.day_of_week if meal.day_of_week is not None else '')
-                ws_meals.write(meal_row, 4, str(meal.time) if meal.time else '')
-                ws_meals.write(meal_row, 5, meal.calories or 0)
-                ws_meals.write(meal_row, 6, float(meal.protein or 0))
-                ws_meals.write(meal_row, 7, float(meal.carbs or 0))
-                ws_meals.write(meal_row, 8, float(meal.fat or 0))
-                ws_meals.write(meal_row, 9, meal.description or '')
-                ws_meals.write(meal_row, 10, recetas_str)
+                ws_meals.write(meal_row, 1, meal.day_of_week if meal.day_of_week is not None else '')
+                ws_meals.write(meal_row, 2, meal.order_index if meal.order_index is not None else '')
+                ws_meals.write(meal_row, 3, meal.name)
+                ws_meals.write(meal_row, 4, meal_type_labels.get(meal.meal_type, meal.meal_type))
+                ws_meals.write(meal_row, 5, str(meal.time) if meal.time else '')
+                ws_meals.write(meal_row, 6, meal.calories or 0)
+                ws_meals.write(meal_row, 7, float(meal.protein or 0))
+                ws_meals.write(meal_row, 8, float(meal.carbs or 0))
+                ws_meals.write(meal_row, 9, float(meal.fat or 0))
+                ws_meals.write(meal_row, 10, meal.description or '')
+                ws_meals.write(meal_row, 11, recetas_str)
                 meal_row += 1
         ws_meals.set_column('A:A', 30)
-        ws_meals.set_column('B:B', 28)
-        ws_meals.set_column('K:K', 50)
+        ws_meals.set_column('D:D', 28)
+        ws_meals.set_column('L:L', 50)
 
-        # ========== HOJA 3: RECETAS DISPONIBLES ==========
+        # ========== HOJA 3: OPCIONES RECETA COMIDA ==========
+        ws_options = workbook.add_worksheet('Opciones_Receta_Comida')
+        option_headers = [
+            'plan_nombre', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida',
+            'receta_nombre', 'orden_visualizacion', 'porciones',
+            'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas',
+            'categoria_receta', 'tipos_comida_receta',
+        ]
+        for col, h in enumerate(option_headers):
+            ws_options.write(0, col, h, header_format)
+        option_row = 1
+        for plan in plans:
+            for meal in plan.meals.order_by('day_of_week', 'order_index'):
+                for option in meal.meal_recipes.all().order_by('display_order', 'created_at'):
+                    ws_options.write(option_row, 0, plan.name)
+                    ws_options.write(option_row, 1, meal.day_of_week if meal.day_of_week is not None else '')
+                    ws_options.write(option_row, 2, meal.order_index if meal.order_index is not None else '')
+                    ws_options.write(option_row, 3, meal.name)
+                    ws_options.write(option_row, 4, meal_type_labels.get(meal.meal_type, meal.meal_type))
+                    ws_options.write(option_row, 5, option.recipe.name)
+                    ws_options.write(option_row, 6, option.display_order if option.display_order is not None else 0)
+                    ws_options.write(option_row, 7, float(option.servings or 1))
+                    ws_options.write(option_row, 8, option.custom_calories if option.custom_calories is not None else '')
+                    ws_options.write(option_row, 9, float(option.custom_protein) if option.custom_protein is not None else '')
+                    ws_options.write(option_row, 10, float(option.custom_carbs) if option.custom_carbs is not None else '')
+                    ws_options.write(option_row, 11, float(option.custom_fat) if option.custom_fat is not None else '')
+                    ws_options.write(option_row, 12, option.recipe.category or '')
+                    meal_types_readable = []
+                    for mt in (option.recipe.meal_types or []):
+                        meal_types_readable.append(meal_type_labels.get(mt, mt))
+                    ws_options.write(option_row, 13, ','.join(meal_types_readable))
+                    option_row += 1
+        ws_options.set_column('A:A', 30)
+        ws_options.set_column('D:D', 28)
+        ws_options.set_column('F:F', 34)
+        ws_options.set_column('M:N', 22)
+
+        # ========== HOJA 4: ASIGNACIONES USUARIOS ==========
+        ws_assign = workbook.add_worksheet('Asignaciones_Usuarios')
+        assign_headers = ['plan_nombre', 'usuario_email', 'asignacion_activa']
+        for col, h in enumerate(assign_headers):
+            ws_assign.write(0, col, h, header_format)
+        assign_row = 1
+        for plan in plans:
+            for assignment in plan.assignments.select_related('user').all().order_by('user__email'):
+                ws_assign.write(assign_row, 0, plan.name)
+                ws_assign.write(assign_row, 1, assignment.user.email)
+                ws_assign.write(assign_row, 2, 'Si' if assignment.is_active else 'No')
+                assign_row += 1
+        ws_assign.set_column('A:A', 30)
+        ws_assign.set_column('B:B', 36)
+
+        # ========== HOJA 5: RECETAS DISPONIBLES ==========
         from .models import Recipe
         ws_ref = workbook.add_worksheet('Recetas_Disponibles')
         ref_headers = ['nombre_receta', 'categoria', 'dificultad', 'calorias', 'proteinas', 'carbohidratos', 'grasas']
@@ -1225,6 +1357,42 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         ws_ref.set_column('A:A', 30)
         ws_ref.set_column('B:B', 20)
 
+        # ========== HOJA 6: USUARIOS DISPONIBLES ==========
+        ws_users = workbook.add_worksheet('Usuarios_Disponibles')
+        user_headers = ['usuario_email', 'usuario_id', 'is_active', 'is_staff']
+        for col, h in enumerate(user_headers):
+            ws_users.write(0, col, h, ref_format)
+        users = User.objects.order_by('email').values_list('email', 'id', 'is_active', 'is_staff')
+        for u_idx, (email, uid, is_active, is_staff) in enumerate(users, start=1):
+            ws_users.write(u_idx, 0, email or '')
+            ws_users.write(u_idx, 1, str(uid))
+            ws_users.write(u_idx, 2, 'Si' if is_active else 'No')
+            ws_users.write(u_idx, 3, 'Si' if is_staff else 'No')
+        ws_users.set_column('A:A', 36)
+
+        # ========== HOJA 7: REFERENCIAS ==========
+        ws_refs = workbook.add_worksheet('Referencias')
+        refs_headers = ['tipo', 'valor', 'descripcion']
+        for col, h in enumerate(refs_headers):
+            ws_refs.write(0, col, h, ref_format)
+        ref_rows = []
+        ref_rows.extend([('objetivo', l, f'Objetivo nutricional: {l}') for _, l in NutritionPlan.GOAL_CHOICES])
+        ref_rows.extend([('tipo_dieta', l, f'Tipo de dieta: {l}') for _, l in NutritionPlan.DIET_TYPE_CHOICES])
+        ref_rows.extend([('tipo_comida', l, f'Tipo de comida: {l}') for _, l in PlanMeal.MEAL_TYPE_CHOICES])
+        ref_rows.extend([
+            ('booleano', 'Si/No', 'También acepta true/false, 1/0, yes/no'),
+            ('dia_semana', '1..7', '1=Lunes .. 7=Domingo'),
+            ('hora', 'HH:MM', 'Ejemplo: 08:30'),
+            ('opciones_receta', 'porciones>0', 'campos personalizados opcionales (vacío = usar receta base)')
+        ])
+        for idx, (rtype, value, desc) in enumerate(ref_rows, start=1):
+            ws_refs.write(idx, 0, rtype)
+            ws_refs.write(idx, 1, value)
+            ws_refs.write(idx, 2, desc)
+        ws_refs.set_column('A:A', 20)
+        ws_refs.set_column('B:B', 30)
+        ws_refs.set_column('C:C', 60)
+
         workbook.close()
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -1234,16 +1402,78 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='import-csv',
             parser_classes=[MultiPartParser, FormParser])
     def import_csv(self, request):
-        """Importa planes de menus desde CSV. Upsert por nombre; nunca elimina planes existentes.
-        Soporta formato nuevo (tipo_fila=plan/comida) y antiguo (compatibilidad hacia atrás).
-        Las comidas del CSV se upsert por (plan_nombre, comida_nombre, dia_semana).
+        """Importa planes de menú desde CSV con validación estricta por fila.
+
+        Regla estricta: si una fila tiene un valor inválido, no se aplica ningún
+        cambio de esa fila (ni create ni update).
         """
         import csv
+        import unicodedata
+        from decimal import Decimal
+        from datetime import time
         from django.core.files.uploadedfile import UploadedFile
 
-        plan_aliases = {
+        goal_values = {v for v, _ in NutritionPlan.GOAL_CHOICES}
+        diet_values = {v for v, _ in NutritionPlan.DIET_TYPE_CHOICES}
+        meal_type_values = {v for v, _ in PlanMeal.MEAL_TYPE_CHOICES}
+
+        def normalize_text(value):
+            text = str(value or '').strip().lower()
+            text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+            return text.replace('-', '_').replace(' ', '_')
+
+        goal_input_map = {
+            'lose_weight': 'lose_weight',
+            'perder_peso': 'lose_weight',
+            'gain_muscle': 'gain_muscle',
+            'ganar_musculo': 'gain_muscle',
+            'maintain': 'maintain',
+            'mantener_peso': 'maintain',
+            'body_recomposition': 'body_recomposition',
+            'recomposicion_corporal': 'body_recomposition',
+            'performance': 'performance',
+            'rendimiento_deportivo': 'performance',
+        }
+
+        diet_input_map = {
+            'normal': 'normal',
+            'vegetarian': 'vegetarian',
+            'vegetariano': 'vegetarian',
+            'vegan': 'vegan',
+            'vegano': 'vegan',
+            'keto': 'keto',
+            'paleo': 'paleo',
+            'mediterranean': 'mediterranean',
+            'mediterranea': 'mediterranean',
+            'low_carb': 'low_carb',
+            'bajo_en_carbohidratos': 'low_carb',
+            'high_protein': 'high_protein',
+            'alto_en_proteinas': 'high_protein',
+        }
+
+        meal_type_input_map = {
+            'breakfast': 'breakfast',
+            'desayuno': 'breakfast',
+            'lunch': 'lunch',
+            'comida': 'lunch',
+            'almuerzo': 'lunch',
+            'snack': 'snack',
+            'merienda': 'snack',
+            'morning_snack': 'snack',
+            'afternoon_snack': 'snack',
+            'pre_workout': 'snack',
+            'post_workout': 'snack',
+            'snack_manana': 'snack',
+            'snack_tarde': 'snack',
+            'media_manana': 'snack',
+            'media_tarde': 'snack',
+            'dinner': 'dinner',
+            'cena': 'dinner',
+        }
+
+        field_aliases = {
             'nombre': 'name', 'name': 'name',
-            'plan_nombre': 'name',  # alias for new format
+            'plan_nombre': 'name',
             'descripcion': 'description', 'description': 'description',
             'objetivo': 'goal', 'goal': 'goal',
             'tipo_dieta': 'diet_type', 'diet_type': 'diet_type',
@@ -1266,49 +1496,282 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         def gv(row, canonical, default=''):
             if canonical in row:
                 return row[canonical]
-            for k, v in plan_aliases.items():
+            for k, v in field_aliases.items():
                 if v == canonical and k in row:
                     return row[k]
             return default
 
-        def to_bool(val):
-            return str(val).lower() in ('true', 'si', 's', '1', 'yes')
+        def parse_bool(val):
+            raw = str(val).strip().lower()
+            if raw in ('true', 'si', 'sí', 's', '1', 'yes', 'y'):
+                return True, None
+            if raw in ('false', 'no', 'n', '0'):
+                return False, None
+            return None, f"Valor booleano inválido: {val}"
 
-        def to_int_or_none(val):
+        def parse_int(val, field_name, minimum=None, maximum=None, allow_blank=False):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                if allow_blank:
+                    return None, None
+                return None, f"{field_name} es obligatorio"
             try:
-                v = int(float(str(val)))
-                return v if 0 <= v <= 100 else None
-            except (ValueError, TypeError):
-                return None
+                parsed = int(float(raw))
+            except (TypeError, ValueError):
+                return None, f"{field_name} inválido: {val}"
+            if minimum is not None and parsed < minimum:
+                return None, f"{field_name} debe ser >= {minimum}"
+            if maximum is not None and parsed > maximum:
+                return None, f"{field_name} debe ser <= {maximum}"
+            return parsed, None
+
+        def parse_float(val, field_name, minimum=None, allow_blank=False):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                if allow_blank:
+                    return None, None
+                return None, f"{field_name} es obligatorio"
+            try:
+                parsed = float(raw)
+            except (TypeError, ValueError):
+                return None, f"{field_name} inválido: {val}"
+            if minimum is not None and parsed < minimum:
+                return None, f"{field_name} debe ser >= {minimum}"
+            return parsed, None
+
+        def parse_time_hhmm(val):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                return None, None
+            try:
+                parts = raw.split(':')
+                if len(parts) < 2:
+                    raise ValueError()
+                return time(int(parts[0]), int(parts[1])), None
+            except (TypeError, ValueError):
+                return None, f"Hora inválida: {val} (formato esperado HH:MM)"
+
+        def parse_percent(val, field_name):
+            if val is None or str(val).strip() == '':
+                return None, None
+            return parse_int(val, field_name, minimum=0, maximum=100)
+
+        def parse_decimal_or_none(val, field_name):
+            if val is None or str(val).strip() == '':
+                return None, None
+            parsed, err = parse_float(val, field_name, minimum=0)
+            if err:
+                return None, err
+            return Decimal(str(parsed)), None
+
+        def parse_plan_fields(row):
+            errors = []
+            raw_goal = str(gv(row, 'goal', 'maintain') or 'maintain').strip()
+            goal = goal_input_map.get(normalize_text(raw_goal), raw_goal)
+            if goal not in goal_values:
+                errors.append(f"objetivo inválido: {raw_goal}")
+
+            raw_diet_type = str(gv(row, 'diet_type', 'normal') or 'normal').strip()
+            diet_type = diet_input_map.get(normalize_text(raw_diet_type), raw_diet_type)
+            if diet_type not in diet_values:
+                errors.append(f"tipo_dieta inválido: {raw_diet_type}")
+
+            daily_calories, err = parse_int(gv(row, 'daily_calories', 2000), 'calorias_diarias', minimum=0)
+            if err:
+                errors.append(err)
+            protein_grams, err = parse_int(gv(row, 'protein_grams', 150), 'proteinas_g', minimum=0)
+            if err:
+                errors.append(err)
+            carbs_grams, err = parse_int(gv(row, 'carbs_grams', 200), 'carbohidratos_g', minimum=0)
+            if err:
+                errors.append(err)
+            fat_grams, err = parse_int(gv(row, 'fat_grams', 65), 'grasas_g', minimum=0)
+            if err:
+                errors.append(err)
+            fiber_grams, err = parse_int(gv(row, 'fiber_grams', 25), 'fibra_g', minimum=0)
+            if err:
+                errors.append(err)
+
+            protein_pct, err = parse_percent(gv(row, 'protein_percentage', ''), 'porcentaje_proteinas')
+            if err:
+                errors.append(err)
+            carbs_pct, err = parse_percent(gv(row, 'carbs_percentage', ''), 'porcentaje_carbohidratos')
+            if err:
+                errors.append(err)
+            fat_pct, err = parse_percent(gv(row, 'fat_percentage', ''), 'porcentaje_grasas')
+            if err:
+                errors.append(err)
+
+            meals_per_day, err = parse_int(gv(row, 'meals_per_day', 5), 'comidas_por_dia', minimum=1, maximum=8)
+            if err:
+                errors.append(err)
+            duration_weeks, err = parse_int(gv(row, 'duration_weeks', 4), 'duracion_semanas', minimum=1)
+            if err:
+                errors.append(err)
+            portion_multiplier, err = parse_float(gv(row, 'portion_multiplier', 1.0), 'multiplicador_porcion', minimum=0.1)
+            if err:
+                errors.append(err)
+
+            is_template, err = parse_bool(gv(row, 'is_template', 'false'))
+            if err:
+                errors.append(f"es_plantilla: {err}")
+            is_system, err = parse_bool(gv(row, 'is_system', 'false'))
+            if err:
+                errors.append(f"es_sistema: {err}")
+            is_active, err = parse_bool(gv(row, 'is_active', 'true'))
+            if err:
+                errors.append(f"activo: {err}")
+
+            if errors:
+                return None, errors
+
+            return {
+                'description': str(gv(row, 'description', '') or ''),
+                'goal': goal,
+                'diet_type': diet_type,
+                'daily_calories': daily_calories,
+                'protein_grams': protein_grams,
+                'carbs_grams': carbs_grams,
+                'fat_grams': fat_grams,
+                'fiber_grams': fiber_grams,
+                'protein_percentage': protein_pct,
+                'carbs_percentage': carbs_pct,
+                'fat_percentage': fat_pct,
+                'meals_per_day': meals_per_day,
+                'duration_weeks': duration_weeks,
+                'portion_multiplier': portion_multiplier,
+                'is_template': is_template,
+                'is_system': is_system,
+                'is_active': is_active,
+            }, None
+
+        def parse_meal_fields(row):
+            errors = []
+            raw_meal_type = str(row.get('tipo_comida', '') or 'lunch').strip() or 'lunch'
+            meal_type = meal_type_input_map.get(normalize_text(raw_meal_type), raw_meal_type)
+            if meal_type not in meal_type_values:
+                errors.append(f"tipo_comida inválido: {raw_meal_type}")
+
+            day_of_week, err = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+            if err:
+                errors.append(err)
+            order_index, err = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1, allow_blank=True)
+            if err:
+                errors.append(err)
+            if order_index is None:
+                errors.append('orden_comida es obligatorio')
+
+            meal_time, err = parse_time_hhmm(row.get('hora', ''))
+            if err:
+                errors.append(err)
+            calories, err = parse_int(row.get('calorias_comida', 0), 'calorias_comida', minimum=0)
+            if err:
+                errors.append(err)
+            protein, err = parse_float(row.get('proteinas_comida', 0), 'proteinas_comida', minimum=0)
+            if err:
+                errors.append(err)
+            carbs, err = parse_float(row.get('carbohidratos_comida', 0), 'carbohidratos_comida', minimum=0)
+            if err:
+                errors.append(err)
+            fat, err = parse_float(row.get('grasas_comida', 0), 'grasas_comida', minimum=0)
+            if err:
+                errors.append(err)
+
+            if errors:
+                return None, errors
+
+            return {
+                'meal_type': meal_type,
+                'day_of_week': day_of_week,
+                'order_index': order_index,
+                'time': meal_time,
+                'calories': calories,
+                'protein': Decimal(str(protein)),
+                'carbs': Decimal(str(carbs)),
+                'fat': Decimal(str(fat)),
+                'name': str(row.get('comida_nombre', '') or '').strip() or f'Comida {order_index}',
+                'description': str(row.get('descripcion_comida', '') or ''),
+                'recetas_sugeridas': str(row.get('recetas_sugeridas', '') or '').strip(),
+            }, None
+
+        def parse_option_fields(row):
+            def optv(data, *keys, default=''):
+                for key in keys:
+                    if key in data and data.get(key) not in (None, ''):
+                        return data.get(key)
+                return default
+
+            errors = []
+            display_order, err = parse_int(optv(row, 'orden_visualizacion', 'display_order', default=0), 'orden_visualizacion', minimum=0)
+            if err:
+                errors.append(err)
+            servings, err = parse_float(optv(row, 'porciones', 'servings', default=1), 'porciones', minimum=0.01)
+            if err:
+                errors.append(err)
+            custom_calories, err = parse_int(
+                optv(row, 'calorias_personalizadas', 'custom_calories', default=''),
+                'calorias_personalizadas',
+                minimum=0,
+                allow_blank=True,
+            )
+            if err:
+                errors.append(err)
+            custom_protein, err = parse_decimal_or_none(
+                optv(row, 'proteinas_personalizadas', 'custom_protein', default=''),
+                'proteinas_personalizadas',
+            )
+            if err:
+                errors.append(err)
+            custom_carbs, err = parse_decimal_or_none(
+                optv(row, 'carbohidratos_personalizados', 'custom_carbs', default=''),
+                'carbohidratos_personalizados',
+            )
+            if err:
+                errors.append(err)
+            custom_fat, err = parse_decimal_or_none(
+                optv(row, 'grasas_personalizadas', 'custom_fat', default=''),
+                'grasas_personalizadas',
+            )
+            if err:
+                errors.append(err)
+
+            if errors:
+                return None, errors
+            return {
+                'display_order': display_order,
+                'servings': Decimal(str(servings)),
+                'custom_calories': custom_calories,
+                'custom_protein': custom_protein,
+                'custom_carbs': custom_carbs,
+                'custom_fat': custom_fat,
+            }, None
 
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
             return Response({'error': 'Archivo CSV no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
         decoded = file.read().decode('utf-8')
         rows = list(csv.DictReader(decoded.splitlines()))
-        updated, created, skipped = 0, 0, 0
-        meals_created, meals_updated, meals_skipped = 0, 0, 0
+        updated, created, skipped, rejected = 0, 0, 0, 0
+        meals_created, meals_updated, meals_skipped, meals_rejected = 0, 0, 0, 0
+        options_created, options_updated, options_skipped, options_rejected = 0, 0, 0, 0
+        assignments_created, assignments_updated, assignments_skipped, assignments_rejected = 0, 0, 0, 0
+        errors = []
 
-        def _parse_plan_row(row):
-            return {
-                'description': gv(row, 'description', ''),
-                'goal': gv(row, 'goal', 'maintain') or 'maintain',
-                'diet_type': gv(row, 'diet_type', 'normal') or 'normal',
-                'daily_calories': int(float(gv(row, 'daily_calories', 2000) or 2000)),
-                'protein_grams': int(float(gv(row, 'protein_grams', 150) or 150)),
-                'carbs_grams': int(float(gv(row, 'carbs_grams', 200) or 200)),
-                'fat_grams': int(float(gv(row, 'fat_grams', 65) or 65)),
-                'fiber_grams': int(float(gv(row, 'fiber_grams', 25) or 25)),
-                'protein_percentage': to_int_or_none(gv(row, 'protein_percentage', '')),
-                'carbs_percentage': to_int_or_none(gv(row, 'carbs_percentage', '')),
-                'fat_percentage': to_int_or_none(gv(row, 'fat_percentage', '')),
-                'meals_per_day': int(float(gv(row, 'meals_per_day', 5) or 5)),
-                'duration_weeks': int(float(gv(row, 'duration_weeks', 4) or 4)),
-                'portion_multiplier': float(gv(row, 'portion_multiplier', 1.0) or 1.0),
-                'is_template': to_bool(gv(row, 'is_template', 'false')),
-                'is_system': to_bool(gv(row, 'is_system', 'false')),
-                'is_active': to_bool(gv(row, 'is_active', 'true')),
-            }
+        # Pass 1: plan rows (or legacy rows without tipo_fila)
+        for idx, row in enumerate(rows, start=2):
+            tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
+            if tipo_fila not in ('', 'plan'):
+                continue
+            name = str(gv(row, 'name', '') or '').strip()
+            if not name:
+                skipped += 1
+                continue
+            fields, row_errors = parse_plan_fields(row)
+            if row_errors:
+                rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'plan', 'errors': row_errors})
+                continue
+            plan = NutritionPlan.objects.filter(name=name).first()
             if plan:
                 for k, v in fields.items():
                     setattr(plan, k, v)
@@ -1318,47 +1781,40 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 NutritionPlan.objects.create(name=name, **fields)
                 created += 1
 
-        # --- Second pass: meal rows ---
-        for row in rows:
+        # Pass 2: meal rows
+        for idx, row in enumerate(rows, start=2):
             tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
             if tipo_fila != 'comida':
                 continue
             plan_name = str(row.get('plan_nombre', '') or '').strip()
-            meal_name = str(row.get('comida_nombre', '') or '').strip()
-            if not plan_name or not meal_name:
+            if not plan_name:
                 meals_skipped += 1
                 continue
             plan = NutritionPlan.objects.filter(name=plan_name).first()
             if not plan:
-                meals_skipped += 1
+                meals_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'comida', 'errors': [f"Plan no existe: {plan_name}"]})
                 continue
-            raw_day = row.get('dia_semana', '')
-            day_of_week = None
-            try:
-                d = int(float(str(raw_day))) if raw_day not in ('', None) else None
-                if d is not None and 1 <= d <= 7:
-                    day_of_week = d
-            except (ValueError, TypeError):
-                pass
-            meal = PlanMeal.objects.filter(plan=plan, name=meal_name, day_of_week=day_of_week).first()
-            meal_type = str(row.get('tipo_comida', '') or 'lunch').strip() or 'lunch'
-            hora_str = str(row.get('hora', '') or '').strip()
-            import datetime
-            meal_time = None
-            if hora_str:
-                try:
-                    parts = hora_str.split(':')
-                    meal_time = datetime.time(int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
-                except (ValueError, IndexError):
-                    pass
+            parsed, row_errors = parse_meal_fields(row)
+            if row_errors:
+                meals_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'comida', 'errors': row_errors})
+                continue
+
+            meal = PlanMeal.objects.filter(
+                plan=plan,
+                day_of_week=parsed['day_of_week'],
+                order_index=parsed['order_index'],
+            ).first()
             meal_fields = {
-                'meal_type': meal_type,
-                'time': meal_time,
-                'calories': int(float(row.get('calorias_comida', 0) or 0)),
-                'protein': float(row.get('proteinas_comida', 0) or 0),
-                'carbs': float(row.get('carbohidratos_comida', 0) or 0),
-                'fat': float(row.get('grasas_comida', 0) or 0),
-                'description': str(row.get('descripcion_comida', '') or ''),
+                'name': parsed['name'],
+                'meal_type': parsed['meal_type'],
+                'time': parsed['time'],
+                'calories': parsed['calories'],
+                'protein': parsed['protein'],
+                'carbs': parsed['carbs'],
+                'fat': parsed['fat'],
+                'description': parsed['description'],
             }
             if meal:
                 for k, v in meal_fields.items():
@@ -1366,38 +1822,250 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 meal.save()
                 meals_updated += 1
             else:
-                meal = PlanMeal.objects.create(plan=plan, name=meal_name, day_of_week=day_of_week, **meal_fields)
+                PlanMeal.objects.create(
+                    plan=plan,
+                    day_of_week=parsed['day_of_week'],
+                    order_index=parsed['order_index'],
+                    **meal_fields,
+                )
                 meals_created += 1
-            # Link suggested recipes by name
-            recetas_str = str(row.get('recetas_sugeridas', '') or '').strip()
-            if recetas_str:
-                from .models import Recipe as RecipeModel
-                recipe_names = [r.strip() for r in recetas_str.split(';') if r.strip()]
-                recipes_qs = RecipeModel.objects.filter(name__in=recipe_names)
-                meal.suggested_recipes.set(recipes_qs)
+
+        # Pass 3: recipe-option rows
+        option_recipes_by_meal = {}
+        for idx, row in enumerate(rows, start=2):
+            tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
+            if tipo_fila != 'opcion_receta':
+                continue
+            plan_name = str(row.get('plan_nombre', '') or '').strip()
+            recipe_name = str(row.get('receta_nombre', '') or '').strip()
+            if not plan_name or not recipe_name:
+                options_skipped += 1
+                continue
+            plan = NutritionPlan.objects.filter(name=plan_name).first()
+            if not plan:
+                options_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'opcion_receta', 'errors': [f"Plan no existe: {plan_name}"]})
+                continue
+
+            day_of_week, err = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+            order_index, err2 = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1)
+            local_errors = []
+            if err:
+                local_errors.append(err)
+            if err2:
+                local_errors.append(err2)
+            parsed_option, option_errors = parse_option_fields(row)
+            if option_errors:
+                local_errors.extend(option_errors)
+            meal = None
+            if not local_errors:
+                meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                if not meal:
+                    local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
+            recipe = None
+            if not local_errors:
+                recipe = Recipe.objects.filter(name=recipe_name).first()
+                if not recipe:
+                    local_errors.append(f"Receta no existe: {recipe_name}")
+
+            if local_errors:
+                options_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'opcion_receta', 'errors': local_errors})
+                continue
+
+            option = PlanMealRecipe.objects.filter(meal=meal, recipe=recipe).first()
+            if option:
+                for k, v in parsed_option.items():
+                    setattr(option, k, v)
+                option.save()
+                options_updated += 1
+            else:
+                PlanMealRecipe.objects.create(meal=meal, recipe=recipe, **parsed_option)
+                options_created += 1
+
+            option_recipes_by_meal.setdefault(meal.id, set()).add(recipe.id)
+
+        # Sync suggested recipes with option rows to keep panel parity
+        if option_recipes_by_meal:
+            for meal_id, recipe_ids in option_recipes_by_meal.items():
+                meal = PlanMeal.objects.filter(id=meal_id).first()
+                if meal:
+                    meal.suggested_recipes.set(Recipe.objects.filter(id__in=recipe_ids))
+
+        # Pass 4: assignment rows
+        for idx, row in enumerate(rows, start=2):
+            tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
+            if tipo_fila != 'asignacion_usuario':
+                continue
+            plan_name = str(row.get('plan_nombre', '') or '').strip()
+            email = str(row.get('usuario_email', '') or '').strip().lower()
+            if not plan_name or not email:
+                assignments_skipped += 1
+                continue
+            plan = NutritionPlan.objects.filter(name=plan_name).first()
+            if not plan:
+                assignments_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'asignacion_usuario', 'errors': [f"Plan no existe: {plan_name}"]})
+                continue
+            user = User.objects.filter(email__iexact=email).first()
+            if not user:
+                assignments_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'asignacion_usuario', 'errors': [f"Usuario no existe: {email}"]})
+                continue
+            is_active, err = parse_bool(row.get('asignacion_activa', 'true'))
+            if err:
+                assignments_rejected += 1
+                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'asignacion_usuario', 'errors': [err]})
+                continue
+            assignment = NutritionPlanAssignment.objects.filter(plan=plan, user=user).first()
+            if assignment:
+                assignment.is_active = is_active
+                assignment.save(update_fields=['is_active'])
+                assignments_updated += 1
+            else:
+                NutritionPlanAssignment.objects.create(plan=plan, user=user, is_active=is_active)
+                assignments_created += 1
+
+        # Backward compatibility: if there are no option rows, build defaults from recetas_sugeridas in meal rows
+        has_option_rows = any(str((r.get('tipo_fila') or '')).strip().lower() == 'opcion_receta' for r in rows)
+        if not has_option_rows:
+            for row in rows:
+                tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
+                if tipo_fila != 'comida':
+                    continue
+                plan_name = str(row.get('plan_nombre', '') or '').strip()
+                if not plan_name:
+                    continue
+                day_of_week, _ = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+                order_index, err = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1)
+                if err:
+                    continue
+                plan = NutritionPlan.objects.filter(name=plan_name).first()
+                if not plan:
+                    continue
+                meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                if not meal:
+                    continue
+                recetas_str = str(row.get('recetas_sugeridas', '') or '').strip()
+                if not recetas_str:
+                    continue
+                recipe_names = [name.strip() for name in recetas_str.split(';') if name.strip()]
+                display = 0
+                linked = []
+                for recipe_name in recipe_names:
+                    recipe = Recipe.objects.filter(name=recipe_name).first()
+                    if not recipe:
+                        continue
+                    PlanMealRecipe.objects.get_or_create(
+                        meal=meal,
+                        recipe=recipe,
+                        defaults={'servings': Decimal('1.0'), 'display_order': display}
+                    )
+                    linked.append(recipe.id)
+                    display += 1
+                if linked:
+                    meal.suggested_recipes.set(Recipe.objects.filter(id__in=linked))
 
         return Response({
             'created': created,
             'updated': updated,
             'skipped': skipped,
+            'rejected': rejected,
             'meals_created': meals_created,
             'meals_updated': meals_updated,
             'meals_skipped': meals_skipped,
+            'meals_rejected': meals_rejected,
+            'options_created': options_created,
+            'options_updated': options_updated,
+            'options_skipped': options_skipped,
+            'options_rejected': options_rejected,
+            'assignments_created': assignments_created,
+            'assignments_updated': assignments_updated,
+            'assignments_skipped': assignments_skipped,
+            'assignments_rejected': assignments_rejected,
+            'errors': errors,
             'message': (
-                f"Importacion completada: {created} planes creados, {updated} actualizados, {skipped} omitidos. "
-                f"Comidas: {meals_created} creadas, {meals_updated} actualizadas, {meals_skipped} omitidas."
+                f"Importación CSV completada. Planes: {created} creados, {updated} actualizados, {skipped} omitidos, {rejected} rechazados. "
+                f"Comidas: {meals_created} creadas, {meals_updated} actualizadas, {meals_skipped} omitidas, {meals_rejected} rechazadas. "
+                f"Opciones: {options_created} creadas, {options_updated} actualizadas, {options_skipped} omitidas, {options_rejected} rechazadas. "
+                f"Asignaciones: {assignments_created} creadas, {assignments_updated} actualizadas, {assignments_skipped} omitidas, {assignments_rejected} rechazadas."
             ),
         }, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['post'], url_path='import-excel',
             parser_classes=[MultiPartParser, FormParser])
     def import_excel(self, request):
-        """Importa planes de menus desde Excel (XLSX). Upsert por nombre; nunca elimina planes existentes."""
+        """Importa planes desde Excel con validación estricta por fila.
+
+        Si una fila tiene errores, no se aplica ni crea/modifica nada para esa fila.
+        """
         import openpyxl
+        import unicodedata
+        from decimal import Decimal
+        from datetime import time
         from django.core.files.uploadedfile import UploadedFile
+
+        goal_values = {v for v, _ in NutritionPlan.GOAL_CHOICES}
+        diet_values = {v for v, _ in NutritionPlan.DIET_TYPE_CHOICES}
+        meal_type_values = {v for v, _ in PlanMeal.MEAL_TYPE_CHOICES}
+
+        def normalize_text(value):
+            text = str(value or '').strip().lower()
+            text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii')
+            return text.replace('-', '_').replace(' ', '_')
+
+        goal_input_map = {
+            'lose_weight': 'lose_weight',
+            'perder_peso': 'lose_weight',
+            'gain_muscle': 'gain_muscle',
+            'ganar_musculo': 'gain_muscle',
+            'maintain': 'maintain',
+            'mantener_peso': 'maintain',
+            'body_recomposition': 'body_recomposition',
+            'recomposicion_corporal': 'body_recomposition',
+            'performance': 'performance',
+            'rendimiento_deportivo': 'performance',
+        }
+
+        diet_input_map = {
+            'normal': 'normal',
+            'vegetarian': 'vegetarian',
+            'vegetariano': 'vegetarian',
+            'vegan': 'vegan',
+            'vegano': 'vegan',
+            'keto': 'keto',
+            'paleo': 'paleo',
+            'mediterranean': 'mediterranean',
+            'mediterranea': 'mediterranean',
+            'low_carb': 'low_carb',
+            'bajo_en_carbohidratos': 'low_carb',
+            'high_protein': 'high_protein',
+            'alto_en_proteinas': 'high_protein',
+        }
+
+        meal_type_input_map = {
+            'breakfast': 'breakfast',
+            'desayuno': 'breakfast',
+            'lunch': 'lunch',
+            'comida': 'lunch',
+            'almuerzo': 'lunch',
+            'snack': 'snack',
+            'merienda': 'snack',
+            'morning_snack': 'snack',
+            'afternoon_snack': 'snack',
+            'pre_workout': 'snack',
+            'post_workout': 'snack',
+            'snack_manana': 'snack',
+            'snack_tarde': 'snack',
+            'media_manana': 'snack',
+            'media_tarde': 'snack',
+            'dinner': 'dinner',
+            'cena': 'dinner',
+        }
 
         plan_aliases = {
             'nombre': 'name', 'name': 'name',
+            'plan_nombre': 'name',
             'descripcion': 'description', 'description': 'description',
             'objetivo': 'goal', 'goal': 'goal',
             'tipo_dieta': 'diet_type', 'diet_type': 'diet_type',
@@ -1425,15 +2093,245 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     return row_dict[k]
             return default
 
-        def to_bool(val):
-            return str(val).lower() in ('true', 'si', 's', '1', 'yes')
+        def parse_bool(val):
+            raw = str(val).strip().lower()
+            if raw in ('true', 'si', 'sí', 's', '1', 'yes', 'y'):
+                return True, None
+            if raw in ('false', 'no', 'n', '0'):
+                return False, None
+            return None, f"Valor booleano inválido: {val}"
 
-        def to_int_or_none(val):
+        def parse_int(val, field_name, minimum=None, maximum=None, allow_blank=False):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                if allow_blank:
+                    return None, None
+                return None, f"{field_name} es obligatorio"
             try:
-                v = int(float(str(val)))
-                return v if 0 <= v <= 100 else None
-            except (ValueError, TypeError):
-                return None
+                parsed = int(float(raw))
+            except (TypeError, ValueError):
+                return None, f"{field_name} inválido: {val}"
+            if minimum is not None and parsed < minimum:
+                return None, f"{field_name} debe ser >= {minimum}"
+            if maximum is not None and parsed > maximum:
+                return None, f"{field_name} debe ser <= {maximum}"
+            return parsed, None
+
+        def parse_float(val, field_name, minimum=None, allow_blank=False):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                if allow_blank:
+                    return None, None
+                return None, f"{field_name} es obligatorio"
+            try:
+                parsed = float(raw)
+            except (TypeError, ValueError):
+                return None, f"{field_name} inválido: {val}"
+            if minimum is not None and parsed < minimum:
+                return None, f"{field_name} debe ser >= {minimum}"
+            return parsed, None
+
+        def parse_time_hhmm(val):
+            raw = '' if val is None else str(val).strip()
+            if raw == '':
+                return None, None
+            try:
+                parts = raw.split(':')
+                if len(parts) < 2:
+                    raise ValueError()
+                return time(int(parts[0]), int(parts[1])), None
+            except (TypeError, ValueError):
+                return None, f"Hora inválida: {val} (formato esperado HH:MM)"
+
+        def parse_percent(val, field_name):
+            if val is None or str(val).strip() == '':
+                return None, None
+            return parse_int(val, field_name, minimum=0, maximum=100)
+
+        def parse_decimal_or_none(val, field_name):
+            if val is None or str(val).strip() == '':
+                return None, None
+            parsed, err = parse_float(val, field_name, minimum=0)
+            if err:
+                return None, err
+            return Decimal(str(parsed)), None
+
+        def parse_plan_fields(row_dict):
+            errors = []
+            raw_goal = str(gv(row_dict, 'goal', 'maintain') or 'maintain').strip()
+            goal = goal_input_map.get(normalize_text(raw_goal), raw_goal)
+            if goal not in goal_values:
+                errors.append(f"objetivo inválido: {raw_goal}")
+            raw_diet_type = str(gv(row_dict, 'diet_type', 'normal') or 'normal').strip()
+            diet_type = diet_input_map.get(normalize_text(raw_diet_type), raw_diet_type)
+            if diet_type not in diet_values:
+                errors.append(f"tipo_dieta inválido: {raw_diet_type}")
+
+            daily_calories, err = parse_int(gv(row_dict, 'daily_calories', 2000), 'calorias_diarias', minimum=0)
+            if err:
+                errors.append(err)
+            protein_grams, err = parse_int(gv(row_dict, 'protein_grams', 150), 'proteinas_g', minimum=0)
+            if err:
+                errors.append(err)
+            carbs_grams, err = parse_int(gv(row_dict, 'carbs_grams', 200), 'carbohidratos_g', minimum=0)
+            if err:
+                errors.append(err)
+            fat_grams, err = parse_int(gv(row_dict, 'fat_grams', 65), 'grasas_g', minimum=0)
+            if err:
+                errors.append(err)
+            fiber_grams, err = parse_int(gv(row_dict, 'fiber_grams', 25), 'fibra_g', minimum=0)
+            if err:
+                errors.append(err)
+
+            protein_pct, err = parse_percent(gv(row_dict, 'protein_percentage', ''), 'porcentaje_proteinas')
+            if err:
+                errors.append(err)
+            carbs_pct, err = parse_percent(gv(row_dict, 'carbs_percentage', ''), 'porcentaje_carbohidratos')
+            if err:
+                errors.append(err)
+            fat_pct, err = parse_percent(gv(row_dict, 'fat_percentage', ''), 'porcentaje_grasas')
+            if err:
+                errors.append(err)
+
+            meals_per_day, err = parse_int(gv(row_dict, 'meals_per_day', 5), 'comidas_por_dia', minimum=1, maximum=8)
+            if err:
+                errors.append(err)
+            duration_weeks, err = parse_int(gv(row_dict, 'duration_weeks', 4), 'duracion_semanas', minimum=1)
+            if err:
+                errors.append(err)
+            portion_multiplier, err = parse_float(gv(row_dict, 'portion_multiplier', 1.0), 'multiplicador_porcion', minimum=0.1)
+            if err:
+                errors.append(err)
+
+            is_template, err = parse_bool(gv(row_dict, 'is_template', 'false'))
+            if err:
+                errors.append(f"es_plantilla: {err}")
+            is_system, err = parse_bool(gv(row_dict, 'is_system', 'false'))
+            if err:
+                errors.append(f"es_sistema: {err}")
+            is_active, err = parse_bool(gv(row_dict, 'is_active', 'true'))
+            if err:
+                errors.append(f"activo: {err}")
+
+            if errors:
+                return None, errors
+
+            return {
+                'description': str(gv(row_dict, 'description', '') or ''),
+                'goal': goal,
+                'diet_type': diet_type,
+                'daily_calories': daily_calories,
+                'protein_grams': protein_grams,
+                'carbs_grams': carbs_grams,
+                'fat_grams': fat_grams,
+                'fiber_grams': fiber_grams,
+                'protein_percentage': protein_pct,
+                'carbs_percentage': carbs_pct,
+                'fat_percentage': fat_pct,
+                'meals_per_day': meals_per_day,
+                'duration_weeks': duration_weeks,
+                'portion_multiplier': portion_multiplier,
+                'is_template': is_template,
+                'is_system': is_system,
+                'is_active': is_active,
+            }, None
+
+        def parse_meal_fields(row_dict):
+            errors = []
+            raw_meal_type = str(row_dict.get('tipo_comida', '') or 'lunch').strip() or 'lunch'
+            meal_type = meal_type_input_map.get(normalize_text(raw_meal_type), raw_meal_type)
+            if meal_type not in meal_type_values:
+                errors.append(f"tipo_comida inválido: {raw_meal_type}")
+
+            day_of_week, err = parse_int(row_dict.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+            if err:
+                errors.append(err)
+            order_index, err = parse_int(row_dict.get('orden_comida', ''), 'orden_comida', minimum=1)
+            if err:
+                errors.append(err)
+            meal_time, err = parse_time_hhmm(row_dict.get('hora', ''))
+            if err:
+                errors.append(err)
+            calories, err = parse_int(row_dict.get('calorias_comida', 0), 'calorias_comida', minimum=0)
+            if err:
+                errors.append(err)
+            protein, err = parse_float(row_dict.get('proteinas_comida', 0), 'proteinas_comida', minimum=0)
+            if err:
+                errors.append(err)
+            carbs, err = parse_float(row_dict.get('carbohidratos_comida', 0), 'carbohidratos_comida', minimum=0)
+            if err:
+                errors.append(err)
+            fat, err = parse_float(row_dict.get('grasas_comida', 0), 'grasas_comida', minimum=0)
+            if err:
+                errors.append(err)
+
+            if errors:
+                return None, errors
+            return {
+                'meal_type': meal_type,
+                'day_of_week': day_of_week,
+                'order_index': order_index,
+                'time': meal_time,
+                'calories': calories,
+                'protein': Decimal(str(protein)),
+                'carbs': Decimal(str(carbs)),
+                'fat': Decimal(str(fat)),
+                'name': str(row_dict.get('comida_nombre', '') or '').strip() or f'Comida {order_index}',
+                'description': str(row_dict.get('descripcion_comida', '') or ''),
+                'recetas_sugeridas': str(row_dict.get('recetas_sugeridas', '') or '').strip(),
+            }, None
+
+        def parse_option_fields(row_dict):
+            def optv(data, *keys, default=''):
+                for key in keys:
+                    if key in data and data.get(key) not in (None, ''):
+                        return data.get(key)
+                return default
+
+            errors = []
+            display_order, err = parse_int(optv(row_dict, 'orden_visualizacion', 'display_order', default=0), 'orden_visualizacion', minimum=0)
+            if err:
+                errors.append(err)
+            servings, err = parse_float(optv(row_dict, 'porciones', 'servings', default=1), 'porciones', minimum=0.01)
+            if err:
+                errors.append(err)
+            custom_calories, err = parse_int(
+                optv(row_dict, 'calorias_personalizadas', 'custom_calories', default=''),
+                'calorias_personalizadas',
+                minimum=0,
+                allow_blank=True,
+            )
+            if err:
+                errors.append(err)
+            custom_protein, err = parse_decimal_or_none(
+                optv(row_dict, 'proteinas_personalizadas', 'custom_protein', default=''),
+                'proteinas_personalizadas',
+            )
+            if err:
+                errors.append(err)
+            custom_carbs, err = parse_decimal_or_none(
+                optv(row_dict, 'carbohidratos_personalizados', 'custom_carbs', default=''),
+                'carbohidratos_personalizados',
+            )
+            if err:
+                errors.append(err)
+            custom_fat, err = parse_decimal_or_none(
+                optv(row_dict, 'grasas_personalizadas', 'custom_fat', default=''),
+                'grasas_personalizadas',
+            )
+            if err:
+                errors.append(err)
+
+            if errors:
+                return None, errors
+            return {
+                'display_order': display_order,
+                'servings': Decimal(str(servings)),
+                'custom_calories': custom_calories,
+                'custom_protein': custom_protein,
+                'custom_carbs': custom_carbs,
+                'custom_fat': custom_fat,
+            }, None
 
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
@@ -1442,8 +2340,11 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         # Support new multi-sheet format (sheet "Planes") and old single-sheet format
         ws = wb['Planes'] if 'Planes' in wb.sheetnames else wb.active
         headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
-        updated, created, skipped = 0, 0, 0
-        meals_created, meals_updated, meals_skipped = 0, 0, 0
+        updated, created, skipped, rejected = 0, 0, 0, 0
+        meals_created, meals_updated, meals_skipped, meals_rejected = 0, 0, 0, 0
+        options_created, options_updated, options_skipped, options_rejected = 0, 0, 0, 0
+        assignments_created, assignments_updated, assignments_skipped, assignments_rejected = 0, 0, 0, 0
+        errors = []
 
         def _get_plan_aliases_for_row(row_dict):
             # Support both old format ('nombre') and new format ('plan_nombre')
@@ -1451,32 +2352,19 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 return str(row_dict['plan_nombre'] or '').strip()
             return str(gv(row_dict, 'name') or '').strip()
 
-        for row in ws.iter_rows(min_row=2, values_only=True):
+        for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             row_dict = dict(zip(headers, row))
             name = _get_plan_aliases_for_row(row_dict)
             if not name:
                 skipped += 1
                 continue
+            fields, row_errors = parse_plan_fields(row_dict)
+            if row_errors:
+                rejected += 1
+                errors.append({'sheet': 'Planes', 'row': row_idx, 'type': 'plan', 'errors': row_errors})
+                continue
+
             plan = NutritionPlan.objects.filter(name=name).first()
-            fields = {
-                'description': gv(row_dict, 'description', '') or '',
-                'goal': gv(row_dict, 'goal', 'maintain') or 'maintain',
-                'diet_type': gv(row_dict, 'diet_type', 'normal') or 'normal',
-                'daily_calories': int(float(gv(row_dict, 'daily_calories', 2000) or 2000)),
-                'protein_grams': int(float(gv(row_dict, 'protein_grams', 150) or 150)),
-                'carbs_grams': int(float(gv(row_dict, 'carbs_grams', 200) or 200)),
-                'fat_grams': int(float(gv(row_dict, 'fat_grams', 65) or 65)),
-                'fiber_grams': int(float(gv(row_dict, 'fiber_grams', 25) or 25)),
-                'protein_percentage': to_int_or_none(gv(row_dict, 'protein_percentage', '')),
-                'carbs_percentage': to_int_or_none(gv(row_dict, 'carbs_percentage', '')),
-                'fat_percentage': to_int_or_none(gv(row_dict, 'fat_percentage', '')),
-                'meals_per_day': int(float(gv(row_dict, 'meals_per_day', 5) or 5)),
-                'duration_weeks': int(float(gv(row_dict, 'duration_weeks', 4) or 4)),
-                'portion_multiplier': float(gv(row_dict, 'portion_multiplier', 1.0) or 1.0),
-                'is_template': to_bool(gv(row_dict, 'is_template', 'false')),
-                'is_system': to_bool(gv(row_dict, 'is_system', 'false')),
-                'is_active': to_bool(gv(row_dict, 'is_active', 'true')),
-            }
             if plan:
                 for k, v in fields.items():
                     setattr(plan, k, v)
@@ -1490,44 +2378,37 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         if 'Comidas' in wb.sheetnames:
             ws_meals = wb['Comidas']
             meal_headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws_meals[1]]
-            for meal_row in ws_meals.iter_rows(min_row=2, values_only=True):
+            for row_idx, meal_row in enumerate(ws_meals.iter_rows(min_row=2, values_only=True), start=2):
                 mrow = dict(zip(meal_headers, meal_row))
                 plan_name = str(mrow.get('plan_nombre', '') or '').strip()
-                meal_name = str(mrow.get('comida_nombre', '') or '').strip()
-                if not plan_name or not meal_name:
+                if not plan_name:
                     meals_skipped += 1
                     continue
                 plan = NutritionPlan.objects.filter(name=plan_name).first()
                 if not plan:
-                    meals_skipped += 1
+                    meals_rejected += 1
+                    errors.append({'sheet': 'Comidas', 'row': row_idx, 'type': 'comida', 'errors': [f"Plan no existe: {plan_name}"]})
                     continue
-                raw_day = mrow.get('dia_semana', '')
-                day_of_week = None
-                try:
-                    d = int(float(str(raw_day))) if raw_day not in ('', None) else None
-                    if d is not None and 1 <= d <= 7:
-                        day_of_week = d
-                except (ValueError, TypeError):
-                    pass
-                meal = PlanMeal.objects.filter(plan=plan, name=meal_name, day_of_week=day_of_week).first()
-                meal_type = str(mrow.get('tipo_comida', '') or 'lunch').strip() or 'lunch'
-                hora_str = str(mrow.get('hora', '') or '').strip()
-                import datetime
-                meal_time = None
-                if hora_str:
-                    try:
-                        parts = hora_str.split(':')
-                        meal_time = datetime.time(int(parts[0]), int(parts[1]) if len(parts) > 1 else 0)
-                    except (ValueError, IndexError):
-                        pass
+                parsed_meal, row_errors = parse_meal_fields(mrow)
+                if row_errors:
+                    meals_rejected += 1
+                    errors.append({'sheet': 'Comidas', 'row': row_idx, 'type': 'comida', 'errors': row_errors})
+                    continue
+
+                meal = PlanMeal.objects.filter(
+                    plan=plan,
+                    day_of_week=parsed_meal['day_of_week'],
+                    order_index=parsed_meal['order_index'],
+                ).first()
                 meal_fields = {
-                    'meal_type': meal_type,
-                    'time': meal_time,
-                    'calories': int(float(mrow.get('calorias_comida', 0) or 0)),
-                    'protein': float(mrow.get('proteinas_comida', 0) or 0),
-                    'carbs': float(mrow.get('carbohidratos_comida', 0) or 0),
-                    'fat': float(mrow.get('grasas_comida', 0) or 0),
-                    'description': str(mrow.get('descripcion_comida', '') or ''),
+                    'name': parsed_meal['name'],
+                    'meal_type': parsed_meal['meal_type'],
+                    'time': parsed_meal['time'],
+                    'calories': parsed_meal['calories'],
+                    'protein': parsed_meal['protein'],
+                    'carbs': parsed_meal['carbs'],
+                    'fat': parsed_meal['fat'],
+                    'description': parsed_meal['description'],
                 }
                 if meal:
                     for k, v in meal_fields.items():
@@ -1535,25 +2416,139 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     meal.save()
                     meals_updated += 1
                 else:
-                    meal = PlanMeal.objects.create(plan=plan, name=meal_name, day_of_week=day_of_week, **meal_fields)
+                    meal = PlanMeal.objects.create(
+                        plan=plan,
+                        day_of_week=parsed_meal['day_of_week'],
+                        order_index=parsed_meal['order_index'],
+                        **meal_fields
+                    )
                     meals_created += 1
-                recetas_str = str(mrow.get('recetas_sugeridas', '') or '').strip()
+                recetas_str = parsed_meal['recetas_sugeridas']
                 if recetas_str:
                     from .models import Recipe as RecipeModel
                     recipe_names = [r.strip() for r in recetas_str.split(';') if r.strip()]
                     recipes_qs = RecipeModel.objects.filter(name__in=recipe_names)
                     meal.suggested_recipes.set(recipes_qs)
 
+        # --- Process Opciones_Receta_Comida sheet if present ---
+        if 'Opciones_Receta_Comida' in wb.sheetnames:
+            ws_options = wb['Opciones_Receta_Comida']
+            option_headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws_options[1]]
+            option_recipes_by_meal = {}
+            for row_idx, option_row in enumerate(ws_options.iter_rows(min_row=2, values_only=True), start=2):
+                orow = dict(zip(option_headers, option_row))
+                plan_name = str(orow.get('plan_nombre', '') or '').strip()
+                recipe_name = str(orow.get('receta_nombre', '') or '').strip()
+                if not plan_name or not recipe_name:
+                    options_skipped += 1
+                    continue
+                plan = NutritionPlan.objects.filter(name=plan_name).first()
+                if not plan:
+                    options_rejected += 1
+                    errors.append({'sheet': 'Opciones_Receta_Comida', 'row': row_idx, 'type': 'opcion_receta', 'errors': [f"Plan no existe: {plan_name}"]})
+                    continue
+                day_of_week, err = parse_int(orow.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+                order_index, err2 = parse_int(orow.get('orden_comida', ''), 'orden_comida', minimum=1)
+                local_errors = []
+                if err:
+                    local_errors.append(err)
+                if err2:
+                    local_errors.append(err2)
+                parsed_option, option_errors = parse_option_fields(orow)
+                if option_errors:
+                    local_errors.extend(option_errors)
+                meal = None
+                if not local_errors:
+                    meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                    if not meal:
+                        local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
+                recipe = None
+                if not local_errors:
+                    recipe = Recipe.objects.filter(name=recipe_name).first()
+                    if not recipe:
+                        local_errors.append(f"Receta no existe: {recipe_name}")
+                if local_errors:
+                    options_rejected += 1
+                    errors.append({'sheet': 'Opciones_Receta_Comida', 'row': row_idx, 'type': 'opcion_receta', 'errors': local_errors})
+                    continue
+
+                option = PlanMealRecipe.objects.filter(meal=meal, recipe=recipe).first()
+                if option:
+                    for k, v in parsed_option.items():
+                        setattr(option, k, v)
+                    option.save()
+                    options_updated += 1
+                else:
+                    PlanMealRecipe.objects.create(meal=meal, recipe=recipe, **parsed_option)
+                    options_created += 1
+
+                option_recipes_by_meal.setdefault(meal.id, set()).add(recipe.id)
+
+            # Sync suggested_recipes using imported options
+            if option_recipes_by_meal:
+                for meal_id, recipe_ids in option_recipes_by_meal.items():
+                    meal = PlanMeal.objects.filter(id=meal_id).first()
+                    if meal:
+                        meal.suggested_recipes.set(Recipe.objects.filter(id__in=recipe_ids))
+
+        # --- Process Asignaciones_Usuarios sheet if present ---
+        if 'Asignaciones_Usuarios' in wb.sheetnames:
+            ws_assign = wb['Asignaciones_Usuarios']
+            assign_headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws_assign[1]]
+            for row_idx, assign_row in enumerate(ws_assign.iter_rows(min_row=2, values_only=True), start=2):
+                arow = dict(zip(assign_headers, assign_row))
+                plan_name = str(arow.get('plan_nombre', '') or '').strip()
+                email = str(arow.get('usuario_email', '') or '').strip().lower()
+                if not plan_name or not email:
+                    assignments_skipped += 1
+                    continue
+                plan = NutritionPlan.objects.filter(name=plan_name).first()
+                if not plan:
+                    assignments_rejected += 1
+                    errors.append({'sheet': 'Asignaciones_Usuarios', 'row': row_idx, 'type': 'asignacion_usuario', 'errors': [f"Plan no existe: {plan_name}"]})
+                    continue
+                user = User.objects.filter(email__iexact=email).first()
+                if not user:
+                    assignments_rejected += 1
+                    errors.append({'sheet': 'Asignaciones_Usuarios', 'row': row_idx, 'type': 'asignacion_usuario', 'errors': [f"Usuario no existe: {email}"]})
+                    continue
+                is_active, err = parse_bool(arow.get('asignacion_activa', 'true'))
+                if err:
+                    assignments_rejected += 1
+                    errors.append({'sheet': 'Asignaciones_Usuarios', 'row': row_idx, 'type': 'asignacion_usuario', 'errors': [err]})
+                    continue
+                assignment = NutritionPlanAssignment.objects.filter(plan=plan, user=user).first()
+                if assignment:
+                    assignment.is_active = is_active
+                    assignment.save(update_fields=['is_active'])
+                    assignments_updated += 1
+                else:
+                    NutritionPlanAssignment.objects.create(plan=plan, user=user, is_active=is_active)
+                    assignments_created += 1
+
         return Response({
             'created': created,
             'updated': updated,
             'skipped': skipped,
+            'rejected': rejected,
             'meals_created': meals_created,
             'meals_updated': meals_updated,
             'meals_skipped': meals_skipped,
+            'meals_rejected': meals_rejected,
+            'options_created': options_created,
+            'options_updated': options_updated,
+            'options_skipped': options_skipped,
+            'options_rejected': options_rejected,
+            'assignments_created': assignments_created,
+            'assignments_updated': assignments_updated,
+            'assignments_skipped': assignments_skipped,
+            'assignments_rejected': assignments_rejected,
+            'errors': errors,
             'message': (
-                f"Importacion completada: {created} planes creados, {updated} actualizados, {skipped} omitidos. "
-                f"Comidas: {meals_created} creadas, {meals_updated} actualizadas, {meals_skipped} omitidas."
+                f"Importación Excel completada. Planes: {created} creados, {updated} actualizados, {skipped} omitidos, {rejected} rechazados. "
+                f"Comidas: {meals_created} creadas, {meals_updated} actualizadas, {meals_skipped} omitidas, {meals_rejected} rechazadas. "
+                f"Opciones: {options_created} creadas, {options_updated} actualizadas, {options_skipped} omitidas, {options_rejected} rechazadas. "
+                f"Asignaciones: {assignments_created} creadas, {assignments_updated} actualizadas, {assignments_skipped} omitidas, {assignments_rejected} rechazadas."
             ),
         }, status=status.HTTP_200_OK)
 
