@@ -1,5 +1,4 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
@@ -9,6 +8,8 @@ from django.db.models import Q, Count, Avg, Sum, Max, Min
 from django.utils import timezone
 from django.core.cache import cache
 from datetime import timedelta, datetime
+import ast
+import re
 import calendar
 
 from .models import DashboardData, UserStats, WellnessTip, DefaultPlanConfiguration, HelpSettings, ProblemReport
@@ -748,9 +749,266 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
             status=status.HTTP_404_NOT_FOUND
         )
 
+    @staticmethod
+    def _priority_to_order(priority):
+        try:
+            safe = int(priority)
+        except (TypeError, ValueError):
+            safe = 100
+        safe = max(1, safe)
+        return (safe + 9) // 10
+
+    @staticmethod
+    def _order_to_priority(order):
+        try:
+            normalized = int(order)
+        except (TypeError, ValueError):
+            normalized = 10
+        normalized = max(1, normalized)
+        return normalized * 10
+
+    @staticmethod
+    def _clean_text(value):
+        if value is None:
+            return ''
+        return str(value).strip()
+
+    @staticmethod
+    def _parse_bool(value, default=True):
+        if value is None or str(value).strip() == '':
+            return default
+        normalized = str(value).strip().lower()
+        if normalized in {'true', '1', 'yes', 'sí', 'si', 's'}:
+            return True
+        if normalized in {'false', '0', 'no', 'n'}:
+            return False
+        return default
+
+    @staticmethod
+    def _parse_int_or_none(value):
+        try:
+            text = str(value).strip()
+            return int(text) if text else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _parse_list(value):
+        if value is None:
+            return []
+        if isinstance(value, list):
+            return [str(item).strip() for item in value if str(item).strip()]
+
+        text = str(value).strip()
+        if not text:
+            return []
+
+        if text.startswith('[') and text.endswith(']'):
+            try:
+                parsed = ast.literal_eval(text)
+                if isinstance(parsed, list):
+                    return [str(item).strip() for item in parsed if str(item).strip()]
+            except (ValueError, SyntaxError):
+                pass
+
+        return [item.strip() for item in re.split(r'[;,]', text) if item.strip()]
+
+    @staticmethod
+    def _normalize_main_goal(value):
+        raw = str(value or '').strip().lower()
+        if raw in {'', 'none', 'null', 'all', 'any', 'todos', 'todas', '*'}:
+            return None
+
+        mapping = {
+            'weight_loss': 'lose_weight',
+            'lose_weight': 'lose_weight',
+            'perder_peso': 'lose_weight',
+            'muscle_gain': 'gain_muscle',
+            'gain_muscle': 'gain_muscle',
+            'ganar_musculo': 'gain_muscle',
+            'ganar_músculo': 'gain_muscle',
+            'maintenance': 'maintain',
+            'maintain': 'maintain',
+            'mantenimiento': 'maintain',
+            'body_recomposition': 'body_recomposition',
+            'recomposicion': 'body_recomposition',
+            'recomposición': 'body_recomposition',
+            'performance': 'performance',
+            'rendimiento': 'performance',
+        }
+        return mapping.get(raw, raw)
+
+    @staticmethod
+    def _normalize_training_location(value):
+        raw = str(value or '').strip().lower()
+        if raw in {'', 'none', 'null', 'all', 'any', 'todos', 'todas', '*'}:
+            return None
+
+        mapping = {
+            'home': 'home',
+            'casa': 'home',
+            'gym': 'gym',
+            'gimnasio': 'gym',
+            'outdoor': 'outdoor',
+            'exterior': 'outdoor',
+            'afuera': 'outdoor',
+        }
+        return mapping.get(raw, raw)
+
+    @staticmethod
+    def _normalize_activity_level(value):
+        raw = str(value or '').strip().lower()
+        if raw in {'', 'none', 'null', 'all', 'any', 'todos', 'todas', '*'}:
+            return None
+
+        mapping = {
+            'sedentary': 'sedentary',
+            'sedentario': 'sedentary',
+            'light': 'light',
+            'ligero': 'light',
+            'beginner': 'light',
+            'moderate': 'moderate',
+            'moderado': 'moderate',
+            'intermediate': 'moderate',
+            'active': 'active',
+            'activo': 'active',
+            'advanced': 'active',
+            'very_active': 'very_active',
+            'muy_activo': 'very_active',
+            'muy activo': 'very_active',
+        }
+        return mapping.get(raw, raw)
+
+    @staticmethod
+    def _normalize_gender(value):
+        raw = str(value or '').strip().lower()
+        if raw in {'', 'none', 'null', 'all', 'any', 'todos', 'todas', '*'}:
+            return None
+
+        mapping = {
+            'male': 'male',
+            'masculino': 'male',
+            'hombre': 'male',
+            'female': 'female',
+            'femenino': 'female',
+            'mujer': 'female',
+            'other': 'other',
+            'otro': 'other',
+        }
+        return mapping.get(raw, raw)
+
+    @staticmethod
+    def _header_aliases():
+        return {
+            'nombre': 'nombre', 'name': 'nombre',
+            'descripcion': 'descripcion', 'descripción': 'descripcion', 'description': 'descripcion',
+            'prioridad': 'prioridad', 'priority': 'prioridad',
+            'orden_aplicacion': 'orden_aplicacion', 'orden de aplicacion': 'orden_aplicacion',
+            'application_order': 'orden_aplicacion', 'application order': 'orden_aplicacion',
+            'activo': 'activo', 'is_active': 'activo',
+            'objetivo_principal': 'objetivo_principal', 'main_goal': 'objetivo_principal',
+            'lugar_entrenamiento': 'lugar_entrenamiento', 'training_location': 'lugar_entrenamiento',
+            'nivel_actividad': 'nivel_actividad', 'activity_level': 'nivel_actividad',
+            'genero': 'genero', 'género': 'genero', 'gender': 'genero',
+            'dias_min_entrenamiento': 'dias_min', 'min_training_days_per_week': 'dias_min',
+            'dias_max_entrenamiento': 'dias_max', 'max_training_days_per_week': 'dias_max',
+            'edad_min': 'edad_min', 'age_min': 'edad_min',
+            'edad_max': 'edad_max', 'age_max': 'edad_max',
+            'restricciones_alimentarias': 'restricciones', 'dietary_restrictions': 'restricciones',
+            'equipamiento': 'equipamiento', 'equipment_keywords': 'equipamiento',
+            'plan_nutricion': 'plan_nutricion', 'default_nutrition_plan': 'plan_nutricion',
+            'plan_nutricion_id': 'plan_nutricion_id', 'default_nutrition_plan_id': 'plan_nutricion_id',
+            'programa_entrenamiento': 'programa_entrenamiento', 'default_workout_program': 'programa_entrenamiento',
+            'programa_entrenamiento_id': 'programa_entrenamiento_id', 'default_workout_program_id': 'programa_entrenamiento_id',
+        }
+
+    @classmethod
+    def _canonicalize_row(cls, row_data):
+        aliases = cls._header_aliases()
+        canonical = {}
+        for raw_key, raw_val in row_data.items():
+            normalized_key = cls._clean_text(raw_key).lower()
+            mapped = aliases.get(normalized_key)
+            if mapped:
+                canonical[mapped] = raw_val
+        return canonical
+
+    @staticmethod
+    def _resolve_nutrition_plan(plan_id, plan_name):
+        from nutrition.models import NutritionPlan
+
+        clean_id = str(plan_id or '').strip()
+        if clean_id:
+            by_id = NutritionPlan.objects.filter(id=clean_id).first()
+            if by_id:
+                return by_id
+
+        clean_name = str(plan_name or '').strip()
+        if clean_name:
+            return NutritionPlan.objects.filter(name__iexact=clean_name).first()
+
+        return None
+
+    @staticmethod
+    def _resolve_workout_program(program_id, program_name):
+        from workouts.models import WorkoutProgram
+
+        clean_id = str(program_id or '').strip()
+        if clean_id:
+            by_id = WorkoutProgram.objects.filter(id=clean_id).first()
+            if by_id:
+                return by_id
+
+        clean_name = str(program_name or '').strip()
+        if clean_name:
+            return WorkoutProgram.objects.filter(name__iexact=clean_name).first()
+
+        return None
+
+    def _build_fields_from_row(self, row):
+        name = self._clean_text(row.get('nombre'))
+        if not name:
+            raise ValueError("'nombre' es requerido")
+
+        order_value = self._parse_int_or_none(row.get('orden_aplicacion'))
+        priority_value = self._parse_int_or_none(row.get('prioridad'))
+        priority = self._order_to_priority(order_value) if order_value is not None else (priority_value if priority_value is not None else 100)
+
+        nutrition_plan_name = self._clean_text(row.get('plan_nutricion'))
+        nutrition_plan_id = self._clean_text(row.get('plan_nutricion_id'))
+        workout_program_name = self._clean_text(row.get('programa_entrenamiento'))
+        workout_program_id = self._clean_text(row.get('programa_entrenamiento_id'))
+
+        nutrition_plan = self._resolve_nutrition_plan(nutrition_plan_id, nutrition_plan_name)
+        if (nutrition_plan_id or nutrition_plan_name) and not nutrition_plan:
+            raise ValueError(f"Plan nutricional no encontrado: '{nutrition_plan_id or nutrition_plan_name}'")
+
+        workout_program = self._resolve_workout_program(workout_program_id, workout_program_name)
+        if (workout_program_id or workout_program_name) and not workout_program:
+            raise ValueError(f"Programa de entrenamiento no encontrado: '{workout_program_id or workout_program_name}'")
+
+        fields = {
+            'description': self._clean_text(row.get('descripcion')),
+            'priority': priority,
+            'is_active': self._parse_bool(row.get('activo'), default=True),
+            'main_goal': self._normalize_main_goal(row.get('objetivo_principal')),
+            'training_location': self._normalize_training_location(row.get('lugar_entrenamiento')),
+            'activity_level': self._normalize_activity_level(row.get('nivel_actividad')),
+            'gender': self._normalize_gender(row.get('genero')),
+            'min_training_days_per_week': self._parse_int_or_none(row.get('dias_min')),
+            'max_training_days_per_week': self._parse_int_or_none(row.get('dias_max')),
+            'age_min': self._parse_int_or_none(row.get('edad_min')),
+            'age_max': self._parse_int_or_none(row.get('edad_max')),
+            'dietary_restrictions': self._parse_list(row.get('restricciones')),
+            'equipment_keywords': self._parse_list(row.get('equipamiento')),
+            'default_nutrition_plan': nutrition_plan,
+            'default_workout_program': workout_program,
+        }
+        return name, fields
+
     @action(detail=False, methods=['get'], url_path='export-csv')
     def export_csv(self, request):
-        """Exporta todas las configuraciones en formato CSV"""
+        """Exporta todas las configuraciones en formato CSV (alineado con la lógica actual)."""
         import csv
         from django.http import HttpResponse
 
@@ -759,12 +1017,12 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="default_plan_configurations.csv"'
 
         fieldnames = [
-            'nombre', 'descripcion', 'prioridad', 'activo',
+            'nombre', 'descripcion', 'prioridad', 'orden_aplicacion', 'activo',
             'objetivo_principal', 'lugar_entrenamiento', 'nivel_actividad', 'genero',
             'dias_min_entrenamiento', 'dias_max_entrenamiento',
             'edad_min', 'edad_max',
             'restricciones_alimentarias', 'equipamiento',
-            'plan_nutricion', 'programa_entrenamiento',
+            'plan_nutricion', 'plan_nutricion_id', 'programa_entrenamiento', 'programa_entrenamiento_id',
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
@@ -774,6 +1032,7 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
                 'nombre': config.name,
                 'descripcion': config.description or '',
                 'prioridad': config.priority,
+                'orden_aplicacion': self._priority_to_order(config.priority),
                 'activo': 'Sí' if config.is_active else 'No',
                 'objetivo_principal': config.main_goal or '',
                 'lugar_entrenamiento': config.training_location or '',
@@ -786,18 +1045,24 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
                 'restricciones_alimentarias': ','.join(config.dietary_restrictions or []),
                 'equipamiento': ','.join(config.equipment_keywords or []),
                 'plan_nutricion': config.default_nutrition_plan.name if config.default_nutrition_plan else '',
+                'plan_nutricion_id': str(config.default_nutrition_plan.id) if config.default_nutrition_plan else '',
                 'programa_entrenamiento': config.default_workout_program.name if config.default_workout_program else '',
+                'programa_entrenamiento_id': str(config.default_workout_program.id) if config.default_workout_program else '',
             })
         return response
 
     @action(detail=False, methods=['get'], url_path='export-excel')
     def export_excel(self, request):
-        """Exporta configuraciones en Excel con dos hojas: Datos y Referencias"""
+        """Exporta configuraciones en Excel con datos y referencias actualizadas."""
         import io
         import xlsxwriter
         from django.http import HttpResponse
+        from nutrition.models import NutritionPlan
+        from workouts.models import WorkoutProgram
 
         configs = self.get_queryset()
+        nutrition_plans = NutritionPlan.objects.filter(is_active=True).order_by('name')
+        workout_programs = WorkoutProgram.objects.filter(is_active=True).order_by('name')
         output = io.BytesIO()
         workbook = xlsxwriter.Workbook(output, {'in_memory': True})
 
@@ -806,12 +1071,12 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
 
         headers = [
-            'nombre', 'descripcion', 'prioridad', 'activo',
+            'nombre', 'descripcion', 'prioridad', 'orden_aplicacion', 'activo',
             'objetivo_principal', 'lugar_entrenamiento', 'nivel_actividad', 'genero',
             'dias_min_entrenamiento', 'dias_max_entrenamiento',
             'edad_min', 'edad_max',
             'restricciones_alimentarias', 'equipamiento',
-            'plan_nutricion', 'programa_entrenamiento',
+            'plan_nutricion', 'plan_nutricion_id', 'programa_entrenamiento', 'programa_entrenamiento_id',
         ]
         for col, header in enumerate(headers):
             worksheet.write(0, col, header, header_format)
@@ -820,39 +1085,64 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
             worksheet.write(row_idx, 0, config.name)
             worksheet.write(row_idx, 1, config.description or '')
             worksheet.write(row_idx, 2, config.priority)
-            worksheet.write(row_idx, 3, 'Sí' if config.is_active else 'No')
-            worksheet.write(row_idx, 4, config.main_goal or '')
-            worksheet.write(row_idx, 5, config.training_location or '')
-            worksheet.write(row_idx, 6, config.activity_level or '')
-            worksheet.write(row_idx, 7, config.gender or '')
-            worksheet.write(row_idx, 8, config.min_training_days_per_week if config.min_training_days_per_week is not None else '')
-            worksheet.write(row_idx, 9, config.max_training_days_per_week if config.max_training_days_per_week is not None else '')
-            worksheet.write(row_idx, 10, config.age_min if config.age_min is not None else '')
-            worksheet.write(row_idx, 11, config.age_max if config.age_max is not None else '')
-            worksheet.write(row_idx, 12, ','.join(config.dietary_restrictions or []))
-            worksheet.write(row_idx, 13, ','.join(config.equipment_keywords or []))
-            worksheet.write(row_idx, 14, config.default_nutrition_plan.name if config.default_nutrition_plan else '')
-            worksheet.write(row_idx, 15, config.default_workout_program.name if config.default_workout_program else '')
+            worksheet.write(row_idx, 3, self._priority_to_order(config.priority))
+            worksheet.write(row_idx, 4, 'Sí' if config.is_active else 'No')
+            worksheet.write(row_idx, 5, config.main_goal or '')
+            worksheet.write(row_idx, 6, config.training_location or '')
+            worksheet.write(row_idx, 7, config.activity_level or '')
+            worksheet.write(row_idx, 8, config.gender or '')
+            worksheet.write(row_idx, 9, config.min_training_days_per_week if config.min_training_days_per_week is not None else '')
+            worksheet.write(row_idx, 10, config.max_training_days_per_week if config.max_training_days_per_week is not None else '')
+            worksheet.write(row_idx, 11, config.age_min if config.age_min is not None else '')
+            worksheet.write(row_idx, 12, config.age_max if config.age_max is not None else '')
+            worksheet.write(row_idx, 13, ','.join(config.dietary_restrictions or []))
+            worksheet.write(row_idx, 14, ','.join(config.equipment_keywords or []))
+            worksheet.write(row_idx, 15, config.default_nutrition_plan.name if config.default_nutrition_plan else '')
+            worksheet.write(row_idx, 16, str(config.default_nutrition_plan.id) if config.default_nutrition_plan else '')
+            worksheet.write(row_idx, 17, config.default_workout_program.name if config.default_workout_program else '')
+            worksheet.write(row_idx, 18, str(config.default_workout_program.id) if config.default_workout_program else '')
 
         worksheet.set_column('A:A', 30)
         worksheet.set_column('B:B', 40)
-        worksheet.set_column('C:P', 20)
+        worksheet.set_column('C:S', 22)
 
         # ========== HOJA 2: REFERENCIAS ==========
         ref_ws = workbook.add_worksheet('Referencias')
         ref_ws.write(0, 0, 'OBJETIVO_PRINCIPAL', header_format)
-        for i, val in enumerate(['weight_loss', 'muscle_gain', 'maintenance', 'performance'], 1):
+        for i, val in enumerate(['lose_weight', 'gain_muscle', 'body_recomposition', 'maintain', 'performance'], 1):
             ref_ws.write(i, 0, val)
+
         ref_ws.write(0, 2, 'LUGAR_ENTRENAMIENTO', header_format)
-        for i, val in enumerate(['home', 'gym', 'outdoor'], 1):
+        for i, val in enumerate(['home', 'gym', 'outdoor', '(vacío = genérico)'], 1):
             ref_ws.write(i, 2, val)
+
         ref_ws.write(0, 4, 'NIVEL_ACTIVIDAD', header_format)
-        for i, val in enumerate(['beginner', 'intermediate', 'advanced'], 1):
+        for i, val in enumerate(['sedentary', 'light', 'moderate', 'active', 'very_active', '(vacío = genérico)'], 1):
             ref_ws.write(i, 4, val)
+
         ref_ws.write(0, 6, 'GENERO', header_format)
-        for i, val in enumerate(['male', 'female', 'other'], 1):
+        for i, val in enumerate(['male', 'female', 'other', '(vacío = todos)'], 1):
             ref_ws.write(i, 6, val)
-        ref_ws.set_column('A:G', 25)
+
+        ref_ws.write(0, 8, 'NUTRITION_PLAN_ID', header_format)
+        ref_ws.write(0, 9, 'NUTRITION_PLAN_NOMBRE', header_format)
+        for i, plan in enumerate(nutrition_plans, 1):
+            ref_ws.write(i, 8, str(plan.id))
+            ref_ws.write(i, 9, plan.name)
+
+        ref_ws.write(0, 11, 'WORKOUT_PROGRAM_ID', header_format)
+        ref_ws.write(0, 12, 'WORKOUT_PROGRAM_NOMBRE', header_format)
+        for i, program in enumerate(workout_programs, 1):
+            ref_ws.write(i, 11, str(program.id))
+            ref_ws.write(i, 12, program.name)
+
+        ref_ws.set_column('A:G', 24)
+        ref_ws.set_column('H:H', 10)
+        ref_ws.set_column('I:I', 40)
+        ref_ws.set_column('J:J', 40)
+        ref_ws.set_column('K:K', 10)
+        ref_ws.set_column('L:L', 40)
+        ref_ws.set_column('M:M', 40)
 
         workbook.close()
         output.seek(0)
@@ -862,11 +1152,9 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='import-csv', parser_classes=[MultiPartParser, FormParser])
     def import_csv(self, request):
-        """Importa configuraciones desde un CSV. Actualiza existentes (por nombre), crea nuevas."""
+        """Importa configuraciones desde CSV usando formato canónico y valores normalizados."""
         import csv
         from django.core.files.uploadedfile import UploadedFile
-        from nutrition.models import NutritionPlan
-        from workouts.models import WorkoutProgram
 
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
@@ -881,77 +1169,10 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
         created, updated, skipped = 0, 0, 0
         errors = []
 
-        header_aliases = {
-            'nombre': 'nombre', 'name': 'nombre',
-            'descripcion': 'descripcion', 'descripción': 'descripcion', 'description': 'descripcion',
-            'prioridad': 'prioridad', 'priority': 'prioridad',
-            'activo': 'activo', 'is_active': 'activo',
-            'objetivo_principal': 'objetivo_principal', 'main_goal': 'objetivo_principal',
-            'lugar_entrenamiento': 'lugar_entrenamiento', 'training_location': 'lugar_entrenamiento',
-            'nivel_actividad': 'nivel_actividad', 'activity_level': 'nivel_actividad',
-            'genero': 'genero', 'género': 'genero', 'gender': 'genero',
-            'dias_min_entrenamiento': 'dias_min', 'min_training_days_per_week': 'dias_min',
-            'dias_max_entrenamiento': 'dias_max', 'max_training_days_per_week': 'dias_max',
-            'edad_min': 'edad_min', 'age_min': 'edad_min',
-            'edad_max': 'edad_max', 'age_max': 'edad_max',
-            'restricciones_alimentarias': 'restricciones', 'dietary_restrictions': 'restricciones',
-            'equipamiento': 'equipamiento', 'equipment_keywords': 'equipamiento',
-            'plan_nutricion': 'plan_nutricion', 'default_nutrition_plan': 'plan_nutricion',
-            'programa_entrenamiento': 'programa_entrenamiento', 'default_workout_program': 'programa_entrenamiento',
-        }
-
-        def get_val(row_data, canonical):
-            for raw_key, raw_val in row_data.items():
-                mapped = header_aliases.get(str(raw_key).strip().lower())
-                if mapped == canonical:
-                    return raw_val
-            return ''
-
-        def to_bool(val, default=True):
-            if val is None or str(val).strip() == '':
-                return default
-            return str(val).strip().lower() in ['true', '1', 'yes', 'sí', 'si', 's']
-
-        def to_int_or_none(val):
-            try:
-                return int(str(val).strip()) if str(val).strip() else None
-            except (ValueError, TypeError):
-                return None
-
-        def to_list(val):
-            return [x.strip() for x in str(val).split(',') if x.strip()] if val else []
-
         for row_num, row in enumerate(reader, start=2):
             try:
-                name = str(get_val(row, 'nombre') or '').strip()
-                if not name:
-                    errors.append(f"Fila {row_num}: 'nombre' es requerido")
-                    skipped += 1
-                    continue
-
-                nutrition_plan_name = str(get_val(row, 'plan_nutricion') or '').strip()
-                workout_program_name = str(get_val(row, 'programa_entrenamiento') or '').strip()
-
-                nutrition_plan = NutritionPlan.objects.filter(name=nutrition_plan_name).first() if nutrition_plan_name else None
-                workout_program = WorkoutProgram.objects.filter(name=workout_program_name).first() if workout_program_name else None
-
-                fields = {
-                    'description': str(get_val(row, 'descripcion') or '').strip(),
-                    'priority': to_int_or_none(get_val(row, 'prioridad')) or 100,
-                    'is_active': to_bool(get_val(row, 'activo')),
-                    'main_goal': str(get_val(row, 'objetivo_principal') or '').strip() or None,
-                    'training_location': str(get_val(row, 'lugar_entrenamiento') or '').strip() or None,
-                    'activity_level': str(get_val(row, 'nivel_actividad') or '').strip() or None,
-                    'gender': str(get_val(row, 'genero') or '').strip() or None,
-                    'min_training_days_per_week': to_int_or_none(get_val(row, 'dias_min')),
-                    'max_training_days_per_week': to_int_or_none(get_val(row, 'dias_max')),
-                    'age_min': to_int_or_none(get_val(row, 'edad_min')),
-                    'age_max': to_int_or_none(get_val(row, 'edad_max')),
-                    'dietary_restrictions': to_list(get_val(row, 'restricciones')),
-                    'equipment_keywords': to_list(get_val(row, 'equipamiento')),
-                    'default_nutrition_plan': nutrition_plan,
-                    'default_workout_program': workout_program,
-                }
+                canonical_row = self._canonicalize_row(row)
+                name, fields = self._build_fields_from_row(canonical_row)
 
                 config = DefaultPlanConfiguration.objects.filter(name=name).first()
                 if config:
@@ -982,11 +1203,9 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='import-excel', parser_classes=[MultiPartParser, FormParser])
     def import_excel(self, request):
-        """Importa configuraciones desde un Excel. Actualiza existentes (por nombre), crea nuevas."""
+        """Importa configuraciones desde Excel usando formato canónico y valores normalizados."""
         import openpyxl
         from django.core.files.uploadedfile import UploadedFile
-        from nutrition.models import NutritionPlan
-        from workouts.models import WorkoutProgram
 
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
@@ -998,79 +1217,16 @@ class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': f'Error al leer el archivo Excel: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        raw_headers = [str(cell.value).strip().lower() if cell.value is not None else '' for cell in ws[1]]
+        aliases = self._header_aliases()
+        raw_headers = [self._clean_text(cell.value).lower() if cell.value is not None else '' for cell in ws[1]]
+        canonical_headers = [aliases.get(header, header) for header in raw_headers]
         created, updated, skipped = 0, 0, 0
         errors = []
-
-        header_aliases = {
-            'nombre': 'nombre', 'name': 'nombre',
-            'descripcion': 'descripcion', 'descripción': 'descripcion', 'description': 'descripcion',
-            'prioridad': 'prioridad', 'priority': 'prioridad',
-            'activo': 'activo', 'is_active': 'activo',
-            'objetivo_principal': 'objetivo_principal', 'main_goal': 'objetivo_principal',
-            'lugar_entrenamiento': 'lugar_entrenamiento', 'training_location': 'lugar_entrenamiento',
-            'nivel_actividad': 'nivel_actividad', 'activity_level': 'nivel_actividad',
-            'genero': 'genero', 'género': 'genero', 'gender': 'genero',
-            'dias_min_entrenamiento': 'dias_min', 'min_training_days_per_week': 'dias_min',
-            'dias_max_entrenamiento': 'dias_max', 'max_training_days_per_week': 'dias_max',
-            'edad_min': 'edad_min', 'age_min': 'edad_min',
-            'edad_max': 'edad_max', 'age_max': 'edad_max',
-            'restricciones_alimentarias': 'restricciones', 'dietary_restrictions': 'restricciones',
-            'equipamiento': 'equipamiento', 'equipment_keywords': 'equipamiento',
-            'plan_nutricion': 'plan_nutricion', 'default_nutrition_plan': 'plan_nutricion',
-            'programa_entrenamiento': 'programa_entrenamiento', 'default_workout_program': 'programa_entrenamiento',
-        }
-        canonical_headers = [header_aliases.get(h, h) for h in raw_headers]
-
-        def to_bool(val, default=True):
-            if val is None or str(val).strip() == '':
-                return default
-            return str(val).strip().lower() in ['true', '1', 'yes', 'sí', 'si', 's']
-
-        def to_int_or_none(val):
-            try:
-                return int(str(val).strip()) if val is not None and str(val).strip() else None
-            except (ValueError, TypeError):
-                return None
-
-        def to_list(val):
-            return [x.strip() for x in str(val).split(',') if x.strip()] if val else []
-
-        def clean(val):
-            return str(val).strip() if val is not None else ''
 
         for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             try:
                 row_dict = dict(zip(canonical_headers, row))
-                name = clean(row_dict.get('nombre', ''))
-                if not name:
-                    errors.append(f"Fila {row_num}: 'nombre' es requerido")
-                    skipped += 1
-                    continue
-
-                nutrition_plan_name = clean(row_dict.get('plan_nutricion', ''))
-                workout_program_name = clean(row_dict.get('programa_entrenamiento', ''))
-
-                nutrition_plan = NutritionPlan.objects.filter(name=nutrition_plan_name).first() if nutrition_plan_name else None
-                workout_program = WorkoutProgram.objects.filter(name=workout_program_name).first() if workout_program_name else None
-
-                fields = {
-                    'description': clean(row_dict.get('descripcion', '')),
-                    'priority': to_int_or_none(row_dict.get('prioridad')) or 100,
-                    'is_active': to_bool(row_dict.get('activo')),
-                    'main_goal': clean(row_dict.get('objetivo_principal', '')) or None,
-                    'training_location': clean(row_dict.get('lugar_entrenamiento', '')) or None,
-                    'activity_level': clean(row_dict.get('nivel_actividad', '')) or None,
-                    'gender': clean(row_dict.get('genero', '')) or None,
-                    'min_training_days_per_week': to_int_or_none(row_dict.get('dias_min')),
-                    'max_training_days_per_week': to_int_or_none(row_dict.get('dias_max')),
-                    'age_min': to_int_or_none(row_dict.get('edad_min')),
-                    'age_max': to_int_or_none(row_dict.get('edad_max')),
-                    'dietary_restrictions': to_list(row_dict.get('restricciones', '')),
-                    'equipment_keywords': to_list(row_dict.get('equipamiento', '')),
-                    'default_nutrition_plan': nutrition_plan,
-                    'default_workout_program': workout_program,
-                }
+                name, fields = self._build_fields_from_row(row_dict)
 
                 config = DefaultPlanConfiguration.objects.filter(name=name).first()
                 if config:
