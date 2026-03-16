@@ -8,8 +8,11 @@
 .env.*.local
 *.env.production
 *.env.development
+*.env.dev
 docker.env
 backend/docker/backend.env
+docker/backend.env.dev
+frontend/docker.env.dev
 !*.env.example
 
 # ===== Docker =====
