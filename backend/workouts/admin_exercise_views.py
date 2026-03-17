@@ -4,6 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -627,6 +628,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             return response
     """ViewSet para gestión de ejercicios por administradores"""
     permission_classes = [IsAdminOrStaff]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     pagination_class = LargeResultsSetPagination
 
     def list(self, request, *args, **kwargs):

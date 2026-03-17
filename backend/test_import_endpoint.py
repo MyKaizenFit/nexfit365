@@ -2,9 +2,12 @@
 """
 Script para probar el endpoint de import de recetas
 """
+import pytest
 import requests
 import json
 from pathlib import Path
+
+pytestmark = pytest.mark.skip(reason="Script manual de integración, no test unitario pytest")
 
 # URL base
 BASE_URL = "http://localhost:8000"

@@ -2563,6 +2563,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
     queryset = Food.objects.all()
     serializer_class = AdminFoodSerializer
     permission_classes = [IsAdminUser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     @action(detail=False, methods=['get'], url_path='list-for-recipes')
     def list_for_recipes(self, request):
