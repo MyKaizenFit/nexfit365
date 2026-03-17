@@ -8,7 +8,7 @@ import { automatedNotificationService } from '@/lib/automated-notifications'
 import { toast } from '@/hooks/use-toast'
 
 export function useNotificationsEnhanced() {
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, getAuthHeaders } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [settings, setSettings] = useState<NotificationSettings>({
     email: true,
@@ -31,60 +31,27 @@ export function useNotificationsEnhanced() {
     try {
       setLoading(true)
       setError(null)
-      
-      // Simular notificaciones hasta que el backend esté implementado
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          type: 'workout',
-          title: '¡Bienvenido!',
-          message: 'Comienza tu primer entrenamiento para alcanzar tus objetivos.',
-          created_at: new Date().toISOString(),
-          read: false,
-          priority: 'medium',
-          actionable: true,
-          action_text: 'Comenzar entrenamiento',
-          action_url: '/workouts',
-        },
-        {
-          id: '2',
-          type: 'meal',
-          title: 'Registra tu primera comida',
-          message: 'No olvides registrar lo que comes para mantener un seguimiento preciso.',
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          read: true,
-          priority: 'low',
-          actionable: true,
-          action_text: 'Registrar comida',
-          action_url: '/nutrition',
-        },
-      ]
-      
-      setNotifications(mockNotifications)
+
+      const headers = await getAuthHeaders()
+      const items = await notificationService.getNotifications(headers)
+      const uniqueItems = Array.from(
+        new Map(items.map((item) => [item.id, item])).values()
+      ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      setNotifications(uniqueItems)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar notificaciones')
     } finally {
       setLoading(false)
     }
-  }, [isAuthenticated])
+  }, [isAuthenticated, getAuthHeaders])
 
   // Cargar configuración
   const loadSettings = useCallback(async () => {
     if (!isAuthenticated) return
 
     try {
-      // Usar configuración por defecto hasta que el backend esté implementado
-      const defaultSettings: NotificationSettings = {
-        email: true,
-        push: true,
-        meals: true,
-        workouts: true,
-        achievements: true,
-        reminders: true,
-        marketing: false,
-        admin: true,
-      }
-      setSettings(defaultSettings)
+      const loaded = await notificationService.getSettings()
+      setSettings(loaded)
     } catch (err) {
     }
   }, [isAuthenticated])
@@ -133,9 +100,11 @@ export function useNotificationsEnhanced() {
   // Marcar como leída
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      // Actualizar estado local directamente (sin llamada al backend)
+      const headers = await getAuthHeaders()
+      await notificationService.markAsRead(notificationId, headers)
+
       setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        prev.map(n => n.id === notificationId ? { ...n, read: true, is_read: true } : n)
       )
       setUnreadCount(prev => Math.max(0, prev - 1))
       
@@ -146,17 +115,42 @@ export function useNotificationsEnhanced() {
     } catch (err) {
       toast({
         title: "❌ Error",
-        description: "No se pudo marcar la notificación como leída",
+        description: err instanceof Error ? err.message : "No se pudo marcar la notificación como leída",
         variant: "destructive",
       })
     }
-  }, [])
+  }, [getAuthHeaders])
+
+  const markAsUnread = useCallback(async (notificationId: string) => {
+    try {
+      const headers = await getAuthHeaders()
+      await notificationService.markAsUnread(notificationId, headers)
+
+      setNotifications(prev => 
+        prev.map(n => n.id === notificationId ? { ...n, read: false, is_read: false } : n)
+      )
+      setUnreadCount(prev => prev + 1)
+      
+      toast({
+        title: "↩️ Notificación marcada como no leída",
+        description: "La notificación volverá a aparecer como pendiente",
+      })
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: err instanceof Error ? err.message : "No se pudo marcar la notificación como no leída",
+        variant: "destructive",
+      })
+    }
+  }, [getAuthHeaders])
 
   // Marcar todas como leídas
   const markAllAsRead = useCallback(async () => {
     try {
-      // Actualizar estado local directamente (sin llamada al backend)
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+      const headers = await getAuthHeaders()
+      await notificationService.markAllAsRead(headers)
+
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, is_read: true })))
       setUnreadCount(0)
       
       toast({
@@ -166,16 +160,27 @@ export function useNotificationsEnhanced() {
     } catch (err) {
       toast({
         title: "❌ Error",
-        description: "No se pudo marcar todas las notificaciones como leídas",
+        description: err instanceof Error ? err.message : "No se pudo marcar todas las notificaciones como leídas",
         variant: "destructive",
       })
     }
-  }, [])
+  }, [getAuthHeaders])
+
+  const trackClick = useCallback(async (notificationId: string) => {
+    try {
+      const headers = await getAuthHeaders()
+      await notificationService.trackClick(notificationId, headers)
+    } catch {
+      // No bloquea navegación si falla telemetry
+    }
+  }, [getAuthHeaders])
 
   // Eliminar notificación
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
-      // Actualizar estado local directamente (sin llamada al backend)
+      const headers = await getAuthHeaders()
+      await notificationService.deleteNotification(notificationId, headers)
+
       const notification = notifications.find(n => n.id === notificationId)
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
       
@@ -191,16 +196,17 @@ export function useNotificationsEnhanced() {
     } catch (err) {
       toast({
         title: "❌ Error",
-        description: "No se pudo eliminar la notificación",
+        description: err instanceof Error ? err.message : "No se pudo eliminar la notificación",
         variant: "destructive",
       })
     }
-  }, [notifications])
+  }, [getAuthHeaders, notifications])
 
   // Limpiar todas las notificaciones
   const clearAll = useCallback(async () => {
     try {
-      // Actualizar estado local directamente (sin llamada al backend)
+      const headers = await getAuthHeaders()
+      await notificationService.clearAll(headers)
       setNotifications([])
       setUnreadCount(0)
       
@@ -211,17 +217,17 @@ export function useNotificationsEnhanced() {
     } catch (err) {
       toast({
         title: "❌ Error",
-        description: "No se pudieron eliminar todas las notificaciones",
+        description: err instanceof Error ? err.message : "No se pudieron eliminar todas las notificaciones",
         variant: "destructive",
       })
     }
-  }, [])
+  }, [getAuthHeaders])
 
   // Actualizar configuración
   const updateSettings = useCallback(async (newSettings: Partial<NotificationSettings>) => {
     try {
-      // Actualizar estado local directamente (sin llamada al backend)
-      setSettings(prev => ({ ...prev, ...newSettings }))
+      const updated = await notificationService.updateSettings(newSettings)
+      setSettings(updated)
       
       toast({
         title: "✅ Configuración actualizada",
@@ -230,7 +236,7 @@ export function useNotificationsEnhanced() {
     } catch (err) {
       toast({
         title: "❌ Error",
-        description: "No se pudo actualizar la configuración",
+        description: err instanceof Error ? err.message : "No se pudo actualizar la configuración",
         variant: "destructive",
       })
     }
@@ -270,6 +276,8 @@ export function useNotificationsEnhanced() {
     
     // Acciones
     markAsRead,
+    markAsUnread,
+    trackClick,
     markAllAsRead,
     deleteNotification,
     clearAll,

@@ -2,11 +2,10 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count
+from django.db.models import Count
 from django.utils import timezone
-from datetime import timedelta
 
 from .models import Notification, PushSubscription
 from .serializers import (
@@ -31,13 +30,46 @@ class NotificationViewSet(viewsets.ModelViewSet):
     ordering_fields = ["created_at", "read_at", "type"]
     ordering = ["-created_at"]
     search_fields = ["title", "message"]
+
+    class NotificationPagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
+    pagination_class = NotificationPagination
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
         queryset = Notification.objects.select_related('user')
+
+        role = str(getattr(self.request.user, "role", "") or "").lower()
+        is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
+        can_view_members = is_admin or role in {"trainer", "pro"}
+
         if user_id:
-            return queryset.filter(user_id=user_id)
-        return queryset.filter(user=self.request.user)
+            scoped = queryset.filter(user_id=user_id)
+        elif can_view_members:
+            scoped = queryset
+        else:
+            scoped = queryset.filter(user=self.request.user)
+
+        read_param = self.request.query_params.get("read")
+        if read_param is not None:
+            normalized = str(read_param).strip().lower()
+            if normalized in {"true", "1", "yes"}:
+                scoped = scoped.filter(read_at__isnull=False)
+            elif normalized in {"false", "0", "no"}:
+                scoped = scoped.filter(read_at__isnull=True)
+
+        date_from = self.request.query_params.get("date_from")
+        if date_from:
+            scoped = scoped.filter(created_at__date__gte=date_from)
+
+        date_to = self.request.query_params.get("date_to")
+        if date_to:
+            scoped = scoped.filter(created_at__date__lte=date_to)
+
+        return scoped
     
     def get_serializer_class(self):
         if self.action == "create":
@@ -75,6 +107,22 @@ class NotificationViewSet(viewsets.ModelViewSet):
         notification.mark_as_unread()
         serializer = self.get_serializer(notification)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["post"])
+    def track_click(self, request, user_id=None, pk=None):
+        """Registrar clic en acción de notificación"""
+        notification = self.get_object()
+        metadata = notification.data or {}
+        metadata["clicked_at"] = timezone.now().isoformat()
+        metadata["clicked"] = True
+        metadata["click_count"] = int(metadata.get("click_count", 0)) + 1
+        notification.data = metadata
+        notification.save(update_fields=["data", "updated_at"])
+
+        return Response({
+            "message": "Clic registrado",
+            "click_count": metadata["click_count"],
+        })
     
     @action(detail=False, methods=["patch"])
     def mark_all_read(self, request, user_id=None):

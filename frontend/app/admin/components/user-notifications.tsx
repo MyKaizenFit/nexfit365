@@ -18,14 +18,14 @@ interface Props {
 
 export function UserNotifications({ userId }: Props) {
   const { notifications, loading, error, refetch, send } = useAdminUserNotifications(userId)
-  const [form, setForm] = useState({ title: "", message: "", type: "info", priority: "medium" })
+  const [form, setForm] = useState({ title: "", message: "", type: "general", priority: "medium" })
   const [sending, setSending] = useState(false)
 
   const handleSend = async () => {
     try {
       setSending(true)
       await send(form)
-      setForm({ title: "", message: "", type: "info", priority: "medium" })
+      setForm({ title: "", message: "", type: "general", priority: "medium" })
     } catch (err) {
     } finally {
       setSending(false)
@@ -38,21 +38,21 @@ export function UserNotifications({ userId }: Props) {
       setForm({
         title: "Recordatorio de comidas",
         message: "No olvides registrar tus comidas de hoy para mantener tus objetivos al día.",
-        type: "meal",
+        type: "meal_reminder",
         priority: "medium",
       })
     } else if (template === "workout") {
       setForm({
         title: "Entrenamiento pendiente",
         message: "Tienes un entrenamiento asignado hoy. ¡Dale, tú puedes!",
-        type: "workout",
+        type: "workout_reminder",
         priority: "high",
       })
     } else {
       setForm({
         title: "¡Sigue así!",
         message: "Estás haciendo un gran trabajo. Mantén el ritmo y cuida tu descanso.",
-        type: "motivation",
+        type: "general",
         priority: "low",
       })
     }
@@ -105,13 +105,14 @@ export function UserNotifications({ userId }: Props) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="info">Información</SelectItem>
-                    <SelectItem value="meal">Comida</SelectItem>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="meal_reminder">Comida</SelectItem>
                     <SelectItem value="workout">Entrenamiento</SelectItem>
-                    <SelectItem value="reminder">Recordatorio</SelectItem>
-                    <SelectItem value="motivation">Motivación</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                    <SelectItem value="warning">Advertencia</SelectItem>
+                    <SelectItem value="workout_reminder">Recordatorio entrenamiento</SelectItem>
+                    <SelectItem value="nutrition">Nutrición</SelectItem>
+                    <SelectItem value="achievement">Logro</SelectItem>
+                    <SelectItem value="progress">Progreso</SelectItem>
+                    <SelectItem value="system">Sistema</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

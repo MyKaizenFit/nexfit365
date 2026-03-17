@@ -1,7 +1,9 @@
 # accounts/models.py
 # Modelo de usuario - Versión simplificada
 
+import secrets
 import uuid
+from datetime import timedelta
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -262,7 +264,19 @@ class CustomUser(AbstractUser):
     
     def __str__(self):
         return f"{self.email} - {self.get_full_name()}"
-    
+
+    def generate_password_reset_token(self):
+        token = secrets.token_urlsafe(32)
+        self.password_reset_token = token
+        self.password_reset_expires = timezone.now() + timedelta(hours=24)
+        self.save(update_fields=["password_reset_token", "password_reset_expires", "updated_at"])
+        return token
+
+    def clear_password_reset_token(self):
+        self.password_reset_token = None
+        self.password_reset_expires = None
+        self.save(update_fields=["password_reset_token", "password_reset_expires", "updated_at"])
+
     @property
     def bmi(self):
         """Calcular IMC"""

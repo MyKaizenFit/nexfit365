@@ -17,6 +17,13 @@ router.register(r'foods', FoodViewSet, basename='foods')
 
 urlpatterns = [
     path('current-plan/', current_plan, name='current-plan'),
+    # Alias legacy para tests antiguos
+    path('foods/', FoodViewSet.as_view({'get': 'list', 'post': 'create'}), name='food-list'),
+    path('foods/<uuid:pk>/', FoodViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'put': 'update', 'delete': 'destroy'}), name='food-detail'),
+    path('plans/<uuid:pk>/activate/', NutritionPlanViewSet.as_view({'post': 'activate'}), name='nutritionplan-activate'),
+    path('plans/<uuid:pk>/', NutritionPlanViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'put': 'update', 'delete': 'destroy'}), name='nutritionplan-detail'),
+    path('meallogs/', MealLogViewSet.as_view({'get': 'list', 'post': 'create'}), name='meallog-list'),
+    path('meallogs/<uuid:pk>/', MealLogViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update', 'put': 'update', 'delete': 'destroy'}), name='meallog-detail'),
     path('adjust-plan/', adjust_plan, name='adjust-plan'),
     path('plan-history/', plan_history, name='plan-history'),
     path('plan-meals-for-selection/', plan_meals_for_selection, name='plan-meals-for-selection'),

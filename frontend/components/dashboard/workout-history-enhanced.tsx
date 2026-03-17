@@ -23,8 +23,10 @@ interface WorkoutHistoryEnhancedProps {
 interface ExerciseStats {
   exercise_id: string
   exercise_name: string
-  pr: number // Personal Record - máximo peso
-  rem: number // Repeticiones Máximas
+  rm: number // RM: carga máxima (1 repetición, o mayor carga si no hay singles)
+  pr_weight: number // PR: peso de la serie que da el mayor 1RM estimado
+  pr_reps: number // PR: repeticiones de la serie que da el mayor 1RM estimado
+  pr_estimated_1rm: number // PR: 1RM estimado máximo histórico
   totalVolume: number // Tonelaje total
   lastDate: string
   occurrences: number
@@ -93,6 +95,11 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'all'>('month')
 
+  const estimateOneRepMax = (weight: number, reps: number) => {
+    if (!Number.isFinite(weight) || !Number.isFinite(reps) || weight <= 0 || reps <= 0) return 0
+    return weight * (1 + reps / 30)
+  }
+
   // Función auxiliar para extraer ejercicios de un log (soporta ambos formatos)
   const getExercisesFromLog = (log: any) => {
     // Caso 1: log_exercises (WorkoutLogExercise con WorkoutLogSet)
@@ -139,7 +146,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     return logs
   }, [workoutLogs])
 
-  // Calcular PR y REM por ejercicio
+  // Calcular PR y RM por ejercicio
   const exerciseStats = useMemo(() => {
     const stats: Record<string, ExerciseStats> = {}
 
@@ -160,17 +167,25 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           stats[exerciseId] = {
             exercise_id: exerciseId,
             exercise_name: exerciseName,
-            pr: 0,
-            rem: 0,
+            rm: 0,
+            pr_weight: 0,
+            pr_reps: 0,
+            pr_estimated_1rm: 0,
             totalVolume: 0,
             lastDate: log.date,
             occurrences: 0
           }
         }
 
-        // Calcular PR (máximo peso) y REM (máximo reps)
-        let maxWeight = stats[exerciseId].pr
-        let maxReps = stats[exerciseId].rem
+        // RM: si existe serie de 1 rep, usar la mayor carga entre esas series.
+        // Si no existe ninguna, usar la mayor carga histórica.
+        let maxOneRepWeight = 0
+        let maxWeightAnyReps = stats[exerciseId].rm
+
+        // PR: serie con mayor 1RM estimado histórico (Epley).
+        let bestEstimatedOneRM = stats[exerciseId].pr_estimated_1rm
+        let bestEstimatedWeight = stats[exerciseId].pr_weight
+        let bestEstimatedReps = stats[exerciseId].pr_reps
         let volume = 0
 
         sets.forEach((set: any) => {
@@ -179,17 +194,33 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           const reps = set.reps !== null && set.reps !== undefined ? parseInt(String(set.reps)) : null
 
           if (set.completed && weight !== null && reps !== null && !isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
-            if (weight > maxWeight) maxWeight = weight
-            if (reps > maxReps) maxReps = reps
+            if (reps === 1 && weight > maxOneRepWeight) {
+              maxOneRepWeight = weight
+            }
+
+            if (weight > maxWeightAnyReps) {
+              maxWeightAnyReps = weight
+            }
+
+            const estimatedOneRM = estimateOneRepMax(weight, reps)
+            if (estimatedOneRM > bestEstimatedOneRM) {
+              bestEstimatedOneRM = estimatedOneRM
+              bestEstimatedWeight = weight
+              bestEstimatedReps = reps
+            }
 
             // Tonelaje = Peso * Repeticiones (por serie)
             volume += weight * reps
           }
         })
 
-        if (maxWeight > 0 || maxReps > 0 || volume > 0) {
-          stats[exerciseId].pr = maxWeight
-          stats[exerciseId].rem = maxReps
+        const rm = maxOneRepWeight > 0 ? maxOneRepWeight : maxWeightAnyReps
+
+        if (rm > 0 || bestEstimatedOneRM > 0 || volume > 0) {
+          stats[exerciseId].rm = rm
+          stats[exerciseId].pr_estimated_1rm = bestEstimatedOneRM
+          stats[exerciseId].pr_weight = bestEstimatedWeight
+          stats[exerciseId].pr_reps = bestEstimatedReps
           stats[exerciseId].totalVolume += volume
           stats[exerciseId].occurrences += 1
           if (new Date(log.date) > new Date(stats[exerciseId].lastDate)) {
@@ -345,7 +376,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       <Tabs defaultValue="history" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3 gap-1 md:gap-2 h-auto md:h-10">
           <TabsTrigger value="history" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
-          <TabsTrigger value="pr-rem" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">PR & REM</TabsTrigger>
+          <TabsTrigger value="pr-rem" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">PR & RM</TabsTrigger>
           <TabsTrigger value="tonnage" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Tonelaje</TabsTrigger>
         </TabsList>
 
@@ -440,12 +471,12 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                                 <div className="flex items-center gap-3 text-xs">
                                   {exercise.pr > 0 && (
                                     <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                      PR: {exercise.pr} kg
+                                      Peso máx: {exercise.pr} kg
                                     </Badge>
                                   )}
                                   {exercise.rem > 0 && (
                                     <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                      REM: {exercise.rem}
+                                      Reps máx: {exercise.rem}
                                     </Badge>
                                   )}
                                   <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
@@ -484,13 +515,13 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
           )}
         </TabsContent>
 
-        {/* Tab PR & REM */}
+        {/* Tab PR & RM */}
         <TabsContent value="pr-rem" className="space-y-4">
           {exerciseStats.length === 0 ? (
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
               <CardContent className="p-8 text-center">
                 <Target className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">No hay datos suficientes para calcular PR y REM</p>
+                <p className="text-gray-600">No hay datos suficientes para calcular PR y RM</p>
               </CardContent>
             </Card>
           ) : (
@@ -502,24 +533,25 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                     <Target className="h-5 w-5 text-blue-600" />
                     Personal Records (PR)
                   </CardTitle>
-                  <CardDescription>Máximo peso levantado por ejercicio</CardDescription>
+                  <CardDescription>Mayor 1RM estimado histórico (mostrando la serie origen)</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {exerciseStats
-                      .filter(ex => ex.pr > 0)
-                      .sort((a, b) => b.pr - a.pr)
+                      .filter(ex => ex.pr_estimated_1rm > 0)
+                      .sort((a, b) => b.pr_estimated_1rm - a.pr_estimated_1rm)
                       .slice(0, 20)
                       .map((exercise) => (
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                           <div className="flex-1">
                             <div className="font-medium text-sm">{fixEncoding(exercise.exercise_name)}</div>
-                            <div className="text-xs text-gray-600">
+                            <div className="text-xs text-gray-600 space-y-0.5">
                               {format(new Date(exercise.lastDate), "dd MMM yyyy", { locale: es })}
+                              <div>1RM est.: {Math.round(exercise.pr_estimated_1rm)} kg</div>
                             </div>
                           </div>
                           <Badge className="bg-blue-600 text-white">
-                            {exercise.pr} kg
+                            {exercise.pr_weight} kg × {exercise.pr_reps}
                           </Badge>
                         </div>
                       ))}
@@ -527,20 +559,20 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                 </CardContent>
               </Card>
 
-              {/* REM (Repeticiones Máximas) */}
+              {/* RM (Carga Máxima) */}
               <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Repeat className="h-5 w-5 text-purple-600" />
-                    Repeticiones Máximas (REM)
+                    RM (Carga Máxima)
                   </CardTitle>
-                  <CardDescription>Máximo número de repeticiones por ejercicio</CardDescription>
+                  <CardDescription>Máxima carga a 1 repetición; si no existe, mayor carga histórica</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-96 overflow-y-auto">
                     {exerciseStats
-                      .filter(ex => ex.rem > 0)
-                      .sort((a, b) => b.rem - a.rem)
+                      .filter(ex => ex.rm > 0)
+                      .sort((a, b) => b.rm - a.rm)
                       .slice(0, 20)
                       .map((exercise) => (
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
@@ -551,7 +583,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                             </div>
                           </div>
                           <Badge className="bg-purple-600 text-white">
-                            {exercise.rem} reps
+                            {exercise.rm} kg
                           </Badge>
                         </div>
                       ))}

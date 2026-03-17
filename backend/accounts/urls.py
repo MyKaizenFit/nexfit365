@@ -1,18 +1,32 @@
 # accounts/urls.py
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from api.auth_views import LoginView, LogoutView
+from api.auth_views import (
+    LoginView,
+    LogoutView,
+    RegisterView,
+    ForgotPasswordView,
+    ResetPasswordView,
+    ChangePasswordView,
+)
 from . import views
 
 urlpatterns = [
     # Autenticación JWT
     path('auth/login/', LoginView.as_view(), name='token_obtain_pair'),
+    path('auth/login/', LoginView.as_view(), name='auth-login'),
     path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('auth/refresh/', TokenRefreshView.as_view(), name='auth-refresh'),
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),  # Logout endpoint
+    path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
+    path('auth/forgot-password/', ForgotPasswordView.as_view(), name='auth-forgot-password'),
+    path('auth/reset-password/', ResetPasswordView.as_view(), name='auth-reset-password'),
+    path('auth/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
     
     # Registro y perfil
-    path('register/', views.register, name='register'),
-    path('auth/register/', views.register, name='auth_register'),  # Alias para frontend
+    path('register/', RegisterView.as_view(), name='register'),
+    path('auth/register/', RegisterView.as_view(), name='auth_register'),  # Alias para frontend
+    path('auth/register/', RegisterView.as_view(), name='auth-register'),
     path('profile/', views.profile, name='profile'),
     path('me/', views.profile, name='me'),  # Endpoint principal para frontend
     path('auth/me/', views.profile, name='auth_me'),  # Alias alternativo

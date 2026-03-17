@@ -1249,11 +1249,15 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user = self.request.user
-        return NutritionPlan.objects.filter(
-            is_active=True
-        ).filter(
-            models.Q(is_system=True) | models.Q(user=user) | models.Q(assignments__user=user)
-        ).distinct().select_related('user').prefetch_related(
+        role = str(getattr(user, "role", "") or "").lower()
+        if user.is_staff or user.is_superuser or role in {"admin", "trainer", "pro"}:
+            base_queryset = NutritionPlan.objects.all()
+        else:
+            base_queryset = NutritionPlan.objects.filter(
+                models.Q(is_system=True) | models.Q(user=user) | models.Q(assignments__user=user)
+            )
+
+        return base_queryset.distinct().select_related('user').prefetch_related(
             'meals',
             'meals__suggested_recipes',
             'assignments__user'
@@ -1431,9 +1435,19 @@ class MealLogViewSet(viewsets.ModelViewSet):
     ordering = ['-date', '-time']
     
     def get_queryset(self):
-        return MealLog.objects.filter(
+        queryset = MealLog.objects.filter(
             user=self.request.user
         ).select_related('user', 'recipe')
+
+        date_gte = self.request.query_params.get('date__gte')
+        if date_gte:
+            queryset = queryset.filter(date__gte=date_gte)
+
+        date_lte = self.request.query_params.get('date__lte')
+        if date_lte:
+            queryset = queryset.filter(date__lte=date_lte)
+
+        return queryset
     
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
@@ -1477,8 +1491,25 @@ class FoodViewSet(viewsets.ModelViewSet):
     queryset = Food.objects.all()
     serializer_class = FoodSerializer
     permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = {
+        'protein': ['gte', 'lte', 'exact'],
+        'calories': ['gte', 'lte', 'exact'],
+        'carbs': ['gte', 'lte', 'exact'],
+        'fat': ['gte', 'lte', 'exact'],
+    }
     search_fields = ['name', 'brand', 'category']
+
+    def get_permissions(self):
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            user = self.request.user
+            role = str(getattr(user, 'role', '') or '').lower()
+            if not (user.is_staff or user.is_superuser or role == 'admin'):
+                self.permission_denied(
+                    self.request,
+                    message='Solo administradores pueden modificar alimentos.',
+                )
+        return super().get_permissions()
     
     @action(detail=False, methods=['post'], url_path='search_api')
     def search_api(self, request):

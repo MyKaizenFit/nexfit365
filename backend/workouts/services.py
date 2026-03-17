@@ -17,45 +17,20 @@ from .models import (
 
 def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgram:
     """
-    Verifica si un plan de entrenamiento necesita reiniciarse semanalmente
-    y lo reinicia si es necesario (si no tiene end_date y ha pasado una semana)
+    Mantiene compatibilidad con el flujo anterior de reinicio semanal.
+    Ahora los planes activos continúan indefinidamente hasta que se reasignan
+    o modifican, así que solo inicializa start_date si falta.
     """
     if not program or not program.is_active:
         return program
-    
-    # Solo reiniciar planes sin fecha de fin (reinicio semanal activado)
-    if program.end_date is not None:
-        return program
-    
+
     today = timezone.now().date()
-    
+
     # Si no tiene start_date, establecerlo a hoy
     if not program.start_date:
         program.start_date = today
         program.save()
-        return program
-    
-    # Calcular días desde el inicio
-    days_since_start = (today - program.start_date).days
-    
-    # Si han pasado 7 días o más, reiniciar
-    if days_since_start >= 7:
-        # Calcular nuevo lunes (inicio de semana)
-        days_until_monday = (today.weekday() - 0) % 7
-        if days_until_monday == 0 and today.weekday() != 0:
-            days_until_monday = 7
-        new_start_date = today - timedelta(days=days_until_monday)
-        if today.weekday() == 0:
-            new_start_date = today
-        
-        # Actualizar fecha de inicio
-        program.start_date = new_start_date
-        program.save()
-        
-        # Opcional: Limpiar logs de entrenamiento de la semana anterior
-        # Esto se puede hacer si se quiere resetear el progreso semanal
-        # Por ahora solo actualizamos la fecha de inicio
-        
+
     return program
 
 class PersonalizedWorkoutService:

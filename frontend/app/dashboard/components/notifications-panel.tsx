@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Bell, Check, Trash2, Filter, MoreVertical, Mail, MessageSquare, Award, Calendar, Settings, User, RefreshCw } from "lucide-react"
+import { Bell, Check, Trash2, Filter, MoreVertical, Mail, MessageSquare, Award, Calendar, Settings, User, RefreshCw, ArrowRight, RotateCcw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,8 @@ export function NotificationsPanel() {
     error,
     unreadCount,
     markAsRead,
+    markAsUnread,
+    trackClick,
     markAllAsRead,
     deleteNotification,
     updateSettings,
@@ -30,9 +32,9 @@ export function NotificationsPanel() {
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case "meal":
+      case "meal_reminder":
         return <MessageSquare className="h-4 w-4 text-orange-600" />
-      case "workout":
+      case "workout_reminder":
         return <Calendar className="h-4 w-4 text-purple-600" />
       case "achievement":
         return <Award className="h-4 w-4 text-yellow-600" />
@@ -44,6 +46,8 @@ export function NotificationsPanel() {
         return <User className="h-4 w-4 text-red-600" />
       case "marketing":
         return <Mail className="h-4 w-4 text-green-600" />
+      case "general":
+        return <Bell className="h-4 w-4 text-indigo-600" />
       default:
         return <Bell className="h-4 w-4 text-gray-600" />
     }
@@ -51,9 +55,9 @@ export function NotificationsPanel() {
 
   const getNotificationBadge = (type: string) => {
     switch (type) {
-      case "meal":
+      case "meal_reminder":
         return <Badge className="bg-orange-100 text-orange-800 border-0">Comida</Badge>
-      case "workout":
+      case "workout_reminder":
         return <Badge className="bg-purple-100 text-purple-800 border-0">Entrenamiento</Badge>
       case "achievement":
         return <Badge className="bg-yellow-100 text-yellow-800 border-0">Logro</Badge>
@@ -65,8 +69,10 @@ export function NotificationsPanel() {
         return <Badge className="bg-red-100 text-red-800 border-0">Admin</Badge>
       case "marketing":
         return <Badge className="bg-green-100 text-green-800 border-0">Marketing</Badge>
+      case "general":
+        return <Badge className="bg-indigo-100 text-indigo-800 border-0">General</Badge>
       default:
-        return <Badge variant="outline">{type}</Badge>
+        return <Badge variant="outline">{getNotificationCategory(type)}</Badge>
     }
   }
 
@@ -87,14 +93,69 @@ export function NotificationsPanel() {
 
   const filteredNotifications = notifications.filter((notification) => {
     if (filter === "all") return true
-    if (filter === "unread") return !notification.read
-    if (filter === "read") return notification.read
+    if (filter === "unread") return !notification.is_read
+    if (filter === "read") return notification.is_read
     return notification.type === filter
   })
 
   const handleSettingChange = (setting: string, checked: boolean) => {
     updateSettings({ [setting]: checked })
   }
+
+  const getNotificationCategory = (type: string) => {
+    const categories: Record<string, string> = {
+      "general": "General",
+      "meal_reminder": "Comidas",
+      "workout_reminder": "Entrenamientos",
+      "achievement": "Logros",
+      "reminder": "Recordatorios",
+      "system": "Sistema",
+      "admin": "Admin",
+      "marketing": "Marketing",
+    }
+    return categories[type] || type
+  }
+
+  const formatRelativeTime = (dateString: string) => {
+    const now = Date.now()
+    const then = new Date(dateString).getTime()
+    const diffSeconds = Math.max(1, Math.floor((now - then) / 1000))
+
+    if (diffSeconds < 60) return "hace unos segundos"
+    const diffMinutes = Math.floor(diffSeconds / 60)
+    if (diffMinutes < 60) return `hace ${diffMinutes} min`
+    const diffHours = Math.floor(diffMinutes / 60)
+    if (diffHours < 24) return `hace ${diffHours} h`
+    const diffDays = Math.floor(diffHours / 24)
+    return `hace ${diffDays} día${diffDays !== 1 ? "s" : ""}`
+  }
+
+  const getDateGroup = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const yesterday = new Date(today)
+    yesterday.setDate(today.getDate() - 1)
+    const itemDay = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+    if (itemDay.getTime() === today.getTime()) return "Hoy"
+    if (itemDay.getTime() === yesterday.getTime()) return "Ayer"
+    return "Anteriores"
+  }
+
+  const groupedNotifications = filteredNotifications.reduce(
+    (groups, notification) => {
+      const group = getDateGroup(notification.created_at)
+      if (!groups[group]) groups[group] = []
+      groups[group].push(notification)
+      return groups
+    },
+    { Hoy: [] as Notification[], Ayer: [] as Notification[], Anteriores: [] as Notification[] }
+  )
+
+  const orderedGroups = ["Hoy", "Ayer", "Anteriores"].filter(
+    (group) => groupedNotifications[group].length > 0
+  )
 
   return (
     <div className="space-y-6">
@@ -119,8 +180,10 @@ export function NotificationsPanel() {
                   <SelectItem value="all">Todas</SelectItem>
                   <SelectItem value="unread">No leídas</SelectItem>
                   <SelectItem value="read">Leídas</SelectItem>
-                  <SelectItem value="meal">Comidas</SelectItem>
-                  <SelectItem value="workout">Entrenamientos</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="meal_reminder">Comidas</SelectItem>
+                  <SelectItem value="workout_reminder">Entrenamientos</SelectItem>
+                  <SelectItem value="reminder">Recordatorios</SelectItem>
                   <SelectItem value="achievement">Logros</SelectItem>
                 </SelectContent>
               </Select>
@@ -167,75 +230,101 @@ export function NotificationsPanel() {
           ) : (
             <div className="space-y-3">
               {filteredNotifications.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Bell className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No hay notificaciones para mostrar</p>
+                <div className="text-center py-12 text-gray-500">
+                  <div className="bg-gradient-to-br from-purple-100 to-violet-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                    <Bell className="h-10 w-10 text-purple-400" />
+                  </div>
+                  <p className="text-lg font-medium text-gray-700">No hay notificaciones para mostrar</p>
+                  <p className="text-sm text-gray-400 mt-1">Cuando recibas notificaciones, aparecerán aquí</p>
                 </div>
               ) : (
-              filteredNotifications.map((notification) => (
+              orderedGroups.map((group) => (
+                <div key={group} className="space-y-3">
+                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-100">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{group}</span>
+                  </div>
+                  {groupedNotifications[group].map((notification) => (
                 <div
                   key={notification.id}
-                  className={`p-4 rounded-lg border transition-all duration-200 hover:shadow-md ${
-                    notification.read
-                      ? "bg-gray-50 border-gray-200"
-                      : "bg-gradient-to-r from-purple-50 to-violet-50 border-purple-200"
+                  className={`p-4 rounded-xl border-l-4 transition-all duration-200 hover:shadow-lg ${
+                    !notification.is_read
+                      ? "bg-gradient-to-r from-purple-50 to-violet-50 border-l-purple-400 hover:from-purple-100 hover:to-violet-100"
+                      : "bg-white border-l-gray-300 hover:bg-gray-50"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 flex-1">
-                      <div className="mt-1">{getNotificationIcon(notification.type)}</div>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-4 flex-1">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${
+                        !notification.is_read 
+                          ? "bg-purple-200/50" 
+                          : "bg-gray-200/50"
+                      }`}>
+                        {getNotificationIcon(notification.type)}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h4 className={`font-medium ${notification.read ? "text-gray-700" : "text-gray-900"}`}>
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <h4 className={`font-bold text-base leading-tight ${!notification.is_read ? "text-gray-900" : "text-gray-700"}`}>
                             {notification.title}
                           </h4>
                           {getNotificationBadge(notification.type)}
-                          {!notification.read && <div className="w-2 h-2 bg-purple-500 rounded-full" />}
+                          {!notification.is_read && (
+                            <div className="flex items-center gap-1 px-2 py-0.5 bg-rose-100 rounded-full">
+                              <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+                              <span className="text-xs text-rose-700 font-medium">Nueva</span>
+                            </div>
+                          )}
                         </div>
-                        <p className={`text-sm ${notification.read ? "text-gray-500" : "text-gray-700"}`}>
+                        <p className={`text-sm leading-relaxed ${!notification.is_read ? "text-gray-800" : "text-gray-600"}`}>
                           {notification.message}
                         </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500">{new Date(notification.created_at).toLocaleString()}</span>
-                            {getPriorityBadge(notification.priority)}
-                          </div>
-                          {notification.actionable && notification.action_text && (
-                            <Button
-                              size="sm"
-                              className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-                              onClick={() => {
-                                if (notification.action_url) {
-                                  window.location.href = notification.action_url
-                                }
-                              }}
-                            >
-                              {notification.action_text}
-                            </Button>
+                        <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                          <span>{formatRelativeTime(notification.created_at)}</span>
+                          {notification.data?.priority && (
+                            <>
+                              <span>•</span>
+                              {getPriorityBadge(notification.data.priority)}
+                            </>
                           )}
                         </div>
                       </div>
                     </div>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="backdrop-blur-sm bg-white/90 border-0 shadow-xl">
-                        {!notification.read && (
-                          <DropdownMenuItem onClick={() => markAsRead(notification.id)}>
-                            <Check className="h-4 w-4 mr-2" />
-                            Marcar como leído
+                        {!notification.is_read && (
+                          <DropdownMenuItem onClick={() => markAsRead(notification.id)} className="cursor-pointer">
+                            <Check className="h-4 w-4 mr-2 text-purple-600" />
+                            <span className="text-purple-600">Marcar como leído</span>
                           </DropdownMenuItem>
                         )}
-                        <DropdownMenuItem onClick={() => deleteNotification(notification.id)} className="text-red-600">
+                        {notification.is_read && (
+                          <DropdownMenuItem onClick={() => markAsUnread(notification.id)} className="cursor-pointer">
+                            <RotateCcw className="h-4 w-4 mr-2 text-amber-600" />
+                            <span className="text-amber-600">Marcar como no leído</span>
+                          </DropdownMenuItem>
+                        )}
+                        {notification.action_url && (
+                          <DropdownMenuItem onClick={async () => {
+                            await trackClick(notification.id)
+                            window.location.href = notification.action_url!
+                          }} className="cursor-pointer">
+                            <ArrowRight className="h-4 w-4 mr-2 text-blue-600" />
+                            <span className="text-blue-600">Ir a notificación</span>
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => deleteNotification(notification.id)} className="cursor-pointer text-red-600">
                           <Trash2 className="h-4 w-4 mr-2" />
                           Eliminar
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
+                </div>
+                  ))}
                 </div>
               ))
               )}

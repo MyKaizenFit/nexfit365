@@ -44,7 +44,7 @@ export function useAdminUserNotifications(userId: string | number) {
     refetch: fetchAll,
     send: async (payload: { title: string; message: string; type?: string; priority?: string }) => {
       const headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl(`admin/notifications/`), {
+      const res = await fetch(buildApiUrl(`admin/notifications/send_bulk/`), {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ user_ids: [Number(userId)], ...payload }),

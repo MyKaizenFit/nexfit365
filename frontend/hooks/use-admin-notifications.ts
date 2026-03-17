@@ -3,17 +3,12 @@ import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl } from '@/lib/api'
 
 export interface AdminNotification {
-  id: number
-  user: {
-    id: number
-    email: string
-    first_name: string
-    last_name: string
-  }
+  id: string
+  user: string
   title: string
   message: string
-  type: 'info' | 'warning' | 'success' | 'error'
-  priority: 'low' | 'medium' | 'high'
+  type: string
+  priority: 'low' | 'medium' | 'high' | 'urgent'
   is_read: boolean
   is_expired: boolean
   created_at: string
@@ -23,19 +18,22 @@ export interface AdminNotification {
 
 export interface NotificationStats {
   total_notifications: number
+  read_notifications: number
   unread_notifications: number
-  expired_notifications: number
-  notifications_by_type: Array<{ type: string; count: number }>
+  clicked_notifications?: number
+  recent_notifications_30_days: number
+  type_distribution: Array<{ type: string; count: number }>
 }
 
 export interface CreateNotificationData {
   user_ids?: number[]
   title: string
   message: string
-  type?: 'info' | 'warning' | 'success' | 'error'
-  priority?: 'low' | 'medium' | 'high'
+  type?: string
+  priority?: 'low' | 'medium' | 'high' | 'urgent'
   action_url?: string
   expires_at?: string
+  send_email?: boolean
 }
 
 export function useAdminNotifications() {
@@ -60,7 +58,12 @@ export function useAdminNotifications() {
       }
 
       const data = await response.json()
-      setNotifications(data.results || data)
+      const items = data.results || data || []
+      const normalized = items.map((item: any) => ({
+        ...item,
+        priority: item.priority || item?.data?.priority || 'medium',
+      }))
+      setNotifications(normalized)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
     } finally {
@@ -88,7 +91,11 @@ export function useAdminNotifications() {
   const sendBulkNotification = async (notificationData: CreateNotificationData) => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl('admin/notifications/send_bulk/'), {
+      const endpoint = notificationData.user_ids && notificationData.user_ids.length > 0
+        ? 'admin/notifications/send_bulk/'
+        : 'admin/notifications/send_to_all/'
+
+      const response = await fetch(buildApiUrl(endpoint), {
         method: 'POST',
         headers: {
           ...headers,
@@ -114,10 +121,10 @@ export function useAdminNotifications() {
     }
   }
 
-  const deleteNotification = async (notificationId: number) => {
+  const deleteNotification = async (notificationId: string) => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`/api/admin/notifications/${notificationId}/`, {
+      const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/`), {
         method: 'DELETE',
         headers
       })
@@ -137,16 +144,14 @@ export function useAdminNotifications() {
     }
   }
 
-  const markAsRead = async (notificationId: number) => {
+  const markAsRead = async (notificationId: string) => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`/api/admin/notifications/${notificationId}/`, {
-        method: 'PATCH',
+      const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/mark_as_read/`), {
+        method: 'POST',
         headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ is_read: true })
+          ...headers
+        }
       })
 
       if (!response.ok) {

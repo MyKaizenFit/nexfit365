@@ -3,6 +3,7 @@ Tests para las vistas del módulo de notificaciones
 """
 import pytest
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
@@ -270,6 +271,57 @@ class TestNotificationActions:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["unread_count"] == 1
 
+    def test_track_click_updates_notification_metadata(self, auth_headers, sample_notification):
+        """Test de registro de clic en acción de notificación"""
+        url = reverse("notification-track-click", kwargs={"pk": sample_notification.id})
+
+        response = auth_headers.post(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        sample_notification.refresh_from_db()
+        assert sample_notification.data["clicked"] is True
+        assert sample_notification.data["click_count"] == 1
+        assert "clicked_at" in sample_notification.data
+
+
+@pytest.mark.django_db
+class TestAdminNotificationViews:
+    """Tests para endpoints admin de notificaciones"""
+
+    def test_admin_send_bulk_applies_default_expiration(self, admin_headers, member_user):
+        """Test de expiración por defecto cuando admin no envía expires_at"""
+        url = reverse("admin-notifications-send-bulk")
+        payload = {
+            "user_ids": [member_user.id],
+            "title": "Aviso sistema",
+            "message": "Mensaje importante",
+            "type": "system",
+            "priority": "high",
+        }
+
+        response = admin_headers.post(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        notification = Notification.objects.get(user=member_user, title="Aviso sistema")
+        assert notification.expires_at is not None
+        assert notification.expires_at > timezone.now() + timedelta(days=13)
+
+    def test_admin_stats_include_clicked_notifications(self, admin_headers, member_user):
+        """Test de stats admin con conteo de notificaciones clicadas"""
+        notification = Notification.objects.create(
+            user=member_user,
+            type="general",
+            title="Clickable",
+            message="Click me",
+            data={"clicked_at": timezone.now().isoformat(), "clicked": True, "click_count": 1},
+        )
+
+        url = reverse("admin-notifications-stats")
+        response = admin_headers.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["clicked_notifications"] >= 1
+
 
 @pytest.mark.django_db
 class TestNotificationPermissions:
@@ -381,21 +433,22 @@ class TestNotificationFiltering:
         # Crear notificaciones en diferentes fechas
         yesterday = datetime.now() - timedelta(days=1)
         today = datetime.now()
-        
-        Notification.objects.create(
+
+        yesterday_notification = Notification.objects.create(
             user=member_user,
             type="meal_reminder",
             title="Yesterday notification",
-            message="From yesterday",
-            created_at=yesterday
+            message="From yesterday"
         )
-        Notification.objects.create(
+        today_notification = Notification.objects.create(
             user=member_user,
             type="achievement",
             title="Today notification",
-            message="From today",
-            created_at=today
+            message="From today"
         )
+
+        Notification.objects.filter(id=yesterday_notification.id).update(created_at=yesterday)
+        Notification.objects.filter(id=today_notification.id).update(created_at=today)
         
         url = reverse("notification-list")
         response = auth_headers.get(url, {

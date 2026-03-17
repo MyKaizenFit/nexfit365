@@ -37,6 +37,11 @@ class NotificationCreateSerializer(serializers.ModelSerializer):
             )
         return value
 
+    def validate_data(self, value):
+        if value is not None and not isinstance(value, dict):
+            raise serializers.ValidationError("El campo data debe ser un objeto JSON o null")
+        return value
+
 
 class NotificationUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar notificaciones"""
@@ -75,12 +80,25 @@ class CreateNotificationSerializer(serializers.Serializer):
     message = serializers.CharField()
     type = serializers.ChoiceField(
         choices=[
+            ('workout_reminder', 'Recordatorio de entrenamiento'),
+            ('meal_reminder', 'Recordatorio de comida'),
+            ('achievement', 'Logro desbloqueado'),
+            ('progress', 'Actualización de progreso'),
+            ('system', 'Notificación del sistema'),
+            ('nutrition', 'Notificación nutricional'),
+            ('workout', 'Notificación de entrenamiento'),
+            ('general', 'General'),
             ('info', 'Información'),
             ('warning', 'Advertencia'),
             ('success', 'Éxito'),
             ('error', 'Error'),
+            ('meal', 'Comida'),
+            ('reminder', 'Recordatorio'),
+            ('motivation', 'Motivación'),
+            ('admin', 'Administrador'),
+            ('marketing', 'Marketing'),
         ],
-        default='info'
+        default='general'
     )
     priority = serializers.ChoiceField(
         choices=[
@@ -92,6 +110,7 @@ class CreateNotificationSerializer(serializers.Serializer):
     )
     action_url = serializers.URLField(required=False, allow_blank=True)
     expires_at = serializers.DateTimeField(required=False, allow_null=True)
+    send_email = serializers.BooleanField(required=False, default=False)
 
 
 class PushSubscriptionSerializer(serializers.ModelSerializer):

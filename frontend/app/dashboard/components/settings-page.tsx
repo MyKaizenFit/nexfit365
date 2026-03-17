@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { User, Lock, Bell, HelpCircle, Settings, BookOpen, MessageCircle, FileText, Mail, ExternalLink, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -19,6 +19,8 @@ import { helpService, HelpSettings } from "@/lib/help-service"
 
 const SettingsPage = () => {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const [activeTab, setActiveTab] = useState("profile")
   const [helpSettings, setHelpSettings] = useState<HelpSettings | null>(null)
   const [loadingSettings, setLoadingSettings] = useState(true)
   const [notifications, setNotifications] = useState({
@@ -31,6 +33,15 @@ const SettingsPage = () => {
   useEffect(() => {
     loadHelpSettings()
   }, [])
+
+  useEffect(() => {
+    const tabParam = searchParams?.get("tab")
+    const validTabs = ["profile", "security", "notifications", "help"]
+
+    if (tabParam && validTabs.includes(tabParam)) {
+      setActiveTab(tabParam)
+    }
+  }, [searchParams])
 
   const loadHelpSettings = async () => {
     try {
@@ -144,7 +155,7 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
             <TabsTrigger
               value="profile"

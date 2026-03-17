@@ -12,10 +12,11 @@ DATABASES = {
     }
 }
 
-# Deshabilitar cache para pruebas
+# Cache local en memoria para pruebas (requerida para throttling)
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.dummy.DummyCache',
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'test-cache',
     }
 }
 
@@ -51,16 +52,21 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': False,
 }
 
-# Configuración de DRF para pruebas
+# Configuración de DRF para pruebas (hereda defaults del proyecto)
 REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
+    'DEFAULT_THROTTLE_RATES': {
+        **REST_FRAMEWORK.get('DEFAULT_THROTTLE_RATES', {}),
+        'admin_notifications_send': '30/min',
+        'register': '3/min',
+        'login': '5/min',
+    },
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 

@@ -109,7 +109,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         ).order_by('-created_at').first()
         
         if program:
-            # Verificar y reiniciar si es necesario (reinicio semanal)
+            # Inicializar start_date si falta, sin reinicios semanales automáticos.
             program = reset_weekly_workout_plan_if_needed(program)
             serializer = WorkoutProgramSerializer(program)
             return Response({'program': serializer.data})
