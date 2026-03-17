@@ -26,6 +26,8 @@ import {
   Calendar,
   Mail,
   Settings,
+  MousePointerClick,
+  RefreshCw,
 } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { useAdminNotifications, CreateNotificationData } from "@/hooks/use-admin-notifications"
@@ -42,8 +44,53 @@ export function AdminNotificationsPanel({
 }: AdminNotificationsPanelProps) {
   const { user: currentUser } = useAuth()
   const { users, loading: usersLoading } = useAdminUsers()
-  const { sendBulkNotification, loading: notificationsLoading } = useAdminNotifications()
+  const { sendBulkNotification, stats, refetch, loading: notificationsLoading } = useAdminNotifications()
   const [sending, setSending] = useState(false)
+
+  const notificationTemplates = [
+    {
+      key: "workout_reminder",
+      label: "Recordatorio Entreno",
+      type: "workout_reminder",
+      priority: "medium" as const,
+      title: "💪 No olvides tu entrenamiento de hoy",
+      message: "Tu constancia te acerca a tus objetivos. ¡Entrena hoy y suma progreso!",
+      expiresInDays: 2,
+    },
+    {
+      key: "meal_reminder",
+      label: "Recordatorio Comida",
+      type: "meal_reminder",
+      priority: "medium" as const,
+      title: "🥗 Hora de tu comida planificada",
+      message: "Sigue tu plan nutricional para mantener el ritmo de tu transformación.",
+      expiresInDays: 1,
+    },
+    {
+      key: "achievement",
+      label: "Logro",
+      type: "achievement",
+      priority: "high" as const,
+      title: "🏆 ¡Nuevo logro desbloqueado!",
+      message: "¡Gran trabajo! Has alcanzado un nuevo hito en tu progreso.",
+      expiresInDays: 30,
+    },
+    {
+      key: "system",
+      label: "Sistema",
+      type: "system",
+      priority: "high" as const,
+      title: "⚙️ Actualización importante",
+      message: "Tenemos una actualización relevante para mejorar tu experiencia en la app.",
+      expiresInDays: 14,
+    },
+  ]
+
+  const toExpiresAtIso = (days: number) => {
+    const d = new Date()
+    d.setDate(d.getDate() + days)
+    return d.toISOString()
+  }
 
   const [individualNotification, setIndividualNotification] = useState<CreateNotificationData>({
     user_ids: [],
@@ -70,6 +117,9 @@ export function AdminNotificationsPanel({
   const cardClass = "backdrop-blur-sm bg-white/80 border-0 shadow-xl"
   const actionButtonClass =
     "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+  const totalNotifications = stats?.total_notifications ?? 0
+  const clickedNotifications = stats?.clicked_notifications ?? 0
+  const ctr = totalNotifications > 0 ? ((clickedNotifications / totalNotifications) * 100).toFixed(1) : "0.0"
 
   if (!currentUser?.is_staff && !currentUser?.is_superuser) {
     return (
@@ -137,7 +187,7 @@ export function AdminNotificationsPanel({
 
       toast({
         title: "✅ Notificación enviada",
-        description: `La notificación ha sido enviada a ${result.detail}`,
+        description: result.message || `Notificaciones creadas: ${result.notifications_created ?? 0}`,
       })
 
       setIndividualNotification({
@@ -175,7 +225,7 @@ export function AdminNotificationsPanel({
 
       toast({
         title: "✅ Notificación masiva enviada",
-        description: `La notificación ha sido enviada a ${result.detail}`,
+        description: result.message || `Notificaciones creadas: ${result.notifications_created ?? 0}`,
       })
 
       setBroadcastNotification({
@@ -196,6 +246,34 @@ export function AdminNotificationsPanel({
     }
   }
 
+  const applyTemplateToIndividual = (templateKey: string) => {
+    const template = notificationTemplates.find((item) => item.key === templateKey)
+    if (!template) return
+
+    setIndividualNotification((prev) => ({
+      ...prev,
+      title: template.title,
+      message: template.message,
+      type: template.type,
+      priority: template.priority,
+      expires_at: toExpiresAtIso(template.expiresInDays),
+    }))
+  }
+
+  const applyTemplateToBroadcast = (templateKey: string) => {
+    const template = notificationTemplates.find((item) => item.key === templateKey)
+    if (!template) return
+
+    setBroadcastNotification((prev) => ({
+      ...prev,
+      title: template.title,
+      message: template.message,
+      type: template.type,
+      priority: template.priority,
+      expires_at: toExpiresAtIso(template.expiresInDays),
+    }))
+  }
+
   return (
     <div className={containerClass}>
       <Card className={cardClass}>
@@ -211,6 +289,71 @@ export function AdminNotificationsPanel({
           </div>
         </CardHeader>
       </Card>
+
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">Total</p>
+            <p className="text-2xl font-bold text-gray-900">{stats?.total_notifications ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">No leídas</p>
+            <p className="text-2xl font-bold text-rose-600">{stats?.unread_notifications ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">Leídas</p>
+            <p className="text-2xl font-bold text-emerald-600">{stats?.read_notifications ?? 0}</p>
+          </CardContent>
+        </Card>
+        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Clicadas</p>
+                <p className="text-2xl font-bold text-blue-600">{stats?.clicked_notifications ?? 0}</p>
+              </div>
+              <MousePointerClick className="h-5 w-5 text-blue-500" />
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+          <CardContent className="p-4">
+            <p className="text-xs text-gray-500">CTR</p>
+            <p className="text-2xl font-bold text-violet-600">{ctr}%</p>
+            <p className="text-[11px] text-gray-400 mt-1">clics / total</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <CardContent className="p-4 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-semibold text-gray-800">Actividad últimos 30 días</p>
+            <p className="text-xs text-gray-500 mt-1">Volumen reciente de notificaciones enviadas desde el sistema.</p>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-bold text-cyan-600">{stats?.recent_notifications_30_days ?? 0}</p>
+            <p className="text-xs text-gray-400">notificaciones</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={refetch}
+          disabled={notificationsLoading}
+          className="bg-white/80"
+        >
+          <RefreshCw className="h-4 w-4 mr-2" />
+          Actualizar estadísticas
+        </Button>
+      </div>
 
       <Tabs defaultValue="individual" className="space-y-6">
         <div className="w-full overflow-x-auto">
@@ -309,6 +452,22 @@ export function AdminNotificationsPanel({
 
                 <div className="space-y-4">
                   <div>
+                    <Label htmlFor="individual_template">Plantilla rápida</Label>
+                    <Select onValueChange={applyTemplateToIndividual}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una plantilla" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {notificationTemplates.map((template) => (
+                          <SelectItem key={template.key} value={template.key}>
+                            {template.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
                     <Label htmlFor="title">Título</Label>
                     <Input
                       id="title"
@@ -336,6 +495,21 @@ export function AdminNotificationsPanel({
                       value={individualNotification.action_url || ""}
                       onChange={(e) => setIndividualNotification((prev) => ({ ...prev, action_url: e.target.value }))}
                       placeholder="Ej: /dashboard"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="individual_expires_at">Expira en (opcional)</Label>
+                    <Input
+                      id="individual_expires_at"
+                      type="datetime-local"
+                      value={individualNotification.expires_at ? individualNotification.expires_at.slice(0, 16) : ""}
+                      onChange={(e) =>
+                        setIndividualNotification((prev) => ({
+                          ...prev,
+                          expires_at: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -430,6 +604,22 @@ export function AdminNotificationsPanel({
 
                 <div className="space-y-4">
                   <div>
+                    <Label htmlFor="broadcast_template">Plantilla rápida</Label>
+                    <Select onValueChange={applyTemplateToBroadcast}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una plantilla" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {notificationTemplates.map((template) => (
+                          <SelectItem key={template.key} value={template.key}>
+                            {template.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
                     <Label htmlFor="broadcast_title">Título</Label>
                     <Input
                       id="broadcast_title"
@@ -457,6 +647,21 @@ export function AdminNotificationsPanel({
                       value={broadcastNotification.action_url || ""}
                       onChange={(e) => setBroadcastNotification((prev) => ({ ...prev, action_url: e.target.value }))}
                       placeholder="Ej: /dashboard"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="broadcast_expires_at">Expira en (opcional)</Label>
+                    <Input
+                      id="broadcast_expires_at"
+                      type="datetime-local"
+                      value={broadcastNotification.expires_at ? broadcastNotification.expires_at.slice(0, 16) : ""}
+                      onChange={(e) =>
+                        setBroadcastNotification((prev) => ({
+                          ...prev,
+                          expires_at: e.target.value ? new Date(e.target.value).toISOString() : undefined,
+                        }))
+                      }
                     />
                   </div>
                 </div>

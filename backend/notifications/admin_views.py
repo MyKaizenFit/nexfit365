@@ -1,7 +1,10 @@
 # notifications/admin_views.py
+import logging
+
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.throttling import UserRateThrottle
 from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -10,6 +13,50 @@ from datetime import timedelta
 from .models import Notification
 from .serializers import NotificationSerializer, CreateNotificationSerializer
 from accounts.permissions import IsAdminOrStaff
+
+
+logger = logging.getLogger(__name__)
+
+
+def _normalize_notification_type(raw_type: str) -> str:
+    type_map = {
+        'info': 'system',
+        'warning': 'system',
+        'success': 'achievement',
+        'error': 'system',
+        'meal': 'meal_reminder',
+        'nutrition': 'nutrition',
+        'workout': 'workout',
+        'workout_reminder': 'workout_reminder',
+        'achievement': 'achievement',
+        'progress': 'progress',
+        'reminder': 'system',
+        'motivation': 'general',
+        'admin': 'system',
+        'marketing': 'general',
+        'general': 'general',
+        'system': 'system',
+    }
+    return type_map.get((raw_type or '').lower(), 'general')
+
+
+def _default_expiration_for_type(notification_type: str):
+    now = timezone.now()
+    expiration_by_type = {
+        'workout_reminder': now + timedelta(days=2),
+        'meal_reminder': now + timedelta(days=1),
+        'system': now + timedelta(days=14),
+        'achievement': now + timedelta(days=30),
+        'progress': now + timedelta(days=14),
+        'nutrition': now + timedelta(days=7),
+        'workout': now + timedelta(days=7),
+        'general': now + timedelta(days=10),
+    }
+    return expiration_by_type.get(notification_type, now + timedelta(days=10))
+
+class AdminNotificationSendThrottle(UserRateThrottle):
+    scope = 'admin_notifications_send'
+
 
 class AdminNotificationViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de notificaciones por administradores"""
@@ -50,6 +97,11 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         
         return queryset.order_by('-created_at')
 
+    def get_throttles(self):
+        if self.action in ['send_bulk', 'send_to_all']:
+            return [AdminNotificationSendThrottle()]
+        return super().get_throttles()
+
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)
@@ -80,15 +132,35 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         
         # Crear notificaciones para cada usuario
         notifications = []
+        normalized_type = _normalize_notification_type(data.get('type', 'general'))
+        extra_data = {
+            'priority': data.get('priority', 'medium'),
+            'send_email': bool(data.get('send_email', False)),
+            'source': 'admin_panel',
+        }
         for user_id in user_ids:
             notification = Notification.objects.create(
                 user_id=user_id,
                 title=data['title'],
                 message=data['message'],
-                type=data.get('type', 'info'),
-                priority=data.get('priority', 'medium')
+                type=normalized_type,
+                data=extra_data,
+                action_url=data.get('action_url', ''),
+                expires_at=data.get('expires_at') or _default_expiration_for_type(normalized_type),
             )
             notifications.append(notification)
+
+        logger.info(
+            'admin_notification_send_bulk',
+            extra={
+                'admin_user_id': str(request.user.id),
+                'admin_email': getattr(request.user, 'email', ''),
+                'target_user_count': len(user_ids),
+                'notification_type': normalized_type,
+                'priority': extra_data['priority'],
+                'send_email': extra_data['send_email'],
+            }
+        )
         
         return Response({
             'message': f'{len(notifications)} notificaciones enviadas correctamente',
@@ -112,15 +184,42 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         
         # Crear notificaciones para cada usuario activo
         notifications = []
+        normalized_type = _normalize_notification_type(data.get('type', 'general'))
+        extra_data = {
+            'priority': data.get('priority', 'medium'),
+            'send_email': bool(data.get('send_email', False)),
+            'source': 'admin_panel',
+        }
         for user in active_users:
             notification = Notification.objects.create(
                 user=user,
                 title=data['title'],
                 message=data['message'],
-                type=data.get('type', 'info'),
-                priority=data.get('priority', 'medium')
+                type=normalized_type,
+                data=extra_data,
+                action_url=data.get('action_url', ''),
+                expires_at=data.get('expires_at') or _default_expiration_for_type(normalized_type),
             )
             notifications.append(notification)
+
+        logger.info(
+            'admin_notification_send_to_all',
+            extra={
+                'admin_user_id': str(request.user.id),
+                'admin_email': getattr(request.user, 'email', ''),
+                'target_user_count': len(notifications),
+                'notification_type': normalized_type,
+                'priority': extra_data['priority'],
+                'send_email': extra_data['send_email'],
+            }
+        )
+
+        if data.get('send_email'):
+            try:
+                from .email_service import email_service
+                email_service.send_bulk_notification_emails(notifications)
+            except Exception:
+                pass
         
         return Response({
             'message': f'Notificación enviada a {len(notifications)} usuarios activos',
@@ -134,6 +233,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             total_notifications = Notification.objects.count()
             read_notifications = Notification.objects.filter(read_at__isnull=False).count()
             unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
+            clicked_notifications = Notification.objects.filter(data__clicked_at__isnull=False).count()
             
             # Notificaciones por tipo
             type_stats = Notification.objects.values('type').annotate(count=Count('type'))
@@ -147,6 +247,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             total_notifications = 0
             read_notifications = 0
             unread_notifications = 0
+            clicked_notifications = 0
             type_stats = []
             recent_notifications = 0
         
@@ -154,6 +255,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             'total_notifications': total_notifications,
             'read_notifications': read_notifications,
             'unread_notifications': unread_notifications,
+            'clicked_notifications': clicked_notifications,
             'recent_notifications_30_days': recent_notifications,
             'type_distribution': list(type_stats),
         })
@@ -162,9 +264,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
     def mark_as_read(self, request, pk=None):
         """Marcar notificación como leída"""
         notification = self.get_object()
-        notification.is_read = True
-        notification.read_at = timezone.now()
-        notification.save()
+        notification.mark_as_read()
         
         return Response({
             'message': 'Notificación marcada como leída',
@@ -178,13 +278,13 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         
         if user_id:
             updated = Notification.objects.filter(
-                user_id=user_id, is_read=False
-            ).update(is_read=True, read_at=timezone.now())
+                user_id=user_id, read_at__isnull=True
+            ).update(read_at=timezone.now())
             message = f'{updated} notificaciones marcadas como leídas para el usuario'
         else:
             updated = Notification.objects.filter(
-                is_read=False
-            ).update(is_read=True, read_at=timezone.now())
+                read_at__isnull=True
+            ).update(read_at=timezone.now())
             message = f'{updated} notificaciones marcadas como leídas'
         
         return Response({'message': message})

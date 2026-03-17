@@ -141,6 +141,7 @@ REST_FRAMEWORK = {
         "forgot_password": "5/min",  # límite para solicitar reset
         "reset_password": "10/min",  # límite para resetear contraseña
         "change_password": "20/min",  # límite para cambiar contraseña
+        "admin_notifications_send": "60/hour" if DEBUG else "20/hour",
     },
     "EXCEPTION_HANDLER": "api.utils.custom_exception_handler",
 }
@@ -265,11 +266,8 @@ DATABASES = {
         "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60" if DEBUG else "0")),
         # Verificar salud de conexión al reutilizarla (Django 4.2+)
         "CONN_HEALTH_CHECKS": os.getenv("DB_CONN_HEALTH_CHECKS", "True") == "True",
-        # Asegurar que todas las conexiones usen UTF-8
-        "TEST": {
-            "CHARSET": "utf8",
-            "COLLATION": "utf8_general_ci",
-        },
+        # PostgreSQL no admite COLLATION en creación de BD de test.
+        "TEST": {},
     }
 }
 

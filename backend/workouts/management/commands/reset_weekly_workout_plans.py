@@ -1,6 +1,6 @@
 """
-Comando para reiniciar planes de entrenamiento semanalmente
-Este comando debe ejecutarse semanalmente (por ejemplo, cada lunes) para reiniciar los planes
+Comando legado para mantener compatibilidad con despliegues antiguos.
+Los planes ya no se reinician semanalmente; solo se asegura start_date si falta.
 """
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -10,7 +10,7 @@ from workouts.models import WorkoutProgram
 from workouts.services import reset_weekly_workout_plan_if_needed
 
 class Command(BaseCommand):
-    help = 'Reinicia los planes de entrenamiento semanalmente (debe ejecutarse cada lunes)'
+    help = 'Inicializa start_date en planes activos antiguos que no la tengan'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -23,7 +23,7 @@ class Command(BaseCommand):
         force = options['force']
         today = timezone.now().date()
         
-        # Verificar que sea lunes (o forzar)
+        # Se mantiene la opción por compatibilidad con automatizaciones existentes.
         if today.weekday() != 0 and not force:
             self.stdout.write(self.style.WARNING(
                 f"⚠️  Hoy es {today.strftime('%A')}, no lunes. "
@@ -32,49 +32,43 @@ class Command(BaseCommand):
             return
         
         self.stdout.write("=" * 70)
-        self.stdout.write(self.style.SUCCESS("🔄 REINICIANDO PLANES DE ENTRENAMIENTO SEMANALMENTE"))
+        self.stdout.write(self.style.SUCCESS("🔄 REVISANDO PLANES ACTIVOS SIN FECHA DE INICIO"))
         self.stdout.write("=" * 70 + "\n")
         
-        # Obtener todos los planes activos de usuarios que no tengan fecha de fin
-        # (planes que se reinician semanalmente)
+        # Obtener todos los planes activos de usuarios sin end_date para asegurar
+        # que tengan start_date, sin mover su ventana temporal.
         active_plans = WorkoutProgram.objects.filter(
             user__isnull=False,
             is_active=True,
-            end_date__isnull=True  # Planes sin fecha de fin (reinicio semanal)
+            end_date__isnull=True
         ).select_related('user').prefetch_related('days')
         
-        self.stdout.write(f"📋 Encontrados {active_plans.count()} planes para reiniciar\n")
+        self.stdout.write(f"📋 Encontrados {active_plans.count()} planes para revisar\n")
         
         reset_count = 0
         
         for plan in active_plans:
             try:
-                # Usar la función de servicios para reiniciar el plan
+                previous_start_date = plan.start_date
                 updated_plan = reset_weekly_workout_plan_if_needed(plan)
                 
-                if updated_plan.start_date != plan.start_date:
-                    self.stdout.write(f"   ✅ Plan reiniciado: {plan.name} (Usuario: {plan.user.email})")
-                    self.stdout.write(f"      Nueva fecha de inicio: {updated_plan.start_date}")
+                if previous_start_date != updated_plan.start_date:
+                    self.stdout.write(f"   ✅ Fecha de inicio inicializada: {plan.name} (Usuario: {plan.user.email})")
+                    self.stdout.write(f"      Fecha de inicio: {updated_plan.start_date}")
                     reset_count += 1
                 else:
-                    self.stdout.write(f"   ℹ️  Plan no necesita reinicio: {plan.name} (Usuario: {plan.user.email})")
+                    self.stdout.write(f"   ℹ️  Plan sin cambios: {plan.name} (Usuario: {plan.user.email})")
                     self.stdout.write(f"      Fecha de inicio actual: {plan.start_date}")
                 
             except Exception as e:
                 self.stdout.write(self.style.ERROR(
-                    f"   ❌ Error reiniciando plan {plan.name}: {str(e)}"
+                    f"   ❌ Error revisando plan {plan.name}: {str(e)}"
                 ))
         
         self.stdout.write("\n" + "=" * 70)
         self.stdout.write(self.style.SUCCESS(f"✅ Proceso completado"))
-        self.stdout.write(f"   Planes reiniciados: {reset_count}")
+        self.stdout.write(f"   Planes actualizados: {reset_count}")
         self.stdout.write("=" * 70)
-        
-        if reset_count > 0:
-            self.stdout.write(self.style.SUCCESS(
-                "\n💡 Tip: Configura este comando para ejecutarse automáticamente cada lunes "
-                "usando cron (Linux) o Task Scheduler (Windows)"
-            ))
 
 
 

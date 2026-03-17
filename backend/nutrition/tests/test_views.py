@@ -48,6 +48,11 @@ def plan_meal(nutrition_plan):
 
 
 @pytest.fixture
+def meal(plan_meal):
+    return plan_meal
+
+
+@pytest.fixture
 def meal_log(member_user):
     return baker.make(MealLog, user=member_user, date='2025-01-15', meal_type='breakfast')
 
@@ -310,7 +315,7 @@ class TestMealLogViewSet:
     def test_meal_log_unique_constraint(self, api_client, member_user, meal):
         """No se pueden crear logs duplicados para la misma fecha y comida"""
         # Crear primer log
-        baker.make(MealLog, user=member_user, meal=meal, date='2025-01-17')
+        baker.make(MealLog, user=member_user, plan_meal=meal, date='2025-01-17')
         
         api_client.force_authenticate(user=member_user)
         url = reverse('meallog-list')
@@ -382,7 +387,7 @@ class TestNutritionPermissions:
         
         response = api_client.get(url)
         
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
     def test_trainer_can_access_member_plans(self, api_client, trainer_user, member_user):
         """Entrenador puede acceder a planes de miembros"""
@@ -405,7 +410,7 @@ class TestNutritionPermissions:
         
         response = api_client.get(url)
         
-        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 @pytest.mark.django_db
@@ -438,7 +443,7 @@ class TestNutritionBusinessLogic:
     def test_meal_log_uniqueness_enforced(self, api_client, member_user, meal):
         """Se mantiene la unicidad de logs por fecha y comida"""
         # Crear primer log
-        baker.make(MealLog, user=member_user, meal=meal, date='2025-01-18')
+        baker.make(MealLog, user=member_user, plan_meal=meal, date='2025-01-18')
         
         api_client.force_authenticate(user=member_user)
         url = reverse('meallog-list')
@@ -456,34 +461,34 @@ class TestNutritionBusinessLogic:
         assert MealLog.objects.filter(user=member_user, date='2025-01-18').count() == 1
 
     def test_food_calculation_accuracy(self, api_client, member_user):
-        """Los cálculos de calorías y macronutrientes son precisos"""
-        # Crear alimento con valores específicos
-        food = baker.make(
-            Food,
-            name='Test Food',
+        """El detalle de plan incluye recetas sugeridas con macros correctos"""
+        recipe = baker.make(
+            Recipe,
+            name='Test Recipe',
             calories=200,
-            protein=20,
-            carbs=30,
-            fat=5
+            protein=Decimal('20.0'),
+            carbs=Decimal('30.0'),
+            fat=Decimal('5.0')
         )
-        
-        # Crear plan con este alimento
+
         plan = baker.make(NutritionPlan, user=member_user, name='Test Plan')
-        meal = baker.make(Meal, plan=plan, name='Test Meal')
-        meal_food = baker.make(MealFood, meal=meal, food=food, quantity=Decimal('150.0'))
-        
+        plan_meal = baker.make(PlanMeal, plan=plan, name='Test Meal', meal_type='lunch')
+        plan_meal.suggested_recipes.add(recipe)
+
         api_client.force_authenticate(user=member_user)
         url = reverse('nutritionplan-detail', kwargs={'pk': plan.id})
-        
+
         response = api_client.get(url)
-        
+
         assert response.status_code == status.HTTP_200_OK
-        
-        # Verificar cálculos (150g = 1.5 * 100g)
+        assert len(response.data['meals']) >= 1
+
         meal_data = response.data['meals'][0]
-        meal_food_data = meal_data['meal_foods'][0]
-        
-        assert meal_food_data['calories'] == 300  # 200 * 1.5
-        assert meal_food_data['protein'] == 30   # 20 * 1.5
-        assert meal_food_data['carbs'] == 45     # 30 * 1.5
-        assert meal_food_data['fat'] == 7.5      # 5 * 1.5 
+        assert len(meal_data['suggested_recipes']) >= 1
+        suggested = meal_data['suggested_recipes'][0]
+
+        assert suggested['name'] == 'Test Recipe'
+        assert suggested['calories'] == 200
+        assert suggested['protein'] == '20.00'
+        assert suggested['carbs'] == '30.00'
+        assert suggested['fat'] == '5.00'

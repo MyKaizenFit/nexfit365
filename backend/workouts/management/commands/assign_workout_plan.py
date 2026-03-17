@@ -1,6 +1,6 @@
 """
 Comando para asignar un plan de entrenamiento a un usuario
-y configurar el reinicio semanal automático
+y mantenerlo activo hasta que se reasigne o modifique
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
@@ -12,7 +12,7 @@ CustomUser = get_user_model()
 
 
 class Command(BaseCommand):
-    help = 'Asigna un plan de entrenamiento a un usuario y configura reinicio semanal'
+    help = 'Asigna un plan de entrenamiento a un usuario y lo deja activo indefinidamente'
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -80,18 +80,11 @@ class Command(BaseCommand):
             self.stdout.write(f"   ⚠️  Plan anterior desactivado: {existing_plan.name}")
         
         # 4. Crear nuevo plan para el usuario (copia del plan del sistema)
-        # Calcular fecha de inicio (lunes de la semana actual)
+        # Calcular fecha de inicio en la fecha actual.
         today = timezone.now().date()
-        days_until_monday = (today.weekday() - 0) % 7  # 0 = lunes
-        if days_until_monday == 0 and today.weekday() != 0:
-            days_until_monday = 7
-        start_date = today - timedelta(days=days_until_monday)
-        # Si hoy es lunes, usar hoy
-        if today.weekday() == 0:
-            start_date = today
-        
-        # El plan durará indefinidamente (se reiniciará semanalmente)
-        # No ponemos end_date para que sea continuo
+        start_date = today
+
+        # El plan queda activo hasta que otro lo sustituya o se desactive.
         user_plan = WorkoutProgram.objects.create(
             user=user,
             name=f"{system_plan.name} - {user.get_full_name() or user.email}",
@@ -100,11 +93,11 @@ class Command(BaseCommand):
             goal=system_plan.goal,
             location=system_plan.location,
             days_per_week=system_plan.days_per_week,
-            duration_weeks=1,  # Duración de 1 semana, se reinicia automáticamente
+            duration_weeks=system_plan.duration_weeks,
             estimated_duration_minutes=system_plan.estimated_duration_minutes,
             equipment_needed=system_plan.equipment_needed or [],
             start_date=start_date,
-            end_date=None,  # Sin fecha de fin explícita, se reinicia semanalmente
+            end_date=None,
             is_active=True,
             is_template=False,
             is_system=False,

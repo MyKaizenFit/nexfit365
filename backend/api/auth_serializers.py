@@ -51,6 +51,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         style={"input_type": "password"}
     )
     email = serializers.EmailField()
+    role = serializers.CharField(required=False, default="basic")
 
     class Meta:
         model = User
@@ -78,6 +79,19 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         except ValidationError as e:
             raise serializers.ValidationError(list(e.messages))
         return value
+
+    def validate_role(self, value):
+        normalized = str(value or "").strip().lower()
+        role_map = {
+            "member": "basic",
+            "basic": "basic",
+            "pro": "pro",
+            "premium": "premium",
+            "admin": "admin",
+        }
+        if normalized not in role_map:
+            raise serializers.ValidationError("Rol inválido")
+        return role_map[normalized]
 
     def validate(self, attrs):
         """Validar que las contraseñas coincidan"""

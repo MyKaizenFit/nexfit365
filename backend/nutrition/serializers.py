@@ -222,6 +222,33 @@ class MealLogSerializer(serializers.ModelSerializer):
             'day_of_week': pm.day_of_week,
         }
 
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not getattr(user, 'is_authenticated', False):
+            return attrs
+
+        plan_meal = attrs.get('plan_meal', getattr(self.instance, 'plan_meal', None))
+        date_value = attrs.get('date', getattr(self.instance, 'date', None))
+
+        if plan_meal and date_value:
+            queryset = MealLog.objects.filter(
+                user=user,
+                plan_meal=plan_meal,
+                date=date_value,
+            )
+            if self.instance:
+                queryset = queryset.exclude(pk=self.instance.pk)
+
+            if queryset.exists():
+                raise serializers.ValidationError({
+                    'meal': 'Ya existe un log para esta comida en la fecha indicada.'
+                })
+
+        return attrs
+
 
 class FoodSerializer(serializers.ModelSerializer):
     """Serializer para alimentos"""

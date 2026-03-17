@@ -212,6 +212,18 @@ interface ActiveWorkoutSessionProps {
   }) => Promise<void>
 }
 
+interface ExerciseSetEntry {
+  reps?: number
+  weight?: number
+  effort?: number
+}
+
+interface ExerciseSetState {
+  seriesCount: number
+  base: ExerciseSetEntry
+  overrides: Record<string, ExerciseSetEntry>
+}
+
 export function ActiveWorkoutSession({
   workoutDay,
   initialSubstituteSelections = {},
@@ -269,11 +281,7 @@ export function ActiveWorkoutSession({
   const [restTimerActive, setRestTimerActive] = useState(false)
 
   // Estado de cada serie por ejercicio
-  const [exerciseSets, setExerciseSets] = useState<Record<string, {
-    reps?: number
-    weight?: number
-    effort?: number
-  }>>({})
+  const [exerciseSets, setExerciseSets] = useState<Record<string, ExerciseSetState>>({})
 
   // Estado del formulario de finalización
   const [rating, setRating] = useState(0)
@@ -354,22 +362,106 @@ export function ActiveWorkoutSession({
     persistSubstituteSelections(next)
   }
 
+  const normalizeSeriesCount = (value: any, fallback = 1) => {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed < 1) return fallback
+    return Math.max(1, Math.floor(parsed))
+  }
+
+  const findNextAvailableSeriesNumber = (
+    preferredNumber: number,
+    usedNumbers: Set<number>,
+    maxSeries: number
+  ) => {
+    const normalizedPreferred = Math.min(maxSeries, Math.max(1, normalizeSeriesCount(preferredNumber, 1)))
+
+    for (let candidate = normalizedPreferred; candidate <= maxSeries; candidate += 1) {
+      if (!usedNumbers.has(candidate)) {
+        return candidate
+      }
+    }
+
+    for (let candidate = 1; candidate < normalizedPreferred; candidate += 1) {
+      if (!usedNumbers.has(candidate)) {
+        return candidate
+      }
+    }
+
+    return null
+  }
+
+  const hasSetData = (setData?: ExerciseSetEntry) => {
+    if (!setData) return false
+    return (
+      (setData.reps !== undefined && setData.reps !== null && setData.reps > 0) ||
+      (setData.weight !== undefined && setData.weight !== null && setData.weight > 0) ||
+      (setData.effort !== undefined && setData.effort !== null && setData.effort > 0)
+    )
+  }
+
+  const exerciseHasAnyData = (exerciseData?: ExerciseSetState) => {
+    if (!exerciseData) return false
+    if (hasSetData(exerciseData.base)) return true
+    return Object.values(exerciseData.overrides || {}).some((entry) => hasSetData(entry))
+  }
+
+  const getEffectiveSetData = (exerciseData: ExerciseSetState | undefined, setNumber: number): ExerciseSetEntry => {
+    if (!exerciseData) return {}
+    return exerciseData.overrides?.[String(setNumber)] || exerciseData.base || {}
+  }
+
   const normalizeExerciseSets = (data: Record<string, any> = {}) => {
-    const normalized: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
+    const normalized: Record<string, ExerciseSetState> = {}
 
     Object.entries(data || {}).forEach(([key, value]) => {
       if (Array.isArray(value)) {
         const first = value[0] || {}
         normalized[key] = {
-          reps: typeof first.reps === 'number' ? first.reps : undefined,
-          weight: typeof first.weight === 'number' ? first.weight : undefined,
-          effort: typeof first.effort === 'number' ? first.effort : undefined,
+          seriesCount: normalizeSeriesCount(value.length || 1),
+          base: {
+            reps: typeof first.reps === 'number' ? first.reps : undefined,
+            weight: typeof first.weight === 'number' ? first.weight : undefined,
+            effort: typeof first.effort === 'number' ? first.effort : undefined,
+          },
+          overrides: {},
         }
       } else if (value && typeof value === 'object') {
+        if (
+          'seriesCount' in value ||
+          'base' in value ||
+          'overrides' in value
+        ) {
+          const parsedBase = value.base && typeof value.base === 'object' ? value.base : {}
+          const parsedOverrides = value.overrides && typeof value.overrides === 'object' ? value.overrides : {}
+
+          normalized[key] = {
+            seriesCount: normalizeSeriesCount(value.seriesCount, 1),
+            base: {
+              reps: typeof parsedBase.reps === 'number' ? parsedBase.reps : undefined,
+              weight: typeof parsedBase.weight === 'number' ? parsedBase.weight : undefined,
+              effort: typeof parsedBase.effort === 'number' ? parsedBase.effort : undefined,
+            },
+            overrides: Object.entries(parsedOverrides).reduce((acc, [setNumber, setValue]) => {
+              if (!setValue || typeof setValue !== 'object') return acc
+              acc[String(setNumber)] = {
+                reps: typeof (setValue as any).reps === 'number' ? (setValue as any).reps : undefined,
+                weight: typeof (setValue as any).weight === 'number' ? (setValue as any).weight : undefined,
+                effort: typeof (setValue as any).effort === 'number' ? (setValue as any).effort : undefined,
+              }
+              return acc
+            }, {} as Record<string, ExerciseSetEntry>),
+          }
+          return
+        }
+
         normalized[key] = {
-          reps: typeof value.reps === 'number' ? value.reps : undefined,
-          weight: typeof value.weight === 'number' ? value.weight : undefined,
-          effort: typeof value.effort === 'number' ? value.effort : undefined,
+          seriesCount: normalizeSeriesCount(1),
+          base: {
+            reps: typeof value.reps === 'number' ? value.reps : undefined,
+            weight: typeof value.weight === 'number' ? value.weight : undefined,
+            effort: typeof value.effort === 'number' ? value.effort : undefined,
+          },
+          overrides: {},
         }
       }
     })
@@ -407,13 +499,17 @@ export function ActiveWorkoutSession({
   // Inicializar sets de ejercicios
   useEffect(() => {
     if (exercises.length > 0 && Object.keys(exerciseSets).length === 0) {
-      const initialSets: Record<string, { reps?: number; weight?: number; effort?: number }> = {}
+      const initialSets: Record<string, ExerciseSetState> = {}
       exercises.forEach((ex: any) => {
         const exerciseId = getExerciseStateKey(ex)
         initialSets[exerciseId] = {
-          reps: undefined,
-          weight: undefined,
-          effort: undefined
+          seriesCount: normalizeSeriesCount(ex?.sets || ex?.series || ex?.exercise?.sets, 1),
+          base: {
+            reps: undefined,
+            weight: undefined,
+            effort: undefined,
+          },
+          overrides: {},
         }
       })
       setExerciseSets(initialSets)
@@ -487,23 +583,222 @@ export function ActiveWorkoutSession({
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }, [])
 
-  const updateExerciseData = (
+  const updateExerciseBaseData = (
     exerciseId: string,
     field: 'reps' | 'weight' | 'effort',
     value: number | undefined
   ) => {
     setExerciseSets((prev) => {
       const newSets = { ...prev }
-      newSets[exerciseId] = {
-        ...newSets[exerciseId],
-        [field]: value
+      const current = newSets[exerciseId] || {
+        seriesCount: 1,
+        base: {},
+        overrides: {},
       }
 
-      const updated = newSets[exerciseId] || {}
-      const hasData =
-        (updated.reps !== undefined && updated.reps !== null && updated.reps > 0) ||
-        (updated.weight !== undefined && updated.weight !== null && updated.weight > 0) ||
-        (updated.effort !== undefined && updated.effort !== null && updated.effort > 0)
+      newSets[exerciseId] = {
+        ...current,
+        base: {
+          ...(current.base || {}),
+          [field]: value,
+        },
+      }
+
+      const updated = newSets[exerciseId]
+      const hasData = exerciseHasAnyData(updated)
+
+      setCompletedExercises((prevCompleted) => {
+        const next = new Set(prevCompleted)
+        if (hasData) {
+          next.add(String(exerciseId))
+        } else {
+          next.delete(String(exerciseId))
+        }
+
+        saveWorkoutState({
+          isStarted,
+          isPaused,
+          elapsedSeconds,
+          workoutStartTime,
+          completedExercises: Array.from(next),
+          exerciseSets: newSets,
+          rating,
+          notes
+        })
+
+        return next
+      })
+
+      return newSets
+    })
+  }
+
+  const updateSeriesCount = (exerciseId: string, value: number | undefined) => {
+    const nextCount = normalizeSeriesCount(value, 1)
+
+    setExerciseSets((prev) => {
+      const newSets = { ...prev }
+      const current = newSets[exerciseId] || {
+        seriesCount: 1,
+        base: {},
+        overrides: {},
+      }
+
+      const filteredOverrides = Object.entries(current.overrides || {}).reduce((acc, [setNumber, setData]) => {
+        const parsed = normalizeSeriesCount(setNumber, 1)
+        if (parsed <= nextCount) {
+          acc[String(parsed)] = setData
+        }
+        return acc
+      }, {} as Record<string, ExerciseSetEntry>)
+
+      newSets[exerciseId] = {
+        ...current,
+        seriesCount: nextCount,
+        overrides: filteredOverrides,
+      }
+
+      const updated = newSets[exerciseId]
+      const hasData = exerciseHasAnyData(updated)
+
+      setCompletedExercises((prevCompleted) => {
+        const next = new Set(prevCompleted)
+        if (hasData) {
+          next.add(String(exerciseId))
+        } else {
+          next.delete(String(exerciseId))
+        }
+
+        saveWorkoutState({
+          isStarted,
+          isPaused,
+          elapsedSeconds,
+          workoutStartTime,
+          completedExercises: Array.from(next),
+          exerciseSets: newSets,
+          rating,
+          notes
+        })
+
+        return next
+      })
+
+      return newSets
+    })
+  }
+
+  const addDifferentSeries = (exerciseId: string) => {
+    setExerciseSets((prev) => {
+      const newSets = { ...prev }
+      const current = newSets[exerciseId] || {
+        seriesCount: 1,
+        base: {},
+        overrides: {},
+      }
+
+      const totalSeries = normalizeSeriesCount(current.seriesCount, 1)
+      const used = new Set(Object.keys(current.overrides || {}).map((key) => normalizeSeriesCount(key, 1)))
+  const preferredNext = used.size > 0 ? Math.max(...Array.from(used)) + 1 : 1
+  const nextSeries = findNextAvailableSeriesNumber(preferredNext, used, totalSeries)
+
+      if (!nextSeries) return prev
+
+      newSets[exerciseId] = {
+        ...current,
+        overrides: {
+          ...(current.overrides || {}),
+          [String(nextSeries)]: {},
+        },
+      }
+
+      return newSets
+    })
+  }
+
+  const removeDifferentSeries = (exerciseId: string, setNumber: number) => {
+    setExerciseSets((prev) => {
+      const newSets = { ...prev }
+      const current = newSets[exerciseId]
+      if (!current) return prev
+
+      const nextOverrides = { ...(current.overrides || {}) }
+      delete nextOverrides[String(setNumber)]
+
+      newSets[exerciseId] = {
+        ...current,
+        overrides: nextOverrides,
+      }
+
+      return newSets
+    })
+  }
+
+  const updateDifferentSeriesNumber = (exerciseId: string, currentSetNumber: number, nextSetNumberRaw: number | undefined) => {
+    const nextSetNumber = normalizeSeriesCount(nextSetNumberRaw, currentSetNumber)
+
+    setExerciseSets((prev) => {
+      const newSets = { ...prev }
+      const current = newSets[exerciseId]
+      if (!current) return prev
+
+      const seriesCount = normalizeSeriesCount(current.seriesCount, 1)
+      const boundedSetNumber = Math.min(seriesCount, Math.max(1, nextSetNumber))
+      const nextOverrides = { ...(current.overrides || {}) }
+      const movingData = nextOverrides[String(currentSetNumber)] || {}
+
+      const usedWithoutCurrent = new Set(
+        Object.keys(nextOverrides)
+          .map((key) => normalizeSeriesCount(key, 1))
+          .filter((setNumber) => setNumber !== currentSetNumber)
+      )
+
+      const targetSetNumber = usedWithoutCurrent.has(boundedSetNumber)
+        ? findNextAvailableSeriesNumber(boundedSetNumber, usedWithoutCurrent, seriesCount)
+        : boundedSetNumber
+
+      if (!targetSetNumber || targetSetNumber === currentSetNumber) return prev
+
+      delete nextOverrides[String(currentSetNumber)]
+      nextOverrides[String(targetSetNumber)] = movingData
+
+      newSets[exerciseId] = {
+        ...current,
+        overrides: nextOverrides,
+      }
+
+      return newSets
+    })
+  }
+
+  const updateDifferentSeriesData = (
+    exerciseId: string,
+    setNumber: number,
+    field: 'reps' | 'weight' | 'effort',
+    value: number | undefined
+  ) => {
+    setExerciseSets((prev) => {
+      const newSets = { ...prev }
+      const current = newSets[exerciseId] || {
+        seriesCount: 1,
+        base: {},
+        overrides: {},
+      }
+
+      const currentSetData = current.overrides?.[String(setNumber)] || {}
+
+      newSets[exerciseId] = {
+        ...current,
+        overrides: {
+          ...(current.overrides || {}),
+          [String(setNumber)]: {
+            ...currentSetData,
+            [field]: value,
+          },
+        },
+      }
+
+      const updated = newSets[exerciseId]
+      const hasData = exerciseHasAnyData(updated)
 
       setCompletedExercises((prevCompleted) => {
         const next = new Set(prevCompleted)
@@ -633,18 +928,29 @@ export function ActiveWorkoutSession({
         const baseExercise = ex.exercise || ex
         const selectedSubstitute = substituteSelections[String(baseExercise.id)]
         const mainExercise = selectedSubstitute || baseExercise
-        const setData = exerciseSets[exerciseId] || {}
-        const validSets = [
-          {
-            set_number: 1,
+        const setData = exerciseSets[exerciseId] || {
+          seriesCount: normalizeSeriesCount(ex?.sets || ex?.series || 1, 1),
+          base: {},
+          overrides: {},
+        }
+        const totalSeries = normalizeSeriesCount(setData.seriesCount, 1)
+
+        const validSets = Array.from({ length: totalSeries }, (_, index) => {
+          const setNumber = index + 1
+          const resolvedSet = getEffectiveSetData(setData, setNumber)
+
+          return {
+            set_number: setNumber,
             completed: completedExercises.has(String(exerciseId)),
-            reps: setData.reps !== undefined ? Number(setData.reps) : null,
-            weight: setData.weight !== undefined ? Number(setData.weight) : null,
+            reps: resolvedSet.reps !== undefined ? Number(resolvedSet.reps) : null,
+            weight: resolvedSet.weight !== undefined ? Number(resolvedSet.weight) : null,
             duration: null,
             rest_seconds: ex.rest_seconds || ex.rest_time || null,
-            effort: setData.effort !== undefined ? Number(setData.effort) : null
+            effort: resolvedSet.effort !== undefined ? Number(resolvedSet.effort) : null
           }
-        ]
+        })
+
+        const firstSet = getEffectiveSetData(setData, 1)
 
         return {
           exercise_id: mainExercise.id,
@@ -652,7 +958,7 @@ export function ActiveWorkoutSession({
           original_exercise_id: baseExercise.id,
           sets: validSets,
           completed: completedExercises.has(String(exerciseId)),
-          effort: setData.effort !== undefined ? Number(setData.effort) : null
+          effort: firstSet.effort !== undefined ? Number(firstSet.effort) : null
         }
       })
 
@@ -793,7 +1099,19 @@ export function ActiveWorkoutSession({
               const mainExercise = selectedSubstitute || exercise
               const exerciseId = getExerciseStateKey(exerciseItem)
               const isCompleted = completedExercises.has(String(exerciseId))
-              const setData = exerciseSets[exerciseId] || {}
+              const exerciseSetData = exerciseSets[exerciseId] || {
+                seriesCount: normalizeSeriesCount(exerciseItem?.sets || exercise?.sets || 1, 1),
+                base: {},
+                overrides: {},
+              }
+              const baseSetData = exerciseSetData.base || {}
+              const seriesCount = normalizeSeriesCount(exerciseSetData.seriesCount, 1)
+              const differentSeries = Object.entries(exerciseSetData.overrides || {})
+                .map(([setNumber, data]) => ({
+                  setNumber: normalizeSeriesCount(setNumber, 1),
+                  data,
+                }))
+                .sort((a, b) => a.setNumber - b.setNumber)
               const restSeconds = exerciseItem.rest_seconds || exerciseItem.rest_time || 60
 
               return (
@@ -901,14 +1219,47 @@ export function ActiveWorkoutSession({
 
                         {/* Registro rápido del ejercicio */}
                         <div className="mt-3 bg-gray-50 rounded-lg p-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 mb-3">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Nº de series</span>
+                              <Input
+                                type="number"
+                                min={1}
+                                className="h-8 text-sm"
+                                value={seriesCount}
+                                onChange={(e) => updateSeriesCount(
+                                  exerciseId,
+                                  e.target.value ? parseInt(e.target.value) : 1
+                                )}
+                                disabled={!isStarted}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-start sm:justify-end">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="text-xs"
+                                onClick={() => addDifferentSeries(exerciseId)}
+                                disabled={!isStarted || differentSeries.length >= seriesCount}
+                              >
+                                Añadir serie diferente
+                              </Button>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-gray-500 mb-2">
+                            Valores base (si todas las series son iguales)
+                          </p>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div className="flex items-center gap-2">
                               <Input
                                 type="number"
                                 placeholder={exerciseItem.reps || 'Reps'}
                                 className="h-8 text-sm"
-                                value={setData.reps ?? ''}
-                                onChange={(e) => updateExerciseData(
+                                value={baseSetData.reps ?? ''}
+                                onChange={(e) => updateExerciseBaseData(
                                   exerciseId,
                                   'reps',
                                   e.target.value ? parseInt(e.target.value) : undefined
@@ -923,8 +1274,8 @@ export function ActiveWorkoutSession({
                                 type="number"
                                 placeholder="Kg"
                                 className="h-8 text-sm"
-                                value={setData.weight ?? ''}
-                                onChange={(e) => updateExerciseData(
+                                value={baseSetData.weight ?? ''}
+                                onChange={(e) => updateExerciseBaseData(
                                   exerciseId,
                                   'weight',
                                   e.target.value ? parseFloat(e.target.value) : undefined
@@ -941,16 +1292,97 @@ export function ActiveWorkoutSession({
                                 max={10}
                                 placeholder="Esfuerzo 1-10"
                                 className="h-8 text-sm"
-                                value={setData.effort ?? ''}
+                                value={baseSetData.effort ?? ''}
                                 onChange={(e) => {
                                   const value = e.target.value ? parseInt(e.target.value) : undefined
-                                  updateExerciseData(exerciseId, 'effort', value)
+                                  updateExerciseBaseData(exerciseId, 'effort', value)
                                 }}
                                 disabled={!isStarted}
                               />
                               <span className="text-gray-500 text-sm">1-10</span>
                             </div>
                           </div>
+
+                          {differentSeries.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                              {differentSeries.map((diff) => (
+                                <div key={`${exerciseId}_diff_${diff.setNumber}`} className="bg-white border rounded-md p-2.5">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium text-gray-700">Serie diferente Nº</span>
+                                      <Input
+                                        type="number"
+                                        min={1}
+                                        max={seriesCount}
+                                        className="h-7 w-20 text-xs"
+                                        value={diff.setNumber}
+                                        onChange={(e) => updateDifferentSeriesNumber(
+                                          exerciseId,
+                                          diff.setNumber,
+                                          e.target.value ? parseInt(e.target.value) : diff.setNumber
+                                        )}
+                                        disabled={!isStarted}
+                                      />
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="ghost"
+                                      className="h-7 text-xs"
+                                      onClick={() => removeDifferentSeries(exerciseId, diff.setNumber)}
+                                      disabled={!isStarted}
+                                    >
+                                      Quitar
+                                    </Button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                    <Input
+                                      type="number"
+                                      placeholder="Reps"
+                                      className="h-8 text-sm"
+                                      value={diff.data.reps ?? ''}
+                                      onChange={(e) => updateDifferentSeriesData(
+                                        exerciseId,
+                                        diff.setNumber,
+                                        'reps',
+                                        e.target.value ? parseInt(e.target.value) : undefined
+                                      )}
+                                      disabled={!isStarted}
+                                    />
+                                    <Input
+                                      type="number"
+                                      placeholder="Kg"
+                                      className="h-8 text-sm"
+                                      value={diff.data.weight ?? ''}
+                                      onChange={(e) => updateDifferentSeriesData(
+                                        exerciseId,
+                                        diff.setNumber,
+                                        'weight',
+                                        e.target.value ? parseFloat(e.target.value) : undefined
+                                      )}
+                                      disabled={!isStarted}
+                                    />
+                                    <Input
+                                      type="number"
+                                      min={1}
+                                      max={10}
+                                      placeholder="Esfuerzo 1-10"
+                                      className="h-8 text-sm"
+                                      value={diff.data.effort ?? ''}
+                                      onChange={(e) => updateDifferentSeriesData(
+                                        exerciseId,
+                                        diff.setNumber,
+                                        'effort',
+                                        e.target.value ? parseInt(e.target.value) : undefined
+                                      )}
+                                      disabled={!isStarted}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           <div className="mt-3 flex justify-end">
                             <Button

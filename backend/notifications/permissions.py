@@ -12,11 +12,15 @@ class NotificationPermission(permissions.BasePermission):
         return request.user.is_authenticated
     
     def has_object_permission(self, request, view, obj):
-        # Staff puede acceder a todo
-        if request.user.is_staff:
+        role = str(getattr(request.user, "role", "") or "").lower()
+        target_role = str(getattr(obj.user, "role", "") or "").lower()
+
+        if request.user.is_staff or request.user.is_superuser or role == "admin":
+            return True
+
+        if role in {"trainer", "pro"} and target_role in {"basic", "member", "premium"}:
             return True
         
-        # Usuarios solo pueden acceder a sus propias notificaciones
         return obj.user == request.user
 
 
