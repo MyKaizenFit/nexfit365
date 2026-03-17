@@ -359,7 +359,7 @@ class DashboardViewSet(viewsets.ModelViewSet):
         total_calories_month = MealLog.objects.filter(
             user=user, date__range=[month_start, month_end]
         ).aggregate(
-            total_calories=Sum("meal__calories")
+            total_calories=Sum("calories")
         )["total_calories"] or 0
         
         average_calories_day = total_calories_month / month_end.day if total_calories_month > 0 else 0

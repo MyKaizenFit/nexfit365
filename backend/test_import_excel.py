@@ -2,11 +2,14 @@
 """
 Script para probar el endpoint de import de recetas con actualización
 """
+import pytest
 import requests
 import json
 import io
 from pathlib import Path
 from openpyxl import Workbook
+
+pytestmark = pytest.mark.skip(reason="Script manual de integración, no test unitario pytest")
 
 # URL base
 BASE_URL = "http://localhost:8000"
