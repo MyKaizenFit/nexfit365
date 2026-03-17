@@ -49,7 +49,7 @@ class TestCustomUserModel:
             last_name="Pérez"
         )
         
-        assert str(user) == "test@example.com"
+        assert str(user) == "test@example.com - Juan Pérez"
     
     def test_user_email_unique(self):
         """Test que el email sea único"""

@@ -169,7 +169,7 @@ def profile_summary(request):
         'email': user.email,
         'bmi': user.bmi,
         'age': user.age,
-        'fitness_goals': user.fitness_goals,
+        'fitness_goals': user.main_goal,
         'activity_level': user.activity_level,
         'target_weight': user.target_weight,
         'dietary_restrictions': user.dietary_restrictions,
