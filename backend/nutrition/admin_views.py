@@ -13,6 +13,8 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
+import requests
+from urllib.parse import urlparse
 
 from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe, NutritionPlanAssignment
 from .admin_serializers import (
@@ -67,6 +69,56 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
 
         recipe.image = image
         recipe.save(update_fields=['image'])
+
+        serializer = self.get_serializer(recipe)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='set-image-url')
+    def set_image_url(self, request, pk=None):
+        """Actualizar image_url (para URLs externas desde Google Drive, etc)"""
+        recipe = self.get_object()
+        image_url = request.data.get('image_url', '').strip()
+
+        if not image_url:
+            return Response({'detail': 'image_url es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar que sea una URL válida
+        try:
+            result = urlparse(image_url)
+            if not all([result.scheme, result.netloc]):
+                return Response({'detail': 'URL inválida'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': f'Error validando URL: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validar que sea accesible (HEAD request, timeout 5 segundos)
+        try:
+            headers = {'User-Agent': 'MyKaizenFit/1.0'}
+            response = requests.head(image_url, timeout=5, allow_redirects=True, headers=headers)
+            
+            # Aceptar 200-299 como OK
+            if response.status_code < 200 or response.status_code >= 300:
+                return Response(
+                    {'detail': f'URL no es accesible (status {response.status_code})'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Validar que sea una imagen
+            content_type = response.headers.get('content-type', '').lower()
+            valid_types = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+            if not any(vtype in content_type for vtype in valid_types):
+                return Response(
+                    {'detail': f'URL no es una imagen válida (type: {content_type})'}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+                
+        except requests.exceptions.Timeout:
+            return Response({'detail': 'URL tardó demasiado en responder'}, status=status.HTTP_400_BAD_REQUEST)
+        except requests.exceptions.RequestException as e:
+            return Response({'detail': f'Error accediendo a URL: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Actualizar URL
+        recipe.image_url = image_url
+        recipe.save(update_fields=['image_url'])
 
         serializer = self.get_serializer(recipe)
         return Response(serializer.data, status=status.HTTP_200_OK)
