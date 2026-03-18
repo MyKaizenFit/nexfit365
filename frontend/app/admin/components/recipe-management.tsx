@@ -17,7 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Download, Upload, Loader2, Plus, Edit2, Trash2, Eye, X, Search, Clock, Users, ChefHat, Flame, Zap, Trophy, GripVertical, ArrowLeft, ArrowRight, ArrowUp, ArrowDown } from "lucide-react"
+import { Download, Upload, Loader2, Plus, Edit2, Trash2, Eye, X, Search, Clock, Users, ChefHat, Flame, Zap, Trophy, GripVertical, ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Image as ImageIcon } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,6 +79,7 @@ interface Recipe {
   difficulty?: string
   instructions?: string
   recipe_ingredients?: RecipeIngredient[]
+  image_url?: string
 }
 
 interface FormData {
@@ -88,6 +89,7 @@ interface FormData {
   difficulty: string
   instructions: string
   recipe_ingredients: RecipeIngredient[]
+  image_url: string
 }
 
 export function RecipeManagement() {
@@ -125,6 +127,7 @@ export function RecipeManagement() {
     difficulty: '',
     instructions: '',
     recipe_ingredients: [],
+    image_url: '',
   })
   const [ingredientSearch, setIngredientSearch] = useState('')
   const [ingredientInputValue, setIngredientInputValue] = useState('')
@@ -132,6 +135,10 @@ export function RecipeManagement() {
   const [ingredientCategory, setIngredientCategory] = useState('')
   const [ingredientCaloriesFilter, setIngredientCaloriesFilter] = useState('')
   const [ingredientProteinFilter, setIngredientProteinFilter] = useState('')
+  const [imageUrlInput, setImageUrlInput] = useState('')
+  const [imageUrlValidating, setImageUrlValidating] = useState(false)
+  const [imageUrlError, setImageUrlError] = useState('')
+  const [imageUrlSuccess, setImageUrlSuccess] = useState(false)
 
   const fetchRecipes = async () => {
     setLoading(true)
@@ -248,9 +255,12 @@ export function RecipeManagement() {
 
   const handleOpenCreate = () => {
     setEditingRecipe(null)
-    setFormData({ name: '', description: '', category: '', difficulty: '', instructions: '', recipe_ingredients: [] })
+    setFormData({ name: '', description: '', category: '', difficulty: '', instructions: '', recipe_ingredients: [], image_url: '' })
     setIngredientInputValue('')
     setShowSuggestions(false)
+    setImageUrlInput('')
+    setImageUrlError('')
+    setImageUrlSuccess(false)
     setCreateDialogOpen(true)
   }
 
@@ -263,9 +273,13 @@ export function RecipeManagement() {
       difficulty: recipe.difficulty || '',
       instructions: recipe.instructions || '',
       recipe_ingredients: recipe.recipe_ingredients || [],
+      image_url: recipe.image_url || '',
     })
     setIngredientInputValue('')
     setShowSuggestions(false)
+    setImageUrlInput(recipe.image_url || '')
+    setImageUrlError('')
+    setImageUrlSuccess(false)
     setEditDialogOpen(true)
   }
 
@@ -401,6 +415,55 @@ export function RecipeManagement() {
       fetchRecipes()
     } catch (error) {
       toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo eliminar', variant: 'destructive' })
+    }
+  }
+
+  const handleUpdateImageUrl = async () => {
+    if (!editingRecipe?.id || !imageUrlInput.trim()) {
+      setImageUrlError('Por favor ingresa una URL de imagen válida')
+      return
+    }
+
+    setImageUrlValidating(true)
+    setImageUrlError('')
+    setImageUrlSuccess(false)
+
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${editingRecipe.id}/set-image-url/`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: imageUrlInput }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `Error ${response.status}`)
+      }
+
+      const data = await response.json()
+      setFormData({ ...formData, image_url: data.image_url || imageUrlInput })
+      setImageUrlSuccess(true)
+      
+      // Actualizar la receta en la lista
+      setEditingRecipe({ ...editingRecipe, image_url: data.image_url || imageUrlInput })
+      
+      toast({
+        title: '✅ Imagen actualizada',
+        description: 'La URL de la imagen ha sido guardada correctamente',
+      })
+
+      // Auto-limpiar el mensaje de éxito después de 3 segundos
+      setTimeout(() => setImageUrlSuccess(false), 3000)
+    } catch (error) {
+      setImageUrlError(error instanceof Error ? error.message : 'No se pudo actualizar la imagen')
+      toast({
+        title: '❌ Error',
+        description: error instanceof Error ? error.message : 'No se pudo actualizar la imagen',
+        variant: 'destructive',
+      })
+    } finally {
+      setImageUrlValidating(false)
     }
   }
 
@@ -926,6 +989,20 @@ export function RecipeManagement() {
           </DialogHeader>
           {editingRecipe && (
             <div className="space-y-4">
+              {/* Imagen */}
+              {editingRecipe.image_url && (
+                <div className="rounded-lg overflow-hidden border border-gray-200 shadow-md">
+                  <img
+                    src={editingRecipe.image_url}
+                    alt={editingRecipe.name}
+                    className="w-full h-48 object-cover"
+                    onError={() => {
+                      // Error loading image
+                    }}
+                  />
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <strong>Categoría:</strong> {editingRecipe.category || '-'}
@@ -1084,6 +1161,85 @@ export function RecipeManagement() {
                     placeholder="Ej: Una deliciosa pechuga a base de ajillo fresco y limón."
                     className="mt-1 min-h-24"
                   />
+                </div>
+
+                {/* Sección de Imagen URL */}
+                <div className="border-t pt-4 mt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <ImageIcon className="h-5 w-5 text-orange-600" />
+                    <Label className="font-semibold text-sm">🖼️ Imagen de la Receta</Label>
+                  </div>
+
+                  {/* Preview de imagen */}
+                  {(formData.image_url || imageUrlInput) && (
+                    <div className="mb-4 rounded-lg overflow-hidden border border-orange-200 bg-orange-50 p-2">
+                      <img
+                        src={formData.image_url || imageUrlInput}
+                        alt="Preview"
+                        className="w-full h-48 object-cover rounded"
+                        onError={() => {
+                          // Imagen no se puede cargar
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Input para URL */}
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <Input
+                          value={imageUrlInput}
+                          onChange={(e) => {
+                            setImageUrlInput(e.target.value)
+                            setImageUrlError('')
+                          }}
+                          placeholder="https://drive.google.com/uc?id=...&export=download"
+                          className={`text-sm ${imageUrlError ? 'border-red-500' : ''}`}
+                        />
+                      </div>
+                      <Button
+                        onClick={handleUpdateImageUrl}
+                        disabled={imageUrlValidating || !imageUrlInput.trim()}
+                        className="bg-orange-600 hover:bg-orange-700 whitespace-nowrap"
+                        size="sm"
+                      >
+                        {imageUrlValidating ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Validando...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-1" />
+                            Guardar
+                          </>
+                        )}
+                      </Button>
+                    </div>
+
+                    {/* Mensajes de error/éxito */}
+                    {imageUrlError && (
+                      <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-700 flex items-start gap-2">
+                        <span className="mt-0.5">❌</span>
+                        <span>{imageUrlError}</span>
+                      </div>
+                    )}
+
+                    {imageUrlSuccess && (
+                      <div className="bg-green-50 border border-green-200 rounded p-2 text-xs text-green-700 flex items-start gap-2">
+                        <span className="mt-0.5">✅</span>
+                        <span>Imagen actualizada correctamente</span>
+                      </div>
+                    )}
+
+                    {/* Info sobre fuentes permitidas */}
+                    <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                      <p className="text-xs text-blue-700">
+                        <strong>💡 Fuentes permitidas:</strong> Google Drive, Imgur, CloudFlare Images o cualquier URL pública de imagen (JPEG, PNG, WebP, GIF)
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Cards rápidas de info */}
@@ -1251,6 +1407,20 @@ export function RecipeManagement() {
                     <CardDescription>{formData.description || 'Sin descripción'}</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {/* Imagen vista previa */}
+                    {(formData.image_url || imageUrlInput) && (
+                      <div className="rounded-lg overflow-hidden border border-orange-300 shadow-md">
+                        <img
+                          src={formData.image_url || imageUrlInput}
+                          alt={formData.name || 'Receta'}
+                          className="w-full h-48 object-cover"
+                          onError={() => {
+                            // Error loading image
+                          }}
+                        />
+                      </div>
+                    )}
+
                     {/* Datos rápidos */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       {[
