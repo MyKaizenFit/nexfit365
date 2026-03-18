@@ -7,8 +7,179 @@ from accounts.models import CustomUser
 from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe
 import math
 import logging
+import random
+import unicodedata
 
 logger = logging.getLogger(__name__)
+
+
+def _normalize_preference_terms(value) -> List[str]:
+    if not value:
+        return []
+
+    if isinstance(value, str):
+        raw_items = [item.strip() for item in value.replace(';', ',').replace('\n', ',').split(',')]
+    elif isinstance(value, list):
+        raw_items = []
+        for item in value:
+            if isinstance(item, str):
+                raw_items.extend(part.strip() for part in item.replace(';', ',').replace('\n', ',').split(','))
+            elif item is not None:
+                raw_items.append(str(item).strip())
+    else:
+        raw_items = [str(value).strip()]
+
+    normalized = []
+    seen = set()
+    for item in raw_items:
+        if not item:
+            continue
+        normalized_item = unicodedata.normalize('NFKD', item).encode('ascii', 'ignore').decode('ascii').lower().strip()
+        normalized_item = normalized_item.replace('-', ' ')
+        normalized_item = ' '.join(normalized_item.split())
+        if normalized_item and normalized_item not in seen:
+            seen.add(normalized_item)
+            normalized.append(normalized_item)
+
+    return normalized
+
+
+def _get_user_blocked_terms(user: CustomUser) -> List[str]:
+    blocked_terms = []
+    blocked_terms.extend(_normalize_preference_terms(getattr(user, 'allergies', None)))
+    blocked_terms.extend(_normalize_preference_terms(getattr(user, 'disliked_foods', None)))
+
+    unique_terms = []
+    seen = set()
+    for term in blocked_terms:
+        if term not in seen:
+            seen.add(term)
+            unique_terms.append(term)
+
+    return unique_terms
+
+
+def _get_user_dietary_restrictions(user: CustomUser) -> List[str]:
+    return _normalize_preference_terms(getattr(user, 'dietary_restrictions', None))
+
+
+def _recipe_supports_user_restrictions(recipe: Recipe, restrictions: List[str]) -> bool:
+    if not restrictions:
+        return True
+
+    recipe_diet_types = set(_normalize_preference_terms(getattr(recipe, 'diet_types', [])))
+    if not recipe_diet_types:
+        return True
+
+    restriction_aliases = {
+        'vegetarian': {'vegetarian', 'vegetariano'},
+        'vegan': {'vegan', 'vegano'},
+        'gluten free': {'gluten free', 'gluten-free', 'sin gluten'},
+        'dairy free': {'dairy free', 'dairy-free', 'sin lactosa', 'lactose free'},
+        'keto': {'keto', 'ketogenic', 'cetogenica', 'cetogenico'},
+        'low carb': {'low carb', 'bajo en carbohidratos'},
+    }
+
+    for restriction in restrictions:
+        aliases = restriction_aliases.get(restriction)
+        if not aliases:
+            continue
+        if recipe_diet_types.isdisjoint(aliases):
+            return False
+
+    return True
+
+
+def _recipe_matches_blocked_terms(recipe: Recipe, blocked_terms: List[str]) -> bool:
+    if not blocked_terms:
+        return False
+
+    recipe_allergens = _normalize_preference_terms(getattr(recipe, 'allergens', []))
+    for allergen in recipe_allergens:
+        for term in blocked_terms:
+            if term == allergen or term in allergen or allergen in term:
+                return True
+
+    recipe_ingredients = getattr(recipe, 'ingredients', []) or []
+    for ingredient in recipe_ingredients:
+        ingredient_name = ''
+        if isinstance(ingredient, dict):
+            ingredient_name = ingredient.get('name', '')
+        elif isinstance(ingredient, str):
+            ingredient_name = ingredient
+
+        normalized_name = ' '.join(_normalize_preference_terms(ingredient_name))
+        if not normalized_name:
+            continue
+
+        for term in blocked_terms:
+            if term in normalized_name or normalized_name in term:
+                return True
+
+    return False
+
+
+def recipe_is_compatible_for_user(recipe: Recipe, user: CustomUser) -> bool:
+    restrictions = _get_user_dietary_restrictions(user)
+    blocked_terms = _get_user_blocked_terms(user)
+
+    if not _recipe_supports_user_restrictions(recipe, restrictions):
+        return False
+
+    if _recipe_matches_blocked_terms(recipe, blocked_terms):
+        return False
+
+    return True
+
+
+def recipe_matches_meal_type(recipe: Recipe, meal_type: str) -> bool:
+    recipe_meal_types = set(_normalize_preference_terms(getattr(recipe, 'meal_types', [])))
+    if recipe_meal_types and meal_type in recipe_meal_types:
+        return True
+
+    category_map = {
+        'breakfast': 'desayuno',
+        'lunch': 'almuerzo',
+        'dinner': 'cena',
+        'snack': 'snack',
+    }
+    recipe_category = _normalize_preference_terms(getattr(recipe, 'category', ''))
+    expected_category = category_map.get(meal_type)
+    return bool(expected_category and expected_category in recipe_category)
+
+
+def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal, desired_count: int = 3) -> List[Recipe]:
+    suggested_recipes = [
+        recipe
+        for recipe in meal_template.suggested_recipes.filter(is_active=True)
+        if recipe_is_compatible_for_user(recipe, user)
+    ]
+
+    if len(suggested_recipes) > desired_count:
+        return random.sample(suggested_recipes, desired_count)
+
+    selected_recipes = suggested_recipes.copy()
+    remaining = desired_count - len(selected_recipes)
+    if remaining <= 0:
+        return selected_recipes
+
+    fallback_recipes = []
+    for recipe in Recipe.objects.filter(is_active=True):
+        if recipe.id in {item.id for item in selected_recipes}:
+            continue
+        if not recipe_matches_meal_type(recipe, meal_template.meal_type):
+            continue
+        if not recipe_is_compatible_for_user(recipe, user):
+            continue
+        fallback_recipes.append(recipe)
+
+    if len(fallback_recipes) > remaining:
+        fallback_recipes = random.sample(fallback_recipes, remaining)
+    else:
+        fallback_recipes = fallback_recipes[:remaining]
+
+    selected_recipes.extend(fallback_recipes)
+    return selected_recipes
 
 class PersonalizedNutritionService:
     """Servicio para generar planes nutricionales personalizados basados en el perfil del usuario"""
@@ -518,7 +689,7 @@ class PersonalizedNutritionService:
         default_meals = default_plan.meals.all().order_by('order_index')
         
         for default_meal in default_meals:
-            PlanMeal.objects.create(
+            new_meal = PlanMeal.objects.create(
                 plan=user_plan,
                 name=default_meal.name,
                 meal_type=default_meal.meal_type,
@@ -530,11 +701,10 @@ class PersonalizedNutritionService:
                 description=default_meal.description,
                 order_index=default_meal.order_index
             )
-            # Copiar recetas sugeridas si existen
-            if default_meal.suggested_recipes.exists():
-                new_meal = user_plan.meals.filter(name=default_meal.name).first()
-                if new_meal:
-                    new_meal.suggested_recipes.set(default_meal.suggested_recipes.all())
+
+            selected_recipes = select_compatible_recipes_for_meal(self.user, default_meal)
+            if selected_recipes:
+                new_meal.suggested_recipes.set(selected_recipes)
 
     def _assign_plan_from_default(
         self,

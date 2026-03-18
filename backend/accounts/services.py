@@ -118,6 +118,7 @@ def assign_default_plans_to_user(user):
     """
     from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
     from nutrition.models import NutritionPlan, PlanMeal, Recipe
+    from nutrition.services import select_compatible_recipes_for_meal
     from django.utils import timezone
     
     results = {'workout_program': None, 'nutrition_plan': None}
@@ -127,6 +128,11 @@ def assign_default_plans_to_user(user):
     # =========================================================================
     template = get_default_nutrition_plan_for_user(user)
     if template:
+        NutritionPlan.objects.filter(user=user, is_active=True).update(
+            is_active=False,
+            end_date=timezone.localdate(),
+        )
+
         plan = NutritionPlan.objects.create(
             user=user,
             name=f"{template.name} - {user.first_name}",
@@ -159,33 +165,8 @@ def assign_default_plans_to_user(user):
                 description=meal_template.description,
                 order_index=meal_template.order_index
             )
-            
-            # Seleccionar exactamente 3 recetas de las sugeridas
-            suggested_recipes = list(meal_template.suggested_recipes.filter(is_active=True))
-            
-            if len(suggested_recipes) >= 3:
-                # Si hay 3 o más, seleccionar 3 aleatorias
-                selected_recipes = random.sample(suggested_recipes, 3)
-            elif len(suggested_recipes) > 0:
-                # Si hay menos de 3, usar las que hay y completar con otras recetas del mismo tipo
-                selected_recipes = suggested_recipes.copy()
-                
-                # Buscar recetas adicionales del mismo tipo de comida
-                additional_recipes = Recipe.objects.filter(
-                    is_active=True,
-                    meal_type=meal_template.meal_type
-                ).exclude(
-                    id__in=[r.id for r in selected_recipes]
-                ).order_by('?')[:3 - len(selected_recipes)]
-                
-                selected_recipes.extend(list(additional_recipes))
-            else:
-                # Si no hay recetas sugeridas, buscar por tipo de comida
-                selected_recipes = list(Recipe.objects.filter(
-                    is_active=True,
-                    meal_type=meal_template.meal_type
-                ).order_by('?')[:3])
-            
+
+            selected_recipes = select_compatible_recipes_for_meal(user, meal_template)
             new_meal.suggested_recipes.set(selected_recipes)
         
         results['nutrition_plan'] = plan
@@ -195,6 +176,11 @@ def assign_default_plans_to_user(user):
     # =========================================================================
     template = get_default_workout_program_for_user(user)
     if template:
+        WorkoutProgram.objects.filter(user=user, is_active=True).update(
+            is_active=False,
+            end_date=timezone.localdate(),
+        )
+
         # Obtener días de entrenamiento del usuario (normalizados a números)
         user_training_days = normalize_training_days(user.training_days)
         days_per_week = len(user_training_days) if user_training_days else (user.training_days_per_week or 3)
@@ -347,10 +333,10 @@ class DefaultPlanAssignmentService:
     def assign(self):
         """Asignar planes al usuario basado en configuración"""
         from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
-        from nutrition.models import NutritionPlan, PlanMeal, Recipe
+        from nutrition.models import NutritionPlan, PlanMeal
+        from nutrition.services import select_compatible_recipes_for_meal
         from django.utils import timezone
         from datetime import timedelta
-        import random
         
         # Encontrar la mejor configuración
         configuration = self.find_best_configuration()
@@ -371,6 +357,11 @@ class DefaultPlanAssignmentService:
         # =====================================================================
         if configuration.default_nutrition_plan:
             template = configuration.default_nutrition_plan
+
+            NutritionPlan.objects.filter(user=self.user, is_active=True).update(
+                is_active=False,
+                end_date=timezone.now().date(),
+            )
             
             # Crear plan personalizado para el usuario
             nutrition_plan = NutritionPlan.objects.create(
@@ -409,27 +400,7 @@ class DefaultPlanAssignmentService:
                     description=meal_template.description,
                     order_index=meal_template.order_index
                 )
-                
-                # Seleccionar exactamente 3 recetas
-                suggested_recipes = list(meal_template.suggested_recipes.filter(is_active=True))
-                
-                if len(suggested_recipes) >= 3:
-                    selected_recipes = random.sample(suggested_recipes, 3)
-                elif len(suggested_recipes) > 0:
-                    selected_recipes = suggested_recipes.copy()
-                    additional = Recipe.objects.filter(
-                        is_active=True,
-                        meal_type=meal_template.meal_type
-                    ).exclude(
-                        id__in=[r.id for r in selected_recipes]
-                    ).order_by('?')[:3 - len(selected_recipes)]
-                    selected_recipes.extend(list(additional))
-                else:
-                    selected_recipes = list(Recipe.objects.filter(
-                        is_active=True,
-                        meal_type=meal_template.meal_type
-                    ).order_by('?')[:3])
-                
+                selected_recipes = select_compatible_recipes_for_meal(self.user, meal_template)
                 meal.suggested_recipes.set(selected_recipes)
         
         # =====================================================================
@@ -437,6 +408,11 @@ class DefaultPlanAssignmentService:
         # =====================================================================
         if configuration.default_workout_program:
             template_program = configuration.default_workout_program
+
+            WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
+                is_active=False,
+                end_date=timezone.now().date(),
+            )
             
             # Obtener días de entrenamiento del usuario (normalizados a números)
             user_training_days = normalize_training_days(self.user.training_days)

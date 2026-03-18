@@ -2,6 +2,7 @@ from datetime import date
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from model_bakery import baker
 
 from nutrition.models import NutritionPlan, NutritionPlanHistory, PlanMeal
 from nutrition.services import PersonalizedNutritionService
@@ -121,4 +122,35 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertFalse(existing_plan.is_active)
         self.assertIsNotNone(existing_plan.end_date)
         self.assertTrue(assigned_plan.is_active)
+
+    def test_assign_best_plan_filters_blocked_recipes(self):
+        breakfast = self.system_plan.meals.get(name="Desayuno")
+        blocked_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Tostada con cacahuete",
+            is_active=True,
+            category="Desayuno",
+            meal_types=["breakfast"],
+            allergens=["peanuts"],
+            ingredients=[{"name": "Mantequilla de cacahuete", "amount": "20", "unit": "g"}],
+        )
+        safe_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Avena con frutas",
+            is_active=True,
+            category="Desayuno",
+            meal_types=["breakfast"],
+            allergens=[],
+            ingredients=[{"name": "Avena", "amount": "50", "unit": "g"}],
+        )
+        breakfast.suggested_recipes.set([blocked_recipe, safe_recipe])
+        self.user.allergies = ["peanuts"]
+        self.user.save(update_fields=["allergies"])
+
+        assigned_plan = PersonalizedNutritionService(self.user).assign_best_plan()
+
+        assigned_breakfast = assigned_plan.meals.get(name="Desayuno")
+        assigned_recipe_ids = list(assigned_breakfast.suggested_recipes.values_list("id", flat=True))
+        self.assertIn(safe_recipe.id, assigned_recipe_ids)
+        self.assertNotIn(blocked_recipe.id, assigned_recipe_ids)
 
