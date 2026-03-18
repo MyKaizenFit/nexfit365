@@ -28,13 +28,17 @@ install-dev: ## Instalar dependencias de desarrollo
 	pre-commit install
 
 # Testing
-test: ## Ejecutar todos los tests
-	@echo "$(GREEN)Ejecutando tests...$(NC)"
-	$(PYTEST)
+test-local: ## Ejecutar tests rápidos (sin cobertura, ideal para desarrollo local)
+	@echo "$(GREEN)Ejecutando tests en modo local (rápido)...$(NC)"
+	$(PYTEST) -x -q
 
-test-cov: ## Ejecutar tests con cobertura
-	@echo "$(GREEN)Ejecutando tests con cobertura...$(NC)"
-	$(PYTEST) --cov=. --cov-report=html --cov-report=term-missing
+test: test-local ## Alias para test-local
+
+test-ci: ## Ejecutar tests con cobertura stricta (modo CI/pipeline)
+	@echo "$(GREEN)Ejecutando tests en modo CI (con cobertura 85%)...$(NC)"
+	$(PYTEST) --cov=. --cov-report=html --cov-report=term-missing --cov-fail-under=85
+
+test-cov: test-ci ## Alias para test-ci (legacy)
 
 test-verbose: ## Ejecutar tests con logging detallado
 	@echo "$(GREEN)Ejecutando tests con logging detallado...$(NC)"
@@ -168,11 +172,11 @@ logs-app: ## Ver logs de una app específica (uso: make logs-app APP=accounts)
 	grep "$(APP)" test.log
 
 # CI/CD
-ci: ## Ejecutar pipeline de CI localmente
+ci: ## Ejecutar pipeline de CI localmente (formato, linting, tests con cobertura)
 	@echo "$(GREEN)Ejecutando pipeline de CI...$(NC)"
 	make format-check
 	make lint
-	make test-cov
+	make test-ci
 
 # Desarrollo
 dev-setup: ## Configurar entorno de desarrollo completo
