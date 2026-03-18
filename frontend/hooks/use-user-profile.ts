@@ -56,6 +56,18 @@ export function useUserProfile() {
       // Extraer campos de plan si existen
       const { plan_updated, plan_update_message, ...profileData } = response as any
       setProfile(profileData as UserProfile)
+
+      try {
+        await refreshUser()
+      } catch {
+        // Si falla la actualización del contexto, no bloquea el guardado del perfil.
+      }
+
+      if (updates.profile_picture instanceof File) {
+        setTimeout(() => {
+          fetchUserProfile()
+        }, 500)
+      }
       
       // Devolver respuesta completa incluyendo información de plan
       return {
@@ -63,28 +75,6 @@ export function useUserProfile() {
         plan_updated,
         plan_update_message
       }
-      
-      // Actualizar también el contexto de autenticación para que la foto aparezca en todos los lugares
-      try {
-        await refreshUser()
-      } catch (authError) {
-        // Si falla la actualización del contexto, no es crítico, solo loguear
-      }
-      
-      // Si se actualizó la foto, refrescar el perfil para obtener la nueva URL
-      if (updates.profile_picture instanceof File) {
-        // Esperar un momento para que el servidor procese la imagen
-        setTimeout(() => {
-          fetchUserProfile()
-        }, 500)
-      } else {
-        // Refrescar el perfil para obtener datos actualizados
-        setTimeout(() => {
-          fetchUserProfile()
-        }, 300)
-      }
-      
-      return updatedProfile
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al actualizar perfil'
       setError(errorMessage)

@@ -17,7 +17,9 @@ export interface User {
   profile_picture_url?: string  // URL completa de la foto de perfil
   avatar?: string  // Alias para profile_picture
   phone?: string
+  phone_number?: string
   date_of_birth?: string
+  birth_date?: string
   height?: number
   weight?: number
   
@@ -30,7 +32,9 @@ export interface User {
   // Información de salud
   dietary_restrictions?: string | string[]
   allergies?: string | string[]
+  disliked_foods?: string | string[]
   medical_conditions?: string | string[]
+  injuries_or_medical_issues?: string
   
   // Contacto de emergencia
   emergency_contact_name?: string
@@ -100,7 +104,9 @@ export interface UpdateUserData {
   role?: 'MEMBER' | 'ADMIN' | 'TRAINER' | 'BASIC' | 'PRO' | 'PREMIUM'
   is_active?: boolean
   phone?: string
+  phone_number?: string
   date_of_birth?: string
+  birth_date?: string
   height?: number
   weight?: number
   fitness_goals?: string | string[]
@@ -109,6 +115,7 @@ export interface UpdateUserData {
   activity_level?: string
   dietary_restrictions?: string | string[]
   allergies?: string | string[]
+  disliked_foods?: string | string[]
   medical_conditions?: string | string[]
   emergency_contact_name?: string
   emergency_contact_phone?: string

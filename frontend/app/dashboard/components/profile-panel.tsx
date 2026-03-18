@@ -76,6 +76,28 @@ export const ProfilePanel = memo(function ProfilePanel() {
     return age
   }
 
+  const formatPreferenceValue = (value: string | string[] | null | undefined) => {
+    if (Array.isArray(value)) {
+      return value.join(', ')
+    }
+    return value || ''
+  }
+
+  const parsePreferenceList = (value: string | string[] | null | undefined) => {
+    if (Array.isArray(value)) {
+      return value.map((item) => item.trim()).filter(Boolean)
+    }
+
+    if (!value) {
+      return []
+    }
+
+    return value
+      .split(/[\n,;]+/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
   const handleLocalUpdate = (updates: any) => {
     setLocalProfile((prev: any) => {
       const updated = { ...prev, ...updates }
@@ -113,8 +135,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
         
         // Preferencias
         if (localProfile.activity_level !== undefined) editableFields.activity_level = localProfile.activity_level
-        if (localProfile.dietary_restrictions !== undefined) editableFields.dietary_restrictions = localProfile.dietary_restrictions
-        if (localProfile.allergies !== undefined) editableFields.allergies = localProfile.allergies
+        if (localProfile.dietary_restrictions !== undefined) editableFields.dietary_restrictions = parsePreferenceList(localProfile.dietary_restrictions)
+        if (localProfile.allergies !== undefined) editableFields.allergies = parsePreferenceList(localProfile.allergies)
         if (localProfile.medical_conditions !== undefined) editableFields.medical_conditions = localProfile.medical_conditions
         
         // Entrenamiento
@@ -125,7 +147,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
         
         // Otros campos
         if (localProfile.injuries_or_medical_issues !== undefined) editableFields.injuries_or_medical_issues = localProfile.injuries_or_medical_issues
-        if (localProfile.disliked_foods !== undefined) editableFields.disliked_foods = localProfile.disliked_foods
+        if (localProfile.disliked_foods !== undefined) editableFields.disliked_foods = formatPreferenceValue(localProfile.disliked_foods)
         
         const response = await updateProfile(editableFields)
         
@@ -335,8 +357,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <Label htmlFor="first_name">Nombre</Label>
               <Input
                 id="first_name"
-                value={profile.first_name || ''}
-                onChange={(e) => updateProfile({ first_name: e.target.value })}
+                value={localProfile?.first_name ?? profile.first_name ?? ''}
+                onChange={(e) => handleLocalUpdate({ first_name: e.target.value })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -345,8 +367,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <Label htmlFor="last_name">Apellidos</Label>
               <Input
                 id="last_name"
-                value={profile.last_name || ''}
-                onChange={(e) => updateProfile({ last_name: e.target.value })}
+                value={localProfile?.last_name ?? profile.last_name ?? ''}
+                onChange={(e) => handleLocalUpdate({ last_name: e.target.value })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -357,8 +379,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 id="email"
                 type="email"
                 value={profile.email || ''}
-                onChange={(e) => updateProfile({ email: e.target.value })}
-                disabled={!isEditing}
+                disabled
                 className="mt-1"
               />
             </div>
@@ -366,8 +387,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <Label htmlFor="phone_number">Teléfono</Label>
               <Input
                 id="phone_number"
-                value={profile.phone_number || profile.phone || ''}
-                onChange={(e) => updateProfile({ phone_number: e.target.value })}
+                value={localProfile?.phone_number ?? localProfile?.phone ?? profile.phone_number ?? profile.phone ?? ''}
+                onChange={(e) => handleLocalUpdate({ phone_number: e.target.value })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -377,8 +398,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <Input
                 id="birth_date"
                 type="date"
-                value={profile.birth_date || profile.date_of_birth || ''}
-                onChange={(e) => updateProfile({ birth_date: e.target.value })}
+                value={localProfile?.birth_date ?? localProfile?.date_of_birth ?? profile.birth_date ?? profile.date_of_birth ?? ''}
+                onChange={(e) => handleLocalUpdate({ birth_date: e.target.value })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -386,8 +407,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
             <div>
               <Label htmlFor="activity_level">Nivel de actividad</Label>
               <Select
-                value={profile.activity_level || ''}
-                onValueChange={(value) => updateProfile({ activity_level: value })}
+                value={localProfile?.activity_level ?? profile.activity_level ?? ''}
+                onValueChange={(value) => handleLocalUpdate({ activity_level: value })}
                 disabled={!isEditing}
               >
                 <SelectTrigger className="mt-1">
@@ -408,8 +429,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
             <Label htmlFor="bio">Biografía</Label>
             <Textarea
               id="bio"
-              value={profile.bio || ''}
-              onChange={(e) => updateProfile({ bio: e.target.value })}
+              value={localProfile?.bio ?? profile.bio ?? ''}
+              onChange={(e) => handleLocalUpdate({ bio: e.target.value })}
               disabled={!isEditing}
               className="mt-1"
               rows={3}
@@ -434,8 +455,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <Input
                 id="height"
                 type="number"
-                value={profile.height ?? ''}
-                onChange={(e) => updateProfile({ height: e.target.value ? parseInt(e.target.value) : null })}
+                value={localProfile?.height ?? profile.height ?? ''}
+                onChange={(e) => handleLocalUpdate({ height: e.target.value ? parseInt(e.target.value, 10) : null })}
                 disabled={!isEditing}
                 className="mt-1"
               />
@@ -557,6 +578,60 @@ export const ProfilePanel = memo(function ProfilePanel() {
               currentPlan={currentPlan}
             />
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-lime-600 bg-clip-text text-transparent">
+            <Target className="h-5 w-5" />
+            Preferencias Alimentarias
+          </CardTitle>
+          <CardDescription>Estas preferencias se usan para adaptar automáticamente tu plan de alimentación</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="dietary_restrictions">Restricciones dietéticas</Label>
+              <Textarea
+                id="dietary_restrictions"
+                value={formatPreferenceValue(localProfile?.dietary_restrictions ?? profile.dietary_restrictions)}
+                onChange={(e) => handleLocalUpdate({ dietary_restrictions: e.target.value })}
+                disabled={!isEditing}
+                className="mt-1"
+                rows={3}
+                placeholder="Ej: vegetariano, sin gluten, sin lactosa"
+              />
+              <p className="mt-2 text-xs text-gray-500">Sepáralas con comas o saltos de línea.</p>
+            </div>
+            <div>
+              <Label htmlFor="allergies">Alergias</Label>
+              <Textarea
+                id="allergies"
+                value={formatPreferenceValue(localProfile?.allergies ?? profile.allergies)}
+                onChange={(e) => handleLocalUpdate({ allergies: e.target.value })}
+                disabled={!isEditing}
+                className="mt-1"
+                rows={3}
+                placeholder="Ej: huevos, frutos secos, marisco"
+              />
+              <p className="mt-2 text-xs text-gray-500">Si cambias estas alergias, el sistema intentará excluir recetas incompatibles.</p>
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="disliked_foods">Alimentos que no comes</Label>
+            <Textarea
+              id="disliked_foods"
+              value={formatPreferenceValue(localProfile?.disliked_foods ?? profile.disliked_foods)}
+              onChange={(e) => handleLocalUpdate({ disliked_foods: e.target.value })}
+              disabled={!isEditing}
+              className="mt-1"
+              rows={4}
+              placeholder="Ej: brócoli, hígado, atún"
+            />
+            <p className="mt-2 text-xs text-gray-500">Úsalo para excluir ingredientes o comidas que no quieres ver en tu plan.</p>
+          </div>
         </CardContent>
       </Card>
 

@@ -47,7 +47,7 @@ def profile(request):
         fields_affecting_assignment = [
             'main_goal', 'training_location', 'activity_level', 'gender',
             'training_days_per_week', 'birth_date', 'age', 'dietary_restrictions',
-            'equipment_available', 'weight', 'target_weight'
+            'allergies', 'disliked_foods', 'equipment_available', 'weight', 'target_weight'
         ]
         
         # Campos que solo requieren actualización del plan existente (no reasignación)

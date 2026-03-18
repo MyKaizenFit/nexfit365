@@ -2,8 +2,10 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from rest_framework import status
-from rest_framework.test import APIClient
+from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from model_bakery import baker
+from nutrition.models import NutritionPlan, PlanMeal
+from accounts.views import profile as profile_view
 
 User = get_user_model()
 
@@ -51,6 +53,67 @@ class TestProfileEndpoints:
         member_user.refresh_from_db()
         assert member_user.first_name == "Nuevo"
         assert member_user.last_name == "Nombre"
+
+    def test_profile_patch_reassigns_nutrition_plan_when_food_preferences_change(self, api_client, member_user):
+        template_plan = baker.make(
+            NutritionPlan,
+            name="Plantilla base",
+            is_system=True,
+            is_active=True,
+            goal="maintain",
+            user=None,
+        )
+        template_meal = baker.make(
+            PlanMeal,
+            plan=template_plan,
+            name="Desayuno",
+            meal_type="breakfast",
+            order_index=1,
+        )
+        blocked_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Tostada con huevo",
+            is_active=True,
+            category="Desayuno",
+            meal_types=["breakfast"],
+            allergens=["eggs"],
+            ingredients=[{"name": "Huevo", "amount": "2", "unit": "u"}],
+        )
+        safe_recipe = baker.make(
+            "nutrition.Recipe",
+            name="Porridge de avena",
+            is_active=True,
+            category="Desayuno",
+            meal_types=["breakfast"],
+            allergens=[],
+            ingredients=[{"name": "Avena", "amount": "60", "unit": "g"}],
+        )
+        template_meal.suggested_recipes.set([blocked_recipe, safe_recipe])
+        previous_plan = baker.make(
+            NutritionPlan,
+            user=member_user,
+            name="Plan actual",
+            is_active=True,
+        )
+
+        request = APIRequestFactory().patch(
+            "/api/profile/",
+            {"allergies": "eggs", "disliked_foods": ""},
+            format="json",
+        )
+        force_authenticate(request, user=member_user)
+        response = profile_view(request)
+
+        assert response.status_code == status.HTTP_200_OK
+        previous_plan.refresh_from_db()
+        assert previous_plan.is_active is False
+
+        new_plan = NutritionPlan.objects.filter(user=member_user, is_active=True).exclude(id=previous_plan.id).first()
+        assert new_plan is not None
+        new_meal = new_plan.meals.get(name="Desayuno")
+        assigned_recipe_ids = list(new_meal.suggested_recipes.values_list("id", flat=True))
+        assert safe_recipe.id in assigned_recipe_ids
+        assert blocked_recipe.id not in assigned_recipe_ids
 
     def test_profile_summary_authenticated(self, api_client, member_user):
         api_client.force_authenticate(user=member_user)
