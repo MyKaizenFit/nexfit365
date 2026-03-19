@@ -18,6 +18,32 @@ export interface AdminWellnessSummary {
   last: AdminWellnessEntry | null
 }
 
+export interface AdminSleepPerformancePoint {
+  date: string
+  sleep_hours: number | null
+  motivation_score: number | null
+  workout_completed: boolean
+  workout_count: number
+  workout_avg_rating: number | null
+  workout_avg_duration_minutes: number | null
+  workout_avg_calories_burned: number | null
+}
+
+export interface AdminSleepPerformanceSummary {
+  wellness_days: number
+  workout_days: number
+  sleep_rating_pairs: number
+  sleep_vs_rating_correlation: number | null
+}
+
+export interface AdminSleepPerformanceResponse {
+  period_days: number
+  from: string
+  to: string
+  summary: AdminSleepPerformanceSummary
+  points: AdminSleepPerformancePoint[]
+}
+
 class AdminWellnessService {
   async list(userId: string | number, headers: HeadersInit): Promise<AdminWellnessEntry[]> {
     const res = await fetch(buildApiUrl(`admin/progress/users/${userId}/wellness/`), { headers })
@@ -66,6 +92,18 @@ class AdminWellnessService {
       const err = await res.json().catch(() => ({}))
       throw new Error(err.detail || "Error al eliminar registro de bienestar")
     }
+  }
+
+  async sleepPerformance(
+    userId: string | number,
+    headers: HeadersInit,
+    days: number
+  ): Promise<AdminSleepPerformanceResponse> {
+    const res = await fetch(buildApiUrl(`admin/progress/users/${userId}/wellness/sleep-performance/?days=${days}`), {
+      headers,
+    })
+    if (!res.ok) throw new Error(`Error ${res.status} al cargar sueño vs rendimiento`)
+    return res.json()
   }
 }
 

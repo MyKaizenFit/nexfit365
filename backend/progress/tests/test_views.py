@@ -2,16 +2,18 @@
 Tests para las vistas del módulo de progreso
 """
 import pytest
+from datetime import date
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-from progress.models import ProgressPhoto, WeightEntry, BodyMeasurement
+from progress.models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 from decimal import Decimal
 from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
+from workouts.models import WorkoutLog
 
 User = get_user_model()
 
@@ -411,6 +413,51 @@ class TestFilteringAndSearch:
         
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data["results"]) == 1
+
+
+@pytest.mark.django_db
+class TestAdminDailyWellnessViews:
+    def test_admin_sleep_performance_empty(self, admin_headers, member_user):
+        url = reverse(
+            "admin-wellness-sleep-performance",
+            kwargs={"user_id": member_user.id},
+        )
+
+        response = admin_headers.get(url, {"days": 14})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["period_days"] == 14
+        assert isinstance(response.data["points"], list)
+        assert response.data["summary"]["sleep_vs_rating_correlation"] is None
+
+    def test_admin_sleep_performance_with_data(self, admin_headers, member_user):
+        today = date.today()
+        DailyWellness.objects.create(
+            user=member_user,
+            date=today,
+            sleep_hours=Decimal("7.5"),
+            motivation_score=4,
+            notes="buen descanso",
+        )
+        WorkoutLog.objects.create(
+            user=member_user,
+            date=today,
+            completed=True,
+            rating=5,
+            duration_minutes=60,
+            calories_burned=430,
+        )
+
+        url = reverse(
+            "admin-wellness-sleep-performance",
+            kwargs={"user_id": member_user.id},
+        )
+        response = admin_headers.get(url, {"days": 14})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["summary"]["sleep_rating_pairs"] >= 1
+        assert any(point["sleep_hours"] == 7.5 for point in response.data["points"])
+        assert any(point["workout_avg_rating"] == 5 for point in response.data["points"])
 
     def test_filter_by_photo_type(self, auth_headers, member_user):
         """Test de filtro por tipo de foto"""

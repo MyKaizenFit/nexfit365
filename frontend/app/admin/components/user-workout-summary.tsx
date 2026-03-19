@@ -290,6 +290,7 @@ export function UserWorkoutSummary({ userId }: { userId: string }) {
                   <Clock className="h-3 w-3" />
                   <span>{log.duration_minutes ?? "—"} min</span>
                   {log.calories_burned ? <span>· {log.calories_burned} kcal</span> : null}
+                  {log.rating ? <span>· Valoración: {log.rating}/5</span> : null}
                 </div>
                 {log.notes ? <p className="text-xs text-muted-foreground line-clamp-2">{log.notes}</p> : null}
                 <div className="flex gap-2 pt-1">

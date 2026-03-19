@@ -12,10 +12,14 @@ from datetime import timedelta
 
 from .models import Notification
 from .serializers import NotificationSerializer, CreateNotificationSerializer
+from .models import AdminMessage
 from accounts.permissions import IsAdminOrStaff
 
 
 logger = logging.getLogger(__name__)
+
+
+IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
 
 
 def _normalize_notification_type(raw_type: str) -> str:
@@ -70,7 +74,9 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar notificaciones según parámetros"""
-        queryset = Notification.objects.select_related('user')
+        queryset = Notification.objects.select_related('user').filter(
+            type__in=IMPORTANT_NOTIFICATION_TYPES
+        )
         
         search = self.request.query_params.get('search', None)
         notification_type = self.request.query_params.get('type', None)
@@ -104,6 +110,10 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         try:
+            user_id = request.query_params.get('user_id')
+            auto_read = str(request.query_params.get('auto_read', 'true')).strip().lower()
+            if user_id and auto_read in {'1', 'true', 'yes'}:
+                self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
             return super().list(request, *args, **kwargs)
         except DatabaseError:
             return Response({
@@ -130,25 +140,18 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Crear notificaciones para cada usuario
-        notifications = []
-        normalized_type = _normalize_notification_type(data.get('type', 'general'))
-        extra_data = {
-            'priority': data.get('priority', 'medium'),
-            'send_email': bool(data.get('send_email', False)),
-            'source': 'admin_panel',
-        }
+        # Crear mensajes directos del admin (no notificaciones)
+        admin_messages = []
         for user_id in user_ids:
-            notification = Notification.objects.create(
+            message = AdminMessage.objects.create(
                 user_id=user_id,
+                sent_by=request.user,
                 title=data['title'],
                 message=data['message'],
-                type=normalized_type,
-                data=extra_data,
                 action_url=data.get('action_url', ''),
-                expires_at=data.get('expires_at') or _default_expiration_for_type(normalized_type),
+                expires_at=data.get('expires_at') or (timezone.now() + timedelta(days=30)),
             )
-            notifications.append(notification)
+            admin_messages.append(message)
 
         logger.info(
             'admin_notification_send_bulk',
@@ -156,15 +159,13 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 'admin_user_id': str(request.user.id),
                 'admin_email': getattr(request.user, 'email', ''),
                 'target_user_count': len(user_ids),
-                'notification_type': normalized_type,
-                'priority': extra_data['priority'],
-                'send_email': extra_data['send_email'],
+                 'message_type': 'admin_message',
             }
         )
         
         return Response({
-            'message': f'{len(notifications)} notificaciones enviadas correctamente',
-            'notifications_created': len(notifications)
+            'message': f'{len(admin_messages)} mensajes enviados correctamente',
+            'messages_created': len(admin_messages)
         }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['post'])
@@ -182,65 +183,50 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         # Obtener todos los usuarios activos
         active_users = User.objects.filter(is_active=True)
         
-        # Crear notificaciones para cada usuario activo
-        notifications = []
-        normalized_type = _normalize_notification_type(data.get('type', 'general'))
-        extra_data = {
-            'priority': data.get('priority', 'medium'),
-            'send_email': bool(data.get('send_email', False)),
-            'source': 'admin_panel',
-        }
+        # Crear mensajes directos del admin (no notificaciones)
+        admin_messages = []
         for user in active_users:
-            notification = Notification.objects.create(
+            message = AdminMessage.objects.create(
                 user=user,
+                sent_by=request.user,
                 title=data['title'],
                 message=data['message'],
-                type=normalized_type,
-                data=extra_data,
                 action_url=data.get('action_url', ''),
-                expires_at=data.get('expires_at') or _default_expiration_for_type(normalized_type),
+                expires_at=data.get('expires_at') or (timezone.now() + timedelta(days=30)),
             )
-            notifications.append(notification)
+            admin_messages.append(message)
 
         logger.info(
             'admin_notification_send_to_all',
             extra={
                 'admin_user_id': str(request.user.id),
                 'admin_email': getattr(request.user, 'email', ''),
-                'target_user_count': len(notifications),
-                'notification_type': normalized_type,
-                'priority': extra_data['priority'],
-                'send_email': extra_data['send_email'],
+                 'target_user_count': len(admin_messages),
+                 'message_type': 'admin_message',
             }
         )
 
-        if data.get('send_email'):
-            try:
-                from .email_service import email_service
-                email_service.send_bulk_notification_emails(notifications)
-            except Exception:
-                pass
-        
         return Response({
-            'message': f'Notificación enviada a {len(notifications)} usuarios activos',
-            'notifications_created': len(notifications)
+            'message': f'Mensaje enviado a {len(admin_messages)} usuarios activos',
+            'messages_created': len(admin_messages)
         }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Estadísticas de notificaciones"""
         try:
-            total_notifications = Notification.objects.count()
-            read_notifications = Notification.objects.filter(read_at__isnull=False).count()
-            unread_notifications = Notification.objects.filter(read_at__isnull=True).count()
-            clicked_notifications = Notification.objects.filter(data__clicked_at__isnull=False).count()
+            base_qs = Notification.objects.filter(type__in=IMPORTANT_NOTIFICATION_TYPES)
+            total_notifications = base_qs.count()
+            read_notifications = base_qs.filter(read_at__isnull=False).count()
+            unread_notifications = base_qs.filter(read_at__isnull=True).count()
+            clicked_notifications = base_qs.filter(data__clicked_at__isnull=False).count()
             
             # Notificaciones por tipo
-            type_stats = Notification.objects.values('type').annotate(count=Count('type'))
+            type_stats = base_qs.values('type').annotate(count=Count('type'))
             
             # Notificaciones de los últimos 30 días
             thirty_days_ago = timezone.now() - timedelta(days=30)
-            recent_notifications = Notification.objects.filter(
+            recent_notifications = base_qs.filter(
                 created_at__gte=thirty_days_ago
             ).count()
         except DatabaseError:

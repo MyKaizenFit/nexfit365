@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Send, Bell, Sparkles, Dumbbell, Utensils } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useAdminUserNotifications } from "@/hooks/use-admin-user-notifications"
 
 interface Props {
@@ -20,6 +21,12 @@ export function UserNotifications({ userId }: Props) {
   const { notifications, loading, error, refetch, send } = useAdminUserNotifications(userId)
   const [form, setForm] = useState({ title: "", message: "", type: "general", priority: "medium" })
   const [sending, setSending] = useState(false)
+  const [showUnreadOnly, setShowUnreadOnly] = useState(false)
+
+  const unreadCount = notifications.filter((n) => !n.read_at).length
+  const displayedNotifications = showUnreadOnly
+    ? notifications.filter((n) => !n.read_at)
+    : notifications
 
   const handleSend = async () => {
     try {
@@ -79,6 +86,16 @@ export function UserNotifications({ userId }: Props) {
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border p-3 bg-slate-50/60">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={showUnreadOnly} onCheckedChange={(checked) => setShowUnreadOnly(checked === true)} />
+            Solo no leídas
+          </label>
+          <Badge variant="outline">Totales: {notifications.length}</Badge>
+          <Badge className="bg-blue-100 text-blue-800 border-0">No leídas: {unreadCount}</Badge>
+          {showUnreadOnly ? <Badge variant="secondary">Filtro activo</Badge> : null}
+        </div>
 
         <div className="grid md:grid-cols-2 gap-4">
           <div className="space-y-3">
@@ -155,10 +172,12 @@ export function UserNotifications({ userId }: Props) {
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" /> Cargando...
               </div>
-            ) : notifications.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Sin notificaciones.</p>
+            ) : displayedNotifications.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {showUnreadOnly ? "No hay notificaciones no leídas." : "Sin notificaciones."}
+              </p>
             ) : (
-              notifications.slice(0, 20).map(n => (
+              displayedNotifications.slice(0, 20).map(n => (
                 <div key={n.id} className="border rounded-lg p-3 space-y-1">
                   <div className="flex items-center justify-between text-sm font-semibold">
                     <span>{n.title}</span>

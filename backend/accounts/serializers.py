@@ -1,6 +1,16 @@
 # accounts/serializers.py
 from rest_framework import serializers
-from .models import CustomUser
+from datetime import timedelta
+from django.db import models
+from django.utils import timezone
+
+from notifications.models import Notification
+from workouts.models import WorkoutLog
+
+from .models import CustomUser, ProfileAuditLog
+
+
+IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
@@ -49,6 +59,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     last_login_formatted = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
     profile_picture_url = serializers.SerializerMethodField()
+    premium_alerts = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomUser
@@ -76,7 +87,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'onboarding_completed', 'onboarding_step',
             # Timestamps
             'date_joined', 'created_at_formatted', 'last_login', 'last_login_formatted', 
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
+            # Alertas premium para panel admin
+            'premium_alerts'
         ]
         read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age']
     
@@ -108,6 +121,58 @@ class AdminUserSerializer(serializers.ModelSerializer):
                 return request.build_absolute_uri(obj.profile_picture.url)
             return obj.profile_picture.url
         return None
+
+    def get_premium_alerts(self, obj):
+        if obj.role != 'premium':
+            return None
+
+        now = timezone.now()
+        recent_profile_window = now - timedelta(days=7)
+        recent_feedback_date = now.date() - timedelta(days=14)
+
+        unread_notifications_count = Notification.objects.filter(
+            user=obj,
+            type__in=IMPORTANT_NOTIFICATION_TYPES,
+            read_at__isnull=True,
+        ).count()
+
+        recent_profile_changes_count = ProfileAuditLog.objects.filter(
+            user=obj,
+            created_at__gte=recent_profile_window,
+        ).count()
+
+        latest_feedback = (
+            WorkoutLog.objects.filter(user=obj, completed=True)
+            .filter(models.Q(rating__isnull=False) | ~models.Q(notes=''))
+            .order_by('-date', '-created_at')
+            .first()
+        )
+
+        feedback_recent_count = 0
+        latest_feedback_data = None
+        if latest_feedback and latest_feedback.date and latest_feedback.date >= recent_feedback_date:
+            feedback_recent_count = 1
+            note_preview = (latest_feedback.notes or '').strip()
+            if len(note_preview) > 120:
+                note_preview = f"{note_preview[:117]}..."
+
+            latest_feedback_data = {
+                'date': latest_feedback.date.isoformat(),
+                'rating': latest_feedback.rating,
+                'message': note_preview or None,
+            }
+
+        pending_total = unread_notifications_count + recent_profile_changes_count + feedback_recent_count
+
+        return {
+            'enabled': True,
+            'unread_notifications': unread_notifications_count,
+            'recent_profile_changes': recent_profile_changes_count,
+            'recent_workout_feedback': feedback_recent_count,
+            'latest_workout_feedback': latest_feedback_data,
+            'pending_total': pending_total,
+            'has_pending': pending_total > 0,
+        }
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""

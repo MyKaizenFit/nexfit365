@@ -35,6 +35,21 @@ export interface AdminUser {
   updated_at: string
   birth_date?: string
   gender?: string
+  premium_alerts?: PremiumAlerts | null
+}
+
+export interface PremiumAlerts {
+  enabled: boolean
+  unread_notifications: number
+  recent_profile_changes: number
+  recent_workout_feedback: number
+  latest_workout_feedback: {
+    date: string
+    rating: number | null
+    message: string | null
+  } | null
+  pending_total: number
+  has_pending: boolean
 }
 
 export interface UserStats {

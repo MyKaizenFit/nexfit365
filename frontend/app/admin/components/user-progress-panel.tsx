@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Loader2, TrendingUp, HeartPulse, RefreshCw } from "lucide-react"
 import { UserWeightHistory } from "./user-weight-history"
 import { UserWellnessPanel } from "./user-wellness-panel"
+import { UserSleepPerformancePanel } from "./user-sleep-performance-panel"
 // import { ProgressPhotosCarousel } from "./progress-photos-carousel" // Oculto temporalmente
 import { useAdminUserProgress } from "@/hooks/use-admin-user-progress"
 import { useAdminUserWellness } from "@/hooks/use-admin-user-wellness"
@@ -42,7 +43,7 @@ export function UserProgressPanel({ userId }: Props) {
             <h3 className="text-xl font-semibold">Progreso del usuario</h3>
             <span className="text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Nuevo panel</span>
           </div>
-          <p className="text-sm text-muted-foreground">Peso y bienestar del usuario</p>
+          <p className="text-sm text-muted-foreground">Peso, bienestar y relación entre sueño y rendimiento</p>
         </div>
         <Button
           variant="outline"
@@ -135,6 +136,7 @@ export function UserProgressPanel({ userId }: Props) {
         <TabsList>
           <TabsTrigger value="weight">Peso</TabsTrigger>
           <TabsTrigger value="wellness">Bienestar</TabsTrigger>
+          <TabsTrigger value="sleep-performance">Sueño vs rendimiento</TabsTrigger>
         </TabsList>
 
         <TabsContent value="weight" className="space-y-4">
@@ -143,6 +145,10 @@ export function UserProgressPanel({ userId }: Props) {
 
         <TabsContent value="wellness" className="space-y-4">
           <UserWellnessPanel userId={userId} />
+        </TabsContent>
+
+        <TabsContent value="sleep-performance" className="space-y-4">
+          <UserSleepPerformancePanel userId={userId} />
         </TabsContent>
       </Tabs>
     </div>

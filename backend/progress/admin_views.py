@@ -10,8 +10,106 @@ from rest_framework.response import Response
 
 from .models import WeightEntry, DailyWellness, ProgressPhoto
 from .serializers import WeightEntrySerializer, DailyWellnessSerializer, ProgressPhotoSerializer
+from workouts.models import WorkoutLog
 
 User = get_user_model()
+
+
+def build_sleep_performance_payload(user, days):
+    days = max(7, min(days, 90))
+
+    end_date = timezone.now().date()
+    start_date = end_date - timedelta(days=days - 1)
+
+    wellness_qs = DailyWellness.objects.filter(
+        user=user,
+        date__gte=start_date,
+        date__lte=end_date,
+    ).order_by("date")
+
+    workout_qs = WorkoutLog.objects.filter(
+        user=user,
+        date__gte=start_date,
+        date__lte=end_date,
+        completed=True,
+    ).order_by("date")
+
+    wellness_by_date = {entry.date: entry for entry in wellness_qs}
+    workout_by_date = {}
+    for log in workout_qs:
+        workout_by_date.setdefault(log.date, []).append(log)
+
+    points = []
+    correlation_pairs_x = []
+    correlation_pairs_y = []
+
+    current = start_date
+    while current <= end_date:
+        wellness = wellness_by_date.get(current)
+        day_logs = workout_by_date.get(current, [])
+
+        avg_rating = None
+        avg_duration = None
+        avg_calories = None
+
+        if day_logs:
+            ratings = [log.rating for log in day_logs if log.rating is not None]
+            durations = [log.duration_minutes for log in day_logs if log.duration_minutes is not None]
+            calories = [log.calories_burned for log in day_logs if log.calories_burned is not None]
+
+            if ratings:
+                avg_rating = round(sum(ratings) / len(ratings), 2)
+            if durations:
+                avg_duration = round(sum(durations) / len(durations), 2)
+            if calories:
+                avg_calories = round(sum(calories) / len(calories), 2)
+
+        sleep_hours = float(wellness.sleep_hours) if wellness and wellness.sleep_hours is not None else None
+        motivation_score = wellness.motivation_score if wellness else None
+
+        if sleep_hours is not None and avg_rating is not None:
+            correlation_pairs_x.append(sleep_hours)
+            correlation_pairs_y.append(avg_rating)
+
+        points.append(
+            {
+                "date": current.isoformat(),
+                "sleep_hours": sleep_hours,
+                "motivation_score": motivation_score,
+                "workout_completed": bool(day_logs),
+                "workout_count": len(day_logs),
+                "workout_avg_rating": avg_rating,
+                "workout_avg_duration_minutes": avg_duration,
+                "workout_avg_calories_burned": avg_calories,
+            }
+        )
+
+        current += timedelta(days=1)
+
+    correlation = None
+    if len(correlation_pairs_x) >= 2:
+        total_pairs = len(correlation_pairs_x)
+        mean_x = sum(correlation_pairs_x) / total_pairs
+        mean_y = sum(correlation_pairs_y) / total_pairs
+        numerator = sum((x - mean_x) * (y - mean_y) for x, y in zip(correlation_pairs_x, correlation_pairs_y))
+        denominator_x = sum((x - mean_x) ** 2 for x in correlation_pairs_x)
+        denominator_y = sum((y - mean_y) ** 2 for y in correlation_pairs_y)
+        denominator = (denominator_x * denominator_y) ** 0.5
+        if denominator > 0:
+            correlation = round(numerator / denominator, 4)
+
+    return {
+        "period_days": days,
+        "from": start_date.isoformat(),
+        "to": end_date.isoformat(),
+        "summary": {
+            "wellness_days": len(wellness_by_date),
+            "workout_days": len(workout_by_date),
+            "sleep_rating_pairs": len(correlation_pairs_x),
+            "sleep_vs_rating_correlation": correlation,
+        },
+        "points": points,
+    }
 
 
 class AdminWeightEntryViewSet(viewsets.ModelViewSet):
@@ -139,6 +237,19 @@ class AdminDailyWellnessViewSet(viewsets.ModelViewSet):
             "avg_motivation": float(aggregates["avg_motivation"]) if aggregates["avg_motivation"] is not None else None,
             "last": DailyWellnessSerializer(last).data if last else None,
         })
+
+    @action(detail=False, methods=["get"], url_path="sleep-performance")
+    def sleep_performance(self, request, user_id=None):
+        """
+        Datos para gráfico admin de sueño vs rendimiento de un usuario.
+        GET /api/admin/progress/users/<user_id>/wellness/sleep-performance/?days=30
+        """
+        try:
+            days = int(request.query_params.get("days", 30))
+        except (TypeError, ValueError):
+            days = 30
+
+        return Response(build_sleep_performance_payload(self.get_user(), days))
 
 
 class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
