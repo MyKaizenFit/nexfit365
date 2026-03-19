@@ -28,6 +28,7 @@ interface WeeklyMealSelection {
   recipe?: {
     id: string
     name: string
+    image_url?: string
     calories: number
     protein: number
     carbs: number
@@ -56,7 +57,7 @@ export function WeeklyMealPlan() {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
-  const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string; plan_meal_id?: string | null; meal_name?: string; meal_time?: string | null } | null>(null)
+  const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string; plan_meal_id?: string | null; meal_name?: string; meal_time?: string | null; currentSelection?: { optionId?: string | null; recipeId?: string | null } } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
   // Cache simple de opciones por fecha + tipo (para evitar refetch al abrir/cerrar)
@@ -120,8 +121,19 @@ export function WeeklyMealPlan() {
 
   // Abrir modal de selección
   const handleSelectMeal = async (date: string, slot: { id?: string; meal_type: string; name?: string; time?: string | null }) => {
+    const currentSelection = getSelectionForMeal(date, slot.meal_type, slot.id)
     setSelectedDay(date)
-    setSelectedMeal({ date, meal_type: slot.meal_type, plan_meal_id: slot.id || null, meal_name: slot.name, meal_time: slot.time })
+    setSelectedMeal({
+      date,
+      meal_type: slot.meal_type,
+      plan_meal_id: slot.id || null,
+      meal_name: slot.name,
+      meal_time: slot.time,
+      currentSelection: {
+        optionId: currentSelection?.recipe_id ? String(currentSelection.recipe_id) : null,
+        recipeId: currentSelection?.recipe?.id ? String(currentSelection.recipe.id) : null,
+      },
+    })
     
     try {
       const cachedByType = optionsByDateAndType[date]?.[slot.meal_type]
@@ -536,6 +548,13 @@ export function WeeklyMealPlan() {
                             {/* Selección: Nombre completo de la receta con macros */}
                             {hasSelection && (
                               <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-gray-200/60 space-y-1 md:space-y-1.5">
+                                {selection.recipe?.image_url ? (
+                                  <img
+                                    src={selection.recipe.image_url}
+                                    alt={getMealName(selection)}
+                                    className="w-full h-12 md:h-14 object-cover rounded-md border border-gray-200"
+                                  />
+                                ) : null}
                                 <div className="text-[10px] md:text-[11px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
                                   {getMealName(selection)}
                                 </div>
@@ -603,6 +622,7 @@ export function WeeklyMealPlan() {
           mealTime={(selectedMeal.meal_time || FALLBACK_MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.time || "").slice(0,5)}
           mealType={selectedMeal.meal_type}
           options={mealOptions}
+          currentSelection={selectedMeal.currentSelection}
           onSelectOption={handleSaveSelection}
         />
       )}

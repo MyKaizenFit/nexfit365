@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, memo } from "react"
-import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera } from "lucide-react"
+import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera, Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -20,6 +20,10 @@ export const ProfilePanel = memo(function ProfilePanel() {
   const [localProfile, setLocalProfile] = useState<any>(null)
   const [currentPlan, setCurrentPlan] = useState<CalculatedMacros | null>(null)
   const { profile, updateProfile, loading, error, refreshProfile } = useUserProfile()
+  const [recipeExclusions, setRecipeExclusions] = useState<Array<{ id: string; recipe_name: string; image_url?: string }>>([])
+  const [ingredientExclusions, setIngredientExclusions] = useState<Array<{ id: string; term: string }>>([])
+  const [newIngredientTerm, setNewIngredientTerm] = useState('')
+  const [loadingExclusions, setLoadingExclusions] = useState(false)
 
   // Sincronizar perfil local cuando cambia el perfil del hook
   useEffect(() => {
@@ -34,6 +38,48 @@ export const ProfilePanel = memo(function ProfilePanel() {
       loadCurrentPlan()
     }
   }, [profile, isEditing])
+
+  useEffect(() => {
+    loadExclusions()
+  }, [])
+
+  const loadExclusions = async () => {
+    setLoadingExclusions(true)
+    try {
+      const [recipes, ingredients] = await Promise.all([
+        nutritionService.getRecipeExclusions(),
+        nutritionService.getIngredientExclusions(),
+      ])
+      setRecipeExclusions(recipes)
+      setIngredientExclusions(ingredients)
+    } finally {
+      setLoadingExclusions(false)
+    }
+  }
+
+  const handleAddIngredientExclusion = async () => {
+    const term = newIngredientTerm.trim().toLowerCase()
+    if (!term) return
+    const created = await nutritionService.addIngredientExclusion(term)
+    if (created) {
+      setNewIngredientTerm('')
+      await loadExclusions()
+    }
+  }
+
+  const handleRemoveIngredientExclusion = async (id: string) => {
+    const ok = await nutritionService.removeIngredientExclusion(id)
+    if (ok) {
+      await loadExclusions()
+    }
+  }
+
+  const handleRemoveRecipeExclusion = async (id: string) => {
+    const ok = await nutritionService.removeRecipeExclusion(id)
+    if (ok) {
+      await loadExclusions()
+    }
+  }
 
   const loadCurrentPlan = async () => {
     try {
@@ -631,6 +677,59 @@ export const ProfilePanel = memo(function ProfilePanel() {
               placeholder="Ej: brócoli, hígado, atún"
             />
             <p className="mt-2 text-xs text-gray-500">Úsalo para excluir ingredientes o comidas que no quieres ver en tu plan.</p>
+          </div>
+
+          <div className="space-y-3 border-t pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-sm font-medium">Ingredientes excluidos (no como)</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={newIngredientTerm}
+                  onChange={(e) => setNewIngredientTerm(e.target.value)}
+                  placeholder="Ej: tomate"
+                  className="h-8 w-40"
+                />
+                <Button type="button" size="sm" variant="outline" onClick={handleAddIngredientExclusion}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Añadir
+                </Button>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {ingredientExclusions.map((item) => (
+                <div key={item.id} className="inline-flex items-center gap-2 px-2 py-1 rounded-md border bg-white text-xs">
+                  <span>{item.term}</span>
+                  <button type="button" onClick={() => handleRemoveIngredientExclusion(item.id)} className="text-red-500 hover:text-red-600">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+              {!loadingExclusions && ingredientExclusions.length === 0 ? (
+                <p className="text-xs text-gray-500">No hay ingredientes excluidos.</p>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-sm font-medium">Recetas marcadas como "no como"</Label>
+            <div className="space-y-2">
+              {recipeExclusions.map((item) => (
+                <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-white">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {item.image_url ? (
+                      <img src={item.image_url} alt={item.recipe_name} className="w-8 h-8 rounded object-cover border" />
+                    ) : null}
+                    <span className="text-sm truncate">{item.recipe_name}</span>
+                  </div>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => handleRemoveRecipeExclusion(item.id)}>
+                    <Trash2 className="h-4 w-4 text-red-500" />
+                  </Button>
+                </div>
+              ))}
+              {!loadingExclusions && recipeExclusions.length === 0 ? (
+                <p className="text-xs text-gray-500">No hay recetas excluidas.</p>
+              ) : null}
+            </div>
           </div>
         </CardContent>
       </Card>

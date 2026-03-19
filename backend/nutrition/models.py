@@ -1135,6 +1135,37 @@ class MealRecipeExclusion(TimeStampedModel):
         return f"{self.user.email} excluyó {self.recipe.name}"
 
 
+class MealIngredientExclusion(TimeStampedModel):
+    """Ingredientes que el usuario marcó para no recibir en sugerencias."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='excluded_meal_ingredients'
+    )
+    term = models.CharField(max_length=120)
+    reason = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Exclusión de ingrediente"
+        verbose_name_plural = "Exclusiones de ingredientes"
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'term'], name='unique_user_ingredient_exclusion')
+        ]
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['term', 'is_active']),
+        ]
+
+    def save(self, *args, **kwargs):
+        self.term = (self.term or '').strip().lower()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.user.email} excluyó ingrediente: {self.term}"
+
+
 # =============================================================================
 # ALIMENTOS (para tracking detallado - opcional)
 # =============================================================================

@@ -199,6 +199,7 @@ class MealLogSerializer(serializers.ModelSerializer):
             return {
                 'id': str(obj.recipe.id),
                 'name': obj.recipe.name,
+                'image_url': obj.recipe.image_url or (obj.recipe.image.url if obj.recipe.image else None),
                 'calories': obj.recipe.calories,
                 'protein': float(obj.recipe.protein),
                 'carbs': float(obj.recipe.carbs),

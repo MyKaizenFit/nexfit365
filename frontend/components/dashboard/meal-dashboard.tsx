@@ -23,13 +23,24 @@ export function MealDashboard() {
     name: string
     time: string
     mealType: string
+    currentSelection?: {
+      optionId?: string | null
+      recipeId?: string | null
+    }
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [uploadingMealId, setUploadingMealId] = useState<string | null>(null)
 
   const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
-    setSelectedMeal(meal)
+    const fullMeal = meals.find((item) => item.id === meal.id)
+    setSelectedMeal({
+      ...meal,
+      currentSelection: {
+        optionId: fullMeal?.selectedOption?.id ? String(fullMeal.selectedOption.id) : null,
+        recipeId: fullMeal?.selectedOption?.recipeId ? String(fullMeal.selectedOption.recipeId) : null,
+      },
+    })
     setIsModalOpen(true)
   }
 
@@ -263,6 +274,13 @@ export function MealDashboard() {
                       : 'border-blue-200 bg-blue-50/30'
                   }`}>
                     <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
+                      {meal.selectedOption.imageUrl ? (
+                        <img
+                          src={meal.selectedOption.imageUrl}
+                          alt={meal.selectedOption.name}
+                          className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                        />
+                      ) : null}
                       <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
                       }`}>
@@ -433,6 +451,7 @@ export function MealDashboard() {
               mealTime={selectedMeal.time}
               mealType={selectedMeal.mealType}
               options={getMealOptions(selectedMeal.id)}
+              currentSelection={selectedMeal.currentSelection}
               onSelectOption={handleSelectOption}
             />
           )}

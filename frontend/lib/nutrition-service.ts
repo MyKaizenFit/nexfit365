@@ -81,11 +81,26 @@ export interface MealOption {
   protein: number
   carbs: number
   fat: number
+  imageUrl?: string
   category?: "light" | "balanced" | "protein-rich"
   icon?: string  // Permitir cualquier emoji
   description: string
   cookTime?: string
   recipeId?: number | string  // ID de la receta si está asociada (puede ser número o UUID)
+}
+
+export interface RecipeExclusionItem {
+  id: string
+  recipe_id: string
+  recipe_name: string
+  image_url?: string
+  reason?: string
+}
+
+export interface IngredientExclusionItem {
+  id: string
+  term: string
+  reason?: string
 }
 
 export interface Recipe {
@@ -348,6 +363,92 @@ class NutritionService {
       }
     } catch (error) {
       return null
+    }
+  }
+
+  async getRecipeExclusions(): Promise<RecipeExclusionItem[]> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch('nutrition/meal-exclusions/', {
+        headers,
+        method: 'GET',
+      })
+      if (!response.ok) return []
+      const data = await response.json()
+      return Array.isArray(data.exclusions) ? data.exclusions : []
+    } catch {
+      return []
+    }
+  }
+
+  async addRecipeExclusion(recipeId: string, reason?: string): Promise<RecipeExclusionItem | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch('nutrition/meal-exclusions/', {
+        headers,
+        method: 'POST',
+        body: JSON.stringify({ recipe_id: recipeId, reason: reason || '' }),
+      })
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+
+  async removeRecipeExclusion(exclusionId: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(`nutrition/meal-exclusions/${exclusionId}/`, {
+        headers,
+        method: 'DELETE',
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
+  async getIngredientExclusions(): Promise<IngredientExclusionItem[]> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch('nutrition/ingredient-exclusions/', {
+        headers,
+        method: 'GET',
+      })
+      if (!response.ok) return []
+      const data = await response.json()
+      return Array.isArray(data.exclusions) ? data.exclusions : []
+    } catch {
+      return []
+    }
+  }
+
+  async addIngredientExclusion(term: string, reason?: string): Promise<IngredientExclusionItem | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch('nutrition/ingredient-exclusions/', {
+        headers,
+        method: 'POST',
+        body: JSON.stringify({ term, reason: reason || '' }),
+      })
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+
+  async removeIngredientExclusion(exclusionId: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(`nutrition/ingredient-exclusions/${exclusionId}/`, {
+        headers,
+        method: 'DELETE',
+      })
+      return response.ok
+    } catch {
+      return false
     }
   }
 
