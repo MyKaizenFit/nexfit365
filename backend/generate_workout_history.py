@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """
 Script para generar historial de entrenamientos con progresión de pesos
-para pruebas de PR (Personal Records), REM (Repeticiones Máximas) y Tonelaje
+para pruebas de RP (Récords Personales), RM (Repeticiones Máximas) y Tonelaje
 """
 
 import os
@@ -247,8 +247,8 @@ def generate_workout_history():
     
     print(f"  Tonelaje total acumulado: {total_tonnage:,.0f} kg")
     
-    # Encontrar PRs por ejercicio
-    print("\n🏆 Records Personales (PR) generados:")
+    # Encontrar RPs por ejercicio
+    print("\n🏆 Récords Personales (RP) generados:")
     exercise_prs = {}
     for log in WorkoutLog.objects.filter(user=user):
         for log_ex in log.log_exercises.all():
@@ -267,7 +267,7 @@ def generate_workout_history():
         print(f"    Peso máximo: {prs['max_weight']} kg")
         print(f"    Reps máximas: {prs['max_reps']} reps")
     
-    print("\n✅ Listo para probar funcionalidades de PR, REM y Tonelaje!")
+    print("\n✅ Listo para probar funcionalidades de RP, RM y Tonelaje!")
 
 
 if __name__ == '__main__':

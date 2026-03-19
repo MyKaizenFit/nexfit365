@@ -360,7 +360,7 @@ def admin_user_workout_logs(request, user_id: int):
 def admin_user_workout_stats(request, user_id: int):
     """
     Estadísticas resumidas de entrenamientos para un usuario (admin/staff).
-    Incluye totales, rachas básicas y tonelaje/PR aproximado.
+    Incluye totales, rachas básicas y tonelaje/RP aproximado.
     """
     user = get_object_or_404(User, pk=user_id)
 
@@ -395,10 +395,10 @@ def admin_user_workout_stats(request, user_id: int):
                     ton += reps * weight
                     # Asegurar que el diccionario existe con ambas claves
                     if name not in per_exercise:
-                        per_exercise[name] = {'tonnage': 0, 'pr': 0}
-                    current_pr = per_exercise[name].get('pr', 0) or 0
-                    if weight > current_pr:
-                        per_exercise[name]['pr'] = float(weight)
+                        per_exercise[name] = {'tonnage': 0, 'rp': 0}
+                    current_rp = per_exercise[name].get('rp', 0) or 0
+                    if weight > current_rp:
+                        per_exercise[name]['rp'] = float(weight)
                     per_exercise[name]['tonnage'] = per_exercise[name].get('tonnage', 0) + (reps * weight)
                     # 1RM estimado (Epley)
                     if reps and weight:
@@ -416,7 +416,12 @@ def admin_user_workout_stats(request, user_id: int):
     # Top ejercicios por tonelaje
     top_exercises = sorted(
         [
-          {"name": name, "tonnage": data["tonnage"], "pr": data.get("pr")}
+                    {
+                            "name": name,
+                            "tonnage": data["tonnage"],
+                            "rp": data.get("rp"),
+                            "pr": data.get("rp"),
+                    }
           for name, data in per_exercise.items()
         ],
         key=lambda x: x["tonnage"],
@@ -430,8 +435,15 @@ def admin_user_workout_stats(request, user_id: int):
     )[:6]
 
     exercise_prs_list = sorted(
-        [{"name": name, "pr_1rm": round(val, 2)} for name, val in exercise_prs.items()],
-        key=lambda x: x["pr_1rm"],
+        [
+            {
+                "name": name,
+                "rm_1": round(val, 2),
+                "pr_1rm": round(val, 2),
+            }
+            for name, val in exercise_prs.items()
+        ],
+        key=lambda x: x["rm_1"],
         reverse=True
     )[:10]
 
