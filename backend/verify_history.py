@@ -119,8 +119,8 @@ for week_ago in range(5, -1, -1):
 
 print('\n' + '='*70)
 print('✅ El historial está listo para probar:')
-print('   • PR (Personal Records): Pesos máximos por ejercicio')
-print('   • REM (Repeticiones Máximas): Mayor número de reps a peso específico')
+print('   • RP (Récords Personales): Pesos máximos por ejercicio')
+print('   • RM (Repeticiones Máximas): Mayor número de reps a peso específico')
 print('   • Tonelaje: Volumen total de carga levantada')
 print('   • Progresión: Evolución de pesos en 12 semanas')
 print('='*70)
