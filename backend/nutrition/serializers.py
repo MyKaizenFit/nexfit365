@@ -188,7 +188,7 @@ class MealLogSerializer(serializers.ModelSerializer):
             "plan_meal_id", "plan_meal_meta",
             "recipe", "recipe_name", "custom_description",
             "calories", "protein", "carbs", "fat", "servings",
-            "completed", "rating", "notes", "photo", "meal",
+            "completed", "is_skipped", "skip_reason", "rating", "notes", "photo", "meal",
             "created_at", "updated_at"
         ]
         read_only_fields = ["id", "user", "recipe_name", "created_at", "updated_at"]

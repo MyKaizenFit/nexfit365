@@ -10,7 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db.models import Q
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
@@ -83,6 +83,10 @@ def plan_meals_for_selection(request):
     
     logger.info(f"🔥 Calorías diarias calculadas: {daily_calories} kcal")
     logger.info(f"📈 Macros diarios: P={daily_macros['protein']:.1f}g, C={daily_macros['carbs']:.1f}g, G={daily_macros['fat']:.1f}g")
+
+    excluded_recipe_ids = set(
+        MealRecipeExclusion.objects.filter(user=user, is_active=True).values_list('recipe_id', flat=True)
+    )
     
     # Distribución de calorías por comida (porcentajes del total diario)
     meal_calorie_distribution = {
@@ -264,6 +268,8 @@ def plan_meals_for_selection(request):
             if meal.meal_recipes.exists():
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
+                    if recipe.id in excluded_recipe_ids:
+                        continue
                     calories = meal_recipe.get_display_calories()
                     protein = meal_recipe.get_display_protein()
                     carbs = meal_recipe.get_display_carbs()
@@ -284,6 +290,8 @@ def plan_meals_for_selection(request):
             # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
             elif meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
+                    if recipe.id in excluded_recipe_ids:
+                        continue
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
@@ -313,6 +321,31 @@ def plan_meals_for_selection(request):
                     'description': meal.description,
                     'cookTime': '15 min'
                 })
+
+            if not meal_options:
+                fallback_candidates = []
+                for candidate in Recipe.objects.filter(is_active=True).exclude(id__in=excluded_recipe_ids):
+                    candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
+                    candidate_category = str(candidate.category or '').lower()
+                    if meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower():
+                        fallback_candidates.append(candidate)
+                    if len(fallback_candidates) >= 5:
+                        break
+                for recipe in fallback_candidates:
+                    personalized = personalize_recipe(recipe, meal_type, meal)
+                    meal_options.append({
+                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                        'name': recipe.name,
+                        'calories': personalized['calories'],
+                        'protein': personalized['protein'],
+                        'carbs': personalized['carbs'],
+                        'fat': personalized['fat'],
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': recipe.description or meal.description,
+                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                        'recipeId': recipe.id
+                    })
             
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
@@ -354,6 +387,8 @@ def plan_meals_for_selection(request):
             if meal.meal_recipes.exists():
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
+                    if recipe.id in excluded_recipe_ids:
+                        continue
                     calories = meal_recipe.get_display_calories()
                     protein = meal_recipe.get_display_protein()
                     carbs = meal_recipe.get_display_carbs()
@@ -373,6 +408,8 @@ def plan_meals_for_selection(request):
                     })
             elif meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
+                    if recipe.id in excluded_recipe_ids:
+                        continue
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
@@ -426,14 +463,16 @@ def plan_meals_for_selection(request):
     }
 
     recipes_qs = Recipe.objects.filter(is_active=True)
+    if excluded_recipe_ids:
+        recipes_qs = recipes_qs.exclude(id__in=excluded_recipe_ids)
     for meal_type in fallback_types:
         meal_options = []
-        candidates = recipes_qs
-        if meal_type:
-            candidates = candidates.filter(
-                models.Q(meal_types__contains=[meal_type]) |
-                models.Q(category=meal_type)
-            )
+        candidates = []
+        for candidate in recipes_qs:
+            candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
+            candidate_category = str(candidate.category or '').lower()
+            if meal_type and (meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower()):
+                candidates.append(candidate)
 
         for recipe in candidates:
             personalized = personalize_recipe(recipe, meal_type)
@@ -545,6 +584,9 @@ def daily_meal_selections(request):
         meal_type = data.get('meal_type')
         recipe_id = data.get('recipe_id')
         plan_meal_id = data.get('plan_meal_id')
+        skip_meal = data.get('skip_meal', False)
+        skip_reason = str(data.get('skip_reason', '') or '').strip()
+        exclude_from_recommendations = data.get('exclude_from_recommendations', False)
         
         # Resolver plan_meal (slot) si se proporciona, y permitir inferir meal_type desde el slot
         plan_meal = None
@@ -563,6 +605,11 @@ def daily_meal_selections(request):
 
         if not meal_type:
             return Response({'error': 'meal_type es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if isinstance(skip_meal, str):
+            skip_meal = skip_meal.lower() in ('true', '1', 'yes', 'si', 'sí')
+        if isinstance(exclude_from_recommendations, str):
+            exclude_from_recommendations = exclude_from_recommendations.lower() in ('true', '1', 'yes', 'si', 'sí')
         
         # Obtener receta si se proporciona recipe_id
         recipe = None
@@ -591,6 +638,9 @@ def daily_meal_selections(request):
         is_completed = data.get('completed', False)
         if isinstance(is_completed, str):
             is_completed = is_completed.lower() in ('true', '1', 'yes')
+
+        if skip_meal:
+            is_completed = False
         
         # Si hay receta, usar sus valores nutricionales; si no, usar los proporcionados
         calories = data.get('calories', 0)
@@ -637,6 +687,8 @@ def daily_meal_selections(request):
             'plan_meal': plan_meal,
             'recipe': recipe,
             'completed': is_completed,
+            'is_skipped': bool(skip_meal),
+            'skip_reason': skip_reason if skip_meal else '',
             'calories': int(calories) if calories else 0,
             'protein': float(protein) if protein else 0,
             'carbs': float(carbs) if carbs else 0,
@@ -650,6 +702,20 @@ def daily_meal_selections(request):
             **lookup,
             defaults=defaults,
         )
+
+        if skip_meal and recipe and exclude_from_recommendations:
+            exclusion, _ = MealRecipeExclusion.objects.get_or_create(
+                user=user,
+                recipe=recipe,
+                defaults={
+                    'reason': skip_reason,
+                    'is_active': True,
+                },
+            )
+            if exclusion and not exclusion.is_active:
+                exclusion.is_active = True
+                exclusion.reason = skip_reason or exclusion.reason
+                exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
         
         serializer = MealLogSerializer(meal_log)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)

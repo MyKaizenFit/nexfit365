@@ -16,6 +16,8 @@ interface DailyMeal {
   mealType: string
   selectedOption: MealOption | null
   isCompleted: boolean
+  isSkipped?: boolean
+  skipReason?: string | null
   mealLogId?: string | null
   photo?: string | null
 }
@@ -58,7 +60,12 @@ export function useDailyMeals() {
     order_index?: number
   }>>([])
   const [planOptionsByMealId, setPlanOptionsByMealId] = useState<Record<string, MealOption[]>>({})
-  const [logMetaByKey, setLogMetaByKey] = useState<Record<string, { id: string; photo: string | null }>>({})
+  const [logMetaByKey, setLogMetaByKey] = useState<Record<string, {
+    id: string
+    photo: string | null
+    isSkipped: boolean
+    skipReason: string | null
+  }>>({})
 
   // Estructura de comidas del día
   const mealTimes = {
@@ -222,6 +229,8 @@ export function useDailyMeals() {
         mealType: m.meal_type,
         selectedOption: null,
         isCompleted: false,
+        isSkipped: false,
+        skipReason: null,
       }))
     }
 
@@ -246,6 +255,8 @@ export function useDailyMeals() {
       })(),
       selectedOption: null,
       isCompleted: false,
+      isSkipped: false,
+      skipReason: null,
     }))
   }, [planMealSlots])
 
@@ -375,7 +386,7 @@ export function useDailyMeals() {
       
       const updatedMeals = prevMeals.map(meal => 
         meal.id === mealId 
-          ? { ...meal, selectedOption: option, isCompleted: false } // No completada por defecto
+          ? { ...meal, selectedOption: option, isCompleted: false, isSkipped: false, skipReason: null } // No completada por defecto
           : meal
       )
       
@@ -415,6 +426,7 @@ export function useDailyMeals() {
               protein: option.protein || 0,
               carbs: option.carbs || 0,
               fat: option.fat || 0,
+              skip_meal: false,
               completed: false // Solo planificación, no completada
             }
             
@@ -476,7 +488,12 @@ export function useDailyMeals() {
       // Convertir selecciones a formato MealOption
       const selectionsMap: Record<string, MealOption> = {}
       
-      const nextMetaByKey: Record<string, { id: string; photo: string | null }> = {}
+      const nextMetaByKey: Record<string, {
+        id: string
+        photo: string | null
+        isSkipped: boolean
+        skipReason: string | null
+      }> = {}
 
       selections.forEach((log: any) => {
         const mealType = String(log.meal_type || '')
@@ -529,6 +546,8 @@ export function useDailyMeals() {
           nextMetaByKey[key] = {
             id: String(log.id),
             photo: log.photo ? String(log.photo) : null,
+            isSkipped: Boolean(log.is_skipped),
+            skipReason: log.skip_reason ? String(log.skip_reason) : null,
           }
         }
       })
@@ -553,7 +572,7 @@ export function useDailyMeals() {
     setMeals(prevMeals => {
       const updatedMeals = prevMeals.map(m => 
         m.id === mealId 
-          ? { ...m, isCompleted: true }
+          ? { ...m, isCompleted: true, isSkipped: false, skipReason: null }
           : m
       )
       
@@ -576,11 +595,13 @@ export function useDailyMeals() {
           body: JSON.stringify({
             date: today,
             meal_type: mealType,
+            plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
             recipe_id: meal.selectedOption.recipeId || (String(meal.selectedOption.id).includes('recipe-') ? String(meal.selectedOption.id).split('recipe-').pop() : meal.selectedOption.id),
             calories: meal.selectedOption.calories || 0,
             protein: meal.selectedOption.protein || 0,
             carbs: meal.selectedOption.carbs || 0,
             fat: meal.selectedOption.fat || 0,
+            skip_meal: false,
             completed: true // Ahora sí está completada
           })
         })
@@ -602,6 +623,8 @@ export function useDailyMeals() {
               const completedMap: Record<string, boolean> = {}
               const photoMap: Record<string, string | null> = {}
               const logIdMap: Record<string, string> = {}
+              const skippedMap: Record<string, boolean> = {}
+              const skippedReasonMap: Record<string, string | null> = {}
               logs.forEach((log: any) => {
                 const mt = String(log.meal_type || '')
                 const k = String(log.plan_meal_id || mt)
@@ -609,6 +632,8 @@ export function useDailyMeals() {
                   completedMap[k] = log.completed || false
                   photoMap[k] = log.photo ? String(log.photo) : null
                   logIdMap[k] = String(log.id)
+                  skippedMap[k] = Boolean(log.is_skipped)
+                  skippedReasonMap[k] = log.skip_reason ? String(log.skip_reason) : null
                 }
               })
               
@@ -625,6 +650,8 @@ export function useDailyMeals() {
                       ...meal, 
                       selectedOption: selection, 
                       isCompleted: completedMap[mapKey] || completedMap[fallbackKey] || false,
+                      isSkipped: skippedMap[mapKey] || skippedMap[fallbackKey] || false,
+                      skipReason: skippedReasonMap[mapKey] ?? skippedReasonMap[fallbackKey] ?? null,
                       photo,
                       mealLogId,
                     }
@@ -662,12 +689,18 @@ export function useDailyMeals() {
           const data = await response.json()
           const logs = data.selections || []
 
-              const completedMap: Record<string, boolean> = {}
-              logs.forEach((log: any) => {
-                const mt = String(log.meal_type || '')
-                const k = String(log.plan_meal_id || mt)
-                if (k) completedMap[k] = log.completed || false
-              })
+          const completedMap: Record<string, boolean> = {}
+          const skippedMap: Record<string, boolean> = {}
+          const skippedReasonMap: Record<string, string | null> = {}
+          logs.forEach((log: any) => {
+            const mt = String(log.meal_type || '')
+            const k = String(log.plan_meal_id || mt)
+            if (k) {
+              completedMap[k] = log.completed || false
+              skippedMap[k] = Boolean(log.is_skipped)
+              skippedReasonMap[k] = log.skip_reason ? String(log.skip_reason) : null
+            }
+          })
 
           return meals.map(meal => {
             const selection = selections[meal.id] || selections[meal.mealType]
@@ -675,7 +708,9 @@ export function useDailyMeals() {
               return { 
                 ...meal, 
                 selectedOption: selection, 
-                isCompleted: completedMap[String(meal.id)] || completedMap[meal.mealType] || false 
+                isCompleted: completedMap[String(meal.id)] || completedMap[meal.mealType] || false,
+                isSkipped: skippedMap[String(meal.id)] || skippedMap[meal.mealType] || false,
+                skipReason: skippedReasonMap[String(meal.id)] ?? skippedReasonMap[meal.mealType] ?? null,
               }
             }
             return meal
@@ -700,6 +735,8 @@ export function useDailyMeals() {
             ...meal,
             selectedOption: mealOption,
             isCompleted: false,
+            isSkipped: Boolean(meta?.isSkipped),
+            skipReason: meta?.skipReason || null,
             photo: meta?.photo || null,
             mealLogId: meta?.id || null,
           }
@@ -724,6 +761,7 @@ export function useDailyMeals() {
       formData.append('date', today)
       formData.append('meal_type', meal.mealType)
       formData.append('completed', meal.isCompleted ? 'true' : 'false')
+      formData.append('skip_meal', meal.isSkipped ? 'true' : 'false')
 
       if (!String(meal.id).startsWith('meal-')) {
         formData.append('plan_meal_id', String(meal.id))
@@ -781,6 +819,75 @@ export function useDailyMeals() {
       return false
     }
   }, [isAuthenticated, meals])
+
+  const markMealAsNotEaten = useCallback(async (
+    mealId: string,
+    reason?: string,
+    excludeFromRecommendations: boolean = true
+  ): Promise<boolean> => {
+    if (!isAuthenticated) return false
+
+    const meal = meals.find((m) => m.id === mealId)
+    if (!meal || !meal.mealType || !meal.selectedOption) return false
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const headers = await getAuthHeaders()
+      const payload: Record<string, any> = {
+        date: today,
+        meal_type: meal.mealType,
+        completed: false,
+        skip_meal: true,
+        skip_reason: reason || '',
+        exclude_from_recommendations: excludeFromRecommendations,
+        custom_description: meal.selectedOption.name || meal.name,
+      }
+
+      if (!String(meal.id).startsWith('meal-')) {
+        payload.plan_meal_id = String(meal.id)
+      }
+
+      if (meal.selectedOption?.recipeId) {
+        payload.recipe_id = String(meal.selectedOption.recipeId)
+      } else if (meal.selectedOption?.id && String(meal.selectedOption.id).includes('recipe-')) {
+        payload.recipe_id = String(meal.selectedOption.id).split('recipe-').pop() || ''
+      }
+
+      const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json; charset=utf-8'
+        },
+        method: 'POST',
+        body: JSON.stringify(payload),
+      })
+
+      if (!response.ok) return false
+
+      const savedLog = await response.json()
+
+      setMeals((prevMeals) => {
+        const updatedMeals = prevMeals.map((currentMeal) => {
+          if (currentMeal.id !== mealId) return currentMeal
+          return {
+            ...currentMeal,
+            isCompleted: false,
+            isSkipped: true,
+            skipReason: savedLog?.skip_reason ? String(savedLog.skip_reason) : (reason || null),
+            mealLogId: savedLog?.id ? String(savedLog.id) : currentMeal.mealLogId || null,
+          }
+        })
+
+        const newMacros = calculateTotalMacros(updatedMeals)
+        setMacros(newMacros)
+        return updatedMeals
+      })
+
+      return true
+    } catch (error) {
+      return false
+    }
+  }, [calculateTotalMacros, isAuthenticated, meals])
 
   // Cargar opciones de comidas del plan activo
   const loadPlanMealOptions = useCallback(async () => {
@@ -979,6 +1086,7 @@ export function useDailyMeals() {
     syncing,
     selectMealOption,
     markMealCompleted,
+    markMealAsNotEaten,
     uploadMealPhoto,
     getMealOptions,
     refreshData

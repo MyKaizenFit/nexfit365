@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from nutrition.models import (
     Recipe, NutritionPlan, PlanMeal, PlanMealRecipe, MealLog, Food,
-    NutritionPlanAssignment, RecipeIngredient
+    NutritionPlanAssignment, RecipeIngredient, MealRecipeExclusion
 )
 from model_bakery import baker
 from decimal import Decimal
@@ -164,6 +164,40 @@ class TestPlanMealsForSelection:
         response = client.get('/api/nutrition/plan-meals-for-selection/')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
+    def test_excluded_recipe_is_filtered_from_options(self, auth_client, user, nutrition_plan, recipe):
+        recipe.meal_types = ['breakfast']
+        recipe.category = 'Desayuno'
+        recipe.save(update_fields=['meal_types', 'category'])
+
+        meal = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Desayuno Test',
+            meal_type='breakfast',
+            order_index=1,
+        )
+        PlanMealRecipe.objects.create(
+            meal=meal,
+            recipe=recipe,
+            servings=Decimal('1.0'),
+        )
+
+        MealRecipeExclusion.objects.create(
+            user=user,
+            recipe=recipe,
+            reason='No me gusta',
+            is_active=True,
+        )
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+
+        options = []
+        for meal_options in (response.data.get('meals_by_type') or {}).values():
+            options.extend(meal_options)
+
+        option_recipe_ids = {str(option.get('recipeId')) for option in options if option.get('recipeId') is not None}
+        assert str(recipe.id) not in option_recipe_ids
+
 
 # ---------------------------------------------------------------------------
 # daily_meal_selections endpoints
@@ -194,6 +228,27 @@ class TestDailyMealSelections:
         client = APIClient()
         response = client.get('/api/nutrition/daily-meal-selections/')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_post_skip_meal_creates_exclusion_and_zero_macros(self, auth_client, recipe):
+        payload = {
+            'date': '2026-03-19',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'skip_meal': True,
+            'skip_reason': 'No me gusta esta receta',
+            'exclude_from_recommendations': True,
+        }
+
+        response = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert response.data['is_skipped'] is True
+        assert response.data['completed'] is False
+        assert int(response.data['calories']) == 0
+
+        log = MealLog.objects.get(id=response.data['id'])
+        assert log.is_skipped is True
+        assert log.skip_reason == 'No me gusta esta receta'
+        assert MealRecipeExclusion.objects.filter(user=log.user, recipe=recipe, is_active=True).exists()
 
 
 # ---------------------------------------------------------------------------
