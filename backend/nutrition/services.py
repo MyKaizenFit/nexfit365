@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from accounts.models import CustomUser
-from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe
+from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe, MealIngredientExclusion
 import math
 import logging
 import random
@@ -48,6 +48,12 @@ def _get_user_blocked_terms(user: CustomUser) -> List[str]:
     blocked_terms = []
     blocked_terms.extend(_normalize_preference_terms(getattr(user, 'allergies', None)))
     blocked_terms.extend(_normalize_preference_terms(getattr(user, 'disliked_foods', None)))
+    blocked_terms.extend(_normalize_preference_terms(
+        MealIngredientExclusion.objects.filter(
+            user=user,
+            is_active=True,
+        ).values_list('term', flat=True)
+    ))
 
     unique_terms = []
     seen = set()

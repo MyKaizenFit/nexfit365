@@ -5,7 +5,7 @@ from rest_framework import status
 from django.contrib.auth import get_user_model
 from nutrition.models import (
     Recipe, NutritionPlan, PlanMeal, PlanMealRecipe, MealLog, Food,
-    NutritionPlanAssignment, RecipeIngredient, MealRecipeExclusion
+    NutritionPlanAssignment, RecipeIngredient, MealRecipeExclusion, MealIngredientExclusion
 )
 from model_bakery import baker
 from decimal import Decimal
@@ -198,6 +198,56 @@ class TestPlanMealsForSelection:
         option_recipe_ids = {str(option.get('recipeId')) for option in options if option.get('recipeId') is not None}
         assert str(recipe.id) not in option_recipe_ids
 
+    def test_ingredient_exclusion_filters_recipe(self, auth_client, user, nutrition_plan):
+        tomato_recipe = Recipe.objects.create(
+            name='Tostada con tomate',
+            category='Desayuno',
+            difficulty='Fácil',
+            servings=1,
+            calories=320,
+            protein=Decimal('12.0'),
+            carbs=Decimal('40.0'),
+            fat=Decimal('8.0'),
+            is_active=True,
+            meal_types=['breakfast'],
+            ingredients=[{'name': 'Tomate', 'amount': '100', 'unit': 'g'}],
+        )
+        oat_recipe = Recipe.objects.create(
+            name='Avena con yogur',
+            category='Desayuno',
+            difficulty='Fácil',
+            servings=1,
+            calories=330,
+            protein=Decimal('15.0'),
+            carbs=Decimal('42.0'),
+            fat=Decimal('7.0'),
+            is_active=True,
+            meal_types=['breakfast'],
+            ingredients=[{'name': 'Avena', 'amount': '60', 'unit': 'g'}],
+        )
+
+        meal = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Desayuno Test',
+            meal_type='breakfast',
+            order_index=1,
+        )
+        PlanMealRecipe.objects.create(meal=meal, recipe=tomato_recipe, servings=Decimal('1.0'))
+        PlanMealRecipe.objects.create(meal=meal, recipe=oat_recipe, servings=Decimal('1.0'))
+
+        MealIngredientExclusion.objects.create(user=user, term='tomate', is_active=True)
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+
+        options = []
+        for meal_options in (response.data.get('meals_by_type') or {}).values():
+            options.extend(meal_options)
+
+        option_names = {str(option.get('name', '')).lower() for option in options}
+        assert 'tostada con tomate' not in option_names
+        assert 'avena con yogur' in option_names
+
 
 # ---------------------------------------------------------------------------
 # daily_meal_selections endpoints
@@ -249,6 +299,42 @@ class TestDailyMealSelections:
         assert log.is_skipped is True
         assert log.skip_reason == 'No me gusta esta receta'
         assert MealRecipeExclusion.objects.filter(user=log.user, recipe=recipe, is_active=True).exists()
+
+
+@pytest.mark.django_db
+class TestMealExclusionsManagement:
+    def test_manage_recipe_exclusions(self, auth_client, recipe):
+        create_response = auth_client.post(
+            '/api/nutrition/meal-exclusions/',
+            {'recipe_id': str(recipe.id), 'reason': 'No me gusta'},
+            format='json',
+        )
+        assert create_response.status_code == status.HTTP_201_CREATED
+
+        list_response = auth_client.get('/api/nutrition/meal-exclusions/')
+        assert list_response.status_code == status.HTTP_200_OK
+        assert len(list_response.data.get('exclusions') or []) >= 1
+
+        exclusion_id = create_response.data['id']
+        delete_response = auth_client.delete(f'/api/nutrition/meal-exclusions/{exclusion_id}/')
+        assert delete_response.status_code == status.HTTP_204_NO_CONTENT
+
+    def test_manage_ingredient_exclusions(self, auth_client):
+        create_response = auth_client.post(
+            '/api/nutrition/ingredient-exclusions/',
+            {'term': 'tomate', 'reason': 'No como tomate'},
+            format='json',
+        )
+        assert create_response.status_code == status.HTTP_201_CREATED
+
+        list_response = auth_client.get('/api/nutrition/ingredient-exclusions/')
+        assert list_response.status_code == status.HTTP_200_OK
+        terms = {item['term'] for item in (list_response.data.get('exclusions') or [])}
+        assert 'tomate' in terms
+
+        exclusion_id = create_response.data['id']
+        delete_response = auth_client.delete(f'/api/nutrition/ingredient-exclusions/{exclusion_id}/')
+        assert delete_response.status_code == status.HTTP_204_NO_CONTENT
 
 
 # ---------------------------------------------------------------------------

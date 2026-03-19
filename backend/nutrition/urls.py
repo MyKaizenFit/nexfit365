@@ -5,7 +5,8 @@ from .views import (
     RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet, 
     current_plan, plan_meals_for_selection, daily_meal_selections, daily_meal_selections_today,
     weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
-    adjust_plan, plan_history
+    adjust_plan, plan_history, meal_exclusions, meal_exclusion_detail,
+    ingredient_exclusions, ingredient_exclusion_detail
 )
 
 router = DefaultRouter()
@@ -29,6 +30,10 @@ urlpatterns = [
     path('plan-meals-for-selection/', plan_meals_for_selection, name='plan-meals-for-selection'),
     path('daily-meal-selections/today/', daily_meal_selections_today, name='daily-meal-selections-today'),
     path('daily-meal-selections/', daily_meal_selections, name='daily-meal-selections'),
+    path('meal-exclusions/', meal_exclusions, name='meal-exclusions'),
+    path('meal-exclusions/<uuid:exclusion_id>/', meal_exclusion_detail, name='meal-exclusion-detail'),
+    path('ingredient-exclusions/', ingredient_exclusions, name='ingredient-exclusions'),
+    path('ingredient-exclusions/<uuid:exclusion_id>/', ingredient_exclusion_detail, name='ingredient-exclusion-detail'),
     path('weekly-meal-selections/', weekly_meal_selections, name='weekly-meal-selections'),
     path('monthly-meal-selections/', monthly_meal_selections, name='monthly-meal-selections'),
     path('default-nutrition-plans/', default_nutrition_plans, name='default-nutrition-plans'),

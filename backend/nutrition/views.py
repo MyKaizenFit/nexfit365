@@ -10,14 +10,14 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db.models import Q
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
     NutritionPlanHistorySerializer, RecipeIngredientSerializer
 )
-from .services import PersonalizedNutritionService
+from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
@@ -87,6 +87,69 @@ def plan_meals_for_selection(request):
     excluded_recipe_ids = set(
         MealRecipeExclusion.objects.filter(user=user, is_active=True).values_list('recipe_id', flat=True)
     )
+
+    def recipe_allowed_for_user(recipe: Recipe) -> bool:
+        if recipe.id in excluded_recipe_ids:
+            return False
+        return recipe_is_compatible_for_user(recipe, user)
+
+    def build_recipe_option(recipe: Recipe, meal_type: str, meal_base=None, meal_id=None):
+        personalized = personalize_recipe(recipe, meal_type, meal_base)
+        return {
+            'id': f"meal-{meal_id}-recipe-{recipe.id}" if meal_id else f"recipe-{recipe.id}",
+            'name': recipe.name,
+            'calories': personalized['calories'],
+            'protein': personalized['protein'],
+            'carbs': personalized['carbs'],
+            'fat': personalized['fat'],
+            'category': 'balanced',
+            'icon': '🍽️',
+            'description': recipe.description or (meal_base.description if meal_base else ''),
+            'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+            'recipeId': recipe.id,
+            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+        }
+
+    def replacement_candidates(meal_type: str, used_ids=None):
+        used_ids = used_ids or set()
+        candidates = []
+        for candidate in Recipe.objects.filter(is_active=True).exclude(id__in=excluded_recipe_ids):
+            if candidate.id in used_ids:
+                continue
+            candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
+            candidate_category = str(candidate.category or '').lower()
+            if meal_type.lower() not in candidate_meal_types and candidate_category != meal_type.lower():
+                continue
+            if not recipe_allowed_for_user(candidate):
+                continue
+            candidates.append(candidate)
+        return candidates
+
+    def macro_distance(recipe: Recipe, target_calories: float, target_protein: float, target_carbs: float, target_fat: float):
+        recipe_calories = float(recipe.calories or 0)
+        recipe_protein = float(recipe.protein or 0)
+        recipe_carbs = float(recipe.carbs or 0)
+        recipe_fat = float(recipe.fat or 0)
+        return (
+            abs(recipe_calories - target_calories)
+            + abs(recipe_protein - target_protein) * 10
+            + abs(recipe_carbs - target_carbs) * 4
+            + abs(recipe_fat - target_fat) * 9
+        )
+
+    def find_macro_similar_recipe(meal_type: str, target_recipe: Recipe = None, meal_base=None, used_ids=None):
+        used_ids = used_ids or set()
+        candidates = replacement_candidates(meal_type, used_ids=used_ids)
+        if not candidates:
+            return None
+
+        target_calories = float(target_recipe.calories if target_recipe else (meal_base.calories if meal_base else 0) or 0)
+        target_protein = float(target_recipe.protein if target_recipe else (meal_base.protein if meal_base else 0) or 0)
+        target_carbs = float(target_recipe.carbs if target_recipe else (meal_base.carbs if meal_base else 0) or 0)
+        target_fat = float(target_recipe.fat if target_recipe else (meal_base.fat if meal_base else 0) or 0)
+
+        candidates.sort(key=lambda candidate: macro_distance(candidate, target_calories, target_protein, target_carbs, target_fat))
+        return candidates[0]
     
     # Distribución de calorías por comida (porcentajes del total diario)
     meal_calorie_distribution = {
@@ -266,46 +329,58 @@ def plan_meals_for_selection(request):
 
             # Si hay recetas configuradas (PlanMealRecipe), crear una opción por receta
             if meal.meal_recipes.exists():
+                used_recipe_ids = set()
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
-                    if recipe.id in excluded_recipe_ids:
-                        continue
+                    replacement = None
+                    if not recipe_allowed_for_user(recipe):
+                        replacement = find_macro_similar_recipe(
+                            meal_type=meal_type,
+                            target_recipe=recipe,
+                            meal_base=meal,
+                            used_ids=used_recipe_ids,
+                        )
+                        if not replacement:
+                            continue
+                    selected_recipe = replacement or recipe
+                    used_recipe_ids.add(selected_recipe.id)
                     calories = meal_recipe.get_display_calories()
                     protein = meal_recipe.get_display_protein()
                     carbs = meal_recipe.get_display_carbs()
                     fat = meal_recipe.get_display_fat()
                     meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
-                        'name': recipe.name,
-                        'calories': int(calories),
-                        'protein': round(float(protein), 1),
-                        'carbs': round(float(carbs), 1),
-                        'fat': round(float(fat), 1),
+                        'id': f"meal-{meal.id}-recipe-{selected_recipe.id}",
+                        'name': selected_recipe.name,
+                        'calories': int(calories) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['calories'],
+                        'protein': round(float(protein), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['protein'],
+                        'carbs': round(float(carbs), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['carbs'],
+                        'fat': round(float(fat), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
-                        'description': recipe.description or meal.description,
-                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id
+                        'description': selected_recipe.description or meal.description,
+                        'cookTime': f"{selected_recipe.prep_time_minutes + selected_recipe.cook_time_minutes} min",
+                        'recipeId': selected_recipe.id,
+                        'imageUrl': selected_recipe.image_url or (selected_recipe.image.url if selected_recipe.image else ''),
                     })
             # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
             elif meal.suggested_recipes.exists():
+                used_recipe_ids = set()
                 for recipe in meal.suggested_recipes.all():
-                    if recipe.id in excluded_recipe_ids:
+                    replacement = None
+                    if not recipe_allowed_for_user(recipe):
+                        replacement = find_macro_similar_recipe(
+                            meal_type=meal_type,
+                            target_recipe=recipe,
+                            meal_base=meal,
+                            used_ids=used_recipe_ids,
+                        )
+                        if not replacement:
+                            continue
+                    selected_recipe = replacement or recipe
+                    if selected_recipe.id in used_recipe_ids:
                         continue
-                    personalized = personalize_recipe(recipe, meal_type, meal)
-                    meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
-                        'name': recipe.name,
-                        'calories': personalized['calories'],
-                        'protein': personalized['protein'],
-                        'carbs': personalized['carbs'],
-                        'fat': personalized['fat'],
-                        'category': 'balanced',
-                        'icon': '🍽️',
-                        'description': recipe.description or meal.description,
-                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id
-                    })
+                    used_recipe_ids.add(selected_recipe.id)
+                    meal_options.append(build_recipe_option(selected_recipe, meal_type, meal, meal.id))
             else:
                 # Si no hay recetas, crear una opción genérica basada en la comida
                 personalized = personalize_meal(meal, meal_type)
@@ -325,6 +400,8 @@ def plan_meals_for_selection(request):
             if not meal_options:
                 fallback_candidates = []
                 for candidate in Recipe.objects.filter(is_active=True).exclude(id__in=excluded_recipe_ids):
+                    if not recipe_allowed_for_user(candidate):
+                        continue
                     candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
                     candidate_category = str(candidate.category or '').lower()
                     if meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower():
@@ -332,20 +409,7 @@ def plan_meals_for_selection(request):
                     if len(fallback_candidates) >= 5:
                         break
                 for recipe in fallback_candidates:
-                    personalized = personalize_recipe(recipe, meal_type, meal)
-                    meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
-                        'name': recipe.name,
-                        'calories': personalized['calories'],
-                        'protein': personalized['protein'],
-                        'carbs': personalized['carbs'],
-                        'fat': personalized['fat'],
-                        'category': 'balanced',
-                        'icon': '🍽️',
-                        'description': recipe.description or meal.description,
-                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id
-                    })
+                    meal_options.append(build_recipe_option(recipe, meal_type, meal, meal.id))
             
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
@@ -387,7 +451,7 @@ def plan_meals_for_selection(request):
             if meal.meal_recipes.exists():
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
-                    if recipe.id in excluded_recipe_ids:
+                    if not recipe_allowed_for_user(recipe):
                         continue
                     calories = meal_recipe.get_display_calories()
                     protein = meal_recipe.get_display_protein()
@@ -404,11 +468,12 @@ def plan_meals_for_selection(request):
                         'icon': '🍽️',
                         'description': recipe.description or meal.description,
                         'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id
+                        'recipeId': recipe.id,
+                        'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
                     })
             elif meal.suggested_recipes.exists():
                 for recipe in meal.suggested_recipes.all():
-                    if recipe.id in excluded_recipe_ids:
+                    if not recipe_allowed_for_user(recipe):
                         continue
                     personalized = personalize_recipe(recipe, meal_type, meal)
                     meal_options.append({
@@ -422,7 +487,8 @@ def plan_meals_for_selection(request):
                         'icon': '🍽️',
                         'description': recipe.description or meal.description,
                         'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id
+                        'recipeId': recipe.id,
+                        'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
                     })
             else:
                 personalized = personalize_meal(meal, meal_type)
@@ -469,6 +535,8 @@ def plan_meals_for_selection(request):
         meal_options = []
         candidates = []
         for candidate in recipes_qs:
+            if not recipe_allowed_for_user(candidate):
+                continue
             candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
             candidate_category = str(candidate.category or '').lower()
             if meal_type and (meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower()):
@@ -487,7 +555,8 @@ def plan_meals_for_selection(request):
                 'icon': fallback_icon.get(meal_type, '🍽️'),
                 'description': recipe.description or '',
                 'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                'recipeId': recipe.id
+                'recipeId': recipe.id,
+                'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
             })
 
         meals_by_type[meal_type] = meal_options
@@ -719,6 +788,123 @@ def daily_meal_selections(request):
         
         serializer = MealLogSerializer(meal_log)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def meal_exclusions(request):
+    user = request.user
+
+    if request.method == 'GET':
+        exclusions = MealRecipeExclusion.objects.filter(
+            user=user,
+            is_active=True,
+        ).select_related('recipe').order_by('-updated_at')
+        data = [
+            {
+                'id': str(exclusion.id),
+                'recipe_id': str(exclusion.recipe_id),
+                'recipe_name': exclusion.recipe.name,
+                'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+                'reason': exclusion.reason,
+            }
+            for exclusion in exclusions
+        ]
+        return Response({'exclusions': data}, status=status.HTTP_200_OK)
+
+    recipe_id = request.data.get('recipe_id')
+    reason = str(request.data.get('reason', '') or '').strip()
+    if not recipe_id:
+        return Response({'error': 'recipe_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+    recipe = get_object_or_404(Recipe, id=recipe_id)
+    exclusion, _ = MealRecipeExclusion.objects.get_or_create(
+        user=user,
+        recipe=recipe,
+        defaults={'reason': reason, 'is_active': True},
+    )
+    if not exclusion.is_active or reason:
+        exclusion.is_active = True
+        if reason:
+            exclusion.reason = reason
+        exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+
+    return Response(
+        {
+            'id': str(exclusion.id),
+            'recipe_id': str(exclusion.recipe_id),
+            'recipe_name': exclusion.recipe.name,
+            'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+            'reason': exclusion.reason,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def meal_exclusion_detail(request, exclusion_id):
+    exclusion = get_object_or_404(MealRecipeExclusion, id=exclusion_id, user=request.user)
+    if exclusion.is_active:
+        exclusion.is_active = False
+        exclusion.save(update_fields=['is_active', 'updated_at'])
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def ingredient_exclusions(request):
+    user = request.user
+
+    if request.method == 'GET':
+        exclusions = MealIngredientExclusion.objects.filter(
+            user=user,
+            is_active=True,
+        ).order_by('term')
+        data = [
+            {
+                'id': str(exclusion.id),
+                'term': exclusion.term,
+                'reason': exclusion.reason,
+            }
+            for exclusion in exclusions
+        ]
+        return Response({'exclusions': data}, status=status.HTTP_200_OK)
+
+    term = str(request.data.get('term', '') or '').strip().lower()
+    reason = str(request.data.get('reason', '') or '').strip()
+    if not term:
+        return Response({'error': 'term es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+    exclusion, _ = MealIngredientExclusion.objects.get_or_create(
+        user=user,
+        term=term,
+        defaults={'reason': reason, 'is_active': True},
+    )
+    if not exclusion.is_active or reason:
+        exclusion.is_active = True
+        if reason:
+            exclusion.reason = reason
+        exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+
+    return Response(
+        {
+            'id': str(exclusion.id),
+            'term': exclusion.term,
+            'reason': exclusion.reason,
+        },
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def ingredient_exclusion_detail(request, exclusion_id):
+    exclusion = get_object_or_404(MealIngredientExclusion, id=exclusion_id, user=request.user)
+    if exclusion.is_active:
+        exclusion.is_active = False
+        exclusion.save(update_fields=['is_active', 'updated_at'])
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['POST'])

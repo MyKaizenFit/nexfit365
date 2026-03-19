@@ -13,6 +13,10 @@ interface MealSelectionModalProps {
   mealTime: string
   mealType?: string
   options: MealOption[]
+  currentSelection?: {
+    optionId?: string | null
+    recipeId?: string | null
+  }
   onSelectOption: (option: MealOption) => void
 }
 
@@ -23,6 +27,7 @@ export function MealSelectionModal({
   mealTime,
   mealType,
   options,
+  currentSelection,
   onSelectOption
 }: MealSelectionModalProps) {
   const [selectedOption, setSelectedOption] = useState<MealOption | null>(null)
@@ -423,22 +428,42 @@ export function MealSelectionModal({
               </div>
 
               {options.map((option) => (
+                (() => {
+                  const isCurrentSelection =
+                    (currentSelection?.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) ||
+                    (currentSelection?.optionId && String(currentSelection.optionId) === String(option.id))
+
+                  return (
                 <div
                   key={option.id}
                   onClick={() => handleSelectOption(option)}
                   className={`border-2 md:border rounded-2xl md:rounded-lg p-5 md:p-3 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${
-                    option.recipeId 
+                    isCurrentSelection
+                      ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                      : option.recipeId 
                       ? 'border-orange-300 md:border-orange-200 bg-gradient-to-br from-orange-50 to-pink-50 hover:border-orange-500 md:hover:border-orange-400 hover:shadow-xl md:hover:shadow-md' 
                       : 'border-gray-300 md:border-gray-200 hover:border-blue-400 md:hover:border-blue-300 hover:bg-blue-50'
                   }`}
                 >
                   <div className="flex items-start gap-4 md:gap-3">
+                    {option.imageUrl ? (
+                      <img
+                        src={option.imageUrl}
+                        alt={option.name}
+                        className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      />
+                    ) : null}
                     <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">
                         <h4 className="font-bold md:font-medium text-lg md:text-base text-gray-900 leading-tight">{option.name}</h4>
-                        {option.recipeId && (
+                        {(option.recipeId || isCurrentSelection) && (
                           <div className="flex flex-wrap gap-2 md:gap-2">
+                            {isCurrentSelection && (
+                              <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-emerald-100 text-emerald-700 text-sm md:text-xs font-semibold md:font-medium rounded-full">
+                                ✅ Seleccionada
+                              </span>
+                            )}
                             <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-sm md:text-xs font-semibold md:font-medium rounded-full flex items-center gap-1.5 md:gap-1">
                               <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
                               Receta disponible
@@ -512,6 +537,8 @@ export function MealSelectionModal({
                     </div>
                   </div>
                 </div>
+                  )
+                })()
               ))}
             </div>
 

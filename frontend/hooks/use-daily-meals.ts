@@ -536,6 +536,7 @@ export function useDailyMeals() {
             protein: protein,
             carbs: carbs,
             fat: fat,
+            imageUrl: log.recipe?.image_url || '',
             category: 'balanced',
             icon: '🍽️',
             description: log.recipe?.description || log.custom_description || '',
