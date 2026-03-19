@@ -16,7 +16,7 @@ import { useUserData } from '@/hooks/use-user-data'
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, uploadMealPhoto, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, uploadMealPhoto, getMealOptions } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -86,6 +86,11 @@ export function MealDashboard() {
     } finally {
       setUploadingMealId(null)
     }
+  }
+
+  const handleSkipMeal = async (mealId: string) => {
+    const reason = window.prompt('¿Por qué no comes esta comida? (opcional)') || ''
+    await markMealAsNotEaten(mealId, reason, true)
   }
 
   const mealsWithPhotos = useMemo(() => meals.filter((meal) => Boolean(meal.photo)), [meals])
@@ -268,10 +273,21 @@ export function MealDashboard() {
                           {meal.selectedOption.name}
                         </h5>
                         <p className="text-[10px] md:text-xs text-gray-500">
-                          {meal.isCompleted ? '✅ Completada' : '📋 Seleccionada'}
+                          {meal.isCompleted ? '✅ Completada' : meal.isSkipped ? '⏭️ Saltada (no como)' : '📋 Seleccionada'}
                         </p>
                       </div>
                     </div>
+
+                    {meal.isSkipped ? (
+                      <div className="mb-2">
+                        <Badge variant="outline" className="text-[10px] md:text-xs border-amber-300 text-amber-700">
+                          No se contará en macros de hoy
+                        </Badge>
+                        {meal.skipReason ? (
+                          <p className="text-[10px] md:text-xs text-amber-700 mt-1">Motivo: {meal.skipReason}</p>
+                        ) : null}
+                      </div>
+                    ) : null}
                     
                     {/* Macros de la comida seleccionada */}
                     <div className="grid grid-cols-3 gap-2 md:gap-3">
@@ -310,6 +326,18 @@ export function MealDashboard() {
                         <span className="sm:hidden">Completar</span>
                       </button>
                     )}
+
+                    {!meal.isCompleted && !meal.isSkipped && (
+                      <button
+                        onClick={async () => {
+                          await handleSkipMeal(meal.id)
+                        }}
+                        className="text-xs md:text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition-colors touch-manipulation text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 active:bg-amber-200"
+                      >
+                        ⏭️ <span className="hidden sm:inline">No como esta comida</span><span className="sm:hidden">No como</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => handleOpenMealOptions(meal)}
                       className={`text-xs md:text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition-colors touch-manipulation ${

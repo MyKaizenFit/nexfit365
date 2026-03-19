@@ -1055,6 +1055,14 @@ class MealLog(TimeStampedModel):
         default=True, 
         help_text="Si terminó la comida"
     )
+    is_skipped = models.BooleanField(
+        default=False,
+        help_text="Si el usuario marcó esta comida como 'no como'"
+    )
+    skip_reason = models.TextField(
+        blank=True,
+        help_text="Motivo opcional por el que se saltó la comida"
+    )
     rating = models.PositiveSmallIntegerField(
         null=True, 
         blank=True,
@@ -1080,12 +1088,51 @@ class MealLog(TimeStampedModel):
     
     def save(self, *args, **kwargs):
         # Auto-rellenar nutrición desde receta si existe
-        if self.recipe and not self.calories:
+        if self.recipe and not self.calories and not self.is_skipped:
             self.calories = int(self.recipe.calories * float(self.servings))
             self.protein = self.recipe.protein * self.servings
             self.carbs = self.recipe.carbs * self.servings
             self.fat = self.recipe.fat * self.servings
+
+        if self.is_skipped:
+            self.completed = False
+            self.calories = 0
+            self.protein = 0
+            self.carbs = 0
+            self.fat = 0
+
         super().save(*args, **kwargs)
+
+
+class MealRecipeExclusion(TimeStampedModel):
+    """Recetas que el usuario marcó para no volver a recibir en sugerencias."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='excluded_meal_recipes'
+    )
+    recipe = models.ForeignKey(
+        Recipe,
+        on_delete=models.CASCADE,
+        related_name='user_exclusions'
+    )
+    reason = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Exclusión de receta"
+        verbose_name_plural = "Exclusiones de recetas"
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'recipe'], name='unique_user_recipe_exclusion')
+        ]
+        indexes = [
+            models.Index(fields=['user', 'is_active']),
+            models.Index(fields=['recipe', 'is_active']),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} excluyó {self.recipe.name}"
 
 
 # =============================================================================
