@@ -7,7 +7,8 @@ from datetime import date, timedelta
 from django.utils import timezone
 from django.db.models import Avg, Count, Q, Max, Min
 from accounts.models import CustomUser
-from progress.models import WeightEntry, WorkoutLog
+from progress.models import WeightEntry
+from workouts.models import WorkoutLog
 from nutrition.models import NutritionPlan, MealLog
 
 logger = logging.getLogger(__name__)

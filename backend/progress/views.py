@@ -192,10 +192,17 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         """Obtener resumen de fotos de progreso"""
         user_id = user_id or request.user.id
         queryset = self.get_queryset()
+        weight_queryset = WeightEntry.objects.filter(user_id=user_id)
+        measurement_queryset = BodyMeasurement.objects.filter(user_id=user_id)
         
         # Estadísticas básicas
         total_photos = queryset.count()
         photos_this_month = queryset.filter(
+            date__gte=timezone.now().date().replace(day=1)
+        ).count()
+        total_weight_entries = weight_queryset.count()
+        total_measurements = measurement_queryset.count()
+        weight_entries_this_month = weight_queryset.filter(
             date__gte=timezone.now().date().replace(day=1)
         ).count()
         
@@ -216,7 +223,10 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         
         data = {
             "total_photos": total_photos,
+            "total_weight_entries": total_weight_entries,
+            "total_measurements": total_measurements,
             "photos_this_month": photos_this_month,
+            "weight_entries_this_month": weight_entries_this_month,
             "latest_weight": latest_weight,
             "latest_weight_date": latest_weight_date,
             "weight_change": weight_change,
