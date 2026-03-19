@@ -1,6 +1,52 @@
 from rest_framework import serializers
 from .models import Notification, PushSubscription
+from .models import AdminMessage
 
+
+class AdminMessageSerializer(serializers.ModelSerializer):
+    """Serializer para mensajes directos del admin"""
+    user_email = serializers.ReadOnlyField(source='user.email')
+    sent_by_email = serializers.ReadOnlyField(source='sent_by.email')
+    is_read = serializers.ReadOnlyField()
+    is_expired = serializers.ReadOnlyField()
+    
+    class Meta:
+        model = AdminMessage
+        fields = [
+            'id', 'user', 'user_email', 'sent_by', 'sent_by_email', 
+            'title', 'message', 'action_url', 'read_at', 'expires_at',
+            'is_read', 'is_expired', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'user', 'sent_by', 'created_at', 'updated_at', 'is_read', 'is_expired', 'read_at']
+
+
+class AdminMessageCreateSerializer(serializers.ModelSerializer):
+    """Serializer para crear mensajes del admin"""
+    user_ids = serializers.ListField(
+        child=serializers.IntegerField(),
+        write_only=True,
+        help_text="Lista de IDs de usuarios a los que enviar el mensaje"
+    )
+    
+    class Meta:
+        model = AdminMessage
+        fields = ['user_ids', 'title', 'message', 'action_url', 'expires_at']
+    
+    def create(self, validated_data):
+        """Este método no se usa; se usa en el viewset en su lugar"""
+        raise NotImplementedError("Use the viewset's create method instead")
+
+
+class AdminMessageUpdateSerializer(serializers.ModelSerializer):
+    """Serializer para actualizar mensajes del admin (marcar como leído)"""
+    class Meta:
+        model = AdminMessage
+        fields = ['read_at']
+    
+    def update(self, instance, validated_data):
+        if 'read_at' in validated_data and validated_data['read_at'] is not None:
+            instance.mark_as_read()
+        return instance
 
 class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")

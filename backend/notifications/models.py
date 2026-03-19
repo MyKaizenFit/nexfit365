@@ -207,7 +207,7 @@ class PushSubscription(TimeStampedModel):
     
     def __str__(self):
         return f"{self.user.email} - {self.endpoint[:50]}..."
-    
+
     def get_subscription_dict(self):
         """Obtener diccionario con datos de suscripción para webpush"""
         return {
@@ -217,3 +217,56 @@ class PushSubscription(TimeStampedModel):
                 'auth': self.auth
             }
         }
+
+
+class AdminMessage(TimeStampedModel):
+    """
+    Mensajes directos enviados por administradores a usuarios.
+    NO genera notificaciones automáticas, solo se guardan como mensajes.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='admin_messages'
+    )
+    sent_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_admin_messages',
+        help_text="Admin que envió el mensaje"
+    )
+    title = models.CharField(max_length=200, help_text="Título del mensaje")
+    message = models.TextField(help_text="Contenido del mensaje")
+    action_url = models.URLField(blank=True, default="", help_text="URL para acción (opcional)")
+    read_at = models.DateTimeField(null=True, blank=True, help_text="Cuándo fue leído")
+    expires_at = models.DateTimeField(null=True, blank=True, help_text="Expiración del mensaje")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Mensaje de Admin"
+        verbose_name_plural = "Mensajes de Admin"
+        indexes = [
+            models.Index(fields=['user', 'read_at']),
+            models.Index(fields=['user', 'created_at']),
+            models.Index(fields=['sent_by', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Mensaje a {self.user.email} de {self.sent_by.email if self.sent_by else 'sistema'}"
+
+    @property
+    def is_read(self):
+        return self.read_at is not None
+
+    @property
+    def is_expired(self):
+        if self.expires_at is None:
+            return False
+        return timezone.now() > self.expires_at
+
+    def mark_as_read(self):
+        if not self.is_read:
+            self.read_at = timezone.now()
+            self.save(update_fields=['read_at'])

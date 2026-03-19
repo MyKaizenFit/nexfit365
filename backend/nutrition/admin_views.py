@@ -183,7 +183,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.csv"'
         fieldnames = [
             'nombre', 'descripción', 'categoría', 'dificultad', 'porciones', 'tiempo_preparacion_minutos',
-            'ingredientes', 'instrucciones',
+            'ingredientes', 'instrucciones', 'imagen_url',
             'calorias_ref', 'proteinas_ref', 'carbos_ref', 'grasas_ref'
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
@@ -210,6 +210,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                 'tiempo_preparacion_minutos': recipe.prep_time_minutes or 0,
                 'ingredientes': ingredients_str,
                 'instrucciones': recipe.instructions or '',
+                'imagen_url': recipe.image_url or '',
                 'calorias_ref': recipe.calories or 0,
                 'proteinas_ref': recipe.protein or 0,
                 'carbos_ref': recipe.carbs or 0,
@@ -238,7 +239,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         
         headers = [
             'nombre', 'descripción', 'categoría', 'dificultad', 'porciones', 'tiempo_preparacion_minutos',
-            'ingredientes', 'instrucciones',
+            'ingredientes', 'instrucciones', 'imagen_url',
             'calorias_ref', 'proteinas_ref', 'carbos_ref', 'grasas_ref'
         ]
         
@@ -271,10 +272,11 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             worksheet.write(row_idx, 5, recipe.prep_time_minutes or 0)
             worksheet.write(row_idx, 6, ingredients_str)
             worksheet.write(row_idx, 7, recipe.instructions or '')
-            worksheet.write(row_idx, 8, recipe.calories or 0)
-            worksheet.write(row_idx, 9, float(recipe.protein or 0))
-            worksheet.write(row_idx, 10, float(recipe.carbs or 0))
-            worksheet.write(row_idx, 11, float(recipe.fat or 0))
+            worksheet.write(row_idx, 8, recipe.image_url or '')
+            worksheet.write(row_idx, 9, recipe.calories or 0)
+            worksheet.write(row_idx, 10, float(recipe.protein or 0))
+            worksheet.write(row_idx, 11, float(recipe.carbs or 0))
+            worksheet.write(row_idx, 12, float(recipe.fat or 0))
         
         worksheet.set_column('A:A', 30)
         worksheet.set_column('B:B', 35)
@@ -314,6 +316,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             ('porciones', '1, 2, 3, 4, ...', 'Número entero positivo'),
             ('tiempo_preparacion_minutos', '0, 5, 10, 15, 30, 60, ...', 'Número entero en minutos'),
             ('ingredientes', 'Nombre|cantidad|unidad|notas; Nombre2|cantidad2|unidad2|notas2', 'Separar ingredientes con " ; ", campos con "|"'),
+            ('imagen_url', 'https://... (opcional)', 'URL de la imagen de la receta'),
             ('calorias_ref', 'Número', 'Solo referencia, se recalcula automáticamente'),
             ('proteinas_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
             ('carbos_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
@@ -364,6 +367,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             'tiempo_preparacion_minutos': 'prep_time_minutes', 'prep_time_minutes': 'prep_time_minutes',
             'ingredientes': 'ingredients', 'ingredients': 'ingredients',
             'instrucciones': 'instructions', 'instructions': 'instructions',
+            'imagen_url': 'image_url', 'image_url': 'image_url', 'url_imagen': 'image_url',
             'calorias_ref': 'calories_ref', 'calories_ref': 'calories_ref',
             'proteinas_ref': 'protein_ref', 'protein_ref': 'protein_ref',
             'carbos_ref': 'carbs_ref', 'carbs_ref': 'carbs_ref',
@@ -413,6 +417,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                         'servings': int(get_value(row, 'servings', 1) or 1),
                         'prep_time_minutes': int(get_value(row, 'prep_time_minutes', 0) or 0),
                         'instructions': get_value(row, 'instructions', '') or '',
+                        'image_url': (get_value(row, 'image_url', '') or '').strip(),
                     }
                     
                     # Parsear ingredientes (formato: Nombre|cantidad|unidad|notas; ...)
@@ -547,6 +552,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             'tiempo_preparacion_minutos': 'prep_time_minutes', 'prep_time_minutes': 'prep_time_minutes',
             'ingredientes': 'ingredients', 'ingredients': 'ingredients',
             'instrucciones': 'instructions', 'instructions': 'instructions',
+            'imagen_url': 'image_url', 'image_url': 'image_url', 'url_imagen': 'image_url',
             'calorias_ref': 'calories_ref', 'calories_ref': 'calories_ref',
             'proteinas_ref': 'protein_ref', 'protein_ref': 'protein_ref',
             'carbos_ref': 'carbs_ref', 'carbs_ref': 'carbs_ref',
@@ -652,6 +658,7 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                         'servings': int(get_value(row_data, 'servings') or 1),
                         'prep_time_minutes': int(get_value(row_data, 'prep_time_minutes') or 0),
                         'instructions': str(get_value(row_data, 'instructions') or '') or '',
+                        'image_url': str(get_value(row_data, 'image_url') or '').strip(),
                     }
                     
                     # Buscar receta existente por nombre
@@ -1128,7 +1135,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'calorias_comida', 'proteinas_comida', 'carbohidratos_comida', 'grasas_comida',
             'descripcion_comida', 'recetas_sugeridas',
             # Campos exclusivos de opcion_receta
-            'receta_nombre', 'orden_visualizacion', 'porciones',
+            'receta_nombre', 'imagen_url', 'orden_visualizacion', 'porciones',
             'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas',
             # Campos exclusivos de asignacion_usuario
             'usuario_email', 'asignacion_activa',
@@ -1138,7 +1145,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         empty_meal = {k: '' for k in ['comida_nombre', 'tipo_comida', 'dia_semana', 'orden_comida', 'hora',
                                        'calorias_comida', 'proteinas_comida', 'carbohidratos_comida',
                                        'grasas_comida', 'descripcion_comida', 'recetas_sugeridas']}
-        empty_option = {k: '' for k in ['receta_nombre', 'orden_visualizacion', 'porciones',
+        empty_option = {k: '' for k in ['receta_nombre', 'imagen_url', 'orden_visualizacion', 'porciones',
                         'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas']}
         empty_assignment = {k: '' for k in ['usuario_email', 'asignacion_activa']}
         empty_plan = {k: '' for k in ['descripcion', 'objetivo', 'tipo_dieta',
@@ -1214,6 +1221,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                         'descripcion_comida': meal.description or '',
                         'recetas_sugeridas': recetas_str,
                         'receta_nombre': option.recipe.name,
+                        'imagen_url': option.recipe.image_url or '',
                         'orden_visualizacion': option.display_order,
                         'porciones': float(option.servings or 1),
                         'calorias_personalizadas': option.custom_calories if option.custom_calories is not None else '',
@@ -1343,7 +1351,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         ws_options = workbook.add_worksheet('Opciones_Receta_Comida')
         option_headers = [
             'plan_nombre', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida',
-            'receta_nombre', 'orden_visualizacion', 'porciones',
+            'receta_nombre', 'imagen_url', 'orden_visualizacion', 'porciones',
             'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas',
             'categoria_receta', 'tipos_comida_receta',
         ]
@@ -1359,22 +1367,23 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     ws_options.write(option_row, 3, meal.name)
                     ws_options.write(option_row, 4, meal_type_labels.get(meal.meal_type, meal.meal_type))
                     ws_options.write(option_row, 5, option.recipe.name)
-                    ws_options.write(option_row, 6, option.display_order if option.display_order is not None else 0)
-                    ws_options.write(option_row, 7, float(option.servings or 1))
-                    ws_options.write(option_row, 8, option.custom_calories if option.custom_calories is not None else '')
-                    ws_options.write(option_row, 9, float(option.custom_protein) if option.custom_protein is not None else '')
-                    ws_options.write(option_row, 10, float(option.custom_carbs) if option.custom_carbs is not None else '')
-                    ws_options.write(option_row, 11, float(option.custom_fat) if option.custom_fat is not None else '')
-                    ws_options.write(option_row, 12, option.recipe.category or '')
+                    ws_options.write(option_row, 6, option.recipe.image_url or '')
+                    ws_options.write(option_row, 7, option.display_order if option.display_order is not None else 0)
+                    ws_options.write(option_row, 8, float(option.servings or 1))
+                    ws_options.write(option_row, 9, option.custom_calories if option.custom_calories is not None else '')
+                    ws_options.write(option_row, 10, float(option.custom_protein) if option.custom_protein is not None else '')
+                    ws_options.write(option_row, 11, float(option.custom_carbs) if option.custom_carbs is not None else '')
+                    ws_options.write(option_row, 12, float(option.custom_fat) if option.custom_fat is not None else '')
+                    ws_options.write(option_row, 13, option.recipe.category or '')
                     meal_types_readable = []
                     for mt in (option.recipe.meal_types or []):
                         meal_types_readable.append(meal_type_labels.get(mt, mt))
-                    ws_options.write(option_row, 13, ','.join(meal_types_readable))
+                    ws_options.write(option_row, 14, ','.join(meal_types_readable))
                     option_row += 1
         ws_options.set_column('A:A', 30)
         ws_options.set_column('D:D', 28)
         ws_options.set_column('F:F', 34)
-        ws_options.set_column('M:N', 22)
+        ws_options.set_column('N:O', 22)
 
         # ========== HOJA 4: ASIGNACIONES USUARIOS ==========
         ws_assign = workbook.add_worksheet('Asignaciones_Usuarios')
@@ -1435,7 +1444,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             ('booleano', 'Si/No', 'También acepta true/false, 1/0, yes/no'),
             ('dia_semana', '1..7', '1=Lunes .. 7=Domingo'),
             ('hora', 'HH:MM', 'Ejemplo: 08:30'),
-            ('opciones_receta', 'porciones>0', 'campos personalizados opcionales (vacío = usar receta base)')
+            ('opciones_receta', 'porciones>0', 'campos personalizados opcionales (vacío = usar receta base)'),
+            ('imagen_url', 'https://...', 'URL de imagen de receta (informativo y respaldo en importación)')
         ])
         for idx, (rtype, value, desc) in enumerate(ref_rows, start=1):
             ws_refs.write(idx, 0, rtype)
@@ -1888,9 +1898,17 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             tipo_fila = str(row.get('tipo_fila', '') or '').strip().lower()
             if tipo_fila != 'opcion_receta':
                 continue
+
+            def _csv_optv(data, *keys, default=''):
+                for key in keys:
+                    if key in data and data.get(key) not in (None, ''):
+                        return data.get(key)
+                return default
+
             plan_name = str(row.get('plan_nombre', '') or '').strip()
             recipe_name = str(row.get('receta_nombre', '') or '').strip()
-            if not plan_name or not recipe_name:
+            image_url = str(_csv_optv(row, 'imagen_url', 'image_url', 'url_imagen', default='') or '').strip()
+            if not plan_name or (not recipe_name and not image_url):
                 options_skipped += 1
                 continue
             plan = NutritionPlan.objects.filter(name=plan_name).first()
@@ -1916,9 +1934,17 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
             recipe = None
             if not local_errors:
-                recipe = Recipe.objects.filter(name=recipe_name).first()
+                if recipe_name:
+                    recipe = Recipe.objects.filter(name=recipe_name).first()
+                if not recipe and image_url:
+                    recipe = Recipe.objects.filter(image_url=image_url).first()
                 if not recipe:
-                    local_errors.append(f"Receta no existe: {recipe_name}")
+                    if recipe_name and image_url:
+                        local_errors.append(f"Receta no existe: nombre={recipe_name} ni imagen_url={image_url}")
+                    elif recipe_name:
+                        local_errors.append(f"Receta no existe: {recipe_name}")
+                    else:
+                        local_errors.append(f"Receta no existe para imagen_url: {image_url}")
 
             if local_errors:
                 options_rejected += 1
@@ -2491,7 +2517,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 orow = dict(zip(option_headers, option_row))
                 plan_name = str(orow.get('plan_nombre', '') or '').strip()
                 recipe_name = str(orow.get('receta_nombre', '') or '').strip()
-                if not plan_name or not recipe_name:
+                image_url = str((orow.get('imagen_url') or orow.get('image_url') or orow.get('url_imagen') or '')).strip()
+                if not plan_name or (not recipe_name and not image_url):
                     options_skipped += 1
                     continue
                 plan = NutritionPlan.objects.filter(name=plan_name).first()
@@ -2516,9 +2543,17 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                         local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
                 recipe = None
                 if not local_errors:
-                    recipe = Recipe.objects.filter(name=recipe_name).first()
+                    if recipe_name:
+                        recipe = Recipe.objects.filter(name=recipe_name).first()
+                    if not recipe and image_url:
+                        recipe = Recipe.objects.filter(image_url=image_url).first()
                     if not recipe:
-                        local_errors.append(f"Receta no existe: {recipe_name}")
+                        if recipe_name and image_url:
+                            local_errors.append(f"Receta no existe: nombre={recipe_name} ni imagen_url={image_url}")
+                        elif recipe_name:
+                            local_errors.append(f"Receta no existe: {recipe_name}")
+                        else:
+                            local_errors.append(f"Receta no existe para imagen_url: {image_url}")
                 if local_errors:
                     options_rejected += 1
                     errors.append({'sheet': 'Opciones_Receta_Comida', 'row': row_idx, 'type': 'opcion_receta', 'errors': local_errors})

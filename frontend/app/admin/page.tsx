@@ -127,6 +127,12 @@ function AdminPageContent() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [roleFilter, setRoleFilter] = useState<string>("all")
+  const [onlyPremiumWithPending, setOnlyPremiumWithPending] = useState(false)
+  const [premiumAlertVisibility, setPremiumAlertVisibility] = useState({
+    notifications: true,
+    profileChanges: true,
+    workoutFeedback: true,
+  })
   const [editingUser, setEditingUser] = useState<AdminUser | null>(null)
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
   const [showNewUserForm, setShowNewUserForm] = useState(false)
@@ -166,6 +172,27 @@ function AdminPageContent() {
 
   // Asegurar que users sea un array antes de filtrar
   const usersArray = Array.isArray(users) ? users : []
+
+  const getVisiblePremiumAlertCount = (user: AdminUser) => {
+    if (user.role !== 'premium' || !user.premium_alerts) return 0
+
+    let total = 0
+    if (premiumAlertVisibility.notifications) {
+      total += user.premium_alerts.unread_notifications || 0
+    }
+    if (premiumAlertVisibility.profileChanges) {
+      total += user.premium_alerts.recent_profile_changes || 0
+    }
+    if (premiumAlertVisibility.workoutFeedback) {
+      total += user.premium_alerts.recent_workout_feedback || 0
+    }
+
+    return total
+  }
+
+  const premiumUsersWithVisibleAlerts = usersArray.filter((user) => getVisiblePremiumAlertCount(user) > 0).length
+  const premiumVisibleAlertsTotal = usersArray.reduce((acc, user) => acc + getVisiblePremiumAlertCount(user), 0)
+
   const filteredUsers = usersArray.filter((user) => {
     if (!user) return false
     const matchesSearch =
@@ -177,8 +204,12 @@ function AdminPageContent() {
       (statusFilter === "inactive" && !user.is_active)
     
     const matchesRole = roleFilter === "all" || user.role === roleFilter
+
+    const matchesPremiumPending =
+      !onlyPremiumWithPending ||
+      (user.role === "premium" && getVisiblePremiumAlertCount(user) > 0)
     
-    return matchesSearch && matchesStatus && matchesRole
+    return matchesSearch && matchesStatus && matchesRole && matchesPremiumPending
   })
   
   // Calcular paginación
@@ -207,7 +238,7 @@ function AdminPageContent() {
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, statusFilter, roleFilter])
+  }, [searchTerm, statusFilter, roleFilter, onlyPremiumWithPending])
 
   // Cerrar menú móvil cuando se cambia a desktop
   useEffect(() => {
@@ -511,6 +542,43 @@ function AdminPageContent() {
     })
   }
 
+  const renderPremiumAlerts = (user: AdminUser) => {
+    if (user.role !== 'premium' || !user.premium_alerts) {
+      return <span className="text-xs text-muted-foreground">Solo premium</span>
+    }
+
+    const visibleCount = getVisiblePremiumAlertCount(user)
+    const feedback = user.premium_alerts.latest_workout_feedback
+
+    if (visibleCount === 0) {
+      return <Badge variant="outline">Sin alertas visibles</Badge>
+    }
+
+    return (
+      <div className="space-y-1">
+        <Badge className="bg-orange-100 text-orange-800 border-0">{visibleCount} alerta(s)</Badge>
+        <div className="flex flex-wrap gap-1">
+          {premiumAlertVisibility.notifications && user.premium_alerts.unread_notifications > 0 ? (
+            <Badge variant="outline">Notificaciones: {user.premium_alerts.unread_notifications}</Badge>
+          ) : null}
+          {premiumAlertVisibility.profileChanges && user.premium_alerts.recent_profile_changes > 0 ? (
+            <Badge variant="outline">Cambios perfil: {user.premium_alerts.recent_profile_changes}</Badge>
+          ) : null}
+          {premiumAlertVisibility.workoutFeedback && user.premium_alerts.recent_workout_feedback > 0 ? (
+            <Badge variant="outline">Feedback entreno: {user.premium_alerts.recent_workout_feedback}</Badge>
+          ) : null}
+        </div>
+        {premiumAlertVisibility.workoutFeedback && feedback ? (
+          <p className="text-xs text-muted-foreground">
+            Último feedback {formatDate(feedback.date)}
+            {feedback.rating ? ` · ${feedback.rating}/5` : ''}
+            {feedback.message ? ` · ${feedback.message}` : ''}
+          </p>
+        ) : null}
+      </div>
+    )
+  }
+
   if (showNewUserForm) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
@@ -705,6 +773,11 @@ function AdminPageContent() {
                   >
                     <IconComponent className="h-5 w-5 flex-shrink-0" />
                     <span className="text-left font-medium">{item.label}</span>
+                    {item.id === 'users' && premiumVisibleAlertsTotal > 0 ? (
+                      <Badge className="ml-auto bg-orange-100 text-orange-800 border-0">
+                        {premiumVisibleAlertsTotal}
+                      </Badge>
+                    ) : null}
                   </Button>
                 )
               })}
@@ -771,6 +844,11 @@ function AdminPageContent() {
                     >
                       <Users className="h-4 w-4" />
                       Usuarios
+                      {premiumVisibleAlertsTotal > 0 ? (
+                        <Badge className="ml-1 bg-orange-100 text-orange-800 border-0">
+                          {premiumVisibleAlertsTotal}
+                        </Badge>
+                      ) : null}
                     </Button>
                     <Button
                       variant={activeSection === 'profile' ? 'default' : 'ghost'}
@@ -1035,6 +1113,63 @@ function AdminPageContent() {
                   </Select>
                 </div>
 
+                <div className="rounded-lg border p-3 bg-orange-50/40 space-y-3">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium">Alertas premium en panel de usuarios</p>
+                      <p className="text-xs text-muted-foreground">
+                        Usuarios premium con alertas visibles: {premiumUsersWithVisibleAlerts} · Alertas visibles totales: {premiumVisibleAlertsTotal}
+                      </p>
+                    </div>
+                    {premiumVisibleAlertsTotal > 0 ? (
+                      <Badge className="bg-orange-100 text-orange-800 border-0">Pendientes para revisión</Badge>
+                    ) : (
+                      <Badge variant="outline">Sin pendientes premium</Badge>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4 pt-1">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={onlyPremiumWithPending}
+                        onCheckedChange={(checked) => setOnlyPremiumWithPending(checked === true)}
+                      />
+                      Mostrar solo premium con pendientes
+                    </label>
+                    {onlyPremiumWithPending ? <Badge variant="secondary">Filtro premium activo</Badge> : null}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-4">
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={premiumAlertVisibility.notifications}
+                        onCheckedChange={(checked) =>
+                          setPremiumAlertVisibility((prev) => ({ ...prev, notifications: checked === true }))
+                        }
+                      />
+                      Notificaciones nuevas
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={premiumAlertVisibility.profileChanges}
+                        onCheckedChange={(checked) =>
+                          setPremiumAlertVisibility((prev) => ({ ...prev, profileChanges: checked === true }))
+                        }
+                      />
+                      Cambios de perfil (7 días)
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <Checkbox
+                        checked={premiumAlertVisibility.workoutFeedback}
+                        onCheckedChange={(checked) =>
+                          setPremiumAlertVisibility((prev) => ({ ...prev, workoutFeedback: checked === true }))
+                        }
+                      />
+                      Valoración y mensaje entreno (14 días)
+                    </label>
+                  </div>
+                </div>
+
             {/* Bulk Actions */}
             {selectedUsers.length > 0 && (
               <div className="flex flex-wrap gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
@@ -1227,6 +1362,10 @@ function AdminPageContent() {
                             )}
                           </div>
 
+                          <div className="mb-2">
+                            {renderPremiumAlerts(user)}
+                          </div>
+
                           <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
                             <div>
                               <span className="font-medium">Edad:</span> {user.age ? `${user.age} años` : 'N/A'}
@@ -1273,6 +1412,7 @@ function AdminPageContent() {
                       <th className="p-3 text-left font-medium">Fecha de registro</th>
                       <th className="p-3 text-left font-medium">Último acceso</th>
                       <th className="p-3 text-left font-medium">Última edición</th>
+                      <th className="p-3 text-left font-medium">Alertas premium</th>
                       <th className="p-3 text-left font-medium">Acciones</th>
                     </tr>
                   </thead>
@@ -1311,6 +1451,9 @@ function AdminPageContent() {
                         </td>
                         <td className="p-3 text-sm text-muted-foreground">
                           {user.updated_at ? formatDate(user.updated_at) : '—'}
+                        </td>
+                        <td className="p-3 text-sm">
+                          {renderPremiumAlerts(user)}
                         </td>
                         <td className="p-3">
                           <DropdownMenu>

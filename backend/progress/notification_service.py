@@ -165,21 +165,8 @@ class ProgressNotificationService:
         Envía una notificación cuando el usuario alcanza un logro relacionado con el progreso.
         """
         try:
-            notification = Notification.objects.create(
-                user=self.user,
-                type='achievement',
-                title=achievement_data.get('title', '¡Logro alcanzado!'),
-                message=achievement_data.get('message', 'Has alcanzado un nuevo logro en tu progreso.'),
-                data={
-                    'achievement': achievement_data,
-                    'auto_generated': True,
-                },
-                action_url='/dashboard/achievements',
-                expires_at=timezone.now() + timedelta(days=14),
-            )
-            
-            logger.info(f'✅ Notificación de logro enviada a {self.user.email}')
-            return notification
+            logger.info(f'📌 Logro registrado para {self.user.email}: {achievement_data.get("title")} - Sin crear notificación')
+            return None
             
         except Exception as e:
             logger.error(f'❌ Error enviando notificación de logro: {str(e)}')

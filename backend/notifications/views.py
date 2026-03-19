@@ -8,14 +8,21 @@ from django.db.models import Count
 from django.utils import timezone
 
 from .models import Notification, PushSubscription
+from .models import AdminMessage
 from .serializers import (
     NotificationSerializer, NotificationCreateSerializer, 
     NotificationUpdateSerializer, NotificationSummarySerializer,
     PushSubscriptionSerializer
 )
+from .serializers import (
+    AdminMessageSerializer, AdminMessageUpdateSerializer
+)
 from .permissions import (
     NotificationPermission, NotificationCreatePermission, NotificationBulkPermission
 )
+
+
+IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -40,7 +47,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
-        queryset = Notification.objects.select_related('user')
+        queryset = Notification.objects.select_related('user').filter(
+            type__in=IMPORTANT_NOTIFICATION_TYPES
+        )
 
         role = str(getattr(self.request.user, "role", "") or "").lower()
         is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
@@ -70,6 +79,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
             scoped = scoped.filter(created_at__date__lte=date_to)
 
         return scoped
+
+    def list(self, request, *args, **kwargs):
+        auto_read = str(request.query_params.get("auto_read", "true")).strip().lower()
+        should_auto_read = auto_read in {"1", "true", "yes"}
+        if should_auto_read:
+            self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
+        return super().list(request, *args, **kwargs)
     
     def get_serializer_class(self):
         if self.action == "create":
@@ -224,3 +240,59 @@ class PushSubscriptionViewSet(viewsets.ModelViewSet):
         """Marcar como inactiva en lugar de eliminar"""
         instance.is_active = False
         instance.save() 
+
+
+class AdminMessageViewSet(viewsets.ModelViewSet):
+    """ViewSet para mensajes directos del admin"""
+    queryset = AdminMessage.objects.all()
+    serializer_class = AdminMessageSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter, filters.SearchFilter]
+    filterset_fields = ["read_at"]
+    ordering_fields = ["created_at", "read_at"]
+    ordering = ["-created_at"]
+    search_fields = ["title", "message"]
+
+    class AdminMessagePagination(PageNumberPagination):
+        page_size = 20
+        page_size_query_param = "page_size"
+        max_page_size = 100
+
+    pagination_class = AdminMessagePagination
+
+    def get_queryset(self):
+        user_id = self.kwargs.get("user_id")
+        role = str(getattr(self.request.user, "role", "") or "").lower()
+        is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
+
+        if user_id:
+            return AdminMessage.objects.filter(user_id=user_id).select_related("user", "sent_by")
+        if is_admin:
+            return AdminMessage.objects.select_related("user", "sent_by")
+        return AdminMessage.objects.filter(user=self.request.user).select_related("user", "sent_by")
+
+    def get_serializer_class(self):
+        if self.action in ["update", "partial_update"]:
+            return AdminMessageUpdateSerializer
+        return AdminMessageSerializer
+
+    @action(detail=True, methods=["patch"])
+    def read(self, request, user_id=None, pk=None):
+        message = self.get_object()
+        message.mark_as_read()
+        serializer = self.get_serializer(message)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=["patch"])
+    def mark_all_read(self, request, user_id=None):
+        queryset = self.get_queryset()
+        updated_count = queryset.filter(read_at__isnull=True).update(read_at=timezone.now())
+        return Response({
+            "message": f"{updated_count} mensajes marcados como leídos",
+            "updated_count": updated_count,
+        })
+
+    @action(detail=False, methods=["get"])
+    def unread_count(self, request, user_id=None):
+        unread_count = self.get_queryset().filter(read_at__isnull=True).count()
+        return Response({"unread_count": unread_count})

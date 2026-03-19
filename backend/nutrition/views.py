@@ -541,6 +541,7 @@ def daily_meal_selections(request):
     elif request.method == 'POST':
         # Guardar selección de comida
         data = request.data
+        photo_file = request.FILES.get('photo') if hasattr(request, 'FILES') else None
         meal_type = data.get('meal_type')
         recipe_id = data.get('recipe_id')
         plan_meal_id = data.get('plan_meal_id')
@@ -632,18 +633,22 @@ def daily_meal_selections(request):
         else:
             lookup['meal_type'] = meal_type
 
+        defaults = {
+            'plan_meal': plan_meal,
+            'recipe': recipe,
+            'completed': is_completed,
+            'calories': int(calories) if calories else 0,
+            'protein': float(protein) if protein else 0,
+            'carbs': float(carbs) if carbs else 0,
+            'fat': float(fat) if fat else 0,
+            'custom_description': custom_description,
+        }
+        if photo_file:
+            defaults['photo'] = photo_file
+
         meal_log, created = MealLog.objects.update_or_create(
             **lookup,
-            defaults={
-                'plan_meal': plan_meal,
-                'recipe': recipe,
-                'completed': is_completed,
-                'calories': int(calories) if calories else 0,
-                'protein': float(protein) if protein else 0,
-                'carbs': float(carbs) if carbs else 0,
-                'fat': float(fat) if fat else 0,
-                'custom_description': custom_description,
-            }
+            defaults=defaults,
         )
         
         serializer = MealLogSerializer(meal_log)

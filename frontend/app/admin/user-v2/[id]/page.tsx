@@ -46,6 +46,7 @@ import { NutritionPlanEditor } from "../../components/nutrition-plan-editor"
 import { UserProgressPanel } from "../../components/user-progress-panel"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
+import { UserNotifications } from "../../components/user-notifications"
 
 // ============================================================================
 // TIPOS
@@ -85,6 +86,21 @@ interface UserData {
   longest_streak?: number
   created_at_formatted?: string
   last_login_formatted?: string
+  premium_alerts?: PremiumAlerts | null
+}
+
+interface PremiumAlerts {
+  enabled: boolean
+  unread_notifications: number
+  recent_profile_changes: number
+  recent_workout_feedback: number
+  latest_workout_feedback: {
+    date: string
+    rating: number | null
+    message: string | null
+  } | null
+  pending_total: number
+  has_pending: boolean
 }
 
 // ============================================================================
@@ -129,6 +145,7 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [localData, setLocalData] = useState<Partial<UserData>>({})
+  const [activeTab, setActiveTab] = useState("profile")
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
@@ -211,6 +228,29 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
         longest_streak: safeNumber(data.longest_streak),
         created_at_formatted: safeString(data.created_at_formatted),
         last_login_formatted: safeString(data.last_login_formatted),
+        premium_alerts: data.premium_alerts
+          ? {
+              enabled: Boolean(data.premium_alerts.enabled),
+              unread_notifications: safeNumber(data.premium_alerts.unread_notifications),
+              recent_profile_changes: safeNumber(data.premium_alerts.recent_profile_changes),
+              recent_workout_feedback: safeNumber(data.premium_alerts.recent_workout_feedback),
+              latest_workout_feedback: data.premium_alerts.latest_workout_feedback
+                ? {
+                    date: safeString(data.premium_alerts.latest_workout_feedback.date),
+                    rating:
+                      data.premium_alerts.latest_workout_feedback.rating == null
+                        ? null
+                        : safeNumber(data.premium_alerts.latest_workout_feedback.rating),
+                    message:
+                      data.premium_alerts.latest_workout_feedback.message == null
+                        ? null
+                        : safeString(data.premium_alerts.latest_workout_feedback.message),
+                  }
+                : null,
+              pending_total: safeNumber(data.premium_alerts.pending_total),
+              has_pending: Boolean(data.premium_alerts.has_pending),
+            }
+          : null,
       }
 
       setUser(normalized)
@@ -339,6 +379,8 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
   const dietaryRestrictions = safeArray<string>(user.dietary_restrictions)
   const allergies = safeArray<string>(user.allergies)
   const medicalConditions = safeArray<string>(user.medical_conditions)
+  const premiumAlerts = user.premium_alerts ?? null
+  const premiumPendingTotal = user.role === "premium" ? premiumAlerts?.pending_total ?? 0 : 0
 
   const DAYS_MAP: Record<number, string> = {
     1: "Lunes",
@@ -485,7 +527,33 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
           </Card>
         </div>
 
-        <Tabs defaultValue="profile" className="space-y-4 md:space-y-6">
+        {user.role === "premium" ? (
+          <Card className="mb-4 border-orange-200 bg-orange-50/50">
+            <CardContent className="p-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-orange-900">Alertas premium del usuario</p>
+                  <p className="text-xs text-orange-800/80">
+                    Pendientes: {premiumPendingTotal} · Notificaciones: {premiumAlerts?.unread_notifications ?? 0} · Cambios perfil: {premiumAlerts?.recent_profile_changes ?? 0} · Feedback entreno: {premiumAlerts?.recent_workout_feedback ?? 0}
+                  </p>
+                  {premiumAlerts?.latest_workout_feedback ? (
+                    <p className="text-xs text-orange-900/90 mt-1">
+                      Último feedback: {new Date(premiumAlerts.latest_workout_feedback.date).toLocaleDateString("es-ES")}
+                      {premiumAlerts.latest_workout_feedback.rating != null ? ` · ${premiumAlerts.latest_workout_feedback.rating}/5` : ""}
+                      {premiumAlerts.latest_workout_feedback.message ? ` · ${premiumAlerts.latest_workout_feedback.message}` : ""}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setActiveTab("notifications")}>Ver notificaciones</Button>
+                  <Button size="sm" variant="outline" onClick={() => setActiveTab("activity")}>Ver actividad</Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
           {/* Mobile: Scroll horizontal */}
           <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
             <TabsList className="inline-flex w-max h-auto p-1 bg-white rounded-lg shadow-sm gap-1">
@@ -516,6 +584,7 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
               <TabsTrigger value="notifications" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
                 <Bell className="h-3 w-3" />
                 <span>Notif.</span>
+                {premiumPendingTotal > 0 ? <Badge className="bg-orange-100 text-orange-800 border-0 text-[10px] px-1 py-0">{premiumPendingTotal}</Badge> : null}
               </TabsTrigger>
             </TabsList>
           </div>
@@ -549,6 +618,7 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
             <TabsTrigger value="notifications" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <Bell className="h-3 w-3 md:h-4 md:w-4" />
               <span>Notificaciones</span>
+              {premiumPendingTotal > 0 ? <Badge className="bg-orange-100 text-orange-800 border-0 text-[10px] px-1 py-0">{premiumPendingTotal}</Badge> : null}
             </TabsTrigger>
           </TabsList>
 
@@ -1512,18 +1582,39 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
           {/* TAB: NOTIFICACIONES */}
           {/* ================================================================ */}
           <TabsContent value="notifications" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Bell className="h-5 w-5 text-blue-600" />
-                  Notificaciones
-                </CardTitle>
-                <CardDescription>Gestión de notificaciones del usuario</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-500">Las notificaciones del usuario se están cargando.</p>
-              </CardContent>
-            </Card>
+            {user.role === "premium" ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-blue-600" />
+                    Alertas premium detectadas
+                  </CardTitle>
+                  <CardDescription>Resumen de señales priorizadas para revisión del usuario premium</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">Pendientes totales</p>
+                      <p className="text-xl font-semibold">{premiumPendingTotal}</p>
+                    </div>
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">No leídas</p>
+                      <p className="text-xl font-semibold">{premiumAlerts?.unread_notifications ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">Cambios de perfil</p>
+                      <p className="text-xl font-semibold">{premiumAlerts?.recent_profile_changes ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">Feedback entreno</p>
+                      <p className="text-xl font-semibold">{premiumAlerts?.recent_workout_feedback ?? 0}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            <UserNotifications userId={user.id.toString()} />
           </TabsContent>
         </Tabs>
       </main>

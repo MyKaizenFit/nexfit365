@@ -16,6 +16,8 @@ interface DailyMeal {
   mealType: string
   selectedOption: MealOption | null
   isCompleted: boolean
+  mealLogId?: string | null
+  photo?: string | null
 }
 
 interface DailyMacros {
@@ -56,6 +58,7 @@ export function useDailyMeals() {
     order_index?: number
   }>>([])
   const [planOptionsByMealId, setPlanOptionsByMealId] = useState<Record<string, MealOption[]>>({})
+  const [logMetaByKey, setLogMetaByKey] = useState<Record<string, { id: string; photo: string | null }>>({})
 
   // Estructura de comidas del día
   const mealTimes = {
@@ -473,6 +476,8 @@ export function useDailyMeals() {
       // Convertir selecciones a formato MealOption
       const selectionsMap: Record<string, MealOption> = {}
       
+      const nextMetaByKey: Record<string, { id: string; photo: string | null }> = {}
+
       selections.forEach((log: any) => {
         const mealType = String(log.meal_type || '')
         const key = String(log.plan_meal_id || mealType)
@@ -499,12 +504,6 @@ export function useDailyMeals() {
           if (mealNameToShow === 'Sin nombre') {
             mealNameToShow = `${mealType} - Comida personalizada`
           }
-          return {
-            recipe_name: log.recipe_name,
-            recipe: log.recipe,
-            custom_description: log.custom_description,
-            nombre_final: mealNameToShow
-          }
           
           // Crear MealOption con el nombre correcto
           // Asegurar que los valores nutricionales sean números, no null/undefined
@@ -526,11 +525,19 @@ export function useDailyMeals() {
             cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
             recipeId: log.recipe?.id || log.recipe
           }
+
+          nextMetaByKey[key] = {
+            id: String(log.id),
+            photo: log.photo ? String(log.photo) : null,
+          }
         }
       })
 
+      setLogMetaByKey(nextMetaByKey)
+
       return Object.keys(selectionsMap).length > 0 ? selectionsMap : null
     } catch (error) {
+      setLogMetaByKey({})
       return null
     }
   }, [])
@@ -593,21 +600,33 @@ export function useDailyMeals() {
               const data = await statusResponse.json()
               const logs = data.selections || []
               const completedMap: Record<string, boolean> = {}
+              const photoMap: Record<string, string | null> = {}
+              const logIdMap: Record<string, string> = {}
               logs.forEach((log: any) => {
                 const mt = String(log.meal_type || '')
                 const k = String(log.plan_meal_id || mt)
-                if (k) completedMap[k] = log.completed || false
+                if (k) {
+                  completedMap[k] = log.completed || false
+                  photoMap[k] = log.photo ? String(log.photo) : null
+                  logIdMap[k] = String(log.id)
+                }
               })
               
               // Actualizar meals con las selecciones y estado de completado
               setMeals(currentMeals => {
                 const updatedMeals = currentMeals.map(meal => {
                   const selection = selections[meal.id] || selections[meal.mealType]
+                  const mapKey = String(meal.id)
+                  const fallbackKey = meal.mealType
+                  const photo = photoMap[mapKey] ?? photoMap[fallbackKey] ?? null
+                  const mealLogId = logIdMap[mapKey] ?? logIdMap[fallbackKey] ?? null
                   if (selection) {
                     return { 
                       ...meal, 
                       selectedOption: selection, 
-                      isCompleted: completedMap[String(meal.id)] || completedMap[meal.mealType] || false 
+                      isCompleted: completedMap[mapKey] || completedMap[fallbackKey] || false,
+                      photo,
+                      mealLogId,
                     }
                   }
                   return meal
@@ -668,19 +687,100 @@ export function useDailyMeals() {
       // Fallback: mostrar selecciones pero marcarlas como no completadas
       return meals.map(meal => {
         const selection = selections[meal.id] || selections[meal.mealType]
+        const mapKey = String(meal.id)
+        const fallbackKey = meal.mealType
+        const meta = logMetaByKey[mapKey] || logMetaByKey[fallbackKey]
         if (selection) {
           // Asegurarse de que el nombre esté presente
           const mealOption = {
             ...selection,
             name: selection.name || 'Sin nombre'
           }
-          return { ...meal, selectedOption: mealOption, isCompleted: false }
+          return {
+            ...meal,
+            selectedOption: mealOption,
+            isCompleted: false,
+            photo: meta?.photo || null,
+            mealLogId: meta?.id || null,
+          }
         }
         return meal
       })
     }
     return meals
-  }, [])
+  }, [logMetaByKey])
+
+  const uploadMealPhoto = useCallback(async (mealId: string, photoFile: File): Promise<boolean> => {
+    if (!isAuthenticated) return false
+
+    const meal = meals.find((m) => m.id === mealId)
+    if (!meal || !meal.mealType) return false
+
+    try {
+      const today = new Date().toISOString().split('T')[0]
+      const headers = await getAuthHeaders()
+      const formData = new FormData()
+
+      formData.append('date', today)
+      formData.append('meal_type', meal.mealType)
+      formData.append('completed', meal.isCompleted ? 'true' : 'false')
+
+      if (!String(meal.id).startsWith('meal-')) {
+        formData.append('plan_meal_id', String(meal.id))
+      }
+
+      if (meal.selectedOption?.recipeId) {
+        formData.append('recipe_id', String(meal.selectedOption.recipeId))
+      } else if (meal.selectedOption?.id && String(meal.selectedOption.id).includes('recipe-')) {
+        formData.append('recipe_id', String(meal.selectedOption.id).split('recipe-').pop() || '')
+      }
+
+      if (meal.selectedOption) {
+        if (meal.isCompleted) {
+          formData.append('calories', String(Number(meal.selectedOption.calories) || 0))
+          formData.append('protein', String(Number(meal.selectedOption.protein) || 0))
+          formData.append('carbs', String(Number(meal.selectedOption.carbs) || 0))
+          formData.append('fat', String(Number(meal.selectedOption.fat) || 0))
+        } else {
+          formData.append('calories', '0')
+          formData.append('protein', '0')
+          formData.append('carbs', '0')
+          formData.append('fat', '0')
+        }
+      }
+
+      formData.append('custom_description', meal.selectedOption?.name || meal.name)
+      formData.append('photo', photoFile)
+
+      const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        method: 'POST',
+        headers: {
+          Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || '',
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        return false
+      }
+
+      const savedLog = await response.json()
+      const photoUrl = savedLog?.photo ? String(savedLog.photo) : null
+
+      setMeals((prevMeals) => prevMeals.map((currentMeal) => {
+        if (currentMeal.id !== mealId) return currentMeal
+        return {
+          ...currentMeal,
+          photo: photoUrl,
+          mealLogId: savedLog?.id ? String(savedLog.id) : currentMeal.mealLogId || null,
+        }
+      }))
+
+      return true
+    } catch (error) {
+      return false
+    }
+  }, [isAuthenticated, meals])
 
   // Cargar opciones de comidas del plan activo
   const loadPlanMealOptions = useCallback(async () => {
@@ -879,6 +979,7 @@ export function useDailyMeals() {
     syncing,
     selectMealOption,
     markMealCompleted,
+    uploadMealPhoto,
     getMealOptions,
     refreshData
   }
