@@ -80,6 +80,7 @@ interface Recipe {
   instructions?: string
   recipe_ingredients?: RecipeIngredient[]
   image_url?: string
+  image?: string
 }
 
 interface FormData {
@@ -136,9 +137,30 @@ export function RecipeManagement() {
   const [ingredientCaloriesFilter, setIngredientCaloriesFilter] = useState('')
   const [ingredientProteinFilter, setIngredientProteinFilter] = useState('')
   const [imageUrlInput, setImageUrlInput] = useState('')
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null)
+  const [imageUploading, setImageUploading] = useState(false)
   const [imageUrlValidating, setImageUrlValidating] = useState(false)
   const [imageUrlError, setImageUrlError] = useState('')
   const [imageUrlSuccess, setImageUrlSuccess] = useState(false)
+
+  const resolveRecipeImageSrc = (imageUrl?: string, imagePath?: string) => {
+    const direct = (imageUrl || '').trim()
+    if (direct) {
+      return direct
+    }
+
+    const path = (imagePath || '').trim()
+    if (!path) {
+      return ''
+    }
+
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      return path
+    }
+
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    return `${getApiUrl()}${normalizedPath}`
+  }
 
   const fetchRecipes = async () => {
     setLoading(true)
@@ -259,6 +281,7 @@ export function RecipeManagement() {
     setIngredientInputValue('')
     setShowSuggestions(false)
     setImageUrlInput('')
+    setSelectedImageFile(null)
     setImageUrlError('')
     setImageUrlSuccess(false)
     setCreateDialogOpen(true)
@@ -278,6 +301,7 @@ export function RecipeManagement() {
     setIngredientInputValue('')
     setShowSuggestions(false)
     setImageUrlInput(recipe.image_url || '')
+    setSelectedImageFile(null)
     setImageUrlError('')
     setImageUrlSuccess(false)
     setEditDialogOpen(true)
@@ -464,6 +488,67 @@ export function RecipeManagement() {
       })
     } finally {
       setImageUrlValidating(false)
+    }
+  }
+
+  const handleUploadImageFile = async () => {
+    if (!editingRecipe?.id) {
+      setImageUrlError('Primero guarda la receta y luego sube la imagen')
+      return
+    }
+
+    if (!selectedImageFile) {
+      setImageUrlError('Selecciona un archivo de imagen')
+      return
+    }
+
+    setImageUploading(true)
+    setImageUrlError('')
+    setImageUrlSuccess(false)
+
+    try {
+      const headers = await getAuthHeaders()
+      const authToken = (headers as Record<string, string>)['Authorization']
+      const formDataFile = new FormData()
+      formDataFile.append('image', selectedImageFile)
+
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${editingRecipe.id}/upload-image/`, {
+        method: 'POST',
+        headers: authToken ? { Authorization: authToken } : undefined,
+        body: formDataFile,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `Error ${response.status}`)
+      }
+
+      const data = await response.json()
+      const resolvedImage = resolveRecipeImageSrc(data.image_url, data.image)
+
+      setImageUrlInput(resolvedImage)
+      setFormData({ ...formData, image_url: resolvedImage })
+      setEditingRecipe({ ...editingRecipe, image_url: resolvedImage, image: data.image || editingRecipe.image })
+      setSelectedImageFile(null)
+      setImageUrlSuccess(true)
+
+      toast({
+        title: '✅ Imagen subida',
+        description: 'La imagen del archivo se guardó correctamente',
+      })
+
+      await fetchRecipes()
+      setTimeout(() => setImageUrlSuccess(false), 3000)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo subir la imagen'
+      setImageUrlError(message)
+      toast({
+        title: '❌ Error',
+        description: message,
+        variant: 'destructive',
+      })
+    } finally {
+      setImageUploading(false)
     }
   }
 
@@ -780,6 +865,17 @@ export function RecipeManagement() {
                               checked={selectedRecipes.includes(recipe.id)}
                               onCheckedChange={(checked) => handleSelectRecipe(recipe.id, Boolean(checked))}
                             />
+                            <div className="h-12 w-12 rounded-md overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
+                              {resolveRecipeImageSrc(recipe.image_url, recipe.image) ? (
+                                <img
+                                  src={resolveRecipeImageSrc(recipe.image_url, recipe.image)}
+                                  alt={recipe.name}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <ImageIcon className="h-5 w-5 text-gray-400" />
+                              )}
+                            </div>
                             <div>
                               <div className="font-medium">{recipe.name}</div>
                               <div className="text-sm text-muted-foreground">
@@ -990,10 +1086,10 @@ export function RecipeManagement() {
           {editingRecipe && (
             <div className="space-y-4">
               {/* Imagen */}
-              {editingRecipe.image_url && (
+              {resolveRecipeImageSrc(editingRecipe.image_url, editingRecipe.image) && (
                 <div className="rounded-lg overflow-hidden border border-gray-200 shadow-md">
                   <img
-                    src={editingRecipe.image_url}
+                    src={resolveRecipeImageSrc(editingRecipe.image_url, editingRecipe.image)}
                     alt={editingRecipe.name}
                     className="w-full h-48 object-cover"
                     onError={() => {
@@ -1183,6 +1279,42 @@ export function RecipeManagement() {
                       />
                     </div>
                   )}
+
+                  <div className="space-y-2 mb-4">
+                    <Label className="font-semibold text-sm">Subir archivo (JPG, PNG, WEBP)</Label>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        onChange={(e) => setSelectedImageFile(e.target.files?.[0] || null)}
+                        disabled={imageUploading || !editingRecipe}
+                        className="text-sm"
+                      />
+                      <Button
+                        onClick={handleUploadImageFile}
+                        disabled={imageUploading || !selectedImageFile || !editingRecipe}
+                        className="bg-orange-600 hover:bg-orange-700 whitespace-nowrap"
+                        size="sm"
+                      >
+                        {imageUploading ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                            Subiendo...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-1" />
+                            Subir archivo
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {!editingRecipe && (
+                      <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded p-2">
+                        Guarda la receta primero para habilitar la subida de archivo.
+                      </p>
+                    )}
+                  </div>
 
                   {/* Input para URL */}
                   <div className="space-y-2">

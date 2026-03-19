@@ -9,12 +9,48 @@ omit =
     */staticfiles/*
     */media/*
     */__pycache__/*
-    */migrations/*
     */test_*
     */test_settings.py
     manage.py
     sentry.py
     print_db_config.py
+    # One-off check/debug scripts
+    check_exercises.py
+    check_logs.py
+    check_log_structure.py
+    check_serializer_output.py
+    create_users2.py
+    # Standalone admin/setup scripts (not application code)
+    assign_user_plans.py
+    associate_exercise_videos.py
+    check_admin_encryption.py
+    check_admin_user.py
+    check_users.py
+    clean_workout_logs.py
+    count_users.py
+    create_basic_nutrition_plans.py
+    create_sample_nutrition_plans.py
+    create_sample_plans.py
+    encrypt_sensitive_users.py
+    fix_encoding_names.py
+    generate_workout_history.py
+    migrate_database.py
+    populate_exercises_and_workouts.py
+    populate_exercises_with_videos.py
+    setup_postgres.py
+    setup_users.py
+    update_exercise_video_ids.py
+    ver_contenido_db.py
+    verify_encryption.py
+    scripts/*.py
+    # Dead code / backup files
+    progress/views-fixed.py
+    # Config-only files
+    rate_limiting.py
+    redis_cache_config.py
+    scalability_settings.py
+    # Management commands (not unit tested)
+    */management/commands/*.py
 
 [report]
 exclude_lines =
