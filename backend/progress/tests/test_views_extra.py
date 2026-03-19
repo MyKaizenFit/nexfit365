@@ -13,6 +13,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from progress.models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
+from workouts.models import WorkoutLog
 
 User = get_user_model()
 
@@ -143,6 +144,36 @@ class TestProgressStatsViewSet:
         response = auth_client.get(reverse("progress-stats-analysis"), {"weeks": 4})
         assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
         assert "error" in response.data
+
+    def test_sleep_performance_empty(self, auth_client):
+        response = auth_client.get(reverse("progress-stats-sleep-performance"), {"days": 14})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["period_days"] == 14
+        assert isinstance(response.data["points"], list)
+        assert response.data["summary"]["sleep_vs_rating_correlation"] is None
+
+    def test_sleep_performance_with_data(self, auth_client, user):
+        today = date.today()
+        DailyWellness.objects.create(
+            user=user,
+            date=today,
+            sleep_hours=Decimal("8.0"),
+            motivation_score=4,
+            notes="bien",
+        )
+        WorkoutLog.objects.create(
+            user=user,
+            date=today,
+            completed=True,
+            rating=5,
+            duration_minutes=55,
+            calories_burned=420,
+        )
+
+        response = auth_client.get(reverse("progress-stats-sleep-performance"), {"days": 14})
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["summary"]["sleep_rating_pairs"] >= 1
+        assert any(point["sleep_hours"] == 8.0 for point in response.data["points"])
 
 
 @pytest.mark.django_db
