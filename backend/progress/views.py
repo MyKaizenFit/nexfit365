@@ -468,6 +468,109 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @action(detail=False, methods=["get"], url_path="sleep-performance")
+    def sleep_performance(self, request):
+        """
+        Datos para gráfico de sueño vs rendimiento.
+        GET /api/progress/progress-stats/sleep-performance/?days=30
+        """
+        user = request.user
+        days = int(request.query_params.get("days", 30))
+        days = max(7, min(days, 90))
+
+        end_date = timezone.now().date()
+        start_date = end_date - timedelta(days=days - 1)
+
+        wellness_qs = DailyWellness.objects.filter(
+            user=user,
+            date__gte=start_date,
+            date__lte=end_date,
+        ).order_by("date")
+
+        workout_qs = WorkoutLog.objects.filter(
+            user=user,
+            date__gte=start_date,
+            date__lte=end_date,
+            completed=True,
+        ).order_by("date")
+
+        wellness_by_date = {entry.date: entry for entry in wellness_qs}
+        workout_by_date = {}
+        for log in workout_qs:
+            if log.date not in workout_by_date:
+                workout_by_date[log.date] = []
+            workout_by_date[log.date].append(log)
+
+        points = []
+        correlation_pairs_x = []
+        correlation_pairs_y = []
+
+        current = start_date
+        while current <= end_date:
+            wellness = wellness_by_date.get(current)
+            day_logs = workout_by_date.get(current, [])
+
+            avg_rating = None
+            avg_duration = None
+            avg_calories = None
+
+            if day_logs:
+                ratings = [log.rating for log in day_logs if log.rating is not None]
+                durations = [log.duration_minutes for log in day_logs if log.duration_minutes is not None]
+                calories = [log.calories_burned for log in day_logs if log.calories_burned is not None]
+
+                if ratings:
+                    avg_rating = round(sum(ratings) / len(ratings), 2)
+                if durations:
+                    avg_duration = round(sum(durations) / len(durations), 2)
+                if calories:
+                    avg_calories = round(sum(calories) / len(calories), 2)
+
+            sleep_hours = float(wellness.sleep_hours) if wellness and wellness.sleep_hours is not None else None
+            motivation_score = wellness.motivation_score if wellness else None
+
+            if sleep_hours is not None and avg_rating is not None:
+                correlation_pairs_x.append(sleep_hours)
+                correlation_pairs_y.append(avg_rating)
+
+            points.append({
+                "date": current.isoformat(),
+                "sleep_hours": sleep_hours,
+                "motivation_score": motivation_score,
+                "workout_completed": bool(day_logs),
+                "workout_count": len(day_logs),
+                "workout_avg_rating": avg_rating,
+                "workout_avg_duration_minutes": avg_duration,
+                "workout_avg_calories_burned": avg_calories,
+            })
+
+            current += timedelta(days=1)
+
+        correlation = None
+        if len(correlation_pairs_x) >= 2:
+            n = len(correlation_pairs_x)
+            mean_x = sum(correlation_pairs_x) / n
+            mean_y = sum(correlation_pairs_y) / n
+            num = sum((x - mean_x) * (y - mean_y) for x, y in zip(correlation_pairs_x, correlation_pairs_y))
+            den_x = sum((x - mean_x) ** 2 for x in correlation_pairs_x)
+            den_y = sum((y - mean_y) ** 2 for y in correlation_pairs_y)
+            den = (den_x * den_y) ** 0.5
+            if den > 0:
+                correlation = round(num / den, 4)
+
+        return Response({
+            "period_days": days,
+            "from": start_date.isoformat(),
+            "to": end_date.isoformat(),
+            "summary": {
+                "wellness_days": len(wellness_by_date),
+                "workout_days": len(workout_by_date),
+                "sleep_rating_pairs": len(correlation_pairs_x),
+                "sleep_vs_rating_correlation": correlation,
+            },
+            "points": points,
+        })
+
 class BodyMeasurementViewSet(viewsets.ModelViewSet):
     """
     ViewSet para medidas corporales
