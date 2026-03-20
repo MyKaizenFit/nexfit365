@@ -22,6 +22,20 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
     queryset = WorkoutProgram.objects.all()  # Required for router registration
+
+    def _get_export_plans(self):
+        return WorkoutProgram.objects.all().select_related('user', 'created_by').prefetch_related(
+            'days__exercises__exercise'
+        )
+
+    def _get_plan_category(self, plan: WorkoutProgram):
+        if getattr(plan, 'user_id', None):
+            return 'Usuario'
+        if getattr(plan, 'is_system', False):
+            return 'Sistema'
+        if getattr(plan, 'is_template', False):
+            return 'Plantilla'
+        return 'Otro'
     
     @action(detail=False, methods=['get'])
     def export_csv(self, request):
@@ -60,9 +74,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 key = (value or '').strip().lower()
                 return mapping.get(key, value or '')
 
-            plans = WorkoutProgram.objects.filter(is_template=True).prefetch_related(
-                'days__exercises__exercise'
-            )
+            plans = self._get_export_plans()
 
             used_exercise_ids = set()
             for plan in plans:
@@ -79,6 +91,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
             output = io.StringIO()
             writer = csv.DictWriter(output, fieldnames=[
+                'categoria_plan', 'usuario_referencia', 'creado_por',
                 'nombre_plan', 'descripcion_plan', 'dificultad_plan', 'objetivo_plan', 'ubicacion_plan',
                 'duracion_semanas_plan', 'dias_por_semana_plan', 'duracion_estimada_minutos_plan',
                 'equipo_necesario_plan', 'etiquetas_plan', 'imagen_url_plan', 'plan_activo', 'plan_plantilla',
@@ -92,6 +105,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             writer.writeheader()
             for plan in plans:
                 base_row = {
+                    'categoria_plan': self._get_plan_category(plan),
+                    'usuario_referencia': getattr(plan.user, 'email', '') or '',
+                    'creado_por': getattr(plan.created_by, 'email', '') or '',
                     'nombre_plan': plan.name or '',
                     'descripcion_plan': plan.description or '',
                     'dificultad_plan': to_spanish(plan.difficulty, difficulty_map),
@@ -148,6 +164,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
             response = HttpResponse(output.getvalue(), content_type='text/csv; charset=utf-8')
             response['Content-Disposition'] = 'attachment; filename="workout_plans_export.csv"'
+            response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
             return response
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
@@ -218,7 +237,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             ws_summary = wb.active
             ws_summary.title = "Resumen completo"
             ws_summary.append([
-                'Nombre Plan', 'Descripción Plan', 'Dificultad', 'Objetivo', 'Ubicación',
+                'Categoría Plan', 'Usuario Referencia', 'Creado Por', 'Nombre Plan', 'Descripción Plan', 'Dificultad', 'Objetivo', 'Ubicación',
                 'Semanas', 'Días/Semana', 'Duración Plan (min)',
                 'Número Día', 'Nombre Día', 'Día Semana', 'Descanso',
                 'Orden Ejercicio', 'Nombre Ejercicio', 'Series', 'Reps',
@@ -230,15 +249,20 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             # === HOJA 1: PLANES ===
             ws_plans = wb.create_sheet("Planes")
             ws_plans.append([
-                'Nombre', 'Descripción', 'Dificultad', 'Objetivo', 'Ubicación',
+                'Categoría', 'Usuario Referencia', 'Creado Por', 'Nombre', 'Descripción', 'Dificultad', 'Objetivo', 'Ubicación',
                 'Semanas', 'Días/Semana', 'Duración (min)', 'Equipo (coma separado)',
                 'Tags (coma separado)', 'Imagen URL', 'Activo', 'Plantilla'
             ])
             apply_header_style(ws_plans)
             
-            plans = WorkoutProgram.objects.filter(is_template=True).prefetch_related('days__exercises__exercise')
+            plans = list(self._get_export_plans())
+            base_plans = [plan for plan in plans if not getattr(plan, 'user_id', None)]
+            user_plans = [plan for plan in plans if getattr(plan, 'user_id', None)]
             for plan in plans:
                 ws_plans.append([
+                    self._get_plan_category(plan),
+                    getattr(plan.user, 'email', '') or '',
+                    getattr(plan.created_by, 'email', '') or '',
                     plan.name or '',
                     plan.description or '',
                     to_spanish(plan.difficulty or 'beginner', difficulty_map),
@@ -258,7 +282,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             # === HOJA 2: DÍAS ===
             ws_days = wb.create_sheet("Días")
             ws_days.append([
-                'Nombre Plan', 'Número Día', 'Nombre Día', 'Día Semana', 'Es Descanso',
+                'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Número Día', 'Nombre Día', 'Día Semana', 'Es Descanso',
                 'Duración (min)', 'Enfoque', 'Notas', 'Orden'
             ])
             apply_header_style(ws_days)
@@ -266,6 +290,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             for plan in plans:
                 for day in plan.days.all().order_by('order_index', 'day_number'):
                     ws_days.append([
+                        self._get_plan_category(plan),
+                        getattr(plan.user, 'email', '') or '',
                         plan.name,
                         day.day_number,
                         day.name or '',
@@ -281,7 +307,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             # === HOJA 3: EJERCICIOS ===
             ws_exercises = wb.create_sheet("Ejercicios")
             ws_exercises.append([
-                'Nombre Plan', 'Número Día', 'Nombre Día', 'Orden', 'Nombre Ejercicio',
+                'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Número Día', 'Nombre Día', 'Orden', 'Nombre Ejercicio',
                 'Series', 'Reps', 'Peso', 'Duración (seg)', 'Descanso (seg)',
                 'Notas', 'Grupo Superset'
             ])
@@ -291,6 +317,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 for day in plan.days.all().order_by('order_index', 'day_number'):
                     for exercise in day.exercises.all().select_related('exercise').order_by('order_index'):
                         ws_exercises.append([
+                            self._get_plan_category(plan),
+                            getattr(plan.user, 'email', '') or '',
                             plan.name,
                             day.day_number,
                             day.name,
@@ -305,6 +333,50 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             exercise.superset_group or '',
                         ])
             auto_adjust_columns(ws_exercises)
+
+            ws_user_plans = wb.create_sheet("Planes_Usuario")
+            ws_user_plans.append([
+                'Usuario Referencia', 'Creado Por', 'Nombre', 'Descripción', 'Dificultad', 'Objetivo', 'Ubicación',
+                'Semanas', 'Días/Semana', 'Duración (min)', 'Activo'
+            ])
+            apply_header_style(ws_user_plans)
+            for plan in user_plans:
+                ws_user_plans.append([
+                    getattr(plan.user, 'email', '') or '',
+                    getattr(plan.created_by, 'email', '') or '',
+                    plan.name or '',
+                    plan.description or '',
+                    to_spanish(plan.difficulty or 'beginner', difficulty_map),
+                    to_spanish(plan.goal or '', goal_map),
+                    to_spanish(plan.location or '', location_map),
+                    plan.duration_weeks or 4,
+                    plan.days_per_week or 3,
+                    plan.estimated_duration_minutes or 60,
+                    parse_bool_label(plan.is_active),
+                ])
+            auto_adjust_columns(ws_user_plans)
+
+            ws_base_plans = wb.create_sheet("Planes_Base")
+            ws_base_plans.append([
+                'Categoría', 'Nombre', 'Descripción', 'Dificultad', 'Objetivo', 'Ubicación',
+                'Semanas', 'Días/Semana', 'Duración (min)', 'Activo', 'Plantilla'
+            ])
+            apply_header_style(ws_base_plans)
+            for plan in base_plans:
+                ws_base_plans.append([
+                    self._get_plan_category(plan),
+                    plan.name or '',
+                    plan.description or '',
+                    to_spanish(plan.difficulty or 'beginner', difficulty_map),
+                    to_spanish(plan.goal or '', goal_map),
+                    to_spanish(plan.location or '', location_map),
+                    plan.duration_weeks or 4,
+                    plan.days_per_week or 3,
+                    plan.estimated_duration_minutes or 60,
+                    parse_bool_label(plan.is_active),
+                    parse_bool_label(plan.is_template),
+                ])
+            auto_adjust_columns(ws_base_plans)
 
             # === HOJA 4: SUSTITUTOS ===
             ws_subs = wb.create_sheet("Sustitutos")
@@ -341,6 +413,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 days = list(plan.days.all().order_by('order_index', 'day_number'))
                 if not days:
                     ws_summary.append([
+                        self._get_plan_category(plan),
+                        getattr(plan.user, 'email', '') or '',
+                        getattr(plan.created_by, 'email', '') or '',
                         plan.name or '',
                         plan.description or '',
                         to_spanish(plan.difficulty or '', difficulty_map),
@@ -357,6 +432,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     day_exercises = list(day.exercises.all().select_related('exercise').order_by('order_index'))
                     if not day_exercises:
                         ws_summary.append([
+                            self._get_plan_category(plan),
+                            getattr(plan.user, 'email', '') or '',
+                            getattr(plan.created_by, 'email', '') or '',
                             plan.name or '',
                             plan.description or '',
                             to_spanish(plan.difficulty or '', difficulty_map),
@@ -376,6 +454,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     for exercise in day_exercises:
                         substitutes = summary_substitutions_map.get(str(exercise.exercise_id), [])
                         ws_summary.append([
+                            self._get_plan_category(plan),
+                            getattr(plan.user, 'email', '') or '',
+                            getattr(plan.created_by, 'email', '') or '',
                             plan.name or '',
                             plan.description or '',
                             to_spanish(plan.difficulty or '', difficulty_map),
@@ -421,6 +502,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
             response = HttpResponse(output.getvalue(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             response['Content-Disposition'] = 'attachment; filename="workout_plans_complete.xlsx"'
+            response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
             return response
         except Exception as e:
             import traceback

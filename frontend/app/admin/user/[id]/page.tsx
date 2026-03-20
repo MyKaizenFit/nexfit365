@@ -140,6 +140,7 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
         disliked_foods: user.disliked_foods || "",
         medical_conditions: Array.isArray(user.medical_conditions) ? user.medical_conditions : [],
         injuries_or_medical_issues: user.injuries_or_medical_issues || "",
+        additional_info_for_admin: user.additional_info_for_admin || "",
       })
     }
   }, [user])
@@ -190,6 +191,7 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
         disliked_foods: user.disliked_foods || "",
         medical_conditions: Array.isArray(user.medical_conditions) ? user.medical_conditions : [],
         injuries_or_medical_issues: user.injuries_or_medical_issues || "",
+        additional_info_for_admin: user.additional_info_for_admin || "",
       })
     }
     setIsEditing(false)
@@ -738,6 +740,9 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
                 <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent flex items-center gap-2">
                   <Target className="h-5 w-5" />
                   Objetivos y Preferencias de Fitness
+                  {user.recent_change_sections?.fitness_preferences && (
+                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>Configuración de objetivos y preferencias de entrenamiento</CardDescription>
               </CardHeader>
@@ -926,6 +931,9 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
                 <CardTitle className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
                   <UtensilsCrossed className="h-5 w-5" />
                   Información Dietética
+                  {user.recent_change_sections?.dietary_information && (
+                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>Restricciones dietéticas, alergias y preferencias alimentarias</CardDescription>
               </CardHeader>
@@ -1047,6 +1055,36 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
                     </p>
                   )}
                 </div>
+
+                <div className="space-y-2">
+                  <Label>Ingredientes que no consume</Label>
+                  {Array.isArray(user.excluded_ingredients) && user.excluded_ingredients.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {user.excluded_ingredients.map((item) => (
+                        <Badge key={item.id} className="bg-orange-100 text-orange-700 border-0">
+                          {item.term}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No hay ingredientes excluidos</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Recetas marcadas como no consume</Label>
+                  {Array.isArray(user.excluded_recipes) && user.excluded_recipes.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {user.excluded_recipes.map((item) => (
+                        <Badge key={item.id} className="bg-orange-100 text-orange-700 border-0">
+                          {item.recipe_name}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">No hay recetas excluidas</p>
+                  )}
+                </div>
               </CardContent>
             </Card>
 
@@ -1056,6 +1094,9 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
                 <CardTitle className="bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                   <Heart className="h-5 w-5" />
                   Información Médica
+                  {user.recent_change_sections?.medical_information && (
+                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>Condiciones médicas, lesiones y otras consideraciones de salud</CardDescription>
               </CardHeader>
@@ -1140,6 +1181,23 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
                   ) : (
                     <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg whitespace-pre-wrap">
                       {fixEncoding(user.injuries_or_medical_issues) || "No especificado"}
+                    </p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Información adicional para el equipo</Label>
+                  {isEditing ? (
+                    <Textarea
+                      value={localData.additional_info_for_admin || ""}
+                      onChange={(e) => setLocalData({ ...localData, additional_info_for_admin: e.target.value })}
+                      placeholder="Observaciones del usuario para admin"
+                      className="border-2 border-gray-200 focus:border-red-400"
+                      rows={4}
+                    />
+                  ) : (
+                    <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      {fixEncoding(user.additional_info_for_admin) || "No especificado"}
                     </p>
                   )}
                 </div>

@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.test import APIClient, APIRequestFactory, force_authenticate
 from model_bakery import baker
 from nutrition.models import NutritionPlan, PlanMeal
+from notifications.models import Notification
 from accounts.views import profile as profile_view
 
 User = get_user_model()
@@ -53,6 +54,19 @@ class TestProfileEndpoints:
         member_user.refresh_from_db()
         assert member_user.first_name == "Nuevo"
         assert member_user.last_name == "Nombre"
+
+    def test_profile_patch_notifies_admins_on_relevant_changes(self, api_client, member_user, admin_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        response = api_client.patch(url, {"main_goal": "lose_weight", "disliked_foods": "cebolla"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert Notification.objects.filter(
+            user=admin_user,
+            type="system",
+            title__icontains="actualizó su perfil",
+        ).exists()
 
     def test_profile_patch_reassigns_nutrition_plan_when_food_preferences_change(self, api_client, member_user):
         template_plan = baker.make(

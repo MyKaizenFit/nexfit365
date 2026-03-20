@@ -1,6 +1,6 @@
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 // hooks/use-admin-workout-plans-optimized.ts - Versión optimizada con paginación del servidor
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 
 export interface Exercise {
@@ -103,7 +103,7 @@ export interface WorkoutPlanFilters {
   is_system?: boolean
 }
 
-export const useAdminWorkoutPlansOptimized = () => {
+export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters = {}) => {
   const { getAuthHeaders } = useAuth()
   const [plans, setPlans] = useState<WorkoutPlan[]>([])
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -115,7 +115,8 @@ export const useAdminWorkoutPlansOptimized = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [pageSize] = useState(50)
-  const [filters, setFilters] = useState<WorkoutPlanFilters>({})
+  const [filters, setFilters] = useState<WorkoutPlanFilters>(initialFilters)
+  const lastFetchIdRef = useRef(0)
 
   // Construir URL con parámetros
   const buildFetchUrl = useCallback((page: number, filters: WorkoutPlanFilters) => {
@@ -141,9 +142,11 @@ export const useAdminWorkoutPlansOptimized = () => {
   }, [pageSize])
 
   const fetchPlans = useCallback(async (page: number = 1, filters: WorkoutPlanFilters = {}) => {
+    const fetchId = ++lastFetchIdRef.current
     try {
       setLoading(true)
       setError(null)
+      setPlans([])
 
       const url = buildFetchUrl(page, filters)
 
@@ -159,6 +162,10 @@ export const useAdminWorkoutPlansOptimized = () => {
       const data: PaginatedResponse<WorkoutPlan> = await response.json()
       // (removed misplaced object)
 
+      if (fetchId !== lastFetchIdRef.current) {
+        return
+      }
+
       if (Array.isArray(data.results)) {
         setPlans(data.results)
         setTotalCount(data.count || 0)
@@ -169,31 +176,45 @@ export const useAdminWorkoutPlansOptimized = () => {
       }
 
     } catch (err) {
+      if (fetchId !== lastFetchIdRef.current) {
+        return
+      }
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
       setPlans([])
       setTotalCount(0)
     } finally {
-      setLoading(false)
+      if (fetchId === lastFetchIdRef.current) {
+        setLoading(false)
+      }
     }
   }, [buildFetchUrl])
 
   const fetchExercises = async () => {
     try {
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/exercises/`), {
-        headers
-      })
+      let headers = await getAuthHeaders()
+      let nextUrl: string | null = buildApiUrl(`admin/exercises/?page_size=1000`)
+      const allExercises: Exercise[] = []
 
-      if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      while (nextUrl) {
+        let response = await fetch(nextUrl, { headers })
+        if (response.status === 401) {
+          const refreshedHeaders = await getAuthHeaders()
+          headers = refreshedHeaders
+          response = await fetch(nextUrl, { headers })
+        }
+
+        if (!response.ok) {
+          throw new Error(`Error ${response.status}: ${response.statusText}`)
+        }
+
+        const data = await response.json()
+        const exercisesData = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        allExercises.push(...exercisesData)
+        nextUrl = data.next || null
       }
 
-      const data = await response.json()
-      const exercisesData = data.results || data
-      if (Array.isArray(exercisesData)) {
-        setExercises(exercisesData)
-      }
+      setExercises(allExercises)
     } catch (err) {
     }
   }
@@ -317,7 +338,7 @@ export const useAdminWorkoutPlansOptimized = () => {
 
   // Inicializar
   useEffect(() => {
-    fetchPlans(1, {})
+    fetchPlans(1, initialFilters)
     fetchExercises()
   }, []) // Solo al montar
 

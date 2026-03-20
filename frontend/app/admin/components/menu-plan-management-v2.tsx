@@ -129,7 +129,7 @@ export function MenuPlanManagementV2() {
 
   // Filtros (similar a Planes de Entrenamiento)
   const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState<MenuPlanTypeFilter>("all")
+  const [typeFilter, setTypeFilter] = useState<MenuPlanTypeFilter>("base")
   const [userFilter, setUserFilter] = useState<string>("all")
 
   // Ordenamiento (cliente, consistente con WorkoutPlanManagement)
@@ -205,8 +205,8 @@ export function MenuPlanManagementV2() {
     const handleExport = async (type: 'csv' | 'excel') => {
       try {
         const headers = await getAuthHeaders()
-        const url = buildApiUrl(`admin/nutrition/plans/export-${type}/`)
-        const response = await fetch(url, { method: 'GET', headers })
+        const url = `${buildApiUrl(`admin/nutrition/plans/export-${type}/`)}?t=${Date.now()}`
+        const response = await fetch(url, { method: 'GET', headers, cache: 'no-store' })
         if (!response.ok) throw new Error(`Error ${response.status}`)
         const blob = await response.blob()
         const link = document.createElement('a')
@@ -256,17 +256,23 @@ export function MenuPlanManagementV2() {
   const loadRecipes = useCallback(async () => {
     try {
       let headers = await getAuthHeaders()
-      let res = await fetch(buildApiUrl("admin/nutrition/recipes/?page_size=500"), { headers })
-      if (res.status === 401) {
-        const newHeaders = await handle401AndRefresh(getAuthHeaders)
-        if (!newHeaders) return
-        headers = newHeaders
-        res = await fetch(buildApiUrl("admin/nutrition/recipes/?page_size=500"), { headers })
+      let nextUrl: string | null = buildApiUrl("admin/nutrition/recipes/?page_size=500")
+      const allRecipes: AdminRecipe[] = []
+      while (nextUrl) {
+        let res = await fetch(nextUrl, { headers })
+        if (res.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) return
+          headers = newHeaders
+          res = await fetch(nextUrl, { headers })
+        }
+        if (!res.ok) return
+        const data = await res.json()
+        const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        allRecipes.push(...list)
+        nextUrl = data.next || null
       }
-      if (!res.ok) return
-      const data = await res.json()
-      const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
-      setAvailableRecipes(list)
+      setAvailableRecipes(allRecipes)
     } catch {
       // ignore
     }
@@ -858,6 +864,7 @@ export function MenuPlanManagementV2() {
                 <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="base">Base (sistema + plantillas)</SelectItem>
                   <SelectItem value="templates">Plantillas</SelectItem>
                   <SelectItem value="users">Planes de usuario</SelectItem>
                   <SelectItem value="system">Sistema</SelectItem>

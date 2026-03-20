@@ -99,19 +99,20 @@ export const useAdminExercises = () => {
   }
 
   const fetchExercises = async () => {
+    let allExercises: Exercise[] = []
     try {
       setLoading(true)
       setError(null)
 
       let headers = await getAuthHeaders()
-      let allExercises: Exercise[] = []
       let page = 1
       const pageSize = 10000 // Usar el máximo permitido por el backend
       let hasMore = true
+      const maxPages = 50
 
 
       // Cargar todas las páginas automáticamente
-      while (hasMore) {
+      while (hasMore && page <= maxPages) {
         let response = await fetch(
           buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`),
           { headers }
@@ -169,14 +170,18 @@ export const useAdminExercises = () => {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
       setError(errorMessage)
-      setExercises([])
-      // Resetear stats si falla la carga
-      setStats({
-        total_exercises: 0,
-        exercises_by_category: {},
-        exercises_by_muscle_group: {},
-        recent_exercises: 0
-      })
+      if (allExercises.length > 0) {
+        setExercises(allExercises)
+        updateStatsFromExercises(allExercises)
+      } else {
+        setExercises([])
+        setStats({
+          total_exercises: 0,
+          exercises_by_category: {},
+          exercises_by_muscle_group: {},
+          recent_exercises: 0
+        })
+      }
     } finally {
       setLoading(false)
     }

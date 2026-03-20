@@ -16,6 +16,15 @@ export interface AdminUserDetail extends AdminUser {
   workout_preferences?: Record<string, any>
   disliked_foods?: string
   injuries_or_medical_issues?: string
+  additional_info_for_admin?: string
+  excluded_recipes?: Array<{ id: string; recipe_id: string; recipe_name: string; updated_at?: string }>
+  excluded_ingredients?: Array<{ id: string; term: string; updated_at?: string }>
+  recent_change_sections?: {
+    fitness_preferences?: boolean
+    dietary_information?: boolean
+    medical_information?: boolean
+    personal_information?: boolean
+  }
   daily_streak?: number
   longest_streak?: number
   last_completed_day?: string
@@ -43,6 +52,7 @@ export interface UpdateUserProfileData {
   disliked_foods?: string
   medical_conditions?: string[]
   injuries_or_medical_issues?: string
+  additional_info_for_admin?: string
   workout_preferences?: Record<string, any>
   notification_preferences?: Record<string, any>
 }

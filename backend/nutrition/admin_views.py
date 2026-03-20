@@ -226,13 +226,35 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         3. Referencias: Valores válidos para categoría y dificultad
         """
         import io
+        import math
+        import re
         import xlsxwriter
         from django.http import HttpResponse
         from collections import defaultdict
+
+        illegal_xlsx_chars = re.compile(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F\uFFFE\uFFFF]')
+
+        def safe_text(value):
+            if value is None:
+                return ''
+            text = str(value)
+            text = ''.join(ch for ch in text if not (0xD800 <= ord(ch) <= 0xDFFF))
+            return illegal_xlsx_chars.sub('', text)
+
+        def safe_number(value, default=0):
+            if value is None or value == '':
+                return default
+            try:
+                num = float(value)
+            except (TypeError, ValueError):
+                return default
+            if not math.isfinite(num):
+                return default
+            return num
         
         recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
         output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True, 'strings_to_urls': False})
         
         # ========== HOJA 1: RECETAS ==========
         worksheet = workbook.add_worksheet('Recetas')
@@ -264,19 +286,19 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     ingredient_parts.append(part)
                 ingredients_str = '; '.join(ingredient_parts)
             
-            worksheet.write(row_idx, 0, recipe.name)
-            worksheet.write(row_idx, 1, recipe.description or '')
-            worksheet.write(row_idx, 2, recipe.category or '')
-            worksheet.write(row_idx, 3, recipe.difficulty or '')
+            worksheet.write(row_idx, 0, safe_text(recipe.name))
+            worksheet.write(row_idx, 1, safe_text(recipe.description or ''))
+            worksheet.write(row_idx, 2, safe_text(recipe.category or ''))
+            worksheet.write(row_idx, 3, safe_text(recipe.difficulty or ''))
             worksheet.write(row_idx, 4, recipe.servings or 1)
             worksheet.write(row_idx, 5, recipe.prep_time_minutes or 0)
-            worksheet.write(row_idx, 6, ingredients_str)
-            worksheet.write(row_idx, 7, recipe.instructions or '')
-            worksheet.write(row_idx, 8, recipe.image_url or '')
-            worksheet.write(row_idx, 9, recipe.calories or 0)
-            worksheet.write(row_idx, 10, float(recipe.protein or 0))
-            worksheet.write(row_idx, 11, float(recipe.carbs or 0))
-            worksheet.write(row_idx, 12, float(recipe.fat or 0))
+            worksheet.write(row_idx, 6, safe_text(ingredients_str))
+            worksheet.write(row_idx, 7, safe_text(recipe.instructions or ''))
+            worksheet.write(row_idx, 8, safe_text(recipe.image_url or ''))
+            worksheet.write(row_idx, 9, safe_number(recipe.calories, 0))
+            worksheet.write(row_idx, 10, safe_number(recipe.protein, 0))
+            worksheet.write(row_idx, 11, safe_number(recipe.carbs, 0))
+            worksheet.write(row_idx, 12, safe_number(recipe.fat, 0))
         
         worksheet.set_column('A:A', 30)
         worksheet.set_column('B:B', 35)
@@ -294,13 +316,13 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         # Escribir todos los ingredientes disponibles ordenados alfabéticamente
         all_foods = Food.objects.all().order_by('name')
         for row_idx, food in enumerate(all_foods, start=1):
-            ing_worksheet.write(row_idx, 0, food.name)
+            ing_worksheet.write(row_idx, 0, safe_text(food.name))
             ing_worksheet.write(row_idx, 1, 'g')  # Unidad recomendada
-            ing_worksheet.write(row_idx, 2, food.calories or 0)
-            ing_worksheet.write(row_idx, 3, float(food.protein or 0))
-            ing_worksheet.write(row_idx, 4, float(food.carbs or 0))
-            ing_worksheet.write(row_idx, 5, float(food.fat or 0))
-            ing_worksheet.write(row_idx, 6, str(food.id))
+            ing_worksheet.write(row_idx, 2, safe_number(food.calories, 0))
+            ing_worksheet.write(row_idx, 3, safe_number(food.protein, 0))
+            ing_worksheet.write(row_idx, 4, safe_number(food.carbs, 0))
+            ing_worksheet.write(row_idx, 5, safe_number(food.fat, 0))
+            ing_worksheet.write(row_idx, 6, safe_text(food.id))
         
         ing_worksheet.set_column('A:A', 30)
         ing_worksheet.set_column('B:B', 15)
@@ -323,9 +345,9 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             ('grasas_ref', 'Número decimal', 'Solo referencia, se recalcula automáticamente'),
         ]
         for row_idx, (campo, valores, notas) in enumerate(refs, start=1):
-            ref_worksheet.write(row_idx, 0, campo)
-            ref_worksheet.write(row_idx, 1, valores)
-            ref_worksheet.write(row_idx, 2, notas)
+            ref_worksheet.write(row_idx, 0, safe_text(campo))
+            ref_worksheet.write(row_idx, 1, safe_text(valores))
+            ref_worksheet.write(row_idx, 2, safe_text(notas))
         ref_worksheet.set_column('A:A', 28)
         ref_worksheet.set_column('B:B', 55)
         ref_worksheet.set_column('C:C', 50)
@@ -334,6 +356,9 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.xlsx"'
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
         return response
 
     @action(detail=False, methods=['post'], url_path='import-csv')
@@ -1123,6 +1148,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         })
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = 'attachment; filename="planes_menu_exportacion.csv"'
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
         fieldnames = [
             'tipo_fila',
             'plan_nombre', 'descripcion', 'objetivo', 'tipo_dieta',
@@ -1274,7 +1302,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'post_workout': 'Merienda',
         })
         output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True, 'strings_to_urls': False})
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         ref_format = workbook.add_format({'bold': True, 'bg_color': '#C6EFCE', 'italic': True})
 
@@ -1459,6 +1487,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="planes_menu_exportacion.xlsx"'
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        response['Expires'] = '0'
         return response
 
     @action(detail=False, methods=['post'], url_path='import-csv',
@@ -2701,7 +2732,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         from django.http import HttpResponse
         foods = self.get_queryset()
         output = io.BytesIO()
-        workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True, 'strings_to_urls': False})
         worksheet = workbook.add_worksheet('Alimentos')
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [

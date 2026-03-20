@@ -21,6 +21,7 @@ PROFILE_AUDIT_FIELDS = [
     'height', 'weight', 'target_weight',
     'main_goal', 'activity_level', 'training_location', 'training_days_per_week', 'training_days',
     'dietary_restrictions', 'allergies', 'medical_conditions', 'equipment_available',
+    'disliked_foods', 'injuries_or_medical_issues', 'additional_info_for_admin',
 ]
 
 

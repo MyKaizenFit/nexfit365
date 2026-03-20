@@ -22,6 +22,7 @@ from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from notifications.utils import notify_admins_user_change
 
 logger = logging.getLogger(__name__)
 
@@ -829,6 +830,28 @@ def meal_exclusions(request):
             exclusion.reason = reason
         exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
 
+    notify_admins_user_change(
+        user=user,
+        title='🥗 Cambios en preferencias de nutrición',
+        message=f"{user.email} agregó ingrediente no consumido: {exclusion.term}",
+        data={
+            'category': 'nutrition_exclusion_change',
+            'change_type': 'ingredient_exclusion_added',
+            'ingredient_term': exclusion.term,
+        },
+    )
+
+    notify_admins_user_change(
+        user=user,
+        title='🗂️ Cambios en exclusiones de recetas',
+        message=f"{user.email} marcó como no consumida la receta: {exclusion.recipe.name}",
+        data={
+            'category': 'nutrition_exclusion_change',
+            'change_type': 'recipe_exclusion_added',
+            'recipe_name': exclusion.recipe.name,
+        },
+    )
+
     return Response(
         {
             'id': str(exclusion.id),
@@ -845,9 +868,20 @@ def meal_exclusions(request):
 @permission_classes([IsAuthenticated])
 def meal_exclusion_detail(request, exclusion_id):
     exclusion = get_object_or_404(MealRecipeExclusion, id=exclusion_id, user=request.user)
+    recipe_name = exclusion.recipe.name
     if exclusion.is_active:
         exclusion.is_active = False
         exclusion.save(update_fields=['is_active', 'updated_at'])
+        notify_admins_user_change(
+            user=request.user,
+            title='🗂️ Cambios en exclusiones de recetas',
+            message=f"{request.user.email} quitó exclusión de receta: {recipe_name}",
+            data={
+                'category': 'nutrition_exclusion_change',
+                'change_type': 'recipe_exclusion_removed',
+                'recipe_name': recipe_name,
+            },
+        )
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -901,9 +935,20 @@ def ingredient_exclusions(request):
 @permission_classes([IsAuthenticated])
 def ingredient_exclusion_detail(request, exclusion_id):
     exclusion = get_object_or_404(MealIngredientExclusion, id=exclusion_id, user=request.user)
+    removed_term = exclusion.term
     if exclusion.is_active:
         exclusion.is_active = False
         exclusion.save(update_fields=['is_active', 'updated_at'])
+        notify_admins_user_change(
+            user=request.user,
+            title='🥗 Cambios en preferencias de nutrición',
+            message=f"{request.user.email} quitó ingrediente excluido: {removed_term}",
+            data={
+                'category': 'nutrition_exclusion_change',
+                'change_type': 'ingredient_exclusion_removed',
+                'ingredient_term': removed_term,
+            },
+        )
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 

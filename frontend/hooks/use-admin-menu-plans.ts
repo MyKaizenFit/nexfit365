@@ -37,7 +37,7 @@ export interface MenuPlanDetail extends MenuPlanListItem {
   portion_multiplier?: number
 }
 
-export type MenuPlanTypeFilter = "all" | "templates" | "system" | "users"
+export type MenuPlanTypeFilter = "all" | "base" | "templates" | "system" | "users"
 
 export interface MenuPlanFilters {
   search?: string
@@ -64,17 +64,26 @@ export function useAdminMenuPlans() {
 
   const fetchUsers = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
-      let res = await fetch(buildApiUrl("admin/users/?page_size=500"), { headers })
-      if (res.status === 401) {
-        const newHeaders = await handle401AndRefresh(getAuthHeaders)
-        if (!newHeaders) return
-        res = await fetch(buildApiUrl("admin/users/?page_size=500"), { headers: newHeaders })
+      let headers = await getAuthHeaders()
+      let nextUrl: string | null = buildApiUrl("admin/users/?page_size=500")
+      const allUsers: AdminUserLite[] = []
+
+      while (nextUrl) {
+        let res = await fetch(nextUrl, { headers })
+        if (res.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) return
+          headers = newHeaders
+          res = await fetch(nextUrl, { headers })
+        }
+        if (!res.ok) return
+        const data = await res.json()
+        const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        allUsers.push(...list.map((u: any) => ({ id: Number(u.id), email: String(u.email) })))
+        nextUrl = data.next || null
       }
-      if (!res.ok) return
-      const data = await res.json()
-      const list = Array.isArray(data.results) ? data.results : []
-      setUsers(list.map((u: any) => ({ id: Number(u.id), email: String(u.email) })))
+
+      setUsers(allUsers)
     } catch {
       // ignore
     }
@@ -88,6 +97,7 @@ export function useAdminMenuPlans() {
     if (q) params.set("search", q)
 
     const type = filters?.type || "all"
+    if (type === "base") params.set("user__isnull", "true")
     if (type === "users") params.set("user__isnull", "false")
     if (type === "templates") {
       params.set("is_system", "false")
@@ -109,17 +119,25 @@ export function useAdminMenuPlans() {
       setLoading(true)
       setError(null)
       let headers = await getAuthHeaders()
-      let res = await fetch(buildApiUrl(buildListUrl(filters)), { headers })
-      if (res.status === 401) {
-        const newHeaders = await handle401AndRefresh(getAuthHeaders)
-        if (!newHeaders) throw new Error("Sesión expirada")
-        headers = newHeaders
-        res = await fetch(buildApiUrl(buildListUrl(filters)), { headers })
+      let nextUrl: string | null = buildApiUrl(buildListUrl(filters))
+      const allPlans: MenuPlanListItem[] = []
+
+      while (nextUrl) {
+        let res = await fetch(nextUrl, { headers })
+        if (res.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) throw new Error("Sesión expirada")
+          headers = newHeaders
+          res = await fetch(nextUrl, { headers })
+        }
+        if (!res.ok) throw new Error(`Error ${res.status}`)
+        const data = await res.json()
+        const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        allPlans.push(...list)
+        nextUrl = data.next || null
       }
-      if (!res.ok) throw new Error(`Error ${res.status}`)
-      const data = await res.json()
-      const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
-      setPlans(list)
+
+      setPlans(allPlans)
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error cargando planes")
       setPlans([])

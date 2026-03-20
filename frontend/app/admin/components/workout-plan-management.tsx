@@ -85,7 +85,7 @@ export function WorkoutPlanManagement() {
     bulkDelete,
     fetchPlanDetail,
     refetch
-  } = useAdminWorkoutPlans()
+  } = useAdminWorkoutPlans({ is_template: true })
 
   const [loadingDetail, setLoadingDetail] = useState(false)
 
@@ -96,7 +96,7 @@ export function WorkoutPlanManagement() {
   const [goalFilter, setGoalFilter] = useState<string>("all")
   const [locationFilter, setLocationFilter] = useState<string>("all")
   const [userFilter, setUserFilter] = useState<string>("all")
-  const [planTypeFilter, setPlanTypeFilter] = useState<string>("all") // all | templates | users
+  const [planTypeFilter, setPlanTypeFilter] = useState<string>("templates") // all | templates | users
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
   const [isViewMode, setIsViewMode] = useState(false) // Modo solo lectura
@@ -205,8 +205,9 @@ export function WorkoutPlanManagement() {
     if (!plan) return false
     // Filtro de ubicación (cliente porque no está en el backend)
     if (locationFilter !== "all") {
-      const isHome = fixEncoding(plan.name || '').toLowerCase().includes('casa')
-      const isGym = fixEncoding(plan.name || '').toLowerCase().includes('gimnasio')
+      const normalizedLocation = String((plan as any).location || '').toLowerCase()
+      const isHome = normalizedLocation === 'home' || fixEncoding(plan.name || '').toLowerCase().includes('casa')
+      const isGym = normalizedLocation === 'gym' || fixEncoding(plan.name || '').toLowerCase().includes('gimnasio')
       if (locationFilter === "home" && !isHome) return false
       if (locationFilter === "gym" && !isGym) return false
     }
@@ -316,6 +317,10 @@ export function WorkoutPlanManagement() {
       default:
         return <Badge variant="outline">{category}</Badge>
     }
+  }
+
+  function getPlanUserReference(plan: any) {
+    return plan?.user_email || plan?.created_by_email || null
   }
 
   const getDifficultyBadge = (difficulty: string) => {
@@ -471,8 +476,9 @@ export function WorkoutPlanManagement() {
   // --- Exportación CSV y Excel ---
   const handleExportCSV = async () => {
     try {
-      const response = await authenticatedFetch('admin/workouts/workouts/export_csv/', {
+      const response = await authenticatedFetch(`admin/workouts/workouts/export_csv/?t=${Date.now()}`, {
         method: 'GET',
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -495,8 +501,9 @@ export function WorkoutPlanManagement() {
 
   const handleExportExcel = async () => {
     try {
-      const response = await authenticatedFetch('admin/workouts/workouts/export_excel/', {
+      const response = await authenticatedFetch(`admin/workouts/workouts/export_excel/?t=${Date.now()}`, {
         method: 'GET',
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -1786,6 +1793,11 @@ export function WorkoutPlanManagement() {
                                 {fixEncoding(plan.description)}
                               </div>
                             )}
+                            {getPlanUserReference(plan) && getPlanCategory(plan) === 'Usuario' && (
+                              <div className="text-xs text-muted-foreground mb-2">
+                                Usuario: {getPlanUserReference(plan)}
+                              </div>
+                            )}
                             {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
                               <div className="text-xs text-muted-foreground mb-2 p-2 bg-gray-50 rounded">
                                 <span className="font-medium">Se asigna cuando: </span>
@@ -2007,6 +2019,11 @@ export function WorkoutPlanManagement() {
                                     : fixEncoding(plan.description))
                                   : 'Sin descripción'}
                               </div>
+                              {getPlanUserReference(plan) && getPlanCategory(plan) === 'Usuario' && (
+                                <div className="text-xs text-muted-foreground mt-1">
+                                  Usuario: {getPlanUserReference(plan)}
+                                </div>
+                              )}
                               {plan.is_default && plan.default_conditions && Object.keys(plan.default_conditions).length > 0 && (
                                 <div className="text-xs text-muted-foreground mt-1">
                                   Se asigna cuando: {Object.entries(plan.default_conditions).map(([key, value]) => {

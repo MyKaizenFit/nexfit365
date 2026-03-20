@@ -10,6 +10,7 @@ from .serializers import (
     UserProfileSerializer, UserProfileUpdateSerializer, 
     UserRegistrationSerializer, UserGoalsSerializer, InitialRegistrationSerializer
 )
+from notifications.utils import notify_admins_user_change
 
 @api_view(['POST'])
 @authentication_classes([])  # Deshabilitar autenticación para registro
@@ -145,6 +146,38 @@ def profile(request):
             # Registrar auditoría de perfil para cambios hechos por el usuario
             new_snapshot = model_to_dict(user, fields=PROFILE_AUDIT_FIELDS)
             record_profile_audit(user, request.user, old_snapshot, new_snapshot)
+
+            changed_fields = [
+                field for field in PROFILE_AUDIT_FIELDS
+                if old_snapshot.get(field) != new_snapshot.get(field)
+            ]
+            if changed_fields:
+                label_map = {
+                    'main_goal': 'objetivo principal',
+                    'activity_level': 'nivel de actividad',
+                    'training_location': 'ubicación de entrenamiento',
+                    'training_days_per_week': 'días por semana',
+                    'training_days': 'días de entrenamiento',
+                    'equipment_available': 'equipamiento',
+                    'dietary_restrictions': 'restricciones dietéticas',
+                    'allergies': 'alergias',
+                    'disliked_foods': 'alimentos que no consume',
+                    'medical_conditions': 'condiciones médicas',
+                    'injuries_or_medical_issues': 'lesiones/problemas médicos',
+                    'additional_info_for_admin': 'información adicional para admin',
+                    'weight': 'peso',
+                    'target_weight': 'peso objetivo',
+                }
+                changed_labels = [label_map.get(field, field) for field in changed_fields][:6]
+                notify_admins_user_change(
+                    user=user,
+                    title='🔔 Usuario actualizó su perfil',
+                    message=f"{user.email} actualizó: {', '.join(changed_labels)}",
+                    data={
+                        'category': 'profile_change',
+                        'changed_fields': changed_fields,
+                    },
+                )
             
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

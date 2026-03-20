@@ -167,17 +167,35 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const timestamp = new Date().getTime()
-      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/?cache=${timestamp}`, {
-        method: 'GET',
-        headers: headers,
-      })
-      if (response.ok) {
+      let nextUrl: string | null = `${getApiUrl()}/api/admin/nutrition/recipes/?cache=${timestamp}`
+      const allRecipes: Recipe[] = []
+
+      while (nextUrl) {
+        const response = await fetch(nextUrl, {
+          method: 'GET',
+          headers: headers,
+        })
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            toast({ title: "Error", description: "No autorizado. Por favor, inicia sesión nuevamente.", variant: "destructive" })
+            setRecipes([])
+            return
+          }
+          throw new Error(`Error ${response.status}`)
+        }
+
         const data = await response.json()
-        const recipeList = Array.isArray(data) ? data : (data.results || [])
-        setRecipes(recipeList)
-      } else if (response.status === 401) {
-        toast({ title: "Error", description: "No autorizado. Por favor, inicia sesión nuevamente.", variant: "destructive" })
+        if (Array.isArray(data)) {
+          allRecipes.push(...data)
+          nextUrl = null
+        } else {
+          allRecipes.push(...(data.results || []))
+          nextUrl = data.next || null
+        }
       }
+
+      setRecipes(allRecipes)
     } catch (error) {
       toast({ title: "Error", description: error instanceof Error ? error.message : "No se pudieron cargar las recetas", variant: "destructive" })
     } finally {
@@ -226,9 +244,21 @@ export function RecipeManagement() {
   const handleExport = async (type: 'csv' | 'excel') => {
     try {
       const headers = await getAuthHeaders()
-      const url = `${getApiUrl()}/api/admin/nutrition/recipes/export-${type}/`
-      const response = await fetch(url, { method: 'GET', headers: headers })
+      const url = `${getApiUrl()}/api/admin/nutrition/recipes/export-${type}/?t=${Date.now()}`
+      const response = await fetch(url, { method: 'GET', headers: headers, cache: 'no-store' })
       if (!response.ok) throw new Error(`Error ${response.status}`)
+
+      const contentType = response.headers.get('content-type') || ''
+      const expectedType = type === 'excel'
+        ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        : 'text/csv'
+      const isValidType = contentType.includes(expectedType) || (type === 'csv' && contentType.includes('application/csv'))
+
+      if (!isValidType) {
+        const errorBody = await response.text().catch(() => '')
+        throw new Error(errorBody || 'El servidor no devolvió un archivo válido para descargar')
+      }
+
       const blob = await response.blob()
       const link = document.createElement('a')
       link.href = window.URL.createObjectURL(blob)
