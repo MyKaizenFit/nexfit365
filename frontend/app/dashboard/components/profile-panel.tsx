@@ -81,6 +81,20 @@ export const ProfilePanel = memo(function ProfilePanel() {
     }
   }
 
+  const handleClearAllRecipeExclusions = async () => {
+    if (recipeExclusions.length === 0) return
+    const okResults = await Promise.all(
+      recipeExclusions.map((item) => nutritionService.removeRecipeExclusion(item.id))
+    )
+    if (okResults.some(Boolean)) {
+      await loadExclusions()
+      toast({
+        title: 'Exclusiones limpiadas',
+        description: 'Se quitaron todas las recetas marcadas como no-como.',
+      })
+    }
+  }
+
   const loadCurrentPlan = async () => {
     try {
       const plan = await nutritionService.getCurrentPlan()
@@ -711,7 +725,18 @@ export const ProfilePanel = memo(function ProfilePanel() {
           </div>
 
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Recetas marcadas como "no como"</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label className="text-sm font-medium">Recetas marcadas como "no como"</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleClearAllRecipeExclusions}
+                disabled={recipeExclusions.length === 0}
+              >
+                Quitar todas
+              </Button>
+            </div>
             <div className="space-y-2">
               {recipeExclusions.map((item) => (
                 <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-white">

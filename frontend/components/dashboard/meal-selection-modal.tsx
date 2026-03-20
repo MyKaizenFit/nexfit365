@@ -1,10 +1,11 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
+import { toast } from '@/hooks/use-toast'
 
 interface MealSelectionModalProps {
   isOpen: boolean
@@ -41,6 +42,9 @@ export function MealSelectionModal({
     userProfile: any
   } | null>(null)
   const [loadingRecipe, setLoadingRecipe] = useState(false)
+  const [excludedRecipeIds, setExcludedRecipeIds] = useState<Set<string>>(new Set())
+  const [excludingRecipeId, setExcludingRecipeId] = useState<string | null>(null)
+  const [excludingAllVisible, setExcludingAllVisible] = useState(false)
 
   // Mapeo de nombres de comida a tipos de comida del backend
   const mealTypeMap: Record<string, string> = {
@@ -340,6 +344,97 @@ export function MealSelectionModal({
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    let isActive = true
+    const loadRecipeExclusions = async () => {
+      const exclusions = await nutritionService.getRecipeExclusions()
+      if (!isActive) return
+      setExcludedRecipeIds(new Set(exclusions.map((item) => String(item.recipe_id))))
+    }
+
+    if (isOpen) {
+      loadRecipeExclusions()
+    }
+
+    return () => {
+      isActive = false
+    }
+  }, [isOpen])
+
+  const visibleOptions = useMemo(() => {
+    return options.filter((option) => {
+      if (!option.recipeId) return true
+      return !excludedRecipeIds.has(String(option.recipeId))
+    })
+  }, [options, excludedRecipeIds])
+
+  const visibleRecipeIds = useMemo(() => {
+    const ids = visibleOptions
+      .map((option) => option.recipeId)
+      .filter((id): id is string | number => id !== undefined && id !== null)
+      .map((id) => String(id))
+
+    return Array.from(new Set(ids))
+  }, [visibleOptions])
+
+  const handleExcludeOption = async (option: MealOption) => {
+    if (!option.recipeId) {
+      toast({
+        title: 'No se puede excluir',
+        description: 'Esta opción no está vinculada a una receta concreta.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    const recipeId = String(option.recipeId)
+    setExcludingRecipeId(recipeId)
+    try {
+      const created = await nutritionService.addRecipeExclusion(recipeId, 'No como esta receta')
+      if (!created) {
+        toast({
+          title: 'No se pudo excluir',
+          description: 'Inténtalo de nuevo.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      setExcludedRecipeIds((prev) => new Set([...Array.from(prev), recipeId]))
+      toast({
+        title: 'Receta excluida',
+        description: `${option.name} ya no aparecerá en tus sugerencias.`,
+      })
+    } finally {
+      setExcludingRecipeId(null)
+    }
+  }
+
+  const handleExcludeAllVisible = async () => {
+    if (visibleRecipeIds.length === 0) {
+      toast({
+        title: 'Sin recetas para excluir',
+        description: 'No hay recetas visibles para marcar como no-como.',
+      })
+      return
+    }
+
+    setExcludingAllVisible(true)
+    try {
+      await Promise.all(
+        visibleRecipeIds.map((recipeId) => nutritionService.addRecipeExclusion(recipeId, 'No como esta receta'))
+      )
+
+      setExcludedRecipeIds((prev) => new Set([...Array.from(prev), ...visibleRecipeIds]))
+      toast({
+        title: 'Recetas excluidas',
+        description: 'Se ocultaron todas las recetas visibles de esta comida.',
+      })
+    } finally {
+      setExcludingAllVisible(false)
+    }
+  }
+
+  useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
@@ -407,27 +502,37 @@ export function MealSelectionModal({
                 <p className="text-base md:text-sm font-medium md:font-normal text-gray-700 md:text-gray-600">
                   Selecciona una opción para {mealName.toLowerCase()}:
                 </p>
-                <button
-                  type="button"
-                  onClick={handleViewAllRecipes}
-                  className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
-                  disabled={loadingRecipes}
-                >
-                  {loadingRecipes ? (
-                    <>
-                      <Loader2 className="w-4 h-4 md:w-3 md:h-3 animate-spin" />
-                      <span>Cargando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                      <span>Ver Recetas Disponibles</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleExcludeAllVisible}
+                    className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-amber-800 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all"
+                    disabled={excludingAllVisible || visibleRecipeIds.length === 0}
+                  >
+                    {excludingAllVisible ? 'Excluyendo...' : 'No como ninguna de estas'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleViewAllRecipes}
+                    className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
+                    disabled={loadingRecipes}
+                  >
+                    {loadingRecipes ? (
+                      <>
+                        <Loader2 className="w-4 h-4 md:w-3 md:h-3 animate-spin" />
+                        <span>Cargando...</span>
+                      </>
+                    ) : (
+                      <>
+                        <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
+                        <span>Ver Recetas Disponibles</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
-              {options.map((option) => (
+              {visibleOptions.map((option) => (
                 (() => {
                   const isCurrentSelection =
                     (currentSelection?.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) ||
@@ -513,33 +618,52 @@ export function MealSelectionModal({
                       </div>
 
                       {/* Botón Ver Receta - Más grande en móvil */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleViewRecipe(option)
-                        }}
-                        className="w-full mt-2 px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-3 md:gap-2 touch-manipulation active:scale-[0.98]"
-                        disabled={loadingRecipe}
-                      >
-                        {loadingRecipe ? (
-                          <>
-                            <Loader2 className="w-5 h-5 md:w-4 md:h-4 animate-spin" />
-                            <span>Buscando receta...</span>
-                          </>
-                        ) : (
-                          <>
-                            <BookOpen className="w-5 h-5 md:w-4 md:h-4" />
-                            <span>📖 Ver Receta</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewRecipe(option)
+                          }}
+                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-3 md:gap-2 touch-manipulation active:scale-[0.98]"
+                          disabled={loadingRecipe}
+                        >
+                          {loadingRecipe ? (
+                            <>
+                              <Loader2 className="w-5 h-5 md:w-4 md:h-4 animate-spin" />
+                              <span>Buscando receta...</span>
+                            </>
+                          ) : (
+                            <>
+                              <BookOpen className="w-5 h-5 md:w-4 md:h-4" />
+                              <span>📖 Ver Receta</span>
+                            </>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleExcludeOption(option)
+                          }}
+                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all touch-manipulation active:scale-[0.98]"
+                          disabled={!option.recipeId || excludingRecipeId === String(option.recipeId)}
+                        >
+                          {excludingRecipeId === String(option.recipeId) ? 'Guardando...' : '⏭️ No como'}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
                   )
                 })()
               ))}
+
+              {visibleOptions.length === 0 ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                  Ya no hay recetas visibles para esta comida. Puedes abrir "Ver Recetas Disponibles" o quitar exclusiones en tu perfil.
+                </div>
+              ) : null}
             </div>
 
             {/* Footer */}
