@@ -20,6 +20,13 @@ export function PushNotificationsSetup() {
     checkPushSupport()
   }, [])
 
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> => {
+    return await Promise.race([
+      promise,
+      new Promise<T>((resolve) => setTimeout(() => resolve(fallback), timeoutMs)),
+    ])
+  }
+
   const checkPushSupport = async () => {
     setChecking(true)
     try {
@@ -33,13 +40,15 @@ export function PushNotificationsSetup() {
         }
 
         // Verificar si hay suscripción activa
-        const subscription = await pushService.getSubscription()
+        const subscription = await withTimeout(pushService.getSubscription(), 3500, null)
         setIsSubscribed(!!subscription)
 
         // Cargar suscripciones del backend
-        await loadSubscriptions()
+        await withTimeout(loadSubscriptions(), 3500, undefined)
       }
     } catch (error) {
+      setIsSubscribed(false)
+      setSubscriptions([])
     } finally {
       setChecking(false)
     }
