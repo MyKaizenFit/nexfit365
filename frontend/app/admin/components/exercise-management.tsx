@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminExercises, Exercise } from "@/hooks/use-admin-exercises"
-import { getAuthHeaders } from "@/lib/api"
+import { getAuthHeaders, buildApiUrl } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -142,12 +142,11 @@ export function ExerciseManagement() {
     if (!importFile) return;
     setImporting(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      let endpoint = '/admin/exercises/import-csv/';
+      let endpoint = 'admin/exercises/import-csv/';
       if (importFile.name.endsWith('.xlsx') || importFile.name.endsWith('.xls')) {
-        endpoint = '/admin/exercises/import-excel/';
+        endpoint = 'admin/exercises/import-excel/';
       }
-      const url = `${apiUrl.replace(/\/$/, '')}${endpoint}`;
+      const url = buildApiUrl(endpoint);
       const formData = new FormData();
       formData.append('file', importFile);
       const headers = await getAuthHeaders();
@@ -180,14 +179,18 @@ export function ExerciseManagement() {
   // --- Exportación CSV y Excel ---
   const handleExportCSV = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-csv/`;
+      const url = buildApiUrl('admin/exercises/export-csv/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'GET',
         headers,
       });
       if (!response.ok) throw new Error('Error al exportar CSV');
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('text/csv') && !contentType.includes('application/csv')) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(errorBody || 'El servidor no devolvió un CSV válido');
+      }
       const blob = await response.blob();
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);
@@ -203,14 +206,18 @@ export function ExerciseManagement() {
 
   const handleExportExcel = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.nexfit365.dpdns.org';
-      const url = `${apiUrl.replace(/\/$/, '')}/admin/exercises/export-excel/`;
+      const url = buildApiUrl('admin/exercises/export-excel/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'GET',
         headers,
       });
       if (!response.ok) throw new Error('Error al exportar Excel');
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')) {
+        const errorBody = await response.text().catch(() => '');
+        throw new Error(errorBody || 'El servidor no devolvió un archivo Excel válido');
+      }
       const blob = await response.blob();
       const link = document.createElement('a');
       link.href = window.URL.createObjectURL(blob);

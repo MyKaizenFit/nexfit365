@@ -162,8 +162,8 @@ export function NotificationsPanel() {
       {/* Panel de notificaciones */}
       <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
               <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                 <Bell className="h-5 w-5" />
                 Notificaciones
@@ -171,9 +171,9 @@ export function NotificationsPanel() {
               </CardTitle>
               <CardDescription>Gestiona tus notificaciones y alertas</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
               <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-40 border-2 border-gray-200 focus:border-purple-400">
+                <SelectTrigger className="w-full sm:w-40 border-2 border-gray-200 focus:border-purple-400">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,7 +191,7 @@ export function NotificationsPanel() {
                 variant="outline"
                 size="sm"
                 onClick={refresh}
-                className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
+                className="w-full sm:w-auto hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Actualizar
@@ -201,7 +201,7 @@ export function NotificationsPanel() {
                   variant="outline"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
+                  className="w-full sm:w-auto hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Marcar todas

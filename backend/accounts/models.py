@@ -197,6 +197,11 @@ class CustomUser(AbstractUser):
         blank=True,
         help_text="Lesiones o issues médicos"
     )
+    additional_info_for_admin = EncryptedTextField(
+        null=True,
+        blank=True,
+        help_text="Información adicional que el usuario quiere comunicar al equipo/admin"
+    )
     
     # ==========================================================================
     # GAMIFICACIÓN / RACHAS

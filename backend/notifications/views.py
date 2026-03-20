@@ -22,7 +22,7 @@ from .permissions import (
 )
 
 
-IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
+IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -81,7 +81,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return scoped
 
     def list(self, request, *args, **kwargs):
-        auto_read = str(request.query_params.get("auto_read", "true")).strip().lower()
+        auto_read = str(request.query_params.get("auto_read", "false")).strip().lower()
         should_auto_read = auto_read in {"1", "true", "yes"}
         if should_auto_read:
             self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())

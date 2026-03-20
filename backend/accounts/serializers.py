@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from notifications.models import Notification
 from workouts.models import WorkoutLog
+from nutrition.models import MealRecipeExclusion, MealIngredientExclusion
 
 from .models import CustomUser, ProfileAuditLog
 
@@ -26,7 +27,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'gender', 'height', 'weight', 'target_weight', 'bmi',
             'activity_level', 'training_days_per_week', 'training_days', 
             'training_location', 'main_goal',
-            'injuries_or_medical_issues', 'disliked_foods',
+            'injuries_or_medical_issues', 'additional_info_for_admin', 'disliked_foods',
             'dietary_restrictions', 'allergies', 'medical_conditions', 
             'workout_preferences', 'equipment_available', 'notification_preferences', 
             'profile_picture', 'profile_picture_url',
@@ -60,6 +61,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
     created_at_formatted = serializers.SerializerMethodField()
     profile_picture_url = serializers.SerializerMethodField()
     premium_alerts = serializers.SerializerMethodField()
+    excluded_recipes = serializers.SerializerMethodField()
+    excluded_ingredients = serializers.SerializerMethodField()
+    recent_change_sections = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomUser
@@ -76,9 +80,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'training_location', 'training_location_display', 'training_days_per_week', 'training_days',
             'equipment_available', 'workout_preferences',
             # Información dietética
-            'dietary_restrictions', 'allergies', 'disliked_foods',
+            'dietary_restrictions', 'allergies', 'disliked_foods', 'excluded_recipes', 'excluded_ingredients',
             # Información médica
-            'medical_conditions', 'injuries_or_medical_issues',
+            'medical_conditions', 'injuries_or_medical_issues', 'additional_info_for_admin',
             # Gamificación
             'daily_streak', 'longest_streak', 'last_completed_day',
             # Configuración
@@ -89,7 +93,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'date_joined', 'created_at_formatted', 'last_login', 'last_login_formatted', 
             'created_at', 'updated_at',
             # Alertas premium para panel admin
-            'premium_alerts'
+            'premium_alerts', 'recent_change_sections'
         ]
         read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age']
     
@@ -174,6 +178,50 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'has_pending': pending_total > 0,
         }
 
+    def get_excluded_recipes(self, obj):
+        exclusions = (
+            MealRecipeExclusion.objects.filter(user=obj, is_active=True)
+            .select_related('recipe')
+            .order_by('-updated_at')[:25]
+        )
+        return [
+            {
+                'id': str(item.id),
+                'recipe_id': str(item.recipe_id),
+                'recipe_name': item.recipe.name,
+                'updated_at': item.updated_at.isoformat() if item.updated_at else None,
+            }
+            for item in exclusions
+        ]
+
+    def get_excluded_ingredients(self, obj):
+        exclusions = MealIngredientExclusion.objects.filter(user=obj, is_active=True).order_by('term')[:50]
+        return [
+            {
+                'id': str(item.id),
+                'term': item.term,
+                'updated_at': item.updated_at.isoformat() if item.updated_at else None,
+            }
+            for item in exclusions
+        ]
+
+    def get_recent_change_sections(self, obj):
+        lookback = timezone.now() - timedelta(days=7)
+        logs = ProfileAuditLog.objects.filter(user=obj, created_at__gte=lookback).order_by('-created_at')[:20]
+        changed_fields = set()
+        for log in logs:
+            if isinstance(log.changes, dict):
+                changed_fields.update(log.changes.keys())
+
+        exclusion_changed = MealRecipeExclusion.objects.filter(user=obj, updated_at__gte=lookback).exists() or MealIngredientExclusion.objects.filter(user=obj, updated_at__gte=lookback).exists()
+
+        return {
+            'fitness_preferences': bool(changed_fields.intersection({'main_goal', 'activity_level', 'training_location', 'training_days_per_week', 'training_days', 'equipment_available'})),
+            'dietary_information': bool(changed_fields.intersection({'dietary_restrictions', 'allergies', 'disliked_foods'}) or exclusion_changed),
+            'medical_information': bool(changed_fields.intersection({'medical_conditions', 'injuries_or_medical_issues', 'additional_info_for_admin'})),
+            'personal_information': bool(changed_fields.intersection({'first_name', 'last_name', 'phone_number', 'birth_date', 'gender', 'height', 'weight', 'target_weight'})),
+        }
+
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""
     
@@ -186,7 +234,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
             'training_location', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
             'notification_preferences', 'profile_picture', 'disliked_foods',
-            'injuries_or_medical_issues'
+            'injuries_or_medical_issues', 'additional_info_for_admin'
         ]
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

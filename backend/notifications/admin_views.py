@@ -19,7 +19,7 @@ from accounts.permissions import IsAdminOrStaff
 logger = logging.getLogger(__name__)
 
 
-IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
+IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
 
 
 def _normalize_notification_type(raw_type: str) -> str:
@@ -140,18 +140,25 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Crear mensajes directos del admin (no notificaciones)
-        admin_messages = []
+        normalized_type = _normalize_notification_type(data.get('type'))
+        expires_at = data.get('expires_at') or _default_expiration_for_type(normalized_type)
+
+        notifications = []
         for user_id in user_ids:
-            message = AdminMessage.objects.create(
+            notification = Notification.objects.create(
                 user_id=user_id,
-                sent_by=request.user,
+                type=normalized_type,
                 title=data['title'],
                 message=data['message'],
+                data={
+                    'priority': data.get('priority', 'medium'),
+                    'created_by_admin': True,
+                    'created_by_admin_id': str(request.user.id),
+                },
                 action_url=data.get('action_url', ''),
-                expires_at=data.get('expires_at') or (timezone.now() + timedelta(days=30)),
+                expires_at=expires_at,
             )
-            admin_messages.append(message)
+            notifications.append(notification)
 
         logger.info(
             'admin_notification_send_bulk',
@@ -159,13 +166,13 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 'admin_user_id': str(request.user.id),
                 'admin_email': getattr(request.user, 'email', ''),
                 'target_user_count': len(user_ids),
-                 'message_type': 'admin_message',
+                 'message_type': normalized_type,
             }
         )
         
         return Response({
-            'message': f'{len(admin_messages)} mensajes enviados correctamente',
-            'messages_created': len(admin_messages)
+            'message': f'{len(notifications)} notificaciones enviadas correctamente',
+            'notifications_created': len(notifications)
         }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['post'])
@@ -183,32 +190,39 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         # Obtener todos los usuarios activos
         active_users = User.objects.filter(is_active=True)
         
-        # Crear mensajes directos del admin (no notificaciones)
-        admin_messages = []
+        normalized_type = _normalize_notification_type(data.get('type'))
+        expires_at = data.get('expires_at') or _default_expiration_for_type(normalized_type)
+
+        notifications = []
         for user in active_users:
-            message = AdminMessage.objects.create(
+            notification = Notification.objects.create(
                 user=user,
-                sent_by=request.user,
+                type=normalized_type,
                 title=data['title'],
                 message=data['message'],
+                data={
+                    'priority': data.get('priority', 'medium'),
+                    'created_by_admin': True,
+                    'created_by_admin_id': str(request.user.id),
+                },
                 action_url=data.get('action_url', ''),
-                expires_at=data.get('expires_at') or (timezone.now() + timedelta(days=30)),
+                expires_at=expires_at,
             )
-            admin_messages.append(message)
+            notifications.append(notification)
 
         logger.info(
             'admin_notification_send_to_all',
             extra={
                 'admin_user_id': str(request.user.id),
                 'admin_email': getattr(request.user, 'email', ''),
-                 'target_user_count': len(admin_messages),
-                 'message_type': 'admin_message',
+                 'target_user_count': len(notifications),
+                 'message_type': normalized_type,
             }
         )
 
         return Response({
-            'message': f'Mensaje enviado a {len(admin_messages)} usuarios activos',
-            'messages_created': len(admin_messages)
+            'message': f'Notificación enviada a {len(notifications)} usuarios activos',
+            'notifications_created': len(notifications)
         }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['get'])

@@ -198,6 +198,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
         if (localProfile.dietary_restrictions !== undefined) editableFields.dietary_restrictions = parsePreferenceList(localProfile.dietary_restrictions)
         if (localProfile.allergies !== undefined) editableFields.allergies = parsePreferenceList(localProfile.allergies)
         if (localProfile.medical_conditions !== undefined) editableFields.medical_conditions = localProfile.medical_conditions
+        if (localProfile.additional_info_for_admin !== undefined) editableFields.additional_info_for_admin = localProfile.additional_info_for_admin
         
         // Entrenamiento
         if (localProfile.training_days_per_week !== undefined) editableFields.training_days_per_week = localProfile.training_days_per_week
@@ -755,6 +756,20 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 <p className="text-xs text-gray-500">No hay recetas excluidas.</p>
               ) : null}
             </div>
+          </div>
+
+          <div>
+            <Label htmlFor="additional_info_for_admin">Información adicional para el equipo</Label>
+            <Textarea
+              id="additional_info_for_admin"
+              value={formatPreferenceValue(localProfile?.additional_info_for_admin ?? profile.additional_info_for_admin)}
+              onChange={(e) => handleLocalUpdate({ additional_info_for_admin: e.target.value })}
+              disabled={!isEditing}
+              className="mt-1"
+              rows={3}
+              placeholder="Ej: horarios complicados, alimentos que prefieres, observaciones para tu seguimiento"
+            />
+            <p className="mt-2 text-xs text-gray-500">Este campo lo verá el equipo administrador para ayudarte mejor y generará una alerta de cambio.</p>
           </div>
         </CardContent>
       </Card>
