@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
@@ -1093,8 +1093,10 @@ function AllRecipesModal({
 
   // Filtrar recetas por búsqueda y categoría
   const filteredRecipes = recipes.filter(recipe => {
-    const matchesSearch = recipe.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         recipe.description?.toLowerCase().includes(searchQuery.toLowerCase())
+    const recipeName = String(recipe?.name || '').toLowerCase()
+    const recipeDescription = String(recipe?.description || '').toLowerCase()
+    const query = searchQuery.toLowerCase()
+    const matchesSearch = recipeName.includes(query) || recipeDescription.includes(query)
     const matchesCategory = selectedCategory === "all" || 
                            recipe.category?.toLowerCase() === selectedCategory.toLowerCase() ||
                            (recipe.meal_types && recipe.meal_types.includes(selectedCategory))
