@@ -678,7 +678,8 @@ export function MealSelectionModal({
               category: "balanced",
               icon: "🍽️",
               description: recipeData.recipe.description,
-              recipeId: recipeData.recipe.id
+              recipeId: recipeData.recipe.id,
+              imageUrl: recipeData.recipe.image_url || ''
             }
             handleSelectOption(recipeOption)
             setShowRecipe(false)
@@ -1089,8 +1090,6 @@ function AllRecipesModal({
     return () => setMounted(false)
   }, [])
 
-  if (!mounted) return null
-
   // Filtrar recetas por búsqueda y categoría
   const filteredRecipes = recipes.filter(recipe => {
     const recipeName = String(recipe?.name || '').toLowerCase()
@@ -1106,6 +1105,8 @@ function AllRecipesModal({
   useEffect(() => {
     setVisibleCount(20)
   }, [searchQuery, selectedCategory, recipes.length])
+
+  if (!mounted) return null
 
   const handleScroll = () => {
     const el = scrollRef.current
@@ -1202,9 +1203,20 @@ function AllRecipesModal({
                     }}
                   >
                     <div className="flex items-start gap-3 mb-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <ChefHat className="w-6 h-6 text-white" />
-                      </div>
+                      {recipe.image_url ? (
+                        <img
+                          src={recipe.image_url}
+                          alt={recipe.name}
+                          className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => {
+                            ;(e.target as HTMLImageElement).style.display = 'none'
+                          }}
+                        />
+                      ) : (
+                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <ChefHat className="w-6 h-6 text-white" />
+                        </div>
+                      )}
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-purple-600">
                           {recipe.name}
