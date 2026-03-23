@@ -17,8 +17,12 @@ export const metadata: Metadata = {
   keywords: 'fitness, entrenamiento, nutrición, progreso, bienestar',
   authors: [{ name: 'NEXFIT Team' }],
   icons: {
-    icon: '/icono.png',
-    apple: '/icono.png',
+    icon: [
+      { url: '/icono.png?v=2', type: 'image/png', sizes: '32x32' },
+      { url: '/icono.png?v=2', type: 'image/png', sizes: '192x192' },
+    ],
+    shortcut: ['/icono.png?v=2'],
+    apple: [{ url: '/icono.png?v=2', sizes: '180x180' }],
   },
   manifest: '/manifest.json',
   other: {
