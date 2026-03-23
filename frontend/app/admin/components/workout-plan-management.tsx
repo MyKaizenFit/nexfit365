@@ -272,21 +272,43 @@ export function WorkoutPlanManagement() {
 
   // Aplicar filtros del servidor cuando cambian
   useEffect(() => {
+    const normalizedServer = {
+      search: serverFilters.search || '',
+      difficulty: serverFilters.difficulty || 'all',
+      goal: serverFilters.goal || 'all',
+      min_role_required: serverFilters.min_role_required || 'all',
+      user: serverFilters.user || 'all',
+      is_template: serverFilters.is_template,
+    }
+
+    const desiredTemplateFilter =
+      planTypeFilter === 'templates' ? true :
+        planTypeFilter === 'users' ? false :
+          undefined
+
+    const filtersAlreadyApplied =
+      normalizedServer.search === searchTerm &&
+      normalizedServer.difficulty === difficultyFilter &&
+      normalizedServer.goal === goalFilter &&
+      normalizedServer.min_role_required === roleFilter &&
+      normalizedServer.user === userFilter &&
+      normalizedServer.is_template === desiredTemplateFilter
+
+    if (filtersAlreadyApplied) {
+      return
+    }
+
     const newFilters = {
       search: searchTerm,
       difficulty: difficultyFilter,
       goal: goalFilter,
       min_role_required: roleFilter,
-      location: locationFilter, // Este se filtra en cliente
       user: userFilter !== 'all' ? userFilter : undefined,
-      is_template:
-        planTypeFilter === 'templates' ? true :
-          planTypeFilter === 'users' ? false :
-            undefined
+      is_template: desiredTemplateFilter,
     }
 
     // Debounce para búsqueda
-    if (searchTerm !== serverFilters.search) {
+    if (searchTerm !== normalizedServer.search) {
       const timer = setTimeout(() => {
         updateFilters(newFilters)
       }, 500)
@@ -295,7 +317,7 @@ export function WorkoutPlanManagement() {
       updateFilters(newFilters)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm, roleFilter, difficultyFilter, goalFilter, locationFilter, userFilter, planTypeFilter])
+  }, [searchTerm, roleFilter, difficultyFilter, goalFilter, locationFilter, userFilter, planTypeFilter, serverFilters])
 
   function getPlanCategory(plan: any) {
     if (!plan) return "Desconocido"
