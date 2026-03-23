@@ -2,6 +2,7 @@
 # Serializers para la nueva estructura simplificada
 
 from rest_framework import serializers
+from django.db import DatabaseError
 from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
     WorkoutLog, WorkoutLogExercise, WorkoutLogSet
@@ -41,8 +42,11 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         return obj.get_video_url()
 
     def get_substitutes(self, obj):
-        substitutes = obj.get_substitutes()
-        return ExerciseSubstituteSerializer(substitutes, many=True).data
+        try:
+            substitutes = obj.get_substitutes()
+            return ExerciseSubstituteSerializer(substitutes, many=True).data
+        except DatabaseError:
+            return []
 
 
 class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer):
@@ -83,8 +87,11 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
         return obj.get_video_url()
 
     def get_substitutes(self, obj):
-        substitutes = obj.get_substitutes()
-        return ExerciseSubstituteSerializer(substitutes, many=True).data
+        try:
+            substitutes = obj.get_substitutes()
+            return ExerciseSubstituteSerializer(substitutes, many=True).data
+        except DatabaseError:
+            return []
 
 
 class WorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
