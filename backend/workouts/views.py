@@ -211,14 +211,27 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def available_templates(self, request):
         """Plantillas disponibles para asignar (alias de templates)"""
-        templates = WorkoutProgram.objects.filter(
-            is_template=True, is_active=True
-        ).prefetch_related(
-            'days__exercises__exercise',
-            'days__exercises__exercise__substitutions__substitute',
-        )
-        serializer = WorkoutProgramMinimalSerializer(templates, many=True)
-        return Response(serializer.data)
+        try:
+            templates = WorkoutProgram.objects.filter(
+                is_template=True, is_active=True
+            ).prefetch_related(
+                'days__exercises__exercise',
+                'days__exercises__exercise__substitutions__substitute',
+            )
+            serializer = WorkoutProgramMinimalSerializer(templates, many=True)
+            return Response(serializer.data)
+        except DatabaseError as exc:
+            logger.error("Fallback WorkoutProgramViewSet.available_templates por error de BD: %s", exc)
+            try:
+                fallback_templates = WorkoutProgram.objects.filter(
+                    is_template=True,
+                    is_active=True,
+                ).order_by('-created_at')[:100]
+                serializer = WorkoutProgramMinimalSerializer(fallback_templates, many=True)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except DatabaseError as fallback_exc:
+                logger.error("Fallback mínimo available_templates también falló: %s", fallback_exc)
+                return Response([], status=status.HTTP_200_OK)
     
     @action(detail=True, methods=['post'])
     def activate(self, request, pk=None):
