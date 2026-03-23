@@ -337,7 +337,7 @@ export function useDailyMeals() {
       
       localStorage.setItem(`meal-selections-${today}`, JSON.stringify(selections))
     }
-  }, [])
+  }, [planMealOptions, planOptionsByMealId])
 
   // Cargar selecciones desde localStorage como backup
   const loadSelectionsFromStorage = useCallback((meals: DailyMeal[]) => {
@@ -499,6 +499,14 @@ export function useDailyMeals() {
         const mealType = String(log.meal_type || '')
         const key = String(log.plan_meal_id || mealType)
         if (key) {
+          const optionsForMeal = (planOptionsByMealId[key] || planMealOptions[mealType] || []) as MealOption[]
+          const fallbackOption = optionsForMeal.find((opt) => {
+            const optRecipeId = opt?.recipeId != null ? String(opt.recipeId) : null
+            const logRecipeId = log?.recipe?.id != null ? String(log.recipe.id) : (log?.recipe ? String(log.recipe) : null)
+            if (optRecipeId && logRecipeId) return optRecipeId === logRecipeId
+            return opt?.name && log?.custom_description && String(opt.name) === String(log.custom_description)
+          })
+
           // Determinar el nombre de la comida - priorizar recipe_name, luego recipe.name, luego custom_description
           let mealNameToShow = 'Sin nombre'
           
@@ -521,13 +529,17 @@ export function useDailyMeals() {
           if (mealNameToShow === 'Sin nombre') {
             mealNameToShow = `${mealType} - Comida personalizada`
           }
+
+          if (mealNameToShow === 'Sin nombre' && fallbackOption?.name) {
+            mealNameToShow = fallbackOption.name
+          }
           
           // Crear MealOption con el nombre correcto
           // Asegurar que los valores nutricionales sean números, no null/undefined
-          const calories = Number(log.calories) || Number(log.recipe?.calories) || 0
-          const protein = Number(log.protein) || Number(log.recipe?.protein) || 0
-          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || 0
-          const fat = Number(log.fat) || Number(log.recipe?.fat) || 0
+          const calories = Number(log.calories) || Number(log.recipe?.calories) || Number(fallbackOption?.calories) || 0
+          const protein = Number(log.protein) || Number(log.recipe?.protein) || Number(fallbackOption?.protein) || 0
+          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || Number(fallbackOption?.carbs) || 0
+          const fat = Number(log.fat) || Number(log.recipe?.fat) || Number(fallbackOption?.fat) || 0
           
           selectionsMap[key] = {
             id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
@@ -536,12 +548,12 @@ export function useDailyMeals() {
             protein: protein,
             carbs: carbs,
             fat: fat,
-            imageUrl: log.recipe?.image_url || '',
+            imageUrl: log.recipe?.image_url || fallbackOption?.imageUrl || '',
             category: 'balanced',
-            icon: '🍽️',
-            description: log.recipe?.description || log.custom_description || '',
+            icon: fallbackOption?.icon || '🍽️',
+            description: log.recipe?.description || log.custom_description || fallbackOption?.description || '',
             cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
-            recipeId: log.recipe?.id || log.recipe
+            recipeId: log.recipe?.id || log.recipe || fallbackOption?.recipeId
           }
 
           nextMetaByKey[key] = {

@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, Camera } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +16,7 @@ import { useUserData } from '@/hooks/use-user-data'
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, uploadMealPhoto, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -30,7 +30,6 @@ export function MealDashboard() {
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [uploadingMealId, setUploadingMealId] = useState<string | null>(null)
 
   const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
     const fullMeal = meals.find((item) => item.id === meal.id)
@@ -80,31 +79,10 @@ export function MealDashboard() {
     }
   }
 
-  const handleUploadMealPhoto = async (mealId: string, file: File | null) => {
-    if (!file) return
-
-    if (!file.type.startsWith('image/')) {
-      return
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      return
-    }
-
-    setUploadingMealId(mealId)
-    try {
-      await uploadMealPhoto(mealId, file)
-    } finally {
-      setUploadingMealId(null)
-    }
-  }
-
   const handleSkipMeal = async (mealId: string) => {
-    const reason = window.prompt('¿Por qué no comes esta comida? (opcional)') || ''
+    const reason = window.prompt('¿Por qué no comes esta comida?', 'No me gusta esta comida') || 'No me gusta esta comida'
     await markMealAsNotEaten(mealId, reason, true)
   }
-
-  const mealsWithPhotos = useMemo(() => meals.filter((meal) => Boolean(meal.photo)), [meals])
 
   if (loading) {
     return (
@@ -368,31 +346,6 @@ export function MealDashboard() {
                     </button>
                   </div>
 
-                  <div className="mt-3 space-y-2">
-                    <label className="inline-flex items-center gap-2 text-xs md:text-sm text-gray-700 bg-white border border-gray-200 hover:border-blue-300 px-3 py-2 rounded-lg cursor-pointer transition-colors">
-                      <Camera className="w-4 h-4" />
-                      {uploadingMealId === meal.id ? 'Subiendo...' : 'Subir foto de comida'}
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(event) => {
-                          const selectedFile = event.target.files?.[0] || null
-                          void handleUploadMealPhoto(meal.id, selectedFile)
-                          event.currentTarget.value = ''
-                        }}
-                        disabled={uploadingMealId === meal.id}
-                      />
-                    </label>
-
-                    {meal.photo ? (
-                      <img
-                        src={meal.photo}
-                        alt={`Foto de ${meal.name}`}
-                        className="w-full h-40 object-cover rounded-lg border"
-                      />
-                    ) : null}
-                  </div>
                 </div>
               ) : (
                 <button
@@ -410,37 +363,6 @@ export function MealDashboard() {
           ))}
         </div>
       </div>
-
-      {mealsWithPhotos.length > 0 ? (
-        <Card className="border border-orange-100">
-          <CardHeader>
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Camera className="h-5 w-5 text-orange-600" />
-              Fotos de comidas del día
-            </CardTitle>
-            <CardDescription>
-              Historial visual de las comidas registradas hoy
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {mealsWithPhotos.map((meal) => (
-                <div key={`${meal.id}-photo`} className="rounded-lg border p-2 bg-white">
-                  <img
-                    src={meal.photo || ''}
-                    alt={`Foto de ${meal.name}`}
-                    className="w-full h-36 object-cover rounded-md"
-                  />
-                  <div className="mt-2 flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium truncate">{meal.name}</p>
-                    <Badge variant="outline" className="text-[10px]">{meal.time}</Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      ) : null}
 
           {/* Modal de selección de comidas */}
           {selectedMeal && (
