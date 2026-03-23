@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
+from django.db import DatabaseError
+import logging
 
 from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
@@ -18,6 +20,9 @@ from .serializers import (
     WorkoutDaySerializer, WorkoutDayExerciseSerializer,
     WorkoutLogSerializer, WorkoutLogExerciseSerializer, WorkoutLogSetSerializer
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class ExerciseViewSet(viewsets.ModelViewSet):
@@ -40,6 +45,37 @@ class ExerciseViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return ExerciseMinimalSerializer
         return ExerciseSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except DatabaseError as exc:
+            logger.error("Fallback ExerciseViewSet.list por error de BD: %s", exc)
+            try:
+                fallback_qs = Exercise.objects.filter(is_active=True).order_by('name')[:100]
+                serializer = ExerciseMinimalSerializer(fallback_qs, many=True)
+                return Response(
+                    {
+                        'count': len(serializer.data),
+                        'next': None,
+                        'previous': None,
+                        'results': serializer.data,
+                        'fallback': True,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            except DatabaseError as fallback_exc:
+                logger.error("Fallback ExerciseViewSet.list también falló: %s", fallback_exc)
+                return Response(
+                    {
+                        'count': 0,
+                        'next': None,
+                        'previous': None,
+                        'results': [],
+                        'fallback': True,
+                    },
+                    status=status.HTTP_200_OK,
+                )
     
     @action(detail=False, methods=['get'])
     def categories(self, request):
