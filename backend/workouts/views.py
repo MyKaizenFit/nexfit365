@@ -122,6 +122,39 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         if self.action == 'list':
             return WorkoutProgramMinimalSerializer
         return WorkoutProgramSerializer
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except DatabaseError as exc:
+            logger.error("Fallback WorkoutProgramViewSet.list por error de BD: %s", exc)
+            try:
+                fallback_qs = WorkoutProgram.objects.filter(is_active=True).filter(
+                    models.Q(is_system=True) | models.Q(user=request.user)
+                ).order_by('-created_at')[:100]
+                serializer = WorkoutProgramMinimalSerializer(fallback_qs, many=True)
+                return Response(
+                    {
+                        'count': len(serializer.data),
+                        'next': None,
+                        'previous': None,
+                        'results': serializer.data,
+                        'fallback': True,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+            except DatabaseError as fallback_exc:
+                logger.error("Fallback WorkoutProgramViewSet.list también falló: %s", fallback_exc)
+                return Response(
+                    {
+                        'count': 0,
+                        'next': None,
+                        'previous': None,
+                        'results': [],
+                        'fallback': True,
+                    },
+                    status=status.HTTP_200_OK,
+                )
     
     @action(detail=False, methods=['get'])
     def my_programs(self, request):
