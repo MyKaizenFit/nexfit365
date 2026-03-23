@@ -1,6 +1,7 @@
 # nutrition/services.py
 from typing import Dict, List, Optional, Tuple
 from django.db.models import Q
+from django.db import DatabaseError
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from accounts.models import CustomUser
@@ -48,12 +49,15 @@ def _get_user_blocked_terms(user: CustomUser) -> List[str]:
     blocked_terms = []
     blocked_terms.extend(_normalize_preference_terms(getattr(user, 'allergies', None)))
     blocked_terms.extend(_normalize_preference_terms(getattr(user, 'disliked_foods', None)))
-    blocked_terms.extend(_normalize_preference_terms(
-        MealIngredientExclusion.objects.filter(
-            user=user,
-            is_active=True,
-        ).values_list('term', flat=True)
-    ))
+    try:
+        blocked_terms.extend(_normalize_preference_terms(
+            MealIngredientExclusion.objects.filter(
+                user=user,
+                is_active=True,
+            ).values_list('term', flat=True)
+        ))
+    except DatabaseError as exc:
+        logger.warning("No se pudo leer MealIngredientExclusion para usuario %s: %s", user.id, exc)
 
     unique_terms = []
     seen = set()

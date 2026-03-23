@@ -8,6 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
+from django.db import DatabaseError
 from django.db.models import Q
 
 from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion
@@ -21,10 +22,82 @@ from .services import PersonalizedNutritionService, recipe_is_compatible_for_use
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
+import re
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from notifications.utils import notify_admins_user_change
 
 logger = logging.getLogger(__name__)
+
+RECIPE_EXCLUSION_TOKEN_PATTERN = re.compile(r'\[recipe:([0-9a-fA-F-]{36})\]')
+
+
+def _safe_recipe_payload(recipe: Recipe):
+    """Serializa receta con fallback cuando hay relaciones inconsistentes."""
+    try:
+        return RecipeSerializer(recipe).data
+    except Exception as exc:
+        logger.warning("Fallback de serialización para receta %s: %s", recipe.id, exc)
+        return {
+            'id': str(recipe.id),
+            'name': recipe.name,
+            'description': recipe.description or '',
+            'category': recipe.category or '',
+            'difficulty': recipe.difficulty or '',
+            'prep_time_minutes': recipe.prep_time_minutes or 0,
+            'cook_time_minutes': recipe.cook_time_minutes or 0,
+            'servings': recipe.servings or 1,
+            'calories': recipe.calories or 0,
+            'protein': float(recipe.protein or 0),
+            'carbs': float(recipe.carbs or 0),
+            'fat': float(recipe.fat or 0),
+            'fiber': float(recipe.fiber or 0),
+            'ingredients': recipe.ingredients or [],
+            'instructions': recipe.instructions or '',
+            'image_url': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'meal_types': recipe.meal_types or [],
+            'diet_types': recipe.diet_types or [],
+            'allergens': recipe.allergens or [],
+            'tags': recipe.tags or [],
+            'is_active': bool(recipe.is_active),
+        }
+
+
+def _extract_fallback_excluded_recipe_ids(user) -> set[str]:
+    disliked_foods = str(getattr(user, 'disliked_foods', '') or '')
+    return {match.group(1).lower() for match in RECIPE_EXCLUSION_TOKEN_PATTERN.finditer(disliked_foods)}
+
+
+def _persist_fallback_excluded_recipe(user, recipe_id) -> None:
+    token = f"[recipe:{str(recipe_id).lower()}]"
+    disliked_foods = str(getattr(user, 'disliked_foods', '') or '')
+    if token in disliked_foods:
+        return
+
+    updated = f"{disliked_foods}\n{token}".strip() if disliked_foods else token
+    user.disliked_foods = updated
+    user.save(update_fields=['disliked_foods'])
+
+
+def _remove_fallback_excluded_recipe(user, recipe_id) -> None:
+    token = f"[recipe:{str(recipe_id).lower()}]"
+    disliked_foods = str(getattr(user, 'disliked_foods', '') or '')
+    if token not in disliked_foods:
+        return
+
+    lines = [line.strip() for line in disliked_foods.splitlines() if line.strip()]
+    filtered = [line for line in lines if line != token]
+    user.disliked_foods = '\n'.join(filtered)
+    user.save(update_fields=['disliked_foods'])
+
+
+def _get_excluded_recipe_ids(user) -> set[str]:
+    excluded_ids = set(_extract_fallback_excluded_recipe_ids(user))
+    try:
+        db_ids = MealRecipeExclusion.objects.filter(user=user, is_active=True).values_list('recipe_id', flat=True)
+        excluded_ids.update(str(recipe_id).lower() for recipe_id in db_ids)
+    except DatabaseError as exc:
+        logger.warning("No se pudo leer MealRecipeExclusion para usuario %s: %s", user.id, exc)
+    return excluded_ids
 
 
 def get_active_plan_for_user(user):
@@ -85,12 +158,10 @@ def plan_meals_for_selection(request):
     logger.info(f"🔥 Calorías diarias calculadas: {daily_calories} kcal")
     logger.info(f"📈 Macros diarios: P={daily_macros['protein']:.1f}g, C={daily_macros['carbs']:.1f}g, G={daily_macros['fat']:.1f}g")
 
-    excluded_recipe_ids = set(
-        MealRecipeExclusion.objects.filter(user=user, is_active=True).values_list('recipe_id', flat=True)
-    )
+    excluded_recipe_ids = _get_excluded_recipe_ids(user)
 
     def recipe_allowed_for_user(recipe: Recipe) -> bool:
-        if recipe.id in excluded_recipe_ids:
+        if str(recipe.id).lower() in excluded_recipe_ids:
             return False
         return recipe_is_compatible_for_user(recipe, user)
 
@@ -774,18 +845,27 @@ def daily_meal_selections(request):
         )
 
         if skip_meal and recipe and exclude_from_recommendations:
-            exclusion, _ = MealRecipeExclusion.objects.get_or_create(
-                user=user,
-                recipe=recipe,
-                defaults={
-                    'reason': skip_reason,
-                    'is_active': True,
-                },
-            )
-            if exclusion and not exclusion.is_active:
-                exclusion.is_active = True
-                exclusion.reason = skip_reason or exclusion.reason
-                exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+            try:
+                exclusion, _ = MealRecipeExclusion.objects.get_or_create(
+                    user=user,
+                    recipe=recipe,
+                    defaults={
+                        'reason': skip_reason,
+                        'is_active': True,
+                    },
+                )
+                if exclusion and not exclusion.is_active:
+                    exclusion.is_active = True
+                    exclusion.reason = skip_reason or exclusion.reason
+                    exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+            except DatabaseError as exc:
+                logger.warning(
+                    "No se pudo guardar MealRecipeExclusion para usuario %s y receta %s: %s",
+                    user.id,
+                    recipe.id,
+                    exc,
+                )
+                _persist_fallback_excluded_recipe(user, recipe.id)
         
         serializer = MealLogSerializer(meal_log)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
@@ -797,20 +877,43 @@ def meal_exclusions(request):
     user = request.user
 
     if request.method == 'GET':
-        exclusions = MealRecipeExclusion.objects.filter(
-            user=user,
-            is_active=True,
-        ).select_related('recipe').order_by('-updated_at')
-        data = [
-            {
-                'id': str(exclusion.id),
-                'recipe_id': str(exclusion.recipe_id),
-                'recipe_name': exclusion.recipe.name,
-                'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
-                'reason': exclusion.reason,
-            }
-            for exclusion in exclusions
-        ]
+        data = []
+        try:
+            exclusions = MealRecipeExclusion.objects.filter(
+                user=user,
+                is_active=True,
+            ).select_related('recipe').order_by('-updated_at')
+            data = [
+                {
+                    'id': str(exclusion.id),
+                    'recipe_id': str(exclusion.recipe_id),
+                    'recipe_name': exclusion.recipe.name,
+                    'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+                    'reason': exclusion.reason,
+                }
+                for exclusion in exclusions
+            ]
+        except DatabaseError as exc:
+            logger.warning("Fallback GET meal_exclusions para usuario %s: %s", user.id, exc)
+            fallback_ids = list(_extract_fallback_excluded_recipe_ids(user))
+            if fallback_ids:
+                recipe_map = {
+                    str(recipe.id).lower(): recipe
+                    for recipe in Recipe.objects.filter(id__in=fallback_ids, is_active=True)
+                }
+                data = [
+                    {
+                        'id': f"fallback-{recipe_id}",
+                        'recipe_id': recipe_id,
+                        'recipe_name': recipe_map[recipe_id].name if recipe_id in recipe_map else 'Receta excluida',
+                        'image_url': (
+                            recipe_map[recipe_id].image_url
+                            or (recipe_map[recipe_id].image.url if recipe_id in recipe_map and recipe_map[recipe_id].image else '')
+                        ) if recipe_id in recipe_map else '',
+                        'reason': 'No me gusta esta comida',
+                    }
+                    for recipe_id in fallback_ids
+                ]
         return Response({'exclusions': data}, status=status.HTTP_200_OK)
 
     recipe_id = request.data.get('recipe_id')
@@ -819,54 +922,70 @@ def meal_exclusions(request):
         return Response({'error': 'recipe_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
     recipe = get_object_or_404(Recipe, id=recipe_id)
-    exclusion, _ = MealRecipeExclusion.objects.get_or_create(
-        user=user,
-        recipe=recipe,
-        defaults={'reason': reason, 'is_active': True},
-    )
-    if not exclusion.is_active or reason:
-        exclusion.is_active = True
-        if reason:
-            exclusion.reason = reason
-        exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+    exclusion_payload = None
+    try:
+        exclusion, _ = MealRecipeExclusion.objects.get_or_create(
+            user=user,
+            recipe=recipe,
+            defaults={'reason': reason, 'is_active': True},
+        )
+        if not exclusion.is_active or reason:
+            exclusion.is_active = True
+            if reason:
+                exclusion.reason = reason
+            exclusion.save(update_fields=['is_active', 'reason', 'updated_at'])
+
+        exclusion_payload = {
+            'id': str(exclusion.id),
+            'recipe_id': str(exclusion.recipe_id),
+            'recipe_name': exclusion.recipe.name,
+            'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+            'reason': exclusion.reason,
+        }
+    except DatabaseError as exc:
+        logger.warning("Fallback POST meal_exclusions para usuario %s y receta %s: %s", user.id, recipe.id, exc)
+        _persist_fallback_excluded_recipe(user, recipe.id)
+        exclusion_payload = {
+            'id': f"fallback-{recipe.id}",
+            'recipe_id': str(recipe.id),
+            'recipe_name': recipe.name,
+            'image_url': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'reason': reason or 'No me gusta esta comida',
+        }
 
     notify_admins_user_change(
         user=user,
         title='🥗 Cambios en preferencias de nutrición',
-        message=f"{user.email} agregó ingrediente no consumido: {exclusion.term}",
+        message=f"{user.email} marcó receta como no consumida: {recipe.name}",
         data={
             'category': 'nutrition_exclusion_change',
-            'change_type': 'ingredient_exclusion_added',
-            'ingredient_term': exclusion.term,
+            'change_type': 'recipe_exclusion_added',
+            'recipe_name': recipe.name,
         },
     )
 
     notify_admins_user_change(
         user=user,
         title='🗂️ Cambios en exclusiones de recetas',
-        message=f"{user.email} marcó como no consumida la receta: {exclusion.recipe.name}",
+        message=f"{user.email} marcó como no consumida la receta: {recipe.name}",
         data={
             'category': 'nutrition_exclusion_change',
             'change_type': 'recipe_exclusion_added',
-            'recipe_name': exclusion.recipe.name,
+            'recipe_name': recipe.name,
         },
     )
 
-    return Response(
-        {
-            'id': str(exclusion.id),
-            'recipe_id': str(exclusion.recipe_id),
-            'recipe_name': exclusion.recipe.name,
-            'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
-            'reason': exclusion.reason,
-        },
-        status=status.HTTP_201_CREATED,
-    )
+    return Response(exclusion_payload, status=status.HTTP_201_CREATED)
 
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def meal_exclusion_detail(request, exclusion_id):
+    if str(exclusion_id).startswith('fallback-'):
+        recipe_id = str(exclusion_id).replace('fallback-', '', 1)
+        _remove_fallback_excluded_recipe(request.user, recipe_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     exclusion = get_object_or_404(MealRecipeExclusion, id=exclusion_id, user=request.user)
     recipe_name = exclusion.recipe.name
     if exclusion.is_active:
@@ -1429,8 +1548,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         logger.info(f"🔥 Calorías diarias: {daily_calories} kcal, Factor escala: {personalized['scale_factor']:.2f}, "
                    f"Calorías personalizadas: {personalized['macros']['calories']} kcal")
         
-        # Serializar la receta
-        recipe_data = RecipeSerializer(recipe).data
+        # Serializar la receta (con fallback para evitar 500 por datos relacionales inconsistentes)
+        recipe_data = _safe_recipe_payload(recipe)
         
         return Response({
             'recipe': recipe_data,

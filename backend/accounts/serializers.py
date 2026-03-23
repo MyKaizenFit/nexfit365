@@ -1,5 +1,6 @@
 # accounts/serializers.py
 from rest_framework import serializers
+from django.db import DatabaseError
 from datetime import timedelta
 from django.db import models
 from django.utils import timezone
@@ -179,11 +180,14 @@ class AdminUserSerializer(serializers.ModelSerializer):
         }
 
     def get_excluded_recipes(self, obj):
-        exclusions = (
-            MealRecipeExclusion.objects.filter(user=obj, is_active=True)
-            .select_related('recipe')
-            .order_by('-updated_at')[:25]
-        )
+        try:
+            exclusions = (
+                MealRecipeExclusion.objects.filter(user=obj, is_active=True)
+                .select_related('recipe')
+                .order_by('-updated_at')[:25]
+            )
+        except DatabaseError:
+            return []
         return [
             {
                 'id': str(item.id),
@@ -195,7 +199,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
         ]
 
     def get_excluded_ingredients(self, obj):
-        exclusions = MealIngredientExclusion.objects.filter(user=obj, is_active=True).order_by('term')[:50]
+        try:
+            exclusions = MealIngredientExclusion.objects.filter(user=obj, is_active=True).order_by('term')[:50]
+        except DatabaseError:
+            return []
         return [
             {
                 'id': str(item.id),

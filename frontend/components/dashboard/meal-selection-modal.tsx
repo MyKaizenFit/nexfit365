@@ -60,29 +60,6 @@ export function MealSelectionModal({
     setLoadingRecipes(true)
     setShowAllRecipes(true)
     try {
-      // Extraer todos los recipeId de las opciones recomendadas (pueden ser números o UUIDs)
-      const recipeIds = options
-        .map(option => option.recipeId)
-        .filter((id): id is number | string => id !== undefined && id !== null)
-      
-      let loadedRecipes: Recipe[] = []
-
-      if (recipeIds.length > 0) {
-        // Cargar las recetas específicas de las opciones
-        const recipePromises = recipeIds.map(async (recipeId) => {
-          try {
-            const recipe = await nutritionService.getRecipe(recipeId)
-            return recipe
-          } catch (error) {
-            return null
-          }
-        }) // <-- close the object and function call properly
-
-        const loaded = await Promise.all(recipePromises)
-        loadedRecipes = loaded.filter((recipe): recipe is Recipe => recipe !== null)
-      }
-
-      // Cargar todas las recetas disponibles (para evitar quedarse solo con recomendadas)
       const allRecipes = await nutritionService.listRecipes()
 
       // Filtrar recetas por tipo de comida si es posible
@@ -94,17 +71,13 @@ export function MealSelectionModal({
         return true
       })
 
-      // Combinar recomendadas + filtradas evitando duplicados
-      const merged = [...loadedRecipes, ...filteredRecipes]
-      const uniqueById = new Map<string, Recipe>()
-      for (const recipe of merged) {
-        uniqueById.set(String(recipe.id), recipe)
-      }
-      loadedRecipes = Array.from(uniqueById.values())
-      
-      setAllRecipes(loadedRecipes)
+      setAllRecipes(filteredRecipes)
     } catch (error) {
-      alert('Error al cargar las recetas. Por favor, intenta de nuevo.')
+      toast({
+        title: 'No se pudieron cargar las recetas',
+        description: 'Inténtalo de nuevo en unos segundos.',
+        variant: 'destructive',
+      })
       setAllRecipes([])
     } finally {
       setLoadingRecipes(false)
@@ -329,7 +302,7 @@ export function MealSelectionModal({
       
       // Para otros errores, mostrar alerta pero también ofrecer ver todas las recetas
       const shouldOpenAllRecipes = confirm(
-        `Error al cargar la receta: ${errorMessage}\n\n¿Deseas ver todas las recetas disponibles?`
+        `No se pudo cargar esta receta (${errorMessage}).\n\n¿Quieres ver todas las recetas disponibles?`
       )
       
       if (shouldOpenAllRecipes) {
@@ -389,7 +362,7 @@ export function MealSelectionModal({
     const recipeId = String(option.recipeId)
     setExcludingRecipeId(recipeId)
     try {
-      const created = await nutritionService.addRecipeExclusion(recipeId, 'No como esta receta')
+      const created = await nutritionService.addRecipeExclusion(recipeId, 'No me gusta esta comida')
       if (!created) {
         toast({
           title: 'No se pudo excluir',
@@ -401,8 +374,8 @@ export function MealSelectionModal({
 
       setExcludedRecipeIds((prev) => new Set([...Array.from(prev), recipeId]))
       toast({
-        title: 'Receta excluida',
-        description: `${option.name} ya no aparecerá en tus sugerencias.`,
+        title: 'Guardado',
+        description: `Marcaste "${option.name}" como "No me gusta esta comida".`,
       })
     } finally {
       setExcludingRecipeId(null)
@@ -421,13 +394,13 @@ export function MealSelectionModal({
     setExcludingAllVisible(true)
     try {
       await Promise.all(
-        visibleRecipeIds.map((recipeId) => nutritionService.addRecipeExclusion(recipeId, 'No como esta receta'))
+        visibleRecipeIds.map((recipeId) => nutritionService.addRecipeExclusion(recipeId, 'No me gusta esta comida'))
       )
 
       setExcludedRecipeIds((prev) => new Set([...Array.from(prev), ...visibleRecipeIds]))
       toast({
         title: 'Recetas excluidas',
-        description: 'Se ocultaron todas las recetas visibles de esta comida.',
+        description: 'Marcaste estas recetas como "No me gusta esta comida".',
       })
     } finally {
       setExcludingAllVisible(false)
@@ -649,7 +622,7 @@ export function MealSelectionModal({
                           className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all touch-manipulation active:scale-[0.98]"
                           disabled={!option.recipeId || excludingRecipeId === String(option.recipeId)}
                         >
-                          {excludingRecipeId === String(option.recipeId) ? 'Guardando...' : '⏭️ No como'}
+                          {excludingRecipeId === String(option.recipeId) ? 'Guardando...' : '⏭️ No me gusta esta comida'}
                         </button>
                       </div>
                     </div>
