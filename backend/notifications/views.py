@@ -4,8 +4,10 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
+from django.db import DatabaseError
 from django.db.models import Count
 from django.utils import timezone
+import logging
 
 from .models import Notification, PushSubscription
 from .models import AdminMessage
@@ -23,6 +25,7 @@ from .permissions import (
 
 
 IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
+logger = logging.getLogger(__name__)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -81,11 +84,24 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return scoped
 
     def list(self, request, *args, **kwargs):
-        auto_read = str(request.query_params.get("auto_read", "false")).strip().lower()
-        should_auto_read = auto_read in {"1", "true", "yes"}
-        if should_auto_read:
-            self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
-        return super().list(request, *args, **kwargs)
+        try:
+            auto_read = str(request.query_params.get("auto_read", "false")).strip().lower()
+            should_auto_read = auto_read in {"1", "true", "yes"}
+            if should_auto_read:
+                self.get_queryset().filter(read_at__isnull=True).update(read_at=timezone.now())
+            return super().list(request, *args, **kwargs)
+        except DatabaseError as exc:
+            logger.error("Fallback NotificationViewSet.list por error de BD: %s", exc)
+            return Response(
+                {
+                    "count": 0,
+                    "next": None,
+                    "previous": None,
+                    "results": [],
+                    "fallback": True,
+                },
+                status=status.HTTP_200_OK,
+            )
     
     def get_serializer_class(self):
         if self.action == "create":
@@ -161,8 +177,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """Obtener contador de notificaciones no leídas"""
         user_id = user_id or request.user.id
         queryset = self.get_queryset()
-        
-        unread_count = queryset.filter(read_at__isnull=True).count()
+        try:
+            unread_count = queryset.filter(read_at__isnull=True).count()
+        except DatabaseError as exc:
+            logger.error("Fallback NotificationViewSet.unread_count por error de BD: %s", exc)
+            unread_count = 0
         
         return Response({"unread_count": unread_count})
     
@@ -171,18 +190,24 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """Obtener resumen de notificaciones"""
         user_id = user_id or request.user.id
         queryset = self.get_queryset()
-        
-        # Estadísticas básicas
-        total_notifications = queryset.count()
-        unread_count = queryset.filter(read_at__isnull=True).count()
-        
-        # Notificaciones por tipo
-        notifications_by_type = queryset.values("type").annotate(
-            count=Count("id")
-        ).order_by("-count")
-        
-        # Última notificación
-        latest_notification = queryset.first().created_at if queryset.exists() else None
+        try:
+            # Estadísticas básicas
+            total_notifications = queryset.count()
+            unread_count = queryset.filter(read_at__isnull=True).count()
+
+            # Notificaciones por tipo
+            notifications_by_type = queryset.values("type").annotate(
+                count=Count("id")
+            ).order_by("-count")
+
+            # Última notificación
+            latest_notification = queryset.first().created_at if queryset.exists() else None
+        except DatabaseError as exc:
+            logger.error("Fallback NotificationViewSet.summary por error de BD: %s", exc)
+            total_notifications = 0
+            unread_count = 0
+            notifications_by_type = []
+            latest_notification = None
         
         data = {
             "total_notifications": total_notifications,
