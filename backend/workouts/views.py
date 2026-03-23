@@ -169,20 +169,35 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     def my_active_program(self, request):
         """Programa activo del usuario actual"""
         from .services import reset_weekly_workout_plan_if_needed
-        
-        program = WorkoutProgram.objects.filter(
-            user=request.user, is_active=True
-        ).prefetch_related(
-            'days__exercises__exercise',
-            'days__exercises__exercise__substitutions__substitute',
-        ).order_by('-created_at').first()
-        
-        if program:
-            # Inicializar start_date si falta, sin reinicios semanales automáticos.
-            program = reset_weekly_workout_plan_if_needed(program)
-            serializer = WorkoutProgramSerializer(program)
-            return Response({'program': serializer.data})
-        return Response({'program': None})
+
+        try:
+            program = WorkoutProgram.objects.filter(
+                user=request.user, is_active=True
+            ).prefetch_related(
+                'days__exercises__exercise',
+                'days__exercises__exercise__substitutions__substitute',
+            ).order_by('-created_at').first()
+
+            if program:
+                # Inicializar start_date si falta, sin reinicios semanales automáticos.
+                program = reset_weekly_workout_plan_if_needed(program)
+                serializer = WorkoutProgramSerializer(program)
+                return Response({'program': serializer.data})
+            return Response({'program': None})
+        except DatabaseError as exc:
+            logger.error("Fallback WorkoutProgramViewSet.my_active_program por error de BD: %s", exc)
+            try:
+                fallback_program = WorkoutProgram.objects.filter(
+                    user=request.user,
+                    is_active=True,
+                ).order_by('-created_at').first()
+                if fallback_program:
+                    serializer = WorkoutProgramMinimalSerializer(fallback_program)
+                    return Response({'program': serializer.data, 'fallback': True}, status=status.HTTP_200_OK)
+            except DatabaseError as fallback_exc:
+                logger.error("Fallback mínimo my_active_program también falló: %s", fallback_exc)
+
+            return Response({'program': None, 'fallback': True}, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def templates(self, request):
