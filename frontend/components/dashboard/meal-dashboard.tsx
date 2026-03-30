@@ -257,11 +257,17 @@ export function MealDashboard() {
                           src={meal.selectedOption.imageUrl}
                           alt={meal.selectedOption.name}
                           className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement
+                            img.style.display = 'none'
+                            const sibling = img.nextElementSibling as HTMLElement
+                            if (sibling) sibling.style.display = 'flex'
+                          }}
                         />
                       ) : null}
                       <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
                         meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
-                      }`}>
+                      }${meal.selectedOption.imageUrl ? ' hidden' : ''}`}>
                         <span className="text-base md:text-lg">{meal.selectedOption.icon}</span>
                       </div>
                       <div className="flex-1 min-w-0">
