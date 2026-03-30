@@ -524,13 +524,14 @@ export function MealSelectionModal({
                   }`}
                 >
                   <div className="flex items-start gap-4 md:gap-3">
-                    {option.imageUrl ? (
-                      <img
-                        src={option.imageUrl}
-                        alt={option.name}
-                        className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                      />
-                    ) : null}
+                    <img
+                      src={option.imageUrl || '/placeholder.jpg'}
+                      alt={option.name}
+                      className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                      }}
+                    />
                     <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">
@@ -1019,20 +1020,18 @@ function RecipeDetailModal({
               </div>
             )}
 
-            {/* Imagen si está disponible */}
-            {recipe.image_url && (
-              <div>
-                <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3">Imagen de la Receta</h3>
-                <img
-                  src={recipe.image_url}
-                  alt={recipe.name}
-                  className="w-full rounded-xl md:rounded-lg object-cover shadow-lg md:shadow-md"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-              </div>
-            )}
+            {/* Imagen de la receta */}
+            <div>
+              <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900 mb-4 md:mb-3">Imagen de la Receta</h3>
+              <img
+                src={recipe.image_url || '/placeholder.jpg'}
+                alt={recipe.name}
+                className="w-full rounded-xl md:rounded-lg object-cover shadow-lg md:shadow-md"
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                }}
+              />
+            </div>
           </div>
 
           {/* Footer */}
@@ -1203,20 +1202,14 @@ function AllRecipesModal({
                     }}
                   >
                     <div className="flex items-start gap-3 mb-3">
-                      {recipe.image_url ? (
-                        <img
-                          src={recipe.image_url}
-                          alt={recipe.name}
-                          className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                          onError={(e) => {
-                            ;(e.target as HTMLImageElement).style.display = 'none'
-                          }}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gradient-to-br from-purple-400 to-indigo-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                          <ChefHat className="w-6 h-6 text-white" />
-                        </div>
-                      )}
+                      <img
+                        src={recipe.image_url || '/placeholder.jpg'}
+                        alt={recipe.name}
+                        className="w-12 h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                        }}
+                      />
                       <div className="flex-1 min-w-0">
                         <h3 className="font-semibold text-gray-900 mb-1 line-clamp-2 group-hover:text-purple-600">
                           {recipe.name}

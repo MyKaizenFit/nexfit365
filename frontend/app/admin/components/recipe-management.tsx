@@ -130,6 +130,11 @@ export function RecipeManagement() {
     recipe_ingredients: [],
     image_url: '',
   })
+
+  // Nuevo: input para URL de imagen
+  const handleImageUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData((prev) => ({ ...prev, image_url: e.target.value }))
+  }
   const [ingredientSearch, setIngredientSearch] = useState('')
   const [ingredientInputValue, setIngredientInputValue] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
@@ -709,8 +714,23 @@ export function RecipeManagement() {
   const macros = calculateMacros(formData.recipe_ingredients)
 
   return (
-    <div className="space-y-6">
-      {/* Card de Exportación/Importación */}
+    <div className="space-y-8">
+      {/* ...existing code... */}
+      {/* Campo para URL de imagen de receta (solo admins) */}
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-gray-700">URL de imagen (visible para usuarios)</label>
+        <input
+          type="url"
+          className="w-full border rounded px-3 py-2 text-sm"
+          placeholder="https://..."
+          value={formData.image_url}
+          onChange={handleImageUrlChange}
+        />
+        {formData.image_url && (
+          <img src={formData.image_url} alt="Preview" className="mt-2 max-h-40 rounded shadow" />
+        )}
+        <p className="text-xs text-gray-500">Pega aquí la URL de la imagen. Se mostrará a los usuarios en el dashboard.</p>
+      </div>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
