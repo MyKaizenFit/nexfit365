@@ -917,11 +917,23 @@ export function RecipeManagement() {
                             />
                             <div className="h-12 w-12 rounded-md overflow-hidden border border-gray-200 bg-gray-50 flex items-center justify-center">
                               {resolveRecipeImageSrc(recipe.image_url, recipe.image) ? (
-                                <img
-                                  src={resolveRecipeImageSrc(recipe.image_url, recipe.image)}
-                                  alt={recipe.name}
-                                  className="h-full w-full object-cover"
-                                />
+                                <div className="relative h-12 w-12">
+                                  <img
+                                    src={resolveRecipeImageSrc(recipe.image_url, recipe.image)}
+                                    alt={recipe.name}
+                                    className="h-full w-full object-cover absolute top-0 left-0"
+                                    onError={(e) => {
+                                      const img = e.target as HTMLImageElement;
+                                      img.style.display = 'none';
+                                      const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
+                                      if (errorDiv) errorDiv.classList.remove('hidden');
+                                    }}
+                                  />
+                                  <div className="img-error-feedback hidden h-full w-full flex flex-col items-center justify-center bg-red-100 border border-red-300 text-red-700 text-xs absolute top-0 left-0">
+                                    <span className="text-lg">❌</span>
+                                    <span>Imagen no disponible</span>
+                                  </div>
+                                </div>
                               ) : (
                                 <ImageIcon className="h-5 w-5 text-gray-400" />
                               )}
