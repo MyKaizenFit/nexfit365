@@ -524,14 +524,23 @@ export function MealSelectionModal({
                   }`}
                 >
                   <div className="flex items-start gap-4 md:gap-3">
-                    <img
-                      src={option.imageUrl || '/placeholder.jpg'}
-                      alt={option.name}
-                      className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
-                      }}
-                    />
+                    <div className="relative w-14 h-14 md:w-12 md:h-12 flex-shrink-0">
+                      <img
+                        src={option.imageUrl || '/placeholder.jpg'}
+                        alt={option.name}
+                        className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 absolute top-0 left-0"
+                        onError={(e) => {
+                          const img = e.target as HTMLImageElement;
+                          img.style.display = 'none';
+                          const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
+                          if (errorDiv) errorDiv.classList.remove('hidden');
+                        }}
+                      />
+                      <div className="img-error-feedback hidden w-14 h-14 md:w-12 md:h-12 rounded-lg flex flex-col items-center justify-center bg-red-100 border border-red-300 text-red-700 text-xs absolute top-0 left-0">
+                        <span className="text-lg md:text-xl">❌</span>
+                        <span>Imagen no disponible</span>
+                      </div>
+                    </div>
                     <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">

@@ -743,7 +743,23 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-white">
                   <div className="flex items-center gap-2 min-w-0">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.recipe_name} className="w-8 h-8 rounded object-cover border" />
+                      <div className="relative w-8 h-8">
+                        <img
+                          src={item.image_url}
+                          alt={item.recipe_name}
+                          className="w-8 h-8 rounded object-cover border absolute top-0 left-0"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement;
+                            img.style.display = 'none';
+                            const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
+                            if (errorDiv) errorDiv.classList.remove('hidden');
+                          }}
+                        />
+                        <div className="img-error-feedback hidden w-8 h-8 flex flex-col items-center justify-center bg-red-100 border border-red-300 text-red-700 text-[10px] absolute top-0 left-0 rounded">
+                          <span className="text-base">❌</span>
+                          <span>Sin imagen</span>
+                        </div>
+                      </div>
                     ) : null}
                     <span className="text-sm truncate">{item.recipe_name}</span>
                   </div>
