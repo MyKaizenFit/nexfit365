@@ -336,25 +336,25 @@ export function ProgressDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-24">
       {/* Header del Progreso */}
-      <div className="text-center space-y-4 animate-in slide-in-from-top-8 duration-700">
-        <div className="mx-auto w-16 h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center animate-bounce">
-          <TrendingUp className="w-8 h-8 text-white" />
+      <div className="text-center space-y-3 animate-in slide-in-from-top-8 duration-700">
+        <div className="mx-auto w-14 h-14 md:w-16 md:h-16 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-2xl flex items-center justify-center animate-bounce">
+          <TrendingUp className="w-7 h-7 md:w-8 md:h-8 text-white" />
         </div>
-        <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
+        <h2 className="text-xl md:text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">
           Histórico de Tu Progreso 📈
         </h2>
-        <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4 text-xs md:text-sm text-muted-foreground">
+          <div className="flex items-center gap-1.5 md:gap-2">
             <Weight className="h-4 w-4" />
             <span>
               {currentWeight ? `${currentWeight} kg` : 'Sin registro'}
               {targetWeight && ` → Objetivo: ${targetWeight} kg`}
             </span>
           </div>
-          <span>•</span>
-          <div className="flex items-center gap-2">
+          <span className="hidden sm:inline">•</span>
+          <div className="flex items-center gap-1.5 md:gap-2">
             <Calendar className="h-4 w-4" />
             <span>{daysInTransformation} día{daysInTransformation !== 1 ? 's' : ''} en transformación</span>
           </div>
@@ -362,7 +362,7 @@ export function ProgressDashboard() {
       </div>
 
       {/* Resumen de Cambios Recientes */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
         {/* Cambio de Peso Reciente */}
         {weightEntries.length > 0 && (
           <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">

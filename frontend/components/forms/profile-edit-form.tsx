@@ -410,57 +410,52 @@ export function ProfileEditForm({
   );
 
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
+    <Card className="w-full p-2 sm:p-4 rounded-lg shadow-sm bg-white">
+      <CardHeader className="p-2 sm:p-4">
+        <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <User className="h-5 w-5" />
           Editar Perfil
         </CardTitle>
-        <CardDescription>
+        <CardDescription className="text-xs sm:text-sm">
           Actualiza tu información personal y preferencias
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <CardContent className="p-2 sm:p-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
           <Tabs defaultValue="personal" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="personal" className="flex items-center gap-2">
+            <TabsList className="grid w-full grid-cols-4 text-xs sm:text-sm">
+              <TabsTrigger value="personal" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1 sm:py-2">
                 <User className="h-4 w-4" />
                 Personal
               </TabsTrigger>
-              <TabsTrigger value="goals" className="flex items-center gap-2">
+              <TabsTrigger value="goals" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1 sm:py-2">
                 <Target className="h-4 w-4" />
                 Objetivos
               </TabsTrigger>
-              <TabsTrigger value="activity" className="flex items-center gap-2">
+              <TabsTrigger value="activity" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1 sm:py-2">
                 <Activity className="h-4 w-4" />
                 Actividad
               </TabsTrigger>
-              <TabsTrigger value="dietary" className="flex items-center gap-2">
+              <TabsTrigger value="dietary" className="flex items-center gap-1 sm:gap-2 px-1 sm:px-2 py-1 sm:py-2">
                 <Utensils className="h-4 w-4" />
                 Nutrición
               </TabsTrigger>
             </TabsList>
-            
-            <TabsContent value="personal" className="space-y-4">
+            <TabsContent value="personal" className="space-y-3 sm:space-y-4">
               {renderPersonalInfo()}
             </TabsContent>
-            
-            <TabsContent value="goals" className="space-y-4">
+            <TabsContent value="goals" className="space-y-3 sm:space-y-4">
               {renderGoals()}
             </TabsContent>
-            
-            <TabsContent value="activity" className="space-y-4">
+            <TabsContent value="activity" className="space-y-3 sm:space-y-4">
               {renderActivity()}
             </TabsContent>
-            
-            <TabsContent value="dietary" className="space-y-4">
+            <TabsContent value="dietary" className="space-y-3 sm:space-y-4">
               {renderDietary()}
             </TabsContent>
           </Tabs>
-          
-          <div className="flex justify-end">
-            <Button type="submit" disabled={isLoading}>
+          <div className="flex justify-end sticky bottom-0 left-0 right-0 z-10 bg-white p-2 sm:p-0">
+            <Button type="submit" disabled={isLoading} className="w-full sm:w-auto px-4 py-3 sm:px-6 sm:py-4 text-base sm:text-sm">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />
               Guardar Cambios

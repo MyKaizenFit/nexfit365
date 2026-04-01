@@ -136,28 +136,26 @@ export function ProgressSummaryEnhanced({
 
   return (
     <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
-      <CardHeader className="p-3 sm:p-4 lg:p-6">
-        <CardTitle className="text-sm sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
+      <CardHeader className="p-2 sm:p-4 lg:p-6">
+        <CardTitle className="text-xs sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
           <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
           Mi Progreso
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm responsive-text text-gray-600">
+        <CardDescription className="text-[11px] sm:text-sm responsive-text text-gray-600">
           Tu transformación en números • {Math.round(overallProgress)}% de progreso general 📈
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4 sm:space-y-6 p-3 sm:p-4 lg:p-6 pt-0">
+      <CardContent className="space-y-3 sm:space-y-6 p-2 sm:p-4 lg:p-6 pt-0">
         {/* Progreso general */}
-        <div className="text-center space-y-3 sm:space-y-4">
-          <div className="text-2xl sm:text-4xl font-bold text-emerald-600">
+        <div className="text-center space-y-2 sm:space-y-4">
+          <div className="text-xl sm:text-4xl font-bold text-emerald-600">
             {Math.round(overallProgress)}%
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground">Progreso general</p>
-          
           <Progress 
             value={overallProgress} 
-            className="h-3 sm:h-4"
+            className="h-2.5 sm:h-4"
           />
-          
           <div className="text-xs sm:text-sm text-muted-foreground">
             {overallProgress >= 80 ? "🎯 ¡Excelente progreso!" :
              overallProgress >= 60 ? "🚀 ¡Buen ritmo!" :
@@ -167,7 +165,7 @@ export function ProgressSummaryEnhanced({
         </div>
 
         {/* Métricas principales */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-4">
           {/* Peso */}
           <div className="p-2 sm:p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
             <div className="flex items-center justify-center mb-1">

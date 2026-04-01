@@ -31,7 +31,14 @@ export function MealDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
+  // --- OPTIMIZACIÓN MÓVIL ---
+  // Usar clases más compactas en móvil
+  const mobileCardClass = "p-2 sm:p-4 rounded-lg shadow-sm bg-white mb-2"
+  const mobileTitleClass = "text-base sm:text-lg font-semibold mb-1"
+  const mobileDescClass = "text-xs sm:text-sm text-gray-500 mb-2"
+  const mobileGridClass = "grid grid-cols-1 gap-2 sm:gap-4"
+
+  const handleOpenMealOptions = (meal) => {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
@@ -43,7 +50,7 @@ export function MealDashboard() {
     setIsModalOpen(true)
   }
 
-  const handleSelectOption = async (option: MealOption) => {
+  const handleSelectOption = async (option) => {
     if (selectedMeal) {
       await selectMealOption(selectedMeal.id, option)
     }
@@ -79,19 +86,19 @@ export function MealDashboard() {
     }
   }
 
-  const handleSkipMeal = async (mealId: string) => {
+  const handleSkipMeal = async (mealId) => {
     const reason = window.prompt('¿Por qué no comes esta comida?', 'No me gusta esta comida') || 'No me gusta esta comida'
     await markMealAsNotEaten(mealId, reason, true)
   }
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="h-6 sm:h-8 bg-gray-200 rounded w-40 sm:w-64 mb-2 sm:mb-4"></div>
+          <div className={mobileGridClass}>
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-20 sm:h-32 bg-gray-200 rounded-lg"></div>
             ))}
           </div>
         </div>
