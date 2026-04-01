@@ -25,6 +25,13 @@ export const ProfilePanel = memo(function ProfilePanel() {
   const [newIngredientTerm, setNewIngredientTerm] = useState('')
   const [loadingExclusions, setLoadingExclusions] = useState(false)
 
+  // --- OPTIMIZACIÓN MÓVIL ---
+  // Compactar paddings y fuentes
+  const mobileCardClass = "p-2 sm:p-4 rounded-lg shadow-sm bg-white mb-2"
+  const mobileTitleClass = "text-base sm:text-lg font-semibold mb-1"
+  const mobileDescClass = "text-xs sm:text-sm text-gray-500 mb-2"
+  const mobileGridClass = "grid grid-cols-1 gap-2 sm:gap-4"
+
   // Sincronizar perfil local cuando cambia el perfil del hook
   useEffect(() => {
     if (profile) {

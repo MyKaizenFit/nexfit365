@@ -613,9 +613,9 @@ export function WorkoutDashboardEnhanced() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6 pb-24">
       {/* Hero Section - Tarjeta de Entrenamiento */}
-      <Card className="backdrop-blur-sm bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-0 shadow-xl overflow-hidden relative">
+      <Card className="backdrop-blur-sm bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-0 shadow-xl overflow-hidden relative p-2 md:p-0">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-teal-200/20"></div>
         <CardHeader className="text-center relative z-10">
           <div className="flex justify-end mb-2">
@@ -665,8 +665,8 @@ export function WorkoutDashboardEnhanced() {
 
       {/* Resumen Semanal Compacto */}
       <Card className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 border-purple-200/50 shadow-lg">
-        <CardContent className="p-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CardContent className="p-3 md:p-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-700">{weeklyProgress.completedWorkouts}</div>
               <div className="text-xs text-purple-600 font-medium">Completados</div>
@@ -742,11 +742,11 @@ export function WorkoutDashboardEnhanced() {
               <CardContent className="space-y-4 px-3 md:px-6 pb-3 md:pb-6">
                 {/* Ejercicios completos */}
                 {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5 md:gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-3">
                   {todaysWorkoutFromProfile.exercises?.map((exercise, index) => {
                     const exerciseData = exercise.exercise || exercise
                     // Intentar obtener el ID del ejercicio de diferentes formas
-                    const exerciseId = exerciseData.id || exercise.id || exercise.exercise_id
+                    const exerciseId = exerciseData.id || exercise.id
                     const dayId = todaysWorkoutFromProfile.id
                     const completedExercisesForDay = getCompletedExercisesForDay(dayId)
                     // Verificar si el ejercicio está completado usando diferentes formatos de ID
@@ -766,14 +766,14 @@ export function WorkoutDashboardEnhanced() {
                           : 'border-blue-100'
                           }`}
                       >
-                        <CardContent className="p-3 md:p-4">
+                        <CardContent className="p-1.5 md:p-4">
                           <div className="flex items-start justify-between gap-2 md:gap-3">
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-start gap-2 md:gap-2.5 mb-2">
+                              <div className="flex items-start gap-1.5 md:gap-2.5 mb-1.5">
                                 <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white text-xs md:text-sm font-bold flex-shrink-0 ${isExerciseCompleted
                                   ? 'bg-gradient-to-br from-green-500 to-emerald-600'
                                   : 'bg-gradient-to-br from-blue-400 to-cyan-500'
-                                  }`}>
+                                  }`} style={{ fontSize: '11.5px' }}>
                                   {isExerciseCompleted ? (
                                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
                                   ) : (
@@ -781,7 +781,7 @@ export function WorkoutDashboardEnhanced() {
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className={`font-semibold text-base md:text-lg leading-tight break-words ${isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
+                                  <h4 className={`font-semibold text-xs md:text-lg leading-tight break-words ${isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
                                     }`}>
                                     {fixEncoding(exerciseData.name)}
                                   </h4>
@@ -792,7 +792,7 @@ export function WorkoutDashboardEnhanced() {
                                   )}
                                 </div>
                               </div>
-                              <div className="space-y-2 md:space-y-1">
+                              <div className="space-y-0.5 md:space-y-1">
                                 <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${isExerciseCompleted ? 'text-green-700' : 'text-blue-700'
                                   }`}>
                                   <span className="font-semibold md:font-medium">{exercise.sets} series</span>
@@ -802,7 +802,7 @@ export function WorkoutDashboardEnhanced() {
                                   )}
                                 </div>
                                 {exerciseData.muscle_groups && exerciseData.muscle_groups.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 md:gap-1 mt-1.5 -mx-0.5 px-0.5">
+                                  <div className="flex flex-wrap gap-0.5 md:gap-1 mt-1 -mx-0.5 px-0.5">
                                     {exerciseData.muscle_groups.map((mg: string, i: number) => (
                                       <Badge
                                         key={i}
@@ -827,20 +827,23 @@ export function WorkoutDashboardEnhanced() {
                 </div>
 
                 {/* Botón para iniciar */}
-                {isTodayCompleted ? (
-                  <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-lg py-6 shadow-lg rounded-lg flex items-center justify-center">
-                    <CheckCircle2 className="h-5 w-5 mr-2" />
-                    Entrenamiento Completado Hoy
-                  </div>
-                ) : (
-                  <Button
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-lg py-6 shadow-lg"
-                    onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
-                  >
-                    <Play className="h-5 w-5 mr-2" />
-                    Iniciar Entrenamiento de Hoy
-                  </Button>
-                )}
+                <div className="relative">
+                  {isTodayCompleted ? (
+                    <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg rounded-lg flex items-center justify-center sticky bottom-0 z-20">
+                      <CheckCircle2 className="h-5 w-5 mr-2" />
+                      Entrenamiento Completado Hoy
+                    </div>
+                  ) : (
+                    <Button
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20"
+                      style={{ position: 'sticky', bottom: 0, left: 0, right: 0 }}
+                      onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+                    >
+                      <Play className="h-5 w-5 mr-2" />
+                      Iniciar Entrenamiento de Hoy
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )
@@ -926,7 +929,7 @@ export function WorkoutDashboardEnhanced() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-2 md:px-6">
-            <div className="grid grid-cols-7 gap-1 md:gap-2">
+            <div className="grid grid-cols-7 gap-0.5 md:gap-2">
               {getWeeklyCalendar().map((day) => {
                 // Determinar el color y estilo según si es día de entrenamiento según el perfil
                 const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
@@ -967,7 +970,7 @@ export function WorkoutDashboardEnhanced() {
             </div>
 
             {/* Leyenda */}
-            <div className="mt-3 md:mt-4 pt-3 md:pt-4 border-t border-gray-200 flex items-center justify-center gap-3 md:gap-4 text-[10px] md:text-xs flex-wrap">
+            <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-gray-200 flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
                 <span className="text-gray-700 whitespace-nowrap">Entrenamiento</span>
@@ -983,10 +986,10 @@ export function WorkoutDashboardEnhanced() {
 
       {/* Tabs con detalles del plan */}
       <Tabs defaultValue="schedule" className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 gap-1 md:gap-2 h-auto md:h-10">
-          <TabsTrigger value="schedule" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Programa Semanal</TabsTrigger>
-          <TabsTrigger value="history" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
-          <TabsTrigger value="progress" className="text-[11px] md:text-sm px-2 md:px-4 py-2 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-3 gap-0.5 md:gap-2 h-auto md:h-10">
+          <TabsTrigger value="schedule" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Programa Semanal</TabsTrigger>
+          <TabsTrigger value="history" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
+          <TabsTrigger value="progress" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
@@ -1014,7 +1017,7 @@ export function WorkoutDashboardEnhanced() {
             })
 
             return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
                 {mappedDays.map(({ userDayNumber, planDay }) => {
                   const dayName = getDayNameFromNumber(userDayNumber)
                   const isToday = userDayNumber === (new Date().getDay() === 0 ? 7 : new Date().getDay())
@@ -1036,7 +1039,7 @@ export function WorkoutDashboardEnhanced() {
                           )}
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-3">
+                      <CardContent className="space-y-2">
                         {planDay ? (() => {
                           // Obtener ejercicios completados para este día
                           const dayId = planDay.id || planDay.day_number || userDayNumber

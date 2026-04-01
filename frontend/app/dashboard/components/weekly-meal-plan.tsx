@@ -45,6 +45,12 @@ interface WeeklyMealSelection {
 }
 
 export function WeeklyMealPlan() {
+  // --- OPTIMIZACIÓN MÓVIL ---
+  const mobileCardClass = "p-2 sm:p-4 rounded-lg shadow-sm bg-white mb-2"
+  const mobileTitleClass = "text-base sm:text-lg font-semibold mb-1"
+  const mobileDescClass = "text-xs sm:text-sm text-gray-500 mb-2"
+  const mobileGridClass = "grid grid-cols-1 gap-2 sm:gap-4"
+
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date()
     const monday = new Date(today)
@@ -75,11 +81,8 @@ export function WeeklyMealPlan() {
   }
 
   const resolveRecipeId = (option: any): string | undefined => {
-    // Preferir SIEMPRE recipeId (es el ID real de Recipe en backend)
     if (option?.recipeId) return String(option.recipeId)
-    // Fallback: si option.id viene como "recipe-<uuid>", extraer el uuid
     if (typeof option?.id === 'string' && option.id.startsWith('recipe-')) return option.id.replace(/^recipe-/, '')
-    // Último fallback: usar id tal cual
     if (option?.id) return String(option.id)
     return undefined
   }
