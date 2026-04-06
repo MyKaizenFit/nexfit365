@@ -1,8 +1,6 @@
 // lib/fetch-with-auth.ts
 // Helper para manejar refresh de token cuando hay error 401
 
-import { HeadersInit } from 'react'
-
 /**
  * Helper para refrescar el token y obtener nuevos headers
  * Retorna los nuevos headers o null si no se pudo refrescar

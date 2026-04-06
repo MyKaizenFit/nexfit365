@@ -45,12 +45,6 @@ interface WeeklyMealSelection {
 }
 
 export function WeeklyMealPlan() {
-  // --- OPTIMIZACIÓN MÓVIL ---
-  const mobileCardClass = "p-2 sm:p-4 rounded-lg shadow-sm bg-white mb-2"
-  const mobileTitleClass = "text-base sm:text-lg font-semibold mb-1"
-  const mobileDescClass = "text-xs sm:text-sm text-gray-500 mb-2"
-  const mobileGridClass = "grid grid-cols-1 gap-2 sm:gap-4"
-
   const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => {
     const today = new Date()
     const monday = new Date(today)
@@ -81,8 +75,11 @@ export function WeeklyMealPlan() {
   }
 
   const resolveRecipeId = (option: any): string | undefined => {
+    // Preferir SIEMPRE recipeId (es el ID real de Recipe en backend)
     if (option?.recipeId) return String(option.recipeId)
+    // Fallback: si option.id viene como "recipe-<uuid>", extraer el uuid
     if (typeof option?.id === 'string' && option.id.startsWith('recipe-')) return option.id.replace(/^recipe-/, '')
+    // Último fallback: usar id tal cual
     if (option?.id) return String(option.id)
     return undefined
   }
@@ -551,23 +548,14 @@ export function WeeklyMealPlan() {
                             {/* Selección: Nombre completo de la receta con macros */}
                             {hasSelection && (
                               <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-gray-200/60 space-y-1 md:space-y-1.5">
-                                <div className="relative w-full h-12 md:h-14">
-                                  <img
-                                    src={selection.recipe?.image_url || '/placeholder.jpg'}
-                                    alt={getMealName(selection)}
-                                    className="w-full h-12 md:h-14 object-cover rounded-md border border-gray-200 absolute top-0 left-0"
-                                    onError={(e) => {
-                                      const img = e.target as HTMLImageElement;
-                                      img.style.display = 'none';
-                                      const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
-                                      if (errorDiv) errorDiv.classList.remove('hidden');
-                                    }}
-                                  />
-                                  <div className="img-error-feedback hidden w-full h-12 md:h-14 rounded-md flex flex-col items-center justify-center bg-red-100 border border-red-300 text-red-700 text-xs absolute top-0 left-0">
-                                    <span className="text-lg md:text-xl">❌</span>
-                                    <span>Imagen no disponible</span>
-                                  </div>
-                                </div>
+                                <img
+                                  src={selection.recipe?.image_url || '/placeholder.jpg'}
+                                  alt={getMealName(selection)}
+                                  className="w-full h-12 md:h-14 object-cover rounded-md border border-gray-200"
+                                  onError={(e) => {
+                                    ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                                  }}
+                                />
                                 <div className="text-[10px] md:text-[11px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
                                   {getMealName(selection)}
                                 </div>

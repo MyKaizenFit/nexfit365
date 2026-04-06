@@ -8,7 +8,7 @@ export interface User {
   email: string
   first_name: string
   last_name: string
-  role: 'MEMBER' | 'ADMIN' | 'TRAINER'
+  role: 'MEMBER' | 'ADMIN' | 'TRAINER' | 'BASIC' | 'PRO' | 'PREMIUM' | 'member' | 'admin' | 'trainer' | 'basic' | 'pro' | 'premium'
   is_staff: boolean
   is_superuser: boolean
   
