@@ -339,6 +339,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: false,
         isLoading: false,
         error: null,
+        mustChangePassword: false,
       })
 
       // Mostrar notificación de éxito

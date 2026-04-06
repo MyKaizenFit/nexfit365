@@ -600,6 +600,7 @@ export class AuthService {
       if (!this.accessToken || this.accessToken.startsWith('offline_token_')) {
         throw new Error('No hay token de acceso válido')
       }
+      const accessToken = this.accessToken
 
       // Verificar caché primero
       const cacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)
@@ -612,7 +613,7 @@ export class AuthService {
       const user = await requestThrottler.throttle('auth-me', async () => {
         const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.ME), {
           method: 'GET',
-          headers: getAuthHeaders(this.accessToken),
+          headers: getAuthHeaders(accessToken),
         })
 
         // Si recibimos 401, intentar renovar el token
@@ -851,7 +852,7 @@ export class AuthService {
         }),
       })
 
-      const result = await handleApiResponse(response)
+      const result = await handleApiResponse<void>(response)
 
       if (result.error) {
         throw new Error(result.error)
@@ -891,10 +892,14 @@ export class AuthService {
         body: JSON.stringify(profileData),
       })
 
-      const result = await handleApiResponse(response)
+      const result = await handleApiResponse<User>(response)
 
       if (result.error) {
         throw new Error(result.error)
+      }
+
+      if (!result.data) {
+        throw new Error('No se recibieron datos del perfil actualizado')
       }
 
       return result.data
@@ -973,5 +978,5 @@ export const getAuthService = (): AuthService => {
   return _authServiceInstance
 }
 
-// NO exportar authService directamente para evitar problemas de inicialización circular
-// Usar getAuthService() en su lugar
+// Compatibilidad con imports legacy (preferir getAuthService en código nuevo)
+export const authService = getAuthService()

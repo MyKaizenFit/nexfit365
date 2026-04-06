@@ -451,7 +451,7 @@ export function MealSelectionModal({
       <div className="fixed inset-0 bg-gradient-to-br from-purple-500/20 via-pink-500/20 to-orange-500/20 backdrop-blur-sm z-[9998] flex items-center justify-center p-0 md:p-4">
         <div className="w-full h-full md:w-full md:max-w-md md:h-[90vh] z-[9999] md:rounded-2xl overflow-hidden shadow-2xl bg-white md:border-2 md:border-purple-100 flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-3 sm:p-5 md:p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 md:rounded-t-2xl flex-shrink-0">
+            <div className="flex items-center justify-between p-5 md:p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-pink-50 md:rounded-t-2xl flex-shrink-0">
               <div className="flex-1 min-w-0">
                 <h3 className="text-xl md:text-lg font-bold md:font-semibold text-gray-900">{mealName}</h3>
                 <p className="text-base md:text-sm text-gray-600 flex items-center gap-2 md:gap-1 mt-1">
@@ -470,7 +470,7 @@ export function MealSelectionModal({
             </div>
 
             {/* Content - Scrollable */}
-            <div className="p-3 sm:p-5 md:p-4 space-y-3 md:space-y-4 overflow-y-auto flex-1 min-h-0">
+            <div className="p-5 md:p-4 space-y-4 md:space-y-3 overflow-y-auto flex-1 min-h-0">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 mb-5 md:mb-4">
                 <p className="text-base md:text-sm font-medium md:font-normal text-gray-700 md:text-gray-600">
                   Selecciona una opción para {mealName.toLowerCase()}:
@@ -515,7 +515,7 @@ export function MealSelectionModal({
                 <div
                   key={option.id}
                   onClick={() => handleSelectOption(option)}
-                  className={`border-2 md:border rounded-2xl md:rounded-lg p-3 sm:p-5 md:p-3 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${
+                  className={`border-2 md:border rounded-2xl md:rounded-lg p-5 md:p-3 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${
                     isCurrentSelection
                       ? 'border-emerald-500 bg-emerald-50 shadow-md'
                       : option.recipeId 
@@ -524,23 +524,14 @@ export function MealSelectionModal({
                   }`}
                 >
                   <div className="flex items-start gap-4 md:gap-3">
-                    <div className="relative w-14 h-14 md:w-12 md:h-12 flex-shrink-0">
-                      <img
-                        src={option.imageUrl || '/placeholder.jpg'}
-                        alt={option.name}
-                        className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 absolute top-0 left-0"
-                        onError={(e) => {
-                          const img = e.target as HTMLImageElement;
-                          img.style.display = 'none';
-                          const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
-                          if (errorDiv) errorDiv.classList.remove('hidden');
-                        }}
-                      />
-                      <div className="img-error-feedback hidden w-14 h-14 md:w-12 md:h-12 rounded-lg flex flex-col items-center justify-center bg-red-100 border border-red-300 text-red-700 text-xs absolute top-0 left-0">
-                        <span className="text-lg md:text-xl">❌</span>
-                        <span>Imagen no disponible</span>
-                      </div>
-                    </div>
+                    <img
+                      src={option.imageUrl || '/placeholder.jpg'}
+                      alt={option.name}
+                      className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-gray-200 flex-shrink-0"
+                      onError={(e) => {
+                        ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                      }}
+                    />
                     <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">
@@ -586,7 +577,7 @@ export function MealSelectionModal({
                       </div>
 
                       {/* Categoría */}
-                      <div className="flex items-center gap-2 mb-2 md:mb-4">
+                      <div className="flex items-center gap-2 mb-4 md:mb-2">
                         <div className="scale-125 md:scale-100">
                           {getCategoryIcon(option.category || "balanced")}
                         </div>
@@ -608,7 +599,7 @@ export function MealSelectionModal({
                             e.stopPropagation()
                             handleViewRecipe(option)
                           }}
-                          className="px-4 py-3 sm:px-6 sm:py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-2 md:gap-2 touch-manipulation active:scale-[0.98]"
+                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-3 md:gap-2 touch-manipulation active:scale-[0.98]"
                           disabled={loadingRecipe}
                         >
                           {loadingRecipe ? (
@@ -629,7 +620,7 @@ export function MealSelectionModal({
                             e.stopPropagation()
                             handleExcludeOption(option)
                           }}
-                          className="px-4 py-3 sm:px-6 sm:py-4 md:px-4 md:py-2.5 text-base md:text-sm font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all touch-manipulation active:scale-[0.98]"
+                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all touch-manipulation active:scale-[0.98]"
                           disabled={!option.recipeId || excludingRecipeId === String(option.recipeId)}
                         >
                           {excludingRecipeId === String(option.recipeId) ? 'Guardando...' : '⏭️ No me gusta esta comida'}
@@ -650,12 +641,11 @@ export function MealSelectionModal({
             </div>
 
             {/* Footer */}
-            {/* Footer sticky en móvil */}
-            <div className="p-3 sm:p-5 md:p-4 border-t border-gray-200 flex-shrink-0 bg-white md:bg-transparent sticky bottom-0 left-0 right-0 z-10">
+            <div className="p-5 md:p-4 border-t border-gray-200 flex-shrink-0 bg-white md:bg-transparent">
               <button
                 type="button"
                 onClick={onClose}
-                className="w-full px-4 py-3 sm:px-6 sm:py-4 md:px-4 md:py-2 text-base md:text-sm font-semibold md:font-normal text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors touch-manipulation active:scale-[0.98]"
+                className="w-full px-6 py-4 md:px-4 md:py-2 text-base md:text-sm font-semibold md:font-normal text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors touch-manipulation active:scale-[0.98]"
               >
                 Cancelar
               </button>
@@ -846,7 +836,7 @@ function RecipeDetailModal({
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-center justify-center p-0 md:p-4">
       <div className="w-full h-full md:w-full md:max-w-3xl md:h-[90vh] z-[9999] md:rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-3 sm:p-5 md:p-6 md:rounded-t-2xl flex-shrink-0">
+          <div className="bg-gradient-to-r from-orange-50 to-pink-50 border-b border-orange-100 p-5 md:p-6 md:rounded-t-2xl flex-shrink-0">
             <div className="flex items-start justify-between mb-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 md:gap-3 mb-3 md:mb-2">
@@ -896,7 +886,7 @@ function RecipeDetailModal({
           </div>
 
           {/* Content - Scrollable */}
-          <div className="p-3 sm:p-5 md:p-6 space-y-4 md:space-y-6 overflow-y-auto flex-1 min-h-0">
+          <div className="p-5 md:p-6 space-y-5 md:space-y-6 overflow-y-auto flex-1 min-h-0">
             {/* Macros personalizados */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
               <div className="text-center bg-orange-50 rounded-xl md:rounded-lg p-4 md:p-4 border-2 md:border border-orange-200 md:border-orange-100">
@@ -1044,20 +1034,20 @@ function RecipeDetailModal({
             </div>
           </div>
 
-          {/* Footer sticky en móvil */}
-          <div className="bg-white border-t border-gray-200 p-3 sm:p-5 md:p-6 md:rounded-b-2xl flex-shrink-0 sticky bottom-0 left-0 right-0 z-10">
-            <div className="flex flex-col md:flex-row gap-2 md:gap-3">
+          {/* Footer */}
+          <div className="bg-white border-t border-gray-200 p-5 md:p-6 md:rounded-b-2xl flex-shrink-0">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 px-4 py-3 sm:px-6 sm:py-4 md:px-4 md:py-3 text-base md:text-sm text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors font-semibold md:font-medium touch-manipulation active:scale-[0.98]"
+                className="flex-1 px-6 py-4 md:px-4 md:py-3 text-base md:text-sm text-gray-700 md:text-gray-600 border-2 md:border border-gray-400 md:border-gray-300 rounded-xl md:rounded-lg hover:bg-gray-100 md:hover:bg-gray-50 transition-colors font-semibold md:font-medium touch-manipulation active:scale-[0.98]"
               >
                 Cerrar
               </button>
               <button
                 type="button"
                 onClick={onSelectRecipe}
-                className="flex-1 px-4 py-3 sm:px-6 sm:py-4 md:px-4 md:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl md:rounded-lg hover:from-orange-600 hover:to-pink-600 transition-colors font-bold md:font-medium shadow-xl md:shadow-lg touch-manipulation active:scale-[0.98]"
+                className="flex-1 px-6 py-4 md:px-4 md:py-3 bg-gradient-to-r from-orange-500 to-pink-500 text-white rounded-xl md:rounded-lg hover:from-orange-600 hover:to-pink-600 transition-colors font-bold md:font-medium shadow-xl md:shadow-lg touch-manipulation active:scale-[0.98]"
               >
                 Seleccionar esta Receta
               </button>

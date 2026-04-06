@@ -7,6 +7,10 @@ import { notificationService, Notification, NotificationSettings } from '@/lib/n
 import { automatedNotificationService } from '@/lib/automated-notifications'
 import { toast } from '@/hooks/use-toast'
 
+const normalizeHeaders = (headers: HeadersInit): Record<string, string> => {
+  return Object.fromEntries(new Headers(headers).entries())
+}
+
 export function useNotificationsEnhanced() {
   const { isAuthenticated, getAuthHeaders } = useAuth()
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -32,7 +36,7 @@ export function useNotificationsEnhanced() {
       setLoading(true)
       setError(null)
 
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       const items = await notificationService.getNotifications(headers)
       const uniqueItems = Array.from(
         new Map(items.map((item) => [item.id, item])).values()
@@ -100,7 +104,7 @@ export function useNotificationsEnhanced() {
   // Marcar como leída
   const markAsRead = useCallback(async (notificationId: string) => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.markAsRead(notificationId, headers)
 
       setNotifications(prev => 
@@ -123,7 +127,7 @@ export function useNotificationsEnhanced() {
 
   const markAsUnread = useCallback(async (notificationId: string) => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.markAsUnread(notificationId, headers)
 
       setNotifications(prev => 
@@ -147,7 +151,7 @@ export function useNotificationsEnhanced() {
   // Marcar todas como leídas
   const markAllAsRead = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.markAllAsRead(headers)
 
       setNotifications(prev => prev.map(n => ({ ...n, read: true, is_read: true })))
@@ -168,7 +172,7 @@ export function useNotificationsEnhanced() {
 
   const trackClick = useCallback(async (notificationId: string) => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.trackClick(notificationId, headers)
     } catch {
       // No bloquea navegación si falla telemetry
@@ -178,7 +182,7 @@ export function useNotificationsEnhanced() {
   // Eliminar notificación
   const deleteNotification = useCallback(async (notificationId: string) => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.deleteNotification(notificationId, headers)
 
       const notification = notifications.find(n => n.id === notificationId)
@@ -205,7 +209,7 @@ export function useNotificationsEnhanced() {
   // Limpiar todas las notificaciones
   const clearAll = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = normalizeHeaders(await getAuthHeaders())
       await notificationService.clearAll(headers)
       setNotifications([])
       setUnreadCount(0)

@@ -31,14 +31,7 @@ export function MealDashboard() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // --- OPTIMIZACIÓN MÓVIL ---
-  // Usar clases más compactas en móvil
-  const mobileCardClass = "p-2 sm:p-4 rounded-lg shadow-sm bg-white mb-2"
-  const mobileTitleClass = "text-base sm:text-lg font-semibold mb-1"
-  const mobileDescClass = "text-xs sm:text-sm text-gray-500 mb-2"
-  const mobileGridClass = "grid grid-cols-1 gap-2 sm:gap-4"
-
-  const handleOpenMealOptions = (meal) => {
+  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
@@ -50,7 +43,7 @@ export function MealDashboard() {
     setIsModalOpen(true)
   }
 
-  const handleSelectOption = async (option) => {
+  const handleSelectOption = async (option: MealOption) => {
     if (selectedMeal) {
       await selectMealOption(selectedMeal.id, option)
     }
@@ -86,19 +79,19 @@ export function MealDashboard() {
     }
   }
 
-  const handleSkipMeal = async (mealId) => {
+  const handleSkipMeal = async (mealId: string) => {
     const reason = window.prompt('¿Por qué no comes esta comida?', 'No me gusta esta comida') || 'No me gusta esta comida'
     await markMealAsNotEaten(mealId, reason, true)
   }
 
   if (loading) {
     return (
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-6 sm:h-8 bg-gray-200 rounded w-40 sm:w-64 mb-2 sm:mb-4"></div>
-          <div className={mobileGridClass}>
+          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-20 sm:h-32 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -260,30 +253,23 @@ export function MealDashboard() {
                   }`}>
                     <div className="flex items-center gap-2 md:gap-3 mb-2 md:mb-3">
                       {meal.selectedOption.imageUrl ? (
-                        <>
-                          <img
-                            src={meal.selectedOption.imageUrl}
-                            alt={meal.selectedOption.name}
-                            className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-gray-200 flex-shrink-0"
-                            onError={(e) => {
-                              const img = e.target as HTMLImageElement;
-                              img.style.display = 'none';
-                              const errorDiv = img.parentElement?.querySelector('.img-error-feedback');
-                              if (errorDiv) errorDiv.classList.remove('hidden');
-                            }}
-                          />
-                          <div className="img-error-feedback hidden w-7 h-7 md:w-8 md:h-8 rounded-lg flex flex-col items-center justify-center flex-shrink-0 bg-red-100 border border-red-300 text-red-700 text-[10px] md:text-xs">
-                            <span className="text-lg md:text-xl">❌</span>
-                            <span>Imagen no disponible</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
-                        }`}>
-                          <span className="text-base md:text-lg">{meal.selectedOption.icon}</span>
-                        </div>
-                      )}
+                        <img
+                          src={meal.selectedOption.imageUrl}
+                          alt={meal.selectedOption.name}
+                          className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                          onError={(e) => {
+                            const img = e.target as HTMLImageElement
+                            img.style.display = 'none'
+                            const sibling = img.nextElementSibling as HTMLElement
+                            if (sibling) sibling.style.display = 'flex'
+                          }}
+                        />
+                      ) : null}
+                      <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        meal.isCompleted ? 'bg-green-100' : 'bg-blue-100'
+                      }${meal.selectedOption.imageUrl ? ' hidden' : ''}`}>
+                        <span className="text-base md:text-lg">{meal.selectedOption.icon}</span>
+                      </div>
                       <div className="flex-1 min-w-0">
                         <h5 className="font-semibold text-gray-900 text-xs md:text-sm truncate">
                           {meal.selectedOption.name}
