@@ -1,9 +1,10 @@
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
+from django.conf import settings
 from django.db import DatabaseError
 from django.db.models import Count
 from django.utils import timezone
@@ -287,6 +288,11 @@ class PushSubscriptionViewSet(viewsets.ModelViewSet):
         """Solo suscripciones del usuario autenticado"""
         return PushSubscription.objects.filter(user=self.request.user, is_active=True)
     
+    def get_permissions(self):
+        if self.action == 'vapid_public_key':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
     def perform_create(self, serializer):
         """Asociar suscripción al usuario autenticado"""
         serializer.save(user=self.request.user)
@@ -294,7 +300,18 @@ class PushSubscriptionViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         """Marcar como inactiva en lugar de eliminar"""
         instance.is_active = False
-        instance.save() 
+        instance.save()
+
+    @action(detail=False, methods=['get'], url_path='vapid-public-key')
+    def vapid_public_key(self, request):
+        """Devuelve la clave pública VAPID para que el frontend pueda suscribirse"""
+        public_key = settings.VAPID_PUBLIC_KEY
+        if not public_key:
+            return Response(
+                {'error': 'Push notifications no están configuradas en el servidor'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE
+            )
+        return Response({'vapid_public_key': public_key})
 
 
 class AdminMessageViewSet(viewsets.ModelViewSet):

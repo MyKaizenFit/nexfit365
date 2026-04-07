@@ -25,7 +25,9 @@ class PushNotificationService:
     """Servicio para enviar notificaciones push"""
     
     def __init__(self):
-        self.vapid_private_key = settings.VAPID_PRIVATE_KEY
+        # El PEM puede tener los saltos de línea escapados como \n literales (cuando viene de .env)
+        raw_private = settings.VAPID_PRIVATE_KEY or ""
+        self.vapid_private_key = raw_private.replace('\\n', '\n')
         self.vapid_public_key = settings.VAPID_PUBLIC_KEY
         self.vapid_claim_email = settings.VAPID_CLAIM_EMAIL
         

@@ -4,8 +4,9 @@ Django management command para generar claves VAPID para push notifications.
 Uso:
     python manage.py generate_vapid_keys
 
-Esto generará un par de claves VAPID (pública y privada) que se deben
-configurar en las variables de entorno VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY.
+Genera un par de claves VAPID correctamente formateadas:
+- Clave pública: uncompressed EC point (65 bytes), base64url sin padding → para el browser
+- Clave privada: PEM completo → para el backend
 """
 
 from django.core.management.base import BaseCommand
@@ -15,56 +16,50 @@ import base64
 
 
 class Command(BaseCommand):
-    help = 'Genera claves VAPID para push notifications'
+    help = 'Genera claves VAPID para push notifications (formato correcto para Web Push API)'
 
     def handle(self, *args, **options):
         self.stdout.write(self.style.SUCCESS('Generando claves VAPID...'))
-        
+
         try:
-            # Generar clave privada usando cryptography directamente
+            # Generar clave EC P-256
             private_key = ec.generate_private_key(ec.SECP256R1())
             public_key = private_key.public_key()
-            
-            # Obtener claves en formato PEM
+
+            # Clave pública en formato uncompressed point (04 || x || y, 65 bytes)
+            # Este es el único formato válido para Web Push applicationServerKey
+            pub_raw = public_key.public_bytes(
+                encoding=serialization.Encoding.X962,
+                format=serialization.PublicFormat.UncompressedPoint,
+            )
+            pub_b64url = base64.urlsafe_b64encode(pub_raw).rstrip(b'=').decode('utf-8')
+
+            # Clave privada en PEM para el backend
             private_key_pem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption()
+                encryption_algorithm=serialization.NoEncryption(),
             ).decode('utf-8')
-            
-            public_key_pem = public_key.public_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PublicFormat.SubjectPublicKeyInfo
-            ).decode('utf-8')
-            
-            # Extraer solo la parte de la clave (sin headers PEM) para base64 URL-safe
-            # Esto es lo que necesita el frontend
-            private_key_content = private_key_pem.replace('-----BEGIN PRIVATE KEY-----', '').replace('-----END PRIVATE KEY-----', '').replace('\n', '').replace('\r', '')
-            public_key_content = public_key_pem.replace('-----BEGIN PUBLIC KEY-----', '').replace('-----END PUBLIC KEY-----', '').replace('\n', '').replace('\r', '')
-            
-            # Para el backend, guardamos el PEM completo
-            # Para el frontend, necesitamos base64 URL-safe sin padding
-            public_key_b64 = public_key_content.rstrip('=')
-            
+
+            # Versión single-line para el .env (saltos de línea escapados)
+            priv_env = private_key_pem.replace('\n', '\\n')
+
             self.stdout.write(self.style.SUCCESS('\n✅ Claves VAPID generadas exitosamente!\n'))
             self.stdout.write(self.style.WARNING('⚠️  IMPORTANTE: Guarda estas claves de forma segura\n'))
             self.stdout.write(self.style.SUCCESS('=' * 70))
-            self.stdout.write(self.style.SUCCESS('Clave Pública VAPID (VAPID_PUBLIC_KEY):'))
-            self.stdout.write(self.style.SUCCESS(public_key_b64))
+            self.stdout.write(self.style.SUCCESS(f'Clave Pública VAPID ({len(pub_raw)} bytes → {len(pub_b64url)} chars base64url):'))
+            self.stdout.write(self.style.SUCCESS(pub_b64url))
             self.stdout.write(self.style.SUCCESS('=' * 70))
-            self.stdout.write(self.style.SUCCESS('\nClave Privada VAPID (VAPID_PRIVATE_KEY) - PEM completo:'))
-            self.stdout.write(self.style.SUCCESS(private_key_pem))
-            self.stdout.write(self.style.SUCCESS('=' * 70))
-            self.stdout.write(self.style.WARNING('\n📝 Agrega estas claves a tu archivo .env:'))
-            self.stdout.write(self.style.SUCCESS(f'\nVAPID_PUBLIC_KEY={public_key_b64}'))
-            self.stdout.write(self.style.SUCCESS(f'VAPID_PRIVATE_KEY={repr(private_key_pem)}'))
-            self.stdout.write(self.style.SUCCESS('\nY también en frontend/.env.local:'))
-            self.stdout.write(self.style.SUCCESS(f'\nNEXT_PUBLIC_VAPID_PUBLIC_KEY={public_key_b64}'))
+            self.stdout.write(self.style.WARNING('\n📝 Agrega estas claves a tu archivo backend/.env:'))
+            self.stdout.write(self.style.SUCCESS(f'\nVAPID_PUBLIC_KEY={pub_b64url}'))
+            self.stdout.write(self.style.SUCCESS(f'VAPID_PRIVATE_KEY="{priv_env}"'))
+            self.stdout.write(self.style.SUCCESS('VAPID_CLAIM_EMAIL=no-reply@nex-fit.local'))
+            self.stdout.write(self.style.SUCCESS('\nY en frontend/docker.env y frontend/docker.env.production:'))
+            self.stdout.write(self.style.SUCCESS(f'\nNEXT_PUBLIC_VAPID_PUBLIC_KEY={pub_b64url}'))
             self.stdout.write(self.style.SUCCESS('\n'))
-            self.stdout.write(self.style.WARNING('💡 Nota: La clave privada debe guardarse como texto completo (PEM)'))
-            self.stdout.write(self.style.SUCCESS('\n'))
-            
+
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'❌ Error generando claves: {str(e)}'))
             import traceback
             self.stdout.write(self.style.ERROR(traceback.format_exc()))
+
