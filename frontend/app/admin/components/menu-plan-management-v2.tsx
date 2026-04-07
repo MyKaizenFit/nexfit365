@@ -780,12 +780,12 @@ export function MenuPlanManagementV2() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Planes de Menús</h2>
-          <p className="text-muted-foreground mt-1">Administra planes como en “Planes de entrenamiento”: filtros, tabla y acciones masivas.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-3xl font-bold tracking-tight">Planes de Men&#250;s</h2>
+          <p className="text-muted-foreground mt-1 text-sm md:text-base">Administra planes como en &#8220;Planes de entrenamiento&#8221;: filtros, tabla y acciones masivas.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           <Button variant="outline" size="sm" onClick={() => handleExport('csv')}>
             <Download className="h-4 w-4 mr-1" />
             <span className="hidden sm:inline">Exportar </span>CSV
@@ -800,7 +800,8 @@ export function MenuPlanManagementV2() {
           </Button>
           <Button onClick={openCreate} className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0">
             <Plus className="w-4 h-4 mr-2" />
-            Nuevo Plan
+            <span className="hidden sm:inline">Nuevo Plan</span>
+            <span className="sm:hidden">Nuevo</span>
           </Button>
         </div>
       </div>
@@ -850,7 +851,7 @@ export function MenuPlanManagementV2() {
           <CardTitle>Filtros</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-5 md:gap-4 md:grid-cols-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-5 md:gap-4">
             <div className="md:col-span-2">
               <FormLabel>Buscar</FormLabel>
               <div className="relative">

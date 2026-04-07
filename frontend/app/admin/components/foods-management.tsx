@@ -317,14 +317,14 @@ export function FoodsManagement() {
             Base de datos de alimentos para tracking nutricional
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button onClick={fetchFoods} variant="outline" size="sm">
             <RefreshCw className="h-4 w-4 mr-2" />
             Actualizar
           </Button>
-          <Button onClick={() => setImportDialogOpen(true)} className="bg-green-600 hover:bg-green-700">
+          <Button onClick={() => setImportDialogOpen(true)} className="bg-green-600 hover:bg-green-700" size="sm">
             <Upload className="h-4 w-4 mr-2" />
-            Importar desde OpenFoodFacts
+            <span className="hidden sm:inline">Importar desde </span>OpenFoodFacts
           </Button>
         </div>
       </div>
