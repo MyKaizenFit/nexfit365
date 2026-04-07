@@ -5,8 +5,8 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { SkipMealModal } from './skip-meal-modal'
-import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, Camera, Loader2 } from 'lucide-react'
+import { MealOption, RecipeExclusionItem, nutritionService } from '@/lib/nutrition-service'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, Camera, Loader2, Trash2, Ban } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 import { getAuthHeaders, buildApiUrl } from '@/lib/api'
+import { toast } from '@/hooks/use-toast'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
@@ -162,6 +163,39 @@ export function MealDashboard() {
     skip_reason: string
   }>>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
+  const [recipeExclusions, setRecipeExclusions] = useState<RecipeExclusionItem[]>([])
+  const [loadingExclusions, setLoadingExclusions] = useState(false)
+  const [removingExclusionId, setRemovingExclusionId] = useState<string | null>(null)
+
+  const loadRecipeExclusions = useCallback(async () => {
+    setLoadingExclusions(true)
+    try {
+      const exclusions = await nutritionService.getRecipeExclusions()
+      setRecipeExclusions(exclusions)
+    } finally {
+      setLoadingExclusions(false)
+    }
+  }, [])
+
+  const handleRemoveExclusion = useCallback(async (exclusionId: string) => {
+    setRemovingExclusionId(exclusionId)
+    try {
+      const ok = await nutritionService.removeRecipeExclusion(exclusionId)
+      if (ok) {
+        setRecipeExclusions(prev => prev.filter(e => e.id !== exclusionId))
+      }
+    } finally {
+      setRemovingExclusionId(null)
+    }
+  }, [])
+
+  const handleClearAllExclusions = useCallback(async () => {
+    const ids = recipeExclusions.map(e => e.id)
+    for (const id of ids) {
+      await nutritionService.removeRecipeExclusion(id)
+    }
+    setRecipeExclusions([])
+  }, [recipeExclusions])
 
   const loadSkippedHistory = useCallback(async () => {
     setLoadingHistory(true)
@@ -245,8 +279,26 @@ export function MealDashboard() {
 
   const handleSkipConfirm = async (reason: string, excludeFromRecommendations: boolean) => {
     if (!skipModalMeal) return
+    const mealName = skipModalMeal.name
     setSkipModalMeal(null)
-    await markMealAsNotEaten(skipModalMeal.id, reason, excludeFromRecommendations)
+    const ok = await markMealAsNotEaten(skipModalMeal.id, reason, excludeFromRecommendations)
+    if (ok) {
+      if (excludeFromRecommendations) {
+        toast({
+          title: '🚫 Receta excluida',
+          description: `"${mealName}" no aparecerá en futuras sugerencias. Puedes reactivarla en el tab "No como".`,
+        })
+        // Refrescar la lista de exclusiones si ya estaba cargada
+        if (recipeExclusions.length > 0 || loadingExclusions) {
+          loadRecipeExclusions()
+        }
+      } else {
+        toast({
+          title: '⏭️ Comida saltada',
+          description: `"${mealName}" marcada como no comida hoy.`,
+        })
+      }
+    }
   }
 
   if (loading) {
@@ -313,8 +365,11 @@ export function MealDashboard() {
       </Card>
 
       {/* Tabs para vista diaria y semanal */}
-      <Tabs defaultValue="daily" className="w-full" onValueChange={(v) => { if (v === 'saltadas' && skippedHistory.length === 0 && !loadingHistory) loadSkippedHistory() }}>
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+      <Tabs defaultValue="daily" className="w-full" onValueChange={(v) => {
+        if (v === 'saltadas' && skippedHistory.length === 0 && !loadingHistory) loadSkippedHistory()
+        if (v === 'exclusiones' && recipeExclusions.length === 0 && !loadingExclusions) loadRecipeExclusions()
+      }}>
+        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Diaria
@@ -331,6 +386,11 @@ export function MealDashboard() {
             <span className="text-sm">⏭️</span>
             <span className="hidden sm:inline">Saltadas</span>
             <span className="sm:hidden">Skip</span>
+          </TabsTrigger>
+          <TabsTrigger value="exclusiones" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <Ban className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">No como</span>
+            <span className="sm:hidden">🚫</span>
           </TabsTrigger>
         </TabsList>
 
@@ -716,6 +776,111 @@ export function MealDashboard() {
             loading={loadingHistory}
             onRefresh={loadSkippedHistory}
           />
+        </TabsContent>
+
+        {/* Tab gestión de exclusiones permanentes */}
+        <TabsContent value="exclusiones" className="mt-4 md:mt-6">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg flex items-center justify-center">
+                  <Ban className="w-4 h-4 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Recetas excluidas</h3>
+                  <p className="text-xs text-gray-500">No aparecerán en futuras sugerencias</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={loadRecipeExclusions}
+                  disabled={loadingExclusions}
+                  className="text-xs"
+                >
+                  {loadingExclusions ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                </Button>
+                {recipeExclusions.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearAllExclusions}
+                    className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    Quitar todas
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {loadingExclusions ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+              </div>
+            ) : recipeExclusions.length === 0 ? (
+              <Card className="border-dashed border-2 border-gray-200">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="w-14 h-14 bg-green-50 rounded-full flex items-center justify-center mb-4">
+                    <Check className="w-7 h-7 text-green-500" />
+                  </div>
+                  <p className="text-gray-700 font-medium">¡Sin exclusiones!</p>
+                  <p className="text-sm text-gray-500 mt-1 max-w-xs">
+                    Todas las recetas de tu plan están disponibles. Cuando marques una comida como &quot;no como&quot; con la opción &apos;No recomendar más&apos;, aparecerá aquí.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-500">{recipeExclusions.length} receta{recipeExclusions.length !== 1 ? 's' : ''} excluida{recipeExclusions.length !== 1 ? 's' : ''}</p>
+                {recipeExclusions.map((exclusion) => (
+                  <Card key={exclusion.id} className="overflow-hidden">
+                    <CardContent className="p-3 md:p-4">
+                      <div className="flex items-center gap-3">
+                        {exclusion.image_url ? (
+                          <img
+                            src={exclusion.image_url}
+                            alt={exclusion.recipe_name}
+                            className="w-14 h-14 md:w-16 md:h-16 rounded-lg object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 md:w-16 md:h-16 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+                            <Utensils className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-gray-900 truncate">{exclusion.recipe_name}</p>
+                          {exclusion.reason && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">Motivo: {exclusion.reason}</p>
+                          )}
+                          <Badge variant="secondary" className="mt-1 text-xs bg-red-50 text-red-600 border-red-100">
+                            🚫 Excluida
+                          </Badge>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRemoveExclusion(exclusion.id)}
+                          disabled={removingExclusionId === exclusion.id}
+                          className="flex-shrink-0 text-xs text-green-700 border-green-200 hover:bg-green-50"
+                        >
+                          {removingExclusionId === exclusion.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <>
+                              <Check className="h-3.5 w-3.5 mr-1" />
+                              <span className="hidden sm:inline">Comer de nuevo</span>
+                              <span className="sm:hidden">Activar</span>
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
         </TabsContent>
       </Tabs>
     </div>
