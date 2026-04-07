@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "django_filters",
     "drf_spectacular",
     "django_redis",
+    "django_celery_results",
 
     # Propias
     "api",
@@ -317,6 +318,26 @@ else:
     EMAIL_TIMEOUT = 10  # Timeout de 10 segundos para conexiones SMTP
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "NexFit365 <no-reply@nex-fit.local>")
+
+# ---------------------------------
+# Celery — cola de tareas asíncronas
+# ---------------------------------
+CELERY_BROKER_URL = os.getenv(
+    "CELERY_BROKER_URL",
+    os.getenv("REDIS_URL", "redis://redis:6379/1")
+)
+CELERY_RESULT_BACKEND = os.getenv(
+    "CELERY_RESULT_BACKEND",
+    os.getenv("REDIS_URL", "redis://redis:6379/1")
+)
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = os.getenv("TIME_ZONE", "Europe/Madrid")
+CELERY_TASK_ALWAYS_EAGER = os.getenv("CELERY_ALWAYS_EAGER", "False") == "True"  # True en tests
+CELERY_TASK_EAGER_PROPAGATES = True
+# Reintentos automáticos en caso de fallo del broker
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 # ---------------------------------
 # Media files

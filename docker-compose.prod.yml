@@ -224,6 +224,41 @@ services:
     networks:
       - internal
 
+  # ============================================
+  # CELERY WORKER - PRODUCCIÓN
+  # ============================================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "0:0"
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 200
+    env_file:
+      - ./docker/backend.env.production
+    environment:
+      DB_HOST: nexfit-pro-db
+      REDIS_URL: redis://nexfit-pro-redis:6379/0
+    command: >
+      sh -c "celery -A backend worker --loglevel=info --concurrency=2"
+    volumes:
+      - ./backend:/app
+      - /srv/mykaizenfit/pro/data/media:/app/media
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
 # ============================================
 # VOLÚMENES
 # ============================================

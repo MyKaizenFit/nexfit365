@@ -1,5 +1,6 @@
 """
-Signals para notificaciones push y email automáticas
+Signals para notificaciones push y email automáticas.
+Usa Celery si está disponible, con fallback a threading en entornos sin broker.
 """
 
 import logging
@@ -14,28 +15,55 @@ from .email_service import email_service
 logger = logging.getLogger(__name__)
 
 
+def _has_celery_broker() -> bool:
+    """Comprobar si hay un broker Celery operativo."""
+    try:
+        from celery import current_app
+        conn = current_app.connection_for_read()
+        conn.ensure_connection(max_retries=1)
+        conn.release()
+        return True
+    except Exception:
+        return False
+
+
 def _dispatch_notification_send(notification_id):
     """
-    Envía notificaciones evitando threading en SQLite para prevenir bloqueos
-    durante tests/desarrollo local.
+    Despacha el envío de notificaciones.
+    Usa Celery si está disponible; en otro caso usa threading (fallback para dev/SQLite).
     """
+    # Evitar threading en SQLite (tests), siempre síncrono
     if connection.vendor == "sqlite":
-        send_notifications_async(notification_id)
-        logger.info(f"Envío síncrono de notificaciones para {notification_id} (SQLite)")
+        send_notifications_sync(notification_id)
+        logger.info("Envío síncrono (SQLite) para notificación %s", notification_id)
         return
 
+    # Intentar Celery
+    try:
+        from .tasks import dispatch_notification_task
+        dispatch_notification_task.delay(notification_id)
+        logger.info("Notificación %s encolada en Celery", notification_id)
+        return
+    except Exception as exc:
+        logger.warning(
+            "Celery no disponible (%s). Usando threading como fallback para notificación %s.",
+            exc,
+            notification_id,
+        )
+
+    # Fallback: threading
     thread = threading.Thread(
-        target=send_notifications_async,
+        target=send_notifications_sync,
         args=(notification_id,),
         daemon=True,
     )
     thread.start()
-    logger.info(f"Iniciado envío asíncrono de notificaciones (push + email) para {notification_id}")
+    logger.info("Iniciado envío via threading (fallback) para notificación %s", notification_id)
 
 
-def send_notifications_async(notification_id: int):
+def send_notifications_sync(notification_id: int):
     """
-    Función auxiliar para enviar notificaciones de forma asíncrona
+    Envía push + email de forma síncrona (usado en SQLite/tests o como fallback).
     """
     try:
         notification = Notification.objects.get(id=notification_id)
