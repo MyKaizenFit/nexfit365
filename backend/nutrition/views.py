@@ -1851,7 +1851,7 @@ class MealLogViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['date', 'meal_type', 'completed']
+    filterset_fields = ['date', 'meal_type', 'completed', 'is_skipped']
     ordering_fields = ['date', 'time', 'created_at']
     ordering = ['-date', '-time']
     

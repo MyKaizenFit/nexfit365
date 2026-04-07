@@ -1,9 +1,10 @@
 'use client'
 
-import React, { useState, lazy, Suspense, useMemo, memo, useRef, useCallback } from 'react'
+import React, { useState, lazy, Suspense, useMemo, memo, useRef, useCallback, useEffect } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
+import { SkipMealModal } from './skip-meal-modal'
 import { MealOption } from '@/lib/nutrition-service'
 import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, Camera, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,8 +13,128 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
+import { getAuthHeaders, buildApiUrl } from '@/lib/api'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
+
+const MEAL_TYPE_LABELS: Record<string, string> = {
+  breakfast: 'Desayuno',
+  lunch: 'Comida',
+  snack: 'Merienda',
+  dinner: 'Cena',
+}
+
+function SkippedHistoryTab({
+  todaySkipped,
+  history,
+  loading,
+  onRefresh,
+}: {
+  todaySkipped: Array<{ id: string; name: string; mealType: string; skipReason?: string | null; selectedOption?: { name: string } | null }>
+  history: Array<{ id: string; date: string; meal_type: string; custom_description: string; skip_reason: string }>
+  loading: boolean
+  onRefresh: () => void
+}) {
+  const today = new Date().toISOString().split('T')[0]
+  const pastHistory = history.filter(h => h.date !== today)
+
+  return (
+    <div className="space-y-6">
+      {/* Hoy */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-400 rounded-lg flex items-center justify-center">
+              <span className="text-sm">⏭️</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-sm md:text-base">Saltadas hoy</h3>
+              <p className="text-xs text-gray-500">{todaySkipped.length} comida{todaySkipped.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+        </div>
+
+        {todaySkipped.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <span className="text-3xl block mb-2">✅</span>
+            <p className="text-sm">No has saltado ninguna comida hoy</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {todaySkipped.map(meal => (
+              <div key={meal.id} className="flex items-start gap-3 p-3 bg-amber-50 border border-amber-100 rounded-xl">
+                <span className="text-lg mt-0.5">⏭️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {meal.selectedOption?.name || meal.name}
+                  </p>
+                  <p className="text-[10px] text-gray-500 capitalize">{MEAL_TYPE_LABELS[meal.mealType] || meal.mealType}</p>
+                  {meal.skipReason && (
+                    <p className="text-xs text-amber-700 mt-1 italic">"{meal.skipReason}"</p>
+                  )}
+                </div>
+                <span className="text-[10px] text-amber-500 font-medium flex-shrink-0">Hoy</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Historial últimos 30 días */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-r from-gray-400 to-gray-500 rounded-lg flex items-center justify-center">
+              <span className="text-sm">📋</span>
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900 text-sm md:text-base">Historial (30 días)</h3>
+              <p className="text-xs text-gray-500">{pastHistory.length} entrada{pastHistory.length !== 1 ? 's' : ''}</p>
+            </div>
+          </div>
+          <button
+            onClick={onRefresh}
+            disabled={loading}
+            className="text-xs text-blue-600 hover:text-blue-800 font-medium disabled:opacity-50 touch-manipulation"
+          >
+            {loading ? '⟳ Cargando...' : '↻ Actualizar'}
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500" />
+          </div>
+        ) : pastHistory.length === 0 ? (
+          <div className="text-center py-8 text-gray-400">
+            <span className="text-3xl block mb-2">🎉</span>
+            <p className="text-sm">Sin comidas saltadas en los últimos 30 días</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {pastHistory.map(entry => (
+              <div key={entry.id} className="flex items-start gap-3 p-3 bg-gray-50 border border-gray-100 rounded-xl">
+                <span className="text-lg mt-0.5">⏭️</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{entry.custom_description || '—'}</p>
+                  <p className="text-[10px] text-gray-500 capitalize">
+                    {MEAL_TYPE_LABELS[entry.meal_type] || entry.meal_type}
+                  </p>
+                  {entry.skip_reason && (
+                    <p className="text-xs text-gray-500 mt-1 italic">"{entry.skip_reason}"</p>
+                  )}
+                </div>
+                <span className="text-[10px] text-gray-400 flex-shrink-0 text-right">
+                  {new Date(entry.date).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
 
 export function MealDashboard() {
   const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions, uploadMealPhoto } = useDailyMeals()
@@ -32,6 +153,33 @@ export function MealDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const [skipModalMeal, setSkipModalMeal] = useState<{ id: string; name: string } | null>(null)
+  const [skippedHistory, setSkippedHistory] = useState<Array<{
+    id: string
+    date: string
+    meal_type: string
+    custom_description: string
+    skip_reason: string
+  }>>([])
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  const loadSkippedHistory = useCallback(async () => {
+    setLoadingHistory(true)
+    try {
+      const headers = await getAuthHeaders()
+      const thirtyDaysAgo = new Date()
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+      const from = thirtyDaysAgo.toISOString().split('T')[0]
+      const url = buildApiUrl(`nutrition/meallogs/?is_skipped=true&date__gte=${from}&ordering=-date`)
+      const res = await fetch(url, { headers })
+      if (res.ok) {
+        const data = await res.json()
+        setSkippedHistory(Array.isArray(data) ? data : (data.results ?? []))
+      }
+    } finally {
+      setLoadingHistory(false)
+    }
+  }, [])
 
   const handlePhotoUpload = useCallback(async (mealId: string, file: File) => {
     setUploadingPhotoId(mealId)
@@ -90,9 +238,15 @@ export function MealDashboard() {
     }
   }
 
-  const handleSkipMeal = async (mealId: string) => {
-    const reason = window.prompt('¿Por qué no comes esta comida?', 'No me gusta esta comida') || 'No me gusta esta comida'
-    await markMealAsNotEaten(mealId, reason, true)
+  const handleSkipMeal = (mealId: string) => {
+    const meal = meals.find((m) => m.id === mealId)
+    if (meal) setSkipModalMeal({ id: mealId, name: meal.selectedOption?.name || meal.name })
+  }
+
+  const handleSkipConfirm = async (reason: string, excludeFromRecommendations: boolean) => {
+    if (!skipModalMeal) return
+    setSkipModalMeal(null)
+    await markMealAsNotEaten(skipModalMeal.id, reason, excludeFromRecommendations)
   }
 
   if (loading) {
@@ -159,8 +313,8 @@ export function MealDashboard() {
       </Card>
 
       {/* Tabs para vista diaria y semanal */}
-      <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+      <Tabs defaultValue="daily" className="w-full" onValueChange={(v) => { if (v === 'saltadas' && skippedHistory.length === 0 && !loadingHistory) loadSkippedHistory() }}>
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Diaria
@@ -172,6 +326,11 @@ export function MealDashboard() {
           <TabsTrigger value="fotos" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />
             Fotos
+          </TabsTrigger>
+          <TabsTrigger value="saltadas" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <span className="text-sm">⏭️</span>
+            <span className="hidden sm:inline">Saltadas</span>
+            <span className="sm:hidden">Skip</span>
           </TabsTrigger>
         </TabsList>
 
@@ -346,8 +505,8 @@ export function MealDashboard() {
 
                     {!meal.isCompleted && !meal.isSkipped && (
                       <button
-                        onClick={async () => {
-                          await handleSkipMeal(meal.id)
+                        onClick={() => {
+                          handleSkipMeal(meal.id)
                         }}
                         className="text-xs md:text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition-colors touch-manipulation text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 active:bg-amber-200"
                       >
@@ -440,6 +599,15 @@ export function MealDashboard() {
               options={getMealOptions(selectedMeal.id)}
               currentSelection={selectedMeal.currentSelection}
               onSelectOption={handleSelectOption}
+            />
+          )}
+
+          {/* Modal de motivo "No como" */}
+          {skipModalMeal && (
+            <SkipMealModal
+              mealName={skipModalMeal.name}
+              onConfirm={handleSkipConfirm}
+              onCancel={() => setSkipModalMeal(null)}
             />
           )}
         </TabsContent>
@@ -538,6 +706,16 @@ export function MealDashboard() {
               </div>
             )
           })()}
+        </TabsContent>
+
+        {/* Tab historial de comidas saltadas */}
+        <TabsContent value="saltadas" className="mt-4 md:mt-6">
+          <SkippedHistoryTab
+            todaySkipped={meals.filter(m => m.isSkipped)}
+            history={skippedHistory}
+            loading={loadingHistory}
+            onRefresh={loadSkippedHistory}
+          />
         </TabsContent>
       </Tabs>
     </div>
