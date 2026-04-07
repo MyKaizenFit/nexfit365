@@ -1,11 +1,11 @@
 'use client'
 
-import React, { useState, lazy, Suspense, useMemo, memo } from 'react'
+import React, { useState, lazy, Suspense, useMemo, memo, useRef, useCallback } from 'react'
 import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar } from 'lucide-react'
+import { Check, Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, Camera, Loader2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -16,7 +16,7 @@ import { useUserData } from '@/hooks/use-user-data'
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions, uploadMealPhoto } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -30,6 +30,17 @@ export function MealDashboard() {
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [uploadingPhotoId, setUploadingPhotoId] = useState<string | null>(null)
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({})
+
+  const handlePhotoUpload = useCallback(async (mealId: string, file: File) => {
+    setUploadingPhotoId(mealId)
+    try {
+      await uploadMealPhoto(mealId, file)
+    } finally {
+      setUploadingPhotoId(null)
+    }
+  }, [uploadMealPhoto])
 
   const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
     const fullMeal = meals.find((item) => item.id === meal.id)
@@ -149,7 +160,7 @@ export function MealDashboard() {
 
       {/* Tabs para vista diaria y semanal */}
       <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Diaria
@@ -157,6 +168,10 @@ export function MealDashboard() {
           <TabsTrigger value="weekly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Semanal
+          </TabsTrigger>
+          <TabsTrigger value="fotos" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            Fotos
           </TabsTrigger>
         </TabsList>
 
@@ -352,6 +367,50 @@ export function MealDashboard() {
                     </button>
                   </div>
 
+                  {/* Foto de la comida */}
+                  <div className="space-y-2">
+                    {meal.photo ? (
+                      <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={meal.photo}
+                          alt={`Foto de ${meal.name}`}
+                          className="w-full h-36 object-cover"
+                        />
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent px-2 py-1.5">
+                          <span className="text-[10px] text-white font-medium">📸 Foto guardada</span>
+                        </div>
+                      </div>
+                    ) : null}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      className="hidden"
+                      ref={(el) => { fileInputRefs.current[meal.id] = el }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handlePhotoUpload(meal.id, file)
+                        e.target.value = ''
+                      }}
+                    />
+                    <button
+                      onClick={() => fileInputRefs.current[meal.id]?.click()}
+                      disabled={uploadingPhotoId === meal.id}
+                      className="w-full flex items-center justify-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg bg-purple-50 hover:bg-purple-100 active:bg-purple-200 text-purple-700 transition-colors disabled:opacity-60 touch-manipulation"
+                    >
+                      {uploadingPhotoId === meal.id ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="w-3.5 h-3.5" />
+                      )}
+                      {uploadingPhotoId === meal.id
+                        ? 'Subiendo foto...'
+                        : meal.photo
+                          ? '📷 Cambiar foto'
+                          : '📷 Añadir foto'}
+                    </button>
+                  </div>
+
                 </div>
               ) : (
                 <button
@@ -393,6 +452,92 @@ export function MealDashboard() {
           }>
             <WeeklyMealPlan />
           </Suspense>
+        </TabsContent>
+
+        {/* Tab galería de fotos */}
+        <TabsContent value="fotos" className="mt-4 md:mt-6">
+          {(() => {
+            const mealsWithPhotos = meals.filter(m => m.photo)
+            if (mealsWithPhotos.length === 0) {
+              return (
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-4">
+                  <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center">
+                    <Camera className="w-10 h-10 text-purple-400" />
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-700">Aún no hay fotos hoy</h3>
+                  <p className="text-sm text-gray-500 max-w-xs">
+                    Completa una comida y usa el botón 📷 Añadir foto para registrar tus platos de hoy.
+                  </p>
+                </div>
+              )
+            }
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <Camera className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900">Fotos de hoy</h3>
+                    <p className="text-xs text-gray-500">{mealsWithPhotos.length} {mealsWithPhotos.length === 1 ? 'comida fotografiada' : 'comidas fotografiadas'}</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+                  {mealsWithPhotos.map(meal => (
+                    <div key={meal.id} className="rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-white">
+                      <div className="relative">
+                        <img
+                          src={meal.photo!}
+                          alt={`Foto de ${meal.name}`}
+                          className="w-full h-40 md:h-48 object-cover"
+                        />
+                        {meal.isCompleted && (
+                          <div className="absolute top-2 right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center shadow">
+                            <Check className="w-3.5 h-3.5 text-white" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{meal.icon}</span>
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-gray-900 truncate">{meal.name}</p>
+                            {meal.selectedOption && (
+                              <p className="text-[10px] text-gray-500 truncate">{meal.selectedOption.name}</p>
+                            )}
+                          </div>
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          ref={(el) => { fileInputRefs.current[`gallery-${meal.id}`] = el }}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handlePhotoUpload(meal.id, file)
+                            e.target.value = ''
+                          }}
+                        />
+                        <button
+                          onClick={() => fileInputRefs.current[`gallery-${meal.id}`]?.click()}
+                          disabled={uploadingPhotoId === meal.id}
+                          className="mt-2 w-full flex items-center justify-center gap-1 text-[10px] font-medium px-2 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 transition-colors disabled:opacity-60 touch-manipulation"
+                        >
+                          {uploadingPhotoId === meal.id ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : (
+                            <Camera className="w-3 h-3" />
+                          )}
+                          {uploadingPhotoId === meal.id ? 'Subiendo...' : 'Cambiar foto'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
         </TabsContent>
       </Tabs>
     </div>
