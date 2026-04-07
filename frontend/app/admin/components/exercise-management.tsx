@@ -673,34 +673,37 @@ export function ExerciseManagement() {
       {/* Card de Exportación/Importación */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1 min-w-0">
               <CardTitle>📁 Importar/Exportar Ejercicios</CardTitle>
               <CardDescription>Gestiona tus ejercicios con archivos CSV o Excel</CardDescription>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleExportCSV}
-                className="gap-2"
+                className="gap-1.5"
               >
                 <Download className="h-4 w-4" />
-                Exportar CSV
+                <span className="hidden sm:inline">Exportar </span>CSV
               </Button>
               <Button
                 variant="outline"
+                size="sm"
                 onClick={handleExportExcel}
-                className="gap-2"
+                className="gap-1.5"
               >
                 <Download className="h-4 w-4" />
-                Exportar Excel
+                <span className="hidden sm:inline">Exportar </span>Excel
               </Button>
               <Button
+                size="sm"
                 onClick={() => setShowImportDialog(true)}
-                className="bg-blue-600 hover:bg-blue-700 gap-2"
+                className="bg-blue-600 hover:bg-blue-700 gap-1.5"
               >
                 <Upload className="h-4 w-4" />
-                Importar CSV/Excel
+                <span className="hidden sm:inline">Importar </span>CSV/Excel
               </Button>
             </div>
           </div>
@@ -748,14 +751,14 @@ export function ExerciseManagement() {
         </DialogContent>
       </Dialog>
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Gestión de Ejercicios</h2>
-          <p className="text-muted-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="text-xl md:text-3xl font-bold tracking-tight">Gestión de Ejercicios</h2>
+          <p className="text-muted-foreground text-sm md:text-base">
             Administra los ejercicios disponibles en el sistema
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} className="self-start sm:self-auto flex-shrink-0">
           <Plus className="h-4 w-4 mr-2" />
           Nuevo Ejercicio
         </Button>
