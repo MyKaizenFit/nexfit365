@@ -27,7 +27,8 @@ import {
   ArrowDown,
   CheckCircle,
   AlertCircle,
-  Info
+  Info,
+  Moon
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -51,6 +52,7 @@ import { WeightHistory } from "./weight-history"
 import { NutritionSummary } from "./nutrition-summary"
 import { PhotoCarousel } from "./photo-carousel"
 import { WeightDialog } from "./weight-dialog"
+import { SleepPerformanceChart } from "./sleep-performance-chart"
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 
@@ -516,7 +518,7 @@ export function ProgressDashboard() {
 
       {/* Tabs principales */}
       <Tabs defaultValue="photos" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="photos" className="flex items-center gap-2">
             <Camera className="h-4 w-4" />
             Fotos
@@ -532,6 +534,10 @@ export function ProgressDashboard() {
           <TabsTrigger value="nutrition" className="flex items-center gap-2">
             <Flame className="h-4 w-4" />
             Nutrición
+          </TabsTrigger>
+          <TabsTrigger value="sleep" className="flex items-center gap-2">
+            <Moon className="h-4 w-4" />
+            Sueño
           </TabsTrigger>
         </TabsList>
 
@@ -701,6 +707,11 @@ export function ProgressDashboard() {
             fatGoal={macros.fatGoal}
             dailyMeals={dailyMeals}
           />
+        </TabsContent>
+
+        {/* Tab de Sueño vs Rendimiento */}
+        <TabsContent value="sleep" className="space-y-6">
+          <SleepPerformanceChart />
         </TabsContent>
       </Tabs>
 

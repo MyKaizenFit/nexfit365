@@ -3,6 +3,32 @@
 
 import { buildApiUrl, authenticatedFetch, getAuthHeaders } from './api'
 
+export interface SleepPerformancePoint {
+  date: string
+  sleep_hours: number | null
+  motivation_score: number | null
+  workout_avg_rating: number | null
+  workout_count: number
+  workout_completed: boolean
+  workout_avg_duration_minutes: number | null
+  workout_avg_calories_burned: number | null
+}
+
+export interface SleepPerformanceSummary {
+  wellness_days: number
+  workout_days: number
+  sleep_rating_pairs: number
+  sleep_vs_rating_correlation: number | null
+}
+
+export interface SleepPerformanceResponse {
+  from: string
+  to: string
+  period_days: number
+  summary: SleepPerformanceSummary
+  points: SleepPerformancePoint[]
+}
+
 export interface WeightAnalysis {
   has_enough_data: boolean
   status?: 'on_track' | 'stalled' | 'slow' | 'too_fast'
@@ -274,6 +300,23 @@ class ProgressService {
       }
     } catch (error) {
       throw error
+    }
+  }
+
+  /**
+   * Obtener datos de sueño vs rendimiento del usuario
+   */
+  async getSleepPerformance(days: number = 30): Promise<SleepPerformanceResponse | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await authenticatedFetch(
+        `progress/progress-stats/sleep-performance/?days=${days}`,
+        { headers }
+      )
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
+      return null
     }
   }
 
