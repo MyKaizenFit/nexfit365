@@ -85,8 +85,7 @@ class PushService {
       const registration = await navigator.serviceWorker.ready
 
       // Obtener clave pública del servidor (VAPID key)
-      // Por ahora usaremos una clave de ejemplo, deberías obtenerla del backend
-      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BEl62iUYgUivxIkv69yViEuiBIa40HI8x8z7ZJ8bBw5B7f8Q3K8x9Y0Z1A2B3C4D5E6F7G8H9I0J1K2L3M4N5O6P7Q8R9S0T1U2V3W4X5Y6Z7'
+      const vapidPublicKey = await this.getVapidPublicKey()
 
       // Convertir clave VAPID a formato Uint8Array
       const applicationServerKey = this.urlBase64ToUint8Array(vapidPublicKey)
@@ -179,6 +178,25 @@ class PushService {
 
     const data = await response.json()
     return data.results || data || []
+  }
+
+  /**
+   * Obtener clave VAPID pública: primero de env, si no del backend
+   */
+  private async getVapidPublicKey(): Promise<string> {
+    const envKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (envKey && envKey.length > 10) {
+      return envKey
+    }
+    // Fallback: obtener del backend
+    try {
+      const response = await fetch('/api/notifications/push-subscriptions/vapid-public-key/')
+      if (response.ok) {
+        const data = await response.json()
+        return data.vapid_public_key
+      }
+    } catch {}
+    throw new Error('No se pudo obtener la clave VAPID del servidor')
   }
 
   /**

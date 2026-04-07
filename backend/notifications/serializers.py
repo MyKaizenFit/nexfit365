@@ -162,7 +162,7 @@ class CreateNotificationSerializer(serializers.Serializer):
 class PushSubscriptionSerializer(serializers.ModelSerializer):
     """Serializer para suscripciones push"""
     user_email = serializers.ReadOnlyField(source='user.email')
-    
+
     class Meta:
         model = PushSubscription
         fields = [
@@ -170,11 +170,30 @@ class PushSubscriptionSerializer(serializers.ModelSerializer):
             'is_active', 'user_agent', 'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
-    
+
+    def to_internal_value(self, data):
+        """Acepta tanto formato plano como el anidado que envía el browser ({keys: {p256dh, auth}})"""
+        mutable = dict(data)
+        keys = mutable.pop('keys', None)
+        if isinstance(keys, dict):
+            if 'p256dh' in keys:
+                mutable['p256dh'] = keys['p256dh']
+            if 'auth' in keys:
+                mutable['auth'] = keys['auth']
+        return super().to_internal_value(mutable)
+
     def create(self, validated_data):
-        """Crear suscripción asociada al usuario autenticado"""
+        """Crear o actualizar suscripción asociada al usuario autenticado"""
         request = self.context.get('request')
         if request and request.user:
             validated_data['user'] = request.user
             validated_data['user_agent'] = request.META.get('HTTP_USER_AGENT', '')
-        return super().create(validated_data) 
+        # Usar update_or_create para que re-suscribirse desde el mismo browser no falle
+        user = validated_data.pop('user')
+        endpoint = validated_data.get('endpoint')
+        obj, _ = PushSubscription.objects.update_or_create(
+            user=user,
+            endpoint=endpoint,
+            defaults={**validated_data, 'is_active': True},
+        )
+        return obj
