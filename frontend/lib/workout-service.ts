@@ -47,6 +47,23 @@ export interface WorkoutLog {
   workout_day_id?: string
 }
 
+export interface WorkoutProgram {
+  id: string
+  name: string
+  description?: string
+  difficulty?: string
+  goal?: string
+  location?: string
+  duration_weeks?: number
+  days_per_week?: number
+  estimated_duration_minutes?: number
+  is_active?: boolean
+  is_system?: boolean
+  is_template?: boolean
+  days?: WorkoutDay[]
+  created_at?: string
+}
+
 export interface WorkoutPlanTemplate {
   id: string
   name: string
@@ -213,8 +230,87 @@ class WorkoutService {
       return { data: null, error: 'Error al obtener ejercicios' }
     }
   }
+
+  // ---- CRUD de Programas de entrenamiento ----
+  async getPrograms(): Promise<WorkoutProgram[]> {
+    try {
+      const headers = await getAuthHeaders()
+      const url = buildApiUrl('workouts/programs/')
+      const res = await fetch(url, { headers })
+      if (!res.ok) return []
+      const data = await res.json()
+      return Array.isArray(data) ? data : (data.results ?? [])
+    } catch { return [] }
+  }
+
+  async createProgram(data: {
+    name: string
+    description?: string
+    difficulty?: string
+    goal?: string
+    location?: string
+    duration_weeks?: number
+    days_per_week?: number
+    estimated_duration_minutes?: number
+  }): Promise<WorkoutProgram | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(buildApiUrl('workouts/programs/'), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  }
+
+  async updateProgram(id: string, data: Partial<{
+    name: string
+    description: string
+    difficulty: string
+    goal: string
+    location: string
+    duration_weeks: number
+    days_per_week: number
+    estimated_duration_minutes: number
+  }>): Promise<WorkoutProgram | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(buildApiUrl(`workouts/programs/${id}/`), {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) return null
+      return await res.json()
+    } catch { return null }
+  }
+
+  async deleteProgram(id: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(buildApiUrl(`workouts/programs/${id}/`), {
+        method: 'DELETE',
+        headers,
+      })
+      return res.ok || res.status === 204
+    } catch { return false }
+  }
+
+  async activateProgram(id: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const res = await fetch(buildApiUrl(`workouts/programs/${id}/activate/`), {
+        method: 'POST',
+        headers,
+      })
+      return res.ok
+    } catch { return false }
+  }
 }
 
 // Exportar instancia singleton
 export const workoutService = new WorkoutService()
 export default workoutService
+

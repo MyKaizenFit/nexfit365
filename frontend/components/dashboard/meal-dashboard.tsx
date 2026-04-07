@@ -15,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 import { getAuthHeaders, buildApiUrl } from '@/lib/api'
 import { toast } from '@/hooks/use-toast'
+import { NutritionPlanManager } from './nutrition-plan-manager'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
@@ -369,28 +370,30 @@ export function MealDashboard() {
         if (v === 'saltadas' && skippedHistory.length === 0 && !loadingHistory) loadSkippedHistory()
         if (v === 'exclusiones' && recipeExclusions.length === 0 && !loadingExclusions) loadRecipeExclusions()
       }}>
-        <TabsList className="grid w-full grid-cols-5 h-auto p-1">
-          <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-            <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Vista </span>Diaria
+        <TabsList className="grid w-full grid-cols-6 h-auto p-1">
+          <TabsTrigger value="daily" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <Clock className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Diaria</span>
           </TabsTrigger>
-          <TabsTrigger value="weekly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-            <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
-            <span className="hidden sm:inline">Vista </span>Semanal
+          <TabsTrigger value="weekly" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <Calendar className="h-3 w-3 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Semanal</span>
           </TabsTrigger>
-          <TabsTrigger value="fotos" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-            <Camera className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <TabsTrigger value="fotos" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <Camera className="h-3 w-3 md:h-4 md:w-4" />
             Fotos
           </TabsTrigger>
-          <TabsTrigger value="saltadas" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-            <span className="text-sm">⏭️</span>
+          <TabsTrigger value="saltadas" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <span className="text-xs">⏭️</span>
             <span className="hidden sm:inline">Saltadas</span>
-            <span className="sm:hidden">Skip</span>
           </TabsTrigger>
-          <TabsTrigger value="exclusiones" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-            <Ban className="h-3.5 w-3.5 md:h-4 md:w-4" />
+          <TabsTrigger value="exclusiones" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <Ban className="h-3 w-3 md:h-4 md:w-4" />
             <span className="hidden sm:inline">No como</span>
-            <span className="sm:hidden">🚫</span>
+          </TabsTrigger>
+          <TabsTrigger value="planes" className="flex items-center gap-1 text-[10px] md:text-sm py-2">
+            <ChefHat className="h-3 w-3 md:h-4 md:w-4" />
+            Planes
           </TabsTrigger>
         </TabsList>
 
@@ -779,8 +782,7 @@ export function MealDashboard() {
         </TabsContent>
 
         {/* Tab gestión de exclusiones permanentes */}
-        <TabsContent value="exclusiones" className="mt-4 md:mt-6">
-          <div className="space-y-4">
+        <TabsContent value="exclusiones" className="mt-4 md:mt-6">          <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 bg-gradient-to-r from-red-500 to-rose-500 rounded-lg flex items-center justify-center">
@@ -881,6 +883,11 @@ export function MealDashboard() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* Tab CRUD de planes de nutrición */}
+        <TabsContent value="planes" className="mt-4 md:mt-6">
+          <NutritionPlanManager />
         </TabsContent>
       </Tabs>
     </div>

@@ -25,6 +25,8 @@ import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
+import { WorkoutProgramManager } from "./workout-program-manager"
+import { RestTimer } from "@/components/rest-timer"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -986,10 +988,12 @@ export function WorkoutDashboardEnhanced() {
 
       {/* Tabs con detalles del plan */}
       <Tabs defaultValue="schedule" className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 gap-0.5 md:gap-2 h-auto md:h-10">
-          <TabsTrigger value="schedule" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Programa Semanal</TabsTrigger>
-          <TabsTrigger value="history" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
-          <TabsTrigger value="progress" className="text-[9.5px] md:text-sm px-1 md:px-4 py-1 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
+        <TabsList className="grid w-full grid-cols-5 gap-0.5 md:gap-1 h-auto md:h-10">
+          <TabsTrigger value="schedule" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Programa</TabsTrigger>
+          <TabsTrigger value="history" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
+          <TabsTrigger value="progress" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
+          <TabsTrigger value="programs" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Mis prog.</TabsTrigger>
+          <TabsTrigger value="timer" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">⏱️ Timer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
@@ -1279,8 +1283,7 @@ export function WorkoutDashboardEnhanced() {
           <WorkoutHistoryEnhanced workoutLogs={workoutLogs} />
         </TabsContent>
 
-        <TabsContent value="progress" className="space-y-4">
-          {stats.totalWorkouts > 0 || stats.completedThisWeek > 0 ? (
+        <TabsContent value="progress" className="space-y-4">          {stats.totalWorkouts > 0 || stats.completedThisWeek > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
               <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
                 <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
@@ -1377,6 +1380,21 @@ export function WorkoutDashboardEnhanced() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Tab gestión de programas */}
+        <TabsContent value="programs" className="space-y-4">
+          <WorkoutProgramManager />
+        </TabsContent>
+
+        {/* Tab timer de descanso */}
+        <TabsContent value="timer" className="mt-4">
+          <div className="flex flex-col items-center gap-4">
+            <RestTimer defaultDuration={90} inline className="w-full max-w-xs" />
+            <p className="text-xs text-gray-500 text-center max-w-xs">
+              Pulsa play para iniciar el temporizador de descanso. Recibirás pitidos de alerta en los últimos 3 segundos y al finalizar.
+            </p>
+          </div>
         </TabsContent>
       </Tabs>
 

@@ -574,6 +574,84 @@ class NutritionService {
     }
   }
 
+  async createPlan(data: {
+    name: string
+    description?: string
+    daily_calories: number
+    protein_grams?: number
+    carbs_grams?: number
+    fat_grams?: number
+    goal?: string
+    diet_type?: string
+    meals_per_day?: number
+    duration_weeks?: number
+  }): Promise<NutritionPlan | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLANS), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+
+  async updatePlan(id: string, data: Partial<{
+    name: string
+    description: string
+    daily_calories: number
+    protein_grams: number
+    carbs_grams: number
+    fat_grams: number
+    goal: string
+    diet_type: string
+    meals_per_day: number
+    duration_weeks: number
+  }>): Promise<NutritionPlan | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/`), {
+        method: 'PATCH',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
+      return null
+    }
+  }
+
+  async deletePlan(id: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/`), {
+        method: 'DELETE',
+        headers,
+      })
+      return response.ok || response.status === 204
+    } catch {
+      return false
+    }
+  }
+
+  async activatePlan(id: string): Promise<boolean> {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/activate/`), {
+        method: 'POST',
+        headers,
+      })
+      return response.ok
+    } catch {
+      return false
+    }
+  }
+
   // Obtener alimentos disponibles
   async getFoods(search?: string): Promise<Food[]> {
     try {

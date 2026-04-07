@@ -140,6 +140,32 @@ services:
     networks:
       - web
 
+  # ============================================
+  # CELERY WORKER - DESARROLLO
+  # ============================================
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "0:0"
+    env_file:
+      - ./docker/backend.env.dev
+    environment:
+      LOG_LEVEL: DEBUG
+    command: >
+      sh -c "celery -A backend worker --loglevel=info --concurrency=2"
+    volumes:
+      - ./backend:/app
+      - nexfit-dev-media:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - internal
+
 # ============================================
 # VOLÚMENES
 # ============================================
