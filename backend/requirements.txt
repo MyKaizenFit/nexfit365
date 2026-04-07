@@ -19,7 +19,6 @@ django-redis>=5.4.0
 # Emails
 django-anymail[sendgrid]>=10.0
 
-# Procesamiento de imágenes
 Pillow>=10.0.0
 
 # Excel/CSV
@@ -36,7 +35,6 @@ gunicorn>=21.2; sys_platform != "win32"
 pywebpush>=1.14.0
 py-vapid>=1.9.0
 
-# Google Drive API (para sincronización de videos de ejercicios)
 google-api-python-client>=2.0.0
 google-auth>=2.0.0
 google-auth-httplib2>=0.1.0
@@ -52,7 +50,6 @@ model-bakery>=1.18.0
 freezegun>=1.2.0
 coverage>=7.3.0
 
-# Calidad de código
 black>=23.0.0
 isort>=5.12.0
 flake8>=6.0.0
@@ -62,4 +59,3 @@ bandit>=1.7.0
 asgiref==3.9.1
 sqlparse==0.5.3
 tzdata==2025.2
-⌊倠獵⁨潎楴楦慣楴湯ੳ祰敷灢獵㹨㈽〮〮瀊⵹慶楰㹤ㄽ㤮〮
