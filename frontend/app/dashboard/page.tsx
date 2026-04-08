@@ -73,6 +73,7 @@ const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useUserProfile } from "@/hooks/use-user-profile"
+import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -92,38 +93,10 @@ function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [selectedSection, setSelectedSection] = useState("dashboard")
-  const [notifications, setNotifications] = useState(3)
-  const [userProfile, setUserProfile] = useState<any>(null)
   const { user, logout } = useAuth()
   const { userStats, loading: statsLoading } = useUserData()
   const { profile, loading: profileLoading } = useUserProfile()
-
-  // Cargar datos del perfil del usuario
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      if (user) {
-        try {
-          // Simular carga de datos del perfil (aquí iría la llamada real al backend)
-          const mockProfile = {
-            main_goal: 'lose_weight', // lose_weight, gain_muscle, body_recomposition
-            activity_level: 'moderate', // sedentary, light, moderate, active, very_active
-            training_location: 'home', // home, gym
-            training_days_per_week: 4,
-            allergies: 'nueces, mariscos',
-            disliked_foods: 'brócoli, espinacas',
-            height: 175,
-            weight: 70,
-            age: 28,
-            gender: 'male'
-          }
-          setUserProfile(mockProfile)
-        } catch (error) {
-        }
-      }
-    }
-
-    loadUserProfile()
-  }, [user])
+  const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
 
   useEffect(() => {
     const sectionParam = searchParams?.get("section")
@@ -144,12 +117,7 @@ function DashboardContent() {
   }
 
   const handleNotificationClick = () => {
-    setNotifications(0)
-    toast({
-      title: "🔔 Notificaciones",
-      description:
-        "Tienes 3 notificaciones nuevas: Revisión pendiente, Nueva receta disponible, ¡Felicidades por tu progreso!",
-    })
+    refreshNotifications()
   }
 
   const renderContent = () => {
@@ -586,7 +554,7 @@ function DashboardContent() {
         {/* Mobile Header */}
         <Suspense fallback={<div className="h-16 bg-white border-b"></div>}>
           <MobileHeader
-            notifications={notifications}
+            notifications={unreadCount}
             onNotificationClick={handleNotificationClick}
             selectedSection={selectedSection}
           />
