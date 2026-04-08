@@ -69,6 +69,7 @@ const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").t
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
+const BodyMeasurements = lazy(() => import("./components/body-measurements").then(module => ({ default: module.BodyMeasurements })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -78,12 +79,12 @@ import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
   { title: "Día 1", icon: Target, url: "day-one" },
-  // TODO: Activar en versiones posteriores
-  // { title: "Recomendaciones", icon: Sparkles, url: "recommendations", disabled: true },
-  // { title: "Consejos", icon: Heart, url: "tips", disabled: true },
+  { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
+  { title: "Consejos", icon: Heart, url: "tips" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
+  { title: "Medidas", icon: TrendingUp, url: "measurements" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
   { title: "Configuración", icon: Settings, url: "settings" },
@@ -158,8 +159,7 @@ function DashboardContent() {
         )
 
 
-      // TODO: Activar en versiones posteriores
-      /* case "recommendations":
+      case "recommendations":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -187,7 +187,7 @@ function DashboardContent() {
               </Suspense>
             </div>
           </div>
-        ) */
+        )
 
       case "meals":
         return (
@@ -234,7 +234,33 @@ function DashboardContent() {
           </div>
         )
 
+      case "measurements":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-teal-200/20 to-cyan-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-teal-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+                <Suspense fallback={null}><BodyMeasurements /></Suspense>
+              </div>
+            </div>
+          </div>
+        )
+
       case "achievements":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-yellow-200/20 to-amber-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-yellow-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <AchievementsDuolingo />
+            </div>
+          </div>
+        )
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">

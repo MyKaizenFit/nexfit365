@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Camera, ChevronLeft, ChevronRight, Plus, Calendar, Upload, X } from "lucide-react"
+import { Camera, ChevronLeft, ChevronRight, Plus, Calendar, Upload, X, ZoomIn, GitCompare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -11,12 +11,13 @@ import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-
 export function ProgressPhotos() {
   const [currentPhoto, setCurrentPhoto] = useState(0)
   const { photos, loading, error, uploadPhoto, deletePhoto } = useProgressPhotos()
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
+  const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -175,13 +176,8 @@ export function ProgressPhotos() {
                     alt={`Progreso ${photos[currentPhoto]?.date || 'Sin fecha'}`}
                     width={120}
                     height={160}
-                    className="sm:w-[140px] sm:h-[180px] lg:w-[150px] lg:h-[200px] rounded-lg object-cover shadow-lg border-2 border-white/20 transition-all duration-500 hover:shadow-2xl animate-in fade-in-0 duration-700 cursor-pointer"
-                    onClick={() =>
-                      toast({
-                        title: "Vista ampliada",
-                        description: "Función de zoom disponible próximamente",
-                      })
-                    }
+                    className="sm:w-[140px] sm:h-[180px] lg:w-[150px] lg:h-[200px] rounded-lg object-cover shadow-lg border-2 border-white/20 transition-all duration-500 hover:shadow-2xl animate-in fade-in-0 duration-700 cursor-zoom-in"
+                    onClick={() => setZoomPhoto(photos[currentPhoto]?.photo_url || null)}
                   />
                   {/* Overlay con información */}
                   <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm rounded-md p-2 transform transition-all duration-500 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100">
@@ -381,36 +377,123 @@ export function ProgressPhotos() {
 
             {/* Comparativa rápida */}
             {photos.length > 1 && (
-              <div
-                className="p-2 sm:p-3 bg-green-50 border border-green-200 rounded-lg cursor-pointer hover:bg-green-100 transition-colors"
-                onClick={() =>
-                  toast({
-                    title: "Comparativa",
-                    description: "Función de comparación lado a lado disponible próximamente",
-                  })
-                }
+              <button
+                className="w-full p-2 sm:p-3 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors text-left"
+                onClick={() => setCompareOpen(true)}
               >
                 <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="text-green-700 font-medium">Progreso total:</span>
+                  <span className="text-green-700 font-medium flex items-center gap-1.5">
+                    <GitCompare className="h-3.5 w-3.5" />
+                    Comparar primera y última foto
+                  </span>
                   <span className="text-green-600 font-bold">
                     {(() => {
                       if (photos.length > 1 && photos[0]?.weight && photos[photos.length - 1]?.weight) {
                         const firstWeight = photos[0].weight
                         const lastWeight = photos[photos.length - 1].weight
                         if (firstWeight && lastWeight) {
-                          return (firstWeight - lastWeight).toFixed(1)
+                          return `${(firstWeight - lastWeight).toFixed(1)} kg`
                         }
                       }
-                      return '0.0'
-                    })()}{" "}
-                    kg perdidos
+                      return '—'
+                    })()}
                   </span>
                 </div>
-              </div>
+              </button>
             )}
           </div>
         )}
       </CardContent>
+
+      {/* Dialog: Zoom de foto */}
+      <Dialog open={!!zoomPhoto} onOpenChange={(open) => { if (!open) setZoomPhoto(null) }}>
+        <DialogContent className="max-w-3xl p-2 bg-black/95 border-white/10">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Foto ampliada</DialogTitle>
+            <DialogDescription>Vista ampliada de la foto de progreso</DialogDescription>
+          </DialogHeader>
+          <button
+            className="absolute top-2 right-2 z-10 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/80 transition"
+            onClick={() => setZoomPhoto(null)}
+          >
+            <X className="h-5 w-5" />
+          </button>
+          {zoomPhoto && (
+            <div className="flex items-center justify-center w-full">
+              <Image
+                src={zoomPhoto}
+                alt="Foto de progreso ampliada"
+                width={700}
+                height={900}
+                className="rounded-lg object-contain max-h-[80vh] w-auto"
+              />
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog: Comparación lado a lado */}
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <GitCompare className="h-5 w-5 text-green-600" />
+              Comparación de progreso
+            </DialogTitle>
+            <DialogDescription>Primera foto vs. foto más reciente</DialogDescription>
+          </DialogHeader>
+          {photos.length > 1 ? (
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              {/* Primera foto */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Inicio</span>
+                <Image
+                  src={photos[photos.length - 1]?.photo_url || "/placeholder.svg"}
+                  alt="Primera foto"
+                  width={260}
+                  height={340}
+                  className="rounded-lg object-cover w-full max-h-72 shadow"
+                />
+                <p className="text-sm text-center text-muted-foreground">
+                  {photos[photos.length - 1]?.date
+                    ? new Date(photos[photos.length - 1].date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+                    : "Sin fecha"}
+                  {photos[photos.length - 1]?.weight ? ` · ${photos[photos.length - 1].weight} kg` : ""}
+                </p>
+              </div>
+              {/* Foto más reciente */}
+              <div className="flex flex-col items-center gap-2">
+                <span className="text-xs font-semibold text-green-600 uppercase tracking-wide">Ahora</span>
+                <Image
+                  src={photos[0]?.photo_url || "/placeholder.svg"}
+                  alt="Foto reciente"
+                  width={260}
+                  height={340}
+                  className="rounded-lg object-cover w-full max-h-72 shadow ring-2 ring-green-400"
+                />
+                <p className="text-sm text-center text-muted-foreground">
+                  {photos[0]?.date
+                    ? new Date(photos[0].date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
+                    : "Sin fecha"}
+                  {photos[0]?.weight ? ` · ${photos[0].weight} kg` : ""}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center text-muted-foreground py-8">Necesitas al menos 2 fotos para comparar</p>
+          )}
+          {photos.length > 1 && photos[0]?.weight && photos[photos.length - 1]?.weight && (
+            <div className="mt-3 p-3 bg-green-50 rounded-lg text-center">
+              <p className="text-green-700 font-semibold text-sm">
+                Diferencia de peso:{" "}
+                <span className="text-green-600 font-bold text-base">
+                  {(photos[photos.length - 1].weight! - photos[0].weight!).toFixed(1)} kg
+                </span>
+              </p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }
