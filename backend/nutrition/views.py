@@ -2222,22 +2222,154 @@ class FoodViewSet(viewsets.ModelViewSet):
             'updated': updated
         })
     
+    @action(detail=False, methods=['post'], url_path='import_file',
+            parser_classes=[MultiPartParser, FormParser])
+    def import_file(self, request):
+        """Importar alimentos desde CSV o Excel (.xlsx)"""
+        import csv
+        import io
+
+        user = request.user
+        role = str(getattr(user, 'role', '') or '').lower()
+        if not (user.is_staff or user.is_superuser or role == 'admin'):
+            return Response({'detail': 'Solo administradores pueden importar alimentos.'}, status=403)
+
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'detail': 'file es requerido'}, status=400)
+
+        filename = file.name.lower()
+
+        def _safe_int(val, default=0):
+            try:
+                return int(round(float(str(val).replace(',', '.').strip()))) if str(val).strip() else default
+            except Exception:
+                return default
+
+        def _safe_decimal(val, default='0'):
+            try:
+                cleaned = str(val).replace(',', '.').strip()
+                return str(round(float(cleaned), 2)) if cleaned else default
+            except Exception:
+                return default
+
+        def _row_to_defaults(row):
+            def g(*keys):
+                for k in keys:
+                    v = row.get(k) or row.get(k.lower()) or ''
+                    if str(v).strip():
+                        return str(v).strip()
+                return ''
+
+            store_val = g('store', 'supermercado', 'tienda').lower()
+            valid_stores = [v for v, _ in Food.STORE_CHOICES]
+            if store_val and store_val not in valid_stores:
+                store_val = 'otro'
+
+            return {
+                'brand': g('brand', 'marca')[:100],
+                'category': g('category', 'categoria', 'categoría').title(),
+                'store': store_val,
+                'calories': _safe_int(g('calories', 'calorias', 'calorías', 'kcal')),
+                'protein': _safe_decimal(g('protein', 'proteina', 'proteínas', 'proteinas')),
+                'carbs': _safe_decimal(g('carbs', 'carbohidratos', 'hidratos', 'carbos')),
+                'fat': _safe_decimal(g('fat', 'grasa', 'grasas')),
+                'fiber': _safe_decimal(g('fiber', 'fibra')),
+                'sugar': _safe_decimal(g('sugar', 'azucar', 'azúcar')),
+                'sodium': _safe_decimal(g('sodium', 'sodio')),
+                'serving_size': _safe_decimal(g('serving_size', 'porcion', 'porción'), '100') or '100',
+                'serving_unit': g('serving_unit', 'unidad') or 'g',
+                'created_by': request.user,
+            }
+
+        rows = []
+        errors_parse = []
+
+        try:
+            if filename.endswith('.csv'):
+                text = file.read().decode('utf-8-sig', errors='replace')
+                reader = csv.DictReader(io.StringIO(text))
+                rows = list(reader)
+            elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+                try:
+                    import openpyxl
+                except ImportError:
+                    return Response({'detail': 'openpyxl no está instalado en el servidor.'}, status=500)
+                wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
+                ws = wb.active
+                headers = [str(c.value).strip().lower() if c.value else '' for c in next(ws.iter_rows(min_row=1, max_row=1))]
+                for row in ws.iter_rows(min_row=2, values_only=True):
+                    rows.append({headers[i]: (str(v).strip() if v is not None else '') for i, v in enumerate(row)})
+            else:
+                return Response({'detail': 'Formato no soportado. Use .csv o .xlsx'}, status=400)
+        except Exception as e:
+            return Response({'detail': f'Error leyendo el archivo: {e}'}, status=400)
+
+        imported = 0
+        updated = 0
+        skipped = 0
+        errors_list = []
+
+        for i, row in enumerate(rows, start=2):
+            name = (row.get('name') or row.get('nombre') or row.get('Name') or '').strip()
+            if not name:
+                skipped += 1
+                continue
+            try:
+                defaults = _row_to_defaults(row)
+                _obj, created = Food.objects.update_or_create(name=name, defaults=defaults)
+                if created:
+                    imported += 1
+                else:
+                    updated += 1
+            except Exception as e:
+                errors_list.append(f'Fila {i} ({name}): {e}')
+                skipped += 1
+
+        return Response({
+            'imported': imported,
+            'updated': updated,
+            'skipped': skipped,
+            'errors': errors_list[:10],
+        })
+
+    @action(detail=False, methods=['get'], url_path='download_template')
+    def download_template(self, request):
+        """Descargar plantilla CSV para importación de alimentos"""
+        import csv
+        from django.http import HttpResponse
+
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="plantilla_alimentos.csv"'
+        response.write('\ufeff')  # BOM para Excel
+
+        writer = csv.writer(response)
+        writer.writerow([
+            'name', 'brand', 'category', 'store',
+            'calories', 'protein', 'carbs', 'fat',
+            'fiber', 'sugar', 'sodium', 'serving_size', 'serving_unit',
+        ])
+        writer.writerow(['Pechuga de pollo', 'Hacendado', 'Carnes', 'mercadona', 165, 31, 0, 3.6, 0, 0, 74, 100, 'g'])
+        writer.writerow(['Arroz integral cocido', '', 'Cereales', '', 130, 2.7, 27, 1.0, 1.8, 0, 5, 100, 'g'])
+        writer.writerow(['Plátano', '', 'Frutas', '', 89, 1.1, 23, 0.3, 2.6, 12, 1, 100, 'g'])
+        return response
+
     def get_queryset(self):
         """Filtrar por categoría, verificación y supermercado"""
         queryset = Food.objects.all()
-        
+
         category = self.request.query_params.get('category')
         if category:
             queryset = queryset.filter(category__iexact=category)
-        
+
         is_verified = self.request.query_params.get('is_verified')
         if is_verified is not None:
             queryset = queryset.filter(is_verified=is_verified.lower() == 'true')
-        
+
         store = self.request.query_params.get('store')
         if store:
             queryset = queryset.filter(store__iexact=store)
-        
+
         return queryset.order_by('name')
 
 
