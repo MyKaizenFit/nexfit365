@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { HelpCircle, Save, Mail, BookOpen, FileText, AlertCircle, Info, Globe, ExternalLink } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { HelpCircle, Save, Mail, BookOpen, FileText, AlertCircle, Info, Globe, ExternalLink, Loader2, Bug, Lightbulb, Monitor, Zap, CheckCircle2, Clock, RefreshCw, ChevronDown, ChevronUp, MessageSquare } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,9 +9,234 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { helpService, HelpSettings } from "@/lib/help-service"
+import { useAuth } from "@/contexts/auth-context"
+
+interface ProblemReport {
+  id: number
+  user_email: string
+  user_name: string
+  problem_type: string
+  subject: string
+  description: string
+  steps_to_reproduce: string
+  expected_behavior: string
+  actual_behavior: string
+  browser_info: string
+  device_info: string
+  url: string
+  contact_email: string
+  status: 'pending' | 'in_review' | 'resolved' | 'closed'
+  admin_notes: string
+  resolved_at: string | null
+  resolved_by_email: string | null
+  created_at: string
+}
+
+const STATUS_LABELS: Record<string, { label: string; color: string }> = {
+  pending: { label: 'Pendiente', color: 'bg-yellow-100 text-yellow-800' },
+  in_review: { label: 'En Revisión', color: 'bg-blue-100 text-blue-800' },
+  resolved: { label: 'Resuelto', color: 'bg-green-100 text-green-800' },
+  closed: { label: 'Cerrado', color: 'bg-gray-100 text-gray-700' },
+}
+
+const TYPE_ICON: Record<string, any> = {
+  bug: Bug, feature: Lightbulb, ui: Monitor, performance: Zap, other: AlertCircle,
+}
+
+function ProblemReportsPanel() {
+  const { getAuthHeaders: authHeaders } = useAuth()
+  const [reports, setReports] = useState<ProblemReport[]>([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const [saving, setSaving] = useState<number | null>(null)
+  const [adminNotes, setAdminNotes] = useState<Record<number, string>>({})
+  const [statusFilter, setStatusFilter] = useState('all')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const headers = await authHeaders()
+      const res = await fetch(buildApiUrl('problem-reports/?ordering=-created_at'), { headers: headers as HeadersInit })
+      if (res.ok) {
+        const data = await res.json()
+        setReports(data.results ?? data)
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudieron cargar los reportes.', variant: 'destructive' })
+    } finally {
+      setLoading(false)
+    }
+  }, [authHeaders])
+
+  useEffect(() => { load() }, [load])
+
+  const handleUpdateStatus = async (id: number, status: string) => {
+    setSaving(id)
+    try {
+      const headers = await authHeaders()
+      const body: Record<string, any> = { status }
+      if (adminNotes[id] !== undefined) body.admin_notes = adminNotes[id]
+
+      const res = await fetch(buildApiUrl(`problem-reports/${id}/`), {
+        method: 'PATCH',
+        headers: { ...(headers as Record<string, string>), 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setReports(prev => prev.map(r => r.id === id ? { ...r, ...updated } : r))
+        toast({ title: '✅ Reporte actualizado' })
+      }
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo actualizar.', variant: 'destructive' })
+    } finally {
+      setSaving(null)
+    }
+  }
+
+  const filtered = statusFilter === 'all' ? reports : reports.filter(r => r.status === statusFilter)
+  const pendingCount = reports.filter(r => r.status === 'pending').length
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5 text-orange-600" />
+            Reportes Recibidos
+            {pendingCount > 0 && (
+              <Badge className="bg-orange-100 text-orange-800 ml-1">{pendingCount} pendientes</Badge>
+            )}
+          </CardTitle>
+          <Button variant="ghost" size="sm" onClick={load}>
+            <RefreshCw className="h-4 w-4 mr-1" />Actualizar
+          </Button>
+        </div>
+        <div className="flex gap-2 mt-2">
+          {['all','pending','in_review','resolved','closed'].map(s => (
+            <Button
+              key={s}
+              variant={statusFilter === s ? 'default' : 'outline'}
+              size="sm"
+              className="text-xs h-7"
+              onClick={() => setStatusFilter(s)}
+            >
+              {s === 'all' ? 'Todos' : STATUS_LABELS[s]?.label}
+            </Button>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        )}
+        {!loading && filtered.length === 0 && (
+          <p className="text-sm text-muted-foreground text-center py-6">No hay reportes{statusFilter !== 'all' ? ' con este estado' : ''}.</p>
+        )}
+        {!loading && filtered.map(r => {
+          const Icon = TYPE_ICON[r.problem_type] || AlertCircle
+          const st = STATUS_LABELS[r.status] || STATUS_LABELS.pending
+          const isOpen = expanded === r.id
+          return (
+            <div key={r.id} className="border rounded-lg overflow-hidden">
+              <button
+                className="w-full flex items-start gap-3 p-3 text-left hover:bg-muted/30 transition-colors"
+                onClick={() => setExpanded(isOpen ? null : r.id)}
+              >
+                <Icon className="h-4 w-4 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium truncate">{r.subject}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${st.color}`}>{st.label}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {r.user_email || r.contact_email || 'Anónimo'} · {new Date(r.created_at).toLocaleDateString('es')}
+                  </div>
+                </div>
+                {isOpen ? <ChevronUp className="h-4 w-4 flex-shrink-0" /> : <ChevronDown className="h-4 w-4 flex-shrink-0" />}
+              </button>
+
+              {isOpen && (
+                <div className="border-t p-3 space-y-3 bg-muted/10">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Descripción</p>
+                    <p className="text-sm">{r.description}</p>
+                  </div>
+                  {r.steps_to_reproduce && (
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-1">Pasos para reproducir</p>
+                      <p className="text-sm whitespace-pre-wrap">{r.steps_to_reproduce}</p>
+                    </div>
+                  )}
+                  {r.expected_behavior && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Comportamiento esperado</p>
+                        <p className="text-sm">{r.expected_behavior}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium text-muted-foreground">Comportamiento actual</p>
+                        <p className="text-sm">{r.actual_behavior}</p>
+                      </div>
+                    </div>
+                  )}
+                  <div className="text-xs text-muted-foreground space-y-0.5">
+                    {r.browser_info && <p>Navegador: {r.browser_info}</p>}
+                    {r.device_info && <p>Dispositivo: {r.device_info}</p>}
+                    {r.url && <p>URL: {r.url}</p>}
+                  </div>
+
+                  {/* Gestión admin */}
+                  <div className="border-t pt-3 space-y-2">
+                    <Label className="text-xs">Notas del administrador</Label>
+                    <Textarea
+                      rows={2}
+                      value={adminNotes[r.id] ?? r.admin_notes}
+                      onChange={e => setAdminNotes(p => ({ ...p, [r.id]: e.target.value }))}
+                      placeholder="Añade notas internas..."
+                      className="text-sm"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Select
+                        value={r.status}
+                        onValueChange={val => handleUpdateStatus(r.id, val)}
+                      >
+                        <SelectTrigger className="h-8 text-xs flex-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pendiente</SelectItem>
+                          <SelectItem value="in_review">En Revisión</SelectItem>
+                          <SelectItem value="resolved">Resuelto</SelectItem>
+                          <SelectItem value="closed">Cerrado</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs"
+                        disabled={saving === r.id}
+                        onClick={() => handleUpdateStatus(r.id, r.status)}
+                      >
+                        {saving === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Guardar notas'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </CardContent>
+    </Card>
+  )
+}
 
 export function HelpSettingsPanel() {
   const [settings, setSettings] = useState<HelpSettings | null>(null)
@@ -309,11 +534,15 @@ export function HelpSettingsPanel() {
 
         {/* Report Tab */}
         <TabsContent value="report" className="space-y-4">
+          {/* Lista de reportes recibidos */}
+          <ProblemReportsPanel />
+
+          {/* Configuración del formulario */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-orange-600" />
-                Configuración de Reportes de Problemas
+                Configuración del Formulario de Reportes
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
