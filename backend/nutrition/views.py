@@ -2335,23 +2335,164 @@ class FoodViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='download_template')
     def download_template(self, request):
-        """Descargar plantilla CSV para importación de alimentos"""
-        import csv
+        """Descargar plantilla Excel (.xlsx) en español para importación de alimentos"""
+        import io
         from django.http import HttpResponse
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        except ImportError:
+            return Response({'detail': 'openpyxl no está instalado.'}, status=500)
 
-        response = HttpResponse(content_type='text/csv; charset=utf-8')
-        response['Content-Disposition'] = 'attachment; filename="plantilla_alimentos.csv"'
-        response.write('\ufeff')  # BOM para Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Alimentos"
 
-        writer = csv.writer(response)
-        writer.writerow([
-            'name', 'brand', 'category', 'store',
-            'calories', 'protein', 'carbs', 'fat',
-            'fiber', 'sugar', 'sodium', 'serving_size', 'serving_unit',
-        ])
-        writer.writerow(['Pechuga de pollo', 'Hacendado', 'Carnes', 'mercadona', 165, 31, 0, 3.6, 0, 0, 74, 100, 'g'])
-        writer.writerow(['Arroz integral cocido', '', 'Cereales', '', 130, 2.7, 27, 1.0, 1.8, 0, 5, 100, 'g'])
-        writer.writerow(['Plátano', '', 'Frutas', '', 89, 1.1, 23, 0.3, 2.6, 12, 1, 100, 'g'])
+        headers = [
+            'nombre', 'marca', 'categoria', 'supermercado',
+            'calorias', 'proteinas', 'carbohidratos', 'grasas',
+            'fibra', 'azucar', 'sodio', 'porcion', 'unidad',
+        ]
+        header_es = [
+            'Nombre *', 'Marca', 'Categoría', 'Supermercado',
+            'Calorías (kcal)', 'Proteínas (g)', 'Carbohidratos (g)', 'Grasas (g)',
+            'Fibra (g)', 'Azúcar (g)', 'Sodio (mg)', 'Tamaño porción', 'Unidad',
+        ]
+
+        # Estilo cabecera
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin = Side(style='thin', color='CCCCCC')
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        ws.append(header_es)
+        for col_idx, cell in enumerate(ws[1], start=1):
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center
+            cell.border = border
+
+        # Filas de ejemplo
+        examples = [
+            ['Pechuga de pollo', 'Hacendado', 'Carnes', 'mercadona', 165, 31.0, 0.0, 3.6, 0.0, 0.0, 74.0, 100, 'g'],
+            ['Arroz integral cocido', '', 'Cereales', '', 130, 2.7, 27.0, 1.0, 1.8, 0.0, 5.0, 100, 'g'],
+            ['Plátano', '', 'Frutas', '', 89, 1.1, 23.0, 0.3, 2.6, 12.0, 1.0, 100, 'g'],
+            ['Huevo entero L', 'Carrefour', 'Lácteos y huevos', 'carrefour', 155, 12.6, 1.1, 10.6, 0.0, 1.1, 124.0, 100, 'g'],
+            ['Yogur natural desnatado', 'Hacendado', 'Lácteos y huevos', 'mercadona', 46, 4.8, 6.1, 0.1, 0.0, 6.1, 47.0, 100, 'g'],
+        ]
+        for row in examples:
+            ws.append(row)
+
+        # Hoja de referencia de supermercados válidos
+        ws2 = wb.create_sheet("Supermercados válidos")
+        ws2.append(['Valor a usar en "supermercado"', 'Etiqueta'])
+        ws2['A1'].font = Font(bold=True)
+        ws2['B1'].font = Font(bold=True)
+        valid_stores = [s for s, _ in Food.STORE_CHOICES]
+        store_labels = dict(Food.STORE_CHOICES)
+        for v in valid_stores:
+            ws2.append([v, store_labels[v]])
+        ws2.column_dimensions['A'].width = 30
+        ws2.column_dimensions['B'].width = 20
+
+        # Ajuste automático de columnas en hoja principal
+        col_widths = [30, 20, 20, 15, 12, 12, 15, 10, 10, 10, 10, 12, 10]
+        for i, width in enumerate(col_widths, start=1):
+            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+        ws.row_dimensions[1].height = 30
+        ws.freeze_panes = 'A2'
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_alimentos.xlsx"'
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exportar todos los alimentos a Excel (.xlsx) en español"""
+        import io
+        from django.http import HttpResponse
+        try:
+            from openpyxl import Workbook
+            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        except ImportError:
+            return Response({'detail': 'openpyxl no está instalado.'}, status=500)
+
+        queryset = self.get_queryset()
+
+        # Aplicar filtros opcionales de la query
+        search = request.query_params.get('search')
+        if search:
+            from django.db.models import Q
+            queryset = queryset.filter(Q(name__icontains=search) | Q(brand__icontains=search))
+
+        store_labels = dict(Food.STORE_CHOICES)
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Alimentos"
+
+        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+        header_font = Font(bold=True, color="FFFFFF", size=11)
+        center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        thin = Side(style='thin', color='CCCCCC')
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        headers = [
+            'Nombre', 'Marca', 'Categoría', 'Supermercado',
+            'Calorías (kcal)', 'Proteínas (g)', 'Carbohidratos (g)', 'Grasas (g)',
+            'Fibra (g)', 'Azúcar (g)', 'Sodio (mg)', 'Tamaño porción', 'Unidad',
+            'Verificado', 'Fecha creación',
+        ]
+        ws.append(headers)
+        for cell in ws[1]:
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = center
+            cell.border = border
+
+        for food in queryset.iterator():
+            ws.append([
+                food.name or '',
+                food.brand or '',
+                food.category or '',
+                store_labels.get(food.store or '', food.store or ''),
+                int(food.calories or 0),
+                float(food.protein or 0),
+                float(food.carbs or 0),
+                float(food.fat or 0),
+                float(food.fiber or 0),
+                float(food.sugar or 0),
+                float(food.sodium or 0),
+                float(food.serving_size or 100),
+                food.serving_unit or 'g',
+                'Sí' if food.is_verified else 'No',
+                food.created_at.strftime('%d/%m/%Y') if food.created_at else '',
+            ])
+
+        # Ajuste de columnas
+        col_widths = [35, 20, 20, 18, 13, 13, 16, 12, 10, 10, 10, 13, 8, 10, 14]
+        for i, width in enumerate(col_widths, start=1):
+            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
+        ws.row_dimensions[1].height = 30
+        ws.freeze_panes = 'A2'
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="alimentos_export.xlsx"'
         return response
 
     def get_queryset(self):
