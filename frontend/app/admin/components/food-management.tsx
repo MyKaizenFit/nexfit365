@@ -425,16 +425,43 @@ export function FoodManagement() {
   }
 
   const handleDownloadTemplate = async () => {
-    const headers = await getAuthHeaders()
-    const response = await fetch(`${getApiUrl()}/api/nutrition/foods/download_template/`, { headers })
-    if (!response.ok) return
-    const blob = await response.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'plantilla_alimentos.csv'
-    a.click()
-    URL.revokeObjectURL(url)
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/download_template/`, { headers })
+      if (!response.ok) throw new Error('Error al descargar')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'plantilla_alimentos.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({ title: '✅ Plantilla descargada', description: 'plantilla_alimentos.xlsx' })
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo descargar la plantilla', variant: 'destructive' })
+    }
+  }
+
+  const handleExportExcel = async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/export-excel/`, { headers })
+      if (!response.ok) throw new Error('Error al exportar')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'alimentos_export.xlsx'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({ title: '✅ Exportación Excel', description: 'alimentos_export.xlsx descargado.' })
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo exportar el Excel', variant: 'destructive' })
+    }
   }
 
   const resetImportModal = () => {
@@ -677,16 +704,17 @@ export function FoodManagement() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportExcel}>
+            <Download className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Exportar </span>Excel
+          </Button>
           <Button variant="outline" onClick={() => setFileImportOpen(true)}>
             <FileUp className="h-4 w-4 mr-2" />
-            CSV / Excel
+            <span className="hidden sm:inline">Importar </span>CSV/Excel
           </Button>
-          <Button
-            onClick={() => setImportModalOpen(true)}
-            variant="outline"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Importar API
+          <Button variant="outline" onClick={() => setImportModalOpen(true)}>
+            <Search className="h-4 w-4 mr-2" />
+            <span className="hidden sm:inline">Importar </span>API
           </Button>
           <Button
             onClick={openCreateModal}
@@ -1178,7 +1206,7 @@ export function FoodManagement() {
             <div className="flex items-center gap-2">
               <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
                 <FileText className="h-4 w-4 mr-2" />
-                Descargar plantilla CSV
+                Descargar plantilla Excel
               </Button>
               <span className="text-xs text-gray-500">Úsala como punto de partida</span>
             </div>
@@ -1187,7 +1215,7 @@ export function FoodManagement() {
               <Label>Fichero (.csv o .xlsx)</Label>
               <Input
                 type="file"
-                accept=".csv,.xlsx,.xls"
+                accept=".xlsx,.xls,.csv"
                 onChange={(e) => { setSelectedFile(e.target.files?.[0] || null); setFileImportResult(null) }}
               />
             </div>
