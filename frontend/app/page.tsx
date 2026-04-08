@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
 import { getAuthService } from "@/lib/auth-service"
-import { PersonalizedRecommendations } from "@/components/personalized-recommendations"
 import { 
   Target, 
   Users, 
@@ -32,9 +31,6 @@ import {
 export default function HomePage() {
   const router = useRouter()
   const { isAuthenticated, isLoading, user } = useAuth()
-  const [userProfile, setUserProfile] = useState<any>(null)
-  const [showPersonalizedContent, setShowPersonalizedContent] = useState(false)
-
   // Si está autenticado, no permitir permanecer en la home (/):
   // redirigir al dashboard o al panel admin según el rol.
   useEffect(() => {
@@ -83,34 +79,6 @@ export default function HomePage() {
 
     window.location.replace('/dashboard')
   }, [isAuthenticated, isLoading, user])
-
-  // Cargar datos del perfil del usuario
-  useEffect(() => {
-    const loadUserProfile = async () => {
-      if (isAuthenticated && user) {
-        try {
-          // Simular carga de datos del perfil (aquí iría la llamada real al backend)
-          const mockProfile = {
-            main_goal: 'lose_weight', // lose_weight, gain_muscle, body_recomposition
-            activity_level: 'moderate', // sedentary, light, moderate, active, very_active
-            training_location: 'home', // home, gym
-            training_days_per_week: 4,
-            allergies: 'nueces, mariscos',
-            disliked_foods: 'brócoli, espinacas',
-            height: 175,
-            weight: 70,
-            age: 28,
-            gender: 'male'
-          }
-          setUserProfile(mockProfile)
-          setShowPersonalizedContent(true)
-        } catch (error) {
-        }
-      }
-    }
-
-    loadUserProfile()
-  }, [isAuthenticated, user])
 
   // Si está autenticado, el efecto anterior se encarga de redirigir.
   if (isAuthenticated && !isLoading) {
