@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { useToast } from '@/hooks/use-toast'
 import { useAuth } from '@/contexts/auth-context'
+import { userService } from '@/lib/user-service'
 import { 
   User, 
   Mail, 
@@ -124,48 +125,67 @@ export function UserProfileForm({ onProfileUpdate }: UserProfileFormProps) {
 
   // Cargar datos del perfil cuando el usuario esté disponible
   useEffect(() => {
-    if (user) {
-      // Aquí cargarías los datos reales del perfil desde el backend
-      // Por ahora usamos datos mock
-      const mockProfile = {
+    if (!user) return
+    userService.getUserProfile().then((profile) => {
+      const toStr = (v: string | string[] | undefined) =>
+        Array.isArray(v) ? v.join(', ') : v || ''
+      form.reset({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || '',
+        country_code: '+34',
+        phone_number: profile.phone_number || profile.phone || '',
+        age: (profile as any).age || undefined,
+        gender: (profile as any).gender || undefined,
+        height: profile.height || undefined,
+        weight: profile.weight || undefined,
+        main_goal: (profile as any).main_goal || undefined,
+        activity_level: (profile.activity_level as any) || undefined,
+        training_days_per_week: profile.training_days_per_week || undefined,
+        training_location: profile.training_location || undefined,
+        allergies: toStr(profile.allergies),
+        medical_conditions: toStr((profile as any).medical_conditions),
+        disliked_foods: toStr(profile.disliked_foods),
+        previous_obstacles: (profile as any).previous_obstacles || '',
+        injuries_or_medical_issues: profile.injuries_or_medical_issues || '',
+      })
+    }).catch(() => {
+      form.reset({
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         email: user.email || '',
         country_code: '+34',
         phone_number: user.phone || '',
-        age: 28,
-        gender: 'male' as const,
-        height: 175,
-        weight: 70,
-        main_goal: 'lose_weight' as const,
-        activity_level: 'moderate' as const,
-        training_days_per_week: 4,
-        training_location: 'home' as const,
-        allergies: 'nueces, mariscos',
-        medical_conditions: '',
-        disliked_foods: 'brócoli, espinacas',
-        previous_obstacles: 'Falta de tiempo',
-        injuries_or_medical_issues: '',
-      }
-      
-      form.reset(mockProfile)
-    }
+      })
+    })
   }, [user, form])
 
   const onSubmit = async (data: UserProfileFormData) => {
     setIsLoading(true)
     try {
-      // Aquí enviarías los datos al backend para actualizar el perfil
-      
-      // Simular actualización
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      await userService.updateUserProfile({
+        first_name: data.first_name,
+        last_name: data.last_name,
+        email: data.email,
+        phone_number: data.phone_number,
+        height: data.height,
+        weight: data.weight,
+        activity_level: data.activity_level,
+        training_days_per_week: data.training_days_per_week,
+        training_location: data.training_location,
+        allergies: data.allergies,
+        disliked_foods: data.disliked_foods,
+        medical_conditions: data.medical_conditions as any,
+        injuries_or_medical_issues: data.injuries_or_medical_issues,
+        ...(data.main_goal ? { main_goal: data.main_goal } as any : {}),
+      } as any)
+
       toast({
         title: "Perfil actualizado",
         description: "Tu perfil se ha actualizado correctamente.",
         variant: "default",
       })
-      
+
       if (onProfileUpdate) {
         onProfileUpdate(data)
       }

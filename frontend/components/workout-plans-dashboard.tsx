@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import { 
   Dumbbell, 
   Play, 
@@ -20,38 +20,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from '@/hooks/use-toast'
-import { ExerciseCard } from '@/components/exercise-card'
-
-interface WorkoutPlan {
-  id: number
-  name: string
-  description: string
-  level: 'beginner' | 'intermediate' | 'advanced'
-  goal: 'weight_loss' | 'muscle_gain' | 'strength_building' | 'endurance' | 'general_fitness'
-  days_per_week: number
-  duration_weeks: number
-  start_date: string
-  end_date?: string
-  is_active: boolean
-  days?: WorkoutDay[]
-}
-
-interface WorkoutDay {
-  id: number
-  name: string
-  day: number
-  is_rest_day: boolean
-  exercises: WorkoutExercise[]
-}
-
-interface WorkoutExercise {
-  id: number
-  name: string
-  sets: number
-  reps: number
-  weight?: number
-  rest_time?: number
-}
+import { useWorkouts, WorkoutProgram, WorkoutDay, WorkoutDayExercise } from '@/hooks/use-workouts'
 
 interface WorkoutPlansDashboardProps {
   userProfile?: any
@@ -59,146 +28,8 @@ interface WorkoutPlansDashboardProps {
 }
 
 export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansDashboardProps) {
-  const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([])
-  const [activePlan, setActivePlan] = useState<WorkoutPlan | null>(null)
-  const [loading, setLoading] = useState(true)
+  const { workoutPrograms, activeProgram, loading, activateProgram: activateProgramApi } = useWorkouts()
   const [activeTab, setActiveTab] = useState('my-plans')
-
-  // Cargar planes de entrenamiento
-  useEffect(() => {
-    const loadWorkoutPlans = async () => {
-      try {
-        setLoading(true)
-        
-        // Simular llamada a la API real
-        // En el futuro esto sería: const response = await fetch('/api/workouts/workout-programs/')
-        
-        // Datos mock basados en los modelos del backend
-        const mockPlans: WorkoutPlan[] = [
-          {
-            id: 1,
-            name: "Plan de Fuerza para Principiantes",
-            description: "Programa de 4 semanas enfocado en desarrollar fuerza base y técnica correcta",
-            level: "beginner",
-            goal: "strength_building",
-            days_per_week: 3,
-            duration_weeks: 4,
-            start_date: new Date().toISOString(),
-            is_active: true,
-            days: [
-              {
-                id: 1,
-                name: "Día 1 - Tren Superior",
-                day: 1,
-                is_rest_day: false,
-                exercises: [
-                  { id: 1, name: "Press de banca", sets: 3, reps: 8, weight: 60 },
-                  { id: 2, name: "Remo con barra", sets: 3, reps: 8, weight: 50 },
-                  { id: 3, name: "Press militar", sets: 3, reps: 8, weight: 30 },
-                  { id: 4, name: "Dominadas asistidas", sets: 3, reps: 6 }
-                ]
-              },
-              {
-                id: 2,
-                name: "Día 2 - Tren Inferior",
-                day: 2,
-                is_rest_day: false,
-                exercises: [
-                  { id: 5, name: "Sentadillas", sets: 3, reps: 10, weight: 70 },
-                  { id: 6, name: "Peso muerto", sets: 3, reps: 8, weight: 80 },
-                  { id: 7, name: "Zancadas", sets: 3, reps: 10 },
-                  { id: 8, name: "Elevaciones de gemelos", sets: 3, reps: 15 }
-                ]
-              },
-              {
-                id: 3,
-                name: "Día 3 - Descanso",
-                day: 3,
-                is_rest_day: true,
-                exercises: []
-              }
-            ]
-          },
-          {
-            id: 2,
-            name: "Plan de Pérdida de Peso",
-            description: "Rutina de alta intensidad para quemar grasa y tonificar",
-            level: "intermediate",
-            goal: "weight_loss",
-            days_per_week: 4,
-            duration_weeks: 6,
-            start_date: new Date().toISOString(),
-            is_active: false,
-            days: [
-              {
-                id: 4,
-                name: "Día 1 - HIIT Cardio",
-                day: 1,
-                is_rest_day: false,
-                exercises: [
-                  { id: 9, name: "Burpees", sets: 4, reps: 15 },
-                  { id: 10, name: "Mountain climbers", sets: 4, reps: 20 },
-                  { id: 11, name: "Jump squats", sets: 4, reps: 15 },
-                  { id: 12, name: "High knees", sets: 4, reps: 30 }
-                ]
-              },
-              {
-                id: 5,
-                name: "Día 2 - Fuerza Total",
-                day: 2,
-                is_rest_day: false,
-                exercises: [
-                  { id: 13, name: "Thruster", sets: 3, reps: 12, weight: 25 },
-                  { id: 14, name: "Kettlebell swing", sets: 3, reps: 15, weight: 20 },
-                  { id: 15, name: "Box jumps", sets: 3, reps: 10 },
-                  { id: 16, name: "Battle ropes", sets: 3, reps: 30 }
-                ]
-              }
-            ]
-          },
-          {
-            id: 3,
-            name: "Plan de Ganancia Muscular",
-            description: "Programa avanzado para maximizar la hipertrofia muscular",
-            level: "advanced",
-            goal: "muscle_gain",
-            days_per_week: 5,
-            duration_weeks: 8,
-            start_date: new Date().toISOString(),
-            is_active: false,
-            days: [
-              {
-                id: 6,
-                name: "Día 1 - Pecho y Tríceps",
-                day: 1,
-                is_rest_day: false,
-                exercises: [
-                  { id: 17, name: "Press de banca", sets: 4, reps: 8, weight: 80 },
-                  { id: 18, name: "Press inclinado", sets: 4, reps: 10, weight: 70 },
-                  { id: 19, name: "Aperturas", sets: 3, reps: 12, weight: 25 },
-                  { id: 20, name: "Fondos", sets: 3, reps: 10 }
-                ]
-              }
-            ]
-          }
-        ]
-
-        setWorkoutPlans(mockPlans)
-        setActivePlan(mockPlans.find(plan => plan.is_active) || null)
-        
-      } catch (error) {
-        toast({
-          title: "Error",
-          description: "No se pudieron cargar los planes de entrenamiento",
-          variant: "destructive"
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadWorkoutPlans()
-  }, [userProfile])
 
   const getGoalDisplayName = (goal: string) => {
     const goalNames = {
@@ -229,12 +60,9 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
     return colors[level as keyof typeof colors] || 'bg-gray-100 text-gray-800'
   }
 
-  const handleActivatePlan = async (plan: WorkoutPlan) => {
+  const handleActivatePlan = async (plan: WorkoutProgram) => {
     try {
-      // Simular activación del plan
-      setWorkoutPlans(prev => prev.map(p => ({ ...p, is_active: p.id === plan.id })))
-      setActivePlan(plan)
-      
+      await activateProgramApi(plan.id)
       toast({
         title: "Plan Activado",
         description: `El plan "${plan.name}" ha sido activado exitosamente`,
@@ -251,7 +79,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
   const handleStartWorkout = (day: WorkoutDay) => {
     toast({
       title: "Iniciando Entrenamiento",
-      description: `Comenzando ${day.name}`,
+      description: `Comenzando ${day.day_name}`,
     })
   }
 
@@ -310,7 +138,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
         {/* Tab: Mis Planes */}
         <TabsContent value="my-plans" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {workoutPlans.map((plan) => (
+            {workoutPrograms.map((plan) => (
               <Card key={plan.id} className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -378,7 +206,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {workoutPlans
+                {workoutPrograms
                   .filter(plan => !plan.is_active)
                   .map((plan) => (
                     <Card key={plan.id} className="border border-gray-200">
@@ -421,33 +249,33 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
 
         {/* Tab: Plan Activo */}
         <TabsContent value="active-plan" className="space-y-4">
-          {activePlan ? (
+          {activeProgram ? (
             <div className="space-y-6">
               {/* Información del plan activo */}
               <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Dumbbell className="h-5 w-5 text-purple-600" />
-                    {activePlan.name}
+                    {activeProgram.name}
                   </CardTitle>
-                  <CardDescription>{activePlan.description}</CardDescription>
+                  <CardDescription>{activeProgram.description}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-600">{activePlan.days_per_week}</div>
+                      <div className="text-2xl font-bold text-purple-600">{activeProgram.days_per_week}</div>
                       <div className="text-sm text-gray-600">Días por semana</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{activePlan.duration_weeks}</div>
+                      <div className="text-2xl font-bold text-blue-600">{activeProgram.duration_weeks}</div>
                       <div className="text-sm text-gray-600">Semanas</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-green-600">{activePlan.days?.length || 0}</div>
+                      <div className="text-2xl font-bold text-green-600">{activeProgram.days?.length || 0}</div>
                       <div className="text-sm text-gray-600">Días de entrenamiento</div>
                     </div>
                     <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">{getLevelDisplayName(activePlan.level)}</div>
+                      <div className="text-2xl font-bold text-orange-600">{getLevelDisplayName(activeProgram.level)}</div>
                       <div className="text-sm text-gray-600">Nivel</div>
                     </div>
                   </div>
@@ -456,7 +284,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
 
               {/* Días de entrenamiento */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {activePlan.days?.map((day) => (
+                {activeProgram.days?.map((day) => (
                   <Card key={day.id} className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -465,7 +293,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
                         ) : (
                           <Dumbbell className="h-4 w-4 text-purple-600" />
                         )}
-                        {day.name}
+                        {day.day_name}
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-3">
@@ -483,7 +311,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
                           <div className="space-y-2">
                             {day.exercises.slice(0, 3).map((exercise) => (
                               <div key={exercise.id} className="text-xs bg-gray-50 p-2 rounded">
-                                <div className="font-medium">{exercise.name}</div>
+                                <div className="font-medium">{exercise.exercise.name}</div>
                                 <div className="text-gray-600">
                                   {exercise.sets} x {exercise.reps}
                                   {exercise.weight && ` @ ${exercise.weight}kg`}
