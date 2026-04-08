@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { Search, Plus, RefreshCw, Download, Trash2, Check, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Package, Filter, Eye } from "lucide-react"
+import { Search, Plus, RefreshCw, Download, Trash2, Check, X, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Loader2, Package, Filter, Eye, Pencil, FileUp, FileText } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -99,6 +99,24 @@ export function FoodManagement() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const itemsPerPage = 20
+
+  // Modal CRUD manual
+  const [foodModalOpen, setFoodModalOpen] = useState(false)
+  const [editingFood, setEditingFood] = useState<Food | null>(null)
+  const [savingFood, setSavingFood] = useState(false)
+  const emptyForm = {
+    name: '', brand: '', category: '', store: '',
+    calories: '', protein: '', carbs: '', fat: '',
+    fiber: '', sugar: '', sodium: '', serving_size: '100', serving_unit: 'g',
+    is_verified: false,
+  }
+  const [foodForm, setFoodForm] = useState(emptyForm)
+
+  // Modal importar CSV/Excel
+  const [fileImportOpen, setFileImportOpen] = useState(false)
+  const [fileImporting, setFileImporting] = useState(false)
+  const [fileImportResult, setFileImportResult] = useState<{ imported: number; updated: number; skipped: number; errors: string[] } | null>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   // Modal de importar (flujo: buscar → preview → seleccionar → importar)
   const [importModalOpen, setImportModalOpen] = useState(false)
@@ -303,6 +321,120 @@ export function FoodManagement() {
     } finally {
       setImporting(false)
     }
+  }
+
+  // ---- CRUD manual ----
+  const openCreateModal = () => {
+    setEditingFood(null)
+    setFoodForm(emptyForm)
+    setFoodModalOpen(true)
+  }
+
+  const openEditModal = (food: Food) => {
+    setEditingFood(food)
+    setFoodForm({
+      name: food.name,
+      brand: food.brand || '',
+      category: food.category || '',
+      store: food.store || '',
+      calories: String(food.calories ?? ''),
+      protein: String(food.protein ?? ''),
+      carbs: String(food.carbs ?? ''),
+      fat: String(food.fat ?? ''),
+      fiber: String(food.fiber ?? ''),
+      sugar: String(food.sugar ?? ''),
+      sodium: String(food.sodium ?? ''),
+      serving_size: String(food.serving_size ?? '100'),
+      serving_unit: food.serving_unit || 'g',
+      is_verified: food.is_verified,
+    })
+    setFoodModalOpen(true)
+  }
+
+  const handleSaveFood = async () => {
+    if (!foodForm.name.trim()) {
+      toast({ title: 'Error', description: 'El nombre es obligatorio', variant: 'destructive' })
+      return
+    }
+    setSavingFood(true)
+    try {
+      const headers = await getAuthHeaders()
+      const body = {
+        name: foodForm.name.trim(),
+        brand: foodForm.brand.trim(),
+        category: foodForm.category.trim(),
+        store: foodForm.store || '',
+        calories: Number(foodForm.calories) || 0,
+        protein: Number(foodForm.protein) || 0,
+        carbs: Number(foodForm.carbs) || 0,
+        fat: Number(foodForm.fat) || 0,
+        fiber: Number(foodForm.fiber) || 0,
+        sugar: Number(foodForm.sugar) || 0,
+        sodium: Number(foodForm.sodium) || 0,
+        serving_size: Number(foodForm.serving_size) || 100,
+        serving_unit: foodForm.serving_unit || 'g',
+        is_verified: foodForm.is_verified,
+      }
+      const url = editingFood
+        ? `${getApiUrl()}/api/nutrition/foods/${editingFood.id}/`
+        : `${getApiUrl()}/api/nutrition/foods/`
+      const method = editingFood ? 'PATCH' : 'POST'
+      const response = await fetch(url, { method, headers, body: JSON.stringify(body) })
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || err.name?.[0] || 'Error al guardar')
+      }
+      toast({ title: editingFood ? '✅ Alimento actualizado' : '✅ Alimento creado', description: foodForm.name })
+      setFoodModalOpen(false)
+      fetchFoods()
+      fetchStats()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setSavingFood(false)
+    }
+  }
+
+  // ---- Importar CSV/Excel ----
+  const handleFileImport = async () => {
+    if (!selectedFile) return
+    setFileImporting(true)
+    setFileImportResult(null)
+    try {
+      const authHeaders = await getAuthHeaders() as Record<string, string>
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      // multipart — no enviar Content-Type manualmente
+      const headers: Record<string, string> = {}
+      if (authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization']
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_file/`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.detail || 'Error en la importación')
+      setFileImportResult(data)
+      fetchFoods()
+      fetchStats()
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' })
+    } finally {
+      setFileImporting(false)
+    }
+  }
+
+  const handleDownloadTemplate = async () => {
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${getApiUrl()}/api/nutrition/foods/download_template/`, { headers })
+    if (!response.ok) return
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'plantilla_alimentos.csv'
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const resetImportModal = () => {
@@ -544,13 +676,26 @@ export function FoodManagement() {
             Base de datos de alimentos con información nutricional
           </p>
         </div>
-        <Button
-          onClick={() => setImportModalOpen(true)}
-          className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Importar Alimentos
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setFileImportOpen(true)}>
+            <FileUp className="h-4 w-4 mr-2" />
+            CSV / Excel
+          </Button>
+          <Button
+            onClick={() => setImportModalOpen(true)}
+            variant="outline"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Importar API
+          </Button>
+          <Button
+            onClick={openCreateModal}
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Nuevo Alimento
+          </Button>
+        </div>
       </div>
 
       {/* Stats */}
@@ -864,6 +1009,13 @@ export function FoodManagement() {
                             <Button
                               size="sm"
                               variant="outline"
+                              onClick={() => openEditModal(food)}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" /> Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
                               className="text-red-600 hover:text-red-700 hover:bg-red-50"
                               onClick={() => handleDeleteFood(food.id)}
                             >
@@ -905,6 +1057,179 @@ export function FoodManagement() {
           )}
         </CardContent>
       </Card>
+
+      {/* ===== Modal Crear / Editar Alimento ===== */}
+      <Dialog open={foodModalOpen} onOpenChange={(open) => { if (!open) setFoodModalOpen(false) }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingFood ? '✏️ Editar Alimento' : '➕ Nuevo Alimento'}</DialogTitle>
+            <DialogDescription>
+              {editingFood ? 'Modifica los datos del alimento.' : 'Rellena los campos para crear un nuevo alimento.'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-2">
+            {/* Nombre */}
+            <div className="md:col-span-2 space-y-1">
+              <Label>Nombre <span className="text-red-500">*</span></Label>
+              <Input value={foodForm.name} onChange={(e) => setFoodForm(f => ({ ...f, name: e.target.value }))} placeholder="Pechuga de pollo" />
+            </div>
+            {/* Marca */}
+            <div className="space-y-1">
+              <Label>Marca</Label>
+              <Input value={foodForm.brand} onChange={(e) => setFoodForm(f => ({ ...f, brand: e.target.value }))} placeholder="Hacendado" />
+            </div>
+            {/* Categoría */}
+            <div className="space-y-1">
+              <Label>Categoría</Label>
+              <Input value={foodForm.category} onChange={(e) => setFoodForm(f => ({ ...f, category: e.target.value }))} placeholder="Carnes" />
+            </div>
+            {/* Supermercado */}
+            <div className="space-y-1">
+              <Label>Supermercado</Label>
+              <Select value={foodForm.store || 'none'} onValueChange={(v) => setFoodForm(f => ({ ...f, store: v === 'none' ? '' : v }))}>
+                <SelectTrigger><SelectValue placeholder="Ninguno" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Ninguno</SelectItem>
+                  {Object.entries(STORE_LABELS).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>{l}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {/* Porción */}
+            <div className="space-y-1">
+              <Label>Tamaño de porción</Label>
+              <div className="flex gap-2">
+                <Input type="number" min="0" value={foodForm.serving_size} onChange={(e) => setFoodForm(f => ({ ...f, serving_size: e.target.value }))} className="w-24" />
+                <Input value={foodForm.serving_unit} onChange={(e) => setFoodForm(f => ({ ...f, serving_unit: e.target.value }))} placeholder="g" className="w-20" />
+              </div>
+            </div>
+
+            <div className="md:col-span-2">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Valores por porción</p>
+            </div>
+
+            {/* Calorías */}
+            <div className="space-y-1">
+              <Label>Calorías (kcal)</Label>
+              <Input type="number" min="0" value={foodForm.calories} onChange={(e) => setFoodForm(f => ({ ...f, calories: e.target.value }))} />
+            </div>
+            {/* Proteínas */}
+            <div className="space-y-1">
+              <Label>Proteínas (g)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.protein} onChange={(e) => setFoodForm(f => ({ ...f, protein: e.target.value }))} />
+            </div>
+            {/* Carbohidratos */}
+            <div className="space-y-1">
+              <Label>Carbohidratos (g)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.carbs} onChange={(e) => setFoodForm(f => ({ ...f, carbs: e.target.value }))} />
+            </div>
+            {/* Grasas */}
+            <div className="space-y-1">
+              <Label>Grasas (g)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.fat} onChange={(e) => setFoodForm(f => ({ ...f, fat: e.target.value }))} />
+            </div>
+            {/* Fibra */}
+            <div className="space-y-1">
+              <Label>Fibra (g)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.fiber} onChange={(e) => setFoodForm(f => ({ ...f, fiber: e.target.value }))} />
+            </div>
+            {/* Azúcar */}
+            <div className="space-y-1">
+              <Label>Azúcar (g)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.sugar} onChange={(e) => setFoodForm(f => ({ ...f, sugar: e.target.value }))} />
+            </div>
+            {/* Sodio */}
+            <div className="space-y-1">
+              <Label>Sodio (mg)</Label>
+              <Input type="number" min="0" step="0.1" value={foodForm.sodium} onChange={(e) => setFoodForm(f => ({ ...f, sodium: e.target.value }))} />
+            </div>
+            {/* Verificado */}
+            <div className="flex items-center gap-2 pt-4">
+              <Checkbox id="is_verified" checked={foodForm.is_verified} onCheckedChange={(v) => setFoodForm(f => ({ ...f, is_verified: !!v }))} />
+              <Label htmlFor="is_verified">Marcar como verificado</Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setFoodModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveFood} disabled={savingFood} className="bg-gradient-to-r from-amber-500 to-orange-500">
+              {savingFood ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Guardando...</> : editingFood ? 'Guardar cambios' : 'Crear alimento'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ===== Modal Importar CSV / Excel ===== */}
+      <Dialog open={fileImportOpen} onOpenChange={(open) => { if (!open) { setFileImportOpen(false); setSelectedFile(null); setFileImportResult(null) } }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileUp className="h-5 w-5 text-amber-500" />
+              Importar CSV / Excel
+            </DialogTitle>
+            <DialogDescription>
+              Carga un fichero .csv o .xlsx con los alimentos. Si el nombre ya existe se actualiza el registro.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleDownloadTemplate}>
+                <FileText className="h-4 w-4 mr-2" />
+                Descargar plantilla CSV
+              </Button>
+              <span className="text-xs text-gray-500">Úsala como punto de partida</span>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Fichero (.csv o .xlsx)</Label>
+              <Input
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={(e) => { setSelectedFile(e.target.files?.[0] || null); setFileImportResult(null) }}
+              />
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
+              <p className="font-semibold">Columnas reconocidas (en inglés o español):</p>
+              <p><strong>name</strong> / nombre · brand / marca · category / categoria · store / supermercado</p>
+              <p><strong>calories</strong> / calorias · protein / proteina · carbs / carbohidratos · fat / grasa</p>
+              <p>fiber / fibra · sugar / azucar · sodium / sodio · serving_size · serving_unit / unidad</p>
+              <p className="mt-1">Los valores de <strong>store</strong> válidos: mercadona · carrefour · lidl · aldi · dia · alcampo · eroski · consum · hipercor · otro</p>
+            </div>
+
+            {fileImportResult && (
+              <div className="border rounded-lg p-4 space-y-1 text-sm">
+                <p className="font-semibold text-green-700">Resultado de la importación</p>
+                <p>✅ Creados: <strong>{fileImportResult.imported}</strong></p>
+                <p>🔄 Actualizados: <strong>{fileImportResult.updated}</strong></p>
+                <p>⏭️ Omitidos: <strong>{fileImportResult.skipped}</strong></p>
+                {fileImportResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-red-600 font-medium">Errores ({fileImportResult.errors.length}):</p>
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5">
+                      {fileImportResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setFileImportOpen(false); setSelectedFile(null); setFileImportResult(null) }}>Cerrar</Button>
+            <Button
+              onClick={handleFileImport}
+              disabled={!selectedFile || fileImporting}
+              className="bg-gradient-to-r from-amber-500 to-orange-500"
+            >
+              {fileImporting ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Importando...</> : <><FileUp className="h-4 w-4 mr-2" />Importar</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Import Modal - Flujo de 2 pasos */}
       <Dialog open={importModalOpen} onOpenChange={(open) => { if (!open) resetImportModal() }}>
