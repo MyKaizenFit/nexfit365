@@ -13,6 +13,4 @@ export { MealDebug } from './meal-debug'
 export { MealTest } from './meal-test'
 
 // Componentes de progreso
-// TODO: Restaurar cuando esté disponible
-// export { ProgressDashboard } from './progress-dashboard'
-export { ProgressTest } from './progress-test'
+export { ProgressDashboard } from './progress-dashboard'

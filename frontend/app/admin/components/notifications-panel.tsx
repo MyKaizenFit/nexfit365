@@ -108,6 +108,27 @@ export function AdminNotificationsPanel({
     priority: "medium",
     action_url: "",
   })
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([])
+
+  const ROLES = [
+    { value: 'basic', label: 'Basic' },
+    { value: 'pro', label: 'Pro' },
+    { value: 'premium', label: 'Premium' },
+    { value: 'trainer', label: 'Entrenador' },
+  ]
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles(prev =>
+      prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]
+    )
+  }
+
+  const getSegmentedUserIds = (): number[] | undefined => {
+    if (selectedRoles.length === 0) return undefined
+    return users
+      .filter(u => selectedRoles.some(r => u.role?.toLowerCase() === r))
+      .map(u => u.id)
+  }
 
   const containerClass =
     variant === "standalone"
@@ -221,7 +242,11 @@ export function AdminNotificationsPanel({
 
     setSending(true)
     try {
-      const result = await sendBulkNotification(broadcastNotification)
+      const segmentedIds = getSegmentedUserIds()
+      const result = await sendBulkNotification({
+        ...broadcastNotification,
+        ...(segmentedIds ? { user_ids: segmentedIds } : {}),
+      })
 
       toast({
         title: "✅ Notificación masiva enviada",
@@ -672,12 +697,35 @@ export function AdminNotificationsPanel({
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <Target className="h-4 w-4 text-blue-600" />
-                      Segmentación
+                      Segmentación por rol
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="text-sm text-muted-foreground space-y-2">
-                    <p>Puedes segmentar la notificación seleccionando filtros específicos (próximamente).</p>
-                    <p className="text-xs">Por ahora se envía a todos los usuarios activos.</p>
+                  <CardContent className="space-y-2">
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Selecciona roles para filtrar destinatarios. Sin selección se envía a todos.
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {ROLES.map(role => (
+                        <button
+                          key={role.value}
+                          type="button"
+                          onClick={() => toggleRole(role.value)}
+                          className={cn(
+                            "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
+                            selectedRoles.includes(role.value)
+                              ? "bg-blue-600 text-white border-blue-600"
+                              : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
+                          )}
+                        >
+                          {role.label}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedRoles.length > 0 && (
+                      <p className="text-xs text-blue-700 mt-1">
+                        {getSegmentedUserIds()?.length ?? 0} usuario(s) seleccionado(s)
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
 
