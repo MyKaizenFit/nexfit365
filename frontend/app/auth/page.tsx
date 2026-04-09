@@ -36,7 +36,7 @@ function AuthPageContent() {
     resetEmail: "",
   })
 
-  const { login, register, isLoading, error, clearError } = useAuth()
+  const { login, register, forgotPassword, isLoading, error, clearError } = useAuth()
   const router = useRouter()
 
   // Actualizar el modo (login/register) cuando cambie el parámetro de la URL
@@ -115,18 +115,55 @@ function AuthPageContent() {
       }
   }
 
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
+
   const handleForgotPassword = async () => {
     if (!formData.resetEmail) {
       setValidationErrors({ resetEmail: 'El email es requerido' })
       return
     }
-
-    // TODO: Implementar forgotPassword cuando esté disponible en el contexto
-    setShowForgotPassword(false)
+    try {
+      await forgotPassword(formData.resetEmail)
+      setForgotPasswordSent(true)
+    } catch (err: any) {
+      setValidationErrors({ resetEmail: err?.message || 'Error al enviar el correo. Inténtalo de nuevo.' })
+    }
   }
 
 
   if (showForgotPassword) {
+    if (forgotPasswordSent) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4 relative overflow-hidden">
+          <div className="absolute inset-0 overflow-hidden">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pink-200/30 to-rose-200/30 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-teal-200/30 to-cyan-200/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
+          </div>
+          <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
+            <CardHeader className="text-center space-y-4 pb-8">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl flex items-center justify-center">
+                <Heart className="w-8 h-8 text-white" />
+              </div>
+              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                ¡Correo enviado!
+              </CardTitle>
+              <CardDescription className="text-gray-600">
+                Hemos enviado un enlace de recuperación a <strong>{formData.resetEmail}</strong>. Revisa tu bandeja de entrada.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                variant="ghost"
+                className="w-full h-12 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl"
+                onClick={() => { setShowForgotPassword(false); setForgotPasswordSent(false) }}
+              >
+                ← Volver al inicio de sesión
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4 relative overflow-hidden">
         {/* Animated background elements */}
