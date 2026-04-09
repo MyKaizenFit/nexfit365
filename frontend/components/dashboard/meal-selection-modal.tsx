@@ -985,8 +985,7 @@ function RecipeDetailModal({
                   // Si no hay instrucciones válidas, mostrar mensaje
                   return (
                     <div className="text-center py-6 md:py-4">
-                      <p className="text-base md:text-sm text-gray-500 italic mb-2">No hay instrucciones detalladas disponibles para esta receta.</p>
-                      <p className="text-sm md:text-xs text-gray-400">Las instrucciones se agregarán próximamente.</p>
+                      <p className="text-base md:text-sm text-gray-500 italic">No hay instrucciones detalladas disponibles para esta receta.</p>
                     </div>
                   )
                 })()}
