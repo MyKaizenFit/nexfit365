@@ -143,13 +143,12 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                {/* TODO: Activar en versiones posteriores */}
-                {/* <Suspense fallback={null}>
+                <Suspense fallback={null}>
                   <RecommendationsSection />
                 </Suspense>
                 <Suspense fallback={null}>
                   <TipsShowcase />
-                </Suspense> */}
+                </Suspense>
               </div>
 
 
