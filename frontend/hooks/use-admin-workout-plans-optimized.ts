@@ -45,6 +45,9 @@ export interface WorkoutPlan {
   days?: WorkoutDay[]
   days_count?: number
   training_days?: number
+  user_id?: number
+  default_conditions?: Record<string, string>
+  days_per_week?: number
 }
 
 export interface WorkoutDay {
@@ -197,7 +200,7 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       const allExercises: Exercise[] = []
 
       while (nextUrl) {
-        let response = await fetch(nextUrl, { headers })
+        let response: Response = await fetch(nextUrl, { headers })
         if (response.status === 401) {
           const refreshedHeaders = await getAuthHeaders()
           headers = refreshedHeaders
@@ -208,10 +211,10 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
           throw new Error(`Error ${response.status}: ${response.statusText}`)
         }
 
-        const data = await response.json()
+        const data: Record<string, unknown> = await response.json()
         const exercisesData = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
         allExercises.push(...exercisesData)
-        nextUrl = data.next || null
+        nextUrl = (data.next as string) || null
       }
 
       setExercises(allExercises)

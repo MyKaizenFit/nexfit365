@@ -24,6 +24,10 @@ export interface User {
   weight?: number
   
   // Objetivos y preferencias
+  age?: number
+  gender?: 'male' | 'female' | 'other' | string
+  main_goal?: 'lose_weight' | 'gain_muscle' | 'body_recomposition' | string
+  additional_info_for_admin?: string
   fitness_goals?: string | string[]
   target_weight?: number
   target_date?: string

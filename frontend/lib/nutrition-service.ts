@@ -1,7 +1,7 @@
 // lib/nutrition-service.ts
 // Servicio para gestionar planes de nutrición y comidas
 
-import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, buildApiUrl, authenticatedFetch } from './api'
+import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, buildApiUrl, authenticatedFetch, handleApiResponse, handleFetchError } from './api'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 
@@ -20,7 +20,7 @@ export interface NutritionPlan {
   id: string
   name: string
   description?: string
-  daily_calories: number
+  daily_calories: number | null
   target_macros: {
     protein: number
     carbs: number
@@ -28,27 +28,14 @@ export interface NutritionPlan {
     protein_percentage?: number
     carbs_percentage?: number
     fat_percentage?: number
-  }
+  } | null
   meals?: Meal[]
   start_date?: string
-  end_date?: string
+  end_date?: string | null
   is_active: boolean
   is_system?: boolean
   is_template?: boolean
   is_default?: boolean
-  id: string
-  name: string
-  description: string
-  daily_calories: number | null
-  target_macros: {
-    protein: number
-    carbs: number
-    fat: number
-  } | null
-  start_date: string
-  end_date: string | null
-  is_active: boolean
-  meals: Meal[]
 }
 
 export interface Meal {

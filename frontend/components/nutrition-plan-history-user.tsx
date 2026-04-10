@@ -61,9 +61,9 @@ export function NutritionPlanHistoryUser() {
     })
   }
 
-  const getReasonBadgeColor = (reason: string, isAdmin: boolean) => {
+  const getReasonBadgeColor = (reason: string, isAdmin: boolean): 'destructive' | 'default' | 'secondary' | 'outline' => {
     if (isAdmin) return 'destructive'
-    const colors: Record<string, string> = {
+    const colors: Record<string, 'default' | 'secondary' | 'outline'> = {
       'user_request': 'default',
       'auto_assigned': 'secondary',
       'goal_change': 'outline'
