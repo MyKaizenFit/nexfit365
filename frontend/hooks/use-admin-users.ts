@@ -33,8 +33,6 @@ export interface AdminUser {
   last_login_formatted: string
   created_at: string
   updated_at: string
-  birth_date?: string
-  gender?: string
   premium_alerts?: PremiumAlerts | null
 }
 

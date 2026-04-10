@@ -78,10 +78,10 @@ export function fixEncodingArray(items: (string | null | undefined)[] | null | u
  */
 export function fixEncodingObject<T extends Record<string, any>>(obj: T | null | undefined): T {
   if (!obj) {
-    return obj as T
+    return obj as unknown as T
   }
   
-  const fixed = { ...obj }
+  const fixed: Record<string, any> = { ...obj }
   
   Object.keys(fixed).forEach(key => {
     const value = fixed[key]
@@ -94,6 +94,6 @@ export function fixEncodingObject<T extends Record<string, any>>(obj: T | null |
     }
   })
   
-  return fixed
+  return fixed as unknown as T
 }
 

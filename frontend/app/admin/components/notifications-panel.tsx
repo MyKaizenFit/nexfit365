@@ -741,7 +741,7 @@ export function AdminNotificationsPanel({
                       El mensaje se enviará a <strong>todos los usuarios activos</strong> de la plataforma.
                     </p>
                     <p>
-                      Prioridad seleccionada: <span className="font-semibold">{getPriorityBadge(broadcastNotification.priority)}</span>
+                      Prioridad seleccionada: <span className="font-semibold">{getPriorityBadge(broadcastNotification.priority || '')}</span>
                     </p>
                   </CardContent>
                 </Card>

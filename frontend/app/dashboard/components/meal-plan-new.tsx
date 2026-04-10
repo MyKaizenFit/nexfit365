@@ -457,7 +457,7 @@ export function MealPlan() {
                             <div className="flex items-center gap-2 w-full mb-1">
                               <span className="text-lg">{option.icon}</span>
                               <span className="font-medium flex-1">{option.name}</span>
-                              {getCategoryIcon(option.category)}
+                              {getCategoryIcon(option.category || '')}
                               {option.score > 0 && (
                                 <Badge variant="secondary" className="text-xs">
                                   Recomendado
@@ -480,7 +480,7 @@ export function MealPlan() {
                             </div>
 
                             {option.recommendation && (
-                              <div className={`text-xs px-2 py-1 rounded-full mt-2 ${getCategoryColor(option.category)}`}>
+                              <div className={`text-xs px-2 py-1 rounded-full mt-2 ${getCategoryColor(option.category || '')}`}>
                                 {option.recommendation}
                               </div>
                             )}

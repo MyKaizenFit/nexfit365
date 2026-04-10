@@ -622,7 +622,7 @@ export class UserService {
       }
 
       // Si hay un archivo de imagen, usar FormData
-      const hasFile = updates.profile_picture instanceof File
+      const hasFile = (updates.profile_picture as any) instanceof File
       let body: FormData | string
       let headers: Record<string, string>
 
@@ -637,14 +637,14 @@ export class UserService {
               if (typeof value === 'object' && !(value instanceof File)) {
                 formData.append(key, JSON.stringify(value))
               } else {
-                formData.append(key, value as string | number | boolean)
+                formData.append(key, value instanceof File ? value : String(value))
               }
             }
           }
         })
         
         // Añadir el archivo
-        formData.append('profile_picture', updates.profile_picture)
+        formData.append('profile_picture', updates.profile_picture as File)
         
         body = formData
         headers = {

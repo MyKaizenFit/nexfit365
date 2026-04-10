@@ -14,6 +14,11 @@ export interface AdminUserDetail extends AdminUser {
   training_days?: number[]
   equipment_available?: string[]
   workout_preferences?: Record<string, any>
+  activity_level?: string
+  training_days_per_week?: number
+  dietary_restrictions?: string[]
+  allergies?: string[]
+  medical_conditions?: string[]
   disliked_foods?: string
   injuries_or_medical_issues?: string
   additional_info_for_admin?: string

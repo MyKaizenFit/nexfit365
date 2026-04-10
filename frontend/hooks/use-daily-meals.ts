@@ -934,26 +934,19 @@ export function useDailyMeals() {
         if (planMeals.daily_calories_target && planMeals.daily_macros) {
           setMacros(prev => ({
             ...prev,
-            caloriesGoal: planMeals.daily_calories_target!,
+            caloriesGoal: planMeals.daily_calories_target! || 2000,
             proteinGoal: planMeals.daily_macros!.protein,
             carbsGoal: planMeals.daily_macros!.carbs,
             fatGoal: planMeals.daily_macros!.fat
-          }))
-          setMacros(prev => ({
-            ...prev,
-            calories: planMeals.daily_calories_target,
-            protein: planMeals.daily_macros.protein,
-            carbs: planMeals.daily_macros.carbs,
-            fat: planMeals.daily_macros.fat
           }))
         } else if (currentPlan && currentPlan.daily_calories && currentPlan.target_macros) {
           // Fallback a valores del plan si no hay personalización
           setMacros(prev => ({
             ...prev,
-            caloriesGoal: currentPlan.daily_calories,
-            proteinGoal: currentPlan.target_macros.protein || prev.proteinGoal,
-            carbsGoal: currentPlan.target_macros.carbs || prev.carbsGoal,
-            fatGoal: currentPlan.target_macros.fat || prev.fatGoal
+            caloriesGoal: currentPlan.daily_calories || 2000,
+            proteinGoal: currentPlan.target_macros?.protein || prev.proteinGoal,
+            carbsGoal: currentPlan.target_macros?.carbs || prev.carbsGoal,
+            fatGoal: currentPlan.target_macros?.fat || prev.fatGoal
           }))
         }
       } else {

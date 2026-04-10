@@ -338,7 +338,7 @@ export function useWorkouts() {
       if (err instanceof Error) {
         throw err
       } else {
-        const errorMessage = typeof err === 'string' ? err : (err?.message || JSON.stringify(err) || 'Error desconocido al activar programa')
+        const errorMessage = typeof err === 'string' ? err : ((err as any)?.message || JSON.stringify(err) || 'Error desconocido al activar programa')
         throw new Error(errorMessage)
       }
     }

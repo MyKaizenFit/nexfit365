@@ -131,7 +131,7 @@ export function ProgressDashboard() {
     }
   }
 
-  const handleUpdateWeight = async (id: string, weight: number, date: string, notes: string) => {
+  const handleUpdateWeight = async (id: string | number, weight: number, date: string, notes: string) => {
     try {
       await updateWeightEntry(id, weight, date, notes)
       

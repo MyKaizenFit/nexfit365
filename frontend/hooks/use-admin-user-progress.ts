@@ -60,7 +60,7 @@ export function useAdminUserProgress(userId: string | number) {
     },
     updateEntry: async (id: string, payload: { weight?: number; date?: string; notes?: string }) => {
       const headers = await getAuthHeaders()
-      const entry = await adminProgressService.updateWeightEntry(userId, headers, id, payload)
+      const entry = await adminProgressService.updateWeightEntry(userId, id, headers, payload)
       setState(prev => {
         const prevEntries = Array.isArray(prev.entries) ? prev.entries : []
         return {

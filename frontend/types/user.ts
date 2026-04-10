@@ -105,8 +105,9 @@ export interface UpdateUserData {
   email?: string
   first_name?: string
   last_name?: string
-  role?: 'MEMBER' | 'ADMIN' | 'TRAINER' | 'BASIC' | 'PRO' | 'PREMIUM'
+  role?: 'MEMBER' | 'ADMIN' | 'TRAINER' | 'BASIC' | 'PRO' | 'PREMIUM' | 'admin' | 'basic' | 'pro' | 'premium' | 'member' | 'trainer'
   is_active?: boolean
+  gender?: 'male' | 'female' | 'other' | string
   phone?: string
   phone_number?: string
   date_of_birth?: string

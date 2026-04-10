@@ -35,6 +35,11 @@ interface MonthlyMealSelection {
   recipe_name?: string
   custom_description?: string
   completed?: boolean
+  // Macros directos (alternativa a recipe.macros)
+  calories?: number
+  protein?: number
+  carbs?: number
+  fat?: number
 }
 
 export function MonthlyMealPlan() {

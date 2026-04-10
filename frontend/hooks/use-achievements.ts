@@ -10,6 +10,7 @@ interface Achievement {
   icon: string
   points: number
   criteria: any
+  unlocked?: boolean
 }
 
 interface UserAchievement {

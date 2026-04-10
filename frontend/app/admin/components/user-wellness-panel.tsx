@@ -348,7 +348,7 @@ export function UserWellnessPanel({ userId }: Props) {
   )
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
+function Stat({ label, value, badge }: { label: string; value: string | number; badge?: string }) {
   return (
     <div className="rounded-lg border p-3 bg-white/60">
       <p className="text-xs text-muted-foreground">{label}</p>

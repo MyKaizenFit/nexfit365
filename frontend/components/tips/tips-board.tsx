@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import { format } from "date-fns"
-import es from "date-fns/locale/es"
+import { es } from "date-fns/locale/es"
 import { Sparkles, PlusCircle, Star, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"

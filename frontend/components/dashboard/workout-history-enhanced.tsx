@@ -394,7 +394,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
               {completedLogs.map((log) => {
                 const isExpanded = expandedLogs.has(log.id)
                 const exerciseDetails = getExerciseDetails(log)
-                const logTonnage = exerciseDetails.reduce((sum, ex) => sum + ex.tonnage, 0)
+                const logTonnage = exerciseDetails.reduce((sum: number, ex: any) => sum + ex.tonnage, 0)
 
                 return (
                   <Card key={log.id} className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all">
@@ -464,7 +464,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                       {isExpanded && exerciseDetails.length > 0 && (
                         <div className="mt-4 pt-4 border-t space-y-3">
                           <h4 className="font-semibold text-sm mb-2">Ejercicios realizados:</h4>
-                          {exerciseDetails.map((exercise, idx) => (
+                          {exerciseDetails.map((exercise: any, idx: number) => (
                             <div key={idx} className="p-3 bg-gray-50 rounded-lg">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>

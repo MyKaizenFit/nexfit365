@@ -66,7 +66,7 @@ export default function ReportProblemPage() {
       return
     }
 
-    if (!isAuthenticated && !formData.contact_email.trim()) {
+    if (!isAuthenticated && !formData.contact_email?.trim()) {
       toast({
         title: "Error",
         description: "Por favor proporciona un email de contacto",

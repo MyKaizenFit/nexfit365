@@ -259,7 +259,7 @@ export function MenuPlanManagementV2() {
       let nextUrl: string | null = buildApiUrl("admin/nutrition/recipes/?page_size=500")
       const allRecipes: AdminRecipe[] = []
       while (nextUrl) {
-        let res = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, { headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) return
@@ -267,10 +267,10 @@ export function MenuPlanManagementV2() {
           res = await fetch(nextUrl, { headers })
         }
         if (!res.ok) return
-        const data = await res.json()
+        const data: Record<string, unknown> = await res.json()
         const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
         allRecipes.push(...list)
-        nextUrl = data.next || null
+        nextUrl = (data.next as string) || null
       }
       setAvailableRecipes(allRecipes)
     } catch {

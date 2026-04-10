@@ -69,7 +69,7 @@ export function useAdminMenuPlans() {
       const allUsers: AdminUserLite[] = []
 
       while (nextUrl) {
-        let res = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, { headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) return
@@ -77,10 +77,10 @@ export function useAdminMenuPlans() {
           res = await fetch(nextUrl, { headers })
         }
         if (!res.ok) return
-        const data = await res.json()
+        const data: Record<string, unknown> = await res.json()
         const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
         allUsers.push(...list.map((u: any) => ({ id: Number(u.id), email: String(u.email) })))
-        nextUrl = data.next || null
+        nextUrl = (data.next as string) || null
       }
 
       setUsers(allUsers)
@@ -123,7 +123,7 @@ export function useAdminMenuPlans() {
       const allPlans: MenuPlanListItem[] = []
 
       while (nextUrl) {
-        let res = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, { headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) throw new Error("Sesión expirada")
@@ -131,10 +131,10 @@ export function useAdminMenuPlans() {
           res = await fetch(nextUrl, { headers })
         }
         if (!res.ok) throw new Error(`Error ${res.status}`)
-        const data = await res.json()
+        const data: Record<string, unknown> = await res.json()
         const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
         allPlans.push(...list)
-        nextUrl = data.next || null
+        nextUrl = (data.next as string) || null
       }
 
       setPlans(allPlans)

@@ -194,8 +194,8 @@ export default function AutomatedNotificationsPage() {
                       />
                       <Label className="text-base font-medium">{rule.name}</Label>
                     </div>
-                    {getTypeBadge(rule.notification.type)}
-                    {getPriorityBadge(rule.notification.priority)}
+                    {getTypeBadge(rule.notification.type || '')}
+                    {getPriorityBadge(rule.notification.priority || '')}
                   </div>
                   <div className="flex items-center gap-2">
                     {editingRule === rule.id ? (
@@ -295,7 +295,7 @@ export default function AutomatedNotificationsPage() {
                         </SelectContent>
                       </Select>
                     ) : (
-                      <div className="mt-1">{getPriorityBadge(rule.notification.priority)}</div>
+                      <div className="mt-1">{getPriorityBadge(rule.notification.priority || '')}</div>
                     )}
                   </div>
                   <div>

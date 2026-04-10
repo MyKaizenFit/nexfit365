@@ -125,7 +125,7 @@ export const buildApiUrl = (endpoint: string): string => {
 
 // Función para obtener headers con autenticación
 export const getAuthHeaders = (token?: string): Record<string, string> => {
-  const headers = { ...API_CONFIG.DEFAULT_HEADERS }
+  const headers: Record<string, string> = { ...API_CONFIG.DEFAULT_HEADERS }
 
   let authToken = token
 
@@ -305,10 +305,10 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
           }
           const refreshResult = await refreshInFlight
 
-          if (refreshResult.success && refreshResult.newToken) {
+          if (refreshResult && refreshResult.success && refreshResult.newToken) {
 
             // Reintentar la request con el nuevo token
-            const retryResponse = await executeRequest(refreshResult.newToken)
+            const retryResponse = await executeRequest(refreshResult.newToken!)
 
             // Si el retry también falla con 401, NO cerrar sesión automáticamente
             if (retryResponse.status === 401) {
@@ -319,7 +319,7 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
             return retryResponse
           } else {
             // NO redirigir automáticamente, el usuario debe cerrar sesión manualmente
-            throw new Error(refreshResult.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
+            throw new Error(refreshResult?.error || 'Token expirado. Por favor, cierra sesión e inicia de nuevo.')
           }
         } catch (refreshError) {
           // NO limpiar tokens ni redirigir automáticamente

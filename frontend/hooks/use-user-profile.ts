@@ -63,7 +63,7 @@ export function useUserProfile() {
         // Si falla la actualización del contexto, no bloquea el guardado del perfil.
       }
 
-      if (updates.profile_picture instanceof File) {
+      if ((updates.profile_picture as any) instanceof File) {
         setTimeout(() => {
           fetchUserProfile()
         }, 500)

@@ -51,13 +51,13 @@ export function useDailyMacros() {
       
       // Calcular macros del día
       const dailyMacros: DailyMacros = {
-        caloriesConsumed: userStats.caloriesToday || 0,
+        caloriesConsumed: userStats?.caloriesToday || 0,
         caloriesGoal: nutritionPlan?.daily_calories || 2000,
-        proteinConsumed: userStats.proteinToday || 0,
+        proteinConsumed: userStats?.proteinToday || 0,
         proteinGoal: nutritionPlan?.protein_goal || 150,
-        carbsConsumed: userStats.carbsToday || 0,
+        carbsConsumed: userStats?.carbsToday || 0,
         carbsGoal: nutritionPlan?.carbs_goal || 220,
-        fatConsumed: userStats.fatToday || 0,
+        fatConsumed: userStats?.fatToday || 0,
         fatGoal: nutritionPlan?.fat_goal || 80
       }
 

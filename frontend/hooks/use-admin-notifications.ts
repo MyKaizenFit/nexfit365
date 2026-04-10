@@ -23,6 +23,7 @@ export interface NotificationStats {
   clicked_notifications?: number
   recent_notifications_30_days: number
   type_distribution: Array<{ type: string; count: number }>
+        notifications_by_type?: Array<{type: string; count: number}>
 }
 
 export interface CreateNotificationData {

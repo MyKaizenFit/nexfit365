@@ -154,7 +154,7 @@ export function NotificationsPanel() {
   )
 
   const orderedGroups = ["Hoy", "Ayer", "Anteriores"].filter(
-    (group) => groupedNotifications[group].length > 0
+    (group) => (groupedNotifications as Record<string, Notification[]>)[group].length > 0
   )
 
   return (
@@ -243,7 +243,7 @@ export function NotificationsPanel() {
                   <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-100">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{group}</span>
                   </div>
-                  {groupedNotifications[group].map((notification) => (
+                  {(groupedNotifications as Record<string, Notification[]>)[group].map((notification: Notification) => (
                 <div
                   key={notification.id}
                   className={`p-4 rounded-xl border-l-4 transition-all duration-200 hover:shadow-lg ${

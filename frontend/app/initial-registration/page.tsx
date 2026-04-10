@@ -167,7 +167,7 @@ export default function InitialRegistrationPage() {
           <InitialRegistrationForm
             onComplete={handleComplete}
             isLoading={isLoading}
-            userData={memoizedUserData}
+            userData={memoizedUserData as any}
           />
         )}
         

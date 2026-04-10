@@ -1567,7 +1567,7 @@ function RecipeDetailModal({ recipe, onClose }: RecipeDetailModalProps) {
                 Instrucciones
               </h3>
               <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                {instructions.map((instruction, index) => (
+                {instructions.map((instruction: string, index: number) => (
                   instruction.trim() && (
                     <div key={index} className="flex gap-3">
                       <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
