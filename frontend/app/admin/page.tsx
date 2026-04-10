@@ -1474,13 +1474,6 @@ function AdminPageContent() {
                                 <Eye className="h-4 w-4 mr-2" />
                                 Ver perfil completo ✨
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => router.push(`/admin/user/${user.id}`)}
-                                className="hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-50 text-slate-500"
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                Ver perfil (viejo)
-                              </DropdownMenuItem>
                               <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => handleEditUser(user)}

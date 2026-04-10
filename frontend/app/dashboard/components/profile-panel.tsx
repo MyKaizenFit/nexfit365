@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect, useMemo, memo } from "react"
 import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera, Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -743,7 +744,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-white">
                   <div className="flex items-center gap-2 min-w-0">
                     {item.image_url ? (
-                      <img src={item.image_url} alt={item.recipe_name} className="w-8 h-8 rounded object-cover border" />
+                      <Image src={item.image_url} alt={item.recipe_name} width={32} height={32} className="rounded object-cover border" />
                     ) : null}
                     <span className="text-sm truncate">{item.recipe_name}</span>
                   </div>
