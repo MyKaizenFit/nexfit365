@@ -13,18 +13,20 @@ export interface WellnessTip {
   is_highlighted: boolean
   created_at: string
   updated_at: string
+  author_name?: string | null
+  author_email?: string | null
 }
 
 export type WellnessTipCategory = 'nutrition' | 'training' | 'mindset' | 'recovery' | 'lifestyle'
 
 export interface WellnessTipPayload {
   title: string
-  summary: string
+  summary?: string
   content: string
   category: WellnessTipCategory
-  audience: string
-  is_active: boolean
-  is_highlighted: boolean
+  audience?: string
+  is_active?: boolean
+  is_highlighted?: boolean
 }
 
 interface UseWellnessTipsOptions {

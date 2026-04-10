@@ -53,7 +53,7 @@ class ApiCache {
     // Si el caché está lleno, eliminar la entrada más antigua
     if (this.cache.size >= this.config.maxSize) {
       const oldestKey = this.cache.keys().next().value
-      this.cache.delete(oldestKey)
+      if (oldestKey) this.cache.delete(oldestKey)
     }
 
     this.cache.set(key, {

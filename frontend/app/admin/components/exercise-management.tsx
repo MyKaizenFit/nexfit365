@@ -248,7 +248,7 @@ export function ExerciseManagement() {
     refetch
   } = useAdminExercises()
 
-  const [selectedExercises, setSelectedExercises] = useState<number[]>([])
+  const [selectedExercises, setSelectedExercises] = useState<(string | number)[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [muscleGroupFilter, setMuscleGroupFilter] = useState<string>("all")
@@ -368,7 +368,7 @@ export function ExerciseManagement() {
     }
   }
 
-  const handleSelectExercise = (exerciseId: number, checked: boolean) => {
+  const handleSelectExercise = (exerciseId: string | number, checked: boolean) => {
     if (checked) {
       setSelectedExercises(prev => [...prev, exerciseId])
     } else {
@@ -469,7 +469,7 @@ export function ExerciseManagement() {
         editingExercise.tags || []
       )
 
-      await updateExercise(editingExercise.id, {
+      await updateExercise(Number(editingExercise.id), {
         name: formData.name,
         description: formData.description || undefined,
         category: formData.category,
@@ -500,10 +500,10 @@ export function ExerciseManagement() {
     }
   }
 
-  const handleDelete = async (exerciseId: number) => {
+  const handleDelete = async (exerciseId: string | number) => {
     try {
       setIsLoading(true)
-      await deleteExercise(exerciseId)
+      await deleteExercise(Number(exerciseId))
       toast({
         title: "✅ Ejercicio eliminado",
         description: "El ejercicio ha sido eliminado correctamente",
@@ -531,7 +531,7 @@ export function ExerciseManagement() {
 
     try {
       setIsLoading(true)
-      await bulkDeleteExercises(selectedExercises)
+      await bulkDeleteExercises(selectedExercises.map(Number))
       toast({
         title: "✅ Ejercicios eliminados",
         description: `${selectedExercises.length} ejercicios eliminados`,

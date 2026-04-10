@@ -88,5 +88,6 @@ export function useWeightHistory() {
     updateEntry,
     deleteEntry,
     refreshEntries,
+    refresh: fetchEntries,
   }
 }

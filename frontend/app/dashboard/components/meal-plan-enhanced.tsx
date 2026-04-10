@@ -241,7 +241,7 @@ export function MealPlanEnhanced() {
       const response = await fetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`), {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${authService.getAccessToken()}`,
+          'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
           'Content-Type': 'application/json'
         }
       })

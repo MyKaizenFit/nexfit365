@@ -14,6 +14,7 @@ export interface AdminWeightSummary {
   count: number
   current: AdminWeightEntry | null
   previous: AdminWeightEntry | null
+  latest?: AdminWeightEntry | null
   change: number | null
   min: number | null
   max: number | null

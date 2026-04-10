@@ -14,7 +14,7 @@ interface WeightDialogProps {
   onOpenChange: (open: boolean) => void
   onSave: (weight: number, date: string, notes: string) => Promise<void>
   entry?: WeightEntry | null
-  onUpdate?: (id: string, weight: number, date: string, notes: string) => Promise<void>
+  onUpdate?: (id: string | number, weight: number, date: string, notes: string) => Promise<void>
 }
 
 export function WeightDialog({ 

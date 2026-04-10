@@ -176,7 +176,7 @@ export function RecipeManagement() {
       const allRecipes: Recipe[] = []
 
       while (nextUrl) {
-        const response = await fetch(nextUrl, {
+        const response: Response = await fetch(nextUrl, {
           method: 'GET',
           headers: headers,
         })
@@ -190,13 +190,13 @@ export function RecipeManagement() {
           throw new Error(`Error ${response.status}`)
         }
 
-        const data = await response.json()
+        const data: Record<string, unknown> = await response.json()
         if (Array.isArray(data)) {
           allRecipes.push(...data)
           nextUrl = null
         } else {
-          allRecipes.push(...(data.results || []))
-          nextUrl = data.next || null
+          allRecipes.push(...((data.results as Recipe[]) || []))
+          nextUrl = (data.next as string) || null
         }
       }
 

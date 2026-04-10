@@ -15,6 +15,8 @@ export interface AdminWellnessSummary {
   count: number
   avg_sleep: number | null
   avg_motivation: number | null
+  avg_energy?: number | null
+  last_mood?: number | null
   last: AdminWellnessEntry | null
 }
 

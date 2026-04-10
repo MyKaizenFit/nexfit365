@@ -278,7 +278,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
               Entrenamiento de Hoy
             </CardTitle>
             <CardDescription>
-              {todaysWorkout.day_name} • {totalExercises} ejercicios
+              {todaysWorkout?.day_name} • {totalExercises} ejercicios
             </CardDescription>
           </div>
           {isWorkoutCompletedToday && (
@@ -307,7 +307,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
         {/* Ejercicios */}
         <div className="space-y-3">
-          {todaysWorkout.exercises?.map((exercise: any, index: number) => {
+          {todaysWorkout?.exercises?.map((exercise: any, index: number) => {
             const exerciseData = exercise.exercise || exercise
             const substituteSelected = selectedSubstitutes[String(exerciseData.id)]
             const mainExerciseData = substituteSelected || exerciseData

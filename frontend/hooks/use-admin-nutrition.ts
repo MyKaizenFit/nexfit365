@@ -16,6 +16,7 @@ export interface Nutrition {
   recipe_ingredients?: RecipeIngredient[]
   instructions: string
   tags: string[]
+  image_url?: string
   goal_category?: string
   created_at: string
   updated_at: string

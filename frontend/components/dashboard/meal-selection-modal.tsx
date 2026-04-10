@@ -89,7 +89,7 @@ export function MealSelectionModal({
     try {
       const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
       let recipe: Recipe | null = null
-      let recipeId: number | null = null
+      let recipeId: number | string | null = null
 
       // Validar y obtener recipeId
       if (option.recipeId) {
@@ -145,7 +145,7 @@ export function MealSelectionModal({
             // Filtrar recetas por tipo de comida si es posible
             const filteredRecipes = allRecipes.filter(r => {
               if (r.meal_types && Array.isArray(r.meal_types)) {
-                return r.meal_types.includes(mealType) || r.meal_types.length === 0
+                return r.meal_types.includes(mealType || '') || r.meal_types.length === 0
               }
               return true
             })
@@ -178,7 +178,7 @@ export function MealSelectionModal({
         optionId: option.id
       }
       
-      const data = await nutritionService.getPersonalizedRecipe(recipeId, resolvedMealType)
+      const data = await nutritionService.getPersonalizedRecipe(recipeId!, resolvedMealType)
       
       // Validar que la receta cargada corresponde a la opción seleccionada
       if (data && data.recipe) {
@@ -204,45 +204,7 @@ export function MealSelectionModal({
         })
         setShowRecipe(true)
       } else {
-        // Si ya tenemos la receta de la búsqueda, usarla directamente
-        if (recipe) {
-          const mappedIngredients = (recipe.ingredients || []).map((ing: any) => ({
-            name: ing.name || 'Ingrediente',
-            amount: ing.amount || null,
-            unit: ing.unit || null,
-            note: typeof ing.amount === 'string' && !ing.unit ? ing.amount : undefined
-          }))
-
-          setRecipeData({
-            recipe: recipe,
-            personalized: {
-              scale_factor: 1,
-              ingredients: mappedIngredients,
-              macros: {
-                calories: recipe.calories || 0,
-                protein: recipe.protein || 0,
-                carbs: recipe.carbs || 0,
-                fat: recipe.fat || 0,
-                fiber: recipe.fiber || 0
-              },
-              servings: recipe.servings || 1,
-              target_calories: recipe.calories || 0,
-              original_calories: recipe.calories || 0,
-              meal_type: mealType,
-              meal_percentage: 25
-            },
-            userProfile: {
-              weight: 70,
-              height: 170,
-              age: 30,
-              gender: 'male',
-              main_goal: 'maintain',
-              activity_level: 'moderate',
-              daily_calories_target: 2000
-            }
-          })
-          setShowRecipe(true)
-        } else if (recipeId) {
+        if (recipeId) {
           // Intentar cargar la receta básica como fallback
           const basicRecipe = await nutritionService.getRecipe(recipeId)
           if (basicRecipe) {
@@ -270,7 +232,7 @@ export function MealSelectionModal({
                 servings: basicRecipe.servings || 1,
                 target_calories: basicRecipe.calories || 0,
                 original_calories: basicRecipe.calories || 0,
-                meal_type: mealType,
+                meal_type: mealType || 'lunch',
                 meal_percentage: 25
               },
               userProfile: {
@@ -750,7 +712,9 @@ export function MealSelectionModal({
                       servings: basicRecipe.servings || 1,
                       scale_factor: 1,
                       meal_percentage: 0,
-                      original_calories: basicRecipe.calories || 0
+                      original_calories: basicRecipe.calories || 0,
+                      target_calories: basicRecipe.calories || 0,
+                      meal_type: mealType || 'lunch'
                     }
                     
                     setRecipeData({
@@ -962,8 +926,8 @@ function RecipeDetailModal({
                       ? recipe.instructions.split('\n').filter(line => line.trim() && 
                           !line.toLowerCase().includes('seguir preparación indicada') &&
                           !line.toLowerCase().includes('seguir preparación'))
-                      : Array.isArray(recipe.instructions)
-                        ? recipe.instructions.filter(inst => 
+                      : Array.isArray(recipe.instructions as unknown)
+                        ? (recipe.instructions as unknown as string[]).filter(inst => 
                             typeof inst === 'string' && 
                             inst.trim() !== '' &&
                             !inst.toLowerCase().includes('seguir preparación indicada') &&
