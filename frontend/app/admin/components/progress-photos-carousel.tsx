@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect } from "react"
 import { ChevronLeft, ChevronRight, Camera, Calendar, Eye, Trash2, Upload, Plus, Columns, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -397,8 +398,8 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
           <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {comparePhotos.map((photo, idx) => (
               <div key={photo.id} className="space-y-2">
-                <div className="aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden">
-                  <img src={photo.url || "/placeholder.svg"} alt={`Comparar ${idx}`} className="w-full h-full object-cover" />
+                <div className="relative aspect-[3/4] bg-gray-100 rounded-lg overflow-hidden">
+                  <Image fill src={photo.url || "/placeholder.svg"} alt={`Comparar ${idx}`} className="object-cover" />
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">

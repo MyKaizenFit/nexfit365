@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect, useMemo, memo } from "react"
 import { useRouter } from "next/navigation"
 import { 
@@ -581,7 +582,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
             {previewUrl && (
               <div className="relative w-full h-40 sm:h-48 bg-gray-100 rounded-xl overflow-hidden">
-                <img src={previewUrl} alt="Preview" className="w-full h-full object-cover" />
+                <Image fill src={previewUrl} alt="Preview" className="object-cover" />
               </div>
             )}
 

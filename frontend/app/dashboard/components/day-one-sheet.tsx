@@ -1,5 +1,6 @@
 "use client"
 
+import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -380,8 +381,8 @@ export function DayOneSheet() {
                           {selectedFile ? selectedFile.name : "Seleccionar archivo"}
                         </Button>
                         {photoPreview && (
-                          <div className="mt-2 relative">
-                            <img src={photoPreview} alt="Preview" className="w-full h-32 sm:h-48 object-cover rounded-lg" />
+                          <div className="mt-2 relative h-32 sm:h-48">
+                            <Image fill src={photoPreview} alt="Preview" className="object-cover rounded-lg" />
                             <Button
                               type="button"
                               variant="ghost"
@@ -537,24 +538,28 @@ export function DayOneSheet() {
                 <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Día 1</p>
-                    <img 
-                      src={firstPhoto.photo_url || '/placeholder.svg'} 
-                      alt="Día 1"
-                      className="w-full aspect-[3/4] object-cover rounded-lg border-2 border-pink-300 shadow-md"
-                      loading="lazy"
-                    />
+                    <div className="relative w-full aspect-[3/4]">
+                      <Image
+                        fill
+                        src={firstPhoto.photo_url || '/placeholder.svg'}
+                        alt="Día 1"
+                        className="object-cover rounded-lg border-2 border-pink-300 shadow-md"
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(firstPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Ahora</p>
-                    <img 
-                      src={latestPhoto.photo_url || '/placeholder.svg'} 
-                      alt="Ahora"
-                      className="w-full aspect-[3/4] object-cover rounded-lg border-2 border-indigo-300 shadow-md"
-                      loading="lazy"
-                    />
+                    <div className="relative w-full aspect-[3/4]">
+                      <Image
+                        fill
+                        src={latestPhoto.photo_url || '/placeholder.svg'}
+                        alt="Ahora"
+                        className="object-cover rounded-lg border-2 border-indigo-300 shadow-md"
+                      />
+                    </div>
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       {format(new Date(latestPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>

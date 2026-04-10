@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { useAuth } from "@/contexts/auth-context"
 import { Button } from "@/components/ui/button"
@@ -727,7 +728,7 @@ export function RecipeManagement() {
           onChange={handleImageUrlChange}
         />
         {formData.image_url && (
-          <img src={formData.image_url} alt="Preview" className="mt-2 max-h-40 rounded shadow" />
+          <Image src={formData.image_url} alt="Preview" width={320} height={160} className="mt-2 max-h-40 rounded shadow w-auto" />
         )}
         <p className="text-xs text-gray-500">Pega aquí la URL de la imagen. Se mostrará a los usuarios en el dashboard.</p>
       </div>
