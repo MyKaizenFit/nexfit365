@@ -124,8 +124,8 @@ export function NutritionPlanHistory() {
     })
   }
 
-  const getReasonBadgeColor = (reason: string) => {
-    const colors: Record<string, string> = {
+  const getReasonBadgeColor = (reason: string): 'destructive' | 'default' | 'secondary' | 'outline' => {
+    const colors: Record<string, 'destructive' | 'default' | 'secondary' | 'outline'> = {
       'admin_change': 'destructive',
       'user_request': 'default',
       'auto_assigned': 'secondary',
@@ -203,7 +203,7 @@ export function NutritionPlanHistory() {
               </div>
               <div>
                 <Label>Filtrar por Razón</Label>
-                <Select value={reasonFilter} onValueChange={setReasonFilter} className="mt-1">
+                <Select value={reasonFilter} onValueChange={setReasonFilter}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -220,7 +220,7 @@ export function NutritionPlanHistory() {
               </div>
               <div>
                 <Label>Tipo de Cambio</Label>
-                <Select value={adminFilter} onValueChange={setAdminFilter} className="mt-1">
+                <Select value={adminFilter} onValueChange={setAdminFilter}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>

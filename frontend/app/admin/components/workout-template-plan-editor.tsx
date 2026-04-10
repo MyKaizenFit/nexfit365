@@ -38,7 +38,7 @@ interface WorkoutDayDraft {
 }
 
 interface ExerciseSubstituteItem {
-  id: number
+  id: string | number
   substitute_id: string
   substitute_name: string
   category?: string
