@@ -47,14 +47,6 @@ export function SearchablePlanSelect({
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
 
-  // Debug: Log cuando cambian las opciones
-  React.useEffect(() => {
-    console.log({
-      sample: options.slice(0, 3),
-      allIds: options.map(o => o.id).slice(0, 10)
-    });
-  }, [options, label]);
-
   const selectedOption = React.useMemo(
     () => options.find((option) => option.id === value),
     [options, value]
