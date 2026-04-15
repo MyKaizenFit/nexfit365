@@ -1851,7 +1851,7 @@ class MealLogViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['date', 'meal_type', 'completed', 'is_skipped']
+    filterset_fields = ['date', 'meal_type', 'completed']
     ordering_fields = ['date', 'time', 'created_at']
     ordering = ['-date', '-time']
     
@@ -2222,295 +2222,22 @@ class FoodViewSet(viewsets.ModelViewSet):
             'updated': updated
         })
     
-    @action(detail=False, methods=['post'], url_path='import_file',
-            parser_classes=[MultiPartParser, FormParser])
-    def import_file(self, request):
-        """Importar alimentos desde CSV o Excel (.xlsx)"""
-        import csv
-        import io
-
-        user = request.user
-        role = str(getattr(user, 'role', '') or '').lower()
-        if not (user.is_staff or user.is_superuser or role == 'admin'):
-            return Response({'detail': 'Solo administradores pueden importar alimentos.'}, status=403)
-
-        file = request.FILES.get('file')
-        if not file:
-            return Response({'detail': 'file es requerido'}, status=400)
-
-        filename = file.name.lower()
-
-        def _safe_int(val, default=0):
-            try:
-                return int(round(float(str(val).replace(',', '.').strip()))) if str(val).strip() else default
-            except Exception:
-                return default
-
-        def _safe_decimal(val, default='0'):
-            try:
-                cleaned = str(val).replace(',', '.').strip()
-                return str(round(float(cleaned), 2)) if cleaned else default
-            except Exception:
-                return default
-
-        def _row_to_defaults(row):
-            def g(*keys):
-                for k in keys:
-                    v = row.get(k) or row.get(k.lower()) or ''
-                    if str(v).strip():
-                        return str(v).strip()
-                return ''
-
-            store_val = g('store', 'supermercado', 'tienda').lower()
-            valid_stores = [v for v, _ in Food.STORE_CHOICES]
-            if store_val and store_val not in valid_stores:
-                store_val = 'otro'
-
-            return {
-                'brand': g('brand', 'marca')[:100],
-                'category': g('category', 'categoria', 'categoría').title(),
-                'store': store_val,
-                'calories': _safe_int(g('calories', 'calorias', 'calorías', 'kcal')),
-                'protein': _safe_decimal(g('protein', 'proteina', 'proteínas', 'proteinas')),
-                'carbs': _safe_decimal(g('carbs', 'carbohidratos', 'hidratos', 'carbos')),
-                'fat': _safe_decimal(g('fat', 'grasa', 'grasas')),
-                'fiber': _safe_decimal(g('fiber', 'fibra')),
-                'sugar': _safe_decimal(g('sugar', 'azucar', 'azúcar')),
-                'sodium': _safe_decimal(g('sodium', 'sodio')),
-                'serving_size': _safe_decimal(g('serving_size', 'porcion', 'porción'), '100') or '100',
-                'serving_unit': g('serving_unit', 'unidad') or 'g',
-                'created_by': request.user,
-            }
-
-        rows = []
-        errors_parse = []
-
-        try:
-            if filename.endswith('.csv'):
-                text = file.read().decode('utf-8-sig', errors='replace')
-                reader = csv.DictReader(io.StringIO(text))
-                rows = list(reader)
-            elif filename.endswith('.xlsx') or filename.endswith('.xls'):
-                try:
-                    import openpyxl
-                except ImportError:
-                    return Response({'detail': 'openpyxl no está instalado en el servidor.'}, status=500)
-                wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
-                ws = wb.active
-                headers = [str(c.value).strip().lower() if c.value else '' for c in next(ws.iter_rows(min_row=1, max_row=1))]
-                for row in ws.iter_rows(min_row=2, values_only=True):
-                    rows.append({headers[i]: (str(v).strip() if v is not None else '') for i, v in enumerate(row)})
-            else:
-                return Response({'detail': 'Formato no soportado. Use .csv o .xlsx'}, status=400)
-        except Exception as e:
-            return Response({'detail': f'Error leyendo el archivo: {e}'}, status=400)
-
-        imported = 0
-        updated = 0
-        skipped = 0
-        errors_list = []
-
-        for i, row in enumerate(rows, start=2):
-            name = (row.get('name') or row.get('nombre') or row.get('Name') or '').strip()
-            if not name:
-                skipped += 1
-                continue
-            try:
-                defaults = _row_to_defaults(row)
-                _obj, created = Food.objects.update_or_create(name=name, defaults=defaults)
-                if created:
-                    imported += 1
-                else:
-                    updated += 1
-            except Exception as e:
-                errors_list.append(f'Fila {i} ({name}): {e}')
-                skipped += 1
-
-        return Response({
-            'imported': imported,
-            'updated': updated,
-            'skipped': skipped,
-            'errors': errors_list[:10],
-        })
-
-    @action(detail=False, methods=['get'], url_path='download_template')
-    def download_template(self, request):
-        """Descargar plantilla Excel (.xlsx) en español para importación de alimentos"""
-        import io
-        from django.http import HttpResponse
-        try:
-            from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        except ImportError:
-            return Response({'detail': 'openpyxl no está instalado.'}, status=500)
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Alimentos"
-
-        headers = [
-            'nombre', 'marca', 'categoria', 'supermercado',
-            'calorias', 'proteinas', 'carbohidratos', 'grasas',
-            'fibra', 'azucar', 'sodio', 'porcion', 'unidad',
-        ]
-        header_es = [
-            'Nombre *', 'Marca', 'Categoría', 'Supermercado',
-            'Calorías (kcal)', 'Proteínas (g)', 'Carbohidratos (g)', 'Grasas (g)',
-            'Fibra (g)', 'Azúcar (g)', 'Sodio (mg)', 'Tamaño porción', 'Unidad',
-        ]
-
-        # Estilo cabecera
-        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        thin = Side(style='thin', color='CCCCCC')
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-        ws.append(header_es)
-        for col_idx, cell in enumerate(ws[1], start=1):
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = center
-            cell.border = border
-
-        # Filas de ejemplo
-        examples = [
-            ['Pechuga de pollo', 'Hacendado', 'Carnes', 'mercadona', 165, 31.0, 0.0, 3.6, 0.0, 0.0, 74.0, 100, 'g'],
-            ['Arroz integral cocido', '', 'Cereales', '', 130, 2.7, 27.0, 1.0, 1.8, 0.0, 5.0, 100, 'g'],
-            ['Plátano', '', 'Frutas', '', 89, 1.1, 23.0, 0.3, 2.6, 12.0, 1.0, 100, 'g'],
-            ['Huevo entero L', 'Carrefour', 'Lácteos y huevos', 'carrefour', 155, 12.6, 1.1, 10.6, 0.0, 1.1, 124.0, 100, 'g'],
-            ['Yogur natural desnatado', 'Hacendado', 'Lácteos y huevos', 'mercadona', 46, 4.8, 6.1, 0.1, 0.0, 6.1, 47.0, 100, 'g'],
-        ]
-        for row in examples:
-            ws.append(row)
-
-        # Hoja de referencia de supermercados válidos
-        ws2 = wb.create_sheet("Supermercados válidos")
-        ws2.append(['Valor a usar en "supermercado"', 'Etiqueta'])
-        ws2['A1'].font = Font(bold=True)
-        ws2['B1'].font = Font(bold=True)
-        valid_stores = [s for s, _ in Food.STORE_CHOICES]
-        store_labels = dict(Food.STORE_CHOICES)
-        for v in valid_stores:
-            ws2.append([v, store_labels[v]])
-        ws2.column_dimensions['A'].width = 30
-        ws2.column_dimensions['B'].width = 20
-
-        # Ajuste automático de columnas en hoja principal
-        col_widths = [30, 20, 20, 15, 12, 12, 15, 10, 10, 10, 10, 12, 10]
-        for i, width in enumerate(col_widths, start=1):
-            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
-        ws.row_dimensions[1].height = 30
-        ws.freeze_panes = 'A2'
-
-        output = io.BytesIO()
-        wb.save(output)
-        output.seek(0)
-
-        response = HttpResponse(
-            output.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="plantilla_alimentos.xlsx"'
-        return response
-
-    @action(detail=False, methods=['get'], url_path='export-excel')
-    def export_excel(self, request):
-        """Exportar todos los alimentos a Excel (.xlsx) en español"""
-        import io
-        from django.http import HttpResponse
-        try:
-            from openpyxl import Workbook
-            from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-        except ImportError:
-            return Response({'detail': 'openpyxl no está instalado.'}, status=500)
-
-        queryset = self.get_queryset()
-
-        # Aplicar filtros opcionales de la query
-        search = request.query_params.get('search')
-        if search:
-            from django.db.models import Q
-            queryset = queryset.filter(Q(name__icontains=search) | Q(brand__icontains=search))
-
-        store_labels = dict(Food.STORE_CHOICES)
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Alimentos"
-
-        header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
-        header_font = Font(bold=True, color="FFFFFF", size=11)
-        center = Alignment(horizontal='center', vertical='center', wrap_text=True)
-        thin = Side(style='thin', color='CCCCCC')
-        border = Border(left=thin, right=thin, top=thin, bottom=thin)
-
-        headers = [
-            'Nombre', 'Marca', 'Categoría', 'Supermercado',
-            'Calorías (kcal)', 'Proteínas (g)', 'Carbohidratos (g)', 'Grasas (g)',
-            'Fibra (g)', 'Azúcar (g)', 'Sodio (mg)', 'Tamaño porción', 'Unidad',
-            'Verificado', 'Fecha creación',
-        ]
-        ws.append(headers)
-        for cell in ws[1]:
-            cell.fill = header_fill
-            cell.font = header_font
-            cell.alignment = center
-            cell.border = border
-
-        for food in queryset.iterator():
-            ws.append([
-                food.name or '',
-                food.brand or '',
-                food.category or '',
-                store_labels.get(food.store or '', food.store or ''),
-                int(food.calories or 0),
-                float(food.protein or 0),
-                float(food.carbs or 0),
-                float(food.fat or 0),
-                float(food.fiber or 0),
-                float(food.sugar or 0),
-                float(food.sodium or 0),
-                float(food.serving_size or 100),
-                food.serving_unit or 'g',
-                'Sí' if food.is_verified else 'No',
-                food.created_at.strftime('%d/%m/%Y') if food.created_at else '',
-            ])
-
-        # Ajuste de columnas
-        col_widths = [35, 20, 20, 18, 13, 13, 16, 12, 10, 10, 10, 13, 8, 10, 14]
-        for i, width in enumerate(col_widths, start=1):
-            ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = width
-        ws.row_dimensions[1].height = 30
-        ws.freeze_panes = 'A2'
-
-        output = io.BytesIO()
-        wb.save(output)
-        output.seek(0)
-
-        response = HttpResponse(
-            output.read(),
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-        response['Content-Disposition'] = 'attachment; filename="alimentos_export.xlsx"'
-        return response
-
     def get_queryset(self):
         """Filtrar por categoría, verificación y supermercado"""
         queryset = Food.objects.all()
-
+        
         category = self.request.query_params.get('category')
         if category:
             queryset = queryset.filter(category__iexact=category)
-
+        
         is_verified = self.request.query_params.get('is_verified')
         if is_verified is not None:
             queryset = queryset.filter(is_verified=is_verified.lower() == 'true')
-
+        
         store = self.request.query_params.get('store')
         if store:
             queryset = queryset.filter(store__iexact=store)
-
+        
         return queryset.order_by('name')
 
 
