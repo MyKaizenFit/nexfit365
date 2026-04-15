@@ -447,7 +447,7 @@ export function FoodManagement() {
   const handleExportExcel = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/export-excel/`, { headers })
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/export-excel/`, { headers })
       if (!response.ok) throw new Error('Error al exportar')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
