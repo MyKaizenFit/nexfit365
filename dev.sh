@@ -58,8 +58,8 @@ case $ACTION in
     COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker-compose.dev.yml up -d --build
     echo ""
     echo "✅ Desarrollo iniciado:"
-    echo "   Frontend: http://localhost:3001"
-    echo "   Backend:  http://localhost:8001"
+    echo "   Frontend: http://localhost:3000"
+    echo "   Backend:  http://localhost:8000"
     echo "   DB:       localhost:5434"
     ;;
     

@@ -9,23 +9,23 @@ const mockAuthService = authService as jest.Mocked<typeof authService>
 describe('API utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8001'
+    process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
   })
 
   describe('buildApiUrl', () => {
     it('builds correct API URL with endpoint', () => {
       const url = buildApiUrl('profile/')
-      expect(url).toBe('http://localhost:8001/api/profile/')
+      expect(url).toBe('http://localhost:8000/api/profile/')
     })
 
     it('handles endpoint without trailing slash', () => {
       const url = buildApiUrl('profile')
-      expect(url).toBe('http://localhost:8001/api/profile')
+      expect(url).toBe('http://localhost:8000/api/profile')
     })
 
     it('handles endpoint with leading slash', () => {
       const url = buildApiUrl('/profile')
-      expect(url).toBe('http://localhost:8001/api/profile')
+      expect(url).toBe('http://localhost:8000/api/profile')
     })
   })
 

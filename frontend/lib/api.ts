@@ -21,8 +21,8 @@ const getApiBaseUrl = (): string => {
     return 'https://api.nexfit365.dpdns.org'
   }
 
-  // Solo en desarrollo, usar localhost:8001 como fallback (puerto de desarrollo)
-  return 'http://localhost:8001'
+  // Solo en desarrollo, usar localhost:8000 como fallback
+  return 'http://localhost:8000'
 }
 
 export const API_CONFIG = {

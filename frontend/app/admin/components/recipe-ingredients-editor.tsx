@@ -42,7 +42,7 @@ const getApiUrl = (): string => {
   if (process.env.NODE_ENV === 'production') {
     return 'https://api.nexfit365.dpdns.org'
   }
-  return 'http://localhost:8001'
+  return 'http://localhost:8000'
 }
 
 interface Food {

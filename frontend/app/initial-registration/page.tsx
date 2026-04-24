@@ -59,7 +59,7 @@ export default function InitialRegistrationPage() {
       // Si es un error de conexión, mostrar mensaje adicional
       if (error?.message?.includes('Failed to fetch') || error?.message?.includes('No se pudo conectar')) {
         // El hook ya muestra el error, pero podemos agregar un mensaje más visible
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001/api';
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       }
     }
   };
