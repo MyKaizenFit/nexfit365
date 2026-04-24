@@ -1,55 +1,102 @@
 "use client"
 
-import { useState } from "react"
-import { AlertCircle, Calendar, Send, CheckCircle, Upload, Camera } from "lucide-react"
+import { useEffect, useState } from "react"
+import { AlertCircle, Calendar, CheckCircle, Loader2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
+import { useAuth } from "@/contexts/auth-context"
+import { buildApiUrl } from "@/lib/api"
+
+interface QuinzenalStatus {
+  days_until_review: number
+  next_review_date: string
+  last_review_sent_at: string | null
+  review_sent_recently: boolean
+  photos_last_15_days: number
+  measurements_last_15_days: number
+  needs_photos: boolean
+  needs_measurements: boolean
+  can_send: boolean
+}
 
 export function QuinzenalReview() {
-  const [daysUntilReview, setDaysUntilReview] = useState(3)
-  const [needsPhotos, setNeedsPhotos] = useState(true)
-  const [needsMeasurements, setNeedsMeasurements] = useState(false)
-  const [reviewSent, setReviewSent] = useState(false)
+  const { getAuthHeaders } = useAuth()
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [notes, setNotes] = useState("")
+  const [status, setStatus] = useState<QuinzenalStatus | null>(null)
 
-  const handleSendReview = () => {
-    if (needsPhotos || needsMeasurements) {
+  const loadStatus = async () => {
+    try {
+      setLoading(true)
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/"), { headers })
+      if (!response.ok) throw new Error("No se pudo cargar la revisión")
+      const data = await response.json()
+      setStatus(data)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo cargar tu revisión quincenal.",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadStatus()
+  }, [])
+
+  const handleSendReview = async () => {
+    if (!status?.can_send) {
       toast({
         title: "Revisión incompleta",
-        description: "Por favor completa todos los requisitos antes de enviar la revisión.",
+        description: "Completa los requisitos antes de enviar la revisión.",
         variant: "destructive",
       })
       return
     }
 
-    setReviewSent(true)
-    toast({
-      title: "¡Revisión enviada!",
-      description: "Tu nutricionista recibirá tu progreso y te contactará pronto.",
-    })
+    try {
+      setSending(true)
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/submit/"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ notes }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.detail || "No se pudo enviar la revisión")
+
+      toast({
+        title: "✅ Revisión enviada",
+        description: "Tu solicitud ya ha sido enviada correctamente.",
+      })
+
+      setNotes("")
+      await loadStatus()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "No se pudo enviar la revisión.",
+        variant: "destructive",
+      })
+    } finally {
+      setSending(false)
+    }
   }
 
-  const handleUploadPhotos = () => {
-    setNeedsPhotos(false)
-    toast({
-      title: "Fotos subidas",
-      description: "Tus fotos de progreso han sido guardadas correctamente.",
-    })
-  }
-
-  const handleRecordMeasurements = () => {
-    setNeedsMeasurements(false)
-    toast({
-      title: "Medidas registradas",
-      description: "Tus medidas corporales han sido actualizadas.",
-    })
-  }
-
-  const handleScheduleReview = () => {
-    toast({
-      title: "Programar revisión",
-      description: "Abriendo calendario para agendar tu cita...",
+  const formatDate = (value?: string | null) => {
+    if (!value) return "—"
+    return new Date(value).toLocaleDateString("es-ES", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
     })
   }
 
@@ -60,94 +107,73 @@ export function QuinzenalReview() {
           <Calendar className="h-4 w-4" />
           Revisión Quincenal
         </CardTitle>
-        <CardDescription>Próxima evaluación con tu nutricionista</CardDescription>
+        <CardDescription>Estado real de tu próxima evaluación con el equipo</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!reviewSent ? (
+        {loading || !status ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+          </div>
+        ) : (
           <>
-            <div
-              className="text-center p-4 bg-muted rounded-lg cursor-pointer hover:bg-muted/80 transition-colors"
-              onClick={handleScheduleReview}
-            >
-              <p className="text-2xl font-bold">{daysUntilReview}</p>
+            <div className="text-center p-4 bg-muted rounded-lg">
+              <p className="text-2xl font-bold">{status.days_until_review}</p>
               <p className="text-sm text-muted-foreground">días restantes</p>
-              <p className="text-xs text-muted-foreground mt-1">15 de Enero, 2024</p>
+              <p className="text-xs text-muted-foreground mt-1">Próxima revisión: {formatDate(status.next_review_date)}</p>
             </div>
 
-            {(needsPhotos || needsMeasurements) && (
+            {(status.needs_photos || status.needs_measurements) && (
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-sm">
                   Pendiente:
-                  {needsPhotos && " Subir fotos de progreso"}
-                  {needsPhotos && needsMeasurements && " y"}
-                  {needsMeasurements && " Registrar medidas"}
+                  {status.needs_photos && " subir fotos de progreso"}
+                  {status.needs_photos && status.needs_measurements && " y"}
+                  {status.needs_measurements && " registrar medidas corporales"}
                 </AlertDescription>
               </Alert>
             )}
 
+            {status.review_sent_recently && (
+              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 font-medium">
+                  <CheckCircle className="h-4 w-4" /> Última revisión enviada
+                </div>
+                <p className="text-sm text-green-700 mt-1">{formatDate(status.last_review_sent_at)}</p>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Preparación para la revisión:</h4>
+              <h4 className="text-sm font-medium">Preparación real para la revisión:</h4>
               <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Registro de comidas completo</span>
+                <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                  <span>Fotos subidas en los últimos 15 días</span>
+                  <span className={status.photos_last_15_days > 0 ? "text-green-600 font-semibold" : "text-amber-600 font-semibold"}>{status.photos_last_15_days}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span>Entrenamientos al día</span>
+                <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                  <span>Medidas registradas en los últimos 15 días</span>
+                  <span className={status.measurements_last_15_days > 0 ? "text-green-600 font-semibold" : "text-amber-600 font-semibold"}>{status.measurements_last_15_days}</span>
                 </div>
-                <div
-                  className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors"
-                  onClick={handleUploadPhotos}
-                >
-                  <div className={`h-2 w-2 rounded-full ${needsPhotos ? "bg-yellow-500" : "bg-green-500"}`} />
-                  <span>Fotos de progreso</span>
-                  {needsPhotos && <Camera className="h-3 w-3 ml-1" />}
-                </div>
-                {needsMeasurements && (
-                  <div
-                    className="flex items-center gap-2 cursor-pointer hover:text-foreground transition-colors"
-                    onClick={handleRecordMeasurements}
-                  >
-                    <div className="h-2 w-2 rounded-full bg-yellow-500" />
-                    <span>Medidas corporales</span>
-                    <Upload className="h-3 w-3 ml-1" />
-                  </div>
-                )}
               </div>
             </div>
 
-            <Button
-              className="w-full hover:scale-105 transition-transform"
-              disabled={needsPhotos || needsMeasurements}
-              onClick={handleSendReview}
-            >
-              <Send className="h-4 w-4 mr-2" />
-              Enviar Revisión
-            </Button>
-          </>
-        ) : (
-          <div className="text-center space-y-4">
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <p className="text-sm font-medium text-green-800">¡Revisión enviada!</p>
-              <p className="text-xs text-green-600 mt-1">
-                Tu nutricionista revisará tu progreso y te contactará pronto.
-              </p>
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium">Notas opcionales para tu revisión</h4>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Cuéntanos cómo te has sentido, bloqueos o dudas para esta revisión..."
+              />
             </div>
 
             <Button
-              variant="outline"
-              className="w-full bg-transparent"
-              onClick={() => {
-                setReviewSent(false)
-                toast({ title: "Nueva revisión", description: "Preparando siguiente evaluación..." })
-              }}
+              className="w-full hover:scale-[1.01] transition-transform"
+              disabled={!status.can_send || sending}
+              onClick={handleSendReview}
             >
-              Preparar Siguiente Revisión
+              {sending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Enviando...</> : <><Send className="h-4 w-4 mr-2" />Enviar revisión</>}
             </Button>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

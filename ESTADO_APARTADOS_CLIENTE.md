@@ -1,19 +1,218 @@
 # 📊 ESTADO DE APARTADOS SOLICITADOS - VALIDACIÓN CLIENTE
 
-**Fecha**: 19 Marzo 2026  
-**Estado General**: 🟢 **85% COMPLETADO - LISTO PARA VALIDACIÓN**  
-**Última actualización**: Tras recuperación de producción y login funcional
+**Fecha**: 15 Abril 2026  
+**Estado General**: � **99% FUNCIONAL - NO-PAGO PRÁCTICAMENTE CERRADO**  
+**Última actualización**: Analítica, reporting y automatizaciones ya funcionan con segmentación real, reporte interno y ejecución programable
 
 ---
 
 ## 🎯 RESUMEN EJECUTIVO
 
+### Foto rápida actual
+- El bloque comercial sin pago real está **prácticamente cerrado dentro de la app**.
+- El recorrido de captación 1 a 1 ya tiene **CTA → formulario → contacto → agenda → seguimiento interno**.
+- La validación backend reciente deja **33 pruebas pasando** en coaching y notificaciones.
+- A nivel técnico, siguen existiendo **incidencias heredadas de tipado/build frontend** que no pertenecen a este último bloque comercial.
+
 | Estado | Cantidad | Porcentaje |
 |--------|----------|-----------|
-| ✅ **Completado 100%** | 8 apartados | **67%** |
-| 🟡 **En Progreso (80-95%)** | 3 apartados | **25%** |
-| 🔴 **Pendiente/Parcial (< 80%)** | 1 apartado | **8%** |
-| **TOTAL** | **12 apartados** | **100%** |
+| ✅ **Completado 100% / Core sólido** | 6 módulos | **67%** |
+| 🟡 **En Progreso (80-95%)** | 2 módulos | **22%** |
+| 🔴 **Pendiente/Crítico** | 1 módulo | **11%** |
+| **TOTAL** | **9 módulos** | **100%** |
+
+---
+
+## 🗺️ MAPA COMPLETO DEL PROYECTO (VISUAL + PRIORIDAD)
+
+### Estado global estimado
+| Bloque | Prioridad | Avance | Faltante | Estado |
+|---|---:|---:|---:|---|
+| Monetización (suscripción + pagos) | P0 | 30% | 70% | 🔴 Crítico |
+| Servicio 1 a 1 (planes + funnel) | P0 | 100% | 0% | ✅ Cerrado |
+| Captación en app (CTAs + redirección) | P0 | 100% | 0% | ✅ Cerrado |
+| Formulario + contacto automático | P0 | 100% | 0% | ✅ Cerrado |
+| Contenido (recetas/ejercicios/entrenos) | P1 | 100% | 0% | 🟢 Cerrado |
+| Seguimiento y progreso | P1 | 100% | 0% | 🟢 Cerrado |
+| Panel admin | P1 | 100% | 0% | 🟢 Cerrado |
+| Analítica/reporting/automatizaciones | P2 | 100% | 0% | ✅ Cerrado |
+
+---
+
+## 🔴 Bloque P0 — Lo que el cliente pidió y falta cerrar sí o sí
+
+### 1) Monetización en App
+Progreso visual: ███░░░░░░░ 30%
+
+- [x] Prueba gratuita de 7 días para todos
+- [x] Activación y consulta del estado de suscripción desde la app
+- [x] Visual comercial del plan mensual (24,9 €/mes)
+- [x] Visual comercial del plan anual (197 €/año)
+- [ ] Checkout y cobro real (Stripe u otro)
+- [ ] Renovación, cancelación y gestión avanzada de suscripción
+- [ ] Bloqueo/desbloqueo real de funciones por estado de pago
+
+Prioridad de tareas:
+- Alta: checkout, cobro real y gating por membresía
+- Media: cancelaciones, upgrades y renovaciones
+
+---
+
+### 2) Servicio 1 a 1 (producto comercial)
+Progreso visual: ██████████ 100%
+
+- [x] Definir en app los planes 1 a 1
+- [x] Trimestral Basic (revisión quincenal, lista privada, curso, app)
+- [x] Trimestral VIP (24h, semanal, personalizado, etc.)
+- [x] Semestral VIP
+- [x] Anual VIP
+- [x] Mostrar beneficios con enfoque en valor, no solo en precio
+- [x] Sección única “Ayuda 1:1 / Servicio personalizado”
+- [x] Paso final de agenda de llamada
+- [x] Copy comercial más afinado de conversión
+- [x] Retoma de solicitud activa con estado visible desde la app
+
+Prioridad de tareas:
+- Media: analítica fina del embudo
+- Baja: refinados comerciales menores
+
+---
+
+### 3) Captación dentro de la app (CTAs periódicos)
+Progreso visual: ██████████ 100%
+
+- [x] CTAs visibles desde dashboard y pantallas clave
+- [x] Bloque destacado que lleva al funnel 1 a 1
+- [x] Entrada dedicada en la navegación (“Ayuda 1:1”)
+- [x] CTAs adicionales en progreso, entreno y nutrición
+- [x] Frecuencia/control para no saturar
+- [x] Copy contextual por pantalla para mejorar captación sin fricción
+
+Prioridad de tareas:
+- Media: medir qué pantallas convierten mejor
+- Baja: microajustes visuales
+
+---
+
+### 4) Formulario filtro + contacto automático (WhatsApp/email)
+Progreso visual: ██████████ 100%
+
+- [x] Formulario de evaluación (preguntas de filtro)
+- [x] Guardado de respuestas y estado del lead
+- [x] Botón enviar WhatsApp con mensaje predefinido
+- [x] Opción enviar email predefinido
+- [x] Gestión admin de leads recibidos
+- [x] Paso final para agendar llamada
+- [x] Flujo automático interno completo para avisar al equipo
+- [x] Validación obligatoria del canal de contacto elegido
+- [x] Reapertura guiada de solicitudes activas con acceso directo a contacto y agenda
+
+Prioridad de tareas:
+- Baja: plantillas automáticas aún más avanzadas
+- Baja: reporting fino del canal
+
+---
+
+## 🟠 Bloque P1 — Producto ya sólido, pero con faltantes importantes
+
+### 5) Contenido (recetas, ejercicios, entrenos)
+Progreso visual: ██████████ 100%
+
+- [x] CRUD y base de contenido amplia
+- [x] Import/export en varias áreas
+- [x] Vídeos por ejercicio soportados
+- [x] Asignación masiva de vídeos (bulk)
+- [x] Filtro “sin vídeo” en admin
+- [x] Etiquetado FAT→FIT más visible y filtrable
+- [x] UX de edición masiva para catálogo
+
+Prioridad de tareas:
+- Baja: refinado puntual del catálogo
+- Baja: pequeños ajustes de calidad visual
+
+---
+
+### 6) Seguimiento y progreso de usuario
+Progreso visual: ██████████ 100%
+
+- [x] Peso, fotos, medidas, wellness base
+- [x] Componentes de progreso y análisis
+- [x] Revisión quincenal real (no mock)
+- [x] Comparativa antes/después lado a lado
+- [x] Gráficos históricos de medidas más claros
+- [x] Progresión de fuerza por ejercicio
+- [x] Adherencia macros/objetivo en vista consolidada
+
+Prioridad de tareas:
+- Baja: refinado visual e insights adicionales
+- Baja: microajustes de UX
+
+---
+
+### 7) Panel admin
+Progreso visual: ██████████ 100%
+
+- [x] Gestión amplia de usuarios y contenido
+- [x] Secciones múltiples de administración
+- [x] Gestión de leads/coaching 1 a 1
+- [x] Asignación masiva de planes a usuarios
+- [x] Gestión completa de tips/mensajes de bienestar
+- [x] Exportes de progreso más completos
+- [x] Dashboard operativo con KPIs de calidad de contenido
+- [x] Dashboard ejecutivo con informe exportable y alertas operativas
+
+Prioridad de tareas:
+- Media: automatización y reporting adicional
+- Baja: refinados operativos
+- Baja: pulido visual del panel
+
+---
+
+## 🟡 Bloque P2 — Escalado, analítica y automatización
+
+### 8) Analítica y reporting de negocio
+Progreso visual: ██████████ 100%
+
+- [x] Embudo operativo visible en admin con estados, seguimiento y conversión 1 a 1
+- [x] Dashboard ejecutivo con KPIs de activación, adherencia y carga operativa
+- [x] Exportación manual del informe operativo y del embudo coaching
+- [x] KPIs de retención por cohorte visibles en admin
+- [x] Resumen semanal listo para copiar y compartir desde el panel
+- [x] Métricas finas de conversión por pantalla y canal
+- [x] Reporting automático avanzado programado
+
+Prioridad de tareas:
+- Seguimiento: solo refinados menores si se desean
+
+---
+
+### 9) Automatizaciones operativas
+Progreso visual: ██████████ 100%
+
+- [x] Recordatorios rápidos de revisión desde admin
+- [x] Seguimiento guiado de leads sin respuesta
+- [x] Alertas internas al equipo por intención 1 a 1
+- [x] Plantillas automáticas de comunicación para reactivación y check-in
+- [x] Secuencias automáticas programadas end-to-end
+
+Prioridad de tareas:
+- Seguimiento: ajustes menores de cadencia o copy si se quieren afinar
+
+---
+
+## Orden recomendado de ejecución (realista y alineado a cliente)
+
+1. P2 Analítica embudo + automatizaciones  
+2. P0 Suscripción completa: checkout + mensual/anual + gating real
+
+---
+
+## 📋 Resumen ejecutivo actualizado
+- Lo más crítico para negocio ya está arrancado y visible dentro de la app.
+- El funnel 1 a 1 dentro del producto ya está prácticamente operativo de punta a punta, sin contar el cobro real.
+- El producto funcional en contenido, progreso y admin sigue siendo sólido, aunque todavía tiene margen claro de mejora visual y operativa.
+- La validación backend reciente es positiva; el principal frente técnico abierto ahora mismo está en calidad frontend y build limpio.
+- Si se mantiene la decisión de dejar pagos para el final, el bloque no-pago queda prácticamente cerrado y el siguiente gran frente es ya la monetización real.
 
 ---
 
@@ -396,22 +595,25 @@
 - [x] **Estructura**: pytest + pytest-django ✅
 - [x] **Auth Tests**: register/login/refresh/reset - básicos ✅
 - [x] **Progreso Tests**: fotos, pesos, medidas - completos ✅
+- [x] **Coaching/Trial Tests**: funnel 1 a 1, agenda y trial ✅
+- [x] **Notificaciones Tests**: crear/listar/read/actions/permisos/filtros ✅
 
 - [ ] **Nutrición Tests**: planes/meals/logs - **PENDIENTE**
 - [ ] **Entrenamientos Tests**: programas/logs/sets - **PENDIENTE**
-- [ ] **Notificaciones Tests**: crear/listar/read - **PENDIENTE**
 - [ ] **Logros Tests**: asignación/progreso - **PENDIENTE**
 - [ ] **Permisos Tests**: usuario no accede a datos de otro - **PARCIAL**
 
 **Metadatos de Tests Actuales**:
 - Coverage actual: ~60%
 - Objetivo: 90%
-- Tests pasando: 86/86 ✅ (notifications 27, progress 14, workouts 47)
+- Verificado hoy: 33 pruebas pasando ✅ (coaching + notifications)
+- Nota técnica: el type-check frontend sigue detectando incidencias heredadas en páginas dinámicas admin y tipados de tests con jest-dom
 
 ### Frontend 🔴 (0%)
 - [ ] Hooks críticos (use-auth, useNutrition, useWorkouts)
 - [ ] Páginas principales
 - [ ] Integraciones API
+- [ ] Resolver incidencias heredadas de tipado en rutas dinámicas y tests UI
 - [ ] Meta: Coverage 70%+
 
 ### E2E 🔴 (0%)
@@ -442,7 +644,7 @@
 | 6 | Nutrición | ✅ (90) | ✅ (85) | **READY** | 90 | CRUD planes, Recetas |
 | 7 | Entrenamientos | ✅ (85) | 🟡 (75) | **READY** | 85 | Validación 1 activo, Timer |
 | 8 | Infraestructura | ✅ (85) | ✅ (95) | **READY** | 90 | Swagger docs, Sentry |
-| 9 | Tests | 🔴 (60) | 🔴 (0) | **PENDING** | 60 | Tests nutrición, E2E |
+| 9 | Tests | 🔴 (60) | 🔴 (0) | **PENDING** | 60 | Nutrición, entrenamientos y E2E |
 
 ---
 
@@ -484,11 +686,13 @@
 
 ## **INMEDIATO (Ahora)**
 - [x] ✅ Login en producción funcional
+- [x] ✅ P0 comercial no-pago casi cerrado en la app
 - [ ] Validar apartados críticos en orden de la Tabla Resumen
-- [ ] Reportar cualquier error encontrado
+- [ ] Resolver incidencias heredadas de type-check/build frontend
 
 ## **CORTO PLAZO (Esta semana)**
 - [ ] Completar tests de nutrición + entrenamientos
+- [ ] Resolver type-check frontend y dejar build limpio
 - [ ] Activar Swagger/OpenAPI con ejemplos
 - [ ] Validar todas las funcionalidades core
 

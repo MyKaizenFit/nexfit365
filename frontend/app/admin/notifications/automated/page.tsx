@@ -10,12 +10,12 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
-import { 
-  Settings, 
-  Play, 
-  Pause, 
-  Clock, 
-  Bell, 
+import {
+  Settings,
+  Play,
+  Pause,
+  Clock,
+  Bell,
   AlertTriangle,
   CheckCircle,
   Edit,
@@ -23,14 +23,17 @@ import {
   X
 } from "lucide-react"
 import { useAutomatedNotifications } from "@/lib/automated-notifications"
+import { useAdminNotifications } from "@/hooks/use-admin-notifications"
 import { useAuth } from "@/contexts/auth-context"
 
 export default function AutomatedNotificationsPage() {
   const { user: currentUser } = useAuth()
   const { startService, stopService, getRules, toggleRule, updateRule } = useAutomatedNotifications()
+  const { automationSummary, runAutomation, refetch } = useAdminNotifications()
   const [rules, setRules] = useState(getRules())
   const [editingRule, setEditingRule] = useState<string | null>(null)
   const [serviceRunning, setServiceRunning] = useState(false)
+  const [runningAutomation, setRunningAutomation] = useState<string | null>(null)
 
   // Verificar permisos de administrador
   if (!currentUser?.is_staff && !currentUser?.is_superuser) {
@@ -92,6 +95,26 @@ export default function AutomatedNotificationsPage() {
     setEditingRule(null)
   }
 
+  const handleRunAutomation = async (automationKey: string) => {
+    try {
+      setRunningAutomation(automationKey)
+      const result = await runAutomation(automationKey)
+      toast({
+        title: "✅ Automatización ejecutada",
+        description: `Se ha lanzado sobre ${result?.targeted_users ?? result?.notifications_created ?? 0} usuarios.`,
+      })
+      await refetch()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo ejecutar la automatización.",
+        variant: "destructive",
+      })
+    } finally {
+      setRunningAutomation(null)
+    }
+  }
+
   const getPriorityBadge = (priority: string) => {
     switch (priority) {
       case "urgent":
@@ -136,6 +159,56 @@ export default function AutomatedNotificationsPage() {
           <p className="text-gray-600">Gestiona las reglas de notificaciones automáticas</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CheckCircle className="h-5 w-5 text-emerald-600" />
+            Secuencias operativas reales
+          </CardTitle>
+          <CardDescription>
+            Audiencias detectadas automáticamente para reporting, revisión y reactivación.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg bg-muted/40 p-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Resumen semanal</p>
+            <p className="mt-2 whitespace-pre-line text-sm text-foreground">
+              {automationSummary?.weekly_brief || "Generando lectura operativa..."}
+            </p>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {(automationSummary?.automation_rules || []).map((rule) => (
+              <div key={rule.key} className="rounded-xl border bg-white p-4 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">{rule.name}</p>
+                    <p className="text-sm text-muted-foreground">{rule.description}</p>
+                  </div>
+                  {rule.recommended ? (
+                    <Badge className="bg-emerald-100 text-emerald-800 border-0">Recomendada</Badge>
+                  ) : (
+                    <Badge variant="secondary">Estable</Badge>
+                  )}
+                </div>
+                <div className="mt-3 space-y-1 text-sm text-muted-foreground">
+                  <p>Audiencia actual: {rule.audience_size}</p>
+                  <p>Última ejecución: {rule.last_run_at ? new Date(rule.last_run_at).toLocaleString() : "Nunca"}</p>
+                </div>
+                <Button
+                  className="mt-3 w-full"
+                  variant="outline"
+                  onClick={() => handleRunAutomation(rule.key)}
+                  disabled={runningAutomation !== null}
+                >
+                  {runningAutomation === rule.key ? "Ejecutando..." : "Lanzar ahora"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Control del Servicio */}
       <Card>
@@ -320,7 +393,7 @@ export default function AutomatedNotificationsPage() {
                   <div>
                     <Label className="text-sm font-medium text-gray-700">Última Activación</Label>
                     <p className="text-sm text-gray-600 mt-1">
-                      {rule.lastTriggered 
+                      {rule.lastTriggered
                         ? new Date(rule.lastTriggered).toLocaleString()
                         : 'Nunca'
                       }

@@ -108,7 +108,7 @@ export function useAdminUsers() {
     try {
       setLoading(true)
       setError(null)
-      
+
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/'), {
         headers
@@ -237,7 +237,7 @@ export function useAdminUsers() {
       }
 
       // Actualizar el estado local
-      setUsers(prev => prev.map(user => 
+      setUsers(prev => prev.map(user =>
         userIds.includes(user.id) ? { ...user, is_active: isActive } : user
       ))
 
@@ -320,10 +320,10 @@ export function useAdminUsers() {
       }
 
       const result = await response.json()
-      
+
       // Actualizar usuario en el estado local
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
+      setUsers(prev => prev.map(user =>
+        user.id === userId
           ? { ...user, role: newRole, role_display: result.role_display }
           : user
       ))
@@ -350,10 +350,10 @@ export function useAdminUsers() {
       }
 
       const result = await response.json()
-      
+
       // Actualizar usuario en el estado local
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
+      setUsers(prev => prev.map(user =>
+        user.id === userId
           ? { ...user, is_verified: result.is_verified }
           : user
       ))
@@ -384,10 +384,10 @@ export function useAdminUsers() {
       }
 
       const result = await response.json()
-      
+
       // Actualizar usuario en el estado local
-      setUsers(prev => prev.map(user => 
-        user.id === userId 
+      setUsers(prev => prev.map(user =>
+        user.id === userId
           ? { ...user, is_active: result.is_active }
           : user
       ))
@@ -434,7 +434,7 @@ export function useAdminUsers() {
           ...headers,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           user_ids: userIds,
           role: newRole
         })
@@ -446,10 +446,10 @@ export function useAdminUsers() {
       }
 
       const result = await response.json()
-      
+
       // Actualizar usuarios en el estado local
-      setUsers(prev => prev.map(user => 
-        userIds.includes(user.id) 
+      setUsers(prev => prev.map(user =>
+        userIds.includes(user.id)
           ? { ...user, role: newRole }
           : user
       ))
@@ -471,7 +471,7 @@ export function useAdminUsers() {
           ...headers,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           user_ids: userIds,
           is_verified: isVerified
         })
@@ -483,10 +483,10 @@ export function useAdminUsers() {
       }
 
       const result = await response.json()
-      
+
       // Actualizar usuarios en el estado local
-      setUsers(prev => prev.map(user => 
-        userIds.includes(user.id) 
+      setUsers(prev => prev.map(user =>
+        userIds.includes(user.id)
           ? { ...user, is_verified: isVerified }
           : user
       ))
@@ -499,9 +499,12 @@ export function useAdminUsers() {
     }
   }
 
+  const refetchAll = async () => {
+    await Promise.all([fetchUsers(), fetchStats()])
+  }
+
   useEffect(() => {
-    fetchUsers()
-    fetchStats()
+    refetchAll()
   }, [])
 
   return {
@@ -522,6 +525,6 @@ export function useAdminUsers() {
     resetUserPassword,
     bulkChangeRole,
     bulkToggleVerification,
-    refetch: fetchUsers
+    refetch: refetchAll
   }
 }

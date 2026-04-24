@@ -1,7 +1,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes, parser_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Avg, Sum, Max, Min
@@ -12,11 +12,21 @@ import ast
 import re
 import calendar
 
-from .models import DashboardData, UserStats, WellnessTip, DefaultPlanConfiguration, HelpSettings, ProblemReport
+from .models import (
+    DashboardData,
+    UserStats,
+    WellnessTip,
+    CoachingPlan,
+    CoachingInquiry,
+    DefaultPlanConfiguration,
+    HelpSettings,
+    ProblemReport,
+)
 from .serializers import (
     DashboardDataSerializer, DashboardTodaySerializer, 
     DashboardWeeklySerializer, DashboardMonthlySerializer,
     DashboardStatsSerializer, WellnessTipSerializer,
+    CoachingPlanSerializer, CoachingInquirySerializer, CoachingInquiryCreateSerializer, CoachingInquiryAdminUpdateSerializer,
     DefaultPlanConfigurationSerializer, DefaultPlanConfigurationCreateUpdateSerializer,
     HelpSettingsSerializer, ProblemReportSerializer, ProblemReportCreateSerializer
 )
@@ -486,6 +496,50 @@ class DashboardViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def subscription_status(request):
+    """Estado de prueba/suscripción del usuario autenticado."""
+    user = request.user
+    user.refresh_membership_state(commit=True)
+
+    ends_at = user.trial_ends_at if user.subscription_status == 'trial' else user.subscription_ends_at
+
+    return Response({
+        'status': user.subscription_status,
+        'plan': user.subscription_plan,
+        'role': user.role,
+        'is_active': user.has_active_membership,
+        'trial_used': user.trial_started_at is not None,
+        'can_start_trial': user.trial_started_at is None,
+        'days_remaining': user.membership_days_remaining,
+        'trial_started_at': user.trial_started_at.isoformat() if user.trial_started_at else None,
+        'ends_at': ends_at.isoformat() if ends_at else None,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def start_free_trial(request):
+    """Activar una prueba gratuita de 7 días para el usuario actual."""
+    user = request.user
+
+    try:
+        ends_at = user.start_free_trial(days=7)
+    except ValueError as exc:
+        return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({
+        'message': 'Prueba gratuita activada correctamente.',
+        'status': user.subscription_status,
+        'plan': user.subscription_plan,
+        'role': user.role,
+        'days_remaining': user.membership_days_remaining,
+        'trial_started_at': user.trial_started_at.isoformat() if user.trial_started_at else None,
+        'ends_at': ends_at.isoformat() if ends_at else None,
+    }, status=status.HTTP_201_CREATED)
+
+
 @api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
 def user_stats(request):
@@ -662,6 +716,62 @@ class WellnessTipViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+
+class CoachingPlanViewSet(viewsets.ReadOnlyModelViewSet):
+    """Planes 1:1 visibles para los usuarios dentro de la app."""
+
+    serializer_class = CoachingPlanSerializer
+    permission_classes = [AllowAny]
+    pagination_class = None
+
+    def get_queryset(self):
+        CoachingPlan.ensure_defaults()
+        queryset = CoachingPlan.objects.filter(is_active=True)
+        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
+            queryset = CoachingPlan.objects.all()
+        return queryset.order_by("sort_order", "created_at")
+
+
+class CoachingInquiryViewSet(viewsets.ModelViewSet):
+    """Captura de solicitudes del servicio personalizado 1:1."""
+
+    queryset = CoachingInquiry.objects.select_related("user", "plan").all()
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return CoachingInquiryCreateSerializer
+        if self.action in ["update", "partial_update"]:
+            return CoachingInquiryAdminUpdateSerializer
+        return CoachingInquirySerializer
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [AllowAny()]
+        if self.action == "mine":
+            return [IsAuthenticated()]
+        return [IsAdminUser()]
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        inquiry = serializer.save()
+        response_serializer = CoachingInquirySerializer(inquiry)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["get"])
+    def mine(self, request):
+        queryset = self.get_queryset().filter(user=request.user)
+        serializer = CoachingInquirySerializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(CoachingInquirySerializer(instance).data)
 
 
 class DefaultPlanConfigurationViewSet(viewsets.ModelViewSet):

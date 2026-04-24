@@ -45,6 +45,7 @@ const UserNutritionPlanManagement = lazy(() => import("./components/user-nutriti
 const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-v2").then(module => ({ default: module.DefaultPlanConfigurationsPanelV2 })))
 const NotificationsPanel = lazy(() => import("./components/notifications-panel").then(module => ({ default: module.AdminNotificationsPanel })))
 const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").then(module => ({ default: module.HelpSettingsPanel })))
+const CoachingManagement = lazy(() => import("./components/coaching-management").then(module => ({ default: module.CoachingManagement })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
@@ -62,10 +63,10 @@ export default function AdminPage() {
 // Wrapper seguro que verifica permisos antes de renderizar el contenido
 function SafeAdminContent() {
   const { user, isLoading } = useAuth()
-  
+
   // Verificar permisos
   const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
@@ -78,32 +79,32 @@ function SafeAdminContent() {
       </div>
     )
   }
-  
+
   // Solo renderizar AdminPageContent si es admin
   if (!isAdmin) {
     return null  // El AdminRouteGuard ya maneja la redirección
   }
-  
+
   return <AdminPageContent />
 }
 
 function AdminPageContent() {
   const router = useRouter()
   const { logout } = useAuth()
-  const { 
-    users, 
-    stats, 
-    loading, 
-    error, 
-    createUser, 
-    updateUser, 
-    bulkUpdateStatus, 
+  const {
+    users,
+    stats,
+    loading,
+    error,
+    createUser,
+    updateUser,
+    bulkUpdateStatus,
     bulkDelete,
     changeUserRole,
     toggleUserVerification,
     resetUserPassword,
     bulkChangeRole,
-    refetch 
+    refetch
   } = useAdminUsers()
 
   const handleLogout = async () => {
@@ -122,7 +123,7 @@ function AdminPageContent() {
       })
     }
   }
-  
+
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
@@ -148,15 +149,16 @@ function AdminPageContent() {
     | 'user-nutrition-plans'
     | 'default-plan-configurations'
     | 'notifications'
+    | 'coaching'
     | 'help-settings'
   >('dashboard')
   const [isLoading, setIsLoading] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
-  
+
   // Paginación
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 50
-  
+
   // Estados para modales
   const [roleChangeModal, setRoleChangeModal] = useState<{ open: boolean; user: AdminUser | null; newRole: string }>({
     open: false,
@@ -198,20 +200,20 @@ function AdminPageContent() {
     const matchesSearch =
       `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (user.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-    
-    const matchesStatus = statusFilter === "all" || 
+
+    const matchesStatus = statusFilter === "all" ||
       (statusFilter === "active" && user.is_active) ||
       (statusFilter === "inactive" && !user.is_active)
-    
+
     const matchesRole = roleFilter === "all" || user.role === roleFilter
 
     const matchesPremiumPending =
       !onlyPremiumWithPending ||
       (user.role === "premium" && getVisiblePremiumAlertCount(user) > 0)
-    
+
     return matchesSearch && matchesStatus && matchesRole && matchesPremiumPending
   })
-  
+
   // Calcular paginación
   const totalUsers = users.length
   const totalPages = Math.ceil(filteredUsers.length / 50) || 1
@@ -220,9 +222,9 @@ function AdminPageContent() {
   const currentUsers = filteredUsers.slice(startIndex, endIndex)
 
   const handleSelectUser = (userId: number) => {
-    setSelectedUsers((prev) => 
-      prev.includes(userId) 
-        ? prev.filter((id) => id !== userId) 
+    setSelectedUsers((prev) =>
+      prev.includes(userId)
+        ? prev.filter((id) => id !== userId)
         : [...prev, userId]
     )
   }
@@ -234,7 +236,7 @@ function AdminPageContent() {
       setSelectedUsers(currentUsers.map((user) => user.id))
     }
   }
-  
+
   // Resetear página cuando cambian los filtros
   useEffect(() => {
     setCurrentPage(1)
@@ -386,7 +388,7 @@ function AdminPageContent() {
 
   const confirmRoleChange = async () => {
     if (!roleChangeModal.user) return
-    
+
     try {
       setIsLoading(true)
       await changeUserRole(roleChangeModal.user.id, roleChangeModal.newRole as any)
@@ -514,7 +516,7 @@ function AdminPageContent() {
   }
 
   const getStatusBadge = (isActive: boolean) => {
-    return isActive 
+    return isActive
       ? <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
       : <Badge className="bg-red-100 text-red-800 border-0">Inactivo</Badge>
   }
@@ -702,9 +704,8 @@ function AdminPageContent() {
 
         {/* Sidebar lateral para móvil */}
         <div
-          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-white via-gray-50 to-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${
-            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-white via-gray-50 to-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
         >
           <div className="flex flex-col h-full">
             {/* Header del sidebar */}
@@ -753,6 +754,7 @@ function AdminPageContent() {
                 { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
                 { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
                 { id: 'notifications', label: 'Notificaciones', icon: Bell, gradient: 'from-indigo-500 to-blue-500' },
+                { id: 'coaching', label: 'Coaching 1:1', icon: Crown, gradient: 'from-violet-500 to-fuchsia-500' },
                 { id: 'help-settings', label: 'Config. Ayuda', icon: HelpCircle, gradient: 'from-blue-500 to-indigo-500' },
               ].map((item) => {
                 const IconComponent = item.icon
@@ -765,11 +767,10 @@ function AdminPageContent() {
                       setActiveSection(item.id as any)
                       setIsMobileMenuOpen(false)
                     }}
-                    className={`w-full justify-start gap-3 h-auto py-3 px-4 rounded-lg transition-all ${
-                      isActive
+                    className={`w-full justify-start gap-3 h-auto py-3 px-4 rounded-lg transition-all ${isActive
                         ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
                         : 'hover:bg-gray-100 text-gray-700'
-                    }`}
+                      }`}
                   >
                     <IconComponent className="h-5 w-5 flex-shrink-0" />
                     <span className="text-left font-medium">{item.label}</span>
@@ -824,11 +825,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'dashboard' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('dashboard')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'dashboard' 
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'dashboard'
+                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Settings className="h-4 w-4" />
                       Dashboard
@@ -836,11 +836,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'users' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('users')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'users' 
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'users'
+                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Users className="h-4 w-4" />
                       Usuarios
@@ -853,11 +852,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'profile' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('profile')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'profile' 
-                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'profile'
+                          ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <User className="h-4 w-4" />
                       Mi Perfil
@@ -865,11 +863,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'exercises' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('exercises')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'exercises' 
-                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'exercises'
+                          ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Dumbbell className="h-4 w-4" />
                       Ejercicios
@@ -877,11 +874,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'workout-plans' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('workout-plans')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'workout-plans' 
-                          ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'workout-plans'
+                          ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Dumbbell className="h-4 w-4" />
                       Planes de Entrenamiento
@@ -889,11 +885,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'foods' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('foods')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'foods' 
-                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'foods'
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Utensils className="h-4 w-4" />
                       Alimentos
@@ -901,11 +896,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'nutrition' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('nutrition')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'nutrition' 
-                          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'nutrition'
+                          ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Apple className="h-4 w-4" />
                       Recetas
@@ -913,11 +907,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'nutrition-plans' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('nutrition-plans')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'nutrition-plans' 
-                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'nutrition-plans'
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Apple className="h-4 w-4" />
                       Planes de Menús
@@ -925,11 +918,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'user-nutrition-plans' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('user-nutrition-plans')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'user-nutrition-plans' 
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white' 
+                      className={`flex items-center gap-2 ${activeSection === 'user-nutrition-plans'
+                          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Users className="h-4 w-4" />
                       Planes de Usuarios
@@ -937,11 +929,10 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'default-plan-configurations' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('default-plan-configurations')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'default-plan-configurations'
+                      className={`flex items-center gap-2 ${activeSection === 'default-plan-configurations'
                           ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Crown className="h-4 w-4" />
                       Config. por defecto
@@ -949,23 +940,32 @@ function AdminPageContent() {
                     <Button
                       variant={activeSection === 'notifications' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('notifications')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'notifications'
+                      className={`flex items-center gap-2 ${activeSection === 'notifications'
                           ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <Bell className="h-4 w-4" />
                       Notificaciones
                     </Button>
                     <Button
+                      variant={activeSection === 'coaching' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('coaching')}
+                      className={`flex items-center gap-2 ${activeSection === 'coaching'
+                          ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white'
+                          : 'hover:bg-gray-100'
+                        }`}
+                    >
+                      <Crown className="h-4 w-4" />
+                      Coaching 1:1
+                    </Button>
+                    <Button
                       variant={activeSection === 'help-settings' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('help-settings')}
-                      className={`flex items-center gap-2 ${
-                        activeSection === 'help-settings'
+                      className={`flex items-center gap-2 ${activeSection === 'help-settings'
                           ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
                           : 'hover:bg-gray-100'
-                      }`}
+                        }`}
                     >
                       <HelpCircle className="h-4 w-4" />
                       Config. Ayuda
@@ -1017,880 +1017,881 @@ function AdminPageContent() {
             <DefaultPlanConfigurationsPanel />
           ) : activeSection === 'notifications' ? (
             <NotificationsPanel />
+          ) : activeSection === 'coaching' ? (
+            <CoachingManagement />
           ) : activeSection === 'help-settings' ? (
             <HelpSettingsPanel />
           ) : (
-          <>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-                    {stats?.total_users || 0}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Activos</CardTitle>
-                  <UserCheck className="h-4 w-4 text-green-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-green-600">
-                    {stats?.active_users || 0}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Administradores</CardTitle>
-                  <UserX className="h-4 w-4 text-purple-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-purple-600">
-                    {stats?.staff_users || 0}
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Nuevos (7 días)</CardTitle>
-                  <Badge className="h-4 w-4 bg-blue-600" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-blue-600">
-                    {stats?.new_users_last_7_days || 0}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-        {/* Filters and Actions */}
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-          <CardHeader>
-            <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
-              Gestión de Usuarios
-            </CardTitle>
-            <CardDescription>Administra todos los usuarios de la plataforma</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-                {/* Search and Filter */}
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Buscar usuarios..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 border-2 border-gray-200 focus:border-purple-400"
-                    />
-                  </div>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
-                      <SelectValue placeholder="Filtrar por estado" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos</SelectItem>
-                      <SelectItem value="active">Activos</SelectItem>
-                      <SelectItem value="inactive">Inactivos</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={roleFilter} onValueChange={setRoleFilter}>
-                    <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
-                      <SelectValue placeholder="Filtrar por rol" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Todos los roles</SelectItem>
-                      <SelectItem value="admin">Administradores</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="pro">Pro</SelectItem>
-                      <SelectItem value="basic">Básico</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="rounded-lg border p-3 bg-orange-50/40 space-y-3">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium">Alertas premium en panel de usuarios</p>
-                      <p className="text-xs text-muted-foreground">
-                        Usuarios premium con alertas visibles: {premiumUsersWithVisibleAlerts} · Alertas visibles totales: {premiumVisibleAlertsTotal}
-                      </p>
+            <>
+              {/* Stats Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
+                      {stats?.total_users || 0}
                     </div>
-                    {premiumVisibleAlertsTotal > 0 ? (
-                      <Badge className="bg-orange-100 text-orange-800 border-0">Pendientes para revisión</Badge>
-                    ) : (
-                      <Badge variant="outline">Sin pendientes premium</Badge>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4 pt-1">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={onlyPremiumWithPending}
-                        onCheckedChange={(checked) => setOnlyPremiumWithPending(checked === true)}
-                      />
-                      Mostrar solo premium con pendientes
-                    </label>
-                    {onlyPremiumWithPending ? <Badge variant="secondary">Filtro premium activo</Badge> : null}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={premiumAlertVisibility.notifications}
-                        onCheckedChange={(checked) =>
-                          setPremiumAlertVisibility((prev) => ({ ...prev, notifications: checked === true }))
-                        }
-                      />
-                      Notificaciones nuevas
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={premiumAlertVisibility.profileChanges}
-                        onCheckedChange={(checked) =>
-                          setPremiumAlertVisibility((prev) => ({ ...prev, profileChanges: checked === true }))
-                        }
-                      />
-                      Cambios de perfil (7 días)
-                    </label>
-                    <label className="flex items-center gap-2 text-sm">
-                      <Checkbox
-                        checked={premiumAlertVisibility.workoutFeedback}
-                        onCheckedChange={(checked) =>
-                          setPremiumAlertVisibility((prev) => ({ ...prev, workoutFeedback: checked === true }))
-                        }
-                      />
-                      Valoración y mensaje entreno (14 días)
-                    </label>
-                  </div>
-                </div>
-
-            {/* Bulk Actions */}
-            {selectedUsers.length > 0 && (
-              <div className="flex flex-wrap gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
-                <span className="text-sm font-medium">{selectedUsers.length} usuario(s) seleccionado(s):</span>
-                <Button
-                  size="sm"
-                  onClick={() => handleBulkAction("activate")}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                  disabled={isLoading}
-                >
-                  <UserCheck className="h-3 w-3 mr-1" />
-                  Activar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkAction("deactivate")}
-                  className="hover:bg-red-50"
-                  disabled={isLoading}
-                >
-                  <UserX className="h-3 w-3 mr-1" />
-                  Desactivar
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkRoleChange("basic")}
-                  className="hover:bg-gray-50"
-                  disabled={isLoading}
-                >
-                  <Crown className="h-3 w-3 mr-1" />
-                  Básico
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkRoleChange("pro")}
-                  className="hover:bg-blue-50"
-                  disabled={isLoading}
-                >
-                  <Star className="h-3 w-3 mr-1" />
-                  Pro
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleBulkRoleChange("premium")}
-                  className="hover:bg-yellow-50"
-                  disabled={isLoading}
-                >
-                  <Crown className="h-3 w-3 mr-1" />
-                  Premium
-                </Button>
-                <Button 
-                  size="sm" 
-                  variant="destructive" 
-                  onClick={() => handleBulkAction("delete")}
-                  disabled={isLoading}
-                >
-                  <Trash2 className="h-3 w-3 mr-1" />
-                  Eliminar
-                </Button>
-                <Button size="sm" variant="outline" disabled={isLoading}>
-                  <Download className="h-3 w-3 mr-1" />
-                  Exportar
-                </Button>
+                  </CardContent>
+                </Card>
+                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Activos</CardTitle>
+                    <UserCheck className="h-4 w-4 text-green-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-green-600">
+                      {stats?.active_users || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Administradores</CardTitle>
+                    <UserX className="h-4 w-4 text-purple-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {stats?.staff_users || 0}
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Nuevos (7 días)</CardTitle>
+                    <Badge className="h-4 w-4 bg-blue-600" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {stats?.new_users_last_7_days || 0}
+                    </div>
+                  </CardContent>
+                </Card>
               </div>
-            )}
 
-            {/* Users List - Mobile Cards / Desktop Table */}
-            <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50 relative" style={{ isolation: 'isolate' }}>
-              {/* Mobile View - Cards */}
-              <div className="md:hidden space-y-3 p-3">
-                {/* Select All Header */}
-                <div className="flex items-center justify-between pb-2 border-b">
-                  <div className="flex items-center gap-2">
-                    <Checkbox
-                      checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
-                      onCheckedChange={() => {
-                        if (selectedUsers.length === currentUsers.length) {
-                          setSelectedUsers([])
-                        } else {
-                          setSelectedUsers(currentUsers.map((user) => user.id))
-                        }
-                      }}
-                    />
-                    <span className="text-sm font-medium text-muted-foreground">
-                      Seleccionar todos
-                    </span>
+              {/* Filters and Actions */}
+              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+                <CardHeader>
+                  <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
+                    Gestión de Usuarios
+                  </CardTitle>
+                  <CardDescription>Administra todos los usuarios de la plataforma</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Search and Filter */}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar usuarios..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 border-2 border-gray-200 focus:border-purple-400"
+                      />
+                    </div>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
+                        <SelectValue placeholder="Filtrar por estado" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="active">Activos</SelectItem>
+                        <SelectItem value="inactive">Inactivos</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                      <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
+                        <SelectValue placeholder="Filtrar por rol" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos los roles</SelectItem>
+                        <SelectItem value="admin">Administradores</SelectItem>
+                        <SelectItem value="premium">Premium</SelectItem>
+                        <SelectItem value="pro">Pro</SelectItem>
+                        <SelectItem value="basic">Básico</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                    {selectedUsers.length} seleccionados
-                  </span>
-                </div>
 
-                {/* User Cards */}
-                {currentUsers.map((user) => (
-                  <Card
-                    key={user.id}
-                    className={`border-2 transition-all ${
-                      selectedUsers.includes(user.id)
-                        ? 'border-purple-500 bg-purple-50/50'
-                        : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
-                    }`}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-start gap-3">
+                  <div className="rounded-lg border p-3 bg-orange-50/40 space-y-3">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium">Alertas premium en panel de usuarios</p>
+                        <p className="text-xs text-muted-foreground">
+                          Usuarios premium con alertas visibles: {premiumUsersWithVisibleAlerts} · Alertas visibles totales: {premiumVisibleAlertsTotal}
+                        </p>
+                      </div>
+                      {premiumVisibleAlertsTotal > 0 ? (
+                        <Badge className="bg-orange-100 text-orange-800 border-0">Pendientes para revisión</Badge>
+                      ) : (
+                        <Badge variant="outline">Sin pendientes premium</Badge>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                      <label className="flex items-center gap-2 text-sm">
                         <Checkbox
-                          checked={selectedUsers.includes(user.id)}
-                          onCheckedChange={() => handleSelectUser(user.id)}
-                          className="mt-1"
+                          checked={onlyPremiumWithPending}
+                          onCheckedChange={(checked) => setOnlyPremiumWithPending(checked === true)}
                         />
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-base mb-1 truncate">
-                                {fixEncoding(user.first_name)} {fixEncoding(user.last_name)}
-                              </div>
-                              <div className="text-sm text-muted-foreground truncate">
-                                {user.email}
+                        Mostrar solo premium con pendientes
+                      </label>
+                      {onlyPremiumWithPending ? <Badge variant="secondary">Filtro premium activo</Badge> : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={premiumAlertVisibility.notifications}
+                          onCheckedChange={(checked) =>
+                            setPremiumAlertVisibility((prev) => ({ ...prev, notifications: checked === true }))
+                          }
+                        />
+                        Notificaciones nuevas
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={premiumAlertVisibility.profileChanges}
+                          onCheckedChange={(checked) =>
+                            setPremiumAlertVisibility((prev) => ({ ...prev, profileChanges: checked === true }))
+                          }
+                        />
+                        Cambios de perfil (7 días)
+                      </label>
+                      <label className="flex items-center gap-2 text-sm">
+                        <Checkbox
+                          checked={premiumAlertVisibility.workoutFeedback}
+                          onCheckedChange={(checked) =>
+                            setPremiumAlertVisibility((prev) => ({ ...prev, workoutFeedback: checked === true }))
+                          }
+                        />
+                        Valoración y mensaje entreno (14 días)
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* Bulk Actions */}
+                  {selectedUsers.length > 0 && (
+                    <div className="flex flex-wrap gap-2 p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+                      <span className="text-sm font-medium">{selectedUsers.length} usuario(s) seleccionado(s):</span>
+                      <Button
+                        size="sm"
+                        onClick={() => handleBulkAction("activate")}
+                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
+                        disabled={isLoading}
+                      >
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Activar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkAction("deactivate")}
+                        className="hover:bg-red-50"
+                        disabled={isLoading}
+                      >
+                        <UserX className="h-3 w-3 mr-1" />
+                        Desactivar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkRoleChange("basic")}
+                        className="hover:bg-gray-50"
+                        disabled={isLoading}
+                      >
+                        <Crown className="h-3 w-3 mr-1" />
+                        Básico
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkRoleChange("pro")}
+                        className="hover:bg-blue-50"
+                        disabled={isLoading}
+                      >
+                        <Star className="h-3 w-3 mr-1" />
+                        Pro
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleBulkRoleChange("premium")}
+                        className="hover:bg-yellow-50"
+                        disabled={isLoading}
+                      >
+                        <Crown className="h-3 w-3 mr-1" />
+                        Premium
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        onClick={() => handleBulkAction("delete")}
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Eliminar
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={isLoading}>
+                        <Download className="h-3 w-3 mr-1" />
+                        Exportar
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Users List - Mobile Cards / Desktop Table */}
+                  <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50 relative" style={{ isolation: 'isolate' }}>
+                    {/* Mobile View - Cards */}
+                    <div className="md:hidden space-y-3 p-3">
+                      {/* Select All Header */}
+                      <div className="flex items-center justify-between pb-2 border-b">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
+                            onCheckedChange={() => {
+                              if (selectedUsers.length === currentUsers.length) {
+                                setSelectedUsers([])
+                              } else {
+                                setSelectedUsers(currentUsers.map((user) => user.id))
+                              }
+                            }}
+                          />
+                          <span className="text-sm font-medium text-muted-foreground">
+                            Seleccionar todos
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedUsers.length} seleccionados
+                        </span>
+                      </div>
+
+                      {/* User Cards */}
+                      {currentUsers.map((user) => (
+                        <Card
+                          key={user.id}
+                          className={`border-2 transition-all ${selectedUsers.includes(user.id)
+                              ? 'border-purple-500 bg-purple-50/50'
+                              : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                            }`}
+                        >
+                          <CardContent className="p-4">
+                            <div className="flex items-start gap-3">
+                              <Checkbox
+                                checked={selectedUsers.includes(user.id)}
+                                onCheckedChange={() => handleSelectUser(user.id)}
+                                className="mt-1"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-semibold text-base mb-1 truncate">
+                                      {fixEncoding(user.first_name)} {fixEncoding(user.last_name)}
+                                    </div>
+                                    <div className="text-sm text-muted-foreground truncate">
+                                      {user.email}
+                                    </div>
+                                  </div>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56">
+                                      <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                      <DropdownMenuItem
+                                        onClick={() => router.push(`/admin/user-v2/${user.id}`)}
+                                      >
+                                        <Eye className="h-4 w-4 mr-2" />
+                                        Ver perfil completo
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                                        <Edit className="h-4 w-4 mr-2" />
+                                        Editar
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleChangeRole(user.id)}>
+                                        <Crown className="h-4 w-4 mr-2" />
+                                        Cambiar Rol
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleToggleVerification(user.id)}>
+                                        <Shield className="h-4 w-4 mr-2" />
+                                        {user.is_verified ? 'Desverificar' : 'Verificar'}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
+                                        <Key className="h-4 w-4 mr-2" />
+                                        Resetear Contraseña
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      {user.is_active ? (
+                                        <DropdownMenuItem
+                                          onClick={() => handleUserAction(user.id, "deactivate")}
+                                          className="text-orange-600"
+                                        >
+                                          <UserX className="h-4 w-4 mr-2" />
+                                          Desactivar
+                                        </DropdownMenuItem>
+                                      ) : (
+                                        <DropdownMenuItem
+                                          onClick={() => handleUserAction(user.id, "activate")}
+                                          className="text-green-600"
+                                        >
+                                          <UserCheck className="h-4 w-4 mr-2" />
+                                          Activar
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem
+                                        onClick={() => handleUserAction(user.id, "delete")}
+                                        className="text-red-600"
+                                      >
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Eliminar
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 mb-2">
+                                  {getStatusBadge(user.is_active)}
+                                  {getRoleBadge(user.role)}
+                                  {user.is_verified ? (
+                                    <Badge className="bg-green-100 text-green-800 border-0 text-xs">Verificado</Badge>
+                                  ) : (
+                                    <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">No verificado</Badge>
+                                  )}
+                                </div>
+
+                                <div className="mb-2">
+                                  {renderPremiumAlerts(user)}
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
+                                  <div>
+                                    <span className="font-medium">Edad:</span> {user.age ? `${user.age} años` : 'N/A'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Registro:</span> {formatDate(user.date_joined)}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Último acceso:</span> {user.last_login ? formatDate(user.last_login) : 'Nunca'}
+                                  </div>
+                                  <div>
+                                    <span className="font-medium">Última edición:</span> {user.updated_at ? formatDate(user.updated_at) : '—'}
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                                  <MoreHorizontal className="h-4 w-4" />
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Desktop View - Table */}
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gradient-to-r from-gray-50 to-slate-50">
+                          <tr>
+                            <th className="p-3 text-left">
+                              <Checkbox
+                                checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
+                                onCheckedChange={() => {
+                                  if (selectedUsers.length === currentUsers.length) {
+                                    setSelectedUsers([])
+                                  } else {
+                                    setSelectedUsers(currentUsers.map((user) => user.id))
+                                  }
+                                }}
+                              />
+                            </th>
+                            <th className="p-3 text-left font-medium">Usuario</th>
+                            <th className="p-3 text-left font-medium">Estado</th>
+                            <th className="p-3 text-left font-medium">Rol</th>
+                            <th className="p-3 text-left font-medium">Verificado</th>
+                            <th className="p-3 text-left font-medium">Edad</th>
+                            <th className="p-3 text-left font-medium">Fecha de registro</th>
+                            <th className="p-3 text-left font-medium">Último acceso</th>
+                            <th className="p-3 text-left font-medium">Última edición</th>
+                            <th className="p-3 text-left font-medium">Alertas premium</th>
+                            <th className="p-3 text-left font-medium">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {currentUsers.map((user) => (
+                            <tr
+                              key={user.id}
+                              className="border-t hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-violet-50/50 transition-all duration-200"
+                            >
+                              <td className="p-3">
+                                <Checkbox
+                                  checked={selectedUsers.includes(user.id)}
+                                  onCheckedChange={() => handleSelectUser(user.id)}
+                                />
+                              </td>
+                              <td className="p-3">
+                                <div>
+                                  <div className="font-medium">{fixEncoding(user.first_name)} {fixEncoding(user.last_name)}</div>
+                                  <div className="text-sm text-muted-foreground">{user.email}</div>
+                                </div>
+                              </td>
+                              <td className="p-3">{getStatusBadge(user.is_active)}</td>
+                              <td className="p-3">{getRoleBadge(user.role)}</td>
+                              <td className="p-3">
+                                {user.is_verified
+                                  ? <Badge className="bg-green-100 text-green-800 border-0">Sí</Badge>
+                                  : <Badge className="bg-gray-100 text-gray-800 border-0">No</Badge>
+                                }
+                              </td>
+                              <td className="p-3 text-sm text-muted-foreground">
+                                {user.age ? `${user.age} años` : 'N/A'}
+                              </td>
+                              <td className="p-3 text-sm text-muted-foreground">{formatDate(user.date_joined)}</td>
+                              <td className="p-3 text-sm text-muted-foreground">
+                                {user.last_login ? formatDate(user.last_login) : 'Nunca'}
+                              </td>
+                              <td className="p-3 text-sm text-muted-foreground">
+                                {user.updated_at ? formatDate(user.updated_at) : '—'}
+                              </td>
+                              <td className="p-3 text-sm">
+                                {renderPremiumAlerts(user)}
+                              </td>
+                              <td className="p-3">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="hover:bg-purple-50">
+                                      <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent
+                                    align="end"
+                                    className="backdrop-blur-sm bg-white/90 border-0 shadow-xl"
+                                  >
+                                    <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                    <DropdownMenuItem
+                                      onClick={() => router.push(`/admin/user-v2/${user.id}`)}
+                                      className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
+                                    >
+                                      <Eye className="h-4 w-4 mr-2" />
+                                      Ver perfil completo ✨
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleEditUser(user)}
+                                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                                    >
+                                      <Edit className="h-4 w-4 mr-2" />
+                                      Editar
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      onClick={() => handleChangeRole(user.id)}
+                                      className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
+                                    >
+                                      <Crown className="h-4 w-4 mr-2" />
+                                      Cambiar Rol
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleToggleVerification(user.id)}
+                                      className="hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50"
+                                    >
+                                      <Shield className="h-4 w-4 mr-2" />
+                                      {user.is_verified ? 'Desverificar' : 'Verificar'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                      onClick={() => handleResetPassword(user.id)}
+                                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                                    >
+                                      <Key className="h-4 w-4 mr-2" />
+                                      Resetear Contraseña
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    {user.is_active ? (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUserAction(user.id, "deactivate")}
+                                        className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
+                                      >
+                                        <UserX className="h-4 w-4 mr-2" />
+                                        Desactivar
+                                      </DropdownMenuItem>
+                                    ) : (
+                                      <DropdownMenuItem
+                                        onClick={() => handleUserAction(user.id, "activate")}
+                                        className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
+                                      >
+                                        <UserCheck className="h-4 w-4 mr-2" />
+                                        Activar
+                                      </DropdownMenuItem>
+                                    )}
+                                    <DropdownMenuItem
+                                      onClick={() => handleUserAction(user.id, "delete")}
+                                      className="text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
+                                    >
+                                      <Trash2 className="h-4 w-4 mr-2" />
+                                      Eliminar
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Paginación */}
+                  {totalPages > 0 && (
+                    <div className="border-t p-3 md:p-4">
+                      {/* Mobile View - Compact */}
+                      <div className="md:hidden space-y-3">
+                        <div className="text-xs text-center text-muted-foreground">
+                          Página {currentPage} de {totalPages} • {filteredUsers.length} usuarios
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className="flex-1 text-xs"
+                          >
+                            <ArrowLeft className="h-3 w-3 mr-1" />
+                            Anterior
+                          </Button>
+                          <div className="flex items-center gap-1 px-2">
+                            {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
+                              let pageNum;
+                              if (totalPages <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPage === 1) {
+                                pageNum = i + 1;
+                              } else if (currentPage === totalPages) {
+                                pageNum = totalPages - 2 + i;
+                              } else {
+                                pageNum = currentPage - 1 + i;
+                              }
+
+                              if (pageNum < 1 || pageNum > totalPages) return null;
+
+                              return (
+                                <Button
+                                  key={pageNum}
+                                  variant={currentPage === pageNum ? "default" : "outline"}
+                                  size="sm"
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  className="w-8 h-8 p-0 text-xs"
+                                >
+                                  {pageNum}
                                 </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                                <DropdownMenuItem
-                                  onClick={() => router.push(`/admin/user-v2/${user.id}`)}
-                                >
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  Ver perfil completo
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Editar
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleChangeRole(user.id)}>
-                                  <Crown className="h-4 w-4 mr-2" />
-                                  Cambiar Rol
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleToggleVerification(user.id)}>
-                                  <Shield className="h-4 w-4 mr-2" />
-                                  {user.is_verified ? 'Desverificar' : 'Verificar'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleResetPassword(user.id)}>
-                                  <Key className="h-4 w-4 mr-2" />
-                                  Resetear Contraseña
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                {user.is_active ? (
-                                  <DropdownMenuItem
-                                    onClick={() => handleUserAction(user.id, "deactivate")}
-                                    className="text-orange-600"
-                                  >
-                                    <UserX className="h-4 w-4 mr-2" />
-                                    Desactivar
-                                  </DropdownMenuItem>
-                                ) : (
-                                  <DropdownMenuItem
-                                    onClick={() => handleUserAction(user.id, "activate")}
-                                    className="text-green-600"
-                                  >
-                                    <UserCheck className="h-4 w-4 mr-2" />
-                                    Activar
-                                  </DropdownMenuItem>
-                                )}
-                                <DropdownMenuItem
-                                  onClick={() => handleUserAction(user.id, "delete")}
-                                  className="text-red-600"
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Eliminar
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                              );
+                            })}
                           </div>
-                          
-                          <div className="flex flex-wrap items-center gap-2 mb-2">
-                            {getStatusBadge(user.is_active)}
-                            {getRoleBadge(user.role)}
-                            {user.is_verified ? (
-                              <Badge className="bg-green-100 text-green-800 border-0 text-xs">Verificado</Badge>
-                            ) : (
-                              <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">No verificado</Badge>
-                            )}
-                          </div>
-
-                          <div className="mb-2">
-                            {renderPremiumAlerts(user)}
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-2 border-t">
-                            <div>
-                              <span className="font-medium">Edad:</span> {user.age ? `${user.age} años` : 'N/A'}
-                            </div>
-                            <div>
-                              <span className="font-medium">Registro:</span> {formatDate(user.date_joined)}
-                            </div>
-                            <div>
-                              <span className="font-medium">Último acceso:</span> {user.last_login ? formatDate(user.last_login) : 'Nunca'}
-                            </div>
-                            <div>
-                              <span className="font-medium">Última edición:</span> {user.updated_at ? formatDate(user.updated_at) : '—'}
-                            </div>
-                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                            className="flex-1 text-xs"
+                          >
+                            Siguiente
+                            <ArrowRight className="h-3 w-3 ml-1" />
+                          </Button>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
 
-              {/* Desktop View - Table */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-gray-50 to-slate-50">
-                      <tr>
-                      <th className="p-3 text-left">
-                        <Checkbox
-                          checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0}
-                          onCheckedChange={() => {
-                            if (selectedUsers.length === currentUsers.length) {
-                              setSelectedUsers([])
-                            } else {
-                              setSelectedUsers(currentUsers.map((user) => user.id))
-                            }
-                          }}
-                        />
-                      </th>
-                      <th className="p-3 text-left font-medium">Usuario</th>
-                      <th className="p-3 text-left font-medium">Estado</th>
-                      <th className="p-3 text-left font-medium">Rol</th>
-                      <th className="p-3 text-left font-medium">Verificado</th>
-                      <th className="p-3 text-left font-medium">Edad</th>
-                      <th className="p-3 text-left font-medium">Fecha de registro</th>
-                      <th className="p-3 text-left font-medium">Último acceso</th>
-                      <th className="p-3 text-left font-medium">Última edición</th>
-                      <th className="p-3 text-left font-medium">Alertas premium</th>
-                      <th className="p-3 text-left font-medium">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentUsers.map((user) => (
-                      <tr
-                        key={user.id}
-                        className="border-t hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-violet-50/50 transition-all duration-200"
-                      >
-                        <td className="p-3">
-                          <Checkbox
-                            checked={selectedUsers.includes(user.id)}
-                            onCheckedChange={() => handleSelectUser(user.id)}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <div>
-                            <div className="font-medium">{fixEncoding(user.first_name)} {fixEncoding(user.last_name)}</div>
-                            <div className="text-sm text-muted-foreground">{user.email}</div>
-                          </div>
-                        </td>
-                        <td className="p-3">{getStatusBadge(user.is_active)}</td>
-                        <td className="p-3">{getRoleBadge(user.role)}</td>
-                        <td className="p-3">
-                          {user.is_verified 
-                            ? <Badge className="bg-green-100 text-green-800 border-0">Sí</Badge>
-                            : <Badge className="bg-gray-100 text-gray-800 border-0">No</Badge>
-                          }
-                        </td>
-                        <td className="p-3 text-sm text-muted-foreground">
-                          {user.age ? `${user.age} años` : 'N/A'}
-                        </td>
-                        <td className="p-3 text-sm text-muted-foreground">{formatDate(user.date_joined)}</td>
-                        <td className="p-3 text-sm text-muted-foreground">
-                          {user.last_login ? formatDate(user.last_login) : 'Nunca'}
-                        </td>
-                        <td className="p-3 text-sm text-muted-foreground">
-                          {user.updated_at ? formatDate(user.updated_at) : '—'}
-                        </td>
-                        <td className="p-3 text-sm">
-                          {renderPremiumAlerts(user)}
-                        </td>
-                        <td className="p-3">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="hover:bg-purple-50">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="backdrop-blur-sm bg-white/90 border-0 shadow-xl"
-                            >
-                              <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                              <DropdownMenuItem
-                                onClick={() => router.push(`/admin/user-v2/${user.id}`)}
-                                className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
-                              >
-                                <Eye className="h-4 w-4 mr-2" />
-                                Ver perfil completo ✨
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => handleEditUser(user)}
-                                    className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
-                                  >
-                                    <Edit className="h-4 w-4 mr-2" />
-                                    Editar
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => handleChangeRole(user.id)}
-                                    className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
-                                  >
-                                    <Crown className="h-4 w-4 mr-2" />
-                                    Cambiar Rol
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleToggleVerification(user.id)}
-                                    className="hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50"
-                                  >
-                                    <Shield className="h-4 w-4 mr-2" />
-                                    {user.is_verified ? 'Desverificar' : 'Verificar'}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    onClick={() => handleResetPassword(user.id)}
-                                    className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
-                                  >
-                                    <Key className="h-4 w-4 mr-2" />
-                                    Resetear Contraseña
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  {user.is_active ? (
-                                    <DropdownMenuItem
-                                      onClick={() => handleUserAction(user.id, "deactivate")}
-                                      className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
-                                    >
-                                      <UserX className="h-4 w-4 mr-2" />
-                                      Desactivar
-                                    </DropdownMenuItem>
-                                  ) : (
-                                    <DropdownMenuItem
-                                      onClick={() => handleUserAction(user.id, "activate")}
-                                      className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
-                                    >
-                                      <UserCheck className="h-4 w-4 mr-2" />
-                                      Activar
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem
-                                    onClick={() => handleUserAction(user.id, "delete")}
-                                    className="text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
-                                  >
-                                    <Trash2 className="h-4 w-4 mr-2" />
-                                    Eliminar
-                                  </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            
-            {/* Paginación */}
-            {totalPages > 0 && (
-              <div className="border-t p-3 md:p-4">
-                {/* Mobile View - Compact */}
-                <div className="md:hidden space-y-3">
-                  <div className="text-xs text-center text-muted-foreground">
-                    Página {currentPage} de {totalPages} • {filteredUsers.length} usuarios
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className="flex-1 text-xs"
-                    >
-                      <ArrowLeft className="h-3 w-3 mr-1" />
-                      Anterior
-                    </Button>
-                    <div className="flex items-center gap-1 px-2">
-                      {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
-                        let pageNum;
-                        if (totalPages <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage === 1) {
-                          pageNum = i + 1;
-                        } else if (currentPage === totalPages) {
-                          pageNum = totalPages - 2 + i;
-                        } else {
-                          pageNum = currentPage - 1 + i;
-                        }
-                        
-                        if (pageNum < 1 || pageNum > totalPages) return null;
-                        
-                        return (
+                      {/* Desktop View - Full */}
+                      <div className="hidden md:flex items-center justify-between">
+                        <div className="text-sm text-muted-foreground">
+                          Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, filteredUsers.length)} de {filteredUsers.length} usuarios
+                        </div>
+                        <div className="flex items-center gap-2">
                           <Button
-                            key={pageNum}
-                            variant={currentPage === pageNum ? "default" : "outline"}
+                            variant="outline"
                             size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0 text-xs"
+                            onClick={() => setCurrentPage(1)}
+                            disabled={currentPage === 1}
                           >
-                            {pageNum}
+                            Primera
                           </Button>
-                        );
-                      })}
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className="flex-1 text-xs"
-                    >
-                      Siguiente
-                      <ArrowRight className="h-3 w-3 ml-1" />
-                    </Button>
-                  </div>
-                </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                          >
+                            Anterior
+                          </Button>
 
-                {/* Desktop View - Full */}
-                <div className="hidden md:flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Mostrando {((currentPage - 1) * 50) + 1} - {Math.min(currentPage * 50, filteredUsers.length)} de {filteredUsers.length} usuarios
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(1)}
-                      disabled={currentPage === 1}
-                    >
-                      Primera
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Anterior
-                    </Button>
-                    
-                    {/* Números de página */}
-                    {totalPages > 0 && (
-                      <div className="flex items-center gap-1">
-                        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                          let pageNum;
-                          if (totalPages <= 5) {
-                            pageNum = i + 1;
-                          } else if (currentPage <= 3) {
-                            pageNum = i + 1;
-                          } else if (currentPage >= totalPages - 2) {
-                            pageNum = totalPages - 4 + i;
-                          } else {
-                            pageNum = currentPage - 2 + i;
-                          }
-                          
-                          return (
-                            <Button
-                              key={pageNum}
-                              variant={currentPage === pageNum ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCurrentPage(pageNum)}
-                              className="w-10"
-                            >
-                              {pageNum}
-                            </Button>
-                          );
-                        })}
+                          {/* Números de página */}
+                          {totalPages > 0 && (
+                            <div className="flex items-center gap-1">
+                              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                                let pageNum;
+                                if (totalPages <= 5) {
+                                  pageNum = i + 1;
+                                } else if (currentPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (currentPage >= totalPages - 2) {
+                                  pageNum = totalPages - 4 + i;
+                                } else {
+                                  pageNum = currentPage - 2 + i;
+                                }
+
+                                return (
+                                  <Button
+                                    key={pageNum}
+                                    variant={currentPage === pageNum ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    className="w-10"
+                                  >
+                                    {pageNum}
+                                  </Button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                          >
+                            Siguiente
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage(totalPages)}
+                            disabled={currentPage === totalPages}
+                          >
+                            Última
+                          </Button>
+                        </div>
                       </div>
-                    )}
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Siguiente
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Edit User Dialog */}
+              <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                <DialogContent className="sm:max-w-md backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+                  <DialogHeader>
+                    <DialogTitle>Editar Usuario</DialogTitle>
+                    <DialogDescription>Modifica la información del usuario seleccionado</DialogDescription>
+                  </DialogHeader>
+                  {editingUser && (
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-first-name">Nombre</Label>
+                        <Input
+                          id="edit-first-name"
+                          value={editingUser.first_name}
+                          onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value })}
+                          className="border-2 border-gray-200 focus:border-purple-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-last-name">Apellido</Label>
+                        <Input
+                          id="edit-last-name"
+                          value={editingUser.last_name}
+                          onChange={(e) => setEditingUser({ ...editingUser, last_name: e.target.value })}
+                          className="border-2 border-gray-200 focus:border-purple-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-phone">Teléfono</Label>
+                        <Input
+                          id="edit-phone"
+                          value={editingUser.phone_number || ""}
+                          onChange={(e) => setEditingUser({ ...editingUser, phone_number: e.target.value })}
+                          className="border-2 border-gray-200 focus:border-purple-400"
+                          placeholder="+34 600 000 000"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-birth">Fecha de nacimiento</Label>
+                        <Input
+                          id="edit-birth"
+                          type="date"
+                          value={editingUser.birth_date ? editingUser.birth_date.split("T")[0] : ""}
+                          onChange={(e) => setEditingUser({ ...editingUser, birth_date: e.target.value })}
+                          className="border-2 border-gray-200 focus:border-purple-400"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-gender">Género</Label>
+                        <Select
+                          value={editingUser.gender || ""}
+                          onValueChange={(value) =>
+                            setEditingUser({ ...editingUser, gender: value })
+                          }
+                        >
+                          <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                            <SelectValue placeholder="Selecciona género" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Masculino</SelectItem>
+                            <SelectItem value="female">Femenino</SelectItem>
+                            <SelectItem value="other">Otro</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="edit-role">Rol</Label>
+                        <Select
+                          value={editingUser.role}
+                          onValueChange={(value) =>
+                            setEditingUser({ ...editingUser, role: value as "admin" | "basic" | "pro" | "premium" })
+                          }
+                        >
+                          <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">Usuario</SelectItem>
+                            <SelectItem value="trainer">Entrenador</SelectItem>
+                            <SelectItem value="admin">Administrador</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Checkbox
+                          id="edit-active"
+                          checked={editingUser.is_active}
+                          onCheckedChange={(checked) =>
+                            setEditingUser({ ...editingUser, is_active: checked as boolean })
+                          }
+                        />
+                        <Label htmlFor="edit-active">Usuario activo</Label>
+                      </div>
+                    </div>
+                  )}
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                      Cancelar
                     </Button>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(totalPages)}
-                      disabled={currentPage === totalPages}
+                      onClick={handleSaveUser}
+                      className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+                      disabled={isLoading}
                     >
-                      Última
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Guardar cambios
                     </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
-        {/* Edit User Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="sm:max-w-md backdrop-blur-sm bg-white/90 border-0 shadow-xl">
-            <DialogHeader>
-              <DialogTitle>Editar Usuario</DialogTitle>
-              <DialogDescription>Modifica la información del usuario seleccionado</DialogDescription>
-            </DialogHeader>
-            {editingUser && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-first-name">Nombre</Label>
-                    <Input
-                      id="edit-first-name"
-                      value={editingUser.first_name}
-                      onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value })}
-                      className="border-2 border-gray-200 focus:border-purple-400"
-                    />
+              {/* Modal para cambiar rol */}
+              <Dialog open={roleChangeModal.open} onOpenChange={(open) => setRoleChangeModal(prev => ({ ...prev, open }))}>
+                <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Crown className="h-5 w-5 text-purple-600" />
+                      Cambiar Rol de Usuario
+                    </DialogTitle>
+                    <DialogDescription>
+                      Selecciona el nuevo rol para {fixEncoding(roleChangeModal.user?.first_name || '')} {fixEncoding(roleChangeModal.user?.last_name || '')}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="role-select">Nuevo Rol</Label>
+                      <Select
+                        value={roleChangeModal.newRole}
+                        onValueChange={(value) => setRoleChangeModal(prev => ({ ...prev, newRole: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un rol" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="basic">Usuario Básico</SelectItem>
+                          <SelectItem value="pro">Usuario Pro</SelectItem>
+                          <SelectItem value="premium">Usuario Premium</SelectItem>
+                          <SelectItem value="admin">Administrador</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="bg-gray-50 p-3 rounded-lg">
+                      <h4 className="font-medium text-sm mb-2">Descripción del rol:</h4>
+                      <p className="text-sm text-gray-600">
+                        {roleChangeModal.newRole === 'basic' && 'Acceso básico a entrenamientos y nutrición'}
+                        {roleChangeModal.newRole === 'pro' && 'Acceso avanzado con entrenamientos ilimitados'}
+                        {roleChangeModal.newRole === 'premium' && 'Acceso completo con entrenador personal y análisis avanzado'}
+                        {roleChangeModal.newRole === 'admin' && 'Acceso total al sistema y panel de administración'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-last-name">Apellido</Label>
-                    <Input
-                      id="edit-last-name"
-                      value={editingUser.last_name}
-                      onChange={(e) => setEditingUser({ ...editingUser, last_name: e.target.value })}
-                      className="border-2 border-gray-200 focus:border-purple-400"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-phone">Teléfono</Label>
-                    <Input
-                      id="edit-phone"
-                      value={editingUser.phone_number || ""}
-                      onChange={(e) => setEditingUser({ ...editingUser, phone_number: e.target.value })}
-                      className="border-2 border-gray-200 focus:border-purple-400"
-                      placeholder="+34 600 000 000"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-birth">Fecha de nacimiento</Label>
-                    <Input
-                      id="edit-birth"
-                      type="date"
-                      value={editingUser.birth_date ? editingUser.birth_date.split("T")[0] : ""}
-                      onChange={(e) => setEditingUser({ ...editingUser, birth_date: e.target.value })}
-                      className="border-2 border-gray-200 focus:border-purple-400"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-gender">Género</Label>
-                    <Select
-                      value={editingUser.gender || ""}
-                      onValueChange={(value) =>
-                        setEditingUser({ ...editingUser, gender: value })
-                      }
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setRoleChangeModal({ open: false, user: null, newRole: '' })}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={confirmRoleChange}
+                      className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+                      disabled={isLoading || !roleChangeModal.newRole}
                     >
-                      <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
-                        <SelectValue placeholder="Selecciona género" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Masculino</SelectItem>
-                        <SelectItem value="female">Femenino</SelectItem>
-                        <SelectItem value="other">Otro</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Cambiar Rol
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              {/* Modal para resetear contraseña */}
+              <Dialog open={passwordResetModal.open} onOpenChange={(open) => setPasswordResetModal(prev => ({ ...prev, open }))}>
+                <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5 text-blue-600" />
+                      Resetear Contraseña
+                    </DialogTitle>
+                    <DialogDescription>
+                      Establece una nueva contraseña para {fixEncoding(passwordResetModal.user?.first_name || '')} {fixEncoding(passwordResetModal.user?.last_name || '')}
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="new-password">Nueva Contraseña</Label>
+                      <Input
+                        id="new-password"
+                        type="password"
+                        placeholder="Ingresa la nueva contraseña"
+                        value={passwordResetModal.newPassword}
+                        onChange={(e) => setPasswordResetModal(prev => ({ ...prev, newPassword: e.target.value }))}
+                        className="border-2 border-gray-200 focus:border-blue-400"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Mínimo 8 caracteres
+                      </p>
+                    </div>
+                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+                      <p className="text-sm text-yellow-800">
+                        ⚠️ El usuario necesitará usar esta nueva contraseña para iniciar sesión.
+                      </p>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-role">Rol</Label>
-                    <Select
-                      value={editingUser.role}
-                      onValueChange={(value) =>
-                        setEditingUser({ ...editingUser, role: value as "admin" | "basic" | "pro" | "premium" })
-                      }
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setPasswordResetModal({ open: false, user: null, newPassword: '' })}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={confirmPasswordReset}
+                      className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
+                      disabled={isLoading || passwordResetModal.newPassword.length < 8}
                     >
-                      <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="user">Usuario</SelectItem>
-                        <SelectItem value="trainer">Entrenador</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="edit-active"
-                      checked={editingUser.is_active}
-                      onCheckedChange={(checked) => 
-                        setEditingUser({ ...editingUser, is_active: checked as boolean })
-                      }
-                    />
-                    <Label htmlFor="edit-active">Usuario activo</Label>
-                  </div>
-                </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={handleSaveUser}
-                className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-                disabled={isLoading}
-              >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Guardar cambios
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal para cambiar rol */}
-        <Dialog open={roleChangeModal.open} onOpenChange={(open) => setRoleChangeModal(prev => ({ ...prev, open }))}>
-          <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Crown className="h-5 w-5 text-purple-600" />
-                Cambiar Rol de Usuario
-              </DialogTitle>
-              <DialogDescription>
-                Selecciona el nuevo rol para {fixEncoding(roleChangeModal.user?.first_name || '')} {fixEncoding(roleChangeModal.user?.last_name || '')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="role-select">Nuevo Rol</Label>
-                <Select 
-                  value={roleChangeModal.newRole} 
-                  onValueChange={(value) => setRoleChangeModal(prev => ({ ...prev, newRole: value }))}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Usuario Básico</SelectItem>
-                    <SelectItem value="pro">Usuario Pro</SelectItem>
-                    <SelectItem value="premium">Usuario Premium</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="bg-gray-50 p-3 rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Descripción del rol:</h4>
-                <p className="text-sm text-gray-600">
-                  {roleChangeModal.newRole === 'basic' && 'Acceso básico a entrenamientos y nutrición'}
-                  {roleChangeModal.newRole === 'pro' && 'Acceso avanzado con entrenamientos ilimitados'}
-                  {roleChangeModal.newRole === 'premium' && 'Acceso completo con entrenador personal y análisis avanzado'}
-                  {roleChangeModal.newRole === 'admin' && 'Acceso total al sistema y panel de administración'}
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setRoleChangeModal({ open: false, user: null, newRole: '' })}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={confirmRoleChange}
-                className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-                disabled={isLoading || !roleChangeModal.newRole}
-              >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Cambiar Rol
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        {/* Modal para resetear contraseña */}
-        <Dialog open={passwordResetModal.open} onOpenChange={(open) => setPasswordResetModal(prev => ({ ...prev, open }))}>
-          <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Key className="h-5 w-5 text-blue-600" />
-                Resetear Contraseña
-              </DialogTitle>
-              <DialogDescription>
-                Establece una nueva contraseña para {fixEncoding(passwordResetModal.user?.first_name || '')} {fixEncoding(passwordResetModal.user?.last_name || '')}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="new-password">Nueva Contraseña</Label>
-                <Input
-                  id="new-password"
-                  type="password"
-                  placeholder="Ingresa la nueva contraseña"
-                  value={passwordResetModal.newPassword}
-                  onChange={(e) => setPasswordResetModal(prev => ({ ...prev, newPassword: e.target.value }))}
-                  className="border-2 border-gray-200 focus:border-blue-400"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Mínimo 8 caracteres
-                </p>
-              </div>
-              <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ El usuario necesitará usar esta nueva contraseña para iniciar sesión.
-                </p>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setPasswordResetModal({ open: false, user: null, newPassword: '' })}>
-                Cancelar
-              </Button>
-              <Button
-                onClick={confirmPasswordReset}
-                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-                disabled={isLoading || passwordResetModal.newPassword.length < 8}
-              >
-                {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                Cambiar Contraseña
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-          </>
+                      {isLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                      Cambiar Contraseña
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </>
           )}
         </Suspense>
       </div>

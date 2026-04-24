@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import DashboardData, WellnessTip, HelpSettings, ProblemReport
+from .models import DashboardData, WellnessTip, CoachingPlan, CoachingInquiry, HelpSettings, ProblemReport
 
 
 @admin.register(DashboardData)
@@ -55,6 +55,22 @@ class WellnessTipAdmin(admin.ModelAdmin):
         super().save_model(request, obj, form, change)
 
 
+@admin.register(CoachingPlan)
+class CoachingPlanAdmin(admin.ModelAdmin):
+    list_display = ["name", "duration_label", "tier", "is_active", "sort_order"]
+    list_filter = ["tier", "is_active"]
+    search_fields = ["name", "slug", "summary"]
+    ordering = ["sort_order", "created_at"]
+
+
+@admin.register(CoachingInquiry)
+class CoachingInquiryAdmin(admin.ModelAdmin):
+    list_display = ["full_name", "email", "plan", "preferred_contact", "status", "created_at"]
+    list_filter = ["preferred_contact", "status", "created_at"]
+    search_fields = ["full_name", "email", "goal", "current_challenge"]
+    readonly_fields = ["created_at", "updated_at"]
+
+
 @admin.register(HelpSettings)
 class HelpSettingsAdmin(admin.ModelAdmin):
     list_display = ["is_active", "contact_email", "app_version", "last_update_date", "updated_at"]
@@ -69,8 +85,8 @@ class HelpSettingsAdmin(admin.ModelAdmin):
             "description": "Configuración de la página de preguntas frecuentes"
         }),
         ("Contacto", {
-            "fields": ("contact_enabled", "contact_email"),
-            "description": "Configuración de contacto por email"
+            "fields": ("contact_enabled", "contact_email", "coaching_booking_enabled", "coaching_booking_url"),
+            "description": "Configuración de contacto por email y agendado de llamadas"
         }),
         ("Guías de Usuario", {
             "fields": ("guides_enabled", "guides_url", "guides_content"),

@@ -15,6 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { helpService, HelpSettings } from "@/lib/help-service"
 import { useAuth } from "@/contexts/auth-context"
+import { TipsBoard } from "@/components/tips/tips-board"
 
 interface ProblemReport {
   id: number
@@ -118,7 +119,7 @@ function ProblemReportsPanel() {
           </Button>
         </div>
         <div className="flex gap-2 mt-2">
-          {['all','pending','in_review','resolved','closed'].map(s => (
+          {['all', 'pending', 'in_review', 'resolved', 'closed'].map(s => (
             <Button
               key={s}
               variant={statusFilter === s ? 'default' : 'outline'}
@@ -269,7 +270,7 @@ export function HelpSettingsPanel() {
     try {
       setSaving(true)
       const token = localStorage.getItem('access_token')
-      
+
       // Obtener el ID de la configuración activa
       const response = await fetch(buildApiUrl('help-settings/'), {
         method: 'GET',
@@ -279,11 +280,11 @@ export function HelpSettingsPanel() {
       })
 
       const allSettings = await response.json()
-      const activeSetting = Array.isArray(allSettings) 
-        ? allSettings.find((s: HelpSettings) => s.is_active) 
+      const activeSetting = Array.isArray(allSettings)
+        ? allSettings.find((s: HelpSettings) => s.is_active)
         : allSettings
 
-      const updateUrl = activeSetting 
+      const updateUrl = activeSetting
         ? buildApiUrl(`help-settings/${activeSetting.id}/`)
         : buildApiUrl('help-settings/')
 
@@ -381,10 +382,11 @@ export function HelpSettingsPanel() {
       </Card>
 
       <Tabs defaultValue="faq" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="faq">FAQ</TabsTrigger>
           <TabsTrigger value="contact">Contacto</TabsTrigger>
           <TabsTrigger value="guides">Guías</TabsTrigger>
+          <TabsTrigger value="tips">Tips</TabsTrigger>
           <TabsTrigger value="report">Reportes</TabsTrigger>
         </TabsList>
 
@@ -528,6 +530,23 @@ export function HelpSettingsPanel() {
                   Si se especifica contenido, se mostrará en lugar de las guías por defecto
                 </p>
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tips" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lightbulb className="h-5 w-5 text-amber-600" />
+                Gestión de tips y mensajes de bienestar
+              </CardTitle>
+              <CardDescription>
+                Crea, edita, destaca, oculta o elimina consejos motivacionales visibles para los usuarios.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TipsBoard showCreateForm={true} />
             </CardContent>
           </Card>
         </TabsContent>

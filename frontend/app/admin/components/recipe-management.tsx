@@ -65,6 +65,9 @@ interface RecipeIngredient {
     protein: number
     carbs: number
     fat: number
+    fiber?: number
+    sugar?: number
+    sodium?: number
   }
 }
 
@@ -94,6 +97,32 @@ interface FormData {
   image_url: string
 }
 
+interface RecipeImportResult {
+  created: number
+  updated: number
+  skipped: number
+  rejected: number
+  message: string
+  errors: string[]
+  rejections: string[]
+}
+
+const isFatToFitRecipe = (recipe: Recipe) => {
+  const haystack = [recipe.name, recipe.description, recipe.category]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase()
+
+  return [
+    'fat to fit',
+    'fat-to-fit',
+    'fat→fit',
+    'fat2fit',
+    'transformación',
+    'transformacion'
+  ].some((term) => haystack.includes(term))
+}
+
 export function RecipeManagement() {
   const { getAuthHeaders } = useAuth()
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -110,10 +139,12 @@ export function RecipeManagement() {
   // Files and forms
   const [importFile, setImportFile] = useState<File | null>(null)
   const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<RecipeImportResult | null>(null)
   const [saving, setSaving] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
+  const [recipeTypeFilter, setRecipeTypeFilter] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [sortColumn, setSortColumn] = useState<'name' | 'category' | 'calories' | 'difficulty'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
@@ -173,7 +204,7 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const timestamp = new Date().getTime()
-      let nextUrl: string | null = `${getApiUrl()}/api/admin/nutrition/recipes/?cache=${timestamp}`
+      let nextUrl: string | null = `${getApiUrl()}/api/admin/nutrition/recipes/?cache=${timestamp}&page_size=500`
       const allRecipes: Recipe[] = []
 
       while (nextUrl) {
@@ -183,6 +214,11 @@ export function RecipeManagement() {
         })
 
         if (!response.ok) {
+          // Algunas respuestas devuelven 404 "Invalid page" para page=2.
+          // Lo tratamos como fin de paginacion para no romper la carga.
+          if (response.status === 404 && nextUrl.includes('page=')) {
+            break
+          }
           if (response.status === 401) {
             toast({ title: "Error", description: "No autorizado. Por favor, inicia sesión nuevamente.", variant: "destructive" })
             setRecipes([])
@@ -295,14 +331,28 @@ export function RecipeManagement() {
         headers: { 'Authorization': token },
         body: formDataObj,
       })
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(errorText || `Error ${response.status}`)
+      let data: any = null
+      try {
+        data = await response.json()
+      } catch {
+        data = null
       }
-      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.error || `Error ${response.status}`)
+      }
+
+      setImportResult({
+        created: data?.created ?? 0,
+        updated: data?.updated ?? 0,
+        skipped: data?.skipped ?? 0,
+        rejected: data?.rejected ?? data?.rejection_count ?? 0,
+        message: data?.message || 'Importación completada',
+        errors: Array.isArray(data?.errors) ? data.errors.map((e: any) => String(e)) : [],
+        rejections: Array.isArray(data?.rejections) ? data.rejections.map((e: any) => String(e)) : [],
+      })
+
       toast({ title: '✅ Importación', description: data?.message || 'Recetas importadas correctamente.' })
-      setImportDialogOpen(false)
-      setImportFile(null)
       fetchRecipes()
     } catch (error) {
       toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' })
@@ -324,6 +374,17 @@ export function RecipeManagement() {
   }
 
   const handleOpenEdit = (recipe: Recipe) => {
+    const normalizedIngredients = (recipe.recipe_ingredients || []).map((ing, index) => {
+      const food = ing.food || (ing.food_id ? foods.find((f) => f.id === ing.food_id) : undefined)
+      return {
+        ...ing,
+        food,
+        quantity: Number(ing.quantity) || 0,
+        unit: ing.unit || 'g',
+        order: typeof ing.order === 'number' ? ing.order : index,
+      }
+    })
+
     setEditingRecipe(recipe)
     setFormData({
       name: recipe.name || '',
@@ -331,7 +392,7 @@ export function RecipeManagement() {
       category: recipe.category || '',
       difficulty: recipe.difficulty || '',
       instructions: recipe.instructions || '',
-      recipe_ingredients: recipe.recipe_ingredients || [],
+      recipe_ingredients: normalizedIngredients,
       image_url: recipe.image_url || '',
     })
     setIngredientInputValue('')
@@ -398,6 +459,41 @@ export function RecipeManagement() {
     setFormData({ ...formData, recipe_ingredients: updated })
   }
 
+  const handleUpdateIngredientUnit = (index: number, unit: string) => {
+    const updated = [...formData.recipe_ingredients]
+    updated[index].unit = unit
+    setFormData({ ...formData, recipe_ingredients: updated })
+  }
+
+  const handleUpdateIngredientNotes = (index: number, notes: string) => {
+    const updated = [...formData.recipe_ingredients]
+    updated[index].notes = notes
+    setFormData({ ...formData, recipe_ingredients: updated })
+  }
+
+  const getIngredientComputedMacros = (ingredient: RecipeIngredient) => {
+    if (ingredient.calculated_macros) {
+      return ingredient.calculated_macros
+    }
+
+    if (!ingredient.food) {
+      return {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+      }
+    }
+
+    const ratio = (Number(ingredient.quantity) || 0) / 100
+    return {
+      calories: Math.round((ingredient.food.calories || 0) * ratio),
+      protein: Math.round((ingredient.food.protein || 0) * ratio * 100) / 100,
+      carbs: Math.round((ingredient.food.carbs || 0) * ratio * 100) / 100,
+      fat: Math.round((ingredient.food.fat || 0) * ratio * 100) / 100,
+    }
+  }
+
   const handleSaveRecipe = async () => {
     if (!formData.name.trim()) {
       toast({ title: 'Error', description: 'El nombre es requerido', variant: 'destructive' })
@@ -442,6 +538,14 @@ export function RecipeManagement() {
       })
 
       if (!response.ok) {
+        if (response.status === 404 && editingRecipe) {
+          // La receta puede haber sido eliminada/reimportada y su ID ya no existir.
+          await fetchRecipes()
+          setEditDialogOpen(false)
+          setEditingRecipe(null)
+          throw new Error('La receta ya no existe con ese ID (se recargó el listado). Abre la receta de nuevo e inténtalo.')
+        }
+
         const errorText = await response.text()
         throw new Error(errorText || `Error ${response.status}`)
       }
@@ -504,10 +608,10 @@ export function RecipeManagement() {
       const data = await response.json()
       setFormData({ ...formData, image_url: data.image_url || imageUrlInput })
       setImageUrlSuccess(true)
-      
+
       // Actualizar la receta en la lista
       setEditingRecipe({ ...editingRecipe, image_url: data.image_url || imageUrlInput })
-      
+
       toast({
         title: '✅ Imagen actualizada',
         description: 'La URL de la imagen ha sido guardada correctamente',
@@ -633,10 +737,14 @@ export function RecipeManagement() {
 
       const matchesCategory = categoryFilter === 'all' || recipe.category === categoryFilter
       const matchesDifficulty = difficultyFilter === 'all' || recipe.difficulty === difficultyFilter
+      const matchesType =
+        recipeTypeFilter === 'all' ||
+        (recipeTypeFilter === 'fat-to-fit' && isFatToFitRecipe(recipe)) ||
+        (recipeTypeFilter === 'general' && !isFatToFitRecipe(recipe))
 
-      return matchesSearch && matchesCategory && matchesDifficulty
+      return matchesSearch && matchesCategory && matchesDifficulty && matchesType
     })
-  }, [recipes, searchTerm, categoryFilter, difficultyFilter])
+  }, [recipes, searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter])
 
   const sortedRecipes = useMemo(() => {
     const recipesToSort = [...filteredRecipes]
@@ -710,7 +818,7 @@ export function RecipeManagement() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, categoryFilter, difficultyFilter])
+  }, [searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter])
 
   const macros = calculateMacros(formData.recipe_ingredients)
 
@@ -821,6 +929,16 @@ export function RecipeManagement() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={recipeTypeFilter} onValueChange={setRecipeTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[220px]">
+                <SelectValue placeholder="Tipo de receta" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="fat-to-fit">Solo FAT→FIT</SelectItem>
+                <SelectItem value="general">Solo generales</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -929,7 +1047,12 @@ export function RecipeManagement() {
                               )}
                             </div>
                             <div>
-                              <div className="font-medium">{recipe.name}</div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="font-medium">{recipe.name}</div>
+                                {isFatToFitRecipe(recipe) && (
+                                  <Badge className="bg-pink-100 text-pink-800 border-0">FAT→FIT</Badge>
+                                )}
+                              </div>
                               <div className="text-sm text-muted-foreground">
                                 {recipe.description
                                   ? (recipe.description.length > 60 ? `${recipe.description.substring(0, 60)}...` : recipe.description)
@@ -1103,7 +1226,10 @@ export function RecipeManagement() {
               <Input
                 type="file"
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  setImportFile(e.target.files?.[0] || null)
+                  setImportResult(null)
+                }}
                 disabled={importing}
                 className="mt-2"
               />
@@ -1118,9 +1244,37 @@ export function RecipeManagement() {
                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, categoría, dificultad, calorías, proteína, carbohidratos, grasa e ingredientes.
               </p>
             </div>
+
+            {importResult && (
+              <div className="border rounded-lg p-4 space-y-1 text-sm">
+                <p className="font-semibold text-green-700">Resultado de la importación</p>
+                <p>✅ Creadas: <strong>{importResult.created}</strong></p>
+                <p>🔄 Actualizadas: <strong>{importResult.updated}</strong></p>
+                <p>⏭️ Omitidas: <strong>{importResult.skipped}</strong></p>
+                <p>⛔ Rechazadas: <strong>{importResult.rejected}</strong></p>
+
+                {importResult.rejections.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-amber-700 font-medium">Motivos de rechazo ({importResult.rejections.length}):</p>
+                    <ul className="list-disc list-inside text-amber-700 space-y-0.5 max-h-48 overflow-y-auto pr-2 border border-amber-200 rounded-md p-2 bg-amber-50/50 text-xs">
+                      {importResult.rejections.map((reason, idx) => <li key={idx}>{reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+
+                {importResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-red-600 font-medium">Errores ({importResult.errors.length}):</p>
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5 max-h-48 overflow-y-auto pr-2 border border-red-100 rounded-md p-2 bg-red-50/40 text-xs">
+                      {importResult.errors.map((reason, idx) => <li key={idx}>{reason}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)} disabled={importing}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportFile(null); setImportResult(null) }} disabled={importing}>Cerrar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {importing ? 'Importando...' : 'Importar'}
@@ -1180,14 +1334,27 @@ export function RecipeManagement() {
               {editingRecipe.recipe_ingredients && editingRecipe.recipe_ingredients.length > 0 && (
                 <div>
                   <strong>Ingredientes:</strong>
-                  <ul className="mt-2 text-sm space-y-1">
-                    {editingRecipe.recipe_ingredients.map((ing, idx) => (
-                      <li key={idx}>
-                        {ing.quantity}{ing.unit} de {ing.food ? ing.food.name : 'Desconocido'}
-                        {ing.notes && ` (${ing.notes})`}
-                      </li>
-                    ))}
-                  </ul>
+                  <div className="mt-2 space-y-2">
+                    {editingRecipe.recipe_ingredients.map((ing, idx) => {
+                      const ratio = (Number(ing.quantity) || 0) / 100
+                      const kcal = ing.food ? Math.round((ing.food.calories || 0) * ratio) : 0
+                      const protein = ing.food ? Math.round((ing.food.protein || 0) * ratio * 100) / 100 : 0
+                      const carbs = ing.food ? Math.round((ing.food.carbs || 0) * ratio * 100) / 100 : 0
+                      const fat = ing.food ? Math.round((ing.food.fat || 0) * ratio * 100) / 100 : 0
+
+                      return (
+                        <div key={idx} className="rounded-md border border-gray-200 p-2 bg-gray-50/70">
+                          <p className="text-sm font-medium">
+                            {ing.quantity}{ing.unit} de {ing.food ? ing.food.name : 'Desconocido'}
+                            {ing.notes && ` (${ing.notes})`}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-1">
+                            {kcal} kcal • P: {protein.toFixed(2)} g • C: {carbs.toFixed(2)} g • G: {fat.toFixed(2)} g
+                          </p>
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
               )}
               {editingRecipe.instructions && (
@@ -1446,6 +1613,36 @@ export function RecipeManagement() {
               {/* TAB 2: Ingredientes con búsqueda mejorada */}
               <TabsContent value="ingredientes" className="space-y-4 px-1">
                 <div className="space-y-3">
+                  <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-3">
+                    <p className="text-xs text-orange-900">
+                      <strong>Como se calculan las calorias:</strong> para cada ingrediente se usa la formula
+                      {' '}<span className="font-mono">kcal = (cantidad / 100) x kcal_por_100g</span>. La receta suma todos los ingredientes y luego divide por porciones.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                    <div className="rounded-lg border bg-white p-3">
+                      <p className="text-xs text-gray-500">Ingredientes</p>
+                      <p className="text-lg font-semibold">{formData.recipe_ingredients.length}</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <p className="text-xs text-gray-500">Calorias totales</p>
+                      <p className="text-lg font-semibold">{macros.calories} kcal</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <p className="text-xs text-gray-500">Proteina</p>
+                      <p className="text-lg font-semibold">{macros.protein.toFixed(1)} g</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <p className="text-xs text-gray-500">Carbos</p>
+                      <p className="text-lg font-semibold">{macros.carbs.toFixed(1)} g</p>
+                    </div>
+                    <div className="rounded-lg border bg-white p-3">
+                      <p className="text-xs text-gray-500">Grasa</p>
+                      <p className="text-lg font-semibold">{macros.fat.toFixed(1)} g</p>
+                    </div>
+                  </div>
+
                   {/* INPUT CON AUTOCOMPLETE */}
                   <div className="space-y-2">
                     <Label className="font-semibold text-sm">🔍 Buscar y agregar ingrediente</Label>
@@ -1497,60 +1694,96 @@ export function RecipeManagement() {
                 {formData.recipe_ingredients.length > 0 && (
                   <div className="space-y-2 pt-4 border-t">
                     <h4 className="font-semibold text-sm">📦 Ingredientes seleccionados ({formData.recipe_ingredients.length})</h4>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
                       {formData.recipe_ingredients.map((ing, idx) => {
                         const isValid = isIngredientValid(ing)
+                        const ingredientMacros = getIngredientComputedMacros(ing)
                         return (
                           <div
                             key={idx}
-                            className={`p-3 rounded-lg border flex items-center justify-between gap-2 group hover:shadow-md transition ${isValid
-                                ? 'bg-orange-50 border-orange-200'
-                                : 'bg-red-100 border-red-400'
+                            className={`p-3 rounded-lg border group hover:shadow-md transition ${isValid
+                              ? 'bg-orange-50 border-orange-200'
+                              : 'bg-red-100 border-red-400'
                               }`}
                           >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="text-sm font-medium truncate">{ing.food?.name || 'Ingrediente desconocido'}</p>
-                                {!isValid && (
-                                  <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded text-nowrap">⚠️ No existe</span>
-                                )}
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-medium truncate">{ing.food?.name || 'Ingrediente desconocido'}</p>
+                                    {!isValid && (
+                                      <span className="text-xs bg-red-500 text-white px-2 py-0.5 rounded text-nowrap">⚠️ No existe</span>
+                                    )}
+                                  </div>
+                                  <p className={`text-xs mt-0.5 ${isValid ? 'text-gray-600' : 'text-red-700'}`}>
+                                    {ing.food?.calories || '?'} cal/100g
+                                  </p>
+                                </div>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleRemoveIngredient(idx)}
+                                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
                               </div>
-                              <p className={`text-xs mt-0.5 ${isValid ? 'text-gray-600' : 'text-red-700'}`}>
-                                {ing.food?.calories || '?'} cal/100g
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUpdateIngredientQuantity(idx, Math.max(1, ing.quantity - 10))}
-                                className="h-7 w-7 p-0 text-xs"
-                              >
-                                −
-                              </Button>
-                              <Input
-                                type="number"
-                                value={ing.quantity}
-                                onChange={(e) => handleUpdateIngredientQuantity(idx, parseFloat(e.target.value) || 0)}
-                                className={`w-16 h-7 text-center text-xs p-0 ${!isValid ? 'border-red-400' : ''}`}
-                              />
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleUpdateIngredientQuantity(idx, ing.quantity + 10)}
-                                className="h-7 w-7 p-0 text-xs"
-                              >
-                                +
-                              </Button>
-                              <span className="text-xs text-gray-500 w-8">{ing.unit}</span>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleRemoveIngredient(idx)}
-                                className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 ml-1"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+
+                              <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
+                                <div>
+                                  <Label className="text-xs text-gray-600">Cantidad</Label>
+                                  <Input
+                                    type="number"
+                                    value={ing.quantity}
+                                    min={0}
+                                    step={1}
+                                    onChange={(e) => handleUpdateIngredientQuantity(idx, parseFloat(e.target.value) || 0)}
+                                    className={`h-8 text-xs ${!isValid ? 'border-red-400' : ''}`}
+                                  />
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-gray-600">Unidad</Label>
+                                  <select
+                                    value={ing.unit || 'g'}
+                                    onChange={(e) => handleUpdateIngredientUnit(idx, e.target.value)}
+                                    className="w-full h-8 px-2 border border-gray-300 rounded-md text-xs"
+                                  >
+                                    <option value="g">g</option>
+                                    <option value="ml">ml</option>
+                                    <option value="ud">ud</option>
+                                    <option value="cda">cda</option>
+                                    <option value="cdta">cdta</option>
+                                  </select>
+                                </div>
+                                <div className="md:col-span-2">
+                                  <Label className="text-xs text-gray-600">Notas</Label>
+                                  <Input
+                                    value={ing.notes || ''}
+                                    onChange={(e) => handleUpdateIngredientNotes(idx, e.target.value)}
+                                    placeholder="Ej: picado, cocido, sin sal"
+                                    className="h-8 text-xs"
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                <div className="rounded bg-white border p-2">
+                                  <p className="text-gray-500">Calorias</p>
+                                  <p className="font-semibold">{ingredientMacros.calories || 0} kcal</p>
+                                </div>
+                                <div className="rounded bg-white border p-2">
+                                  <p className="text-gray-500">Proteina</p>
+                                  <p className="font-semibold">{Number(ingredientMacros.protein || 0).toFixed(2)} g</p>
+                                </div>
+                                <div className="rounded bg-white border p-2">
+                                  <p className="text-gray-500">Carbos</p>
+                                  <p className="font-semibold">{Number(ingredientMacros.carbs || 0).toFixed(2)} g</p>
+                                </div>
+                                <div className="rounded bg-white border p-2">
+                                  <p className="text-gray-500">Grasa</p>
+                                  <p className="font-semibold">{Number(ingredientMacros.fat || 0).toFixed(2)} g</p>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         )

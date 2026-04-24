@@ -132,11 +132,23 @@ const translateDifficulty = (difficulty: string): string => {
   return translations[difficulty?.toLowerCase()] || difficulty?.charAt(0).toUpperCase() + difficulty?.slice(1).toLowerCase() || difficulty
 }
 
+interface ExerciseImportResult {
+  created: number
+  updated: number
+  skipped: number
+  errors: string[]
+  message?: string
+}
+
 export function ExerciseManagement() {
   // --- Importación CSV/Excel ---
   const [importing, setImporting] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [importResult, setImportResult] = useState<ExerciseImportResult | null>(null);
+  const [bulkVideoUrl, setBulkVideoUrl] = useState('');
+  const [showBulkVideoDialog, setShowBulkVideoDialog] = useState(false);
+  const [bulkUpdatingVideo, setBulkUpdatingVideo] = useState(false);
 
   const handleImport = async () => {
     if (!importFile) return;
@@ -149,26 +161,43 @@ export function ExerciseManagement() {
       const url = buildApiUrl(endpoint);
       const formData = new FormData();
       formData.append('file', importFile);
-      const headers = await getAuthHeaders();
+      const authHeaders = await getAuthHeaders();
+      // multipart — solo enviar Authorization, no Content-Type (el navegador lo establece automáticamente)
+      const headers: Record<string, string> = {};
+      if (authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization'];
       const response = await fetch(url, {
         method: 'POST',
         headers,
         body: formData,
       });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Error al importar');
-      }
-      let data = null;
+      let data: any = null;
       try {
         data = await response.json();
       } catch { }
+
+      if (!response.ok) {
+        throw new Error(data?.detail || data?.error || 'Error al importar');
+      }
+
+      const normalizedErrors: string[] = Array.isArray(data?.errors)
+        ? data.errors.map((err: any) => {
+          if (typeof err === 'string') return err
+          return String(err)
+        })
+        : []
+
+      setImportResult({
+        created: data?.created ?? 0,
+        updated: data?.updated ?? 0,
+        skipped: data?.skipped ?? 0,
+        errors: normalizedErrors,
+        message: data?.message,
+      })
+
       toast({
         title: '✅ Importación',
         description: data?.message || 'Ejercicios importados y actualizados correctamente.'
       });
-      setShowImportDialog(false);
-      setImportFile(null);
       refetch(); // Refresca la lista en tiempo real
     } catch (error) {
       toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' });
@@ -252,6 +281,7 @@ export function ExerciseManagement() {
   const [searchTerm, setSearchTerm] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [muscleGroupFilter, setMuscleGroupFilter] = useState<string>("all")
+  const [videoFilter, setVideoFilter] = useState<string>("all")
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [editingExercise, setEditingExercise] = useState<Exercise | null>(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -298,6 +328,9 @@ export function ExerciseManagement() {
   const uniqueMuscleGroups = Array.from(new Set(
     exercisesArray.flatMap(exercise => fixEncodingArray(exercise?.muscle_groups || []))
   ))
+  const exercisesWithVideo = exercisesArray.filter(exercise => Boolean(exercise?.has_video || exercise?.video_url || exercise?.video_file || exercise?.video_file_url)).length
+  const exercisesWithoutVideo = Math.max(0, exercisesArray.length - exercisesWithVideo)
+  const videoCoverage = exercisesArray.length > 0 ? Math.round((exercisesWithVideo / exercisesArray.length) * 100) : 0
 
   const filteredExercises = exercisesArray.filter((exercise) => {
     if (!exercise) return false
@@ -309,7 +342,13 @@ export function ExerciseManagement() {
     const matchesMuscleGroup = muscleGroupFilter === "all" ||
       (Array.isArray(exercise.muscle_groups) && exercise.muscle_groups.includes(muscleGroupFilter))
 
-    return matchesSearch && matchesCategory && matchesMuscleGroup
+    const hasVideo = Boolean(exercise.has_video || exercise.video_url || exercise.video_file || exercise.video_file_url)
+    const matchesVideo =
+      videoFilter === "all" ||
+      (videoFilter === "with_video" && hasVideo) ||
+      (videoFilter === "without_video" && !hasVideo)
+
+    return matchesSearch && matchesCategory && matchesMuscleGroup && matchesVideo
   })
 
   // Ordenamiento
@@ -349,7 +388,7 @@ export function ExerciseManagement() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, categoryFilter, muscleGroupFilter])
+  }, [searchTerm, categoryFilter, muscleGroupFilter, videoFilter])
 
   const handleSort = (column: string) => {
     if (sortColumn === column) {
@@ -548,6 +587,86 @@ export function ExerciseManagement() {
     }
   }
 
+  const handleExportFilteredCsv = () => {
+    const rows = (selectedExercises.length > 0
+      ? exercisesArray.filter((exercise) => selectedExercises.includes(exercise.id))
+      : sortedExercises
+    ).map((exercise) => ({
+      id: exercise.id,
+      name: fixEncoding(exercise.name),
+      category: exercise.category || '',
+      muscle_groups: fixEncodingArray(exercise.muscle_groups || []).join('|'),
+      equipment: fixEncodingArray(exercise.equipment || []).join('|'),
+      difficulty: exercise.difficulty || '',
+      has_video: exercise.has_video ? 'yes' : 'no',
+      video_url: exercise.video_url || exercise.video_file_url || '',
+    }))
+
+    if (rows.length === 0) {
+      toast({ title: '❌ Error', description: 'No hay ejercicios para exportar', variant: 'destructive' })
+      return
+    }
+
+    const headers = Object.keys(rows[0])
+    const csv = [
+      headers.join(','),
+      ...rows.map((row) => headers.map((header) => `"${String((row as any)[header] ?? '').replace(/"/g, '""')}"`).join(','))
+    ].join('\n')
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = selectedExercises.length > 0 ? 'ejercicios_seleccionados.csv' : 'ejercicios_filtrados.csv'
+    link.click()
+
+    toast({
+      title: '✅ Exportación preparada',
+      description: selectedExercises.length > 0
+        ? `Se exportaron ${rows.length} ejercicios seleccionados.`
+        : `Se exportaron ${rows.length} ejercicios filtrados.`
+    })
+  }
+
+  const handleBulkAssignVideoUrl = async (clearOnly = false) => {
+    if (selectedExercises.length === 0) {
+      toast({ title: '❌ Error', description: 'Selecciona al menos un ejercicio', variant: 'destructive' })
+      return
+    }
+
+    if (!clearOnly && !bulkVideoUrl.trim()) {
+      toast({ title: '❌ Error', description: 'Introduce una URL de vídeo válida', variant: 'destructive' })
+      return
+    }
+
+    try {
+      setBulkUpdatingVideo(true)
+      for (const exerciseId of selectedExercises) {
+        await updateExercise(Number(exerciseId), {
+          video_url: clearOnly ? '' : bulkVideoUrl.trim(),
+        })
+      }
+
+      toast({
+        title: '✅ Acción masiva completada',
+        description: clearOnly
+          ? `Se limpió el vídeo de ${selectedExercises.length} ejercicios.`
+          : `Se asignó la URL de vídeo a ${selectedExercises.length} ejercicios.`
+      })
+
+      setShowBulkVideoDialog(false)
+      setBulkVideoUrl('')
+      refetch()
+    } catch (error) {
+      toast({
+        title: '❌ Error',
+        description: error instanceof Error ? error.message : 'No se pudo aplicar la acción masiva',
+        variant: 'destructive',
+      })
+    } finally {
+      setBulkUpdatingVideo(false)
+    }
+  }
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -725,7 +844,10 @@ export function ExerciseManagement() {
               <Input
                 type="file"
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                onChange={e => setImportFile(e.target.files?.[0] || null)}
+                onChange={e => {
+                  setImportFile(e.target.files?.[0] || null)
+                  setImportResult(null)
+                }}
                 disabled={importing}
                 className="mt-2"
               />
@@ -740,9 +862,26 @@ export function ExerciseManagement() {
                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, categoría, grupos musculares, equipamiento, dificultad e instrucciones.
               </p>
             </div>
+
+            {importResult && (
+              <div className="border rounded-lg p-4 space-y-1 text-sm">
+                <p className="font-semibold text-green-700">Resultado de la importación</p>
+                <p>✅ Creados: <strong>{importResult.created}</strong></p>
+                <p>🔄 Actualizados: <strong>{importResult.updated}</strong></p>
+                <p>⏭️ Omitidos: <strong>{importResult.skipped}</strong></p>
+                {importResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-red-600 font-medium">Errores ({importResult.errors.length}):</p>
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5 max-h-64 overflow-y-auto pr-2 border border-red-100 rounded-md p-2 bg-red-50/40">
+                      {importResult.errors.map((err, idx) => <li key={idx}>{err}</li>)}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null) }} disabled={importing}>Cancelar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {importing ? 'Importando...' : 'Importar'}
@@ -765,6 +904,33 @@ export function ExerciseManagement() {
       </div>
 
 
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-xs text-muted-foreground">Total ejercicios</div>
+            <div className="text-2xl font-bold">{exercisesArray.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-xs text-muted-foreground">Con vídeo</div>
+            <div className="text-2xl font-bold text-green-600">{exercisesWithVideo}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-xs text-muted-foreground">Sin vídeo</div>
+            <div className="text-2xl font-bold text-amber-600">{exercisesWithoutVideo}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-xs text-muted-foreground">Cobertura de vídeo</div>
+            <div className="text-2xl font-bold text-blue-600">{videoCoverage}%</div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Filtros */}
       <Card>
@@ -806,6 +972,16 @@ export function ExerciseManagement() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={videoFilter} onValueChange={setVideoFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Estado de vídeo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="with_video">Con vídeo</SelectItem>
+                <SelectItem value="without_video">Sin vídeo</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
@@ -814,23 +990,119 @@ export function ExerciseManagement() {
       {selectedExercises.length > 0 && (
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <span className="text-sm text-muted-foreground">
                 {selectedExercises.length} ejercicio(s) seleccionado(s)
               </span>
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleBulkDelete}
-                disabled={isLoading}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Eliminar seleccionados
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportFilteredCsv}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Exportar selección
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowBulkVideoDialog(true)}
+                >
+                  <Upload className="h-4 w-4 mr-2" />
+                  Acción masiva de vídeo
+                </Button>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleBulkDelete}
+                  disabled={isLoading}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Eliminar seleccionados
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
       )}
+
+      <Dialog open={showBulkVideoDialog} onOpenChange={setShowBulkVideoDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Acción masiva de vídeo</DialogTitle>
+            <DialogDescription>
+              Asigna una URL común o limpia el vídeo de los ejercicios seleccionados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="font-semibold">URL de vídeo</FormLabel>
+              <Input
+                value={bulkVideoUrl}
+                onChange={(e) => setBulkVideoUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Ideal para dejar preparado el catálogo y luego completar detalles concretos por lote.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowBulkVideoDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="outline" onClick={() => handleBulkAssignVideoUrl(true)} disabled={bulkUpdatingVideo}>
+              Limpiar vídeo
+            </Button>
+            <Button onClick={() => handleBulkAssignVideoUrl(false)} disabled={bulkUpdatingVideo}>
+              {bulkUpdatingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Aplicar URL
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showBulkVideoDialog} onOpenChange={setShowBulkVideoDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Acción masiva de vídeo</DialogTitle>
+            <DialogDescription>
+              Asigna una URL común o limpia el vídeo de los ejercicios seleccionados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="font-semibold">URL de vídeo</FormLabel>
+              <Input
+                value={bulkVideoUrl}
+                onChange={(e) => setBulkVideoUrl(e.target.value)}
+                placeholder="https://..."
+                className="mt-2"
+              />
+              <p className="text-xs text-muted-foreground mt-2">
+                Ideal para dejar preparado el catálogo y luego completar detalles concretos por lote.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowBulkVideoDialog(false)}>
+              Cancelar
+            </Button>
+            <Button variant="outline" onClick={() => handleBulkAssignVideoUrl(true)} disabled={bulkUpdatingVideo}>
+              Limpiar vídeo
+            </Button>
+            <Button onClick={() => handleBulkAssignVideoUrl(false)} disabled={bulkUpdatingVideo}>
+              {bulkUpdatingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Aplicar URL
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Listado de Ejercicios - Mobile Cards / Desktop Table */}
       <Card>
@@ -858,8 +1130,8 @@ export function ExerciseManagement() {
               <Card
                 key={exercise.id}
                 className={`border-2 transition-all ${selectedExercises.includes(exercise.id)
-                    ? 'border-purple-500 bg-purple-50/50'
-                    : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                  ? 'border-purple-500 bg-purple-50/50'
+                  : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
                   }`}
               >
                 <CardContent className="p-4">
@@ -919,16 +1191,20 @@ export function ExerciseManagement() {
                           <Badge
                             variant="outline"
                             className={`text-xs ${exercise.difficulty === 'beginner' ? 'bg-green-100 text-green-800 border-green-200' :
-                                exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
-                                  exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
+                              exercise.difficulty === 'intermediate' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+                                exercise.difficulty === 'advanced' ? 'bg-red-100 text-red-800 border-red-200' : ''
                               }`}
                           >
                             {translateDifficulty(exercise.difficulty)}
                           </Badge>
                         )}
-                        {exercise.has_video && (
+                        {exercise.has_video ? (
                           <Badge className="bg-green-100 text-green-800 border-green-200 text-xs">
                             📹 Video
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 text-xs">
+                            ⚠️ Sin vídeo
                           </Badge>
                         )}
                       </div>
@@ -1076,7 +1352,9 @@ export function ExerciseManagement() {
                           📹 Sí
                         </Badge>
                       ) : (
-                        <span className="text-muted-foreground">-</span>
+                        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700">
+                          Sin vídeo
+                        </Badge>
                       )}
                     </td>
                     <td className="p-3">

@@ -4,7 +4,7 @@ import { useMemo, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Loader2, TrendingUp, HeartPulse, RefreshCw } from "lucide-react"
+import { Loader2, TrendingUp, HeartPulse, RefreshCw, Download } from "lucide-react"
 import { UserWeightHistory } from "./user-weight-history"
 import { UserWellnessPanel } from "./user-wellness-panel"
 import { UserSleepPerformancePanel } from "./user-sleep-performance-panel"
@@ -35,6 +35,24 @@ export function UserProgressPanel({ userId }: Props) {
     return wellness.summary || null
   }, [wellness.summary])
 
+  const handleExportProgress = () => {
+    const payload = {
+      user_id: userId,
+      exported_at: new Date().toISOString(),
+      weight_summary: weightSummary,
+      wellness_summary: wellnessSummary,
+      weight_entries: progress.entries || [],
+      wellness_entries: wellness.entries || [],
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `user-progress-${userId}.json`
+    link.click()
+    URL.revokeObjectURL(link.href)
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -45,19 +63,30 @@ export function UserProgressPanel({ userId }: Props) {
           </div>
           <p className="text-sm text-muted-foreground">Peso, bienestar y relación entre sueño y rendimiento</p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            progress.refetch?.()
-            wellness.refetch?.()
-          }}
-          disabled={isLoading}
-          className="gap-2"
-        >
-          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Recargar
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportProgress}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Exportar progreso
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              progress.refetch?.()
+              wellness.refetch?.()
+            }}
+            disabled={isLoading}
+            className="gap-2"
+          >
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Recargar
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

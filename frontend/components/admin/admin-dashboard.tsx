@@ -6,14 +6,14 @@ import { Button } from "@/components/ui/button"
 import { useAdminDashboard } from "@/hooks/use-admin-dashboard"
 import { useAdminUsers } from "@/hooks/use-admin-users"
 import { useAdminNotifications } from "@/hooks/use-admin-notifications"
-import { 
-  Users, 
-  UserCheck, 
-  UserX, 
-  Dumbbell, 
-  Utensils, 
-  TrendingUp, 
-  Bell, 
+import {
+  Users,
+  UserCheck,
+  UserX,
+  Dumbbell,
+  Utensils,
+  TrendingUp,
+  Bell,
   Calendar,
   Loader2,
   AlertCircle,
@@ -25,47 +25,45 @@ import {
   ArrowDownRight,
   Eye,
   Image as ImageIcon,
-  Scale
+  Scale,
+  Download,
+  Gauge
 } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 import { es } from "date-fns/locale"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
+import { toast } from "@/hooks/use-toast"
 
 export function AdminDashboard() {
   const { stats: dashboardStats, recentActivity, loading: dashboardLoading, error: dashboardError, refetch: refetchDashboard } = useAdminDashboard()
-  const { stats: userStats, loading: userLoading, refetch: refetchUsers } = useAdminUsers()
-  const { stats: notificationStats, loading: notificationLoading, refetch: refetchNotifications } = useAdminNotifications()
+  const { users, stats: userStats, loading: userLoading, refetch: refetchUsers } = useAdminUsers()
+  const { stats: notificationStats, automationSummary, loading: notificationLoading, refetch: refetchNotifications, runAutomation } = useAdminNotifications()
+  const [sendingTemplate, setSendingTemplate] = useState<string | null>(null)
 
   const loading = dashboardLoading || userLoading || notificationLoading
   const error = dashboardError
 
-  const handleRefresh = () => {
-    refetchDashboard()
-    refetchUsers()
-    refetchNotifications()
+  const handleRefresh = async () => {
+    await Promise.all([refetchDashboard(), refetchUsers(), refetchNotifications()])
   }
 
   // Calcular porcentajes y tendencias
   const statsWithTrends = useMemo(() => {
     if (!dashboardStats) return null
 
-    // Usuarios: calcular porcentaje de activos sobre el total
     const totalUsers = dashboardStats.users?.total || 0
     const activeUsers = dashboardStats.users?.active || 0
     const activePercentage = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
 
-    // Programas de entrenamiento: calcular porcentaje de activos sobre el total (activos + inactivos)
     const totalWorkouts = dashboardStats.workouts?.total_programs || 0
     const activeWorkouts = dashboardStats.workouts?.active_programs || 0
     const activeWorkoutPercentage = totalWorkouts > 0 ? Math.round((activeWorkouts / totalWorkouts) * 100) : 0
 
-    // Planes de nutrición: calcular porcentaje de activos sobre el total (activos + inactivos)
     const totalNutrition = dashboardStats.nutrition?.total_plans || 0
     const activeNutrition = dashboardStats.nutrition?.active_plans || 0
     const activeNutritionPercentage = totalNutrition > 0 ? Math.round((activeNutrition / totalNutrition) * 100) : 0
 
-    // Notificaciones: calcular porcentaje de sin leer sobre el total
     const totalNotifications = dashboardStats.notifications?.total || 0
     const unreadNotifications = dashboardStats.notifications?.unread || 0
     const unreadPercentage = totalNotifications > 0 ? Math.round((unreadNotifications / totalNotifications) * 100) : 0
@@ -77,6 +75,200 @@ export function AdminDashboard() {
       notifications: { ...dashboardStats.notifications, unreadPercentage }
     }
   }, [dashboardStats])
+
+  const analyticsSummary = useMemo(() => {
+    if (!dashboardStats) return null
+
+    const totalUsers = dashboardStats.users?.total || 0
+    const activeUsers = dashboardStats.users?.active || 0
+    const totalWorkoutLogs = dashboardStats.workouts?.total_logs || 0
+    const totalMealLogs = dashboardStats.nutrition?.total_meal_logs || 0
+    const totalWeightEntries = dashboardStats.progress?.total_weight_entries || 0
+    const totalPhotos = dashboardStats.progress?.total_photos || 0
+    const unreadNotifications = dashboardStats.notifications?.unread || 0
+    const totalNotifications = dashboardStats.notifications?.total || 0
+    const newUsersLast7Days = userStats?.new_users_last_7_days || 0
+
+    const activeRate = totalUsers > 0 ? Math.round((activeUsers / totalUsers) * 100) : 0
+    const workoutLogsPerActiveUser = activeUsers > 0 ? Number((totalWorkoutLogs / activeUsers).toFixed(1)) : 0
+    const mealLogsPerActiveUser = activeUsers > 0 ? Number((totalMealLogs / activeUsers).toFixed(1)) : 0
+    const progressEntriesPerActiveUser = activeUsers > 0 ? Number(((totalWeightEntries + totalPhotos) / activeUsers).toFixed(1)) : 0
+    const unreadRate = totalNotifications > 0 ? Math.round((unreadNotifications / totalNotifications) * 100) : 0
+
+    const engagementScore = Math.max(0, Math.min(100, Math.round(
+      (activeRate * 0.45) +
+      Math.min(workoutLogsPerActiveUser * 8, 25) +
+      Math.min(mealLogsPerActiveUser * 4, 20) +
+      Math.min(progressEntriesPerActiveUser * 3, 10)
+    )))
+
+    let statusLabel = "Estable"
+    let statusTone: "healthy" | "warning" | "critical" = "warning"
+
+    if (engagementScore >= 75 && unreadRate <= 15) {
+      statusLabel = "Muy saludable"
+      statusTone = "healthy"
+    } else if (engagementScore < 50 || unreadRate >= 35) {
+      statusLabel = "Requiere atención"
+      statusTone = "critical"
+    }
+
+    const recommendations: string[] = []
+    if (activeRate < 60) recommendations.push("Subir reactivación de usuarios con campañas o CTAs en áreas de bajo uso.")
+    if (workoutLogsPerActiveUser < 2 || mealLogsPerActiveUser < 2) recommendations.push("Empujar adherencia en entreno y nutrición para elevar la recurrencia semanal.")
+    if (unreadRate >= 25) recommendations.push("Revisar la cola de notificaciones pendientes para evitar pérdida de seguimiento.")
+    if (progressEntriesPerActiveUser < 1) recommendations.push("Incentivar registros de peso y fotos para mejorar el reporting de resultados.")
+    if (recommendations.length === 0) recommendations.push("La operación está equilibrada; ahora conviene seguir profundizando en automatización y cohortes.")
+
+    return {
+      activeUsers,
+      totalUsers,
+      activeRate,
+      workoutLogsPerActiveUser,
+      mealLogsPerActiveUser,
+      progressEntriesPerActiveUser,
+      unreadRate,
+      unreadNotifications,
+      engagementScore,
+      newUsersLast7Days,
+      statusLabel,
+      statusTone,
+      recommendations,
+    }
+  }, [dashboardStats, userStats])
+
+  const cohortSummary = useMemo(() => {
+    if (!users || users.length === 0) return []
+
+    const formatter = new Intl.DateTimeFormat("es-ES", { month: "short", year: "numeric" })
+    const grouped = users.reduce((acc, user) => {
+      const sourceDate = user.created_at || user.date_joined
+      const parsedDate = sourceDate ? new Date(sourceDate) : null
+      if (!parsedDate || Number.isNaN(parsedDate.getTime())) return acc
+
+      const key = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, "0")}`
+      if (!acc[key]) {
+        acc[key] = {
+          key,
+          label: formatter.format(parsedDate),
+          total: 0,
+          active: 0,
+          withLogin: 0,
+        }
+      }
+
+      acc[key].total += 1
+      if (user.is_active) acc[key].active += 1
+      if (user.last_login) acc[key].withLogin += 1
+      return acc
+    }, {} as Record<string, { key: string; label: string; total: number; active: number; withLogin: number }>)
+
+    return Object.values(grouped)
+      .sort((a, b) => b.key.localeCompare(a.key))
+      .slice(0, 4)
+      .map((item) => ({
+        ...item,
+        activeRate: item.total > 0 ? Math.round((item.active / item.total) * 100) : 0,
+        loginRate: item.total > 0 ? Math.round((item.withLogin / item.total) * 100) : 0,
+      }))
+  }, [users])
+
+  const usersNeedingReview = useMemo(() => {
+    if (!users || users.length === 0) return 0
+
+    const now = Date.now()
+    const fourteenDays = 1000 * 60 * 60 * 24 * 14
+    return users.filter((user) => {
+      if (!user.is_active) return false
+      if (!user.last_login) return true
+      const lastLogin = new Date(user.last_login).getTime()
+      return Number.isFinite(lastLogin) && now - lastLogin > fourteenDays
+    }).length
+  }, [users])
+
+  const weeklyBrief = useMemo(() => {
+    if (!analyticsSummary) return ""
+
+    const recentCohort = cohortSummary[0]
+    const lines = [
+      `Resumen semanal NexFit365`,
+      `• Activación actual: ${analyticsSummary.activeRate}% de usuarios activos.`,
+      `• Engagement operativo: ${analyticsSummary.engagementScore}/100.`,
+      `• Usuarios que conviene revisar: ${usersNeedingReview}.`,
+      `• Notificaciones pendientes: ${analyticsSummary.unreadNotifications}.`,
+    ]
+
+    if (recentCohort) {
+      lines.push(`• Cohorte más reciente (${recentCohort.label}): ${recentCohort.activeRate}% activa.`)
+    }
+
+    lines.push(`• Siguiente foco: ${analyticsSummary.recommendations[0]}`)
+
+    return lines.join("\n")
+  }, [analyticsSummary, cohortSummary, usersNeedingReview])
+
+  const handleSendTemplate = async (template: "review" | "reactivation" | "progress" | "weekly-report") => {
+    const templateMap = {
+      review: { success: "Recordatorio de revisión enviado." },
+      reactivation: { success: "Campaña de reactivación enviada." },
+      progress: { success: "Solicitud de check-in enviada." },
+      "weekly-report": { success: "Reporte semanal interno enviado." },
+    }
+
+    try {
+      setSendingTemplate(template)
+      const selected = templateMap[template]
+      const result = await runAutomation(template)
+      toast({
+        title: "✅ Acción enviada",
+        description: `${selected.success} Alcance: ${result?.targeted_users ?? result?.notifications_created ?? 0} usuarios.`,
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.message || "No se pudo lanzar la automatización.",
+        variant: "destructive",
+      })
+    } finally {
+      setSendingTemplate(null)
+    }
+  }
+
+  const displayedWeeklyBrief = automationSummary?.weekly_brief || weeklyBrief
+
+  const handleCopyWeeklyBrief = async () => {
+    if (!displayedWeeklyBrief) return
+
+    try {
+      await navigator.clipboard.writeText(displayedWeeklyBrief)
+      toast({ title: "✅ Resumen copiado", description: "El informe semanal ya está listo para pegar o reenviar." })
+    } catch {
+      toast({ title: "Error", description: "No se pudo copiar el resumen semanal.", variant: "destructive" })
+    }
+  }
+
+  const handleExportReport = () => {
+    if (!dashboardStats || !analyticsSummary) return
+
+    const payload = {
+      generated_at: new Date().toISOString(),
+      executive_summary: analyticsSummary,
+      weekly_brief: displayedWeeklyBrief,
+      cohort_summary: cohortSummary,
+      dashboard_stats: dashboardStats,
+      user_stats: userStats,
+      notification_stats: notificationStats,
+      recent_activity: recentActivity,
+    }
+
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8" })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `admin-report-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
 
   if (loading) {
     return (
@@ -119,15 +311,26 @@ export function AdminDashboard() {
             Resumen general de la plataforma
           </p>
         </div>
-        <Button 
-          onClick={handleRefresh} 
-          variant="outline" 
-          size="sm"
-          className="w-full sm:w-auto"
-        >
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Actualizar
-        </Button>
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <Button
+            onClick={handleExportReport}
+            variant="secondary"
+            size="sm"
+            className="w-full sm:w-auto"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Exportar informe
+          </Button>
+          <Button
+            onClick={handleRefresh}
+            variant="outline"
+            size="sm"
+            className="w-full sm:w-auto"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {/* Main Stats Grid - Responsive */}
@@ -190,6 +393,213 @@ export function AdminDashboard() {
         </StatCard>
       </div>
 
+      {analyticsSummary && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 md:gap-6">
+          <Card className="xl:col-span-2 border shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg md:text-xl bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">
+                    KPIs Ejecutivos
+                  </CardTitle>
+                  <CardDescription className="mt-1">Lectura rápida de engagement, seguimiento y carga operativa</CardDescription>
+                </div>
+                <Gauge className="h-5 w-5 text-emerald-600" />
+              </div>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4">
+              <InsightMetric
+                label="Activación de usuarios"
+                value={`${analyticsSummary.activeRate}%`}
+                helper={`${analyticsSummary.activeUsers} activos de ${analyticsSummary.totalUsers}`}
+                progress={analyticsSummary.activeRate}
+                tone={analyticsSummary.activeRate >= 70 ? "healthy" : analyticsSummary.activeRate >= 50 ? "warning" : "critical"}
+              />
+              <InsightMetric
+                label="Engagement global"
+                value={`${analyticsSummary.engagementScore}/100`}
+                helper={`${analyticsSummary.newUsersLast7Days} altas nuevas en 7 días`}
+                progress={analyticsSummary.engagementScore}
+                tone={analyticsSummary.engagementScore >= 75 ? "healthy" : analyticsSummary.engagementScore >= 50 ? "warning" : "critical"}
+              />
+              <InsightMetric
+                label="Adherencia entreno"
+                value={analyticsSummary.workoutLogsPerActiveUser}
+                helper="logs por usuario activo"
+                progress={Math.min(100, Math.round(analyticsSummary.workoutLogsPerActiveUser * 20))}
+                tone={analyticsSummary.workoutLogsPerActiveUser >= 3 ? "healthy" : analyticsSummary.workoutLogsPerActiveUser >= 1.5 ? "warning" : "critical"}
+              />
+              <InsightMetric
+                label="Seguimiento nutrición"
+                value={analyticsSummary.mealLogsPerActiveUser}
+                helper="registros por usuario activo"
+                progress={Math.min(100, Math.round(analyticsSummary.mealLogsPerActiveUser * 20))}
+                tone={analyticsSummary.mealLogsPerActiveUser >= 3 ? "healthy" : analyticsSummary.mealLogsPerActiveUser >= 1.5 ? "warning" : "critical"}
+              />
+              <InsightMetric
+                label="Tracking de progreso"
+                value={analyticsSummary.progressEntriesPerActiveUser}
+                helper="entradas de peso y fotos por activo"
+                progress={Math.min(100, Math.round(analyticsSummary.progressEntriesPerActiveUser * 20))}
+                tone={analyticsSummary.progressEntriesPerActiveUser >= 2 ? "healthy" : analyticsSummary.progressEntriesPerActiveUser >= 1 ? "warning" : "critical"}
+              />
+              <InsightMetric
+                label="Atención pendiente"
+                value={`${analyticsSummary.unreadRate}%`}
+                helper={`${analyticsSummary.unreadNotifications} notificaciones sin leer`}
+                progress={analyticsSummary.unreadRate}
+                tone={analyticsSummary.unreadRate <= 15 ? "healthy" : analyticsSummary.unreadRate <= 30 ? "warning" : "critical"}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="border shadow-sm hover:shadow-md transition-shadow">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-lg md:text-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 bg-clip-text text-transparent">
+                    Informe Ejecutivo
+                  </CardTitle>
+                  <CardDescription className="mt-1">Estado operacional y próximas acciones</CardDescription>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    analyticsSummary.statusTone === "healthy"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : analyticsSummary.statusTone === "warning"
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-rose-200 bg-rose-50 text-rose-700"
+                  }
+                >
+                  {analyticsSummary.statusLabel}
+                </Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg bg-muted/50 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">Lectura actual</p>
+                <p className="mt-1 text-sm font-medium text-foreground">
+                  La plataforma combina activación, adherencia y seguimiento en un score operativo de {analyticsSummary.engagementScore}/100.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                {analyticsSummary.recommendations.map((item, index) => (
+                  <div key={`${item}-${index}`} className="rounded-lg border bg-background p-3 text-sm text-muted-foreground">
+                    • {item}
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
+        <Card className="border shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="text-lg md:text-xl bg-gradient-to-r from-sky-600 to-indigo-600 bg-clip-text text-transparent">
+                  Retención por Cohorte
+                </CardTitle>
+                <CardDescription className="mt-1">Actividad actual de los últimos grupos de alta</CardDescription>
+              </div>
+              <Users className="h-5 w-5 text-sky-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {cohortSummary.length > 0 ? cohortSummary.map((cohort) => (
+              <div key={cohort.key} className="rounded-xl border bg-background p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground capitalize">{cohort.label}</p>
+                    <p className="text-xs text-muted-foreground">{cohort.total} altas · {cohort.active} activas</p>
+                  </div>
+                  <Badge variant="outline">{cohort.activeRate}% activa</Badge>
+                </div>
+                <div className="mt-3 space-y-2">
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Retención</span>
+                      <span>{cohort.activeRate}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-sky-500" style={{ width: `${Math.max(6, cohort.activeRate)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Con último login</span>
+                      <span>{cohort.loginRate}%</span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-muted">
+                      <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.max(6, cohort.loginRate)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-8 text-sm text-muted-foreground">
+                <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                <p>Aún no hay datos suficientes para cohortes.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="border shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-lg md:text-xl bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">
+                  Automatizaciones Rápidas
+                </CardTitle>
+                <CardDescription className="mt-1">Plantillas listas para reactivar y acompañar usuarios</CardDescription>
+              </div>
+              <Bell className="h-5 w-5 text-amber-600" />
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-xl border bg-muted/30 p-3">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Resumen semanal</p>
+              <p className="mt-2 whitespace-pre-line text-sm text-foreground">{displayedWeeklyBrief}</p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <Button variant="outline" onClick={handleCopyWeeklyBrief}>
+                <Download className="h-4 w-4 mr-2" />
+                Copiar resumen
+              </Button>
+              <Button variant="outline" onClick={() => handleSendTemplate("weekly-report")} disabled={sendingTemplate !== null}>
+                {sendingTemplate === "weekly-report" ? "Enviando..." : "Enviar reporte interno"}
+              </Button>
+              <Button variant="outline" onClick={() => handleSendTemplate("review")} disabled={sendingTemplate !== null}>
+                {sendingTemplate === "review"
+                  ? "Enviando..."
+                  : `Recordatorio revisión${automationSummary ? ` · ${automationSummary.segments.review_candidates ?? 0}` : ""}`}
+              </Button>
+              <Button variant="outline" onClick={() => handleSendTemplate("reactivation")} disabled={sendingTemplate !== null}>
+                {sendingTemplate === "reactivation"
+                  ? "Enviando..."
+                  : `Reactivar usuarios${automationSummary ? ` · ${automationSummary.segments.reactivation_candidates ?? 0}` : ""}`}
+              </Button>
+              <Button variant="outline" onClick={() => handleSendTemplate("progress")} disabled={sendingTemplate !== null} className="sm:col-span-2">
+                {sendingTemplate === "progress"
+                  ? "Enviando..."
+                  : `Pedir check-in${automationSummary ? ` · ${automationSummary.segments.progress_candidates ?? 0}` : ""}`}
+              </Button>
+            </div>
+
+            <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 space-y-1">
+              <p>Ahora mismo hay {automationSummary?.segments?.review_candidates ?? usersNeedingReview} usuarios para revisión prioritaria.</p>
+              <p>{automationSummary?.segments?.reactivation_candidates ?? 0} necesitan reactivación y {automationSummary?.segments?.progress_candidates ?? 0} deberían subir check-in.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Activity and Stats Grid - Responsive */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Recent Activity */}
@@ -225,8 +635,8 @@ export function AdminDashboard() {
               <TabsContent value="users" className="space-y-3">
                 {recentActivity?.recent_users && recentActivity.recent_users.length > 0 ? (
                   recentActivity.recent_users.slice(0, 5).map((user, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -239,9 +649,9 @@ export function AdminDashboard() {
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
-                        {user.joined ? formatDistanceToNow(new Date(user.joined), { 
-                          addSuffix: true, 
-                          locale: es 
+                        {user.joined ? formatDistanceToNow(new Date(user.joined), {
+                          addSuffix: true,
+                          locale: es
                         }) : 'N/A'}
                       </Badge>
                     </div>
@@ -257,8 +667,8 @@ export function AdminDashboard() {
               <TabsContent value="workouts" className="space-y-3">
                 {recentActivity?.recent_workout_logs && recentActivity.recent_workout_logs.length > 0 ? (
                   recentActivity.recent_workout_logs.slice(0, 5).map((log, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -271,9 +681,9 @@ export function AdminDashboard() {
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
-                        {log.date ? formatDistanceToNow(new Date(log.date), { 
-                          addSuffix: true, 
-                          locale: es 
+                        {log.date ? formatDistanceToNow(new Date(log.date), {
+                          addSuffix: true,
+                          locale: es
                         }) : 'N/A'}
                       </Badge>
                     </div>
@@ -289,8 +699,8 @@ export function AdminDashboard() {
               <TabsContent value="meals" className="space-y-3">
                 {recentActivity?.recent_meal_logs && recentActivity.recent_meal_logs.length > 0 ? (
                   recentActivity.recent_meal_logs.slice(0, 5).map((log, index) => (
-                    <div 
-                      key={index} 
+                    <div
+                      key={index}
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -303,9 +713,9 @@ export function AdminDashboard() {
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">
-                        {log.date ? formatDistanceToNow(new Date(log.date), { 
-                          addSuffix: true, 
-                          locale: es 
+                        {log.date ? formatDistanceToNow(new Date(log.date), {
+                          addSuffix: true,
+                          locale: es
                         }) : 'N/A'}
                       </Badge>
                     </div>
@@ -434,8 +844,8 @@ function StatCard({ title, value, subtitle, icon: Icon, iconColor, bgGradient, t
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span>{subtitle}</span>
           {trend !== undefined && (
-            <Badge 
-              variant={trend >= 50 ? "default" : "secondary"} 
+            <Badge
+              variant={trend >= 50 ? "default" : "secondary"}
               className="text-xs px-1.5 py-0"
             >
               {trend >= 50 ? (
@@ -450,6 +860,37 @@ function StatCard({ title, value, subtitle, icon: Icon, iconColor, bgGradient, t
         {children}
       </CardContent>
     </Card>
+  )
+}
+
+interface InsightMetricProps {
+  label: string
+  value: string | number
+  helper: string
+  progress: number
+  tone: "healthy" | "warning" | "critical"
+}
+
+function InsightMetric({ label, value, helper, progress, tone }: InsightMetricProps) {
+  const toneClasses = {
+    healthy: "bg-emerald-500",
+    warning: "bg-amber-500",
+    critical: "bg-rose-500",
+  }
+
+  return (
+    <div className="rounded-xl border bg-background p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-foreground">{label}</p>
+          <p className="text-xs text-muted-foreground mt-1">{helper}</p>
+        </div>
+        <span className="text-lg font-bold text-foreground">{value}</span>
+      </div>
+      <div className="mt-3 h-2 overflow-hidden rounded-full bg-muted">
+        <div className={`h-full rounded-full ${toneClasses[tone]}`} style={{ width: `${Math.max(6, Math.min(progress, 100))}%` }} />
+      </div>
+    </div>
   )
 }
 

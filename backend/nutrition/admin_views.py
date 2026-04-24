@@ -379,6 +379,8 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         """
         import csv
         import io
+        import re
+        import unicodedata
         from django.http import JsonResponse
         from .models import RecipeIngredient
         
@@ -410,6 +412,82 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     return row[key]
             return default
 
+        def normalize_text(value):
+            text = str(value or '').strip().lower()
+            text = unicodedata.normalize('NFKD', text)
+            text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+            text = re.sub(r'[^a-z0-9\s]', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text
+
+        ingredient_aliases = {
+            'aove': 'aceite de oliva',
+            'tomates cherry': 'tomate cherry',
+            'huevo': 'huevos',
+            'impulsor': 'levadura quimica',
+            'arroz': 'arroz blanco',
+        }
+
+        def parse_quantity(raw_value):
+            normalized = str(raw_value or '').strip().replace(',', '.')
+            return float(normalized)
+
+        def split_ingredient_parts(ingredients_raw):
+            text = str(ingredients_raw or '')
+            if not text.strip():
+                return []
+            return [p.strip() for p in re.split(r'[;\n\r]+', text) if p and p.strip()]
+
+        def parse_ingredient_fields(part):
+            # Formato principal: Nombre|cantidad|unidad|notas
+            if '|' in part:
+                fields = [f.strip() for f in part.split('|')]
+                if len(fields) >= 3:
+                    return fields[0], fields[1], fields[2], fields[3] if len(fields) > 3 else ''
+                raise ValueError('se esperan al menos 3 campos separados por "|"')
+
+            # Fallback: Nombre,cantidad,unidad,notas
+            if ',' in part:
+                fields = [f.strip() for f in part.split(',')]
+                if len(fields) >= 3:
+                    return fields[0], fields[1], fields[2], fields[3] if len(fields) > 3 else ''
+
+            raise ValueError('formato invalido, usa Nombre|cantidad|unidad|notas')
+
+        def resolve_food(food_name):
+            original = str(food_name or '').strip()
+            if not original:
+                return None
+
+            normalized = normalize_text(original)
+            aliased = ingredient_aliases.get(normalized, original)
+
+            # 1) Coincidencia exacta (original y alias)
+            for candidate in [original, aliased]:
+                food = Food.objects.filter(name__iexact=candidate).first()
+                if food:
+                    return food
+
+            # 2) Singular/plural basico
+            base = normalized[:-1] if normalized.endswith('s') else normalized
+            for candidate in [base, f"{base}s"]:
+                if candidate:
+                    food = Food.objects.filter(name__icontains=candidate).first()
+                    if food:
+                        return food
+
+            # 3) Coincidencia por tokens relevantes
+            tokens = [t for t in normalize_text(aliased).split() if len(t) > 2]
+            if tokens:
+                qs = Food.objects.all()
+                for token in tokens[:3]:
+                    qs = qs.filter(name__icontains=token)
+                food = qs.first()
+                if food:
+                    return food
+
+            return None
+
         try:
             file = request.FILES.get('file')
             if not file:
@@ -422,6 +500,8 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
             updated_count = 0
             skipped_count = 0
             errors = []
+            failed_count = 0
+            rejections = []
             
             for row_num, row in enumerate(reader, start=2):
                 try:
@@ -448,33 +528,38 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     # Parsear ingredientes (formato: Nombre|cantidad|unidad|notas; ...)
                     ingredients_str = get_value(row, 'ingredients', '') or ''
                     parsed_ingredients = []
+                    invalid_ingredients = []
                     
                     if ingredients_str:
-                        ingredient_parts = [p.strip() for p in ingredients_str.split(';') if p.strip()]
+                        ingredient_parts = split_ingredient_parts(ingredients_str)
                         for part in ingredient_parts:
                             try:
-                                fields = [f.strip() for f in part.split('|')]
-                                if len(fields) >= 3:
-                                    food_name = fields[0]
-                                    quantity = float(fields[1])
-                                    unit = fields[2]
-                                    notes = fields[3] if len(fields) > 3 else ''
-                                    
-                                    # Buscar alimento en la BD
-                                    food = Food.objects.filter(name__iexact=food_name).first()
-                                    if not food:
-                                        errors.append(f"Fila {row_num}: Alimento '{food_name}' no encontrado")
-                                        continue
-                                    
-                                    parsed_ingredients.append({
-                                        'food': food,
-                                        'quantity': quantity,
-                                        'unit': unit,
-                                        'notes': notes
-                                    })
+                                food_name, quantity_str, unit, notes = parse_ingredient_fields(part)
+                                quantity = parse_quantity(quantity_str)
+
+                                # Buscar alimento en la BD
+                                food = resolve_food(food_name)
+                                if not food:
+                                    invalid_ingredients.append(f"'{food_name}': alimento no encontrado")
+                                    continue
+
+                                parsed_ingredients.append({
+                                    'food': food,
+                                    'quantity': quantity,
+                                    'unit': unit,
+                                    'notes': notes
+                                })
                             except (ValueError, IndexError) as e:
-                                errors.append(f"Fila {row_num}: Formato de ingrediente inválido '{part}': {str(e)}")
+                                invalid_ingredients.append(f"'{part}': {str(e)}")
                                 continue
+
+                    # Si hay ingredientes inválidos, rechazar receta completa para evitar cargas parciales
+                    if invalid_ingredients:
+                        failed_count += 1
+                        rejections.append(
+                            f"Fila {row_num} ('{name}'): Rechazada - Ingredientes inválidos: {', '.join(invalid_ingredients)}"
+                        )
+                        continue
                     
                     # Crear o actualizar receta
                     if existing_recipe:
@@ -530,18 +615,31 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     errors.append(f"Fila {row_num}: {str(e)}")
                     continue
             
-            message = f"Importación completada: {created_count} creadas, {updated_count} actualizadas, {skipped_count} omitidas"
+            message = (
+                f"Importación completada: {created_count} creadas, {updated_count} actualizadas, "
+                f"{skipped_count} omitidas, {failed_count} rechazadas"
+            )
             if errors:
                 message += f". {len(errors)} error(es) encontrados."
-            
-            return JsonResponse({
+
+            result = {
                 'success': True,
                 'created': created_count,
                 'updated': updated_count,
                 'skipped': skipped_count,
+                'rejected': failed_count,
                 'message': message,
-                'errors': errors[:10]
-            })
+            }
+
+            if rejections:
+                result['rejections'] = rejections[:20]
+                result['rejection_count'] = len(rejections)
+
+            if errors:
+                result['errors'] = errors[:10]
+                result['error_count'] = len(errors)
+
+            return JsonResponse(result)
         except Exception as e:
             return JsonResponse({'error': str(e)}, status=400)
 
@@ -566,6 +664,8 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
         from django.http import JsonResponse
         from .models import RecipeIngredient
         import io
+        import re
+        import unicodedata
         
         # Mapas de alias: columna exportada → campo interno
         field_aliases = {
@@ -592,14 +692,125 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     return row_data[key]
             return default
 
+        def normalize_text(value):
+            text = str(value or '').strip().lower()
+            text = unicodedata.normalize('NFKD', text)
+            text = ''.join(ch for ch in text if not unicodedata.combining(ch))
+            text = re.sub(r'[^a-z0-9\s]', ' ', text)
+            text = re.sub(r'\s+', ' ', text).strip()
+            return text
+
+        ingredient_aliases = {
+            'aove': 'aceite de oliva',
+            'tomates cherry': 'tomate cherry',
+            'huevo': 'huevos',
+            'impulsor': 'levadura quimica',
+            'arroz': 'arroz blanco',
+        }
+
+        def parse_quantity(raw_value):
+            normalized = str(raw_value or '').strip().replace(',', '.')
+            return float(normalized)
+
+        def split_ingredient_parts(ingredients_raw):
+            text = str(ingredients_raw or '')
+            if not text.strip():
+                return []
+            return [p.strip() for p in re.split(r'[;\n\r]+', text) if p and p.strip()]
+
+        def parse_ingredient_fields(part):
+            # Formato principal: Nombre|cantidad|unidad|notas
+            if '|' in part:
+                fields = [f.strip() for f in part.split('|')]
+                if len(fields) >= 3:
+                    return fields[0], fields[1], fields[2], fields[3] if len(fields) > 3 else ''
+                raise ValueError('se esperan al menos 3 campos separados por "|"')
+
+            # Fallback: Nombre,cantidad,unidad,notas
+            if ',' in part:
+                fields = [f.strip() for f in part.split(',')]
+                if len(fields) >= 3:
+                    return fields[0], fields[1], fields[2], fields[3] if len(fields) > 3 else ''
+
+            raise ValueError('formato invalido, usa Nombre|cantidad|unidad|notas')
+
+        def resolve_food(food_name):
+            original = str(food_name or '').strip()
+            if not original:
+                return None
+
+            normalized = normalize_text(original)
+            aliased = ingredient_aliases.get(normalized, original)
+
+            # 1) Coincidencia exacta (original y alias)
+            for candidate in [original, aliased]:
+                food = Food.objects.filter(name__iexact=candidate).first()
+                if food:
+                    return food
+
+            # 2) Singular/plural basico
+            base = normalized[:-1] if normalized.endswith('s') else normalized
+            for candidate in [base, f"{base}s"]:
+                if candidate:
+                    food = Food.objects.filter(name__icontains=candidate).first()
+                    if food:
+                        return food
+
+            # 3) Coincidencia por tokens relevantes
+            tokens = [t for t in normalize_text(aliased).split() if len(t) > 2]
+            if tokens:
+                qs = Food.objects.all()
+                for token in tokens[:3]:
+                    qs = qs.filter(name__icontains=token)
+                food = qs.first()
+                if food:
+                    return food
+
+            return None
+
         try:
             file = request.FILES.get('file')
             if not file:
                 return JsonResponse({'error': 'No file provided'}, status=400)
             
-            # Leer archivo Excel (solo la primera hoja — ignora Referencias e Ingredientes_Disponibles)
+            # Leer archivo Excel y seleccionar automaticamente la hoja correcta de recetas.
             workbook = load_workbook(io.BytesIO(file.read()))
-            worksheet = workbook.active
+            worksheet = None
+
+            def normalize_header(value):
+                return str(value or '').strip().lower()
+
+            # 1) Intentar por nombre de hoja esperado
+            for ws in workbook.worksheets:
+                title = (ws.title or '').strip().lower()
+                if title in ('recetas', 'recipes'):
+                    worksheet = ws
+                    break
+
+            # 2) Si no existe, buscar una hoja con cabeceras de recetas (name/nombre + ingredients/ingredientes)
+            if worksheet is None:
+                for ws in workbook.worksheets:
+                    title = (ws.title or '').strip().lower()
+                    if title in ('referencias', 'ingredientes_disponibles', 'ingredients_available'):
+                        continue
+
+                    headers_probe = {
+                        normalize_header(cell.value)
+                        for cell in ws[1]
+                        if cell.value is not None
+                    }
+                    if (
+                        ('nombre' in headers_probe or 'name' in headers_probe)
+                        and ('ingredientes' in headers_probe or 'ingredients' in headers_probe)
+                    ):
+                        worksheet = ws
+                        break
+
+            if worksheet is None:
+                return JsonResponse(
+                    {'error': 'No se encontro una hoja de recetas valida (Recetas/Recipes).'},
+                    status=400
+                )
             
             # Obtener headers desde la primera fila
             headers = []
@@ -634,35 +845,30 @@ class AdminRecipeViewSet(viewsets.ModelViewSet):
                     invalid_ingredients = []
                     
                     if ingredients_str:
-                        ingredient_parts = [p.strip() for p in str(ingredients_str).split(';') if p.strip()]
+                        ingredient_parts = split_ingredient_parts(ingredients_str)
                         for part in ingredient_parts:
                             try:
-                                fields = [f.strip() for f in part.split('|')]
-                                if len(fields) >= 3:
-                                    food_name = fields[0]
-                                    quantity_str = fields[1]
-                                    unit = fields[2]
-                                    notes = fields[3] if len(fields) > 3 else ''
-                                    
-                                    # Validar cantidad
-                                    try:
-                                        quantity = float(quantity_str)
-                                    except ValueError:
-                                        invalid_ingredients.append(f"'{food_name}': cantidad inválida '{quantity_str}'")
-                                        continue
-                                    
-                                    # Buscar alimento en la BD
-                                    food = Food.objects.filter(name__iexact=food_name).first()
-                                    if not food:
-                                        invalid_ingredients.append(f"'{food_name}': alimento no encontrado en la base de datos")
-                                        continue
-                                    
-                                    parsed_ingredients.append({
-                                        'food': food,
-                                        'quantity': quantity,
-                                        'unit': unit,
-                                        'notes': notes
-                                    })
+                                food_name, quantity_str, unit, notes = parse_ingredient_fields(part)
+
+                                # Validar cantidad
+                                try:
+                                    quantity = parse_quantity(quantity_str)
+                                except ValueError:
+                                    invalid_ingredients.append(f"'{food_name}': cantidad inválida '{quantity_str}'")
+                                    continue
+
+                                # Buscar alimento en la BD
+                                food = resolve_food(food_name)
+                                if not food:
+                                    invalid_ingredients.append(f"'{food_name}': alimento no encontrado en la base de datos")
+                                    continue
+
+                                parsed_ingredients.append({
+                                    'food': food,
+                                    'quantity': quantity,
+                                    'unit': unit,
+                                    'notes': notes
+                                })
                             except (ValueError, IndexError) as e:
                                 invalid_ingredients.append(f"'{part}': {str(e)}")
                                 continue
@@ -2765,6 +2971,47 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="alimentos_exportacion.xlsx"'
         return response
 
+    @action(detail=False, methods=['get'], url_path='download-template')
+    def download_template(self, request):
+        """Descarga una plantilla Excel vacia para importacion de alimentos."""
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True, 'strings_to_urls': False})
+        worksheet = workbook.add_worksheet('Plantilla Alimentos')
+
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
+        headers = [
+            'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
+        ]
+        for col, header in enumerate(headers):
+            worksheet.write(0, col, header, header_format)
+
+        # Fila de ejemplo para guiar el formato esperado.
+        sample = [
+            'Arroz cocido', 'Genérico', 130, 2.7, 28.2, 0.3,
+            0.4, 0.1, 1.0, 100, 'g', 'Cereales', 'Mercadona', 'No'
+        ]
+        for col, value in enumerate(sample):
+            worksheet.write(1, col, value)
+
+        worksheet.set_column('A:A', 28)
+        worksheet.set_column('B:B', 20)
+        worksheet.set_column('C:N', 16)
+
+        workbook.close()
+        output.seek(0)
+
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_alimentos.xlsx"'
+        return response
+
     @action(detail=False, methods=['post'], url_path='import-csv')
     def import_csv(self, request):
         """Importa alimentos desde un archivo CSV. Acepta columnas en español o inglés. Añade o modifica, nunca elimina."""
@@ -2846,6 +3093,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
     def import_excel(self, request):
         """Importa alimentos desde un archivo Excel. Acepta columnas en español o inglés. Añade o modifica, nunca elimina."""
         import openpyxl
+        from openpyxl.utils.exceptions import InvalidFileException
         from django.core.files.uploadedfile import UploadedFile
 
         food_aliases = {
@@ -2876,49 +3124,201 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         def to_bool(val):
             return str(val).lower() in ('true', 'sí', 'si', 's', '1', 'yes')
 
+        recovered_date_values = []
+
+        def to_float(value, field_name, row_name=''):
+            if value is None:
+                return 0.0
+            if isinstance(value, (int, float)):
+                return float(value)
+
+            # openpyxl puede devolver datetime/date si la celda tiene formato de fecha.
+            # En algunos editores/locales, decimales con punto (8.5, 7.1) se convierten
+            # automáticamente a fecha (8/5, 7/1). Recuperamos esos casos con heurística dd.mm.
+            if hasattr(value, 'isoformat') and not isinstance(value, str):
+                try:
+                    day = int(getattr(value, 'day'))
+                    month = int(getattr(value, 'month'))
+                    recovered = float(f"{day}.{month}")
+                    label = row_name or 'fila sin nombre'
+                    recovered_date_values.append(
+                        f"{label}: campo '{field_name}' convertido de fecha {value} a {recovered}"
+                    )
+                    return recovered
+                except Exception:
+                    raise ValueError(
+                        f"campo '{field_name}' esperaba un número y recibió una fecha: {value}"
+                    )
+
+            normalized = str(value).strip().replace(',', '.')
+            if normalized == '':
+                return 0.0
+            try:
+                return float(normalized)
+            except (TypeError, ValueError):
+                raise ValueError(
+                    f"campo '{field_name}' esperaba un número y recibió: '{value}'"
+                )
+
+        def can_parse_float(value):
+            if value is None:
+                return True
+            if isinstance(value, (int, float)):
+                return True
+            if hasattr(value, 'isoformat') and not isinstance(value, str):
+                return False
+            normalized = str(value).strip().replace(',', '.')
+            if normalized == '':
+                return True
+            try:
+                float(normalized)
+                return True
+            except (TypeError, ValueError):
+                return False
+
         file = request.FILES.get('file')
         if not file or not isinstance(file, UploadedFile):
             return Response({'error': 'Archivo Excel no proporcionado'}, status=status.HTTP_400_BAD_REQUEST)
-        wb = openpyxl.load_workbook(file)
+
+        try:
+            wb = openpyxl.load_workbook(file)
+        except InvalidFileException:
+            return Response({'error': 'El archivo no es un Excel válido (.xlsx).'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({'error': f'No se pudo leer el archivo Excel: {exc}'}, status=status.HTTP_400_BAD_REQUEST)
+
         ws = wb.active
-        headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
+        raw_headers = [str(cell.value).strip() if cell.value is not None else '' for cell in ws[1]]
+
+        # Normalizar cabeceras para evitar desajustes por mayúsculas/espacios
+        # y para detectar columnas duplicadas que pisan valores al hacer zip.
+        normalized_headers = [h.lower() for h in raw_headers]
+        canonical_headers = []
+        canonical_seen = set()
+        duplicate_headers = set()
+        canonical_indexes = {}
+        for header in normalized_headers:
+            canonical = food_aliases.get(header, header)
+            canonical_headers.append(canonical)
+            if canonical:
+                if canonical in canonical_seen:
+                    duplicate_headers.add(canonical)
+                else:
+                    canonical_seen.add(canonical)
+
+        for idx, canonical in enumerate(canonical_headers):
+            if not canonical:
+                continue
+            canonical_indexes.setdefault(canonical, []).append(idx)
+
         updated, created, skipped = 0, 0, 0
+        errors = []
+        skipped_details = []
+        row_number = 1  # 1-indexed desde la primera fila de datos (fila 2 de Excel)
         for row in ws.iter_rows(min_row=2, values_only=True):
-            row_dict = dict(zip(headers, row))
+            row_number += 1
+            row_dict = {}
+            for idx, canonical in enumerate(canonical_headers):
+                if not canonical:
+                    continue
+                if canonical in row_dict:
+                    # Si hay columnas repetidas, usamos la primera ocurrencia.
+                    continue
+                row_dict[canonical] = row[idx] if idx < len(row) else None
+
+            def get_best_value(canonical, default='', numeric=False):
+                if canonical not in canonical_indexes:
+                    return default
+
+                candidates = []
+                for idx in canonical_indexes[canonical]:
+                    value = row[idx] if idx < len(row) else None
+                    candidates.append(value)
+
+                if not numeric:
+                    for value in candidates:
+                        if value is not None and str(value).strip() != '':
+                            return value
+                    return default
+
+                # Para numéricos, si hay columnas duplicadas, elegir la primera
+                # que realmente sea parseable como número.
+                for value in candidates:
+                    if can_parse_float(value):
+                        return value
+
+                # Si ninguna es válida, devolvemos la primera no vacía para que
+                # to_float genere un error claro al usuario.
+                for value in candidates:
+                    if value is not None and str(value).strip() != '':
+                        return value
+                return default
+
             name = str(gv(row_dict, 'name') or '').strip()
             if not name:
+                # Si toda la fila está vacía, ignorarla silenciosamente
+                if all(v is None or str(v).strip() == '' for v in row):
+                    continue
                 skipped += 1
+                skipped_details.append({'row': row_number, 'name': None, 'reason': 'Nombre vacío'})
                 continue
-            food = Food.objects.filter(name=name).first()
-            fields = {
-                'brand': gv(row_dict, 'brand', '') or '',
-                'calories': float(gv(row_dict, 'calories', 0) or 0),
-                'protein': float(gv(row_dict, 'protein', 0) or 0),
-                'carbs': float(gv(row_dict, 'carbs', 0) or 0),
-                'fat': float(gv(row_dict, 'fat', 0) or 0),
-                'fiber': float(gv(row_dict, 'fiber', 0) or 0),
-                'sugar': float(gv(row_dict, 'sugar', 0) or 0),
-                'sodium': float(gv(row_dict, 'sodium', 0) or 0),
-                'serving_size': float(gv(row_dict, 'serving_size', 0) or 0),
-                'serving_unit': gv(row_dict, 'serving_unit', '') or '',
-                'category': gv(row_dict, 'category', '') or '',
-                'store': gv(row_dict, 'store', '') or '',
-                'is_verified': to_bool(gv(row_dict, 'is_verified', 'false')),
-            }
-            if food:
-                for k, v in fields.items():
-                    setattr(food, k, v)
-                food.save()
-                updated += 1
-            else:
-                Food.objects.create(name=name, **fields)
-                created += 1
-        return Response({
+
+            try:
+                food = Food.objects.filter(name=name).first()
+                fields = {
+                    'brand': get_best_value('brand', '') or '',
+                    'calories': to_float(get_best_value('calories', 0, numeric=True), 'calories', name),
+                    'protein': to_float(get_best_value('protein', 0, numeric=True), 'protein', name),
+                    'carbs': to_float(get_best_value('carbs', 0, numeric=True), 'carbs', name),
+                    'fat': to_float(get_best_value('fat', 0, numeric=True), 'fat', name),
+                    'fiber': to_float(get_best_value('fiber', 0, numeric=True), 'fiber', name),
+                    'sugar': to_float(get_best_value('sugar', 0, numeric=True), 'sugar', name),
+                    'sodium': to_float(get_best_value('sodium', 0, numeric=True), 'sodium', name),
+                    'serving_size': to_float(get_best_value('serving_size', 0, numeric=True), 'serving_size', name),
+                    'serving_unit': get_best_value('serving_unit', '') or '',
+                    'category': get_best_value('category', '') or '',
+                    'store': get_best_value('store', '') or '',
+                    'is_verified': to_bool(get_best_value('is_verified', 'false')),
+                }
+                if food:
+                    for k, v in fields.items():
+                        setattr(food, k, v)
+                    food.save()
+                    updated += 1
+                else:
+                    Food.objects.create(name=name, **fields)
+                    created += 1
+            except Exception as row_error:
+                skipped += 1
+                error_msg = str(row_error)
+                errors.append({'name': name, 'error': error_msg})
+                skipped_details.append({'row': row_number, 'name': name, 'reason': error_msg})
+
+        response_payload = {
             'created': created,
             'updated': updated,
             'skipped': skipped,
+            'errors': errors,
+            'skipped_details': skipped_details,
             'message': f"Se subió el archivo correctamente. {created} alimentos añadidos, {updated} modificados. Los alimentos no presentes en el archivo no se eliminaron."
-        }, status=status.HTTP_200_OK)
+        }
+
+        if duplicate_headers:
+            response_payload['warnings'] = [
+                'Cabeceras repetidas detectadas en Excel: '
+                + ', '.join(sorted(duplicate_headers))
+                + '. Se usó la primera columna de cada campo.'
+            ]
+
+        if recovered_date_values:
+            existing_warnings = response_payload.get('warnings', [])
+            existing_warnings.append(
+                f"Se recuperaron {len(recovered_date_values)} valores numéricos que venían como fecha (p. ej. 8.5 -> 8/5)."
+            )
+            existing_warnings.extend(recovered_date_values[:30])
+            response_payload['warnings'] = existing_warnings
+
+        return Response(response_payload, status=status.HTTP_200_OK)
 
 
 class AdminPlanMealRecipeViewSet(viewsets.ModelViewSet):

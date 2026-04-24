@@ -1,6 +1,14 @@
 from rest_framework import serializers
 
-from .models import DashboardData, WellnessTip, DefaultPlanConfiguration, HelpSettings, ProblemReport
+from .models import (
+    DashboardData,
+    WellnessTip,
+    CoachingPlan,
+    CoachingInquiry,
+    DefaultPlanConfiguration,
+    HelpSettings,
+    ProblemReport,
+)
 from nutrition.models import NutritionPlan
 from workouts.models import WorkoutProgram
 
@@ -135,6 +143,154 @@ class WellnessTipSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "updated_at", "author_name", "author_email"]
 
 
+class CoachingPlanSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachingPlan
+        fields = [
+            "id",
+            "slug",
+            "name",
+            "duration_label",
+            "tier",
+            "summary",
+            "benefits",
+            "cta_text",
+            "is_active",
+        ]
+        read_only_fields = fields
+
+
+class CoachingInquirySerializer(serializers.ModelSerializer):
+    plan = CoachingPlanSerializer(read_only=True)
+    whatsapp_url = serializers.SerializerMethodField()
+    mailto_url = serializers.SerializerMethodField()
+    booking_url = serializers.SerializerMethodField()
+    followup_whatsapp_url = serializers.SerializerMethodField()
+    followup_mailto_url = serializers.SerializerMethodField()
+    needs_follow_up = serializers.SerializerMethodField()
+    days_waiting = serializers.SerializerMethodField()
+    source_screen_display = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CoachingInquiry
+        fields = [
+            "id",
+            "plan",
+            "full_name",
+            "email",
+            "phone_number",
+            "goal",
+            "current_challenge",
+            "availability",
+            "preferred_contact",
+            "source_screen",
+            "source_screen_display",
+            "status",
+            "whatsapp_url",
+            "mailto_url",
+            "booking_url",
+            "followup_whatsapp_url",
+            "followup_mailto_url",
+            "needs_follow_up",
+            "days_waiting",
+            "created_at",
+        ]
+        read_only_fields = fields
+
+    def get_whatsapp_url(self, obj):
+        return obj.get_whatsapp_url()
+
+    def get_mailto_url(self, obj):
+        return obj.get_mailto_url()
+
+    def get_booking_url(self, obj):
+        return obj.get_booking_url()
+
+    def get_followup_whatsapp_url(self, obj):
+        return obj.get_followup_whatsapp_url()
+
+    def get_followup_mailto_url(self, obj):
+        return obj.get_followup_mailto_url()
+
+    def get_needs_follow_up(self, obj):
+        return obj.needs_follow_up
+
+    def get_days_waiting(self, obj):
+        return obj.days_waiting
+
+    def get_source_screen_display(self, obj):
+        return obj.get_source_screen_display()
+
+
+class CoachingInquiryCreateSerializer(serializers.ModelSerializer):
+    plan_id = serializers.UUIDField(required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        model = CoachingInquiry
+        fields = [
+            "plan_id",
+            "full_name",
+            "email",
+            "phone_number",
+            "goal",
+            "current_challenge",
+            "availability",
+            "preferred_contact",
+            "source_screen",
+        ]
+
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = request.user if request and request.user and request.user.is_authenticated else None
+
+        email = (attrs.get("email") or getattr(user, "email", "") or "").strip()
+        phone_number = (attrs.get("phone_number") or getattr(user, "phone_number", "") or "").strip()
+        full_name = (attrs.get("full_name") or "").strip()
+        preferred_contact = attrs.get("preferred_contact") or CoachingInquiry.PreferredContact.BOTH
+
+        if not full_name and user:
+            attrs["full_name"] = f"{getattr(user, 'first_name', '')} {getattr(user, 'last_name', '')}".strip()
+
+        attrs["email"] = email
+        attrs["phone_number"] = phone_number
+        attrs["source_screen"] = attrs.get("source_screen") or CoachingInquiry.SourceScreen.DASHBOARD
+
+        if preferred_contact == CoachingInquiry.PreferredContact.EMAIL and not email:
+            raise serializers.ValidationError({"email": "Necesitamos un email para contactar contigo."})
+
+        if preferred_contact == CoachingInquiry.PreferredContact.WHATSAPP and not phone_number:
+            raise serializers.ValidationError({"phone_number": "Necesitamos un teléfono o WhatsApp para contactar contigo."})
+
+        if preferred_contact == CoachingInquiry.PreferredContact.BOTH and not email and not phone_number:
+            raise serializers.ValidationError({
+                "non_field_errors": ["Añade al menos un email o un teléfono para poder responderte."]
+            })
+
+        return attrs
+
+    def validate_plan_id(self, value):
+        if value and not CoachingPlan.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError("Plan de coaching no encontrado")
+        return value
+
+    def create(self, validated_data):
+        plan_id = validated_data.pop("plan_id", None)
+        if plan_id:
+            validated_data["plan_id"] = plan_id
+
+        request = self.context.get("request")
+        if request and request.user and request.user.is_authenticated:
+            validated_data["user"] = request.user
+
+        return CoachingInquiry.objects.create(**validated_data)
+
+
+class CoachingInquiryAdminUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoachingInquiry
+        fields = ["status", "notes"]
+
+
 class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
     """Serializer para configuraciones de planes por defecto"""
     
@@ -242,7 +398,7 @@ class HelpSettingsSerializer(serializers.ModelSerializer):
         model = HelpSettings
         fields = [
             'id', 'faq_enabled', 'faq_url', 'faq_content',
-            'contact_email', 'contact_enabled',
+            'contact_email', 'contact_enabled', 'coaching_booking_enabled', 'coaching_booking_url',
             'guides_enabled', 'guides_url', 'guides_content',
             'report_enabled', 'report_email', 'report_redirect_url',
             'app_version', 'last_update_date', 'terms_url', 'privacy_url',

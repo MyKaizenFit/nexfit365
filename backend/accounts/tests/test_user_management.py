@@ -165,6 +165,55 @@ class TestProfileEndpoints:
         assert "is_complete" in response.data
         assert "completion_percentage" in response.data
 
+    def test_initial_registration_status_requires_onboarding_completed_flag(self, api_client, member_user):
+        member_user.first_name = "Nuevo"
+        member_user.last_name = "Usuario"
+        member_user.birth_date = "1995-05-10"
+        member_user.gender = "male"
+        member_user.height = 175
+        member_user.weight = 78
+        member_user.activity_level = "moderate"
+        member_user.training_days_per_week = 3
+        member_user.training_days = [1, 3, 5]
+        member_user.training_location = "gym"
+        member_user.main_goal = "gain_muscle"
+        member_user.onboarding_completed = False
+        member_user.save()
+
+        api_client.force_authenticate(user=member_user)
+        url = reverse("initial_registration_status")
+
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["is_complete"] is False
+        assert "onboarding_completed" in response.data["missing_fields"]
+
+    def test_complete_initial_registration_marks_onboarding_as_completed(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("complete_initial_registration")
+
+        payload = {
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "birth_date": "1995-05-10",
+            "gender": "male",
+            "height": 175,
+            "weight": 78,
+            "activity_level": "moderate",
+            "training_days_per_week": 3,
+            "training_days": [1, 3, 5],
+            "training_location": "gym",
+            "main_goal": "gain_muscle",
+        }
+
+        response = api_client.post(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.onboarding_completed is True
+        assert member_user.onboarding_step >= 1
+
 
 @pytest.mark.django_db
 class TestAdminUsersEndpoints:

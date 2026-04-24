@@ -3,6 +3,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from api.views import health, public_health
+from nutrition.views import list_recipes
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
@@ -13,6 +14,9 @@ urlpatterns = [
     # Healthcheck
     path("api/health/", health),
     path("api/public-health/", public_health),  # Endpoint completamente público
+
+    # Alias legacy para clientes antiguos del dashboard
+    path("api/recipes/", list_recipes),
 
     # Rutas de tu API
     path("api/", include("api.urls")),

@@ -54,9 +54,6 @@ export function useAdminDashboard() {
 
   const fetchStats = async () => {
     try {
-      setLoading(true)
-      setError(null)
-      
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/dashboard/stats/'), {
         headers
@@ -70,8 +67,6 @@ export function useAdminDashboard() {
       setStats(data)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
-    } finally {
-      setLoading(false)
     }
   }
 
@@ -92,9 +87,18 @@ export function useAdminDashboard() {
     }
   }
 
+  const loadDashboard = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      await Promise.all([fetchStats(), fetchRecentActivity()])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
-    fetchStats()
-    fetchRecentActivity()
+    loadDashboard()
   }, [])
 
   return {
@@ -102,6 +106,6 @@ export function useAdminDashboard() {
     recentActivity,
     loading,
     error,
-    refetch: fetchStats
+    refetch: loadDashboard
   }
 }

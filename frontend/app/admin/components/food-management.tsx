@@ -86,6 +86,14 @@ interface FoodStats {
   stores: [string, string][]
 }
 
+interface FileImportResult {
+  created: number
+  updated: number
+  skipped: number
+  errors: string[]
+  skippedDetails: { row: number; name: string | null; reason: string }[]
+}
+
 export function FoodManagement() {
   const [foods, setFoods] = useState<Food[]>([])
   const [stats, setStats] = useState<FoodStats>({ total: 0, verified: 0, categories: [], stores: [] })
@@ -115,7 +123,7 @@ export function FoodManagement() {
   // Modal importar CSV/Excel
   const [fileImportOpen, setFileImportOpen] = useState(false)
   const [fileImporting, setFileImporting] = useState(false)
-  const [fileImportResult, setFileImportResult] = useState<{ imported: number; updated: number; skipped: number; errors: string[] } | null>(null)
+  const [fileImportResult, setFileImportResult] = useState<FileImportResult | null>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
 
   // Modal de importar (flujo: buscar → preview → seleccionar → importar)
@@ -401,20 +409,56 @@ export function FoodManagement() {
     setFileImporting(true)
     setFileImportResult(null)
     try {
+      const fileName = selectedFile.name.toLowerCase()
+      let importPath = ''
+
+      if (fileName.endsWith('.csv')) {
+        importPath = '/api/admin/nutrition/foods/import-csv/'
+      } else if (fileName.endsWith('.xlsx')) {
+        importPath = '/api/admin/nutrition/foods/import-excel/'
+      } else {
+        throw new Error('Formato no compatible. Usa un archivo .csv o .xlsx')
+      }
+
       const authHeaders = await getAuthHeaders() as Record<string, string>
       const formData = new FormData()
       formData.append('file', selectedFile)
       // multipart — no enviar Content-Type manualmente
       const headers: Record<string, string> = {}
       if (authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization']
-      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_file/`, {
+      const response = await fetch(`${getApiUrl()}${importPath}`, {
         method: 'POST',
         headers,
         body: formData,
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.detail || 'Error en la importación')
-      setFileImportResult(data)
+
+      const normalizedErrors: string[] = Array.isArray(data.errors)
+        ? data.errors.map((err: any) => {
+            if (typeof err === 'string') return err
+            if (err && typeof err === 'object') {
+              const name = err.name ? String(err.name) : ''
+              const message = err.error ? String(err.error) : JSON.stringify(err)
+              return name ? `${name}: ${message}` : message
+            }
+            return String(err)
+          })
+        : []
+
+      setFileImportResult({
+        created: data.created ?? data.imported ?? 0,
+        updated: data.updated ?? 0,
+        skipped: data.skipped ?? 0,
+        errors: normalizedErrors,
+        skippedDetails: Array.isArray(data.skipped_details)
+          ? data.skipped_details.map((d: any) => ({
+              row: d.row ?? '?',
+              name: d.name ?? null,
+              reason: d.reason ?? '',
+            }))
+          : [],
+      })
       fetchFoods()
       fetchStats()
     } catch (error: any) {
@@ -427,7 +471,7 @@ export function FoodManagement() {
   const handleDownloadTemplate = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/download_template/`, { headers })
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/download-template/`, { headers })
       if (!response.ok) throw new Error('Error al descargar')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
@@ -1215,7 +1259,7 @@ export function FoodManagement() {
               <Label>Fichero (.csv o .xlsx)</Label>
               <Input
                 type="file"
-                accept=".xlsx,.xls,.csv"
+                accept=".xlsx,.csv"
                 onChange={(e) => { setSelectedFile(e.target.files?.[0] || null); setFileImportResult(null) }}
               />
             </div>
@@ -1231,13 +1275,25 @@ export function FoodManagement() {
             {fileImportResult && (
               <div className="border rounded-lg p-4 space-y-1 text-sm">
                 <p className="font-semibold text-green-700">Resultado de la importación</p>
-                <p>✅ Creados: <strong>{fileImportResult.imported}</strong></p>
+                <p>✅ Creados: <strong>{fileImportResult.created}</strong></p>
                 <p>🔄 Actualizados: <strong>{fileImportResult.updated}</strong></p>
                 <p>⏭️ Omitidos: <strong>{fileImportResult.skipped}</strong></p>
+                {fileImportResult.skippedDetails.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-amber-700 font-medium">Detalle de omitidos ({fileImportResult.skippedDetails.length}):</p>
+                    <ul className="list-disc list-inside text-amber-700 space-y-0.5 max-h-48 overflow-y-auto pr-2 border border-amber-200 rounded-md p-2 bg-amber-50/60 text-xs">
+                      {fileImportResult.skippedDetails.map((d, i) => (
+                        <li key={i}>
+                          Fila {d.row}{d.name ? ` · ${d.name}` : ''}: {d.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 {fileImportResult.errors.length > 0 && (
                   <div className="mt-2">
                     <p className="text-red-600 font-medium">Errores ({fileImportResult.errors.length}):</p>
-                    <ul className="list-disc list-inside text-red-500 space-y-0.5">
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5 max-h-64 overflow-y-auto pr-2 border border-red-100 rounded-md p-2 bg-red-50/40">
                       {fileImportResult.errors.map((e, i) => <li key={i}>{e}</li>)}
                     </ul>
                   </div>

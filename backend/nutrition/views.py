@@ -2302,8 +2302,16 @@ def list_recipes(request):
         queryset = queryset.order_by('name')
     
     # Paginación
-    page = int(params.get('page', 1))
-    page_size = int(params.get('page_size', 100))
+    try:
+        page = max(int(params.get('page', 1)), 1)
+    except (TypeError, ValueError):
+        page = 1
+
+    requested_page_size = params.get('page_size', params.get('limit', 100))
+    try:
+        page_size = max(1, min(int(requested_page_size), 200))
+    except (TypeError, ValueError):
+        page_size = 100
     
     total = queryset.count()
     start = (page - 1) * page_size

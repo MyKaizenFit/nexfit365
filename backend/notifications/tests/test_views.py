@@ -322,6 +322,72 @@ class TestAdminNotificationViews:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["clicked_notifications"] >= 1
 
+    def test_admin_automation_summary_returns_real_segments(self, admin_headers):
+        stale_user = User.objects.create_user(
+            email="stale@example.com",
+            password="StalePass123!",
+            first_name="Stale",
+            last_name="User",
+            role="MEMBER",
+            is_active=True,
+        )
+        stale_user.last_login = timezone.now() - timedelta(days=18)
+        stale_user.save(update_fields=["last_login"])
+
+        fresh_user = User.objects.create_user(
+            email="fresh@example.com",
+            password="FreshPass123!",
+            first_name="Fresh",
+            last_name="User",
+            role="MEMBER",
+            is_active=True,
+        )
+        fresh_user.last_login = timezone.now() - timedelta(days=1)
+        fresh_user.save(update_fields=["last_login"])
+
+        url = reverse("admin-notifications-automation-summary")
+        response = admin_headers.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["segments"]["reactivation_candidates"] >= 1
+        assert "Resumen semanal NexFit365" in response.data["weekly_brief"]
+
+    def test_admin_run_automation_reactivation_only_targets_stale_users(self, admin_headers, admin_user):
+        stale_user = User.objects.create_user(
+            email="reactivation-old@example.com",
+            password="OldPass123!",
+            first_name="Old",
+            last_name="User",
+            role="MEMBER",
+            is_active=True,
+        )
+        stale_user.last_login = timezone.now() - timedelta(days=20)
+        stale_user.save(update_fields=["last_login"])
+
+        fresh_user = User.objects.create_user(
+            email="reactivation-fresh@example.com",
+            password="FreshPass123!",
+            first_name="Fresh",
+            last_name="User",
+            role="MEMBER",
+            is_active=True,
+        )
+        fresh_user.last_login = timezone.now() - timedelta(days=2)
+        fresh_user.save(update_fields=["last_login"])
+
+        url = reverse("admin-notifications-run-automation")
+        response = admin_headers.post(url, {"automation_key": "reactivation"}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["notifications_created"] == 1
+        assert Notification.objects.filter(user=stale_user, title__icontains="Volvamos").exists()
+        assert not Notification.objects.filter(user=fresh_user, title__icontains="Volvamos").exists()
+        assert Notification.objects.filter(
+            user=admin_user,
+            data__created_by_automation=True,
+            data__automation_key="reactivation",
+        ).exists()
+
 
 @pytest.mark.django_db
 class TestNotificationPermissions:

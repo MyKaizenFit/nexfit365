@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
 import { getAuthService } from "@/lib/auth-service"
-import { 
-  Target, 
-  Users, 
-  Settings, 
-  ArrowRight, 
-  Home, 
-  TrendingUp, 
+import {
+  Target,
+  Users,
+  Settings,
+  ArrowRight,
+  Home,
+  TrendingUp,
   Award,
   Star,
   Heart,
@@ -25,7 +25,9 @@ import {
   Sparkles,
   Trophy,
   Clock,
-  Smartphone
+  Smartphone,
+  Crown,
+  CheckCircle2
 } from "lucide-react"
 
 export default function HomePage() {
@@ -136,7 +138,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                <Button 
+                <Button
                   size="lg"
                   type="button"
                   className="bg-white text-blue-600 hover:bg-blue-50 text-lg px-8 py-6 shadow-xl hover:shadow-2xl transition-all duration-300 font-bold cursor-pointer"
@@ -144,7 +146,7 @@ export default function HomePage() {
                 >
                   Comenzar Gratis <ArrowRight className="w-5 h-5 ml-2" />
                 </Button>
-                <Button 
+                <Button
                   size="lg"
                   type="button"
                   variant="outline"
@@ -167,7 +169,7 @@ export default function HomePage() {
                 La solución completa para transformar tu cuerpo y alcanzar el estilo de vida que siempre has querido
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
               <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
@@ -219,7 +221,7 @@ export default function HomePage() {
                 Una plataforma completa diseñada para maximizar tus resultados
               </p>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
               <div className="flex gap-6 p-8 bg-white/60 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
@@ -271,6 +273,97 @@ export default function HomePage() {
             </div>
           </div>
 
+          {/* Planes y prueba gratuita */}
+          <div className="mb-20">
+            <div className="text-center mb-12">
+              <div className="inline-flex items-center gap-2 bg-green-100 text-green-700 px-4 py-2 rounded-full text-sm font-semibold mb-4">
+                <Sparkles className="w-4 h-4" />
+                Todos empiezan con 7 días de prueba gratuita
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Empieza gratis y elige cómo continuar</h2>
+              <p className="text-xl text-gray-600 max-w-4xl mx-auto">
+                La app te da acceso inmediato a entrenamientos, recetas y herramientas de progreso. Si más adelante necesitas ayuda personalizada, dentro de la propia app podrás solicitar que evaluemos tu caso.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+                <CardContent className="p-6">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4">
+                    <Smartphone className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-800 mb-3">La App incluye</h3>
+                  <ul className="space-y-3 text-gray-600">
+                    {[
+                      '+100 recetas de comida real',
+                      '+50 recetas FAT convertidas a FIT',
+                      '+300 ejercicios con técnica en vídeo',
+                      '+100 entrenamientos adaptados a tu nivel',
+                      'Comunidad y seguimiento de progreso',
+                    ].map((item) => (
+                      <li key={item} className="flex items-start gap-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-500 mt-1 flex-shrink-0" />
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-4 text-sm text-amber-700 font-medium">
+                    Servicio estándar de app, sin seguimiento 1:1 incluido.
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-xl">
+                <CardContent className="p-6">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-4">
+                    <Trophy className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">Suscripción App</h3>
+                  <p className="text-green-50 mb-4">Empieza sin riesgo y continúa con la opción que mejor te encaje.</p>
+                  <div className="space-y-4">
+                    <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
+                      <p className="text-sm uppercase tracking-wide text-green-100">Prueba inicial</p>
+                      <p className="text-3xl font-extrabold">7 días gratis</p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
+                      <p className="text-sm uppercase tracking-wide text-green-100">Mensual</p>
+                      <p className="text-3xl font-extrabold">24,9€<span className="text-lg font-medium">/mes</span></p>
+                    </div>
+                    <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
+                      <p className="text-sm uppercase tracking-wide text-green-100">Anual</p>
+                      <p className="text-3xl font-extrabold">197€<span className="text-lg font-medium">/año</span></p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="border-0 bg-gradient-to-br from-violet-500 to-fuchsia-600 text-white shadow-xl">
+                <CardContent className="p-6">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center mb-4">
+                    <Crown className="w-7 h-7 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold mb-2">¿Necesitas ayuda personalizada?</h3>
+                  <p className="text-violet-50 mb-4">
+                    Dentro de la app podrás ver los beneficios de los planes 1:1 y enviarnos tu caso para valorar si podemos ayudarte.
+                  </p>
+                  <ul className="space-y-2 text-sm text-violet-50 mb-6">
+                    <li>• Revisión semanal o quincenal</li>
+                    <li>• Respuesta rápida</li>
+                    <li>• Seguimiento real y 100% personalizado</li>
+                    <li>• Evaluación previa de tu situación</li>
+                  </ul>
+                  <Button
+                    size="lg"
+                    className="w-full bg-white text-violet-700 hover:bg-violet-50 font-bold"
+                    onClick={() => router.push('/auth?register=true')}
+                  >
+                    Empezar gratis <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
           {/* CTA Principal */}
           <div className="mb-20">
             <Card className="border-0 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white shadow-2xl overflow-hidden">
@@ -284,14 +377,14 @@ export default function HomePage() {
                   Únete a miles de personas que ya están alcanzando sus objetivos. Tu mejor versión te está esperando.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
-                  <Button 
+                  <Button
                     size="lg"
                     className="bg-white text-blue-600 hover:bg-blue-50 text-xl px-10 py-7 shadow-2xl hover:shadow-3xl transition-all duration-300 font-bold"
                     onClick={() => router.push('/auth?register=true')}
                   >
                     Crear cuenta gratis <ArrowRight className="w-6 h-6 ml-2" />
                   </Button>
-                  <Button 
+                  <Button
                     size="lg"
                     variant="outline"
                     className="bg-transparent border-3 border-white text-white hover:bg-white/20 text-xl px-10 py-7 font-bold"

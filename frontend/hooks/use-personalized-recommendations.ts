@@ -16,45 +16,45 @@ export function usePersonalizedRecommendations() {
   const fetchRecommendations = async () => {
     try {
       setLoading(true)
-      
+
       // Cargar perfil del usuario
       const profileResponse = await fetch(buildApiUrl('me/'), {
         headers: getAuthHeaders(),
       })
-      
+
       if (!profileResponse.ok) {
         throw new Error('Error al cargar perfil')
       }
-      
+
       const profile = await profileResponse.json()
-      
+
       // Cargar recetas según objetivo
-      const recipesResponse = await fetch(buildApiUrl('recipes/?limit=6'), {
+      const recipesResponse = await fetch(buildApiUrl('nutrition/recipes/?page_size=6&page=1'), {
         headers: getAuthHeaders(),
       })
-      
+
       let recipes = []
       if (recipesResponse.ok) {
         const recipesData = await recipesResponse.json()
         recipes = recipesData.results || recipesData || []
       }
-      
+
       // Cargar programas de entrenamiento
       const workoutResponse = await fetch(buildApiUrl('workout-programs/?limit=6'), {
         headers: getAuthHeaders(),
       })
-      
+
       let workoutPrograms = []
       if (workoutResponse.ok) {
         const workoutData = await workoutResponse.json()
         workoutPrograms = workoutData.results || workoutData || []
       }
-      
+
       // Cargar wellness tips destacados
       const tipsResponse = await fetch(buildApiUrl('tips/?limit=3'), {
         headers: getAuthHeaders(),
       })
-      
+
       let wellnessTips = []
       if (tipsResponse.ok) {
         const tipsData = await tipsResponse.json()
@@ -62,7 +62,7 @@ export function usePersonalizedRecommendations() {
         // Filtrar solo destacados
         wellnessTips = wellnessTips.filter((tip: any) => tip.is_highlighted)
       }
-      
+
       setRecommendations({
         recipes,
         workout_programs: workoutPrograms,

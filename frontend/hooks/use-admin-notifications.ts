@@ -23,7 +23,7 @@ export interface NotificationStats {
   clicked_notifications?: number
   recent_notifications_30_days: number
   type_distribution: Array<{ type: string; count: number }>
-        notifications_by_type?: Array<{type: string; count: number}>
+  notifications_by_type?: Array<{ type: string; count: number }>
 }
 
 export interface CreateNotificationData {
@@ -37,9 +37,27 @@ export interface CreateNotificationData {
   send_email?: boolean
 }
 
+export interface AutomationRuleSummary {
+  key: string
+  name: string
+  description: string
+  recommended: boolean
+  audience_size: number
+  last_run_at?: string | null
+  last_targeted_users?: number
+}
+
+export interface AutomationSummary {
+  generated_at: string
+  weekly_brief: string
+  segments: Record<string, number>
+  automation_rules: AutomationRuleSummary[]
+}
+
 export function useAdminNotifications() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [stats, setStats] = useState<NotificationStats | null>(null)
+  const [automationSummary, setAutomationSummary] = useState<AutomationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { getAuthHeaders } = useAuth()
@@ -48,7 +66,7 @@ export function useAdminNotifications() {
     try {
       setLoading(true)
       setError(null)
-      
+
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/notifications/'), {
         headers
@@ -89,6 +107,23 @@ export function useAdminNotifications() {
     }
   }
 
+  const fetchAutomationSummary = async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl('admin/notifications/automation-summary/'), {
+        headers
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      setAutomationSummary(data)
+    } catch (err) {
+    }
+  }
+
   const sendBulkNotification = async (notificationData: CreateNotificationData) => {
     try {
       const headers = await getAuthHeaders()
@@ -114,6 +149,33 @@ export function useAdminNotifications() {
       // Recargar las notificaciones después del envío
       await fetchNotifications()
       await fetchStats()
+      return result
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
+  const runAutomation = async (automation_key: string) => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl('admin/notifications/run-automation/'), {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ automation_key })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || errorData.detail || `Error ${response.status}`)
+      }
+
+      const result = await response.json()
+      await Promise.all([fetchNotifications(), fetchStats(), fetchAutomationSummary()])
       return result
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
@@ -161,8 +223,8 @@ export function useAdminNotifications() {
       }
 
       // Actualizar el estado local
-      setNotifications(prev => prev.map(notification => 
-        notification.id === notificationId 
+      setNotifications(prev => prev.map(notification =>
+        notification.id === notificationId
           ? { ...notification, is_read: true }
           : notification
       ))
@@ -174,19 +236,24 @@ export function useAdminNotifications() {
     }
   }
 
+  const refetchAll = async () => {
+    await Promise.all([fetchNotifications(), fetchStats(), fetchAutomationSummary()])
+  }
+
   useEffect(() => {
-    fetchNotifications()
-    fetchStats()
+    refetchAll()
   }, [])
 
   return {
     notifications,
     stats,
+    automationSummary,
     loading,
     error,
     sendBulkNotification,
+    runAutomation,
     deleteNotification,
     markAsRead,
-    refetch: fetchNotifications
+    refetch: refetchAll
   }
 }

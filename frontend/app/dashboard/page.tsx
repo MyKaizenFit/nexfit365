@@ -19,6 +19,7 @@ import {
   Sparkles,
   Heart,
   Moon,
+  Crown,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,9 @@ const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module 
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
 const BodyMeasurements = lazy(() => import("./components/body-measurements").then(module => ({ default: module.BodyMeasurements })))
+const CoachingCTA = lazy(() => import("./components/coaching-cta").then(module => ({ default: module.CoachingCTA })))
+const QuinzenalReview = lazy(() => import("./components/quinzenal-review").then(module => ({ default: module.QuinzenalReview })))
+const SubscriptionStatusCard = lazy(() => import("./components/subscription-status-card").then(module => ({ default: module.SubscriptionStatusCard })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -80,6 +84,7 @@ const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
   { title: "Día 1", icon: Target, url: "day-one" },
   { title: "Recomendaciones", icon: Sparkles, url: "recommendations" },
+  { title: "Ayuda 1:1", icon: Crown, url: "coaching" },
   { title: "Consejos", icon: Heart, url: "tips" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
@@ -144,6 +149,15 @@ function DashboardContent() {
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
                 <Suspense fallback={null}>
+                  <SubscriptionStatusCard />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <QuinzenalReview />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <CoachingCTA placement="dashboard-home" cooldownHours={48} />
+                </Suspense>
+                <Suspense fallback={null}>
                   <RecommendationsSection />
                 </Suspense>
                 <Suspense fallback={null}>
@@ -168,6 +182,24 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <Suspense fallback={null}>
                 <RecommendationsSection />
+              </Suspense>
+            </div>
+          </div>
+        )
+
+      case "coaching":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-violet-200/20 to-fuchsia-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <Suspense fallback={null}>
+                <SubscriptionStatusCard />
+              </Suspense>
+              <Suspense fallback={null}>
+                <CoachingCTA fullPage placement="coaching-page" />
               </Suspense>
             </div>
           </div>
@@ -198,6 +230,9 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <MealDashboard />
+                <Suspense fallback={null}>
+                  <CoachingCTA placement="meals" cooldownHours={48} />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -213,6 +248,9 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <WorkoutDashboardEnhanced />
+                <Suspense fallback={null}>
+                  <CoachingCTA placement="workouts" cooldownHours={48} />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -243,6 +281,9 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <Suspense fallback={null}><BodyMeasurements /></Suspense>
+                <Suspense fallback={null}>
+                  <CoachingCTA placement="measurements" cooldownHours={48} />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -393,13 +434,12 @@ function DashboardContent() {
                                 handleMenuClick(item.url, item.title)
                               }
                             }}
-                            className={`transition-all duration-300 ${
-                              isDisabled 
-                                ? "opacity-50 cursor-not-allowed" 
-                                : "hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
-                            }`}
+                            className={`transition-all duration-300 ${isDisabled
+                              ? "opacity-50 cursor-not-allowed"
+                              : "hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                              }`}
                           >
-                            <button 
+                            <button
                               className="w-full flex items-center gap-2 min-w-0"
                               disabled={isDisabled}
                             >
@@ -424,20 +464,20 @@ function DashboardContent() {
                     <DropdownMenuTrigger asChild>
                       <SidebarMenuButton className="cursor-pointer hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-300">
                         <Avatar className="h-6 w-6 flex-shrink-0 ring-2 ring-teal-200">
-                          <AvatarImage 
+                          <AvatarImage
                             src={
-                              user?.profile_picture_url || 
-                              user?.profile_picture || 
+                              user?.profile_picture_url ||
+                              user?.profile_picture ||
                               undefined
-                            } 
+                            }
                           />
                           <AvatarFallback className="bg-gradient-to-br from-teal-400 to-cyan-500 text-white text-xs">
                             {user?.first_name?.[0] || ''}{user?.last_name?.[0] || '' || 'U'}
                           </AvatarFallback>
                         </Avatar>
                         <span className="truncate">
-                          {user?.first_name && user?.last_name 
-                            ? `${user.first_name} ${user.last_name}` 
+                          {user?.first_name && user?.last_name
+                            ? `${user.first_name} ${user.last_name}`
                             : user?.first_name || 'Usuario'}
                         </span>
                       </SidebarMenuButton>
@@ -464,8 +504,8 @@ function DashboardContent() {
                             await logout()
                             toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
                           } catch (error) {
-                            toast({ 
-                              title: "❌ Error", 
+                            toast({
+                              title: "❌ Error",
                               description: "Error al cerrar sesión",
                               variant: "destructive"
                             })
@@ -503,12 +543,12 @@ function DashboardContent() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Avatar className="cursor-pointer hover:ring-4 hover:ring-teal-200 transition-all duration-300">
-                        <AvatarImage 
+                        <AvatarImage
                           src={
-                            user?.profile_picture_url || 
-                            user?.profile_picture || 
+                            user?.profile_picture_url ||
+                            user?.profile_picture ||
                             undefined
-                          } 
+                          }
                         />
                         <AvatarFallback className="bg-gradient-to-br from-teal-400 to-cyan-500 text-white">
                           {user?.first_name?.[0] || ''}{user?.last_name?.[0] || '' || 'U'}
@@ -537,8 +577,8 @@ function DashboardContent() {
                             await logout()
                             toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
                           } catch (error) {
-                            toast({ 
-                              title: "❌ Error", 
+                            toast({
+                              title: "❌ Error",
                               description: "Error al cerrar sesión",
                               variant: "destructive"
                             })
