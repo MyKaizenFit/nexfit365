@@ -14,6 +14,7 @@ from .serializers import (
     ProgressPhotoSerializer, WeightEntrySerializer, BodyMeasurementSerializer,
     ProgressSummarySerializer, DailyWellnessSerializer
 )
+from notifications.models import FeedbackMessage
 from workouts.models import WorkoutLog
 from nutrition.models import MealLog  # Modelo eliminado
 from django.db.models import Sum, Avg, Count, Q
@@ -320,6 +321,50 @@ class ProgressStatsViewSet(viewsets.ViewSet):
     ViewSet para estadísticas generales de progreso
     """
     permission_classes = [IsAuthenticated]
+
+    def _get_quinzenal_review_status(self, user):
+        today = timezone.now().date()
+        window_start = today - timedelta(days=14)
+
+        photos_last_15_days = ProgressPhoto.objects.filter(
+            user=user,
+            date__gte=window_start,
+            date__lte=today,
+        ).count()
+
+        measurements_last_15_days = BodyMeasurement.objects.filter(
+            user=user,
+            date__gte=window_start,
+            date__lte=today,
+        ).count()
+
+        last_review_request = FeedbackMessage.objects.filter(
+            user=user,
+            subject__startswith="Revisión quincenal",
+        ).order_by("-created_at").first()
+
+        last_review_sent_at = last_review_request.created_at.date() if last_review_request else None
+        next_review_date = (last_review_sent_at + timedelta(days=15)) if last_review_sent_at else today
+        days_until_review = max(0, (next_review_date - today).days)
+        review_sent_recently = bool(last_review_sent_at and (today - last_review_sent_at).days < 15)
+
+        needs_photos = photos_last_15_days == 0
+        needs_measurements = measurements_last_15_days == 0
+        can_send = (not needs_photos) and (not needs_measurements) and (not review_sent_recently)
+
+        return {
+            "today": today,
+            "window_start": window_start,
+            "photos_last_15_days": photos_last_15_days,
+            "measurements_last_15_days": measurements_last_15_days,
+            "needs_photos": needs_photos,
+            "needs_measurements": needs_measurements,
+            "can_send": can_send,
+            "review_sent_recently": review_sent_recently,
+            "last_review_sent_at": last_review_sent_at.isoformat() if last_review_sent_at else None,
+            "next_review_date": next_review_date.isoformat(),
+            "days_until_review": days_until_review,
+        }
     
     @action(detail=False, methods=["get"])
     def analysis(self, request):
@@ -570,6 +615,79 @@ class ProgressStatsViewSet(viewsets.ViewSet):
             },
             "points": points,
         })
+
+    @action(detail=False, methods=["get"], url_path="quinzenal-review")
+    def quinzenal_review(self, request):
+        status_data = self._get_quinzenal_review_status(request.user)
+
+        return Response({
+            "days_until_review": status_data["days_until_review"],
+            "next_review_date": status_data["next_review_date"],
+            "last_review_sent_at": status_data["last_review_sent_at"],
+            "review_sent_recently": status_data["review_sent_recently"],
+            "photos_last_15_days": status_data["photos_last_15_days"],
+            "measurements_last_15_days": status_data["measurements_last_15_days"],
+            "needs_photos": status_data["needs_photos"],
+            "needs_measurements": status_data["needs_measurements"],
+            "can_send": status_data["can_send"],
+            "window_start": status_data["window_start"].isoformat(),
+            "window_end": status_data["today"].isoformat(),
+        })
+
+    @action(detail=False, methods=["post"], url_path="quinzenal-review/submit")
+    def submit_quinzenal_review(self, request):
+        status_data = self._get_quinzenal_review_status(request.user)
+
+        if status_data["review_sent_recently"]:
+            return Response(
+                {
+                    "detail": "Ya has enviado una revisión en los últimos 15 días.",
+                    "next_review_date": status_data["next_review_date"],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if status_data["needs_photos"] or status_data["needs_measurements"]:
+            return Response(
+                {
+                    "detail": "Completa los requisitos antes de enviar la revisión.",
+                    "needs_photos": status_data["needs_photos"],
+                    "needs_measurements": status_data["needs_measurements"],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        notes = (request.data.get("notes") or "").strip()
+        message_lines = [
+            "Solicitud de revisión quincenal enviada desde la app.",
+            "",
+            f"Usuario: {request.user.email}",
+            f"Fotos últimos 15 días: {status_data['photos_last_15_days']}",
+            f"Medidas últimos 15 días: {status_data['measurements_last_15_days']}",
+        ]
+
+        if notes:
+            message_lines.extend(["", "Notas del usuario:", notes])
+
+        FeedbackMessage.objects.create(
+            user=request.user,
+            subject="Revisión quincenal solicitada",
+            message="\n".join(message_lines),
+            category="other",
+            priority="high",
+        )
+
+        refreshed = self._get_quinzenal_review_status(request.user)
+        return Response(
+            {
+                "success": True,
+                "message": "Revisión enviada correctamente.",
+                "last_review_sent_at": refreshed["last_review_sent_at"],
+                "next_review_date": refreshed["next_review_date"],
+                "days_until_review": refreshed["days_until_review"],
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 class BodyMeasurementViewSet(viewsets.ModelViewSet):
     """

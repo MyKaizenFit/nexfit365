@@ -5,6 +5,7 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
+from django.contrib.auth import get_user_model
 from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
@@ -14,12 +15,60 @@ from .models import Notification
 from .serializers import NotificationSerializer, CreateNotificationSerializer
 from .models import AdminMessage
 from accounts.permissions import IsAdminOrStaff
+from progress.models import WeightEntry, ProgressPhoto
+
+try:
+    from dashboard.models import CoachingInquiry
+except Exception:  # pragma: no cover - fallback defensivo para contextos parciales
+    CoachingInquiry = None
 
 
 logger = logging.getLogger(__name__)
 
 
 IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
+AUTOMATION_RULES = {
+    'review': {
+        'name': 'Recordatorio de revisión',
+        'description': 'Empuja a usuarios con menor actividad reciente a revisar su progreso.',
+        'title': 'Toca revisar tu progreso esta semana',
+        'message': 'Reserva unos minutos para revisar tu progreso, actualizar medidas y mantener el foco en tus objetivos.',
+        'type': 'system',
+        'priority': 'medium',
+        'action_url': '',
+        'segment_key': 'review_candidates',
+    },
+    'reactivation': {
+        'name': 'Reactivación de usuarios',
+        'description': 'Reactiva usuarios que llevan días sin entrar en la app.',
+        'title': 'Volvamos a ponernos en marcha',
+        'message': 'Si estos días te has desconectado, vuelve hoy con una sesión corta o registra tu comida para retomar el ritmo.',
+        'type': 'general',
+        'priority': 'high',
+        'action_url': '',
+        'segment_key': 'reactivation_candidates',
+    },
+    'progress': {
+        'name': 'Check-in de progreso',
+        'description': 'Solicita peso, fotos o sensaciones cuando faltan registros recientes.',
+        'title': 'Sube tu check-in de progreso',
+        'message': 'Actualiza tu peso, fotos o sensaciones para que la app refleje mejor tu evolución y podamos ajustar contigo.',
+        'type': 'progress',
+        'priority': 'medium',
+        'action_url': '',
+        'segment_key': 'progress_candidates',
+    },
+    'weekly-report': {
+        'name': 'Reporte semanal interno',
+        'description': 'Resume el estado operativo para admins y trainers.',
+        'title': 'Resumen semanal NexFit365',
+        'message': '',
+        'type': 'system',
+        'priority': 'medium',
+        'action_url': '',
+        'segment_key': 'weekly_report_recipients',
+    },
+}
 
 
 def _normalize_notification_type(raw_type: str) -> str:
@@ -57,6 +106,188 @@ def _default_expiration_for_type(notification_type: str):
         'general': now + timedelta(days=10),
     }
     return expiration_by_type.get(notification_type, now + timedelta(days=10))
+
+
+def _member_queryset():
+    User = get_user_model()
+    return User.objects.filter(is_active=True).exclude(
+        Q(is_superuser=True) |
+        Q(is_staff=True) |
+        Q(role__iexact='admin') |
+        Q(role__iexact='trainer')
+    )
+
+
+def _admin_queryset():
+    User = get_user_model()
+    return User.objects.filter(is_active=True).filter(
+        Q(is_superuser=True) |
+        Q(is_staff=True) |
+        Q(role__iexact='admin') |
+        Q(role__iexact='trainer')
+    )
+
+
+def _collect_automation_snapshot():
+    now = timezone.now()
+    members = _member_queryset()
+    admins = _admin_queryset()
+    seven_days_ago = now - timedelta(days=7)
+    fourteen_days_ago = now - timedelta(days=14)
+    progress_cutoff = now - timedelta(days=10)
+
+    review_qs = members.filter(Q(last_login__isnull=True) | Q(last_login__lt=seven_days_ago))
+    reactivation_qs = members.filter(Q(last_login__isnull=True) | Q(last_login__lt=fourteen_days_ago))
+
+    try:
+        recent_progress_user_ids = set(
+            WeightEntry.objects.filter(date__gte=progress_cutoff.date()).values_list('user_id', flat=True)
+        ) | set(
+            ProgressPhoto.objects.filter(created_at__gte=progress_cutoff).values_list('user_id', flat=True)
+        )
+    except DatabaseError:
+        recent_progress_user_ids = set()
+    progress_qs = members.exclude(id__in=recent_progress_user_ids)
+
+    pending_coaching = 0
+    if CoachingInquiry is not None:
+        try:
+            pending_coaching = CoachingInquiry.objects.filter(status__in=['new', 'contacted', 'qualified']).count()
+        except DatabaseError:
+            pending_coaching = 0
+
+    try:
+        unread_notifications = Notification.objects.filter(
+            type__in=IMPORTANT_NOTIFICATION_TYPES,
+            read_at__isnull=True,
+        ).count()
+    except DatabaseError:
+        unread_notifications = 0
+
+    segments = {
+        'review_candidates': review_qs.count(),
+        'reactivation_candidates': reactivation_qs.count(),
+        'progress_candidates': progress_qs.count(),
+        'weekly_report_recipients': admins.count(),
+        'pending_coaching_leads': pending_coaching,
+        'active_members': members.count(),
+        'active_last_7_days': members.filter(last_login__gte=seven_days_ago).count(),
+        'unread_notifications': unread_notifications,
+    }
+
+    return {
+        'generated_at': now,
+        'segments': segments,
+        'querysets': {
+            'review': review_qs,
+            'reactivation': reactivation_qs,
+            'progress': progress_qs,
+            'weekly-report': admins,
+        },
+    }
+
+
+def _build_weekly_brief(snapshot):
+    segments = snapshot['segments']
+    active_members = max(segments['active_members'], 1)
+    active_rate = round((segments['active_last_7_days'] / active_members) * 100)
+
+    lines = [
+        'Resumen semanal NexFit365',
+        f"• Activación reciente: {active_rate}% de miembros activos en los últimos 7 días.",
+        f"• Usuarios para revisión: {segments['review_candidates']}.",
+        f"• Usuarios para reactivar: {segments['reactivation_candidates']}.",
+        f"• Check-ins de progreso pendientes: {segments['progress_candidates']}.",
+        f"• Leads 1 a 1 pendientes de seguimiento: {segments['pending_coaching_leads']}.",
+        f"• Notificaciones aún sin leer: {segments['unread_notifications']}.",
+    ]
+
+    if segments['reactivation_candidates'] > 0:
+        lines.append('• Siguiente foco: lanzar reactivación segmentada a usuarios fríos.')
+    elif segments['progress_candidates'] > 0:
+        lines.append('• Siguiente foco: pedir check-ins para reforzar el reporting de resultados.')
+    else:
+        lines.append('• Siguiente foco: mantener cadencia y seguir afinando automatizaciones programadas.')
+
+    return "\n".join(lines)
+
+
+def _get_last_automation_runs():
+    last_runs = {}
+    recent_items = Notification.objects.filter(
+        data__created_by_automation=True,
+        data__automation_summary=True,
+    ).order_by('-created_at')[:25]
+
+    for item in recent_items:
+        automation_key = item.data.get('automation_key')
+        if automation_key and automation_key not in last_runs:
+            last_runs[automation_key] = {
+                'last_run_at': item.created_at.isoformat(),
+                'targeted_users': item.data.get('targeted_users', 0),
+            }
+
+    return last_runs
+
+
+def _run_automation_for_key(automation_key, actor):
+    config = AUTOMATION_RULES.get(automation_key)
+    if not config:
+        raise ValueError('Automatización no soportada')
+
+    snapshot = _collect_automation_snapshot()
+    target_qs = snapshot['querysets'][automation_key]
+    target_ids = list(target_qs.values_list('id', flat=True))
+    normalized_type = _normalize_notification_type(config['type'])
+    expires_at = _default_expiration_for_type(normalized_type)
+    message = _build_weekly_brief(snapshot) if automation_key == 'weekly-report' else config['message']
+
+    created = 0
+    for user_id in target_ids:
+        Notification.objects.create(
+            user_id=user_id,
+            type=normalized_type,
+            title=config['title'],
+            message=message,
+            data={
+                'priority': config['priority'],
+                'created_by_admin': True,
+                'created_by_admin_id': str(actor.id),
+                'created_by_automation': True,
+                'automation_key': automation_key,
+                'automation_generated_at': snapshot['generated_at'].isoformat(),
+            },
+            action_url=config.get('action_url', ''),
+            expires_at=expires_at,
+        )
+        created += 1
+
+    Notification.objects.create(
+        user=actor,
+        type='system',
+        title=f"Automatización ejecutada: {config['name']}",
+        message=f"Se ha lanzado la automatización '{config['name']}' para {created} usuarios.",
+        data={
+            'priority': 'medium',
+            'created_by_automation': True,
+            'automation_summary': True,
+            'automation_key': automation_key,
+            'targeted_users': created,
+            'segments': snapshot['segments'],
+        },
+        action_url='',
+        expires_at=timezone.now() + timedelta(days=30),
+    )
+
+    return {
+        'message': f"Automatización '{config['name']}' ejecutada para {created} usuarios.",
+        'automation_key': automation_key,
+        'notifications_created': created,
+        'targeted_users': created,
+        'weekly_brief': _build_weekly_brief(snapshot),
+        'segments': snapshot['segments'],
+        'generated_at': snapshot['generated_at'].isoformat(),
+    }
 
 class AdminNotificationSendThrottle(UserRateThrottle):
     scope = 'admin_notifications_send'
@@ -104,7 +335,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def get_throttles(self):
-        if self.action in ['send_bulk', 'send_to_all']:
+        if self.action in ['send_bulk', 'send_to_all', 'run_automation']:
             return [AdminNotificationSendThrottle()]
         return super().get_throttles()
 
@@ -260,6 +491,45 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             'type_distribution': list(type_stats),
         })
     
+    @action(detail=False, methods=['get'], url_path='automation-summary')
+    def automation_summary(self, request):
+        snapshot = _collect_automation_snapshot()
+        last_runs = _get_last_automation_runs()
+        rules = []
+
+        for key, config in AUTOMATION_RULES.items():
+            segment_key = config['segment_key']
+            rules.append({
+                'key': key,
+                'name': config['name'],
+                'description': config['description'],
+                'recommended': snapshot['segments'].get(segment_key, 0) > 0,
+                'audience_size': snapshot['segments'].get(segment_key, 0),
+                'last_run_at': last_runs.get(key, {}).get('last_run_at'),
+                'last_targeted_users': last_runs.get(key, {}).get('targeted_users', 0),
+            })
+
+        return Response({
+            'generated_at': snapshot['generated_at'].isoformat(),
+            'weekly_brief': _build_weekly_brief(snapshot),
+            'segments': snapshot['segments'],
+            'automation_rules': rules,
+        })
+
+    @action(detail=False, methods=['post'], url_path='run-automation')
+    def run_automation(self, request):
+        automation_key = request.data.get('automation_key')
+
+        if not automation_key:
+            return Response({'error': 'Se requiere automation_key'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            payload = _run_automation_for_key(str(automation_key), request.user)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(payload, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
         """Marcar notificación como leída"""

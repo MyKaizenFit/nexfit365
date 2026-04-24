@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { 
-  TrendingUp, 
-  Target, 
-  Calendar, 
-  Trophy, 
-  BarChart3, 
-  Camera, 
+import {
+  TrendingUp,
+  Target,
+  Calendar,
+  Trophy,
+  BarChart3,
+  Camera,
   Plus,
   ChevronLeft,
   ChevronRight,
@@ -53,6 +53,7 @@ import { NutritionSummary } from "./nutrition-summary"
 import { PhotoCarousel } from "./photo-carousel"
 import { WeightDialog } from "./weight-dialog"
 import { SleepPerformanceChart } from "./sleep-performance-chart"
+import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 import Image from "next/image"
 import { toast } from "@/hooks/use-toast"
 
@@ -73,16 +74,16 @@ export function ProgressDashboard() {
   const { meals: dailyMeals, macros } = useDailyMeals()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats } = useProgressStats()
   const { entries: weightEntries, loading: weightLoading, addEntry: addWeightEntry, updateEntry: updateWeightEntry } = useWeightHistory()
-  
+
   // Calcular totales desde las macros
   const totalCalories = macros.caloriesConsumed
   const totalProtein = macros.proteinConsumed
   const totalCarbs = macros.carbsConsumed
   const totalFat = macros.fatConsumed
-  
+
   // Asegurar que photos sea siempre un array
   const safePhotos = Array.isArray(photos) ? photos : []
-  
+
   // Estados locales
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
@@ -93,7 +94,7 @@ export function ProgressDashboard() {
   const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
-  
+
   // Nuevos estados para métricas
   const [editingWeightEntry, setEditingWeightEntry] = useState<WeightEntry | null>(null)
   const [newWeight, setNewWeight] = useState("")
@@ -111,13 +112,13 @@ export function ProgressDashboard() {
   const handleAddWeight = async (weight: number, date: string, notes: string) => {
     try {
       await addWeightEntry(weight, date, notes)
-      
+
       // Sincronizar todos los datos relacionados con peso
       await Promise.all([
         refreshUserStats(),    // Actualizar datos del usuario
         refreshStats(),        // Actualizar estadísticas de progreso
       ])
-      
+
       toast({
         title: "Peso registrado",
         description: "Tu peso ha sido registrado exitosamente",
@@ -134,13 +135,13 @@ export function ProgressDashboard() {
   const handleUpdateWeight = async (id: string | number, weight: number, date: string, notes: string) => {
     try {
       await updateWeightEntry(id, weight, date, notes)
-      
+
       // Sincronizar todos los datos relacionados con peso
       await Promise.all([
         refreshUserStats(),    // Actualizar datos del usuario
         refreshStats(),        // Actualizar estadísticas de progreso
       ])
-      
+
       toast({
         title: "Peso actualizado",
         description: "Tu peso ha sido actualizado exitosamente",
@@ -166,19 +167,19 @@ export function ProgressDashboard() {
 
   // Obtener workout logs reales
   const { workoutLogs } = useWorkouts()
-  
+
   // Convertir workoutLogs a workoutSessions con nombres descriptivos
   const workoutSessions: WorkoutSession[] = workoutLogs.length > 0 ? workoutLogs.map((log) => {
     // Generar nombre descriptivo
     let workoutName = log.workout_day_name || 'Entrenamiento'
-    
+
     // Si es un UUID, intentar generar nombre basado en la fecha
     if (!log.workout_day_name && log.workout_day && log.workout_day.length > 20) {
       const date = new Date(log.date)
       const dayName = date.toLocaleDateString('es-ES', { weekday: 'long' })
       workoutName = `Entrenamiento ${dayName.charAt(0).toUpperCase() + dayName.slice(1)}`
     }
-    
+
     return {
       id: log.id,
       date: log.date,
@@ -197,7 +198,7 @@ export function ProgressDashboard() {
     // Prioridad: peso del usuario > estadísticas > valor por defecto
     return user?.weight || userStats?.currentWeight || null
   }
-  
+
   const getWeightChange = () => {
     if (weightEntries && weightEntries.length >= 2) {
       const latest = weightEntries[0].weight
@@ -206,7 +207,7 @@ export function ProgressDashboard() {
     }
     return userStats?.weightChange || 0
   }
-  
+
   const currentWeight = getCurrentWeight()
   const weightChange = getWeightChange()
   const targetWeight = user?.target_weight || userStats?.targetWeight || null
@@ -216,6 +217,27 @@ export function ProgressDashboard() {
   const caloriesGoal = userStats?.caloriesGoal || 2000
   const caloriesRemaining = Math.max(0, caloriesGoal - caloriesFromMeals)
   const caloriesProgress = Math.min((caloriesFromMeals / caloriesGoal) * 100, 100)
+
+  const getAlignmentScore = (consumed: number, goal: number) => {
+    if (!goal || goal <= 0) return 0
+    const percentage = (consumed / goal) * 100
+    return Math.max(0, Math.min(100, 100 - Math.abs(100 - percentage)))
+  }
+
+  const completedMealsToday = dailyMeals.filter((meal) => meal.isCompleted && meal.selectedOption).length
+  const totalMealsToday = dailyMeals.length
+  const macroTargetsHit = [
+    totalProtein >= macros.proteinGoal * 0.9 && totalProtein <= macros.proteinGoal * 1.1,
+    totalCarbs >= macros.carbsGoal * 0.9 && totalCarbs <= macros.carbsGoal * 1.1,
+    totalFat >= macros.fatGoal * 0.9 && totalFat <= macros.fatGoal * 1.1,
+  ].filter(Boolean).length
+  const nutritionAdherence = Math.round((
+    getAlignmentScore(caloriesFromMeals, caloriesGoal) +
+    getAlignmentScore(totalProtein, macros.proteinGoal) +
+    getAlignmentScore(totalCarbs, macros.carbsGoal) +
+    getAlignmentScore(totalFat, macros.fatGoal) +
+    (totalMealsToday > 0 ? (completedMealsToday / totalMealsToday) * 100 : 0)
+  ) / 5)
 
 
 
@@ -255,9 +277,9 @@ export function ProgressDashboard() {
         })
         return
       }
-      
+
       await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType)
-      
+
       // Agregar automáticamente el peso al historial
       try {
         await addWeightEntry(weight, new Date().toISOString().split('T')[0], `Peso registrado al subir foto de progreso${newPhotoNotes ? `: ${newPhotoNotes}` : ''}`)
@@ -273,7 +295,7 @@ export function ProgressDashboard() {
           description: "Tu nueva foto de progreso ha sido guardada correctamente.",
         })
       }
-      
+
       // Reset form
       setSelectedFile(null)
       setNewPhotoWeight("")
@@ -319,7 +341,7 @@ export function ProgressDashboard() {
             Tu Progreso Increíble 📈
           </h2>
         </div>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {[...Array(6)].map((_, i) => (
             <Card key={i} className="animate-pulse">
@@ -385,10 +407,10 @@ export function ProgressDashboard() {
                   )}
                 </div>
                 <p className="text-xs text-blue-600">
-                  {new Date(weightEntries[0].date).toLocaleDateString('es-ES', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
+                  {new Date(weightEntries[0].date).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
                   })}
                 </p>
                 {targetWeight && (
@@ -413,10 +435,10 @@ export function ProgressDashboard() {
             <CardContent>
               <div className="space-y-2">
                 <div className="text-xs text-purple-600">
-                  {new Date(safePhotos[0].date).toLocaleDateString('es-ES', { 
-                    day: 'numeric', 
-                    month: 'long', 
-                    year: 'numeric' 
+                  {new Date(safePhotos[0].date).toLocaleDateString('es-ES', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
                   })}
                 </div>
                 {safePhotos[0].weight && (
@@ -446,14 +468,14 @@ export function ProgressDashboard() {
                 {workoutSessions.filter(s => s.completed).slice(0, 1).map((session) => (
                   <div key={session.id}>
                     <p className="text-sm font-semibold text-emerald-700 truncate">
-                      {session.type && session.type.length > 30 
+                      {session.type && session.type.length > 30
                         ? session.type.substring(0, 30) + '...'
                         : session.type || 'Entrenamiento'}
                     </p>
                     <p className="text-xs text-emerald-600">
-                      {new Date(session.date).toLocaleDateString('es-ES', { 
-                        day: 'numeric', 
-                        month: 'long' 
+                      {new Date(session.date).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'long'
                       })}
                       {session.duration > 0 && ` • ${session.duration} min`}
                     </p>
@@ -479,6 +501,23 @@ export function ProgressDashboard() {
             <div className="space-y-2">
               <p className="text-2xl font-bold text-amber-700">{daysInTransformation}</p>
               <p className="text-xs text-amber-600">día{daysInTransformation !== 1 ? 's' : ''} de tu viaje</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-rose-50 to-orange-50 border-rose-200">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-rose-900 flex items-center gap-2">
+              <Target className="h-4 w-4" />
+              Adherencia de Hoy
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-2xl font-bold text-rose-700">{nutritionAdherence}%</p>
+              <p className="text-xs text-rose-600">
+                {completedMealsToday}/{totalMealsToday || 0} comidas y {macroTargetsHit}/3 macros en rango
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -549,7 +588,7 @@ export function ProgressDashboard() {
             onUploadPhoto={() => setIsUploadDialogOpen(true)}
             onRefreshPhotos={refreshPhotos}
           />
-          
+
 
         </TabsContent>
 
@@ -580,7 +619,7 @@ export function ProgressDashboard() {
                     Mantén tu consistencia para obtener los mejores resultados
                   </p>
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span>Días en transformación</span>
@@ -600,101 +639,22 @@ export function ProgressDashboard() {
 
         {/* Tab de Entrenamientos */}
         <TabsContent value="workouts" className="space-y-6">
-          <Card>
+          <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-fuchsia-50">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Dumbbell className="h-5 w-5 text-purple-600" />
-                Histórico de Entrenamientos
+                <Dumbbell className="h-5 w-5 text-violet-600" />
+                Progresión de fuerza
               </CardTitle>
-              <CardDescription>Tu actividad física y progreso a lo largo del tiempo</CardDescription>
+              <CardDescription>
+                Aquí ya puedes ver récords personales, carga máxima y evolución del tonelaje con tus datos reales.
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {/* Resumen de la semana */}
-                <div className="grid grid-cols-3 gap-4 p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg border border-purple-200">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-700">
-                      {userStats?.workoutsThisWeek || 0}
-                    </div>
-                    <div className="text-xs text-purple-600">Esta semana</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-700">
-                      {workoutSessions.filter(s => s.completed).length}
-                    </div>
-                    <div className="text-xs text-purple-600">Total completados</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-purple-700">
-                      {userStats?.workoutsGoal || 5}
-                    </div>
-                    <div className="text-xs text-purple-600">Objetivo semanal</div>
-                  </div>
-                </div>
-
-                {/* Histórico de entrenamientos - Ordenados por fecha (más recientes primero) */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm text-muted-foreground">Últimos entrenamientos</h4>
-                  {workoutSessions.length > 0 ? (
-                    <div className="space-y-2 max-h-96 overflow-y-auto">
-                      {workoutSessions.map((session) => (
-                        <div key={session.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg hover:bg-muted/70 transition-colors">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            {session.completed ? (
-                              <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                            ) : (
-                              <AlertCircle className="h-5 w-5 text-yellow-600 flex-shrink-0" />
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">
-                                {session.type && session.type.length > 36 
-                                  ? (session.type.includes('-') 
-                                      ? session.type.split('-').slice(1).join('-').trim() || session.type
-                                      : `Entrenamiento ${new Date(session.date).toLocaleDateString('es-ES', { weekday: 'long' })}`)
-                                  : (session.type || `Entrenamiento ${new Date(session.date).toLocaleDateString('es-ES', { weekday: 'long' })}`)}
-                              </div>
-                              <div className="text-sm text-muted-foreground flex items-center gap-2">
-                                <Calendar className="h-3 w-3" />
-                                {new Date(session.date).toLocaleDateString('es-ES', { 
-                                  day: 'numeric', 
-                                  month: 'short', 
-                                  year: 'numeric',
-                                  hour: '2-digit',
-                                  minute: '2-digit'
-                                })}
-                                {session.duration > 0 && (
-                                  <>
-                                    <span>•</span>
-                                    <Clock className="h-3 w-3" />
-                                    <span>{session.duration} min</span>
-                                  </>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <Badge 
-                            variant={session.completed ? "default" : "secondary"}
-                            className={`flex-shrink-0 ${session.completed ? "bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0" : ""}`}
-                          >
-                            {session.completed ? "Completado" : "Pendiente"}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground">
-                      <Dumbbell className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                      <p>No hay entrenamientos registrados</p>
-                      <p className="text-sm">Comienza registrando tus entrenamientos</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
           </Card>
+
+          <WorkoutHistoryEnhanced workoutLogs={workoutLogs} />
         </TabsContent>
 
-                {/* Tab de Nutrición */}
+        {/* Tab de Nutrición */}
         <TabsContent value="nutrition" className="space-y-6">
           <NutritionSummary
             caloriesConsumed={caloriesFromMeals}
@@ -724,7 +684,7 @@ export function ProgressDashboard() {
               Selecciona una foto y especifica tu peso actual para registrar tu progreso.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="space-y-4">
             {/* Selección de archivo */}
             <div>

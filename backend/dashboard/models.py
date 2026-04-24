@@ -1,4 +1,7 @@
+import os
 import uuid
+from datetime import timedelta
+from urllib.parse import quote
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
@@ -325,6 +328,265 @@ class DefaultPlanConfiguration(TimeStampedModel):
         return True
 
 
+class CoachingPlan(TimeStampedModel):
+    """Planes del servicio personalizado 1:1 mostrados dentro de la app."""
+
+    class Tier(models.TextChoices):
+        BASIC = "basic", "Basic"
+        VIP = "vip", "VIP"
+
+    slug = models.SlugField(max_length=80, unique=True)
+    name = models.CharField(max_length=150)
+    duration_label = models.CharField(max_length=80, help_text="Duración visible del plan")
+    tier = models.CharField(max_length=20, choices=Tier.choices, default=Tier.BASIC)
+    summary = models.CharField(max_length=255, blank=True)
+    benefits = models.JSONField(default=list, blank=True)
+    cta_text = models.CharField(max_length=120, default="Quiero que evaluéis mi caso")
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "created_at"]
+        verbose_name = "Plan 1 a 1"
+        verbose_name_plural = "Planes 1 a 1"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def ensure_defaults(cls):
+        if cls.objects.exists():
+            return
+
+        defaults = [
+            {
+                "slug": "trimestral-basic",
+                "name": "Trimestral Basic",
+                "duration_label": "3 meses",
+                "tier": cls.Tier.BASIC,
+                "summary": "Ideal si quieres estructura y revisión periódica.",
+                "benefits": [
+                    "Revisión quincenal (respuesta cada 15 días)",
+                    "Lista de correo privada vitalicia",
+                    "Curso de regalo",
+                    "Acceso a la App para clientes",
+                ],
+                "sort_order": 1,
+            },
+            {
+                "slug": "trimestral-vip",
+                "name": "Trimestral VIP",
+                "duration_label": "3 meses",
+                "tier": cls.Tier.VIP,
+                "summary": "Seguimiento más cercano y 100% personalizado.",
+                "benefits": [
+                    "Respuesta en 24h",
+                    "Revisión semanal",
+                    "Lista de correo privada vitalicia",
+                    "Curso de regalo",
+                    "100% personalizado",
+                    "Acceso a la App para clientes",
+                ],
+                "sort_order": 2,
+            },
+            {
+                "slug": "semestral-vip",
+                "name": "Semestral VIP",
+                "duration_label": "6 meses",
+                "tier": cls.Tier.VIP,
+                "summary": "Más continuidad para consolidar resultados.",
+                "benefits": [
+                    "Respuesta en 24h",
+                    "Revisión semanal",
+                    "Lista de correo privada vitalicia",
+                    "1 videollamada al final del trimestre",
+                    "100% personalizado",
+                    "Acceso a la App para clientes",
+                ],
+                "sort_order": 3,
+            },
+            {
+                "slug": "anual-vip",
+                "name": "Anual VIP",
+                "duration_label": "12 meses",
+                "tier": cls.Tier.VIP,
+                "summary": "La opción más completa para una transformación profunda.",
+                "benefits": [
+                    "Respuesta en 24h",
+                    "Revisión semanal",
+                    "Lista de correo privada vitalicia",
+                    "3 videollamadas (1 por trimestre)",
+                    "100% personalizado",
+                    "Acceso a la App para clientes",
+                    "Cualquier info-producto de hasta 200€ gratis vitalicio",
+                ],
+                "sort_order": 4,
+            },
+        ]
+
+        for item in defaults:
+            cls.objects.get_or_create(slug=item["slug"], defaults=item)
+
+
+class CoachingInquiry(TimeStampedModel):
+    """Solicitud enviada por un usuario para evaluar su caso y contratar ayuda 1:1."""
+
+    class PreferredContact(models.TextChoices):
+        WHATSAPP = "whatsapp", "WhatsApp"
+        EMAIL = "email", "Email"
+        BOTH = "both", "Ambos"
+
+    class SourceScreen(models.TextChoices):
+        DASHBOARD = "dashboard-home", "Dashboard"
+        WORKOUTS = "workouts", "Entrenamientos"
+        MEALS = "meals", "Nutrición"
+        MEASUREMENTS = "measurements", "Progreso"
+        COACHING_PAGE = "coaching-page", "Página de coaching"
+        LANDING = "landing", "Landing"
+        OTHER = "other", "Otro"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        CONTACTED = "contacted", "Contactado"
+        SCHEDULED = "scheduled", "Llamada agendada"
+        QUALIFIED = "qualified", "Cualificado"
+        CLOSED = "closed", "Cerrado"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="coaching_inquiries",
+    )
+    plan = models.ForeignKey(
+        CoachingPlan,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="inquiries",
+    )
+    full_name = models.CharField(max_length=200, blank=True)
+    email = models.EmailField(blank=True)
+    phone_number = models.CharField(max_length=50, blank=True)
+    goal = models.TextField(help_text="Objetivo principal del usuario")
+    current_challenge = models.TextField(blank=True, help_text="Principal bloqueo actual")
+    availability = models.CharField(max_length=255, blank=True, help_text="Disponibilidad para llamada")
+    preferred_contact = models.CharField(
+        max_length=20,
+        choices=PreferredContact.choices,
+        default=PreferredContact.WHATSAPP,
+    )
+    source_screen = models.CharField(
+        max_length=40,
+        choices=SourceScreen.choices,
+        default=SourceScreen.DASHBOARD,
+        blank=True,
+        help_text="Pantalla o entrada desde la que el usuario abrió el funnel 1:1",
+    )
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    notes = models.TextField(blank=True, help_text="Notas internas del equipo")
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Solicitud coaching"
+        verbose_name_plural = "Solicitudes coaching"
+        indexes = [
+            models.Index(fields=["status", "created_at"]),
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.full_name or self.email or self.user} - {self.get_status_display()}"
+
+    def save(self, *args, **kwargs):
+        if self.user:
+            if not self.full_name:
+                self.full_name = self.user.get_full_name().strip() or self.user.email
+            if not self.email:
+                self.email = self.user.email
+            if not self.phone_number and getattr(self.user, "phone_number", None):
+                self.phone_number = self.user.phone_number
+        super().save(*args, **kwargs)
+
+    def build_prefilled_message(self):
+        plan_name = self.plan.name if self.plan else "servicio personalizado 1:1"
+        return (
+            "Hola, acabo de rellenar el formulario de evaluación de la app y me gustaría que valorarais mi caso.\n\n"
+            f"Plan de interés: {plan_name}\n"
+            f"Nombre: {self.full_name or '-'}\n"
+            f"Email: {self.email or '-'}\n"
+            f"Teléfono: {self.phone_number or '-'}\n"
+            f"Objetivo: {self.goal}\n"
+            f"Bloqueo actual: {self.current_challenge or '-'}\n"
+            f"Disponibilidad: {self.availability or '-'}\n"
+            f"Origen en la app: {self.get_source_screen_display() or self.source_screen}"
+        )
+
+    def get_whatsapp_url(self):
+        raw_number = os.getenv("COACHING_WHATSAPP_NUMBER", "+34600000000")
+        clean_number = "".join(ch for ch in raw_number if ch.isdigit())
+        return f"https://wa.me/{clean_number}?text={quote(self.build_prefilled_message())}"
+
+    def get_mailto_url(self):
+        contact_email = os.getenv("COACHING_CONTACT_EMAIL") or HelpSettings.get_active().contact_email
+        subject = quote("Nueva solicitud de evaluación 1:1 desde la app")
+        body = quote(self.build_prefilled_message())
+        return f"mailto:{contact_email}?subject={subject}&body={body}"
+
+    def get_booking_url(self):
+        direct_url = os.getenv("COACHING_BOOKING_URL")
+        if direct_url:
+            return direct_url
+
+        active_settings = HelpSettings.get_active()
+        if active_settings.coaching_booking_enabled and active_settings.coaching_booking_url:
+            return active_settings.coaching_booking_url
+
+        return "https://calendly.com/nexfit365/valoracion-inicial"
+
+    @property
+    def days_waiting(self):
+        return max(0, (timezone.now() - self.created_at).days)
+
+    @property
+    def needs_follow_up(self):
+        return self.status in {self.Status.PENDING, self.Status.CONTACTED} and self.created_at <= timezone.now() - timedelta(hours=48)
+
+    def build_followup_message(self):
+        plan_name = self.plan.name if self.plan else "el servicio personalizado 1:1"
+        greeting = f"Hola {self.full_name.split()[0]}," if self.full_name else "Hola,"
+        return (
+            f"{greeting} te escribo del equipo de NexFit365. "
+            f"Hemos visto tu interés en {plan_name} y queríamos saber si sigues queriendo que valoremos tu caso. "
+            "Si te viene bien, responde a este mensaje y te dejamos la llamada de valoración cerrada."
+        )
+
+    def get_followup_whatsapp_url(self):
+        target_number = self.phone_number or getattr(self.user, "phone_number", "") or os.getenv("COACHING_WHATSAPP_NUMBER", "+34600000000")
+        clean_number = "".join(ch for ch in target_number if ch.isdigit())
+        if not clean_number:
+            return ""
+
+        if self.phone_number or getattr(self.user, "phone_number", ""):
+            message = self.build_followup_message()
+        else:
+            message = (
+                f"Seguimiento pendiente del lead {self.full_name or self.email or self.id}. "
+                f"Plan: {self.plan.name if self.plan else '1:1 personalizado'}. "
+                f"Objetivo: {self.goal}"
+            )
+
+        return f"https://wa.me/{clean_number}?text={quote(message)}"
+
+    def get_followup_mailto_url(self):
+        if not self.email:
+            return ""
+        subject = quote("Seguimiento de tu solicitud 1:1")
+        body = quote(self.build_followup_message())
+        return f"mailto:{self.email}?subject={subject}&body={body}"
+
+
 class HelpSettings(TimeStampedModel):
     """
     Configuración del sistema de ayuda.
@@ -349,6 +611,12 @@ class HelpSettings(TimeStampedModel):
         help_text="Email de contacto para soporte"
     )
     contact_enabled = models.BooleanField(default=True, help_text="Activar contacto por email")
+    coaching_booking_enabled = models.BooleanField(default=True, help_text="Activar agendado de llamadas para coaching 1:1")
+    coaching_booking_url = models.URLField(
+        blank=True,
+        null=True,
+        help_text="URL de Calendly, Meet u otra herramienta para agendar llamadas"
+    )
     
     # Configuración de Guías de Usuario
     guides_enabled = models.BooleanField(default=True, help_text="Activar página de guías")

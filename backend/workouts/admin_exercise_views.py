@@ -24,6 +24,8 @@ class LargeResultsSetPagination(PageNumberPagination):
 
 
 class AdminExerciseViewSet(viewsets.ModelViewSet):
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
     @action(detail=False, methods=['post'], url_path='import-csv')
     def import_csv(self, request):
                 """Importa ejercicios desde un archivo CSV. Solo añade o modifica, nunca elimina.
@@ -154,6 +156,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 
                 for row_num, row in enumerate(reader, start=2):
                     try:
+                        # Ignorar filas completamente vacias sin contarlas como omitidas.
+                        if all(value is None or str(value).strip() == '' for value in row.values()):
+                            continue
+
                         name = str(get_value(row, 'name', '') or '').strip()
                         if not name:
                             errors.append(f"Fila {row_num}: 'name' es requerido")
@@ -328,6 +334,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 
                 for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
                     try:
+                        # Ignorar filas completamente vacias sin contarlas como omitidas.
+                        if all(value is None or str(value).strip() == '' for value in row):
+                            continue
+
                         original_row_dict = dict(zip(headers, row))
                         row_dict = {}
                         for raw_key, raw_val in original_row_dict.items():

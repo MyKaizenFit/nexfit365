@@ -18,6 +18,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
     
     bmi = serializers.ReadOnlyField()
+    membership_days_remaining = serializers.ReadOnlyField()
+    has_active_membership = serializers.ReadOnlyField()
     profile_picture = serializers.ImageField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
     
@@ -34,6 +36,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'profile_picture', 'profile_picture_url',
             'daily_streak', 'longest_streak', 'last_completed_day',
             'role', 'is_staff', 'is_superuser', 'is_active', 'is_verified',
+            'subscription_status', 'subscription_plan', 'trial_started_at', 'trial_ends_at',
+            'subscription_started_at', 'subscription_ends_at', 'membership_days_remaining', 'has_active_membership',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'email', 'role', 'is_staff', 'is_superuser', 'is_active', 'is_verified', 'created_at', 'updated_at']
@@ -88,6 +92,9 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'daily_streak', 'longest_streak', 'last_completed_day',
             # Configuración
             'notification_preferences',
+            # Membresía
+            'subscription_status', 'subscription_plan', 'trial_started_at', 'trial_ends_at',
+            'subscription_started_at', 'subscription_ends_at', 'membership_days_remaining', 'has_active_membership',
             # Onboarding
             'onboarding_completed', 'onboarding_step',
             # Timestamps

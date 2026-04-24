@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale/es"
-import { Sparkles, PlusCircle, Star, CheckCircle2, XCircle, Loader2 } from "lucide-react"
+import { Sparkles, PlusCircle, Star, CheckCircle2, XCircle, Loader2, Pencil, Trash2 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -46,6 +46,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
   const [activeCategory, setActiveCategory] = useState<WellnessTipCategory | "all">("all")
   const [formData, setFormData] = useState<WellnessTipPayload>(emptyForm)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [editingTipId, setEditingTipId] = useState<string | null>(null)
 
   const tipRequestOptions = useMemo(
     () => ({
@@ -54,7 +55,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
     [activeCategory]
   )
 
-  const { tips, loading, error, refresh, createTip, updateTip } = useWellnessTips(tipRequestOptions)
+  const { tips, loading, error, refresh, createTip, updateTip, deleteTip } = useWellnessTips(tipRequestOptions)
 
   const filteredTips = useMemo(() => {
     if (activeCategory === "all") return tips
@@ -68,6 +69,11 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
     }))
   }
 
+  const resetForm = () => {
+    setFormData(emptyForm)
+    setEditingTipId(null)
+  }
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!isAdmin) return
@@ -77,13 +83,40 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
         ...formData,
         audience: formData.audience || "general",
       }
-      const result = await createTip(payload)
-      if (result) {
-        setFormData({ ...emptyForm, category: formData.category })
+
+      if (editingTipId) {
+        await updateTip(editingTipId, payload)
+        resetForm()
+      } else {
+        const result = await createTip(payload)
+        if (result) {
+          setFormData({ ...emptyForm, category: formData.category })
+        }
       }
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleEditTip = (tip: WellnessTip) => {
+    setEditingTipId(tip.id)
+    setFormData({
+      title: tip.title,
+      summary: tip.summary || "",
+      content: tip.content,
+      category: tip.category,
+      audience: tip.audience || "general",
+      is_active: tip.is_active,
+      is_highlighted: tip.is_highlighted,
+    })
+  }
+
+  const handleDeleteTip = async (tip: WellnessTip) => {
+    if (!isAdmin) return
+    const confirmed = window.confirm(`¿Eliminar el consejo "${tip.title}"?`)
+    if (!confirmed) return
+    await deleteTip(tip.id)
+    if (editingTipId === tip.id) resetForm()
   }
 
   const toggleTipField = async (tip: WellnessTip, field: "is_highlighted" | "is_active") => {
@@ -176,6 +209,10 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
                     </div>
                     {isAdmin ? (
                       <div className="flex flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => handleEditTip(tip)}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Editar
+                        </Button>
                         <Button size="sm" variant={tip.is_highlighted ? "default" : "outline"} onClick={() => toggleTipField(tip, "is_highlighted")}>
                           {tip.is_highlighted ? (
                             <>
@@ -202,6 +239,10 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
                             </>
                           )}
                         </Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteTip(tip)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Eliminar
+                        </Button>
                       </div>
                     ) : null}
                   </CardContent>
@@ -217,10 +258,12 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <PlusCircle className="h-5 w-5 text-primary" />
-              Añadir nuevo consejo
+              {editingTipId ? "Editar consejo" : "Añadir nuevo consejo"}
             </CardTitle>
             <CardDescription>
-              Comparte recomendaciones con la comunidad. Puedes destacar aquellos consejos que quieras resaltar en Inicio.
+              {editingTipId
+                ? "Actualiza el contenido del consejo seleccionado y guarda los cambios."
+                : "Comparte recomendaciones con la comunidad. Puedes destacar aquellos consejos que quieras resaltar en Inicio."}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -324,10 +367,10 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setFormData(emptyForm)}
+                  onClick={resetForm}
                   disabled={isSubmitting}
                 >
-                  Limpiar
+                  {editingTipId ? "Cancelar edición" : "Limpiar"}
                 </Button>
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
@@ -338,7 +381,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
                   ) : (
                     <>
                       <PlusCircle className="mr-2 h-4 w-4" />
-                      Publicar consejo
+                      {editingTipId ? "Guardar cambios" : "Publicar consejo"}
                     </>
                   )}
                 </Button>

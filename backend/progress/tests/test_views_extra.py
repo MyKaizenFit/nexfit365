@@ -13,6 +13,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from progress.models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
+from notifications.models import FeedbackMessage
 from workouts.models import WorkoutLog
 
 User = get_user_model()
@@ -174,6 +175,39 @@ class TestProgressStatsViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["summary"]["sleep_rating_pairs"] >= 1
         assert any(point["sleep_hours"] == 8.0 for point in response.data["points"])
+
+    def test_quinzenal_review_status_defaults(self, auth_client):
+        response = auth_client.get(reverse("progress-stats-quinzenal-review"))
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["needs_photos"] is True
+        assert response.data["needs_measurements"] is True
+        assert response.data["can_send"] is False
+
+    def test_submit_quinzenal_review_creates_feedback_message(self, auth_client, user):
+        today = date.today()
+        ProgressPhoto.objects.create(
+            user=user,
+            photo=make_test_image("quinzenal.png"),
+            photo_type="front",
+            date=today,
+            weight=Decimal("78.5"),
+        )
+        BodyMeasurement.objects.create(
+            user=user,
+            date=today,
+            chest=Decimal("95.0"),
+            waist=Decimal("82.0"),
+        )
+
+        response = auth_client.post(
+            reverse("progress-stats-submit-quinzenal-review"),
+            {"notes": "Me he sentido mejor estas semanas."},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["success"] is True
+        assert FeedbackMessage.objects.filter(user=user, subject="Revisión quincenal solicitada").exists()
 
 
 @pytest.mark.django_db

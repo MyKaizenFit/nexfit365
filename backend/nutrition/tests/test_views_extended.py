@@ -436,6 +436,18 @@ class TestRecipeViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert 'results' in response.json()
 
+    def test_list_recipes_legacy_alias_with_limit(self, user, recipe):
+        """El dashboard antiguo usa /api/recipes/?limit=6 y debe seguir funcionando."""
+        from rest_framework_simplejwt.tokens import RefreshToken
+        client = APIClient()
+        refresh = RefreshToken.for_user(user)
+        client.credentials(HTTP_AUTHORIZATION=f'Bearer {str(refresh.access_token)}')
+        response = client.get('/api/recipes/?limit=6')
+        assert response.status_code == status.HTTP_200_OK
+        payload = response.json()
+        assert 'results' in payload
+        assert payload['page_size'] == 6
+
     def test_list_recipes_no_auth(self):
         """list_recipes requiere autenticación"""
         client = APIClient()

@@ -255,6 +255,33 @@ class CustomUser(AbstractUser):
     password_reset_expires = models.DateTimeField(null=True, blank=True)
     must_change_password = models.BooleanField(default=False)
     temporary_password_used = models.BooleanField(default=False)
+
+    # ==========================================================================
+    # SUSCRIPCIÓN / PRUEBA GRATUITA
+    # ==========================================================================
+
+    SUBSCRIPTION_STATUS_CHOICES = [
+        ('none', 'Sin suscripción'),
+        ('trial', 'Prueba gratuita'),
+        ('active', 'Suscripción activa'),
+        ('expired', 'Suscripción expirada'),
+        ('cancelled', 'Suscripción cancelada'),
+    ]
+
+    SUBSCRIPTION_PLAN_CHOICES = [
+        ('none', 'Sin plan'),
+        ('trial', 'Prueba 7 días'),
+        ('monthly', 'Mensual'),
+        ('yearly', 'Anual'),
+        ('coaching', 'Coaching 1:1'),
+    ]
+
+    subscription_status = models.CharField(max_length=20, choices=SUBSCRIPTION_STATUS_CHOICES, default='none')
+    subscription_plan = models.CharField(max_length=20, choices=SUBSCRIPTION_PLAN_CHOICES, default='none')
+    trial_started_at = models.DateTimeField(null=True, blank=True)
+    trial_ends_at = models.DateTimeField(null=True, blank=True)
+    subscription_started_at = models.DateTimeField(null=True, blank=True)
+    subscription_ends_at = models.DateTimeField(null=True, blank=True)
     
     # ==========================================================================
     # TIMESTAMPS
@@ -281,6 +308,74 @@ class CustomUser(AbstractUser):
         self.password_reset_token = None
         self.password_reset_expires = None
         self.save(update_fields=["password_reset_token", "password_reset_expires", "updated_at"])
+
+    def refresh_membership_state(self, commit=True):
+        now = timezone.now()
+        updated_fields = []
+
+        if self.subscription_status == 'trial' and self.trial_ends_at and now >= self.trial_ends_at:
+            self.subscription_status = 'expired'
+            if self.subscription_plan == 'trial':
+                self.subscription_plan = 'none'
+            if self.role == 'premium':
+                self.role = 'basic'
+            updated_fields.extend(['subscription_status', 'subscription_plan', 'role'])
+
+        if self.subscription_status == 'active' and self.subscription_ends_at and now >= self.subscription_ends_at:
+            self.subscription_status = 'expired'
+            if self.role == 'premium':
+                self.role = 'basic'
+            updated_fields.extend(['subscription_status', 'role'])
+
+        if commit and updated_fields:
+            self.save(update_fields=list(set(updated_fields + ['updated_at'])))
+
+        return bool(updated_fields)
+
+    def start_free_trial(self, days=7):
+        self.refresh_membership_state(commit=True)
+
+        if self.trial_started_at:
+            if self.subscription_status == 'trial' and self.trial_ends_at and timezone.now() < self.trial_ends_at:
+                raise ValueError('Ya tienes una prueba gratuita activa.')
+            raise ValueError('La prueba gratuita ya fue utilizada anteriormente.')
+
+        now = timezone.now()
+        self.subscription_status = 'trial'
+        self.subscription_plan = 'trial'
+        self.trial_started_at = now
+        self.trial_ends_at = now + timedelta(days=days)
+
+        if self.role == 'basic':
+            self.role = 'premium'
+
+        self.save(update_fields=[
+            'subscription_status',
+            'subscription_plan',
+            'trial_started_at',
+            'trial_ends_at',
+            'role',
+            'updated_at',
+        ])
+        return self.trial_ends_at
+
+    @property
+    def has_active_membership(self):
+        self.refresh_membership_state(commit=False)
+        return self.subscription_status in {'trial', 'active'}
+
+    @property
+    def membership_days_remaining(self):
+        self.refresh_membership_state(commit=False)
+        end_at = self.trial_ends_at if self.subscription_status == 'trial' else self.subscription_ends_at
+        if not end_at:
+            return 0
+
+        remaining_seconds = (end_at - timezone.now()).total_seconds()
+        if remaining_seconds <= 0:
+            return 0
+
+        return max(1, int((remaining_seconds + 86399) // 86400))
 
     @property
     def bmi(self):

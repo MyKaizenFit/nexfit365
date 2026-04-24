@@ -3,7 +3,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
-import { Flame, Zap, Apple, Droplets, Info, Target, CheckCircle, AlertCircle } from "lucide-react"
+import { Flame, Zap, Apple, Droplets, Info, Target, CheckCircle, AlertCircle, Trophy } from "lucide-react"
 
 interface NutritionSummaryProps {
   caloriesConsumed: number
@@ -26,17 +26,17 @@ interface NutritionSummaryProps {
   className?: string
 }
 
-export function NutritionSummary({ 
-  caloriesConsumed, 
-  caloriesGoal, 
-  proteinConsumed, 
-  proteinGoal, 
-  carbsConsumed, 
-  carbsGoal, 
-  fatConsumed, 
+export function NutritionSummary({
+  caloriesConsumed,
+  caloriesGoal,
+  proteinConsumed,
+  proteinGoal,
+  carbsConsumed,
+  carbsGoal,
+  fatConsumed,
   fatGoal,
   dailyMeals,
-  className = "" 
+  className = ""
 }: NutritionSummaryProps) {
   // Calcular porcentajes
   const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
@@ -59,6 +59,34 @@ export function NutritionSummary({
   const proteinStatus = getMacroStatus(proteinConsumed, proteinGoal)
   const carbsStatus = getMacroStatus(carbsConsumed, carbsGoal)
   const fatStatus = getMacroStatus(fatConsumed, fatGoal)
+
+  const completedMeals = dailyMeals.filter((meal) => meal.isCompleted && meal.selectedOption).length
+  const totalMeals = dailyMeals.length
+  const plannedMeals = dailyMeals.filter((meal) => meal.selectedOption).length
+
+  const getAlignmentScore = (consumed: number, goal: number) => {
+    if (!goal || goal <= 0) return 0
+    const percentage = (consumed / goal) * 100
+    return Math.max(0, Math.min(100, 100 - Math.abs(100 - percentage)))
+  }
+
+  const caloriesAlignment = getAlignmentScore(caloriesConsumed, caloriesGoal)
+  const proteinAlignment = getAlignmentScore(proteinConsumed, proteinGoal)
+  const carbsAlignment = getAlignmentScore(carbsConsumed, carbsGoal)
+  const fatAlignment = getAlignmentScore(fatConsumed, fatGoal)
+  const mealAdherence = totalMeals > 0 ? Math.round((completedMeals / totalMeals) * 100) : 0
+  const optimalMacros = [proteinStatus, carbsStatus, fatStatus].filter((item) => item.status === 'optimal').length
+  const overallAdherence = Math.round((
+    caloriesAlignment + proteinAlignment + carbsAlignment + fatAlignment + mealAdherence
+  ) / 5)
+
+  const getAdherenceLabel = () => {
+    if (overallAdherence >= 85) return { label: 'Excelente', color: 'text-green-700 bg-green-50 border-green-200' }
+    if (overallAdherence >= 65) return { label: 'Buena', color: 'text-amber-700 bg-amber-50 border-amber-200' }
+    return { label: 'Mejorable', color: 'text-red-700 bg-red-50 border-red-200' }
+  }
+
+  const adherenceTone = getAdherenceLabel()
 
   // Obtener mensaje motivacional
   const getMotivationalMessage = () => {
@@ -83,18 +111,61 @@ export function NutritionSummary({
         <CardDescription>Tu balance energético y macronutrientes</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-4 space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="font-semibold text-emerald-900 flex items-center gap-2">
+                <Trophy className="h-4 w-4" />
+                Adherencia consolidada del día
+              </h3>
+              <p className="text-xs text-emerald-700">
+                Vista rápida de cumplimiento de comidas, calorías y macros.
+              </p>
+            </div>
+            <Badge variant="outline" className={adherenceTone.color}>
+              {adherenceTone.label}: {overallAdherence}%
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="rounded-lg bg-white/70 p-3 text-center">
+              <div className="text-[11px] text-muted-foreground">Comidas completas</div>
+              <div className="text-lg font-bold text-emerald-700">{completedMeals}/{totalMeals || 0}</div>
+            </div>
+            <div className="rounded-lg bg-white/70 p-3 text-center">
+              <div className="text-[11px] text-muted-foreground">Macros en objetivo</div>
+              <div className="text-lg font-bold text-emerald-700">{optimalMacros}/3</div>
+            </div>
+            <div className="rounded-lg bg-white/70 p-3 text-center">
+              <div className="text-[11px] text-muted-foreground">Calorías</div>
+              <div className="text-lg font-bold text-emerald-700">{Math.round(caloriesAlignment)}%</div>
+            </div>
+            <div className="rounded-lg bg-white/70 p-3 text-center">
+              <div className="text-[11px] text-muted-foreground">Planificadas</div>
+              <div className="text-lg font-bold text-emerald-700">{plannedMeals}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="secondary">Proteína {Math.round(proteinAlignment)}%</Badge>
+            <Badge variant="secondary">Carbs {Math.round(carbsAlignment)}%</Badge>
+            <Badge variant="secondary">Grasas {Math.round(fatAlignment)}%</Badge>
+            <Badge variant="secondary">Comidas {mealAdherence}%</Badge>
+          </div>
+        </div>
+
         {/* Calorías principales */}
         <div className="text-center space-y-4">
           <div className="text-4xl font-bold text-red-600">
             {caloriesConsumed} / {caloriesGoal}
           </div>
           <p className="text-sm text-muted-foreground">kcal consumidas</p>
-          
-          <Progress 
-            value={caloriesProgress} 
+
+          <Progress
+            value={caloriesProgress}
             className="h-4"
           />
-          
+
           <div className="text-sm text-muted-foreground">
             {getMotivationalMessage()}
           </div>
@@ -119,7 +190,7 @@ export function NutritionSummary({
         {/* Macros detallados */}
         <div className="space-y-4">
           <h4 className="font-medium text-center">Macronutrientes</h4>
-          
+
           {/* Proteína */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
@@ -135,17 +206,17 @@ export function NutritionSummary({
               </div>
             </div>
             <div className="py-1">
-              <Progress 
-                value={proteinProgress} 
+              <Progress
+                value={proteinProgress}
                 className="h-1.5 bg-gradient-to-r from-blue-50 to-blue-100/50"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>0g</span>
               <span className={proteinStatus.color}>
-                {proteinStatus.status === 'optimal' ? 'Óptimo' : 
-                 proteinStatus.status === 'low' ? 'Bajo' :
-                 proteinStatus.status === 'high' ? 'Alto' : 'Moderado'}
+                {proteinStatus.status === 'optimal' ? 'Óptimo' :
+                  proteinStatus.status === 'low' ? 'Bajo' :
+                    proteinStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
               <span>{proteinGoal}g</span>
             </div>
@@ -166,17 +237,17 @@ export function NutritionSummary({
               </div>
             </div>
             <div className="py-1">
-              <Progress 
-                value={carbsProgress} 
+              <Progress
+                value={carbsProgress}
                 className="h-1.5 bg-gradient-to-r from-green-50 to-green-100/50"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>0g</span>
               <span className={carbsStatus.color}>
-                {carbsStatus.status === 'optimal' ? 'Óptimo' : 
-                 carbsStatus.status === 'low' ? 'Bajo' :
-                 carbsStatus.status === 'high' ? 'Alto' : 'Moderado'}
+                {carbsStatus.status === 'optimal' ? 'Óptimo' :
+                  carbsStatus.status === 'low' ? 'Bajo' :
+                    carbsStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
               <span>{carbsGoal}g</span>
             </div>
@@ -197,17 +268,17 @@ export function NutritionSummary({
               </div>
             </div>
             <div className="py-1">
-              <Progress 
-                value={fatProgress} 
+              <Progress
+                value={fatProgress}
                 className="h-1.5 bg-gradient-to-r from-yellow-50 to-orange-50/50"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
               <span>0g</span>
               <span className={fatStatus.color}>
-                {fatStatus.status === 'optimal' ? 'Óptimo' : 
-                 fatStatus.status === 'low' ? 'Bajo' :
-                 fatStatus.status === 'high' ? 'Alto' : 'Moderado'}
+                {fatStatus.status === 'optimal' ? 'Óptimo' :
+                  fatStatus.status === 'low' ? 'Bajo' :
+                    fatStatus.status === 'high' ? 'Alto' : 'Moderado'}
               </span>
               <span>{fatGoal}g</span>
             </div>
@@ -232,23 +303,23 @@ export function NutritionSummary({
                       </div>
                     </div>
                   </div>
-                  
-                                     {meal.selectedOption ? (
-                     <div className="text-right">
-                       <div className="text-sm font-medium">
-                         {meal.selectedOption.calories} kcal
-                       </div>
-                       <div className="text-xs text-muted-foreground">
-                         P: {meal.selectedOption.protein}g | C: {meal.selectedOption.carbs}g | G: {meal.selectedOption.fat}g
-                       </div>
-                     </div>
-                   ) : (
-                     <div className="text-right">
-                       <div className="text-sm font-medium text-muted-foreground">
-                         Sin seleccionar
-                       </div>
-                     </div>
-                   )}
+
+                  {meal.selectedOption ? (
+                    <div className="text-right">
+                      <div className="text-sm font-medium">
+                        {meal.selectedOption.calories} kcal
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        P: {meal.selectedOption.protein}g | C: {meal.selectedOption.carbs}g | G: {meal.selectedOption.fat}g
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-muted-foreground">
+                        Sin seleccionar
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

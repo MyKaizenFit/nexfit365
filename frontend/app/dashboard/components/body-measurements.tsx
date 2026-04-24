@@ -1,7 +1,8 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Ruler, Plus, ChevronDown, ChevronUp, Loader2, Trash2, Calendar } from "lucide-react"
+import { useState, useEffect, useCallback, useMemo } from "react"
+import { Ruler, Plus, ChevronDown, ChevronUp, Loader2, Trash2, Calendar, TrendingUp } from "lucide-react"
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -61,6 +62,7 @@ export function BodyMeasurements() {
   const [deleting, setDeleting] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [selectedField, setSelectedField] = useState<keyof BodyMeasurement>("waist")
   const [form, setForm] = useState<FormState>(emptyForm())
 
   const load = useCallback(async () => {
@@ -79,6 +81,18 @@ export function BodyMeasurements() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const availableFields = useMemo(
+    () => FIELDS.filter((field) => measurements.some((item) => item[field.key] !== null && item[field.key] !== undefined)),
+    [measurements]
+  )
+
+  useEffect(() => {
+    if (!availableFields.length) return
+    if (!availableFields.some((field) => field.key === selectedField)) {
+      setSelectedField(availableFields[0].key)
+    }
+  }, [availableFields, selectedField])
 
   const handleSave = async () => {
     // Validar que al menos un campo de medida tenga valor
@@ -149,6 +163,36 @@ export function BodyMeasurements() {
     return `${d > 0 ? "+" : ""}${d.toFixed(1)} cm`
   }
 
+  const selectedFieldConfig = availableFields.find((field) => field.key === selectedField) || availableFields[0]
+
+  const chartData = useMemo(() => {
+    if (!selectedFieldConfig) return []
+
+    return [...measurements]
+      .reverse()
+      .map((item) => ({
+        date: formatDate(item.date),
+        value: item[selectedFieldConfig.key] !== null && item[selectedFieldConfig.key] !== undefined
+          ? Number(item[selectedFieldConfig.key])
+          : null,
+      }))
+      .filter((item) => item.value !== null)
+  }, [measurements, selectedFieldConfig])
+
+  const chartSummary = useMemo(() => {
+    if (chartData.length < 1) return null
+    const first = Number(chartData[0].value)
+    const last = Number(chartData[chartData.length - 1].value)
+    const diff = last - first
+
+    return {
+      first,
+      last,
+      diff,
+      diffLabel: `${diff > 0 ? "+" : ""}${diff.toFixed(1)} cm`,
+    }
+  }, [chartData])
+
   return (
     <Card>
       <CardHeader className="p-4 sm:p-6">
@@ -205,6 +249,77 @@ export function BodyMeasurements() {
                 )
               })}
             </div>
+
+            {selectedFieldConfig && chartData.length > 0 && (
+              <div className="rounded-xl border bg-background p-3 sm:p-4 space-y-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-violet-600" />
+                      Evolución histórica más clara
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      Selecciona una medida para ver su tendencia y el cambio acumulado.
+                    </p>
+                  </div>
+                  {chartSummary && (
+                    <Badge variant="outline" className={chartSummary.diff <= 0 ? "border-green-200 text-green-700" : "border-orange-200 text-orange-700"}>
+                      Cambio total: {chartSummary.diffLabel}
+                    </Badge>
+                  )}
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {availableFields.map((field) => (
+                    <Button
+                      key={String(field.key)}
+                      type="button"
+                      size="sm"
+                      variant={selectedFieldConfig.key === field.key ? "default" : "outline"}
+                      onClick={() => setSelectedField(field.key)}
+                    >
+                      {field.emoji} {field.label}
+                    </Button>
+                  ))}
+                </div>
+
+                {chartSummary && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg bg-muted/40 p-2 text-center">
+                      <div className="text-[11px] text-muted-foreground">Inicio</div>
+                      <div className="text-sm font-semibold">{chartSummary.first.toFixed(1)} cm</div>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-2 text-center">
+                      <div className="text-[11px] text-muted-foreground">Actual</div>
+                      <div className="text-sm font-semibold">{chartSummary.last.toFixed(1)} cm</div>
+                    </div>
+                    <div className="rounded-lg bg-muted/40 p-2 text-center">
+                      <div className="text-[11px] text-muted-foreground">Cambio</div>
+                      <div className="text-sm font-semibold">{chartSummary.diffLabel}</div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 8, right: 8, left: -16, bottom: 8 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+                      <YAxis tick={{ fontSize: 11 }} width={42} />
+                      <Tooltip formatter={(value: number | string) => [`${value} cm`, selectedFieldConfig.label]} />
+                      <Line
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#7c3aed"
+                        strokeWidth={3}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
 
             {/* Historial */}
             <div className="space-y-2 mt-2">
