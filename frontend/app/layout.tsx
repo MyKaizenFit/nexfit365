@@ -9,8 +9,13 @@ import { BetaBanner } from '@/components/beta-banner'
 import { RegisterServiceWorker } from './register-sw'
 // import { ThemeProvider } from '@/components/theme-provider'  // Deshabilitado para esta versión
 
+const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
+  || (process.env.NODE_ENV === 'production'
+    ? 'https://nexfit365.dpdns.org'
+    : 'http://localhost:3000')
+
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3001'),
+  metadataBase: new URL(frontendBaseUrl),
   title: 'NEXFIT - Tu Compañero de Fitness',
   description: 'Aplicación completa de fitness y bienestar para gestionar entrenamientos, nutrición y progreso',
   generator: 'NEXFIT v1.0',

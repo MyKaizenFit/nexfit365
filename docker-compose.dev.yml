@@ -11,9 +11,9 @@
 #   Logs:     COMPOSE_PROJECT_NAME=nexfit-dev docker compose -f docker-compose.dev.yml logs -f
 #   Build:    COMPOSE_PROJECT_NAME=nexfit-dev docker compose -f docker-compose.dev.yml up -d --build
 #
-# PUERTOS DE DESARROLLO (diferentes a producción):
-#   - Frontend: 3001 (prod: 3000)
-#   - Backend:  8001 (prod: 8000)
+# PUERTOS DE DESARROLLO (alineados con producción):
+#   - Frontend: 3000 (prod: 3000)
+#   - Backend:  8000 (prod: 8000)
 #   - DB:       5434 (prod: 5433)
 #
 # BASE DE DATOS SEPARADA:
@@ -86,14 +86,14 @@ services:
     command: >
       sh -c "
         echo '🔄 Aplicando migraciones...' &&
-        python manage.py migrate --noinput &&
+          (python manage.py migrate --noinput || echo 'Migración completada con errores') &&
         echo '📦 Recolectando archivos estáticos...' &&
-        python manage.py collectstatic --noinput &&
+        python manage.py collectstatic --noinput || true &&
         echo '🚀 Iniciando servidor de desarrollo...' &&
         python manage.py runserver 0.0.0.0:8000
       "
     ports:
-      - "0.0.0.0:8001:8000"
+      - "0.0.0.0:8000:8000"
     volumes:
       - ./backend:/app
       # Volúmenes nombrados para Windows (más rápido que bind mounts a rutas Linux)
@@ -129,7 +129,7 @@ services:
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:
-      - "0.0.0.0:3001:3000"
+      - "0.0.0.0:3000:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules
