@@ -62,6 +62,62 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { fixEncoding } from "@/lib/encoding-fix"
 import { WorkoutTemplatePlanEditor } from "./workout-template-plan-editor"
 
+interface WorkoutImportStats {
+  plans?: { created?: number; updated?: number; skipped?: number }
+  days?: { created?: number; updated?: number; skipped?: number }
+  exercises?: { created?: number; updated?: number; skipped?: number }
+  substitutes?: { created?: number; updated?: number; skipped?: number }
+}
+
+interface WorkoutImportSummary {
+  message?: string
+  created: number
+  updated: number
+  skipped: number
+  rejected: number
+  error_count: number
+  errors: string[]
+  stats?: WorkoutImportStats
+}
+
+interface GroupedImportError {
+  message: string
+  count: number
+}
+
+function formatImportError(error: unknown): string {
+  if (typeof error === "string") return error
+  if (typeof error === "number" || typeof error === "boolean") return String(error)
+  if (!error || typeof error !== "object") return "Error desconocido"
+
+  const obj = error as Record<string, unknown>
+  const rawMessage = obj.message || obj.error || obj.detail || obj.reason
+  if (typeof rawMessage === "string" && rawMessage.trim()) return rawMessage
+
+  const errors = Array.isArray(obj.errors)
+    ? obj.errors
+      .map((item) => (typeof item === "string" ? item : formatImportError(item)))
+      .filter((msg) => !!msg && msg !== "Error desconocido")
+    : []
+
+  if (errors.length > 0) return errors.join(" | ")
+
+  return JSON.stringify(error)
+}
+
+function totalizeImportStats(stats?: WorkoutImportStats) {
+  const plans = stats?.plans || {}
+  const days = stats?.days || {}
+  const exercises = stats?.exercises || {}
+  const substitutes = stats?.substitutes || {}
+
+  const created = (plans.created || 0) + (days.created || 0) + (exercises.created || 0) + (substitutes.created || 0)
+  const updated = (plans.updated || 0) + (days.updated || 0) + (exercises.updated || 0) + (substitutes.updated || 0)
+  const skipped = (plans.skipped || 0) + (days.skipped || 0) + (exercises.skipped || 0) + (substitutes.skipped || 0)
+
+  return { created, updated, skipped }
+}
+
 export function WorkoutPlanManagement() {
   const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
   const {
@@ -104,6 +160,7 @@ export function WorkoutPlanManagement() {
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [importResult, setImportResult] = useState<WorkoutImportSummary | null>(null)
 
   // Estados para flujo de dos pasos (similar a menu-plan-management-v2)
   const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
@@ -198,6 +255,19 @@ export function WorkoutPlanManagement() {
   const [exerciseSearchTerm, setExerciseSearchTerm] = useState<{ [dayId: string]: string }>({})
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<{ [dayId: string]: string }>({})
   const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState<{ [dayId: string]: string }>({})
+
+  const groupedImportErrors = useMemo<GroupedImportError[]>(() => {
+    if (!importResult?.errors || importResult.errors.length === 0) return []
+    const grouped = new Map<string, number>()
+    for (const rawMessage of importResult.errors) {
+      const message = (rawMessage || '').trim()
+      if (!message) continue
+      grouped.set(message, (grouped.get(message) ?? 0) + 1)
+    }
+    return Array.from(grouped.entries())
+      .map(([message, count]) => ({ message, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [importResult])
 
   // Aplicar filtros del servidor y ordenamiento local - asegurar que plans sea un array
   const plansArray = Array.isArray(plans) ? plans : []
@@ -582,15 +652,25 @@ export function WorkoutPlanManagement() {
         data = await response.json();
       } catch { }
 
-      toast({
-        title: '✅ Importación',
-        description: data?.message || 'Planes importados correctamente.'
-      });
+      const stats = (data?.stats && typeof data.stats === 'object') ? data.stats as WorkoutImportStats : undefined
+      const totals = totalizeImportStats(stats)
+      const planStats = stats?.plans
+      const formattedErrors = Array.isArray(data?.errors) ? data.errors.map((e: unknown) => formatImportError(e)) : []
 
-      setImportFile(null);
-      setShowImportDialog(false);
+      setImportResult({
+        message: data?.message || 'Importación completada',
+        created: typeof planStats?.created === 'number' ? planStats.created : totals.created,
+        updated: typeof planStats?.updated === 'number' ? planStats.updated : totals.updated,
+        skipped: typeof planStats?.skipped === 'number' ? planStats.skipped : totals.skipped,
+        rejected: formattedErrors.length,
+        error_count: formattedErrors.length,
+        errors: formattedErrors,
+        stats,
+      })
+
       refetch();
     } catch (error) {
+      setImportResult(null)
       toast({
         title: '❌ Error',
         description: error instanceof Error ? error.message : 'No se pudo importar',
@@ -1520,7 +1600,10 @@ export function WorkoutPlanManagement() {
               <Input
                 type="file"
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                onChange={e => setImportFile(e.target.files?.[0] || null)}
+                onChange={e => {
+                  setImportFile(e.target.files?.[0] || null)
+                  setImportResult(null)
+                }}
                 disabled={importing}
                 className="mt-2"
               />
@@ -1535,9 +1618,47 @@ export function WorkoutPlanManagement() {
                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, dificultad, duración en semanas y rol mínimo requerido.
               </p>
             </div>
+
+            {importResult && (
+              <div className="border rounded-lg p-4 space-y-3 text-sm">
+                <p className="font-semibold text-green-700">Resultado de la importación</p>
+                {importResult.message && (
+                  <p className="text-xs text-muted-foreground">{importResult.message}</p>
+                )}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <p>✅ Creados: <strong>{importResult.created}</strong></p>
+                  <p>🔄 Actualizados: <strong>{importResult.updated}</strong></p>
+                  <p>⏭️ Omitidos: <strong>{importResult.skipped}</strong></p>
+                  <p>⛔ Rechazados: <strong>{importResult.rejected}</strong></p>
+                </div>
+
+                {importResult.stats && (
+                  <div className="text-xs border rounded-md p-2 bg-muted/40 space-y-1">
+                    <p><strong>Planes:</strong> C {importResult.stats.plans?.created ?? 0} · A {importResult.stats.plans?.updated ?? 0} · O {importResult.stats.plans?.skipped ?? 0}</p>
+                    <p><strong>Días:</strong> C {importResult.stats.days?.created ?? 0} · A {importResult.stats.days?.updated ?? 0} · O {importResult.stats.days?.skipped ?? 0}</p>
+                    <p><strong>Ejercicios:</strong> C {importResult.stats.exercises?.created ?? 0} · A {importResult.stats.exercises?.updated ?? 0} · O {importResult.stats.exercises?.skipped ?? 0}</p>
+                    <p><strong>Sustitutos:</strong> C {importResult.stats.substitutes?.created ?? 0} · A {importResult.stats.substitutes?.updated ?? 0} · O {importResult.stats.substitutes?.skipped ?? 0}</p>
+                  </div>
+                )}
+
+                {groupedImportErrors.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-red-600 font-medium">Errores ({importResult.error_count}):</p>
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5 max-h-52 overflow-y-auto overflow-x-hidden pr-2 border border-red-100 rounded-md p-2 bg-red-50/40 text-xs">
+                      {groupedImportErrors.map((item, idx) => (
+                        <li key={idx} className="break-words whitespace-normal">
+                          {item.count > 1 ? `(${item.count}x) ` : ''}{item.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null) }} disabled={importing}>Cerrar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {importing ? 'Importando...' : 'Importar'}
