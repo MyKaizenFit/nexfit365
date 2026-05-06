@@ -1,9 +1,8 @@
 "use client"
 
 import Image from "next/image"
-import { Bell, Search, X } from "lucide-react"
+import { Search, X } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -16,6 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useState } from "react"
+import { NotificationsDropdown } from "./notifications-dropdown"
 
 interface MobileHeaderProps {
   notifications: number
@@ -27,7 +27,7 @@ const sectionTitles: Record<string, string> = {
   dashboard: "Inicio",
   "day-one": "Día 1",
   meals: "Menús",
-  workouts: "Entrenamientos",
+  "workouts-3": "Entrenamientos",
   profile: "Mi Perfil",
 }
 
@@ -59,7 +59,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     { title: "Inicio", section: "dashboard", description: "Vista general de tu progreso" },
     { title: "Día 1", section: "day-one", description: "Tu punto de partida y transformación" },
     { title: "Menús", section: "meals", description: "Plan de comidas y nutrición" },
-    { title: "Entrenamientos", section: "workouts", description: "Rutinas de ejercicio" },
+    { title: "Entrenamientos", section: "workouts-3", description: "Rutinas de ejercicio" },
     { title: "Mi Perfil", section: "profile", description: "Información personal" },
     { title: "Configuración", section: "settings", description: "Preferencias de la app" },
   ]
@@ -114,20 +114,9 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
             <Search className="h-4 w-4" />
           </Button>
 
-          {/* Notifications - Deshabilitado para esta versión
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onNotificationClick}
-            className="relative h-10 w-10 rounded-full hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-300"
-          >
-            <Bell className="h-4 w-4" />
-            {notifications > 0 && (
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 text-xs animate-pulse bg-gradient-to-r from-rose-500 to-pink-500 border-0">
-                {notifications}
-              </Badge>
-            )}
-          </Button> */}
+          <div onClick={onNotificationClick} className="[&_button]:h-10 [&_button]:w-10 [&_button]:rounded-full">
+            <NotificationsDropdown />
+          </div>
 
           {/* Profile menu */}
           <DropdownMenu>

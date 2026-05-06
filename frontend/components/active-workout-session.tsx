@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import {
+  ArrowLeft,
   Dumbbell, Play, Pause, Clock,
   Timer, Star, Video,
   Save, RotateCcw, Flame, Shield, CheckCircle2
@@ -1020,12 +1021,22 @@ export function ActiveWorkoutSession({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0">
+      <DialogContent className="p-0 overflow-y-auto rounded-none inset-0 translate-x-0 translate-y-0 w-full max-w-none max-h-none sm:rounded-lg sm:right-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:w-[95vw] sm:max-w-4xl sm:max-h-[95vh]">
         <DialogDescription className="sr-only">
           Sesión de entrenamiento activo - completa los ejercicios y guarda tu progreso
         </DialogDescription>
         {/* Header con temporizador */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 rounded-t-lg">
+        <div className="sticky top-0 z-10 bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 sm:rounded-t-lg">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClose}
+            className="mb-3 h-9 px-2 text-white hover:bg-white/20 md:hidden"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Volver
+          </Button>
           <div className="flex items-center justify-between">
             <div>
               <DialogTitle className="text-xl font-bold text-white flex items-center gap-2">
