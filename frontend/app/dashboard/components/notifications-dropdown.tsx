@@ -119,7 +119,7 @@ export function NotificationsDropdown() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-96 p-0 shadow-2xl border-0 backdrop-blur-sm bg-white/95" side="bottom">
+      <DropdownMenuContent align="end" className="w-[90vw] sm:w-96 p-0 shadow-2xl border-0 backdrop-blur-sm bg-white/95" side="bottom">
         <div className="p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
