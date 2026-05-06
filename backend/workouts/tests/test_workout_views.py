@@ -340,6 +340,8 @@ class TestWorkoutLogViewSet:
         assert 'completed_this_week' in response.data
         assert 'weekly_goal' in response.data
         assert 'current_streak' in response.data
+        assert 'estimated_1rm_prs' in response.data
+        assert 'recommended_rest_seconds' in response.data
 
     def test_statistics_no_logs(self, auth_client2):
         response = auth_client2.get('/api/workout-logs/statistics/')

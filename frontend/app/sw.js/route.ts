@@ -6,11 +6,11 @@ import { NextResponse } from 'next/server'
 
 // Contenido del Service Worker embebido
 const SW_CONTENT = `// Service Worker para NexFit365 PWA
-// Versión: 1.5.0 - NO cachea NINGÚN archivo JS, usa cache-busting para forzar descarga fresca
+// Versión: 1.6.0 - cache offline estable para HTML + assets críticos, sin cachear API/auth
 
-const CACHE_NAME = 'nexfit365-v1.5'
-const RUNTIME_CACHE = 'nexfit365-runtime-v1.5'
-const IMAGE_CACHE = 'nexfit365-images-v1.5'
+const CACHE_NAME = 'nexfit365-v1.6'
+const RUNTIME_CACHE = 'nexfit365-runtime-v1.6'
+const IMAGE_CACHE = 'nexfit365-images-v1.6'
 const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB máximo
 
 // Archivos estáticos críticos para cachear (solo lo esencial)
@@ -39,34 +39,38 @@ self.addEventListener('install', (event) => {
 
 // Activación del Service Worker
 self.addEventListener('activate', (event) => {
+  const cacheAllowList = [CACHE_NAME, RUNTIME_CACHE, IMAGE_CACHE]
   event.waitUntil(
     caches.keys().then((cacheNames) => {
-      // Eliminar TODOS los caches (incluso los actuales) para forzar actualización completa
+      // Eliminar solo caches viejos para mantener recursos offline válidos
       return Promise.all(
         cacheNames.map((name) => {
-          return caches.delete(name)
+          if (!cacheAllowList.includes(name)) {
+            return caches.delete(name)
+          }
+          return Promise.resolve(false)
         })
       )
     }).then(() => {
-      // Forzar que todos los clientes usen el nuevo Service Worker inmediatamente
       return self.clients.claim().then(() => {
-        // Notificar a todos los clientes para que recarguen
         return self.clients.matchAll().then((clients) => {
           clients.forEach((client) => {
-            client.postMessage({ type: 'SW_UPDATED', version: '1.5' })
+            client.postMessage({ type: 'SW_UPDATED', version: '1.6' })
           })
         })
       })
     })
   )
-  // Forzar skipWaiting para activación inmediata
-  return self.skipWaiting()
 })
 
 // Interceptar requests
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
+
+  if (request.method !== 'GET') {
+    return
+  }
 
   // NO INTERCEPTAR archivos JS - dejar que pasen directamente sin cache del SW
   // Los chunks de Next.js tienen hashes únicos y Next.js maneja su propio cache
@@ -115,7 +119,7 @@ self.addEventListener('fetch', (event) => {
 async function networkFirstStrategy(request) {
   try {
     const networkResponse = await fetch(request)
-    if (networkResponse.ok) {
+    if (networkResponse.ok && !request.url.includes('/api/')) {
       const cache = await caches.open(RUNTIME_CACHE)
       cache.put(request, networkResponse.clone())
     }
@@ -124,6 +128,12 @@ async function networkFirstStrategy(request) {
     const cachedResponse = await caches.match(request)
     if (cachedResponse) {
       return cachedResponse
+    }
+    if (request.mode === 'navigate') {
+      const fallback = await caches.match('/')
+      if (fallback) {
+        return fallback
+      }
     }
     throw error
   }

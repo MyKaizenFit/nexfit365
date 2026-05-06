@@ -110,11 +110,12 @@ services:
     environment:
       DB_HOST: nexfit-pro-db
       REDIS_URL: redis://nexfit-pro-redis:6379/0
+      READ_DOTENV: "False"
     command: >
       sh -c "
-        echo '🔄 Aplicando migraciones...' &&
+        echo '� Aplicando migraciones...' &&
         python manage.py migrate --noinput &&
-        echo '📦 Recolectando archivos estáticos...' &&
+        echo '�📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput &&
         echo '🚀 Iniciando Gunicorn...' &&
         gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
@@ -241,6 +242,7 @@ services:
     environment:
       DB_HOST: nexfit-pro-db
       REDIS_URL: redis://nexfit-pro-redis:6379/0
+      READ_DOTENV: "False"
     command: >
       sh -c "celery -A backend worker --loglevel=info --concurrency=2"
     volumes:

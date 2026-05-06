@@ -17,8 +17,16 @@ try:
 except Exception:
     pass
 
-# Cargar variables de entorno desde .env
-load_dotenv()
+# Cargar variables de entorno desde .env solo cuando se solicita explícitamente
+# o en entornos de desarrollo. Evita contaminar producción con valores locales.
+_read_dotenv_raw = os.getenv("READ_DOTENV")
+if _read_dotenv_raw is None:
+    READ_DOTENV = os.getenv("DEBUG", "True") == "True"
+else:
+    READ_DOTENV = _read_dotenv_raw == "True"
+
+if READ_DOTENV:
+    load_dotenv()
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 
@@ -295,6 +303,11 @@ else:
             "LOCATION": os.getenv("REDIS_URL", "redis://localhost:6379/0"),
             "OPTIONS": {
                 "CLIENT_CLASS": "django_redis.client.DefaultClient",
+                # Evita 500 si Redis no está disponible (throttling/cache fail-open)
+                "IGNORE_EXCEPTIONS": True,
+                # Timeouts cortos para no bloquear requests cuando Redis falla
+                "SOCKET_CONNECT_TIMEOUT": 2,
+                "SOCKET_TIMEOUT": 2,
             }
         }
     }
@@ -306,18 +319,30 @@ else:
 # Email
 # ---------------------------------
 # Configuración de Email
-# En desarrollo, usar consola si no hay configuración SMTP
-if DEBUG and not os.getenv("SMTP_HOST"):
+def _get_env(*keys, default=""):
+    """Obtiene el primer valor no vacío entre varias variables de entorno."""
+    for key in keys:
+        value = os.getenv(key)
+        if value not in (None, ""):
+            return value
+    return default
+
+
+smtp_host = _get_env("SMTP_HOST", "EMAIL_HOST", default="")
+
+# En desarrollo, usar consola si no hay configuración SMTP/EMAIL.
+if DEBUG and not smtp_host:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
     # Los emails se mostrarán en la consola en desarrollo
 else:
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-    EMAIL_HOST = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    EMAIL_PORT = int(os.getenv("SMTP_PORT", "587"))
-    EMAIL_HOST_USER = os.getenv("SMTP_USER", "")
-    EMAIL_HOST_PASSWORD = os.getenv("SMTP_PASSWORD", "")
-    EMAIL_USE_TLS = os.getenv("SMTP_USE_TLS", "True") == "True"
-    EMAIL_TIMEOUT = 10  # Timeout de 10 segundos para conexiones SMTP
+    EMAIL_BACKEND = _get_env("EMAIL_BACKEND", default="django.core.mail.backends.smtp.EmailBackend")
+    EMAIL_HOST = smtp_host
+    EMAIL_PORT = int(_get_env("SMTP_PORT", "EMAIL_PORT", default="587"))
+    EMAIL_HOST_USER = _get_env("SMTP_USER", "EMAIL_HOST_USER", default="")
+    EMAIL_HOST_PASSWORD = _get_env("SMTP_PASSWORD", "EMAIL_HOST_PASSWORD", default="")
+    EMAIL_USE_TLS = _get_env("SMTP_USE_TLS", "EMAIL_USE_TLS", default="True") == "True"
+    EMAIL_USE_SSL = _get_env("SMTP_USE_SSL", "EMAIL_USE_SSL", default="False") == "True"
+    EMAIL_TIMEOUT = int(_get_env("SMTP_TIMEOUT", "EMAIL_TIMEOUT", default="10"))
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "NexFit365 <no-reply@nex-fit.local>")
 

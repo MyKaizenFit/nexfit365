@@ -15,6 +15,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
 from .admin_serializers import (
     AdminExerciseSerializer,
+    AdminExerciseListSerializer,
     AdminWorkoutProgramSerializer,
     AdminWorkoutDaySerializer,
     AdminWorkoutProgramMinimalSerializer,
@@ -30,6 +31,28 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
     queryset = Exercise.objects.all()
     serializer_class = AdminExerciseSerializer
     permission_classes = [IsAdminUser]
+
+    def get_queryset(self):
+        if self.action == 'list':
+            return Exercise.objects.only(
+                'id',
+                'name',
+                'category',
+                'muscle_groups',
+                'equipment',
+                'difficulty',
+                'is_system',
+                'is_active',
+                'video_url',
+                'image_url',
+            ).order_by('name')
+
+        return Exercise.objects.all()
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AdminExerciseListSerializer
+        return AdminExerciseSerializer
     
     @action(detail=True, methods=['post'], url_path='add_substitute')
     def add_substitute(self, request, pk=None):
@@ -101,10 +124,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
 
 class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     """Admin ViewSet para programas"""
-    queryset = WorkoutProgram.objects.all().select_related("user", "created_by").prefetch_related(
-        'days__exercises__exercise',
-        'days__exercises__exercise__substitutions__substitute',
-    )
+    queryset = WorkoutProgram.objects.all()
     serializer_class = AdminWorkoutProgramSerializer
     permission_classes = [IsAdminUser]
 
@@ -113,6 +133,21 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_system', 'is_template', 'is_active', 'user', 'created_by']
     ordering_fields = ['name', 'created_at', 'updated_at']
     ordering = ['-created_at']
+
+    def get_queryset(self):
+        """
+        Evita prefetch profundo en listados para no activar rutas de consulta
+        que actualmente fallan por corrupción remanente en estadísticas de BD.
+        """
+        base_qs = WorkoutProgram.objects.all().select_related("user", "created_by")
+
+        if self.action == 'list':
+            return base_qs.prefetch_related('days')
+
+        return base_qs.prefetch_related(
+            'days__exercises__exercise',
+            'days__exercises__exercise__substitutions__substitute',
+        )
 
     def get_serializer_class(self):
         if self.action == 'list':

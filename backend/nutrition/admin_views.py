@@ -1863,6 +1863,13 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 return None, err
             return Decimal(str(parsed)), None
 
+        def default_if_blank(value, default):
+            if value is None:
+                return default
+            if isinstance(value, str) and value.strip() == '':
+                return default
+            return value
+
         def parse_plan_fields(row):
             errors = []
             raw_goal = str(gv(row, 'goal', 'maintain') or 'maintain').strip()
@@ -1875,19 +1882,19 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             if diet_type not in diet_values:
                 errors.append(f"tipo_dieta inválido: {raw_diet_type}")
 
-            daily_calories, err = parse_int(gv(row, 'daily_calories', 2000), 'calorias_diarias', minimum=0)
+            daily_calories, err = parse_int(default_if_blank(gv(row, 'daily_calories', 2000), 2000), 'calorias_diarias', minimum=0)
             if err:
                 errors.append(err)
-            protein_grams, err = parse_int(gv(row, 'protein_grams', 150), 'proteinas_g', minimum=0)
+            protein_grams, err = parse_int(default_if_blank(gv(row, 'protein_grams', 150), 150), 'proteinas_g', minimum=0)
             if err:
                 errors.append(err)
-            carbs_grams, err = parse_int(gv(row, 'carbs_grams', 200), 'carbohidratos_g', minimum=0)
+            carbs_grams, err = parse_int(default_if_blank(gv(row, 'carbs_grams', 200), 200), 'carbohidratos_g', minimum=0)
             if err:
                 errors.append(err)
-            fat_grams, err = parse_int(gv(row, 'fat_grams', 65), 'grasas_g', minimum=0)
+            fat_grams, err = parse_int(default_if_blank(gv(row, 'fat_grams', 65), 65), 'grasas_g', minimum=0)
             if err:
                 errors.append(err)
-            fiber_grams, err = parse_int(gv(row, 'fiber_grams', 25), 'fibra_g', minimum=0)
+            fiber_grams, err = parse_int(default_if_blank(gv(row, 'fiber_grams', 25), 25), 'fibra_g', minimum=0)
             if err:
                 errors.append(err)
 
@@ -1901,23 +1908,23 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             if err:
                 errors.append(err)
 
-            meals_per_day, err = parse_int(gv(row, 'meals_per_day', 5), 'comidas_por_dia', minimum=1, maximum=8)
+            meals_per_day, err = parse_int(default_if_blank(gv(row, 'meals_per_day', 5), 5), 'comidas_por_dia', minimum=1, maximum=8)
             if err:
                 errors.append(err)
-            duration_weeks, err = parse_int(gv(row, 'duration_weeks', 4), 'duracion_semanas', minimum=1)
+            duration_weeks, err = parse_int(default_if_blank(gv(row, 'duration_weeks', 4), 4), 'duracion_semanas', minimum=1)
             if err:
                 errors.append(err)
-            portion_multiplier, err = parse_float(gv(row, 'portion_multiplier', 1.0), 'multiplicador_porcion', minimum=0.1)
+            portion_multiplier, err = parse_float(default_if_blank(gv(row, 'portion_multiplier', 1.0), 1.0), 'multiplicador_porcion', minimum=0.1)
             if err:
                 errors.append(err)
 
-            is_template, err = parse_bool(gv(row, 'is_template', 'false'))
+            is_template, err = parse_bool(default_if_blank(gv(row, 'is_template', 'false'), 'false'))
             if err:
                 errors.append(f"es_plantilla: {err}")
-            is_system, err = parse_bool(gv(row, 'is_system', 'false'))
+            is_system, err = parse_bool(default_if_blank(gv(row, 'is_system', 'false'), 'false'))
             if err:
                 errors.append(f"es_sistema: {err}")
-            is_active, err = parse_bool(gv(row, 'is_active', 'true'))
+            is_active, err = parse_bool(default_if_blank(gv(row, 'is_active', 'true'), 'true'))
             if err:
                 errors.append(f"activo: {err}")
 
@@ -1963,16 +1970,16 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             meal_time, err = parse_time_hhmm(row.get('hora', ''))
             if err:
                 errors.append(err)
-            calories, err = parse_int(row.get('calorias_comida', 0), 'calorias_comida', minimum=0)
+            calories, err = parse_int(row.get('calorias_comida', ''), 'calorias_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            protein, err = parse_float(row.get('proteinas_comida', 0), 'proteinas_comida', minimum=0)
+            protein, err = parse_float(row.get('proteinas_comida', ''), 'proteinas_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            carbs, err = parse_float(row.get('carbohidratos_comida', 0), 'carbohidratos_comida', minimum=0)
+            carbs, err = parse_float(row.get('carbohidratos_comida', ''), 'carbohidratos_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            fat, err = parse_float(row.get('grasas_comida', 0), 'grasas_comida', minimum=0)
+            fat, err = parse_float(row.get('grasas_comida', ''), 'grasas_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
 
@@ -1985,13 +1992,32 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 'order_index': order_index,
                 'time': meal_time,
                 'calories': calories,
-                'protein': Decimal(str(protein)),
-                'carbs': Decimal(str(carbs)),
-                'fat': Decimal(str(fat)),
+                'protein': Decimal(str(protein)) if protein is not None else None,
+                'carbs': Decimal(str(carbs)) if carbs is not None else None,
+                'fat': Decimal(str(fat)) if fat is not None else None,
                 'name': str(row.get('comida_nombre', '') or '').strip() or f'Comida {order_index}',
                 'description': str(row.get('descripcion_comida', '') or ''),
                 'recetas_sugeridas': str(row.get('recetas_sugeridas', '') or '').strip(),
             }, None
+
+        def infer_meal_macros_from_suggested_recipes(recetas_sugeridas):
+            recipe_names = [name.strip() for name in str(recetas_sugeridas or '').split(';') if name.strip()]
+            if not recipe_names:
+                return None
+            recipes = list(Recipe.objects.filter(name__in=recipe_names))
+            if not recipes:
+                return None
+
+            def avg_numeric(attr):
+                values = [float(getattr(recipe, attr) or 0) for recipe in recipes]
+                return (sum(values) / len(values)) if values else 0.0
+
+            return {
+                'calories': int(round(avg_numeric('calories'))),
+                'protein': Decimal(str(round(avg_numeric('protein'), 2))),
+                'carbs': Decimal(str(round(avg_numeric('carbs'), 2))),
+                'fat': Decimal(str(round(avg_numeric('fat'), 2))),
+            }
 
         def parse_option_fields(row):
             def optv(data, *keys, default=''):
@@ -2091,14 +2117,38 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 continue
             plan = NutritionPlan.objects.filter(name=plan_name).first()
             if not plan:
-                meals_rejected += 1
-                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'comida', 'errors': [f"Plan no existe: {plan_name}"]})
-                continue
+                plan = NutritionPlan.objects.create(
+                    name=plan_name,
+                    description='',
+                    goal='maintain',
+                    diet_type='normal',
+                    daily_calories=2000,
+                    protein_grams=150,
+                    carbs_grams=200,
+                    fat_grams=65,
+                    fiber_grams=25,
+                    protein_percentage=30,
+                    carbs_percentage=40,
+                    fat_percentage=30,
+                    meals_per_day=5,
+                    duration_weeks=4,
+                    portion_multiplier=1.0,
+                    is_template=True,
+                    is_system=False,
+                    is_active=True,
+                )
+                created += 1
             parsed, row_errors = parse_meal_fields(row)
             if row_errors:
                 meals_rejected += 1
                 errors.append({'sheet': 'CSV', 'row': idx, 'type': 'comida', 'errors': row_errors})
                 continue
+
+            inferred = infer_meal_macros_from_suggested_recipes(parsed['recetas_sugeridas'])
+            calories = parsed['calories'] if parsed['calories'] is not None else (inferred['calories'] if inferred else 0)
+            protein = parsed['protein'] if parsed['protein'] is not None else (inferred['protein'] if inferred else Decimal('0'))
+            carbs = parsed['carbs'] if parsed['carbs'] is not None else (inferred['carbs'] if inferred else Decimal('0'))
+            fat = parsed['fat'] if parsed['fat'] is not None else (inferred['fat'] if inferred else Decimal('0'))
 
             meal = PlanMeal.objects.filter(
                 plan=plan,
@@ -2109,10 +2159,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 'name': parsed['name'],
                 'meal_type': parsed['meal_type'],
                 'time': parsed['time'],
-                'calories': parsed['calories'],
-                'protein': parsed['protein'],
-                'carbs': parsed['carbs'],
-                'fat': parsed['fat'],
+                'calories': calories,
+                'protein': protein,
+                'carbs': carbs,
+                'fat': fat,
                 'description': parsed['description'],
             }
             if meal:
@@ -2150,9 +2200,27 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 continue
             plan = NutritionPlan.objects.filter(name=plan_name).first()
             if not plan:
-                options_rejected += 1
-                errors.append({'sheet': 'CSV', 'row': idx, 'type': 'opcion_receta', 'errors': [f"Plan no existe: {plan_name}"]})
-                continue
+                plan = NutritionPlan.objects.create(
+                    name=plan_name,
+                    description='',
+                    goal='maintain',
+                    diet_type='normal',
+                    daily_calories=2000,
+                    protein_grams=150,
+                    carbs_grams=200,
+                    fat_grams=65,
+                    fiber_grams=25,
+                    protein_percentage=30,
+                    carbs_percentage=40,
+                    fat_percentage=30,
+                    meals_per_day=5,
+                    duration_weeks=4,
+                    portion_multiplier=1.0,
+                    is_template=True,
+                    is_system=False,
+                    is_active=True,
+                )
+                created += 1
 
             day_of_week, err = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
             order_index, err2 = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1)
@@ -2471,6 +2539,13 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 return None, err
             return Decimal(str(parsed)), None
 
+        def default_if_blank(value, default):
+            if value is None:
+                return default
+            if isinstance(value, str) and value.strip() == '':
+                return default
+            return value
+
         def parse_plan_fields(row_dict):
             errors = []
             raw_goal = str(gv(row_dict, 'goal', 'maintain') or 'maintain').strip()
@@ -2482,19 +2557,19 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             if diet_type not in diet_values:
                 errors.append(f"tipo_dieta inválido: {raw_diet_type}")
 
-            daily_calories, err = parse_int(gv(row_dict, 'daily_calories', 2000), 'calorias_diarias', minimum=0)
+            daily_calories, err = parse_int(default_if_blank(gv(row_dict, 'daily_calories', 2000), 2000), 'calorias_diarias', minimum=0)
             if err:
                 errors.append(err)
-            protein_grams, err = parse_int(gv(row_dict, 'protein_grams', 150), 'proteinas_g', minimum=0)
+            protein_grams, err = parse_int(default_if_blank(gv(row_dict, 'protein_grams', 150), 150), 'proteinas_g', minimum=0)
             if err:
                 errors.append(err)
-            carbs_grams, err = parse_int(gv(row_dict, 'carbs_grams', 200), 'carbohidratos_g', minimum=0)
+            carbs_grams, err = parse_int(default_if_blank(gv(row_dict, 'carbs_grams', 200), 200), 'carbohidratos_g', minimum=0)
             if err:
                 errors.append(err)
-            fat_grams, err = parse_int(gv(row_dict, 'fat_grams', 65), 'grasas_g', minimum=0)
+            fat_grams, err = parse_int(default_if_blank(gv(row_dict, 'fat_grams', 65), 65), 'grasas_g', minimum=0)
             if err:
                 errors.append(err)
-            fiber_grams, err = parse_int(gv(row_dict, 'fiber_grams', 25), 'fibra_g', minimum=0)
+            fiber_grams, err = parse_int(default_if_blank(gv(row_dict, 'fiber_grams', 25), 25), 'fibra_g', minimum=0)
             if err:
                 errors.append(err)
 
@@ -2508,23 +2583,23 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             if err:
                 errors.append(err)
 
-            meals_per_day, err = parse_int(gv(row_dict, 'meals_per_day', 5), 'comidas_por_dia', minimum=1, maximum=8)
+            meals_per_day, err = parse_int(default_if_blank(gv(row_dict, 'meals_per_day', 5), 5), 'comidas_por_dia', minimum=1, maximum=8)
             if err:
                 errors.append(err)
-            duration_weeks, err = parse_int(gv(row_dict, 'duration_weeks', 4), 'duracion_semanas', minimum=1)
+            duration_weeks, err = parse_int(default_if_blank(gv(row_dict, 'duration_weeks', 4), 4), 'duracion_semanas', minimum=1)
             if err:
                 errors.append(err)
-            portion_multiplier, err = parse_float(gv(row_dict, 'portion_multiplier', 1.0), 'multiplicador_porcion', minimum=0.1)
+            portion_multiplier, err = parse_float(default_if_blank(gv(row_dict, 'portion_multiplier', 1.0), 1.0), 'multiplicador_porcion', minimum=0.1)
             if err:
                 errors.append(err)
 
-            is_template, err = parse_bool(gv(row_dict, 'is_template', 'false'))
+            is_template, err = parse_bool(default_if_blank(gv(row_dict, 'is_template', 'false'), 'false'))
             if err:
                 errors.append(f"es_plantilla: {err}")
-            is_system, err = parse_bool(gv(row_dict, 'is_system', 'false'))
+            is_system, err = parse_bool(default_if_blank(gv(row_dict, 'is_system', 'false'), 'false'))
             if err:
                 errors.append(f"es_sistema: {err}")
-            is_active, err = parse_bool(gv(row_dict, 'is_active', 'true'))
+            is_active, err = parse_bool(default_if_blank(gv(row_dict, 'is_active', 'true'), 'true'))
             if err:
                 errors.append(f"activo: {err}")
 
@@ -2567,16 +2642,16 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             meal_time, err = parse_time_hhmm(row_dict.get('hora', ''))
             if err:
                 errors.append(err)
-            calories, err = parse_int(row_dict.get('calorias_comida', 0), 'calorias_comida', minimum=0)
+            calories, err = parse_int(row_dict.get('calorias_comida', ''), 'calorias_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            protein, err = parse_float(row_dict.get('proteinas_comida', 0), 'proteinas_comida', minimum=0)
+            protein, err = parse_float(row_dict.get('proteinas_comida', ''), 'proteinas_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            carbs, err = parse_float(row_dict.get('carbohidratos_comida', 0), 'carbohidratos_comida', minimum=0)
+            carbs, err = parse_float(row_dict.get('carbohidratos_comida', ''), 'carbohidratos_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
-            fat, err = parse_float(row_dict.get('grasas_comida', 0), 'grasas_comida', minimum=0)
+            fat, err = parse_float(row_dict.get('grasas_comida', ''), 'grasas_comida', minimum=0, allow_blank=True)
             if err:
                 errors.append(err)
 
@@ -2588,13 +2663,32 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 'order_index': order_index,
                 'time': meal_time,
                 'calories': calories,
-                'protein': Decimal(str(protein)),
-                'carbs': Decimal(str(carbs)),
-                'fat': Decimal(str(fat)),
+                'protein': Decimal(str(protein)) if protein is not None else None,
+                'carbs': Decimal(str(carbs)) if carbs is not None else None,
+                'fat': Decimal(str(fat)) if fat is not None else None,
                 'name': str(row_dict.get('comida_nombre', '') or '').strip() or f'Comida {order_index}',
                 'description': str(row_dict.get('descripcion_comida', '') or ''),
                 'recetas_sugeridas': str(row_dict.get('recetas_sugeridas', '') or '').strip(),
             }, None
+
+        def infer_meal_macros_from_suggested_recipes(recetas_sugeridas):
+            recipe_names = [name.strip() for name in str(recetas_sugeridas or '').split(';') if name.strip()]
+            if not recipe_names:
+                return None
+            recipes = list(Recipe.objects.filter(name__in=recipe_names))
+            if not recipes:
+                return None
+
+            def avg_numeric(attr):
+                values = [float(getattr(recipe, attr) or 0) for recipe in recipes]
+                return (sum(values) / len(values)) if values else 0.0
+
+            return {
+                'calories': int(round(avg_numeric('calories'))),
+                'protein': Decimal(str(round(avg_numeric('protein'), 2))),
+                'carbs': Decimal(str(round(avg_numeric('carbs'), 2))),
+                'fat': Decimal(str(round(avg_numeric('fat'), 2))),
+            }
 
         def parse_option_fields(row_dict):
             def optv(data, *keys, default=''):
@@ -2701,14 +2795,38 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     continue
                 plan = NutritionPlan.objects.filter(name=plan_name).first()
                 if not plan:
-                    meals_rejected += 1
-                    errors.append({'sheet': 'Comidas', 'row': row_idx, 'type': 'comida', 'errors': [f"Plan no existe: {plan_name}"]})
-                    continue
+                    plan = NutritionPlan.objects.create(
+                        name=plan_name,
+                        description='',
+                        goal='maintain',
+                        diet_type='normal',
+                        daily_calories=2000,
+                        protein_grams=150,
+                        carbs_grams=200,
+                        fat_grams=65,
+                        fiber_grams=25,
+                        protein_percentage=30,
+                        carbs_percentage=40,
+                        fat_percentage=30,
+                        meals_per_day=5,
+                        duration_weeks=4,
+                        portion_multiplier=1.0,
+                        is_template=True,
+                        is_system=False,
+                        is_active=True,
+                    )
+                    created += 1
                 parsed_meal, row_errors = parse_meal_fields(mrow)
                 if row_errors:
                     meals_rejected += 1
                     errors.append({'sheet': 'Comidas', 'row': row_idx, 'type': 'comida', 'errors': row_errors})
                     continue
+
+                inferred = infer_meal_macros_from_suggested_recipes(parsed_meal['recetas_sugeridas'])
+                calories = parsed_meal['calories'] if parsed_meal['calories'] is not None else (inferred['calories'] if inferred else 0)
+                protein = parsed_meal['protein'] if parsed_meal['protein'] is not None else (inferred['protein'] if inferred else Decimal('0'))
+                carbs = parsed_meal['carbs'] if parsed_meal['carbs'] is not None else (inferred['carbs'] if inferred else Decimal('0'))
+                fat = parsed_meal['fat'] if parsed_meal['fat'] is not None else (inferred['fat'] if inferred else Decimal('0'))
 
                 meal = PlanMeal.objects.filter(
                     plan=plan,
@@ -2719,10 +2837,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     'name': parsed_meal['name'],
                     'meal_type': parsed_meal['meal_type'],
                     'time': parsed_meal['time'],
-                    'calories': parsed_meal['calories'],
-                    'protein': parsed_meal['protein'],
-                    'carbs': parsed_meal['carbs'],
-                    'fat': parsed_meal['fat'],
+                    'calories': calories,
+                    'protein': protein,
+                    'carbs': carbs,
+                    'fat': fat,
                     'description': parsed_meal['description'],
                 }
                 if meal:
@@ -2760,9 +2878,27 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     continue
                 plan = NutritionPlan.objects.filter(name=plan_name).first()
                 if not plan:
-                    options_rejected += 1
-                    errors.append({'sheet': 'Opciones_Receta_Comida', 'row': row_idx, 'type': 'opcion_receta', 'errors': [f"Plan no existe: {plan_name}"]})
-                    continue
+                    plan = NutritionPlan.objects.create(
+                        name=plan_name,
+                        description='',
+                        goal='maintain',
+                        diet_type='normal',
+                        daily_calories=2000,
+                        protein_grams=150,
+                        carbs_grams=200,
+                        fat_grams=65,
+                        fiber_grams=25,
+                        protein_percentage=30,
+                        carbs_percentage=40,
+                        fat_percentage=30,
+                        meals_per_day=5,
+                        duration_weeks=4,
+                        portion_multiplier=1.0,
+                        is_template=True,
+                        is_system=False,
+                        is_active=True,
+                    )
+                    created += 1
                 day_of_week, err = parse_int(orow.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
                 order_index, err2 = parse_int(orow.get('orden_comida', ''), 'orden_comida', minimum=1)
                 local_errors = []

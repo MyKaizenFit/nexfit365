@@ -12,6 +12,7 @@ export function WorkoutSummary() {
   const {
     activeProgram,
     workoutLogs,
+    workoutStatistics,
     loading,
     error,
     getTodaysWorkout,
@@ -20,6 +21,32 @@ export function WorkoutSummary() {
   } = useWorkouts()
 
   const [isStartingWorkout, setIsStartingWorkout] = useState(false)
+  const [timerSeconds, setTimerSeconds] = useState(0)
+  const [timerRunning, setTimerRunning] = useState(false)
+
+  const restSeconds = workoutStatistics?.recommended_rest_seconds || 60
+  const topPr = workoutStatistics?.estimated_1rm_prs?.[0]
+
+  useEffect(() => {
+    if (!timerRunning || timerSeconds <= 0) {
+      return
+    }
+    const handle = setInterval(() => {
+      setTimerSeconds((prev) => {
+        if (prev <= 1) {
+          setTimerRunning(false)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+    return () => clearInterval(handle)
+  }, [timerRunning, timerSeconds])
+
+  const startRestTimer = () => {
+    setTimerSeconds(restSeconds)
+    setTimerRunning(true)
+  }
 
   // Generar datos de la semana basados en el programa activo
   const generateWeeklyWorkouts = () => {
@@ -201,6 +228,33 @@ export function WorkoutSummary() {
             </p>
           </div>
         )}
+
+        {topPr && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950 rounded-lg">
+            <div className="flex items-center gap-2 mb-1">
+              <Dumbbell className="h-4 w-4 text-emerald-600" />
+              <span className="font-medium text-emerald-900 dark:text-emerald-100 text-sm">Progreso 1RM</span>
+            </div>
+            <p className="text-emerald-800 dark:text-emerald-200 text-xs">
+              Mejor estimado: {topPr.exercise_name} - {topPr.estimated_1rm_kg} kg
+            </p>
+          </div>
+        )}
+
+        <div className="p-3 bg-orange-50 dark:bg-orange-950 rounded-lg">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <p className="font-medium text-orange-900 dark:text-orange-100 text-sm">Timer de descanso</p>
+              <p className="text-orange-800 dark:text-orange-200 text-xs">
+                Recomendado: {restSeconds}s
+                {timerSeconds > 0 ? ` - ${timerSeconds}s restantes` : ""}
+              </p>
+            </div>
+            <Button size="sm" variant="outline" onClick={startRestTimer}>
+              Iniciar
+            </Button>
+          </div>
+        </div>
 
         {/* Sin programa activo */}
         {!activeProgram && (

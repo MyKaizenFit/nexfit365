@@ -1,98 +1,80 @@
 #!/bin/bash
 
-# Script de Backup Automático para Base de Datos PostgreSQL
-# Ejecuta DIARIAMENTE a las 2:00 AM
-# Mantiene backups de los últimos 7 días
-# Formato de fecha: DD-MM-YYYY-HH-MM-SS
+set -Eeuo pipefail
 
 BACKUP_DIR="/srv/mykaizenfit/pro/backups"
-TIMESTAMP=$(date '+%d-%m-%Y-%H-%M-%S')
 LOG_FILE="$BACKUP_DIR/backup.log"
-MAX_RETRIES=3
-RETRY_DELAY=5
+LOCK_FILE="$BACKUP_DIR/.auto-backup.lock"
+DB_CONTAINER="${DB_CONTAINER:-nexfit-pro-db-1}"
+DB_NAME="${DB_NAME:-mykaizenfit}"
+DB_USER="${DB_USER:-postgres}"
+RETENTION_DAYS="${RETENTION_DAYS:-14}"
+TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
+BASE_NAME="mykaizenfit_${TIMESTAMP}"
+DUMP_TMP="$BACKUP_DIR/${BASE_NAME}.dump.tmp"
+DUMP_FILE="$BACKUP_DIR/${BASE_NAME}.dump"
+SHA_FILE="$DUMP_FILE.sha256"
+META_FILE="$DUMP_FILE.meta"
+GLOBALS_FILE="$BACKUP_DIR/${BASE_NAME}_globals.sql"
 
-# Crear directorio si no existe
 mkdir -p "$BACKUP_DIR"
 
-echo "[$(date)] ====== INICIANDO BACKUP DE BASE DE DATOS ======" >> "$LOG_FILE"
-
-# Función para intentar backup SQL con reintentos
-backup_sql_with_retry() {
-    local attempt=1
-    local backup_file="$BACKUP_DIR/backup_$TIMESTAMP.sql"
-    
-    while [ $attempt -le $MAX_RETRIES ]; do
-        echo "[$(date)] Intento $attempt/$MAX_RETRIES de backup SQL..." >> "$LOG_FILE"
-        
-        if COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f /srv/mykaizenfit/pro/docker-compose.prod.yml exec -T db pg_dump -U postgres -d mykaizenfit 2>> "$LOG_FILE" | grep -v "\\\\restrict\|\\\\unrestrict" > "$backup_file"; then
-            SIZE=$(du -h "$backup_file" | cut -f1)
-            
-            # Comprimir si es mayor a 100MB
-            if [ $(stat -c%s "$backup_file") -gt 104857600 ]; then
-                gzip "$backup_file"
-                echo "[$(date)] ✅ Backup SQL completado y comprimido (limpiado): $SIZE" >> "$LOG_FILE"
-            else
-                echo "[$(date)] ✅ Backup SQL completado (limpiado): $SIZE" >> "$LOG_FILE"
-            fi
-            return 0
-        fi
-        
-        if [ $attempt -lt $MAX_RETRIES ]; then
-            echo "[$(date)] Fallo en intento $attempt, reintentando en $RETRY_DELAY segundos..." >> "$LOG_FILE"
-            sleep $RETRY_DELAY
-        fi
-        
-        attempt=$((attempt + 1))
-    done
-    
-    return 1
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S %Z')] $*" >> "$LOG_FILE"
 }
 
-# Función para backup de archivos de datos (fallback seguro)
-backup_data_files() {
-    local backup_file="$BACKUP_DIR/pg_data_backup_$TIMESTAMP.tar.gz"
-    local temp_dir="$BACKUP_DIR/data_temp_$TIMESTAMP"
-    
-    echo "[$(date)] Iniciando backup de archivos de datos (fallback)..." >> "$LOG_FILE"
-    
-    # Copiar datos de PostgreSQL
-    if ! docker cp nexfit-pro-db-1:/var/lib/postgresql/data "$temp_dir" 2>> "$LOG_FILE"; then
-        echo "[$(date)] ❌ ERROR: No se pudo copiar datos de PostgreSQL" >> "$LOG_FILE"
-        rm -rf "$temp_dir"
-        return 1
-    fi
-    
-    # Comprimir
-    echo "[$(date)] Comprimiendo datos..." >> "$LOG_FILE"
-    if tar -czf "$backup_file" -C "$BACKUP_DIR" "data_temp_$TIMESTAMP" 2>> "$LOG_FILE"; then
-        rm -rf "$temp_dir"
-        SIZE=$(du -h "$backup_file" | cut -f1)
-        echo "[$(date)] ✅ Backup de datos completado (fallback): $SIZE" >> "$LOG_FILE"
-        return 0
-    else
-        echo "[$(date)] ❌ ERROR: Fallo al comprimir datos" >> "$LOG_FILE"
-        rm -rf "$temp_dir" "$backup_file"
-        return 1
-    fi
+cleanup_tmp() {
+    rm -f "$DUMP_TMP"
 }
 
-# Ejecutar backup
-if backup_sql_with_retry; then
-    :
-else
-    echo "[$(date)] ⚠️  pg_dump no disponible, intentando backup de archivos de datos..." >> "$LOG_FILE"
-    if ! backup_data_files; then
-        echo "[$(date)] ❌ ERROR: Todos los métodos de backup fallaron" >> "$LOG_FILE"
-        exit 1
-    fi
+trap cleanup_tmp EXIT
+
+exec 9>"$LOCK_FILE"
+if ! flock -n 9; then
+    log "ERROR: Ya hay una ejecucion de backup en curso"
+    exit 1
 fi
 
-# Limpiar backups anteriores a 7 días
-echo "[$(date)] Limpiando backups anteriores a 7 días..." >> "$LOG_FILE"
-find "$BACKUP_DIR" -maxdepth 1 -type f \( -name "backup_*.sql*" -o -name "pg_data_backup_*.tar.gz" \) -mtime +7 -delete 2>/dev/null || true
+if ! docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
+    log "ERROR: El contenedor $DB_CONTAINER no esta en ejecucion"
+    exit 1
+fi
 
-# Limpiar directorios temporales
-find "$BACKUP_DIR" -maxdepth 1 -type d -name "data_temp_*" -delete 2>/dev/null || true
+log "====== INICIANDO BACKUP DE BASE DE DATOS ======"
 
-echo "[$(date)] ====== BACKUP FINALIZADO EXITOSAMENTE ======" >> "$LOG_FILE"
-echo "" >> "$LOG_FILE"
+docker exec "$DB_CONTAINER" pg_dump \
+    -U "$DB_USER" \
+    -d "$DB_NAME" \
+    --format=custom \
+    --compress=9 \
+    --no-owner \
+    --no-privileges > "$DUMP_TMP"
+
+mv "$DUMP_TMP" "$DUMP_FILE"
+
+docker exec "$DB_CONTAINER" pg_dumpall -U "$DB_USER" --globals-only > "$GLOBALS_FILE"
+
+sha256sum "$DUMP_FILE" > "$SHA_FILE"
+
+docker exec -i "$DB_CONTAINER" pg_restore --list < "$DUMP_FILE" > /dev/null
+
+{
+    echo "timestamp=$TIMESTAMP"
+    echo "database=$DB_NAME"
+    echo "container=$DB_CONTAINER"
+    echo "dump_file=$(basename "$DUMP_FILE")"
+    echo "globals_file=$(basename "$GLOBALS_FILE")"
+    echo "size_bytes=$(stat -c%s "$DUMP_FILE")"
+    echo "sha256=$(cut -d' ' -f1 "$SHA_FILE")"
+} > "$META_FILE"
+
+ln -sfn "$(basename "$DUMP_FILE")" "$BACKUP_DIR/latest.dump"
+ln -sfn "$(basename "$SHA_FILE")" "$BACKUP_DIR/latest.dump.sha256"
+ln -sfn "$(basename "$META_FILE")" "$BACKUP_DIR/latest.dump.meta"
+ln -sfn "$(basename "$GLOBALS_FILE")" "$BACKUP_DIR/latest_globals.sql"
+
+find "$BACKUP_DIR" -maxdepth 1 -type f \( -name 'mykaizenfit_*.dump' -o -name 'mykaizenfit_*.dump.sha256' -o -name 'mykaizenfit_*.dump.meta' -o -name 'mykaizenfit_*_globals.sql' \) -mtime +"$RETENTION_DAYS" -delete
+
+log "OK: Backup creado $(basename "$DUMP_FILE") size=$(du -h "$DUMP_FILE" | cut -f1)"
+log "====== BACKUP FINALIZADO EXITOSAMENTE ======"
+log ""

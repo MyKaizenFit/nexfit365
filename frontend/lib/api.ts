@@ -79,6 +79,7 @@ export const NUTRITION_ENDPOINTS = {
   CHANGE_PLAN: 'nutrition/change-plan/',
   SUITABLE_PLANS: 'nutrition/personalized/suitable-plans/',
   PLAN_MEALS_FOR_SELECTION: 'nutrition/plan-meals-for-selection/',
+  SHOPPING_LIST: 'nutrition/shopping-list/',
   PLAN_HISTORY: 'nutrition/plan-history/',
   RECIPES: 'nutrition/recipes/',
 }

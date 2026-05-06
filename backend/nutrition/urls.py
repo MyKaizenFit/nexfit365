@@ -6,7 +6,7 @@ from .views import (
     current_plan, plan_meals_for_selection, daily_meal_selections, daily_meal_selections_today,
     weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
     adjust_plan, plan_history, meal_exclusions, meal_exclusion_detail,
-    ingredient_exclusions, ingredient_exclusion_detail
+    ingredient_exclusions, ingredient_exclusion_detail, shopping_list
 )
 
 router = DefaultRouter()
@@ -28,6 +28,7 @@ urlpatterns = [
     path('adjust-plan/', adjust_plan, name='adjust-plan'),
     path('plan-history/', plan_history, name='plan-history'),
     path('plan-meals-for-selection/', plan_meals_for_selection, name='plan-meals-for-selection'),
+    path('shopping-list/', shopping_list, name='shopping-list'),
     path('daily-meal-selections/today/', daily_meal_selections_today, name='daily-meal-selections-today'),
     path('daily-meal-selections/', daily_meal_selections, name='daily-meal-selections'),
     path('meal-exclusions/', meal_exclusions, name='meal-exclusions'),

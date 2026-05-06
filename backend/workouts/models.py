@@ -3,7 +3,7 @@
 
 import uuid
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 
@@ -320,6 +320,16 @@ class WorkoutProgram(TimeStampedModel):
     def training_days(self):
         """Días de entrenamiento (no descanso)"""
         return self.days.filter(is_rest_day=False).count()
+
+    def save(self, *args, **kwargs):
+        """Garantiza que un usuario tenga como maximo un programa activo."""
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.user_id and self.is_active:
+                WorkoutProgram.objects.filter(
+                    user_id=self.user_id,
+                    is_active=True,
+                ).exclude(pk=self.pk).update(is_active=False)
 
 
 # =============================================================================

@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { NotificationContainer } from '@/components/ui/notification-toast'
 import { BetaBanner } from '@/components/beta-banner'
 import { RegisterServiceWorker } from './register-sw'
-// import { ThemeProvider } from '@/components/theme-provider'  // Deshabilitado para esta versión
+import { ThemeProvider } from '@/components/theme-provider'
 
 const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
   || (process.env.NODE_ENV === 'production'
@@ -53,19 +53,18 @@ export default function RootLayout({
       <body className={GeistSans.className}>
         <RegisterServiceWorker />
         <BetaBanner />
-        {/* ThemeProvider deshabilitado para esta versión
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-        > */}
+        >
           <AuthProvider>
             {children}
             <Toaster />
             <NotificationContainer />
           </AuthProvider>
-        {/* </ThemeProvider> */}
+        </ThemeProvider>
       </body>
     </html>
   )

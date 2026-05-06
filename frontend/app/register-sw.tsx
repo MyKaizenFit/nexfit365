@@ -47,12 +47,12 @@ export function RegisterServiceWorker() {
           registration.update().catch((err) => {
           })
           
-          // Verificar actualizaciones periódicamente (cada minuto para detectar cambios rápidamente)
+          // Verificar actualizaciones periódicamente sin sobrecargar la red
           setInterval(() => {
             registration.update().catch((err) => {
               // Silenciar errores de actualización
             })
-          }, 60000) // Cada minuto para detectar cambios más rápido
+          }, 300000) // Cada 5 minutos
         })
         .catch((error) => {
           // Solo loguear errores críticos, no bloquear la aplicación

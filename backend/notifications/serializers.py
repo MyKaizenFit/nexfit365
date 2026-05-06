@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import Notification, PushSubscription
+from drf_spectacular.utils import extend_schema_field
+from .models import Notification, PushSubscription, NotificationDeliveryLog
 from .models import AdminMessage
 
 
@@ -52,14 +53,100 @@ class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")
     is_read = serializers.ReadOnlyField()
     is_expired = serializers.ReadOnlyField()
+    delivery_summary = serializers.SerializerMethodField()
     
     class Meta:
         model = Notification
         fields = [
             "id", "user", "type", "title", "message", "data", "action_url",
-            "read_at", "expires_at", "is_read", "is_expired", "created_at"
+            "read_at", "expires_at", "is_read", "is_expired", "created_at", "delivery_summary"
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at", "is_read", "is_expired"]
+
+    @extend_schema_field(
+        {
+            'type': 'object',
+            'properties': {
+                'push': {
+                    'type': 'object',
+                    'properties': {
+                        'status': {'type': 'string'},
+                        'attempts': {'type': 'integer'},
+                        'last_error': {'type': 'string'},
+                        'last_attempt_at': {'type': 'string', 'nullable': True, 'format': 'date-time'},
+                        'delivered_at': {'type': 'string', 'nullable': True, 'format': 'date-time'},
+                    },
+                },
+                'email': {
+                    'type': 'object',
+                    'properties': {
+                        'status': {'type': 'string'},
+                        'attempts': {'type': 'integer'},
+                        'last_error': {'type': 'string'},
+                        'last_attempt_at': {'type': 'string', 'nullable': True, 'format': 'date-time'},
+                        'delivered_at': {'type': 'string', 'nullable': True, 'format': 'date-time'},
+                    },
+                },
+            },
+        }
+    )
+    def get_delivery_summary(self, obj):
+        logs = list(getattr(obj, "delivery_logs", []).all() if hasattr(obj, "delivery_logs") else [])
+        summary = {
+            "push": {
+                "status": "pending",
+                "attempts": 0,
+                "last_error": "",
+                "last_attempt_at": None,
+                "delivered_at": None,
+            },
+            "email": {
+                "status": "pending",
+                "attempts": 0,
+                "last_error": "",
+                "last_attempt_at": None,
+                "delivered_at": None,
+            },
+        }
+
+        for log in logs:
+            channel = str(log.channel)
+            if channel not in summary:
+                continue
+            summary[channel] = {
+                "status": log.status,
+                "attempts": log.attempts,
+                "last_error": log.last_error,
+                "last_attempt_at": log.last_attempt_at,
+                "delivered_at": log.delivered_at,
+            }
+
+        return summary
+
+
+class NotificationDeliveryLogSerializer(serializers.ModelSerializer):
+    channel_label = serializers.CharField(source='get_channel_display', read_only=True)
+    status_label = serializers.CharField(source='get_status_display', read_only=True)
+
+    class Meta:
+        model = NotificationDeliveryLog
+        fields = [
+            'id',
+            'notification',
+            'channel',
+            'channel_label',
+            'status',
+            'status_label',
+            'attempts',
+            'last_error',
+            'task_id',
+            'last_attempt_at',
+            'delivered_at',
+            'metadata',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
 
 
 class NotificationCreateSerializer(serializers.ModelSerializer):

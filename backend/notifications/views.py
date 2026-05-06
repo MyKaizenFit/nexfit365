@@ -8,6 +8,7 @@ from django.db import DatabaseError
 from django.db.models import Count
 from django.utils import timezone
 import logging
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .models import Notification, PushSubscription
 from .models import AdminMessage
@@ -50,7 +51,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
-        queryset = Notification.objects.select_related('user').filter(
+        queryset = Notification.objects.select_related('user').prefetch_related('delivery_logs').filter(
             type__in=IMPORTANT_NOTIFICATION_TYPES
         )
 
@@ -102,6 +103,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 },
                 status=status.HTTP_200_OK,
             )
+
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Crear notificación",
+        examples=[
+            OpenApiExample(
+                "Create notification request",
+                value={
+                    "type": "workout_reminder",
+                    "title": "Entreno de hoy",
+                    "message": "Completa tu sesión de fuerza.",
+                    "data": {"priority": "medium"},
+                    "action_url": "https://nexfit365.dpdns.org/dashboard",
+                },
+                request_only=True,
+            )
+        ],
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
     
     def get_serializer_class(self):
         if self.action == "create":
@@ -203,6 +224,17 @@ class NotificationViewSet(viewsets.ModelViewSet):
         })
     
     @action(detail=False, methods=["get"])
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Contador de no leídas",
+        examples=[
+            OpenApiExample(
+                "Unread count response",
+                value={"unread_count": 4},
+                response_only=True,
+            )
+        ],
+    )
     def unread_count(self, request, user_id=None):
         """Obtener contador de notificaciones no leídas"""
         user_id = user_id or request.user.id
@@ -216,6 +248,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return Response({"unread_count": unread_count})
     
     @action(detail=False, methods=["get"])
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Resumen de notificaciones",
+        examples=[
+            OpenApiExample(
+                "Summary response",
+                value={
+                    "total_notifications": 12,
+                    "unread_count": 3,
+                    "notifications_by_type": {
+                        "workout_reminder": 4,
+                        "nutrition": 2,
+                        "system": 6,
+                    },
+                    "latest_notification": "2026-03-18T08:15:00Z",
+                },
+                response_only=True,
+            )
+        ],
+    )
     def summary(self, request, user_id=None):
         """Obtener resumen de notificaciones"""
         user_id = user_id or request.user.id

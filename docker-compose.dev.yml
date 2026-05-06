@@ -86,7 +86,7 @@ services:
     command: >
       sh -c "
         echo '🔄 Aplicando migraciones...' &&
-          (python manage.py migrate --noinput || echo 'Migración completada con errores') &&
+        python manage.py migrate --noinput &&
         echo '📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput || true &&
         echo '🚀 Iniciando servidor de desarrollo...' &&

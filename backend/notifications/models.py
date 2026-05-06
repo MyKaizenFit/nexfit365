@@ -270,3 +270,58 @@ class AdminMessage(TimeStampedModel):
         if not self.is_read:
             self.read_at = timezone.now()
             self.save(update_fields=['read_at'])
+
+
+class NotificationDeliveryLog(TimeStampedModel):
+    """Traza de entrega por canal para una notificación."""
+
+    CHANNEL_PUSH = "push"
+    CHANNEL_EMAIL = "email"
+    CHANNEL_CHOICES = [
+        (CHANNEL_PUSH, "Push"),
+        (CHANNEL_EMAIL, "Email"),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_SENT = "sent"
+    STATUS_FAILED = "failed"
+    STATUS_SKIPPED = "skipped"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "Pendiente"),
+        (STATUS_SENT, "Enviado"),
+        (STATUS_FAILED, "Fallido"),
+        (STATUS_SKIPPED, "Omitido"),
+    ]
+
+    notification = models.ForeignKey(
+        Notification,
+        on_delete=models.CASCADE,
+        related_name="delivery_logs",
+    )
+    channel = models.CharField(max_length=20, choices=CHANNEL_CHOICES)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default="")
+    task_id = models.CharField(max_length=255, blank=True, default="")
+    last_attempt_at = models.DateTimeField(null=True, blank=True)
+    delivered_at = models.DateTimeField(null=True, blank=True)
+    metadata = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Log de entrega de notificación"
+        verbose_name_plural = "Logs de entrega de notificaciones"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["notification", "channel"],
+                name="unique_notification_delivery_channel",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["notification", "channel"]),
+            models.Index(fields=["status", "channel"]),
+            models.Index(fields=["last_attempt_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.notification_id} - {self.channel} - {self.status}"

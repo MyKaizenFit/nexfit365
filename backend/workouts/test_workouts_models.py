@@ -62,6 +62,16 @@ class WorkoutProgramModelTest(TestCase):
             program = WorkoutProgram.objects.create(user=self.user, name=f"Programa {goal}", goal=goal)
             self.assertEqual(program.goal, goal)
 
+    def test_only_one_active_program_per_user(self):
+        first = WorkoutProgram.objects.create(user=self.user, name="P1", is_active=True)
+        second = WorkoutProgram.objects.create(user=self.user, name="P2", is_active=True)
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+
+        self.assertFalse(first.is_active)
+        self.assertTrue(second.is_active)
+
 
 class WorkoutDayModelTest(TestCase):
     def setUp(self):

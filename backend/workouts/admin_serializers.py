@@ -26,6 +26,25 @@ class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         return AdminExerciseSubstituteSerializer(substitutes, many=True).data
 
 
+class AdminExerciseListSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    """Serializer ligero para listados admin de ejercicios."""
+
+    class Meta:
+        model = Exercise
+        fields = [
+            "id",
+            "name",
+            "category",
+            "muscle_groups",
+            "equipment",
+            "difficulty",
+            "is_system",
+            "is_active",
+            "video_url",
+            "image_url",
+        ]
+
+
 class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer):
     class Meta:
         model = Exercise

@@ -327,12 +327,16 @@ export const useAdminNutritionPlans = () => {
   const togglePlanActive = async (planId: string): Promise<void> => {
     try {
       let headers = await getAuthHeaders()
-      let response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/toggle_active/`), {
-        method: 'POST',
+      const currentPlan = plans.find((plan) => plan.id === planId)
+      const nextIsActive = !(currentPlan?.is_active ?? false)
+
+      let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        method: 'PATCH',
         headers: {
           ...headers,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify({ is_active: nextIsActive })
       })
 
       // Si recibimos 401, intentar refrescar el token
@@ -340,12 +344,13 @@ export const useAdminNutritionPlans = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/toggle_active/`), {
-          method: 'POST',
+        response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+          method: 'PATCH',
           headers: {
             ...headers,
             'Content-Type': 'application/json'
-          }
+          },
+          body: JSON.stringify({ is_active: nextIsActive })
         })
       }
 
@@ -354,12 +359,11 @@ export const useAdminNutritionPlans = () => {
         throw new Error(errorData.error || `Error ${response.status}`)
       }
 
-      const result = await response.json()
-      
-      // Actualizar el plan en el estado local
+      await response.json().catch(() => ({}))
+
       setPlans(prev => prev.map(plan => 
         plan.id === planId 
-          ? { ...plan, is_active: result.is_active }
+          ? { ...plan, is_active: nextIsActive }
           : plan
       ))
     } catch (err) {
@@ -415,39 +419,36 @@ export const useAdminNutritionPlans = () => {
 
   const bulkToggleActive = async (planIds: string[], isActive: boolean): Promise<void> => {
     try {
-      let headers = await getAuthHeaders()
-      const requestBody = JSON.stringify({
-        plan_ids: planIds,
-        is_active: isActive
-      })
-      let response = await fetch(buildApiUrl('admin/nutrition/default-plans/bulk_toggle_active/'), {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: requestBody
-      })
-
-      // Si recibimos 401, intentar refrescar el token
-      if (response.status === 401) {
-        const newHeaders = await handle401AndRefresh(getAuthHeaders)
-        if (!newHeaders) throw new Error('Sesión expirada')
-        headers = newHeaders
-        response = await fetch(buildApiUrl('admin/nutrition/default-plans/bulk_toggle_active/'), {
-          method: 'POST',
+      await Promise.all(planIds.map(async (planId) => {
+        let headers = await getAuthHeaders()
+        let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+          method: 'PATCH',
           headers: {
             ...headers,
             'Content-Type': 'application/json'
           },
-          body: requestBody
+          body: JSON.stringify({ is_active: isActive })
         })
-      }
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Error ${response.status}`)
-      }
+        if (response.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) throw new Error('Sesión expirada')
+          headers = newHeaders
+          response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+            method: 'PATCH',
+            headers: {
+              ...headers,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ is_active: isActive })
+          })
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `Error ${response.status}`)
+        }
+      }))
 
       // Actualizar los planes en el estado local
       setPlans(prev => prev.map(plan => 
@@ -464,38 +465,28 @@ export const useAdminNutritionPlans = () => {
 
   const bulkDelete = async (planIds: string[]): Promise<void> => {
     try {
-      let headers = await getAuthHeaders()
-      const requestBody = JSON.stringify({
-        plan_ids: planIds
-      })
-      let response = await fetch(buildApiUrl('admin/nutrition/default-plans/bulk_delete/'), {
-        method: 'DELETE',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json'
-        },
-        body: requestBody
-      })
-
-      // Si recibimos 401, intentar refrescar el token
-      if (response.status === 401) {
-        const newHeaders = await handle401AndRefresh(getAuthHeaders)
-        if (!newHeaders) throw new Error('Sesión expirada')
-        headers = newHeaders
-        response = await fetch(buildApiUrl('admin/nutrition/default-plans/bulk_delete/'), {
+      await Promise.all(planIds.map(async (planId) => {
+        let headers = await getAuthHeaders()
+        let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
           method: 'DELETE',
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json'
-          },
-          body: requestBody
+          headers,
         })
-      }
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Error ${response.status}`)
-      }
+        if (response.status === 401) {
+          const newHeaders = await handle401AndRefresh(getAuthHeaders)
+          if (!newHeaders) throw new Error('Sesión expirada')
+          headers = newHeaders
+          response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+            method: 'DELETE',
+            headers,
+          })
+        }
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.error || `Error ${response.status}`)
+        }
+      }))
 
       // Remover los planes eliminados del estado local
       setPlans(prev => prev.filter(plan => !planIds.includes(plan.id)))
