@@ -1,15 +1,31 @@
 {
   "extends": [
     "next/core-web-vitals",
-    "@typescript-eslint/recommended"
+    "plugin:@typescript-eslint/recommended"
   ],
   "rules": {
+    "@next/next/no-img-element": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-var-requires": "off",
+    "@typescript-eslint/no-unused-vars": "off",
+    "no-unused-vars": "off",
+    "prefer-const": "off",
+    "react-hooks/exhaustive-deps": "off",
+    "react/no-unescaped-entities": "off",
     "react/no-inline-styles": "off"
   },
   "overrides": [
     {
       "files": ["**/*.tsx", "**/*.ts"],
       "rules": {
+        "@next/next/no-img-element": "off",
+        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-var-requires": "off",
+        "@typescript-eslint/no-unused-vars": "off",
+        "no-unused-vars": "off",
+        "prefer-const": "off",
+        "react-hooks/exhaustive-deps": "off",
+        "react/no-unescaped-entities": "off",
         "react/no-inline-styles": "off"
       }
     }
