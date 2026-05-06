@@ -10,9 +10,11 @@ from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
+from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
+from rest_framework import serializers
 
-from .models import Notification
-from .serializers import NotificationSerializer, CreateNotificationSerializer
+from .models import Notification, NotificationDeliveryLog
+from .serializers import NotificationSerializer, CreateNotificationSerializer, NotificationDeliveryLogSerializer
 from .models import AdminMessage
 from accounts.permissions import IsAdminOrStaff
 from progress.models import WeightEntry, ProgressPhoto
@@ -305,7 +307,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar notificaciones según parámetros"""
-        queryset = Notification.objects.select_related('user').filter(
+        queryset = Notification.objects.select_related('user').prefetch_related('delivery_logs').filter(
             type__in=IMPORTANT_NOTIFICATION_TYPES
         )
         
@@ -356,6 +358,32 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             }, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'])
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Enviar notificación masiva",
+        examples=[
+            OpenApiExample(
+                "Bulk notification request",
+                value={
+                    "user_ids": [12, 27, 31],
+                    "title": "Recordatorio semanal",
+                    "message": "No olvides registrar tu progreso.",
+                    "type": "progress",
+                    "priority": "high",
+                    "send_email": True,
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                "Bulk notification response",
+                value={
+                    "message": "3 notificaciones enviadas correctamente",
+                    "notifications_created": 3,
+                },
+                response_only=True,
+            ),
+        ],
+    )
     def send_bulk(self, request):
         """Enviar notificación masiva a múltiples usuarios"""
         serializer = CreateNotificationSerializer(data=request.data)
@@ -456,6 +484,58 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             'notifications_created': len(notifications)
         }, status=status.HTTP_201_CREATED)
     
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Estadísticas de notificaciones admin",
+        responses=inline_serializer(
+            name='AdminNotificationStatsResponse',
+            fields={
+                'total_notifications': serializers.IntegerField(),
+                'read_notifications': serializers.IntegerField(),
+                'unread_notifications': serializers.IntegerField(),
+                'clicked_notifications': serializers.IntegerField(),
+                'recent_notifications_30_days': serializers.IntegerField(),
+                'type_distribution': inline_serializer(
+                    name='NotificationTypeDistribution',
+                    many=True,
+                    fields={
+                        'type': serializers.CharField(),
+                        'count': serializers.IntegerField(),
+                    },
+                ),
+                'delivery_breakdown': inline_serializer(
+                    name='NotificationDeliveryBreakdown',
+                    many=True,
+                    fields={
+                        'channel': serializers.CharField(),
+                        'status': serializers.CharField(),
+                        'count': serializers.IntegerField(),
+                    },
+                ),
+            },
+        ),
+        examples=[
+            OpenApiExample(
+                "Stats response",
+                value={
+                    "total_notifications": 120,
+                    "read_notifications": 80,
+                    "unread_notifications": 40,
+                    "clicked_notifications": 21,
+                    "recent_notifications_30_days": 54,
+                    "type_distribution": [
+                        {"type": "system", "count": 20},
+                        {"type": "progress", "count": 14},
+                    ],
+                    "delivery_breakdown": [
+                        {"channel": "push", "status": "sent", "count": 45},
+                        {"channel": "email", "status": "failed", "count": 3},
+                    ],
+                },
+                response_only=True,
+            )
+        ],
+    )
     @action(detail=False, methods=['get'])
     def stats(self, request):
         """Estadísticas de notificaciones"""
@@ -474,6 +554,8 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             recent_notifications = base_qs.filter(
                 created_at__gte=thirty_days_ago
             ).count()
+
+            delivery_breakdown = NotificationDeliveryLog.objects.values('channel', 'status').annotate(count=Count('id'))
         except DatabaseError:
             total_notifications = 0
             read_notifications = 0
@@ -481,6 +563,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             clicked_notifications = 0
             type_stats = []
             recent_notifications = 0
+            delivery_breakdown = []
         
         return Response({
             'total_notifications': total_notifications,
@@ -489,6 +572,54 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
             'clicked_notifications': clicked_notifications,
             'recent_notifications_30_days': recent_notifications,
             'type_distribution': list(type_stats),
+            'delivery_breakdown': list(delivery_breakdown),
+        })
+
+    @extend_schema(
+        tags=["Notifications"],
+        summary="Trazabilidad de entrega por notificación",
+        responses=inline_serializer(
+            name='NotificationDeliveryLogsResponse',
+            fields={
+                'notification_id': serializers.CharField(),
+                'logs': NotificationDeliveryLogSerializer(many=True),
+            },
+        ),
+        examples=[
+            OpenApiExample(
+                "Delivery logs response",
+                value={
+                    "notification_id": "24ea89b0-2f13-4e3f-8f9c-3bde9e7c4c6b",
+                    "logs": [
+                        {
+                            "channel": "push",
+                            "status": "sent",
+                            "attempts": 1,
+                            "last_error": "",
+                            "metadata": {"sent_subscriptions": 2},
+                        },
+                        {
+                            "channel": "email",
+                            "status": "failed",
+                            "attempts": 2,
+                            "last_error": "SMTP timeout",
+                            "metadata": {},
+                        },
+                    ],
+                },
+                response_only=True,
+            )
+        ],
+    )
+    @action(detail=True, methods=['get'], url_path='delivery-logs')
+    def delivery_logs(self, request, pk=None):
+        """Devuelve trazas de entrega push/email para una notificación."""
+        notification = self.get_object()
+        logs = notification.delivery_logs.all().order_by('channel')
+        serializer = NotificationDeliveryLogSerializer(logs, many=True)
+        return Response({
+            'notification_id': str(notification.id),
+            'logs': serializer.data,
         })
     
     @action(detail=False, methods=['get'], url_path='automation-summary')

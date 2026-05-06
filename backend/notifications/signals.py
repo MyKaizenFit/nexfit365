@@ -9,8 +9,10 @@ from django.db import connection, transaction
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Notification
+from .models import NotificationDeliveryLog
 from .push_service import push_service
 from .email_service import email_service
+from .delivery_tracking import update_delivery_log
 
 logger = logging.getLogger(__name__)
 
@@ -73,13 +75,25 @@ def send_notifications_sync(notification_id: int):
         
         # Solo enviar si la notificación no está expirada
         if notification.is_expired:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                metadata={"reason": "notification_expired"},
+            )
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                metadata={"reason": "notification_expired"},
+            )
             return
         
         # Enviar push notification
         try:
             if notification.user.push_subscriptions.exists():
                 logger.info(f"Enviando push para notificación {notification.id} a {notification.user.email}")
-                push_service.send_to_user(
+                sent_push = push_service.send_to_user(
                     user=notification.user,
                     title=notification.title,
                     body=notification.message,
@@ -88,16 +102,70 @@ def send_notifications_sync(notification_id: int):
                     data=notification.data or {},
                     create_notification=False  # Ya existe la notificación
                 )
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                    status=(
+                        NotificationDeliveryLog.STATUS_SENT
+                        if sent_push > 0
+                        else NotificationDeliveryLog.STATUS_SKIPPED
+                    ),
+                    attempts=1,
+                    metadata={"sent_subscriptions": sent_push},
+                    mark_delivered=sent_push > 0,
+                )
+            else:
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                    status=NotificationDeliveryLog.STATUS_SKIPPED,
+                    attempts=1,
+                    metadata={"reason": "no_active_push_subscriptions"},
+                )
         except Exception as e:
             logger.error(f"Error enviando push notification {notification.id}: {e}")
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_FAILED,
+                attempts=1,
+                error_message=str(e),
+            )
         
         # Enviar email notification
         try:
             if notification.user.email:
                 logger.info(f"Enviando email para notificación {notification.id} a {notification.user.email}")
-                email_service.send_notification_email(notification)
+                sent_email = email_service.send_notification_email(notification)
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                    status=(
+                        NotificationDeliveryLog.STATUS_SENT
+                        if sent_email
+                        else NotificationDeliveryLog.STATUS_SKIPPED
+                    ),
+                    attempts=1,
+                    metadata={"reason": "service_rejected" if not sent_email else ""},
+                    mark_delivered=sent_email,
+                )
+            else:
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                    status=NotificationDeliveryLog.STATUS_SKIPPED,
+                    attempts=1,
+                    metadata={"reason": "user_without_email"},
+                )
         except Exception as e:
             logger.error(f"Error enviando email notification {notification.id}: {e}")
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_FAILED,
+                attempts=1,
+                error_message=str(e),
+            )
             
     except Notification.DoesNotExist:
         logger.warning(f"Notificación {notification_id} no encontrada para envío asíncrono")

@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from nutrition.models import (
     Recipe, NutritionPlan, PlanMeal, MealLog,
-    NutritionPlanHistory, Food
+    NutritionPlanHistory, Food, NutritionPlanAssignment
 )
 from datetime import date, time
 from decimal import Decimal
@@ -120,6 +120,29 @@ class NutritionPlanModelTest(TestCase):
         # Verificar que solo hay un plan activo
         active_plans = NutritionPlan.objects.filter(user=self.user, is_active=True)
         self.assertEqual(active_plans.count(), 1)
+
+    def test_only_one_active_plan_per_user(self):
+        first = NutritionPlan.objects.create(user=self.user, name="Plan 1", is_active=True)
+        second = NutritionPlan.objects.create(user=self.user, name="Plan 2", is_active=True)
+
+        first.refresh_from_db()
+        second.refresh_from_db()
+
+        self.assertFalse(first.is_active)
+        self.assertTrue(second.is_active)
+
+    def test_only_one_active_assignment_per_user(self):
+        plan_a = NutritionPlan.objects.create(name="Plan A", is_system=True)
+        plan_b = NutritionPlan.objects.create(name="Plan B", is_system=True)
+
+        a1 = NutritionPlanAssignment.objects.create(plan=plan_a, user=self.user, is_active=True)
+        a2 = NutritionPlanAssignment.objects.create(plan=plan_b, user=self.user, is_active=True)
+
+        a1.refresh_from_db()
+        a2.refresh_from_db()
+
+        self.assertFalse(a1.is_active)
+        self.assertTrue(a2.is_active)
 
 
 class PlanMealModelTest(TestCase):

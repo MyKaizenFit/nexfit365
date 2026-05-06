@@ -1,6 +1,7 @@
 # workouts/views.py
 # Views para la nueva estructura simplificada
 
+from collections import defaultdict
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -9,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import DatabaseError
 import logging
+from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
@@ -310,26 +312,23 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         """Crear log de entrenamiento para el usuario autenticado"""
         serializer.save(user=self.request.user)
 
-    def create(self, request, *args, **kwargs):
-        """Upsert del log: si ya existe para user+date+workout_day, actualizar en vez de fallar."""
-        user = request.user
-        workout_day = request.data.get('workout_day')
-        date = request.data.get('date')
-
-        if workout_day and date:
-            existing = WorkoutLog.objects.filter(
-                user=user,
-                workout_day_id=workout_day,
-                date=date
-            ).first()
-            if existing:
-                serializer = self.get_serializer(existing, data=request.data, partial=True)
-                serializer.is_valid(raise_exception=True)
-                serializer.save(user=user)
-                return Response(serializer.data, status=status.HTTP_200_OK)
-
-        return super().create(request, *args, **kwargs)
-
+    @extend_schema(
+        tags=['Workouts'],
+        summary='Crear log de entrenamiento',
+        examples=[
+            OpenApiExample(
+                'Workout log create request',
+                value={
+                    'workout_day': 'f211a7d9-9dd7-43f1-b9ea-d9f2b95a6624',
+                    'date': '2026-03-18',
+                    'completed': True,
+                    'duration_minutes': 58,
+                    'notes': 'Sesión sólida, mejor técnica en press banca.',
+                },
+                request_only=True,
+            )
+        ],
+    )
     def create(self, request, *args, **kwargs):
         """Crear log de entrenamiento"""
         serializer = self.get_serializer(data=request.data)
@@ -402,12 +401,37 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         return Response(WorkoutLogSerializer(logs, many=True).data)
     
     @action(detail=False, methods=['get'])
+    @extend_schema(
+        tags=['Workouts'],
+        summary='Estadísticas de entrenamiento del usuario',
+        examples=[
+            OpenApiExample(
+                'Workout statistics response',
+                value={
+                    'total_workouts': 87,
+                    'completed_this_week': 4,
+                    'weekly_goal': 5,
+                    'total_minutes_week': 244,
+                    'total_minutes_all': 5020,
+                    'average_duration': 57,
+                    'current_streak': 6,
+                    'longest_streak': 14,
+                    'progress_percentage': 80,
+                    'estimated_1rm_prs': [
+                        {'exercise_name': 'Press banca', 'estimated_1rm_kg': 94.6},
+                        {'exercise_name': 'Sentadilla', 'estimated_1rm_kg': 122.1},
+                    ],
+                    'recommended_rest_seconds': 90,
+                },
+                response_only=True,
+            )
+        ],
+    )
     def statistics(self, request):
         """Estadísticas reales de entrenamientos del usuario"""
         from django.utils import timezone
         from datetime import timedelta
-        from django.db.models import Count, Sum, Avg, Q
-        from django.db.models.functions import TruncWeek
+        from django.db.models import Sum, Avg
         
         user = request.user
         today = timezone.localdate()
@@ -497,6 +521,67 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         # Calcular progreso semanal
         progress_percentage = round((completed_this_week / weekly_goal * 100)) if weekly_goal > 0 else 0
         progress_percentage = min(progress_percentage, 100)
+
+        def estimate_1rm(weight: float, reps: int) -> float | None:
+            if weight <= 0 or reps <= 0:
+                return None
+
+            formulas = []
+            # Epley
+            formulas.append(weight * (1 + reps / 30.0))
+            # Brzycki (solo para reps < 37)
+            if reps < 37:
+                formulas.append(weight * (36.0 / (37.0 - reps)))
+            # Lombardi
+            formulas.append(weight * (reps ** 0.10))
+
+            if not formulas:
+                return None
+            return sum(formulas) / len(formulas)
+
+        exercise_prs: dict[str, float] = defaultdict(float)
+        recent_sets = WorkoutLogSet.objects.filter(
+            log_exercise__workout_log__user=user,
+            log_exercise__workout_log__completed=True,
+            reps__isnull=False,
+            weight__isnull=False,
+        ).select_related('log_exercise')
+
+        for workout_set in recent_sets:
+            if workout_set.reps is None or workout_set.weight is None:
+                continue
+            reps = int(workout_set.reps)
+            if reps <= 0 or reps > 20:
+                continue
+            estimated = estimate_1rm(float(workout_set.weight), reps)
+            if estimated is None:
+                continue
+            name = (workout_set.log_exercise.exercise_name or 'Ejercicio').strip()
+            if estimated > exercise_prs[name]:
+                exercise_prs[name] = estimated
+
+        top_prs = sorted(exercise_prs.items(), key=lambda item: item[1], reverse=True)[:5]
+        estimated_1rm_prs = [
+            {
+                'exercise_name': name,
+                'estimated_1rm_kg': round(value, 2),
+            }
+            for name, value in top_prs
+        ]
+
+        rest_samples = list(
+            WorkoutLogSet.objects.filter(
+                log_exercise__workout_log__user=user,
+                rest_seconds__isnull=False,
+            ).values_list('rest_seconds', flat=True)
+        )
+        rest_samples = [int(v) for v in rest_samples if v and int(v) > 0]
+        if rest_samples:
+            rest_samples.sort()
+            mid = len(rest_samples) // 2
+            recommended_rest_seconds = rest_samples[mid]
+        else:
+            recommended_rest_seconds = 60
         
         return Response({
             'total_workouts': total_workouts,
@@ -507,7 +592,9 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'average_duration': avg_duration,
             'current_streak': current_streak,
             'longest_streak': longest_streak,
-            'progress_percentage': progress_percentage
+            'progress_percentage': progress_percentage,
+            'estimated_1rm_prs': estimated_1rm_prs,
+            'recommended_rest_seconds': recommended_rest_seconds,
         })
 
 

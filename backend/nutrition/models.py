@@ -4,7 +4,7 @@
 import re
 import uuid
 from django.conf import settings
-from django.db import models
+from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.utils import timezone
 
@@ -717,6 +717,16 @@ class NutritionPlan(TimeStampedModel):
         if save:
             self.save()
 
+    def save(self, *args, **kwargs):
+        """Garantiza que un usuario tenga como maximo un plan activo propio."""
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.user_id and self.is_active:
+                NutritionPlan.objects.filter(
+                    user_id=self.user_id,
+                    is_active=True,
+                ).exclude(pk=self.pk).update(is_active=False)
+
 
 class NutritionPlanAssignment(TimeStampedModel):
     """
@@ -748,6 +758,16 @@ class NutritionPlanAssignment(TimeStampedModel):
 
     def __str__(self):
         return f"{self.plan.name} -> {self.user.email}"
+
+    def save(self, *args, **kwargs):
+        """Garantiza una sola asignacion activa por usuario."""
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.is_active:
+                NutritionPlanAssignment.objects.filter(
+                    user_id=self.user_id,
+                    is_active=True,
+                ).exclude(pk=self.pk).update(is_active=False)
 
 
 # =============================================================================

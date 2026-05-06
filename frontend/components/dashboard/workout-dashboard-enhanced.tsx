@@ -1341,6 +1341,42 @@ export function WorkoutDashboardEnhanced() {
                   </div>
                 </CardContent>
               </Card>
+
+              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl md:col-span-2">
+                <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
+                  <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                    <Award className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
+                    Evolucion 1RM estimada
+                  </CardTitle>
+                  <CardDescription>
+                    Mejores marcas estimadas por ejercicio (Epley/Brzycki/Lombardi)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-4 md:px-6 pb-4 md:pb-6">
+                  {Array.isArray(workoutStatistics?.estimated_1rm_prs) && workoutStatistics!.estimated_1rm_prs!.length > 0 ? (
+                    <div className="space-y-3">
+                      {workoutStatistics!.estimated_1rm_prs!.slice(0, 8).map((item, idx) => {
+                        const maxValue = Math.max(...workoutStatistics!.estimated_1rm_prs!.map((v) => Number(v.estimated_1rm_kg || 0)), 1)
+                        const current = Number(item.estimated_1rm_kg || 0)
+                        const pct = Math.max(5, Math.round((current / maxValue) * 100))
+                        return (
+                          <div key={`${item.exercise_name}-${idx}`} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-gray-800">{item.exercise_name}</span>
+                              <span className="font-semibold text-purple-700">{current.toFixed(1)} kg</span>
+                            </div>
+                            <Progress value={pct} className="h-2" />
+                          </div>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Aun no hay suficientes registros con peso y repeticiones para estimar 1RM.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           ) : (
             <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">

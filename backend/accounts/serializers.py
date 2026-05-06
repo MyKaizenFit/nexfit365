@@ -256,7 +256,17 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True)
     role = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    
+    # Campos JSON que admiten listas desde el frontend
+    allergies = serializers.JSONField(required=False, default=list)
+    medical_conditions = serializers.JSONField(required=False, default=list)
+    dietary_restrictions = serializers.JSONField(required=False, default=list)
+    workout_preferences = serializers.JSONField(required=False, default=list)
+    equipment_available = serializers.JSONField(required=False, default=list)
+    # El frontend puede enviar fitness_goals (lista) en lugar de main_goal (string)
+    fitness_goals = serializers.ListField(
+        child=serializers.CharField(), required=False, write_only=True, default=list
+    )
+
     class Meta:
         model = CustomUser
         fields = [
@@ -264,12 +274,13 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'birth_date', 'gender', 'height', 'weight', 'target_weight',
             'main_goal', 'activity_level', 'dietary_restrictions', 'allergies',
             'medical_conditions', 'workout_preferences', 'equipment_available',
-            'phone_number', 'role'
+            'phone_number', 'role', 'fitness_goals'
         ]
         extra_kwargs = {
             'email': {'required': True},
             'first_name': {'required': True},
             'last_name': {'required': True},
+            'main_goal': {'required': False},
         }
     
     def validate(self, attrs):
@@ -280,7 +291,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         password = validated_data.pop('password')
-        
+
+        # fitness_goals (lista del frontend) → main_goal (string del modelo)
+        fitness_goals = validated_data.pop('fitness_goals', [])
+        if fitness_goals and not validated_data.get('main_goal'):
+            validated_data['main_goal'] = fitness_goals[0]
+
         # Verificar si viene desde admin (request.user es staff)
         request = self.context.get('request')
         is_from_admin = request and (request.user.is_staff or request.user.is_superuser)

@@ -97,6 +97,23 @@ export interface WorkoutLog {
   updated_at?: string
 }
 
+export interface WorkoutStatistics {
+  total_workouts: number
+  completed_this_week: number
+  weekly_goal: number
+  total_minutes_week: number
+  total_minutes_all: number
+  average_duration: number
+  current_streak: number
+  longest_streak: number
+  progress_percentage: number
+  estimated_1rm_prs?: Array<{
+    exercise_name: string
+    estimated_1rm_kg: number
+  }>
+  recommended_rest_seconds?: number
+}
+
 export function useWorkouts() {
   const { isAuthenticated, user } = useAuth()
   const [workoutPrograms, setWorkoutPrograms] = useState<WorkoutProgram[]>([])
@@ -609,7 +626,7 @@ export function useWorkouts() {
   }
 
   // Obtener progreso semanal (usando datos del servidor)
-  const [workoutStatistics, setWorkoutStatistics] = useState<any>(null)
+  const [workoutStatistics, setWorkoutStatistics] = useState<WorkoutStatistics | null>(null)
 
   const fetchWorkoutStatistics = async () => {
     if (!isAuthenticated) {

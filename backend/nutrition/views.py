@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db import DatabaseError
 from django.db.models import Q
+from django.utils import timezone
 
 from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion
 from .serializers import (
@@ -25,6 +26,9 @@ import logging
 import re
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from notifications.utils import notify_admins_user_change
+from collections import defaultdict
+from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
+from rest_framework import serializers
 
 logger = logging.getLogger(__name__)
 
@@ -111,6 +115,32 @@ def get_active_plan_for_user(user):
     return NutritionPlan.objects.filter(user=user, is_active=True).order_by('-created_at').first()
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Plan nutricional activo',
+    responses=inline_serializer(
+        name='CurrentNutritionPlanResponse',
+        fields={
+            'plan': NutritionPlanSerializer(allow_null=True),
+        },
+    ),
+    examples=[
+        OpenApiExample(
+            'Current nutrition plan response',
+            value={
+                'plan': {
+                    'id': 'd664ff4a-c306-4a1b-bb1e-67b8adf95452',
+                    'name': 'Plan recomposición 8 semanas',
+                    'is_active': True,
+                    'meals': [
+                        {'id': 'aafb5001-e63e-4e54-ac9c-2916f89ce3f1', 'meal_type': 'breakfast', 'day_of_week': 1}
+                    ],
+                }
+            },
+            response_only=True,
+        )
+    ],
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def current_plan(request):
@@ -131,6 +161,186 @@ def current_plan(request):
     
     # Si no tiene plan, devolver null (no es un error)
     return Response({'plan': None})
+
+
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Lista de compra agregada del plan activo',
+    responses=inline_serializer(
+        name='ShoppingListResponse',
+        fields={
+            'plan_name': serializers.CharField(allow_null=True),
+            'days': serializers.IntegerField(),
+            'items': inline_serializer(
+                name='ShoppingListItem',
+                many=True,
+                fields={
+                    'name': serializers.CharField(),
+                    'quantity': serializers.FloatField(),
+                    'unit': serializers.CharField(),
+                    'recipes': serializers.ListField(child=serializers.CharField()),
+                },
+            ),
+            'total_items': serializers.IntegerField(),
+            'message': serializers.CharField(required=False),
+            'generated_at': serializers.CharField(required=False),
+        },
+    ),
+    examples=[
+        OpenApiExample(
+            'Shopping list response',
+            value={
+                'plan_name': 'Plan recomposición 8 semanas',
+                'days': 7,
+                'items': [
+                    {
+                        'name': 'Avena',
+                        'quantity': 560.0,
+                        'unit': 'g',
+                        'recipes': ['Porridge proteico'],
+                    },
+                    {
+                        'name': 'Pechuga de pollo',
+                        'quantity': 1200.0,
+                        'unit': 'g',
+                        'recipes': ['Bowl pollo y arroz'],
+                    },
+                ],
+                'total_items': 2,
+                'generated_at': '2026-03-18T09:00:00Z',
+            },
+            response_only=True,
+        )
+    ],
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def shopping_list(request):
+    """
+    Genera una lista de compra agregada desde el plan activo del usuario.
+
+    Query params:
+    - days: int (1..31), por defecto 7
+    """
+    user = request.user
+    raw_days = request.query_params.get('days', '7')
+    try:
+        days = int(raw_days)
+    except (TypeError, ValueError):
+        days = 7
+    days = max(1, min(days, 31))
+
+    plan = get_active_plan_for_user(user)
+    if not plan:
+        return Response({
+            'plan_name': None,
+            'days': days,
+            'items': [],
+            'total_items': 0,
+            'message': 'Sin plan activo',
+        })
+
+    plan = NutritionPlan.objects.filter(pk=plan.pk).prefetch_related(
+        'meals',
+        'meals__meal_recipes__recipe__recipe_ingredients__food',
+        'meals__suggested_recipes__recipe_ingredients__food',
+    ).first()
+    if not plan:
+        return Response({
+            'plan_name': None,
+            'days': days,
+            'items': [],
+            'total_items': 0,
+            'message': 'Sin plan activo',
+        })
+
+    today = timezone.localdate()
+    day_numbers = [((today.isoweekday() - 1 + idx) % 7) + 1 for idx in range(days)]
+    meals_qs = plan.meals.filter(Q(day_of_week__isnull=True) | Q(day_of_week__in=day_numbers))
+
+    def parse_qty(value, default=0.0):
+        if isinstance(value, (int, float)):
+            return float(value)
+        if value is None:
+            return float(default)
+        text = str(value).strip()
+        if not text:
+            return float(default)
+        match = re.search(r"[-+]?\d*\.?\d+", text)
+        if not match:
+            return float(default)
+        try:
+            return float(match.group(0))
+        except ValueError:
+            return float(default)
+
+    aggregated = defaultdict(lambda: {
+        'name': '',
+        'unit': 'g',
+        'quantity': 0.0,
+        'recipes': set(),
+    })
+
+    def add_item(name: str, unit: str, quantity: float, recipe_name: str):
+        normalized_name = (name or '').strip()
+        if not normalized_name or quantity <= 0:
+            return
+        normalized_unit = (unit or 'g').strip() or 'g'
+        key = f"{normalized_name.lower()}::{normalized_unit.lower()}"
+        entry = aggregated[key]
+        entry['name'] = normalized_name
+        entry['unit'] = normalized_unit
+        entry['quantity'] += quantity
+        if recipe_name:
+            entry['recipes'].add(recipe_name)
+
+    for meal in meals_qs:
+        meal_recipes = [mr.recipe for mr in meal.meal_recipes.all() if mr.recipe_id]
+        if meal_recipes:
+            candidate_recipes = meal_recipes
+        else:
+            candidate_recipes = list(meal.suggested_recipes.all())
+
+        for recipe in candidate_recipes:
+            recipe_name = recipe.name
+            ingredients_qs = recipe.recipe_ingredients.all()
+            if ingredients_qs.exists():
+                for ingredient in ingredients_qs:
+                    add_item(
+                        name=ingredient.food.name,
+                        unit=ingredient.unit or 'g',
+                        quantity=parse_qty(ingredient.quantity, 0),
+                        recipe_name=recipe_name,
+                    )
+                continue
+
+            # Fallback para recetas sin RecipeIngredient vinculados (campo JSON ingredients)
+            if isinstance(recipe.ingredients, list):
+                for raw_item in recipe.ingredients:
+                    if isinstance(raw_item, dict):
+                        item_name = str(raw_item.get('name') or '').strip()
+                        item_unit = str(raw_item.get('unit') or 'g').strip() or 'g'
+                        item_qty = parse_qty(raw_item.get('amount') or raw_item.get('quantity'), 0)
+                        add_item(item_name, item_unit, item_qty, recipe_name)
+
+    items = []
+    for value in aggregated.values():
+        items.append({
+            'name': value['name'],
+            'quantity': round(value['quantity'], 2),
+            'unit': value['unit'],
+            'recipes': sorted(value['recipes']),
+        })
+
+    items.sort(key=lambda item: item['name'].lower())
+
+    return Response({
+        'plan_name': plan.name,
+        'days': days,
+        'items': items,
+        'total_items': len(items),
+        'generated_at': timezone.now().isoformat(),
+    })
 
 
 @api_view(['GET'])
@@ -642,6 +852,31 @@ def plan_meals_for_selection(request):
     })
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Selecciones de comidas de hoy',
+    responses=inline_serializer(
+        name='DailyMealSelectionsTodayResponse',
+        fields={
+            'date': serializers.CharField(),
+            'selections': MealLogSerializer(many=True),
+            'plan_meals': PlanMealSerializer(many=True),
+            'has_plan': serializers.BooleanField(),
+        },
+    ),
+    examples=[
+        OpenApiExample(
+            'Today selections response',
+            value={
+                'date': '2026-04-29',
+                'selections': [],
+                'plan_meals': [],
+                'has_plan': True,
+            },
+            response_only=True,
+        )
+    ],
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def daily_meal_selections_today(request):
@@ -674,6 +909,62 @@ def daily_meal_selections_today(request):
     })
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Consultar o guardar selecciones diarias de comidas',
+    request=inline_serializer(
+        name='DailyMealSelectionRequest',
+        fields={
+            'date': serializers.CharField(required=False),
+            'meal_type': serializers.CharField(required=False),
+            'recipe_id': serializers.CharField(required=False),
+            'plan_meal_id': serializers.CharField(required=False),
+            'completed': serializers.BooleanField(required=False),
+            'skip_meal': serializers.BooleanField(required=False),
+            'skip_reason': serializers.CharField(required=False),
+            'exclude_from_recommendations': serializers.BooleanField(required=False),
+            'custom_description': serializers.CharField(required=False),
+            'calories': serializers.IntegerField(required=False),
+            'protein': serializers.FloatField(required=False),
+            'carbs': serializers.FloatField(required=False),
+            'fat': serializers.FloatField(required=False),
+        },
+    ),
+    responses={
+        200: inline_serializer(
+            name='DailyMealSelectionsGetResponse',
+            fields={
+                'date': serializers.CharField(),
+                'selections': MealLogSerializer(many=True),
+                'plan_meals': PlanMealSerializer(many=True),
+                'has_plan': serializers.BooleanField(),
+            },
+        ),
+        201: MealLogSerializer,
+    },
+    examples=[
+        OpenApiExample(
+            'Daily selections get response',
+            value={
+                'date': '2026-04-29',
+                'selections': [],
+                'plan_meals': [],
+                'has_plan': True,
+            },
+            response_only=True,
+        ),
+        OpenApiExample(
+            'Daily selection post request',
+            value={
+                'date': '2026-04-29',
+                'meal_type': 'breakfast',
+                'recipe_id': 'd664ff4a-c306-4a1b-bb1e-67b8adf95452',
+                'completed': True,
+            },
+            request_only=True,
+        ),
+    ],
+)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def daily_meal_selections(request):
@@ -871,6 +1162,50 @@ def daily_meal_selections(request):
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
+@extend_schema(
+    methods=['GET'],
+    tags=['Nutrition'],
+    summary='Listar exclusiones de recetas del usuario',
+    responses={200: inline_serializer(
+        name='MealExclusionsListResponse',
+        fields={
+            'exclusions': serializers.ListField(
+                child=inline_serializer(
+                    name='MealExclusionItem',
+                    fields={
+                        'id': serializers.CharField(),
+                        'recipe_id': serializers.CharField(),
+                        'recipe_name': serializers.CharField(),
+                        'image_url': serializers.CharField(),
+                        'reason': serializers.CharField(),
+                    },
+                )
+            )
+        },
+    )},
+)
+@extend_schema(
+    methods=['POST'],
+    tags=['Nutrition'],
+    summary='Añadir exclusión de receta',
+    request=inline_serializer(
+        name='MealExclusionCreateRequest',
+        fields={
+            'recipe_id': serializers.UUIDField(),
+            'reason': serializers.CharField(required=False),
+        },
+    ),
+    responses={201: inline_serializer(
+        name='MealExclusionCreateResponse',
+        fields={
+            'id': serializers.CharField(),
+            'recipe_id': serializers.CharField(),
+            'recipe_name': serializers.CharField(),
+            'image_url': serializers.CharField(),
+            'reason': serializers.CharField(),
+        },
+    )},
+)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def meal_exclusions(request):
@@ -978,6 +1313,11 @@ def meal_exclusions(request):
     return Response(exclusion_payload, status=status.HTTP_201_CREATED)
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Eliminar exclusión de receta',
+    responses={204: None},
+)
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def meal_exclusion_detail(request, exclusion_id):
@@ -1004,6 +1344,46 @@ def meal_exclusion_detail(request, exclusion_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    methods=['GET'],
+    tags=['Nutrition'],
+    summary='Listar exclusiones de ingredientes del usuario',
+    responses={200: inline_serializer(
+        name='IngredientExclusionsListResponse',
+        fields={
+            'exclusions': serializers.ListField(
+                child=inline_serializer(
+                    name='IngredientExclusionItem',
+                    fields={
+                        'id': serializers.CharField(),
+                        'term': serializers.CharField(),
+                        'reason': serializers.CharField(),
+                    },
+                )
+            )
+        },
+    )},
+)
+@extend_schema(
+    methods=['POST'],
+    tags=['Nutrition'],
+    summary='Añadir exclusión de ingrediente',
+    request=inline_serializer(
+        name='IngredientExclusionCreateRequest',
+        fields={
+            'term': serializers.CharField(),
+            'reason': serializers.CharField(required=False),
+        },
+    ),
+    responses={201: inline_serializer(
+        name='IngredientExclusionCreateResponse',
+        fields={
+            'id': serializers.CharField(),
+            'term': serializers.CharField(),
+            'reason': serializers.CharField(),
+        },
+    )},
+)
 @api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def ingredient_exclusions(request):
@@ -1050,6 +1430,11 @@ def ingredient_exclusions(request):
     )
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Eliminar exclusión de ingrediente',
+    responses={204: None},
+)
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def ingredient_exclusion_detail(request, exclusion_id):
@@ -1071,6 +1456,28 @@ def ingredient_exclusion_detail(request, exclusion_id):
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Ajustar calorías del plan nutricional activo',
+    request=inline_serializer(
+        name='AdjustPlanRequest',
+        fields={
+            'calorie_adjustment': serializers.IntegerField(help_text='Ajuste en kcal (-1000 a +1000)'),
+            'reason': serializers.CharField(required=False),
+            'notes': serializers.CharField(required=False),
+        },
+    ),
+    responses={200: inline_serializer(
+        name='AdjustPlanResponse',
+        fields={
+            'plan': NutritionPlanSerializer(),
+            'message': serializers.CharField(),
+            'old_calories': serializers.IntegerField(),
+            'new_calories': serializers.IntegerField(),
+            'adjustment': serializers.IntegerField(),
+        },
+    )},
+)
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def adjust_plan(request):
@@ -1154,6 +1561,17 @@ def adjust_plan(request):
         )
 
 
+@extend_schema(
+    tags=['Nutrition'],
+    summary='Historial de cambios de plan nutricional',
+    responses={200: inline_serializer(
+        name='PlanHistoryResponse',
+        fields={
+            'history': NutritionPlanHistorySerializer(many=True),
+            'count': serializers.IntegerField(),
+        },
+    )},
+)
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def plan_history(request):
@@ -1518,6 +1936,122 @@ class RecipeViewSet(viewsets.ModelViewSet):
         """Recetas destacadas"""
         recipes = Recipe.objects.filter(is_featured=True, is_active=True)[:10]
         return Response(RecipeMinimalSerializer(recipes, many=True).data)
+
+    @action(detail=False, methods=['get'], url_path='export-csv')
+    def export_csv(self, request):
+        """Exporta recetas activas en formato CSV."""
+        import csv
+        from django.http import HttpResponse
+
+        recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.csv"'
+
+        fieldnames = [
+            'nombre',
+            'descripción',
+            'categoría',
+            'dificultad',
+            'porciones',
+            'tiempo_preparacion_minutos',
+            'ingredientes',
+            'instrucciones',
+            'imagen_url',
+            'calorias_ref',
+            'proteinas_ref',
+            'carbos_ref',
+            'grasas_ref',
+        ]
+        writer = csv.DictWriter(response, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for recipe in recipes:
+            ingredient_parts = []
+            for ingredient in recipe.recipe_ingredients.all():
+                ingredient_parts.append(
+                    f"{ingredient.food.name}|{ingredient.quantity}|{ingredient.unit}|{ingredient.notes or ''}"
+                )
+
+            writer.writerow({
+                'nombre': recipe.name,
+                'descripción': recipe.description or '',
+                'categoría': recipe.category or '',
+                'dificultad': recipe.difficulty or '',
+                'porciones': recipe.servings or 1,
+                'tiempo_preparacion_minutos': recipe.prep_time_minutes or 0,
+                'ingredientes': '; '.join(ingredient_parts),
+                'instrucciones': recipe.instructions or '',
+                'imagen_url': recipe.image_url or '',
+                'calorias_ref': recipe.calories or 0,
+                'proteinas_ref': recipe.protein or 0,
+                'carbos_ref': recipe.carbs or 0,
+                'grasas_ref': recipe.fat or 0,
+            })
+
+        return response
+
+    @action(detail=False, methods=['get'], url_path='export-excel')
+    def export_excel(self, request):
+        """Exporta recetas activas en formato Excel."""
+        import io
+        import xlsxwriter
+        from django.http import HttpResponse
+
+        recipes = self.get_queryset().prefetch_related('recipe_ingredients__food')
+        output = io.BytesIO()
+        workbook = xlsxwriter.Workbook(output, {'in_memory': True, 'strings_to_urls': False})
+        worksheet = workbook.add_worksheet('Recetas')
+
+        headers = [
+            'Nombre',
+            'Descripcion',
+            'Categoria',
+            'Dificultad',
+            'Porciones',
+            'Tiempo preparacion minutos',
+            'Ingredientes',
+            'Instrucciones',
+            'Imagen URL',
+            'Calorias ref',
+            'Proteinas ref',
+            'Carbos ref',
+            'Grasas ref',
+        ]
+        for column, header in enumerate(headers):
+            worksheet.write(0, column, header)
+
+        for row, recipe in enumerate(recipes, start=1):
+            ingredients_value = '; '.join(
+                f"{ingredient.food.name}|{ingredient.quantity}|{ingredient.unit}|{ingredient.notes or ''}"
+                for ingredient in recipe.recipe_ingredients.all()
+            )
+            values = [
+                recipe.name,
+                recipe.description or '',
+                recipe.category or '',
+                recipe.difficulty or '',
+                recipe.servings or 1,
+                recipe.prep_time_minutes or 0,
+                ingredients_value,
+                recipe.instructions or '',
+                recipe.image_url or '',
+                recipe.calories or 0,
+                float(recipe.protein or 0),
+                float(recipe.carbs or 0),
+                float(recipe.fat or 0),
+            ]
+            for column, value in enumerate(values):
+                worksheet.write(row, column, value)
+
+        workbook.close()
+        output.seek(0)
+
+        response = HttpResponse(
+            output.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="recetas_exportacion.xlsx"'
+        return response
     
     @action(detail=True, methods=['get'])
     def personalized(self, request, pk=None):
@@ -1922,6 +2456,9 @@ class FoodViewSet(viewsets.ModelViewSet):
     search_fields = ['name', 'brand', 'category']
 
     def get_permissions(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return super().get_permissions()
+
         if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             user = self.request.user
             role = str(getattr(user, 'role', '') or '').lower()

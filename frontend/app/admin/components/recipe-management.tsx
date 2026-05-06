@@ -183,7 +183,16 @@ export function RecipeManagement() {
   const resolveRecipeImageSrc = (imageUrl?: string, imagePath?: string) => {
     const direct = (imageUrl || '').trim()
     if (direct) {
-      return direct
+      if (direct.startsWith('http://') || direct.startsWith('https://') || direct.startsWith('data:')) {
+        return direct
+      }
+
+      if (direct.startsWith('/')) {
+        return `${getApiUrl()}${direct}`
+      }
+
+      // Ignore bare filenames or malformed values stored in image_url.
+      // Those should not be treated as frontend routes.
     }
 
     const path = (imagePath || '').trim()

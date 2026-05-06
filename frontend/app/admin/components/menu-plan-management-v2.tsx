@@ -58,6 +58,20 @@ interface PlanMealDraft {
   meal_recipes: MealRecipeOption[]
 }
 
+interface ImportSummary {
+  created?: number
+  updated?: number
+  skipped?: number
+  rejected?: number
+  error_count?: number
+  errors?: string[]
+}
+
+interface GroupedImportError {
+  message: string
+  count: number
+}
+
 const DAY_LABELS: Record<DayKey, string> = {
   "1": "Lunes",
   "2": "Martes",
@@ -97,6 +111,47 @@ function formatRange(min: number, max: number, decimals = 0) {
   return `${minVal}-${maxVal}`
 }
 
+function formatImportError(error: unknown): string {
+  if (typeof error === "string") return error
+  if (typeof error === "number" || typeof error === "boolean") return String(error)
+  if (!error || typeof error !== "object") return "Error desconocido"
+
+  const e = error as Record<string, unknown>
+  const structuredErrors = Array.isArray(e.errors)
+    ? e.errors
+        .map((item) => (typeof item === "string" ? item : formatImportError(item)))
+        .filter((msg) => !!msg && msg !== "Error desconocido")
+    : []
+
+  const sheet = typeof e.sheet === "string" ? e.sheet : undefined
+  const type = typeof e.type === "string" ? e.type : undefined
+  const row = e.row ?? e.row_num ?? e.line ?? e.fila
+
+  if (structuredErrors.length > 0) {
+    const prefixParts: string[] = []
+    if (sheet) prefixParts.push(sheet)
+    if (type) prefixParts.push(type)
+    if (row !== undefined && row !== null) prefixParts.push(`fila ${row}`)
+    const prefix = prefixParts.length > 0 ? `${prefixParts.join(" · ")}: ` : ""
+    return `${prefix}${structuredErrors.join(" | ")}`
+  }
+
+  const directMessage = e.message || e.error || e.detail || e.reason
+  if (typeof directMessage === "string" && directMessage.trim()) return directMessage
+
+  const field = e.field ?? e.column ?? e.campo
+  const value = e.value ?? e.raw_value
+
+  const parts: string[] = []
+  if (row !== undefined && row !== null) parts.push(`Fila ${row}`)
+  if (field !== undefined && field !== null) parts.push(`campo ${String(field)}`)
+  if (value !== undefined && value !== null && String(value).trim()) parts.push(`valor ${String(value)}`)
+
+  const fallback = JSON.stringify(error)
+  if (parts.length > 0) return `${parts.join(" - ")}: ${fallback}`
+  return fallback
+}
+
 function getCategory(plan: { is_system: boolean; user_id?: number | null; is_template: boolean; assigned_user_ids?: number[] }) {
   if ((plan.assigned_user_ids && plan.assigned_user_ids.length > 0) || plan.user_id) return "Usuario"
   if (plan.is_system) return "Sistema"
@@ -129,7 +184,7 @@ export function MenuPlanManagementV2() {
 
   // Filtros (similar a Planes de Entrenamiento)
   const [searchTerm, setSearchTerm] = useState("")
-  const [typeFilter, setTypeFilter] = useState<MenuPlanTypeFilter>("base")
+  const [typeFilter, setTypeFilter] = useState<MenuPlanTypeFilter>("all")
   const [userFilter, setUserFilter] = useState<string>("all")
 
   // Ordenamiento (cliente, consistente con WorkoutPlanManagement)
@@ -170,6 +225,20 @@ export function MenuPlanManagementV2() {
     const [importDialogOpen, setImportDialogOpen] = useState(false)
     const [importFile, setImportFile] = useState<File | null>(null)
     const [importing, setImporting] = useState(false)
+    const [importResult, setImportResult] = useState<ImportSummary | null>(null)
+
+  const groupedImportErrors = useMemo<GroupedImportError[]>(() => {
+    if (!importResult?.errors || importResult.errors.length === 0) return []
+    const grouped = new Map<string, number>()
+    for (const rawMessage of importResult.errors) {
+      const message = (rawMessage || '').trim()
+      if (!message) continue
+      grouped.set(message, (grouped.get(message) ?? 0) + 1)
+    }
+    return Array.from(grouped.entries())
+      .map(([message, count]) => ({ message, count }))
+      .sort((a, b) => b.count - a.count)
+  }, [importResult])
 
   const [editSummary, setEditSummary] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null)
 
@@ -225,6 +294,7 @@ export function MenuPlanManagementV2() {
     const handleImport = async () => {
       if (!importFile) return
       setImporting(true)
+      setImportResult(null)
       try {
         const headers = await getAuthHeaders()
         const formDataObj = new FormData()
@@ -237,14 +307,20 @@ export function MenuPlanManagementV2() {
           headers: { 'Authorization': token },
           body: formDataObj,
         })
+        const data = await response.json().catch(() => ({}))
         if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(errorText || `Error ${response.status}`)
+          throw new Error(data?.detail || data?.error || `Error ${response.status}`)
         }
-        const data = await response.json()
-        toast({ title: '✅ Importación', description: data?.message || 'Planes importados correctamente.' })
-        setImportDialogOpen(false)
-        setImportFile(null)
+
+        setImportResult({
+          created: data?.created ?? 0,
+          updated: data?.updated ?? 0,
+          skipped: data?.skipped ?? 0,
+          rejected: data?.rejected ?? 0,
+          error_count: typeof data?.error_count === 'number' ? data.error_count : undefined,
+          errors: Array.isArray(data?.errors) ? data.errors.map((e: unknown) => formatImportError(e)) : [],
+        })
+
         fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
       } catch (error) {
         toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo importar', variant: 'destructive' })
@@ -920,7 +996,7 @@ export function MenuPlanManagementV2() {
         </Card>
       )}
 
-      {loading ? (
+      {loading && plans.length === 0 ? (
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
           <span className="ml-2">Cargando planes de menús...</span>
@@ -1733,7 +1809,16 @@ export function MenuPlanManagementV2() {
       </Dialog>
 
       {/* Import Dialog */}
-      <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+      <Dialog
+        open={importDialogOpen}
+        onOpenChange={(open) => {
+          setImportDialogOpen(open)
+          if (!open) {
+            setImportFile(null)
+            setImportResult(null)
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>📥 Importar Planes de Menús</DialogTitle>
@@ -1744,12 +1829,15 @@ export function MenuPlanManagementV2() {
           <div className="space-y-4">
             <div>
               <FormLabel className="font-semibold">Selecciona el archivo</FormLabel>
-              <input
+              <Input
                 type="file"
                 accept=".csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                onChange={(e) => {
+                  setImportFile(e.target.files?.[0] || null)
+                  setImportResult(null)
+                }}
                 disabled={importing}
-                className="mt-2 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                className="mt-2"
               />
               {importFile && (
                 <div className="text-sm text-green-600 mt-2">
@@ -1762,9 +1850,32 @@ export function MenuPlanManagementV2() {
                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, objetivo, tipo_dieta, calorías_diarias, proteínas, carbohidratos, grasas, es_plantilla, activo...
               </p>
             </div>
+
+            {importResult && (
+              <div className="border rounded-lg p-4 space-y-1 text-sm">
+                <p className="font-semibold text-green-700">Resultado de la importación</p>
+
+                <p>✅ Creadas: <strong>{importResult.created ?? 0}</strong></p>
+                <p>🔄 Actualizadas: <strong>{importResult.updated ?? 0}</strong></p>
+                <p>⏭️ Omitidas: <strong>{importResult.skipped ?? 0}</strong></p>
+                <p>⛔ Rechazadas: <strong>{importResult.rejected ?? 0}</strong></p>
+                {importResult.errors && importResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-red-600 font-medium">Errores ({importResult.error_count ?? importResult.errors.length}):</p>
+                    <ul className="list-disc list-inside text-red-500 space-y-0.5 max-h-56 overflow-y-auto overflow-x-hidden pr-2 border border-red-100 rounded-md p-2 bg-red-50/40 text-xs">
+                      {groupedImportErrors.map((item, idx) => (
+                        <li key={idx} className="break-words whitespace-normal">
+                          {item.count > 1 ? `(${item.count}x) ` : ''}{item.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setImportDialogOpen(false)} disabled={importing}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setImportDialogOpen(false); setImportFile(null); setImportResult(null) }} disabled={importing}>Cerrar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {importing ? 'Importando...' : 'Importar'}

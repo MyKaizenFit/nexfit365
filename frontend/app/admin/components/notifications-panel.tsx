@@ -44,8 +44,18 @@ export function AdminNotificationsPanel({
 }: AdminNotificationsPanelProps) {
   const { user: currentUser } = useAuth()
   const { users, loading: usersLoading } = useAdminUsers()
-  const { sendBulkNotification, stats, refetch, loading: notificationsLoading } = useAdminNotifications()
+  const {
+    sendBulkNotification,
+    stats,
+    refetch,
+    loading: notificationsLoading,
+    notifications,
+    fetchDeliveryLogs,
+    deliveryLogsByNotification,
+  } = useAdminNotifications()
   const [sending, setSending] = useState(false)
+  const [expandedDelivery, setExpandedDelivery] = useState<string | null>(null)
+  const [loadingDeliveryFor, setLoadingDeliveryFor] = useState<string | null>(null)
 
   const notificationTemplates = [
     {
@@ -189,6 +199,42 @@ export function AdminNotificationsPanel({
         return <Badge variant="secondary">Baja</Badge>
       default:
         return <Badge variant="secondary">Baja</Badge>
+    }
+  }
+
+  const getDeliveryBadge = (status?: string) => {
+    switch (status) {
+      case "sent":
+        return <Badge className="bg-emerald-100 text-emerald-800 border-0">Enviado</Badge>
+      case "failed":
+        return <Badge variant="destructive">Fallido</Badge>
+      case "skipped":
+        return <Badge variant="secondary">Omitido</Badge>
+      default:
+        return <Badge variant="outline">Pendiente</Badge>
+    }
+  }
+
+  const handleToggleDelivery = async (notificationId: string) => {
+    if (expandedDelivery === notificationId) {
+      setExpandedDelivery(null)
+      return
+    }
+
+    setExpandedDelivery(notificationId)
+    if (!deliveryLogsByNotification[notificationId]) {
+      try {
+        setLoadingDeliveryFor(notificationId)
+        await fetchDeliveryLogs(notificationId)
+      } catch (error) {
+        toast({
+          title: "❌ Error",
+          description: "No se pudo cargar la trazabilidad de entrega",
+          variant: "destructive",
+        })
+      } finally {
+        setLoadingDeliveryFor(null)
+      }
     }
   }
 
@@ -379,6 +425,74 @@ export function AdminNotificationsPanel({
           Actualizar estadísticas
         </Button>
       </div>
+
+      <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <CardHeader>
+          <CardTitle className="text-lg">Trazabilidad de entrega</CardTitle>
+          <CardDescription>
+            Estado push/email por notificación con acceso al log detallado de cada canal.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {(notifications || []).slice(0, 10).map((item) => (
+            <div key={item.id} className="rounded-lg border bg-white p-3 space-y-2">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-medium text-sm truncate">{item.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {item.user} • {new Date(item.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleToggleDelivery(item.id)}
+                >
+                  {expandedDelivery === item.id ? "Ocultar" : "Ver detalle"}
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <div className="flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 text-xs">
+                  <span className="font-medium">Push</span>
+                  {getDeliveryBadge(item.delivery_summary?.push?.status)}
+                  <span className="text-muted-foreground">intentos: {item.delivery_summary?.push?.attempts ?? 0}</span>
+                </div>
+                <div className="flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 text-xs">
+                  <span className="font-medium">Email</span>
+                  {getDeliveryBadge(item.delivery_summary?.email?.status)}
+                  <span className="text-muted-foreground">intentos: {item.delivery_summary?.email?.attempts ?? 0}</span>
+                </div>
+              </div>
+
+              {expandedDelivery === item.id && (
+                <div className="rounded-md border bg-slate-50 p-2 space-y-2">
+                  {loadingDeliveryFor === item.id ? (
+                    <p className="text-xs text-muted-foreground">Cargando logs de entrega...</p>
+                  ) : (deliveryLogsByNotification[item.id] || []).length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Aún no hay logs de entrega para esta notificación.</p>
+                  ) : (
+                    (deliveryLogsByNotification[item.id] || []).map((log) => (
+                      <div key={log.id} className="rounded bg-white border p-2 text-xs">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline">{log.channel_label}</Badge>
+                          {getDeliveryBadge(log.status)}
+                          <span className="text-muted-foreground">intentos: {log.attempts}</span>
+                        </div>
+                        {log.last_error ? <p className="text-rose-600">Error: {log.last_error}</p> : null}
+                        <p className="text-muted-foreground">
+                          Último intento: {log.last_attempt_at ? new Date(log.last_attempt_at).toLocaleString() : "-"}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <Tabs defaultValue="individual" className="space-y-6">
         <div className="w-full overflow-x-auto">

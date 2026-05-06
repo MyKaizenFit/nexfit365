@@ -27,15 +27,38 @@ def send_push_notification_task(self, notification_id: int):
     Reintenta hasta 3 veces con 30s de espera entre intentos.
     """
     try:
-        from .models import Notification
+        from .delivery_tracking import update_delivery_log
+        from .models import Notification, NotificationDeliveryLog
         from .push_service import push_service
 
         notification = Notification.objects.get(id=notification_id)
+        attempt = int(getattr(self.request, "retries", 0)) + 1
+        update_delivery_log(
+            notification_id=notification.id,
+            channel=NotificationDeliveryLog.CHANNEL_PUSH,
+            status=NotificationDeliveryLog.STATUS_PENDING,
+            attempts=attempt,
+            task_id=getattr(self.request, "id", "") or "",
+        )
 
         if not notification.user or not notification.user.push_subscriptions.exists():
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "no_active_push_subscriptions"},
+            )
             return
 
         if notification.is_expired:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "notification_expired"},
+            )
             return
 
         logger.info(
@@ -43,7 +66,7 @@ def send_push_notification_task(self, notification_id: int):
             notification.id,
             notification.user.email,
         )
-        push_service.send_to_user(
+        sent_count = push_service.send_to_user(
             user=notification.user,
             title=notification.title,
             body=notification.message,
@@ -52,7 +75,36 @@ def send_push_notification_task(self, notification_id: int):
             data=notification.data or {},
             create_notification=False,
         )
+        if sent_count > 0:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SENT,
+                attempts=attempt,
+                metadata={"sent_subscriptions": sent_count},
+                mark_delivered=True,
+            )
+        else:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "send_returned_zero"},
+            )
     except Exception as exc:
+        from .delivery_tracking import update_delivery_log
+        from .models import NotificationDeliveryLog
+
+        attempt = int(getattr(self.request, "retries", 0)) + 1
+        update_delivery_log(
+            notification_id=notification_id,
+            channel=NotificationDeliveryLog.CHANNEL_PUSH,
+            status=NotificationDeliveryLog.STATUS_FAILED,
+            attempts=attempt,
+            task_id=getattr(self.request, "id", "") or "",
+            error_message=str(exc),
+        )
         logger.error("Error en send_push_notification_task(%s): %s", notification_id, exc)
         raise self.retry(exc=exc, countdown=30 * (self.request.retries + 1))
 
@@ -70,15 +122,38 @@ def send_email_notification_task(self, notification_id: int):
     Reintenta hasta 3 veces con 60s de espera entre intentos.
     """
     try:
-        from .models import Notification
+        from .delivery_tracking import update_delivery_log
+        from .models import Notification, NotificationDeliveryLog
         from .email_service import email_service
 
         notification = Notification.objects.get(id=notification_id)
+        attempt = int(getattr(self.request, "retries", 0)) + 1
+        update_delivery_log(
+            notification_id=notification.id,
+            channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+            status=NotificationDeliveryLog.STATUS_PENDING,
+            attempts=attempt,
+            task_id=getattr(self.request, "id", "") or "",
+        )
 
         if not notification.user or not notification.user.email:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "user_without_email"},
+            )
             return
 
         if notification.is_expired:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "notification_expired"},
+            )
             return
 
         logger.info(
@@ -86,8 +161,36 @@ def send_email_notification_task(self, notification_id: int):
             notification.id,
             notification.user.email,
         )
-        email_service.send_notification_email(notification)
+        sent = email_service.send_notification_email(notification)
+        if sent:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SENT,
+                attempts=attempt,
+                mark_delivered=True,
+            )
+        else:
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "email_service_disabled_or_rejected"},
+            )
     except Exception as exc:
+        from .delivery_tracking import update_delivery_log
+        from .models import NotificationDeliveryLog
+
+        attempt = int(getattr(self.request, "retries", 0)) + 1
+        update_delivery_log(
+            notification_id=notification_id,
+            channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+            status=NotificationDeliveryLog.STATUS_FAILED,
+            attempts=attempt,
+            task_id=getattr(self.request, "id", "") or "",
+            error_message=str(exc),
+        )
         logger.error("Error en send_email_notification_task(%s): %s", notification_id, exc)
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
 

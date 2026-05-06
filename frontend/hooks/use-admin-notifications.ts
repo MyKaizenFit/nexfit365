@@ -14,6 +14,37 @@ export interface AdminNotification {
   created_at: string
   expires_at?: string
   action_url?: string
+  delivery_summary?: {
+    push?: {
+      status: string
+      attempts: number
+      last_error?: string
+      last_attempt_at?: string | null
+      delivered_at?: string | null
+    }
+    email?: {
+      status: string
+      attempts: number
+      last_error?: string
+      last_attempt_at?: string | null
+      delivered_at?: string | null
+    }
+  }
+}
+
+export interface NotificationDeliveryLog {
+  id: string
+  notification: string
+  channel: 'push' | 'email'
+  channel_label: string
+  status: 'pending' | 'sent' | 'failed' | 'skipped'
+  status_label: string
+  attempts: number
+  last_error: string
+  task_id: string
+  last_attempt_at?: string | null
+  delivered_at?: string | null
+  metadata?: Record<string, any>
 }
 
 export interface NotificationStats {
@@ -58,6 +89,7 @@ export function useAdminNotifications() {
   const [notifications, setNotifications] = useState<AdminNotification[]>([])
   const [stats, setStats] = useState<NotificationStats | null>(null)
   const [automationSummary, setAutomationSummary] = useState<AutomationSummary | null>(null)
+  const [deliveryLogsByNotification, setDeliveryLogsByNotification] = useState<Record<string, NotificationDeliveryLog[]>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const { getAuthHeaders } = useAuth()
@@ -240,6 +272,26 @@ export function useAdminNotifications() {
     await Promise.all([fetchNotifications(), fetchStats(), fetchAutomationSummary()])
   }
 
+  const fetchDeliveryLogs = async (notificationId: string) => {
+    if (deliveryLogsByNotification[notificationId]) {
+      return deliveryLogsByNotification[notificationId]
+    }
+
+    const headers = await getAuthHeaders()
+    const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/delivery-logs/`), {
+      headers,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+
+    const payload = await response.json()
+    const logs: NotificationDeliveryLog[] = payload.logs || []
+    setDeliveryLogsByNotification((prev) => ({ ...prev, [notificationId]: logs }))
+    return logs
+  }
+
   useEffect(() => {
     refetchAll()
   }, [])
@@ -254,6 +306,8 @@ export function useAdminNotifications() {
     runAutomation,
     deleteNotification,
     markAsRead,
-    refetch: refetchAll
+    refetch: refetchAll,
+    fetchDeliveryLogs,
+    deliveryLogsByNotification,
   }
 }

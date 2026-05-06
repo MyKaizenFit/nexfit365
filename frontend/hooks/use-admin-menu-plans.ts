@@ -254,8 +254,7 @@ export function useAdminMenuPlans() {
 
   useEffect(() => {
     fetchUsers()
-    fetchPlans()
-  }, [fetchPlans, fetchUsers])
+  }, [fetchUsers])
 
   const stats = useMemo(() => {
     const total = plans.length

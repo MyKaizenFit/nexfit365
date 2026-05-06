@@ -914,6 +914,28 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
             {importFile && (
               <p className="text-sm text-muted-foreground">Archivo seleccionado: {importFile.name}</p>
             )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800 space-y-1.5">
+              <p>
+                <strong>💡 Tip:</strong> Usa el mismo formato del export para actualizar reglas existentes por nombre o crear nuevas.
+              </p>
+              <p className="font-semibold">Columnas reconocidas:</p>
+              <p>
+                <strong>nombre</strong> / name · <strong>descripcion</strong> / description · <strong>prioridad</strong> / priority · <strong>orden_aplicacion</strong> / application_order · <strong>activo</strong>
+              </p>
+              <p>
+                <strong>objetivo_principal</strong> · <strong>lugar_entrenamiento</strong> · <strong>nivel_actividad</strong> · <strong>genero</strong> · <strong>dias_min_entrenamiento</strong> · <strong>dias_max_entrenamiento</strong>
+              </p>
+              <p>
+                <strong>edad_min</strong> · <strong>edad_max</strong> · <strong>restricciones_alimentarias</strong> · <strong>equipamiento</strong>
+              </p>
+              <p>
+                <strong>plan_nutricion</strong> / <strong>plan_nutricion_id</strong> · <strong>programa_entrenamiento</strong> / <strong>programa_entrenamiento_id</strong>
+              </p>
+              <p className="text-blue-700/90">
+                Puedes indicar el plan nutricional y el programa de entrenamiento por <strong>nombre</strong> o por <strong>ID</strong>.
+              </p>
+            </div>
           </div>
           <DialogFooter className="gap-2 flex-wrap">
             <Button variant="outline" onClick={() => setShowImportDialog(false)} disabled={importing}>
