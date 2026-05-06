@@ -6,7 +6,7 @@
     "build": "next build",
     "build:low-resource": "NEXT_BUILD_WORKERS=1 next build",
     "dev": "next dev -H 0.0.0.0",
-    "lint": "next lint",
+    "lint": "NEXT_DIST_DIR=.next-local next lint",
     "start": "next start",
     "test": "jest",
     "test:watch": "jest --watch",
