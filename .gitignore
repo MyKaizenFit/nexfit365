@@ -79,9 +79,11 @@ local_settings.py
 db.sqlite3
 media/
 staticfiles/
+backend/test_media/
 
 # ===== Node.js/Next.js =====
 node_modules/
+node_modules.broken-permissions/
 .next/
 out/
 .nuxt/
@@ -137,4 +139,3 @@ coverage.xml
 # Pero permitir backups comprimidos de desarrollo
 !backups/dev/*.sql.gz
 *.sqlite
-

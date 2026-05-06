@@ -49,6 +49,7 @@ import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { useWeightHistory } from "@/hooks/use-weight-history"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
+import { navigateToDashboardSection } from "@/lib/dashboard-navigation"
 
 interface DashboardEnhancedProps {
   className?: string
@@ -433,7 +434,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               variant="ghost" 
               size="sm" 
               className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
-              onClick={() => window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section: 'meals' } }))}
+              onClick={() => navigateToDashboardSection(router, 'meals')}
             >
               Ver más <ArrowRight className="h-4 w-4 ml-1" />
             </Button>

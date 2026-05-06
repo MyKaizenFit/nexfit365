@@ -1,4 +1,13 @@
 {
+  "ignorePatterns": [
+    ".next/",
+    ".next-local/",
+    "coverage/",
+    "node_modules/",
+    "node_modules.broken-permissions/",
+    "next-env.d.ts",
+    "out/"
+  ],
   "extends": [
     "next/core-web-vitals",
     "plugin:@typescript-eslint/recommended"

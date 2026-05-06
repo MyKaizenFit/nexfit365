@@ -16,6 +16,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useState } from "react"
 import { NotificationsDropdown } from "./notifications-dropdown"
+import { navigateToDashboardSection } from "@/lib/dashboard-navigation"
 
 interface MobileHeaderProps {
   notifications: number
@@ -73,8 +74,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     if (section === "settings") {
       router.push('/dashboard/settings')
     } else {
-      // Emitir evento para cambiar sección
-      window.dispatchEvent(new CustomEvent('sectionChange', { detail: { section } }))
+      navigateToDashboardSection(router, section)
     }
     setIsSearchOpen(false)
     setSearchQuery("")
