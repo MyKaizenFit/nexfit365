@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, lazy, Suspense } from "react"
+import { useState, useEffect, useCallback, lazy, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
 import {
@@ -114,14 +114,25 @@ function DashboardContent() {
     }
   }, [searchParams, selectedSection])
 
-  const handleMenuClick = (section: string, title: string) => {
+  const handleMenuClick = useCallback((section: string, title: string) => {
     setSelectedSection(section)
     if (section === "dashboard") {
       router.push("/dashboard", { scroll: false })
     } else {
       router.push(`/dashboard?section=${section}`, { scroll: false })
     }
-  }
+  }, [router])
+
+  useEffect(() => {
+    const handleSectionChange = (event: Event) => {
+      const section = (event as CustomEvent<{ section?: string }>).detail?.section
+      if (!section) return
+      handleMenuClick(section, section)
+    }
+
+    window.addEventListener("sectionChange", handleSectionChange)
+    return () => window.removeEventListener("sectionChange", handleSectionChange)
+  }, [handleMenuClick])
 
   const handleNotificationClick = () => {
     refreshNotifications()

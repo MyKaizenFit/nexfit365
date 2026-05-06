@@ -542,7 +542,22 @@ class PersonalizedNutritionService:
         
         # Calcular ingredientes escalados
         scaled_ingredients = []
-        if recipe.ingredients and isinstance(recipe.ingredients, list):
+        recipe_ingredients = list(recipe.recipe_ingredients.select_related('food').all())
+        if recipe_ingredients:
+            for ingredient in recipe_ingredients:
+                original_amount = float(ingredient.quantity or 0)
+                scaled_amount = original_amount * scale_factor
+                scaled_ingredients.append({
+                    'name': ingredient.food.name,
+                    'amount': round(scaled_amount, 1),
+                    'unit': ingredient.unit or ingredient.food.serving_unit or 'g',
+                    'note': ingredient.notes
+                })
+                logger.debug(
+                    f"      Ingrediente: {ingredient.food.name} - {original_amount} → "
+                    f"{round(scaled_amount, 1)} {ingredient.unit or 'g'}"
+                )
+        elif recipe.ingredients and isinstance(recipe.ingredients, list):
             for ingredient in recipe.ingredients:
                 if isinstance(ingredient, dict):
                     original_amount = float(ingredient.get('amount', 0))

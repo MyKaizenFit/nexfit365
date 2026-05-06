@@ -311,9 +311,10 @@ class DefaultPlanConfiguration(TimeStampedModel):
             return False
         
         # Verificar días de entrenamiento
-        if self.min_training_days_per_week and user.training_days_per_week < self.min_training_days_per_week:
+        training_days_per_week = user.training_days_per_week or 0
+        if self.min_training_days_per_week and training_days_per_week < self.min_training_days_per_week:
             return False
-        if self.max_training_days_per_week and user.training_days_per_week > self.max_training_days_per_week:
+        if self.max_training_days_per_week and training_days_per_week > self.max_training_days_per_week:
             return False
         
         # Verificar edad

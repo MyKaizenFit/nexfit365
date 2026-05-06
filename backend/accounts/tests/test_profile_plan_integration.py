@@ -7,7 +7,10 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 
-from nutrition.models import NutritionPlan, PlanMeal
+from accounts.services import DefaultPlanAssignmentService
+from dashboard.models import DefaultPlanConfiguration
+from nutrition.models import NutritionPlan, NutritionPlanAssignment, PlanMeal
+from workouts.models import Exercise, WorkoutDay, WorkoutDayExercise, WorkoutProgram
 
 
 User = get_user_model()
@@ -77,8 +80,6 @@ class TestProfilePlanIntegration:
             "nutrition.services.PlanAutoUpdateService.update_plan_if_needed",
             fake_update,
         )
-        monkeypatch.setattr("notifications.signals.send_notifications_async", lambda *args, **kwargs: None)
-
         response = auth_client.patch(
             "/api/profile/",
             {"weight": "83.0"},
@@ -118,3 +119,64 @@ class TestProfilePlanIntegration:
 
         assert response.status_code == status.HTTP_200_OK
         assert calls["count"] == 1
+
+    def test_default_assignment_creates_user_plans_and_active_nutrition_assignment(self, user):
+        nutrition_template = NutritionPlan.objects.create(
+            name="Plantilla pérdida",
+            daily_calories=1800,
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+        )
+        PlanMeal.objects.create(
+            plan=nutrition_template,
+            name="Desayuno",
+            meal_type="breakfast",
+            order_index=1,
+            calories=450,
+            protein=Decimal("30.0"),
+            carbs=Decimal("45.0"),
+            fat=Decimal("12.0"),
+        )
+        workout_template = WorkoutProgram.objects.create(
+            name="Rutina pérdida",
+            goal="weight_loss",
+            is_template=True,
+            is_active=True,
+            days_per_week=1,
+        )
+        workout_day = WorkoutDay.objects.create(
+            program=workout_template,
+            name="Full body",
+            day_number=1,
+            order_index=1,
+        )
+        exercise = Exercise.objects.create(name="Sentadilla test", is_system=True)
+        WorkoutDayExercise.objects.create(
+            workout_day=workout_day,
+            exercise=exercise,
+            sets=3,
+            reps="10",
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config pérdida",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=nutrition_template,
+            default_workout_program=workout_template,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assert result.nutrition_plan is not None
+        assert result.workout_program is not None
+        assert result.nutrition_plan.user == user
+        assert result.workout_program.user == user
+        assert NutritionPlanAssignment.objects.filter(
+            plan=result.nutrition_plan,
+            user=user,
+            is_active=True,
+        ).exists()
+        assert result.nutrition_plan.meals.count() == 1
+        assert result.workout_program.days.first().exercises.count() == 1

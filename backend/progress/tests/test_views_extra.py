@@ -111,6 +111,38 @@ class TestProgressStatsViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert "overall_progress" in response.data
 
+    def test_dashboard_weight_progress_uses_user_target_for_loss(self, auth_client, user):
+        user.target_weight = Decimal("70.0")
+        user.save(update_fields=["target_weight"])
+        WeightEntry.objects.create(user=user, weight=Decimal("80.0"), date=date(2026, 3, 1))
+        WeightEntry.objects.create(user=user, weight=Decimal("75.0"), date=date(2026, 3, 10))
+
+        response = auth_client.get(reverse("progress-stats-dashboard"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["weight"]["goal"] == 70.0
+        assert response.data["weight"]["progress"] == 50.0
+
+    def test_dashboard_weight_progress_is_zero_when_loss_goal_has_no_loss(self, auth_client, user):
+        user.target_weight = Decimal("70.0")
+        user.save(update_fields=["target_weight"])
+        WeightEntry.objects.create(user=user, weight=Decimal("80.0"), date=date(2026, 3, 1))
+        WeightEntry.objects.create(user=user, weight=Decimal("81.0"), date=date(2026, 3, 10))
+
+        response = auth_client.get(reverse("progress-stats-dashboard"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["weight"]["progress"] == 0.0
+
+    def test_dashboard_weight_progress_without_target_has_no_goal(self, auth_client, user):
+        WeightEntry.objects.create(user=user, weight=Decimal("80.0"), date=date(2026, 3, 1))
+
+        response = auth_client.get(reverse("progress-stats-dashboard"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["weight"]["goal"] is None
+        assert response.data["weight"]["progress"] == 0.0
+
     def test_analysis_success(self, auth_client, monkeypatch):
         fake_module = types.ModuleType("progress.services")
 

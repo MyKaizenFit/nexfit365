@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
+import { PlanShoppingList } from '@/app/dashboard/components/plan-shopping-list'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
@@ -39,11 +40,10 @@ export function MealDashboard() {
         optionId: fullMeal?.selectedOption?.id ? String(fullMeal.selectedOption.id) : null,
         recipeId: fullMeal?.selectedOption?.recipeId ? String(fullMeal.selectedOption.recipeId) : null,
       },
-      import { PlanShoppingList } from '@/app/dashboard/components/plan-shopping-list'
     })
     setIsModalOpen(true)
   }
-              <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+
   const handleSelectOption = async (option: MealOption) => {
     if (selectedMeal) {
       await selectMealOption(selectedMeal.id, option)
@@ -52,10 +52,6 @@ export function MealDashboard() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false)
-                <TabsTrigger value="shopping" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
-                  <Utensils className="h-3.5 w-3.5 md:h-4 md:w-4" />
-                  Compras
-                </TabsTrigger>
     setSelectedMeal(null)
   }
 
@@ -154,7 +150,7 @@ export function MealDashboard() {
 
       {/* Tabs para vista diaria y semanal */}
       <Tabs defaultValue="daily" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Diaria
@@ -162,6 +158,10 @@ export function MealDashboard() {
           <TabsTrigger value="weekly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Semanal
+          </TabsTrigger>
+          <TabsTrigger value="shopping" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <Utensils className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            Compras
           </TabsTrigger>
         </TabsList>
 
@@ -283,9 +283,6 @@ export function MealDashboard() {
                           {meal.isCompleted ? '✅ Completada' : meal.isSkipped ? '⏭️ Saltada (no como)' : '📋 Seleccionada'}
                         </p>
                       </div>
-              <TabsContent value="shopping" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
-                <PlanShoppingList />
-              </TabsContent>
                     </div>
 
                     {meal.isSkipped ? (
@@ -391,6 +388,10 @@ export function MealDashboard() {
               onSelectOption={handleSelectOption}
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="shopping" className="space-y-4 md:space-y-6 mt-4 md:mt-6">
+          <PlanShoppingList />
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-6">
