@@ -694,8 +694,49 @@ export function MenuPlanManagementV2() {
     })
   }
 
+  const normalizeDraftMealOrder = (items: PlanMealDraft[], dayOfWeek: number) => {
+    const dayMeals = items
+      .filter((m) => m.day_of_week === dayOfWeek)
+      .slice()
+      .sort((a, b) => a.order_index - b.order_index)
+
+    const orderByMeal = new Map<PlanMealDraft, number>()
+    dayMeals.forEach((meal, index) => orderByMeal.set(meal, index + 1))
+
+    return items.map((meal) => {
+      const nextOrder = orderByMeal.get(meal)
+      return nextOrder ? { ...meal, order_index: nextOrder } : meal
+    })
+  }
+
+  const moveDraftMeal = (meal: PlanMealDraft, direction: "up" | "down") => {
+    setDraftMeals((prev) => {
+      const dayMeals = prev
+        .filter((m) => m.day_of_week === meal.day_of_week)
+        .slice()
+        .sort((a, b) => a.order_index - b.order_index)
+      const currentIndex = dayMeals.findIndex((m) => m === meal)
+      const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+
+      if (currentIndex < 0 || targetIndex < 0 || targetIndex >= dayMeals.length) return prev
+
+      const current = dayMeals[currentIndex]
+      const target = dayMeals[targetIndex]
+
+      return prev.map((item) => {
+        if (item === current) return { ...item, order_index: target.order_index }
+        if (item === target) return { ...item, order_index: current.order_index }
+        return item
+      })
+    })
+  }
+
   const removeDraftMeal = (indexInDraftMeals: number) => {
-    setDraftMeals((prev) => prev.filter((_, i) => i !== indexInDraftMeals))
+    setDraftMeals((prev) => {
+      const removed = prev[indexInDraftMeals]
+      const next = prev.filter((_, i) => i !== indexInDraftMeals)
+      return removed ? normalizeDraftMealOrder(next, removed.day_of_week) : next
+    })
   }
 
   const openRecipePickerForDraftMeal = (draftIndex: number) => {
@@ -1476,10 +1517,12 @@ export function MenuPlanManagementV2() {
                   </Card>
                 ) : (
                   <div className="space-y-3">
-                    {draftMealsForDay.map((meal) => {
+                    {draftMealsForDay.map((meal, mealPosition) => {
                       const draftIndex = draftMeals.findIndex((m) => m === meal)
                       const computed = computeMealAverages(meal)
                       const range = computeMealRange(meal)
+                      const canMoveUp = mealPosition > 0
+                      const canMoveDown = mealPosition < draftMealsForDay.length - 1
                       const recipeOptions = meal.meal_recipes
                         .slice()
                         .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
@@ -1491,9 +1534,17 @@ export function MenuPlanManagementV2() {
                           <CardHeader className="pb-2">
                             <div className="flex items-start justify-between gap-3">
                               <CardTitle className="text-sm">Comida #{meal.order_index}</CardTitle>
-                              <Button variant="ghost" size="icon" onClick={() => removeDraftMeal(draftIndex)} title="Eliminar comida">
-                                <Trash2 className="h-4 w-4 text-red-600" />
-                              </Button>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => moveDraftMeal(meal, "up")} disabled={!canMoveUp} title="Subir comida">
+                                  <ArrowUp className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => moveDraftMeal(meal, "down")} disabled={!canMoveDown} title="Bajar comida">
+                                  <ArrowDown className="h-4 w-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => removeDraftMeal(draftIndex)} title="Eliminar comida">
+                                  <Trash2 className="h-4 w-4 text-red-600" />
+                                </Button>
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-4">
@@ -1887,4 +1938,3 @@ export function MenuPlanManagementV2() {
     </div>
   )
 }
-

@@ -139,16 +139,15 @@ export function PushNotificationsSetup() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-orange-600" />
-            Notificaciones Push No Disponibles
+            Notificaciones del dispositivo no disponibles
           </CardTitle>
           <CardDescription>
-            Tu navegador no soporta notificaciones push
+            Puedes seguir usando las notificaciones dentro de la app.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600">
-            Las notificaciones push requieren un navegador moderno con soporte para Service Workers y Push API.
-            Prueba con Chrome, Firefox, Edge o Safari (iOS 16.4+).
+            Este navegador o dispositivo no permite avisos push en este momento. Cuando uses un navegador compatible, como Chrome, Firefox, Edge o Safari en iOS 16.4 o superior, podrás activarlos desde aquí.
           </p>
         </CardContent>
       </Card>
@@ -270,7 +269,6 @@ export function PushNotificationsSetup() {
     </Card>
   )
 }
-
 
 
 

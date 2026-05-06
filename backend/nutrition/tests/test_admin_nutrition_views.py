@@ -322,6 +322,32 @@ class TestAdminNutritionPlanViewSet:
         response = admin_client.patch(f'{PLANS_URL}{nutrition_plan.id}/', data, format='json')
         assert response.status_code == status.HTTP_200_OK
 
+    def test_update_plan_preserves_meal_order_indexes(self, admin_client, nutrition_plan):
+        payload = {
+            'meals': [
+                {
+                    'day_of_week': 1,
+                    'name': 'Comida tarde',
+                    'meal_type': 'dinner',
+                    'time': '21:00',
+                    'order_index': 2,
+                },
+                {
+                    'day_of_week': 1,
+                    'name': 'Comida mañana',
+                    'meal_type': 'breakfast',
+                    'time': '08:00',
+                    'order_index': 1,
+                },
+            ]
+        }
+
+        response = admin_client.patch(f'{PLANS_URL}{nutrition_plan.id}/', payload, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        meals = list(nutrition_plan.meals.order_by('day_of_week', 'order_index').values_list('name', 'order_index'))
+        assert meals == [('Comida mañana', 1), ('Comida tarde', 2)]
+
     def test_delete_plan(self, admin_client, nutrition_plan):
         response = admin_client.delete(f'{PLANS_URL}{nutrition_plan.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
