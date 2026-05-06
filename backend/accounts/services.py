@@ -5,9 +5,11 @@
 
 from typing import Optional
 from django.contrib.auth import get_user_model
+import logging
 import random
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 
 def get_default_workout_program_for_user(user):
@@ -342,12 +344,31 @@ class DefaultPlanAssignmentService:
         configuration = self.find_best_configuration()
         
         if not configuration:
+            logger.info(
+                "default_plan_assignment.legacy_fallback user_id=%s main_goal=%s",
+                self.user.id,
+                self.user.main_goal,
+            )
             # Si no hay configuración, usar el método legacy
             results = assign_default_plans_to_user(self.user)
+            logger.info(
+                "default_plan_assignment.legacy_result user_id=%s nutrition_plan_id=%s workout_program_id=%s",
+                self.user.id,
+                getattr(results.get('nutrition_plan'), 'id', None),
+                getattr(results.get('workout_program'), 'id', None),
+            )
             return AssignmentResult(
                 nutrition_plan=results.get('nutrition_plan'),
                 workout_program=results.get('workout_program')
             )
+
+        logger.info(
+            "default_plan_assignment.start user_id=%s configuration_id=%s default_nutrition_plan_id=%s default_workout_program_id=%s",
+            self.user.id,
+            configuration.id,
+            getattr(configuration.default_nutrition_plan, 'id', None),
+            getattr(configuration.default_workout_program, 'id', None),
+        )
         
         nutrition_plan = None
         workout_program = None
@@ -358,7 +379,7 @@ class DefaultPlanAssignmentService:
         if configuration.default_nutrition_plan:
             template = configuration.default_nutrition_plan
 
-            NutritionPlan.objects.filter(user=self.user, is_active=True).update(
+            deactivated_count = NutritionPlan.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
                 end_date=timezone.now().date(),
             )
@@ -390,6 +411,8 @@ class DefaultPlanAssignmentService:
                 user=self.user,
                 defaults={'is_active': True},
             )
+            copied_meals_count = 0
+            selected_recipes_count = 0
             
             # Copiar comidas del template con exactamente 3 recetas cada una
             for meal_template in template.meals.all():
@@ -407,6 +430,18 @@ class DefaultPlanAssignmentService:
                 )
                 selected_recipes = select_compatible_recipes_for_meal(self.user, meal_template)
                 meal.suggested_recipes.set(selected_recipes)
+                copied_meals_count += 1
+                selected_recipes_count += len(selected_recipes)
+
+            logger.info(
+                "default_plan_assignment.nutrition_created user_id=%s template_id=%s plan_id=%s deactivated_previous=%s meals_copied=%s recipes_selected=%s",
+                self.user.id,
+                template.id,
+                nutrition_plan.id,
+                deactivated_count,
+                copied_meals_count,
+                selected_recipes_count,
+            )
         
         # =====================================================================
         # ASIGNAR PROGRAMA DE ENTRENAMIENTO
@@ -414,7 +449,7 @@ class DefaultPlanAssignmentService:
         if configuration.default_workout_program:
             template_program = configuration.default_workout_program
 
-            WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
+            deactivated_count = WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
                 end_date=timezone.now().date(),
             )
@@ -446,6 +481,8 @@ class DefaultPlanAssignmentService:
             ).order_by('day_number'))
             
             if template_days:
+                copied_days_count = 0
+                copied_exercises_count = 0
                 day_names = {
                     1: 'Lunes', 2: 'Martes', 3: 'Miércoles',
                     4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'
@@ -468,6 +505,7 @@ class DefaultPlanAssignmentService:
                             focus=template_day.focus,
                             order_index=i + 1
                         )
+                        copied_days_count += 1
                         
                         for template_exercise in WorkoutDayExercise.objects.filter(
                             workout_day=template_day
@@ -484,6 +522,7 @@ class DefaultPlanAssignmentService:
                                 order_index=template_exercise.order_index,
                                 superset_group=template_exercise.superset_group
                             )
+                            copied_exercises_count += 1
                 else:
                     # Copiar directamente del template
                     for template_day in template_days:
@@ -497,6 +536,7 @@ class DefaultPlanAssignmentService:
                             focus=template_day.focus,
                             order_index=template_day.order_index
                         )
+                        copied_days_count += 1
                         
                         for template_exercise in WorkoutDayExercise.objects.filter(
                             workout_day=template_day
@@ -513,6 +553,17 @@ class DefaultPlanAssignmentService:
                                 order_index=template_exercise.order_index,
                                 superset_group=template_exercise.superset_group
                             )
+                            copied_exercises_count += 1
+
+                logger.info(
+                    "default_plan_assignment.workout_created user_id=%s template_id=%s workout_program_id=%s deactivated_previous=%s days_copied=%s exercises_copied=%s",
+                    self.user.id,
+                    template_program.id,
+                    workout_program.id,
+                    deactivated_count,
+                    copied_days_count,
+                    copied_exercises_count,
+                )
         
         return AssignmentResult(
             configuration=configuration,

@@ -23,8 +23,20 @@ const customJestConfig = {
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
+    '/node_modules.broken-permissions/',
     '/.next/',
+    '/.next-local/',
     '/e2e/',
+  ],
+  modulePathIgnorePatterns: [
+    '<rootDir>/node_modules.broken-permissions/',
+    '<rootDir>/.next/',
+    '<rootDir>/.next-local/',
+  ],
+  watchPathIgnorePatterns: [
+    '<rootDir>/node_modules.broken-permissions/',
+    '<rootDir>/.next/',
+    '<rootDir>/.next-local/',
   ],
   moduleDirectories: ['node_modules', '<rootDir>/'],
 }

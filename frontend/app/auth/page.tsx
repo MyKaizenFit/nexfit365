@@ -21,7 +21,7 @@ interface FormData {
 
 function AuthPageContent() {
   const searchParams = useSearchParams()
-  const registerParam = searchParams.get('register')
+  const registerParam = searchParams?.get('register')
   const [isLogin, setIsLogin] = useState(registerParam !== 'true')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -41,7 +41,7 @@ function AuthPageContent() {
 
   // Actualizar el modo (login/register) cuando cambie el parámetro de la URL
   useEffect(() => {
-    const registerParam = searchParams.get('register')
+    const registerParam = searchParams?.get('register')
     setIsLogin(registerParam !== 'true')
   }, [searchParams])
 
