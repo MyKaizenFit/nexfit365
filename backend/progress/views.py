@@ -20,6 +20,36 @@ from nutrition.models import MealLog  # Modelo eliminado
 from django.db.models import Sum, Avg, Count, Q
 from datetime import datetime, timedelta
 
+
+def calculate_weight_goal_progress(user, weight_entries):
+    """Calculate progress from the first tracked weight toward the user's target."""
+    target_weight = getattr(user, "target_weight", None)
+    if not target_weight:
+        return 0.0
+
+    first_entry = weight_entries.order_by("date", "created_at").first()
+    current_entry = weight_entries.order_by("-date", "-created_at").first()
+    if not first_entry or not current_entry:
+        return 0.0
+
+    start_weight = float(first_entry.weight)
+    current_weight = float(current_entry.weight)
+    target = float(target_weight)
+    total_needed = abs(start_weight - target)
+    if total_needed == 0:
+        return 100.0
+
+    if target < start_weight:
+        moved_toward_goal = start_weight - current_weight
+    else:
+        moved_toward_goal = current_weight - start_weight
+
+    if moved_toward_goal <= 0:
+        return 0.0
+
+    return round(min(100.0, (moved_toward_goal / total_needed) * 100.0), 1)
+
+
 class ProgressPhotoViewSet(viewsets.ModelViewSet):
     """
     ViewSet para fotos de progreso
@@ -440,26 +470,13 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                 date__gte=month_start
             ).count()
             
-            # Objetivos (puedes personalizar estos valores)
-            weight_goal = 65  # kg - objetivo de peso
+            # Objetivos
+            weight_goal = user.target_weight
             workout_goal = 5  # entrenamientos por semana
             nutrition_goal = 21  # comidas por semana (3 por día)
             
             # Cálculo de progreso (asegurar que todos sean float para evitar errores de tipo)
-            weight_progress = 0.0
-            if current_weight and weight_goal:
-                current_weight_float = float(current_weight.weight)
-                weight_goal_float = float(weight_goal)
-                if weight_change is not None:
-                    weight_change_float = float(weight_change)
-                    if weight_change_float < 0:  # Pérdida de peso
-                        diff = abs(current_weight_float - weight_goal_float)
-                        if diff > 0:
-                            weight_progress = min(100.0, abs(weight_change_float) / diff * 100.0)
-                    else:
-                        weight_progress = 0.0
-                else:
-                    weight_progress = 0.0
+            weight_progress = calculate_weight_goal_progress(user, weight_entries)
             
             workout_progress = float(min(100, (workouts_this_week / workout_goal) * 100))
             nutrition_progress = float(min(100, (meals_this_week / nutrition_goal) * 100))
@@ -470,7 +487,7 @@ class ProgressStatsViewSet(viewsets.ViewSet):
             data = {
                 "weight": {
                     "current": float(current_weight.weight) if current_weight else None,
-                    "goal": float(weight_goal),
+                    "goal": float(weight_goal) if weight_goal else None,
                     "change": float(weight_change) if weight_change is not None else None,
                     "progress": round(float(weight_progress), 1),
                     "entries_count": weight_entries.count(),

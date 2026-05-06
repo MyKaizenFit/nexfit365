@@ -333,7 +333,7 @@ class DefaultPlanAssignmentService:
     def assign(self):
         """Asignar planes al usuario basado en configuración"""
         from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
-        from nutrition.models import NutritionPlan, PlanMeal
+        from nutrition.models import NutritionPlan, NutritionPlanAssignment, PlanMeal
         from nutrition.services import select_compatible_recipes_for_meal
         from django.utils import timezone
         from datetime import timedelta
@@ -384,6 +384,11 @@ class DefaultPlanAssignmentService:
                 end_date=timezone.now().date() + timedelta(weeks=template.duration_weeks) if template.duration_weeks else None,
                 tags=template.tags if hasattr(template, 'tags') else [],
                 created_by=self.user
+            )
+            NutritionPlanAssignment.objects.update_or_create(
+                plan=nutrition_plan,
+                user=self.user,
+                defaults={'is_active': True},
             )
             
             # Copiar comidas del template con exactamente 3 recetas cada una

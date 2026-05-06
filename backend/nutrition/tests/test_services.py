@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from model_bakery import baker
 
-from nutrition.models import NutritionPlan, NutritionPlanHistory, PlanMeal
+from nutrition.models import Food, NutritionPlan, NutritionPlanHistory, PlanMeal, Recipe, RecipeIngredient
 from nutrition.services import PersonalizedNutritionService
 
 User = get_user_model()
@@ -100,6 +100,36 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertTrue(plans.filter(id=self.system_plan.id).exists())
         self.assertTrue(plans.filter(id=self.template_plan.id).exists())
 
+    def test_personalized_recipe_uses_relational_ingredients(self):
+        recipe = Recipe.objects.create(
+            name="Bowl con ingredientes relacionales",
+            calories=400,
+            protein=30,
+            carbs=45,
+            fat=12,
+        )
+        food = Food.objects.create(
+            name="Pollo test relacional",
+            calories=120,
+            protein=22,
+            carbs=0,
+            fat=3,
+        )
+        RecipeIngredient.objects.create(
+            recipe=recipe,
+            food=food,
+            quantity=100,
+            unit="g",
+        )
+
+        personalized = PersonalizedNutritionService(self.user).calculate_personalized_recipe_quantities(
+            recipe,
+            "breakfast",
+        )
+
+        self.assertEqual(personalized["ingredients"][0]["name"], "Pollo test relacional")
+        self.assertGreater(personalized["ingredients"][0]["amount"], 0)
+
     def test_assign_best_plan_creates_user_plan_and_history(self):
         service = PersonalizedNutritionService(self.user)
         assigned_plan = service.assign_best_plan()
@@ -153,4 +183,3 @@ class PersonalizedNutritionServiceTest(TestCase):
         assigned_recipe_ids = list(assigned_breakfast.suggested_recipes.values_list("id", flat=True))
         self.assertIn(safe_recipe.id, assigned_recipe_ids)
         self.assertNotIn(blocked_recipe.id, assigned_recipe_ids)
-
