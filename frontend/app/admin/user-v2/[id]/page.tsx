@@ -129,7 +129,7 @@ function safeNumber(val: unknown, fallback = 0): number {
 // ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
-export default function UserDetailPageV2({ params }: { params: { id: string } | Promise<{ id: string }> }) {
+export default function UserDetailPageV2({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const { getAuthHeaders, isAuthenticated } = useAuth()
 
@@ -161,7 +161,7 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
   useEffect(() => {
     const resolveParams = async () => {
       try {
-        const resolved = params instanceof Promise ? await params : params
+        const resolved = await params
         if (resolved?.id) {
           setUserId(resolved.id)
         }
@@ -1621,4 +1621,3 @@ export default function UserDetailPageV2({ params }: { params: { id: string } | 
     </div>
   )
 }
-

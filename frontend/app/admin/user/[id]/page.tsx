@@ -93,7 +93,7 @@ const DIETARY_RESTRICTIONS_OPTIONS = [
   "Mediterráneo",
 ]
 
-export default function UserDetailPage({ params }: { params: { id: string } | Promise<{ id: string }> }) {
+export default function UserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter()
   const [userId, setUserId] = useState<string | null>(null)
   
@@ -101,7 +101,7 @@ export default function UserDetailPage({ params }: { params: { id: string } | Pr
   useEffect(() => {
     const resolveParams = async () => {
       try {
-        const resolvedParams = params instanceof Promise ? await params : params
+        const resolvedParams = await params
         if (resolvedParams?.id) {
           setUserId(resolvedParams.id)
         }

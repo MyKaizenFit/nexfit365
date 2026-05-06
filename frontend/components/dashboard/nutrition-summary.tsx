@@ -16,6 +16,7 @@ interface NutritionSummaryProps {
   fatGoal: number
   dailyMeals: Array<{
     name: string
+    isCompleted?: boolean
     selectedOption?: {
       calories: number
       protein: number
