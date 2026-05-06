@@ -5,6 +5,7 @@ const nextConfig = {
   // En producción sigue usando `.next` por defecto.
   distDir: process.env.NEXT_DIST_DIR || '.next',
   output: "standalone",
+  outputFileTracingRoot: process.cwd(),
   eslint: {
     ignoreDuringBuilds: true,
   },
