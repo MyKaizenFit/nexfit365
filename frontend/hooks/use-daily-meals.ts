@@ -386,7 +386,7 @@ export function useDailyMeals() {
       
       const updatedMeals = prevMeals.map(meal => 
         meal.id === mealId 
-          ? { ...meal, selectedOption: option, isCompleted: false, isSkipped: false, skipReason: null } // No completada por defecto
+          ? { ...meal, selectedOption: option, isCompleted: true, isSkipped: false, skipReason: null } // Seleccionar = completar
           : meal
       )
       
@@ -394,7 +394,7 @@ export function useDailyMeals() {
       // Guardar en localStorage como backup
       saveSelectionsToStorage(updatedMeals)
       
-      // Actualizar macros (solo de comidas completadas)
+      // Actualizar macros (comidas completadas al seleccionar)
       const newMacros = calculateTotalMacros(updatedMeals)
       setMacros(newMacros)
       
@@ -427,7 +427,7 @@ export function useDailyMeals() {
               carbs: option.carbs || 0,
               fat: option.fat || 0,
               skip_meal: false,
-              completed: false // Solo planificación, no completada
+              completed: true // Seleccionar = marcar como completada directamente
             }
             
             // Preferir recipeId (viene explícito del backend). Evita enviar IDs compuestos tipo "meal-...-recipe-...".
