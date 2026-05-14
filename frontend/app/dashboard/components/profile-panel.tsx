@@ -820,49 +820,45 @@ export const ProfilePanel = memo(function ProfilePanel() {
         </CardContent>
       </Card>
 
-      {/* Botones de acción */}
-            {/* GDPR / Privacidad */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Shield className="h-4 w-4 text-teal-500" />
-                  Privacidad y datos personales (RGPD)
-                </CardTitle>
-                <CardDescription>
-                  De acuerdo con el Reglamento General de Protección de Datos tienes derecho a acceder,
-                  exportar y eliminar tus datos personales.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleExportData}
-                    disabled={gdprLoading}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="h-4 w-4" />
-                    {gdprLoading ? 'Exportando...' : 'Exportar mis datos'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={handleRequestDeletion}
-                    disabled={gdprDeleting}
-                  >
-                    {gdprDeleting ? 'Enviando solicitud...' : 'Solicitar eliminación de cuenta'}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  La solicitud de eliminación será procesada por el equipo en un plazo máximo de 30 días.
-                  Recibirás un email de confirmación.
-                </p>
-              </CardContent>
-            </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shield className="h-4 w-4 text-teal-500" />
+            Privacidad y datos personales (RGPD)
+          </CardTitle>
+          <CardDescription>
+            De acuerdo con el Reglamento General de Protección de Datos tienes derecho a acceder,
+            exportar y eliminar tus datos personales.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleExportData}
+              disabled={gdprLoading}
+              className="flex items-center gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {gdprLoading ? 'Exportando...' : 'Exportar mis datos'}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleRequestDeletion}
+              disabled={gdprDeleting}
+            >
+              {gdprDeleting ? 'Enviando solicitud...' : 'Solicitar eliminación de cuenta'}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            La solicitud de eliminación será procesada por el equipo en un plazo máximo de 30 días.
+            Recibirás un email de confirmación.
+          </p>
+        </CardContent>
+      </Card>
 
-            {/* Botones de acción */}
-            {isEditing && (
       {isEditing && (
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={handleCancel}>
