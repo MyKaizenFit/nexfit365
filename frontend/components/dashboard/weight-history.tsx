@@ -169,9 +169,9 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
       }
     }
     return { 
-      icon: <Minus className="h-4 w-4 text-gray-600" />, 
+      icon: <Minus className="h-4 w-4 text-muted-foreground" />, 
       label: 'Sin cambio', 
-      color: 'text-gray-600',
+      color: 'text-muted-foreground',
       arrow: null
     }
   }
@@ -202,7 +202,7 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
               <CardTitle className="text-lg md:text-xl font-bold leading-tight mb-1 md:mb-0.5">
                 Seguimiento de Peso
               </CardTitle>
-              <CardDescription className="text-xs md:text-sm leading-tight text-gray-600 hidden sm:block">
+              <CardDescription className="text-xs md:text-sm leading-tight text-muted-foreground hidden sm:block">
                 Tu evolución y progreso hacia el objetivo
               </CardDescription>
             </div>
@@ -217,7 +217,7 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
             <span className="sm:hidden">Peso</span>
           </Button>
         </div>
-        <CardDescription className="text-xs md:text-sm text-gray-600 mt-2 sm:hidden">
+        <CardDescription className="text-xs md:text-sm text-muted-foreground mt-2 sm:hidden">
           Tu evolución y progreso hacia el objetivo
         </CardDescription>
       </CardHeader>
@@ -230,7 +230,7 @@ export const WeightHistory = memo(function WeightHistory({ onAddWeight, classNam
         ) : (
           <>
             {/* Resumen actual */}
-            <div className={`grid gap-3 md:gap-4 p-3 md:p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg md:rounded-xl border border-blue-200 ${targetWeight ? 'grid-cols-3' : 'grid-cols-2'}`}>
+            <div className={`grid gap-3 md:gap-4 p-3 md:p-4 bg-gradient-to-r from-blue-50 to-cyan-50 rounded-lg md:rounded-xl border border-blue-200 dark:border-blue-800/30 ${targetWeight ? 'grid-cols-3' : 'grid-cols-2'}`}>
               {/* Peso Actual */}
               <div className="text-center">
                 <div className="text-xl md:text-2xl font-bold text-blue-700">

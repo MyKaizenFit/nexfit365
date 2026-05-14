@@ -119,7 +119,7 @@ export function ProgressSummaryEnhanced({
 
   if (statsLoading || photosLoading || weightLoading || userStatsLoading) {
     return (
-      <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl ${className}`}>
+      <Card className={`border shadow-xl ${className}`}>
         <CardHeader>
           <div className="h-6 bg-muted rounded w-3/4 animate-pulse"></div>
           <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
@@ -135,13 +135,13 @@ export function ProgressSummaryEnhanced({
   }
 
   return (
-    <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
+    <Card className={`border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
       <CardHeader className="p-2 sm:p-4 lg:p-6">
         <CardTitle className="text-xs sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent flex items-center gap-2">
           <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5" />
           Mi Progreso
         </CardTitle>
-        <CardDescription className="text-[11px] sm:text-sm responsive-text text-gray-600">
+        <CardDescription className="text-[11px] sm:text-sm responsive-text text-muted-foreground">
           Tu transformación en números • {Math.round(overallProgress)}% de progreso general 📈
         </CardDescription>
       </CardHeader>

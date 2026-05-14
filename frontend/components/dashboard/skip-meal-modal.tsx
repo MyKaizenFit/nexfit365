@@ -42,26 +42,26 @@ export function SkipMealModal({ mealName, onConfirm, onCancel }: SkipMealModalPr
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel() }}
     >
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200">
+      <div className="w-full max-w-md bg-card rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 sm:slide-in-from-bottom-0 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
           <div className="flex items-center gap-2">
             <span className="text-xl">⏭️</span>
             <div>
-              <h2 className="font-semibold text-gray-900 text-base">No como esta comida</h2>
-              <p className="text-xs text-gray-500 truncate max-w-[200px]">{mealName}</p>
+              <h2 className="font-semibold text-foreground text-base">No como esta comida</h2>
+              <p className="text-xs text-muted-foreground truncate max-w-[200px]">{mealName}</p>
             </div>
           </div>
           <button
             onClick={onCancel}
             className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
           >
-            <X className="w-4 h-4 text-gray-500" />
+            <X className="w-4 h-4 text-muted-foreground" />
           </button>
         </div>
 
         <div className="px-5 py-4 space-y-4">
-          <p className="text-sm text-gray-600">¿Por qué no comes esta comida hoy?</p>
+          <p className="text-sm text-muted-foreground">¿Por qué no comes esta comida hoy?</p>
 
           {/* Razones predefinidas */}
           <div className="grid grid-cols-2 gap-2">
@@ -72,7 +72,7 @@ export function SkipMealModal({ mealName, onConfirm, onCancel }: SkipMealModalPr
                 className={`text-xs font-medium px-3 py-2.5 rounded-xl border-2 transition-all text-left ${
                   selectedReason === reason
                     ? 'border-amber-400 bg-amber-50 text-amber-800'
-                    : 'border-gray-200 bg-gray-50 text-gray-700 hover:border-gray-300 hover:bg-gray-100'
+                    : 'border-border bg-muted text-gray-700 hover:border-gray-300 hover:bg-gray-100'
                 }`}
               >
                 {reason}
@@ -114,7 +114,7 @@ export function SkipMealModal({ mealName, onConfirm, onCancel }: SkipMealModalPr
         <div className="flex gap-3 px-5 pb-5">
           <button
             onClick={onCancel}
-            className="flex-1 py-2.5 rounded-xl border-2 border-gray-200 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors touch-manipulation"
+            className="flex-1 py-2.5 rounded-xl border-2 border-border text-sm font-medium text-muted-foreground hover:bg-muted/50 transition-colors touch-manipulation"
           >
             Cancelar
           </button>

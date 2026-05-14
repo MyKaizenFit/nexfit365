@@ -529,8 +529,8 @@ export function WorkoutDashboardEnhanced() {
           {[1, 2, 3, 4].map((i) => (
             <Card key={i} className="animate-pulse">
               <CardContent className="p-6">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/2"></div>
+                <div className="h-4 bg-muted rounded w-3/4 mb-2"></div>
+                <div className="h-8 bg-muted rounded w-1/2"></div>
               </CardContent>
             </Card>
           ))}
@@ -617,7 +617,7 @@ export function WorkoutDashboardEnhanced() {
   return (
     <div className="space-y-4 md:space-y-6 pb-24">
       {/* Hero Section - Tarjeta de Entrenamiento */}
-      <Card className="backdrop-blur-sm bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50 border-0 shadow-xl overflow-hidden relative p-2 md:p-0">
+      <Card className="border shadow-xl dark:bg-card overflow-hidden relative p-2 md:p-0">
         <div className="absolute inset-0 bg-gradient-to-r from-emerald-200/20 to-teal-200/20"></div>
         <CardHeader className="text-center relative z-10">
           <div className="flex justify-end mb-2">
@@ -626,7 +626,7 @@ export function WorkoutDashboardEnhanced() {
               size="sm"
               onClick={handleRefresh}
               disabled={isRefreshing}
-              className="text-gray-600 hover:text-gray-900"
+              className="text-muted-foreground hover:text-foreground"
             >
               <RefreshCw className={`h-4 w-4 mr-1 ${isRefreshing ? 'animate-spin' : ''}`} />
               Actualizar
@@ -638,7 +638,7 @@ export function WorkoutDashboardEnhanced() {
           <CardTitle className="text-3xl font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 bg-clip-text text-transparent">
             Entrenamientos 💪
           </CardTitle>
-          <CardDescription className="text-base mt-2 text-gray-700">
+          <CardDescription className="text-base mt-2 text-foreground">
             Tu rutina completa con seguimiento y estadísticas
           </CardDescription>
           {daysInTransformation > 0 && (
@@ -654,8 +654,8 @@ export function WorkoutDashboardEnhanced() {
                 value={Math.min((stats.completedThisWeek / stats.weeklyGoal) * 100, 100)}
                 className="h-3 bg-emerald-100"
               />
-              <div className="flex items-center justify-center gap-2 text-sm text-gray-600">
-                <Flame className="h-4 w-4 text-gray-600" />
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <Flame className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">
                   {stats.completedThisWeek} de {stats.weeklyGoal} entrenamientos completados esta semana
                 </span>
@@ -666,12 +666,12 @@ export function WorkoutDashboardEnhanced() {
       </Card>
 
       {/* Resumen Semanal Compacto */}
-      <Card className="bg-gradient-to-br from-purple-50 via-pink-50 to-orange-50 border-purple-200/50 shadow-lg">
+      <Card className="border border-purple-200/50 dark:border-purple-800/20 shadow-lg dark:bg-card">
         <CardContent className="p-3 md:p-6">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-700">{weeklyProgress.completedWorkouts}</div>
-              <div className="text-xs text-purple-600 font-medium">Completados</div>
+              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{weeklyProgress.completedWorkouts}</div>
+              <div className="text-xs text-purple-600 dark:text-purple-400 font-medium">Completados</div>
               <div className="text-xs text-muted-foreground mt-1">de {stats.weeklyGoal} esta semana</div>
             </div>
             <div className="text-center">
@@ -717,7 +717,7 @@ export function WorkoutDashboardEnhanced() {
           const isTodayCompleted = completedByLog || completedByExercises
 
           return (
-            <Card className="bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 border-2 border-blue-200/50 shadow-xl">
+            <Card className="border-2 border-blue-200/50 dark:border-blue-800/30 shadow-xl dark:bg-card">
               <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
@@ -725,8 +725,8 @@ export function WorkoutDashboardEnhanced() {
                       <Play className="h-5 w-5 md:h-7 md:w-7 text-white" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-lg md:text-2xl text-blue-700 leading-tight">Entrenamiento de Hoy</CardTitle>
-                      <CardDescription className="text-blue-600/80 text-xs md:text-sm">
+                      <CardTitle className="text-lg md:text-2xl text-blue-700 dark:text-blue-300 leading-tight">Entrenamiento de Hoy</CardTitle>
+                      <CardDescription className="text-blue-500/80 dark:text-blue-400 text-xs md:text-sm">
                         {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
                       </CardDescription>
                       {userPlan && (
@@ -763,7 +763,7 @@ export function WorkoutDashboardEnhanced() {
                     return (
                       <Card
                         key={exercise.id || index}
-                        className={`bg-white/90 border-2 transition-all touch-manipulation ${isExerciseCompleted
+                        className={`bg-card/90 border-2 transition-all touch-manipulation ${isExerciseCompleted
                           ? 'bg-green-50/90 border-green-300 shadow-md'
                           : 'border-blue-100'
                           }`}
@@ -821,6 +821,21 @@ export function WorkoutDashboardEnhanced() {
                                 )}
                               </div>
                             </div>
+                            {/* Botón Ver (descripción/video) */}
+                            {(exerciseData.has_video || exerciseData.video_url || exerciseData.google_drive_file_id || exerciseData.description || exerciseData.instructions) && (
+                              <ExerciseVideoPlayer exercise={exerciseData}>
+                                <button
+                                  className={`flex-shrink-0 flex items-center gap-1 text-[10px] md:text-xs px-1.5 py-1 rounded-md border font-medium transition-colors ${
+                                    isExerciseCompleted
+                                      ? 'border-green-200 text-green-700 bg-green-50 hover:bg-green-100'
+                                      : 'border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100'
+                                  }`}
+                                >
+                                  <Play className="h-2.5 w-2.5 md:h-3 md:w-3" />
+                                  Ver
+                                </button>
+                              </ExerciseVideoPlayer>
+                            )}
                           </div>
                         </CardContent>
                       </Card>
@@ -852,12 +867,12 @@ export function WorkoutDashboardEnhanced() {
         })()
       ) : trainingDays.length > 0 && !trainingDays.includes(todayDayNumber) ? (
         // Si hoy no es un día de entrenamiento según el perfil
-        <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
+        <Card className="border-2 border-border/50 shadow-lg dark:bg-card">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
               <Clock className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-2xl text-gray-700 mb-2">Día de Descanso</CardTitle>
+            <CardTitle className="text-2xl text-foreground mb-2">Día de Descanso</CardTitle>
             <CardDescription className="text-gray-600 text-lg">
               Hoy es {getTodayName()} - Es momento de descansar y recuperarte 💪
             </CardDescription>
@@ -873,12 +888,12 @@ export function WorkoutDashboardEnhanced() {
           </CardContent>
         </Card>
       ) : todaysWorkout && todaysWorkout.is_rest_day ? (
-        <Card className="bg-gradient-to-br from-gray-50 to-slate-50 border-2 border-gray-200/50 shadow-lg">
+        <Card className="border-2 border-border/50 shadow-lg dark:bg-card">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
               <Clock className="h-8 w-8 text-white" />
             </div>
-            <CardTitle className="text-2xl text-gray-700 mb-2">Día de Descanso</CardTitle>
+            <CardTitle className="text-2xl text-foreground mb-2">Día de Descanso</CardTitle>
             <CardDescription className="text-gray-600 text-lg">
               Hoy es {getTodayName()} - Es momento de descansar y recuperarte 💪
             </CardDescription>
@@ -890,7 +905,7 @@ export function WorkoutDashboardEnhanced() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Plan Actual */}
         {userPlan && (
-          <Card className="bg-white/95 border-2 border-purple-100/50 rounded-2xl shadow-lg">
+          <Card className="bg-card/95 border-2 border-purple-100/50 rounded-2xl shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-purple-700">
                 <Dumbbell className="h-5 w-5" />
@@ -920,7 +935,7 @@ export function WorkoutDashboardEnhanced() {
         )}
 
         {/* Calendario Semanal con Días de Entrenamiento y Descanso */}
-        <Card className="bg-white/95 border-2 border-blue-100/50 rounded-2xl shadow-lg">
+        <Card className="bg-card/95 border-2 border-blue-100/50 rounded-2xl shadow-lg">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-blue-700">
               <Calendar className="h-5 w-5" />
@@ -944,8 +959,8 @@ export function WorkoutDashboardEnhanced() {
                         ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg md:scale-105'
                         : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg md:scale-105'
                       : isTrainingByProfile
-                        ? 'bg-gradient-to-br from-blue-100 to-cyan-100 border-blue-300 text-blue-800'
-                        : 'bg-gradient-to-br from-gray-100 to-slate-100 border-gray-300 text-gray-600'
+                        ? 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700/50 text-blue-800 dark:text-blue-300'
+                        : 'bg-muted border-border text-muted-foreground'
                       }`}
                   >
                     <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
@@ -972,14 +987,14 @@ export function WorkoutDashboardEnhanced() {
             </div>
 
             {/* Leyenda */}
-            <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-gray-200 flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
+            <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-border flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
-                <span className="text-gray-700 whitespace-nowrap">Entrenamiento</span>
+                <span className="text-foreground whitespace-nowrap">Entrenamiento</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500 flex-shrink-0"></div>
-                <span className="text-gray-700 whitespace-nowrap">Descanso</span>
+                <span className="text-foreground whitespace-nowrap">Descanso</span>
               </div>
             </div>
           </CardContent>
@@ -1095,7 +1110,7 @@ export function WorkoutDashboardEnhanced() {
                                           <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                         )}
                                         <div className="flex-1 min-w-0">
-                                          <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
+                                          <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-foreground'}`}>
                                             {fixEncoding(exerciseData.name)}
                                           </div>
                                           <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
@@ -1133,7 +1148,7 @@ export function WorkoutDashboardEnhanced() {
                           )
                         })() : (
                           <div className="text-center py-6">
-                            <Clock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                            <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                             <p className="text-sm text-orange-700 font-medium mb-1">Sin plan asignado</p>
                             <p className="text-xs text-muted-foreground">
                               No hay entrenamiento asignado para este día.
@@ -1180,7 +1195,7 @@ export function WorkoutDashboardEnhanced() {
                     <CardContent className="space-y-3">
                       {day.is_rest_day ? (
                         <div className="text-center py-4">
-                          <Clock className="h-8 w-8 mx-auto mb-2 text-gray-500" />
+                          <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                           <p className="text-sm text-muted-foreground">Día de descanso</p>
                         </div>
                       ) : (() => {
@@ -1234,7 +1249,7 @@ export function WorkoutDashboardEnhanced() {
                                         <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                       )}
                                       <div className="flex-1 min-w-0">
-                                        <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
+                                        <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-foreground'}`}>
                                           {fixEncoding(exerciseData.name)}
                                         </div>
                                         <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
@@ -1285,7 +1300,7 @@ export function WorkoutDashboardEnhanced() {
 
         <TabsContent value="progress" className="space-y-4">          {stats.totalWorkouts > 0 || stats.completedThisWeek > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="border shadow-xl">
                 <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
                   <CardTitle className="text-base md:text-lg flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
@@ -1294,25 +1309,25 @@ export function WorkoutDashboardEnhanced() {
                 </CardHeader>
                 <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-3 md:space-y-4">
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-sm md:text-base text-gray-700">Total entrenamientos</span>
+                    <span className="text-sm md:text-base text-foreground">Total entrenamientos</span>
                     <span className="font-semibold text-base md:text-lg text-purple-700">{stats.totalWorkouts}</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-sm md:text-base text-gray-700">Duración promedio</span>
+                    <span className="text-sm md:text-base text-foreground">Duración promedio</span>
                     <span className="font-semibold text-base md:text-lg text-purple-700">{stats.averageDuration || 0} min</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-sm md:text-base text-gray-700">Racha actual</span>
+                    <span className="text-sm md:text-base text-foreground">Racha actual</span>
                     <span className="font-semibold text-base md:text-lg text-purple-700">{stats.currentStreak || 0} días</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
-                    <span className="text-sm md:text-base text-gray-700">Mejor racha</span>
+                    <span className="text-sm md:text-base text-foreground">Mejor racha</span>
                     <span className="font-semibold text-base md:text-lg text-purple-700">{stats.longestStreak || 0} días</span>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="border shadow-xl">
                 <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
                   <CardTitle className="text-base md:text-lg flex items-center gap-2">
                     <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
@@ -1322,7 +1337,7 @@ export function WorkoutDashboardEnhanced() {
                 <CardContent className="px-4 md:px-6 pb-4 md:pb-6 space-y-4">
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm md:text-base">
-                      <span className="text-gray-700">Entrenamientos completados</span>
+                      <span className="text-foreground">Entrenamientos completados</span>
                       <span className="font-semibold text-purple-700">{stats.completedThisWeek}/{stats.weeklyGoal}</span>
                     </div>
                     <Progress
@@ -1342,7 +1357,7 @@ export function WorkoutDashboardEnhanced() {
                 </CardContent>
               </Card>
 
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl md:col-span-2">
+              <Card className="border shadow-xl md:col-span-2">
                 <CardHeader className="px-4 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
                   <CardTitle className="text-base md:text-lg flex items-center gap-2">
                     <Award className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
@@ -1362,7 +1377,7 @@ export function WorkoutDashboardEnhanced() {
                         return (
                           <div key={`${item.exercise_name}-${idx}`} className="space-y-1">
                             <div className="flex items-center justify-between text-sm">
-                              <span className="font-medium text-gray-800">{item.exercise_name}</span>
+                              <span className="font-medium text-foreground">{item.exercise_name}</span>
                               <span className="font-semibold text-purple-700">{current.toFixed(1)} kg</span>
                             </div>
                             <Progress value={pct} className="h-2" />
@@ -1379,37 +1394,37 @@ export function WorkoutDashboardEnhanced() {
               </Card>
             </div>
           ) : (
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardContent className="p-8 md:p-12 text-center">
                 <div className="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-purple-400 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6">
                   <Target className="h-8 w-8 md:h-10 md:w-10 text-white" />
                 </div>
-                <CardTitle className="text-xl md:text-2xl mb-2 md:mb-3 text-gray-800">
+                <CardTitle className="text-xl md:text-2xl mb-2 md:mb-3 text-foreground">
                   Comienza tu progreso
                 </CardTitle>
-                <CardDescription className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">
+                <CardDescription className="text-sm md:text-base text-muted-foreground mb-4 md:mb-6">
                   Aún no tienes entrenamientos registrados. Completa tu primer entrenamiento para comenzar a ver tus estadísticas aquí.
                 </CardDescription>
                 <div className="space-y-2 text-left max-w-md mx-auto">
                   <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
                     <CheckCircle2 className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-sm md:text-base text-gray-800">Registra tus entrenamientos</p>
-                      <p className="text-xs md:text-sm text-gray-600">Completa tus entrenamientos diarios para comenzar a ver tu progreso</p>
+                      <p className="font-medium text-sm md:text-base text-foreground">Registra tus entrenamientos</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Completa tus entrenamientos diarios para comenzar a ver tu progreso</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
                     <Target className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-sm md:text-base text-gray-800">Rastrea tus rachas</p>
-                      <p className="text-xs md:text-sm text-gray-600">Mantén la consistencia para ver tus rachas de entrenamiento</p>
+                      <p className="font-medium text-sm md:text-base text-foreground">Rastrea tus rachas</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Mantén la consistencia para ver tus rachas de entrenamiento</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3 p-3 bg-purple-50 rounded-lg">
                     <TrendingUp className="h-5 w-5 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div>
-                      <p className="font-medium text-sm md:text-base text-gray-800">Alcanza tus objetivos</p>
-                      <p className="text-xs md:text-sm text-gray-600">Completa tus entrenamientos semanales para cumplir con tus metas</p>
+                      <p className="font-medium text-sm md:text-base text-foreground">Alcanza tus objetivos</p>
+                      <p className="text-xs md:text-sm text-muted-foreground">Completa tus entrenamientos semanales para cumplir con tus metas</p>
                     </div>
                   </div>
                 </div>
@@ -1427,7 +1442,7 @@ export function WorkoutDashboardEnhanced() {
         <TabsContent value="timer" className="mt-4">
           <div className="flex flex-col items-center gap-4">
             <RestTimer defaultDuration={90} inline className="w-full max-w-xs" />
-            <p className="text-xs text-gray-500 text-center max-w-xs">
+            <p className="text-xs text-muted-foreground text-center max-w-xs">
               Pulsa play para iniciar el temporizador de descanso. Recibirás pitidos de alerta en los últimos 3 segundos y al finalizar.
             </p>
           </div>

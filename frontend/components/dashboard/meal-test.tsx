@@ -35,7 +35,7 @@ export function MealTest() {
       <h3 className="text-lg font-semibold text-red-900">🧪 COMPONENTE DE PRUEBA SIMPLE</h3>
       
       {/* Estado local */}
-      <div className="p-3 bg-white border border-red-300 rounded">
+      <div className="p-3 bg-card border border-red-300 rounded">
         <p className="text-sm font-medium text-red-900">Estado Local: {localState}</p>
       </div>
       
@@ -54,7 +54,7 @@ export function MealTest() {
       </div>
 
       {/* Estado del hook */}
-      <div className="p-3 bg-white border border-red-300 rounded">
+      <div className="p-3 bg-card border border-red-300 rounded">
         <h4 className="font-medium text-red-900 mb-2">Estado del Hook:</h4>
         <div className="space-y-2 text-sm">
           <div><strong>Total comidas:</strong> {meals.length}</div>
@@ -64,13 +64,13 @@ export function MealTest() {
       </div>
 
       {/* Lista simple de comidas */}
-      <div className="p-3 bg-white border border-red-300 rounded">
+      <div className="p-3 bg-card border border-red-300 rounded">
         <h4 className="font-medium text-red-900 mb-2">Comidas (Estado Simple):</h4>
         <div className="space-y-2">
           {meals.map((meal) => (
-            <div key={meal.id} className="flex items-center justify-between p-2 bg-gray-50 rounded">
+            <div key={meal.id} className="flex items-center justify-between p-2 bg-muted rounded">
               <span className="font-medium">{meal.name}</span>
-              <span className={meal.selectedOption ? 'text-green-600 font-bold' : 'text-gray-500'}>
+              <span className={meal.selectedOption ? 'text-green-600 font-bold' : 'text-muted-foreground'}>
                 {meal.selectedOption ? `✅ ${meal.selectedOption.name}` : '❌ No seleccionado'}
               </span>
             </div>
@@ -79,7 +79,7 @@ export function MealTest() {
       </div>
 
       {/* Macros */}
-      <div className="p-3 bg-white border border-red-300 rounded">
+      <div className="p-3 bg-card border border-red-300 rounded">
         <h4 className="font-medium text-red-900 mb-2">Macros:</h4>
         <div className="text-sm">
           <div>Calorías: <strong>{macros.caloriesConsumed}</strong> / {macros.caloriesGoal}</div>

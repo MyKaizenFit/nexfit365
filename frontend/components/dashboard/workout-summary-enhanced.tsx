@@ -188,13 +188,13 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
   }
 
   return (
-    <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
+    <Card className={`border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
       <CardHeader className="p-3 sm:p-4 lg:p-6">
         <CardTitle className="text-sm sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
           <Dumbbell className="h-4 w-4 sm:h-5 sm:w-5" />
           Entrenamientos de la Semana
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm responsive-text text-gray-600">
+        <CardDescription className="text-xs sm:text-sm responsive-text text-muted-foreground">
           Tu actividad física y progreso • {stats?.current_streak || 0} días de racha 🔥
         </CardDescription>
       </CardHeader>
@@ -262,7 +262,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
         {/* Lista de entrenamientos recientes */}
         {recentWorkouts.length > 0 ? (
           <div className="space-y-2">
-            <h4 className="text-sm font-medium text-gray-700">Entrenamientos recientes</h4>
+            <h4 className="text-sm font-medium text-foreground">Entrenamientos recientes</h4>
             <div className="space-y-2">
               {recentWorkouts.map((workout) => (
                 <div
@@ -340,7 +340,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
             <div className="space-y-6">
               {/* Información general */}
               <div className="grid grid-cols-2 gap-4">
-                <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-purple-200">
+                <Card className="border border-purple-200 dark:border-purple-800/30 dark:bg-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <CalendarIcon className="h-4 w-4 text-purple-600" />
@@ -357,7 +357,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
                   </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-blue-50 to-cyan-50 border-blue-200">
+                <Card className="border border-blue-200 dark:border-blue-800/30 dark:bg-card">
                   <CardContent className="p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <ClockIcon className="h-4 w-4 text-blue-600" />
@@ -448,7 +448,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
                 )}
 
                 {selectedWorkout.rating && (
-                  <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200">
+                  <Card className="border border-yellow-200 dark:border-yellow-800/30 dark:bg-card">
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center gap-2">
                         <Award className="h-4 w-4 text-yellow-600" />
@@ -466,7 +466,7 @@ export const WorkoutSummaryEnhanced = memo(function WorkoutSummaryEnhanced({ cla
               </div>
 
               {/* Estado */}
-              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+              <Card className="border border-green-200 dark:border-green-800/30 dark:bg-card">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">

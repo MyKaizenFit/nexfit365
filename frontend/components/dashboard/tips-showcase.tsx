@@ -54,7 +54,7 @@ export function TipsShowcase() {
 
   if (tips.length === 0) {
     return (
-      <Card className="bg-white/80 backdrop-blur border-dashed border-primary/20">
+      <Card className="bg-card/80 backdrop-blur border-dashed border-primary/20">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2 text-primary">
             <Sparkles className="h-5 w-5" />
@@ -77,7 +77,7 @@ export function TipsShowcase() {
   }
 
   return (
-    <Card className="bg-white/80 backdrop-blur">
+    <Card className="bg-card/80 backdrop-blur">
       <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <CardTitle className="flex items-center gap-2 text-primary">
           <Sparkles className="h-5 w-5" />

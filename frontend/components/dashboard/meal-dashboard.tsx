@@ -89,10 +89,10 @@ export function MealDashboard() {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
+          <div className="h-8 bg-muted rounded w-64 mb-4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-32 bg-gray-200 rounded-lg"></div>
+              <div key={i} className="h-32 bg-muted rounded-lg"></div>
             ))}
           </div>
         </div>
@@ -103,7 +103,7 @@ export function MealDashboard() {
   return (
     <div className="space-y-8 pb-4">
       {/* Hero Section - Tarjeta de Nutrición */}
-      <Card className="backdrop-blur-sm bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 border-0 shadow-xl overflow-hidden relative">
+      <Card className="border shadow-xl dark:bg-card overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20"></div>
         <CardHeader className="text-center relative z-10 p-4 md:p-6">
           <div className="flex justify-end mb-2">
@@ -124,7 +124,7 @@ export function MealDashboard() {
           <CardTitle className="text-xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
             Plan Nutricional 🍽️
           </CardTitle>
-          <CardDescription className="text-sm md:text-base mt-2 text-gray-700">
+          <CardDescription className="text-sm md:text-base mt-2 text-foreground">
             Tu alimentación equilibrada para alcanzar tus objetivos
           </CardDescription>
           {daysInTransformation > 0 && (
@@ -137,7 +137,7 @@ export function MealDashboard() {
           {totalMeals > 0 && (
             <div className="mt-3 md:mt-4 space-y-1.5 md:space-y-2">
               <Progress value={progressPercentage} className="h-2 md:h-3 bg-orange-100" />
-              <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-gray-600">
+              <div className="flex items-center justify-center gap-2 text-xs md:text-sm text-muted-foreground">
                 <Flame className="h-3 w-3 md:h-4 md:w-4 text-orange-500" />
                 <span className="font-medium">
                   {completedMeals} de {totalMeals} comidas completadas
@@ -173,8 +173,8 @@ export function MealDashboard() {
             <Target className="w-4 h-4 md:w-5 md:h-5 text-white" />
           </div>
           <div className="min-w-0">
-            <h3 className="text-lg md:text-xl font-bold text-gray-900">Progreso Detallado del Día</h3>
-            <p className="text-xs md:text-sm text-gray-500">Seguimiento de tus macros y objetivos</p>
+            <h3 className="text-lg md:text-xl font-bold text-foreground">Progreso Detallado del Día</h3>
+            <p className="text-xs md:text-sm text-muted-foreground">Seguimiento de tus macros y objetivos</p>
           </div>
         </div>
         
@@ -198,11 +198,11 @@ export function MealDashboard() {
               <Utensils className="w-4 h-4 md:w-5 md:h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-lg md:text-xl font-bold text-gray-900">Plan de Comidas del Día</h3>
-              <p className="text-xs md:text-sm text-gray-500">Selecciona tus opciones preferidas</p>
+              <h3 className="text-lg md:text-xl font-bold text-foreground">Plan de Comidas del Día</h3>
+              <p className="text-xs md:text-sm text-muted-foreground">Selecciona tus opciones preferidas</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-[10px] md:text-xs text-gray-500 bg-gray-50 px-2 md:px-3 py-1.5 md:py-2 rounded-lg self-start sm:self-auto">
+          <div className="flex items-center gap-2 text-[10px] md:text-xs text-muted-foreground bg-muted px-2 md:px-3 py-1.5 md:py-2 rounded-lg self-start sm:self-auto">
             <Cloud className="w-3 h-3" />
             <span className="hidden sm:inline">Sincronizado en la nube</span>
             <span className="sm:hidden">Sincronizado</span>
@@ -215,8 +215,8 @@ export function MealDashboard() {
               key={meal.id}
               className={`group relative border-2 rounded-xl p-4 md:p-6 transition-all duration-300 ${
                 meal.selectedOption
-                  ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 shadow-lg shadow-green-100'
-                  : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-lg hover:shadow-blue-50'
+                  ? 'border-green-300 dark:border-green-700/50 bg-green-500/5 dark:bg-green-900/10 shadow-lg'
+                  : 'border-border bg-card hover:border-blue-300 hover:shadow-lg hover:shadow-blue-50'
               }`}
             >
               {/* Indicador de estado */}
@@ -231,13 +231,13 @@ export function MealDashboard() {
                 <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg flex items-center justify-center text-xl md:text-2xl flex-shrink-0 ${
                   meal.selectedOption 
                     ? 'bg-green-100 text-green-600' 
-                    : 'bg-gray-100 text-gray-600'
+                    : 'bg-muted text-muted-foreground'
                 }`}>
                   {meal.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-semibold text-gray-900 text-base md:text-lg truncate">{meal.name}</h4>
-                  <p className="text-xs md:text-sm text-gray-500 flex items-center gap-1.5 md:gap-2">
+                  <h4 className="font-semibold text-foreground text-base md:text-lg truncate">{meal.name}</h4>
+                  <p className="text-xs md:text-sm text-muted-foreground flex items-center gap-1.5 md:gap-2">
                     <Clock className="w-3 h-3 flex-shrink-0" />
                     <span>{meal.time}</span>
                   </p>
@@ -245,13 +245,13 @@ export function MealDashboard() {
               </div>
 
               {/* Descripción */}
-              <p className="text-xs md:text-sm text-gray-600 mb-3 md:mb-4 leading-relaxed line-clamp-2">{meal.description}</p>
+              <p className="text-xs md:text-sm text-muted-foreground mb-3 md:mb-4 leading-relaxed line-clamp-2">{meal.description}</p>
 
               {/* Comida seleccionada o botón */}
               {meal.selectedOption ? (
                 <div className="space-y-3 md:space-y-4">
                   {/* Tarjeta de comida seleccionada */}
-                  <div className={`bg-white rounded-lg p-3 md:p-4 border shadow-sm ${
+                  <div className={`bg-card rounded-lg p-3 md:p-4 border shadow-sm ${
                     meal.isCompleted 
                       ? 'border-green-200 bg-green-50/30' 
                       : 'border-blue-200 bg-blue-50/30'
@@ -261,7 +261,7 @@ export function MealDashboard() {
                         <img
                           src={meal.selectedOption.imageUrl}
                           alt={meal.selectedOption.name}
-                          className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-gray-200 flex-shrink-0"
+                          className="w-7 h-7 md:w-8 md:h-8 rounded-md object-cover border border-border flex-shrink-0"
                           onError={(e) => {
                             const img = e.target as HTMLImageElement
                             img.style.display = 'none'
@@ -276,11 +276,11 @@ export function MealDashboard() {
                         <span className="text-base md:text-lg">{meal.selectedOption.icon}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-gray-900 text-xs md:text-sm truncate">
+                        <h5 className="font-semibold text-foreground text-xs md:text-sm truncate">
                           {meal.selectedOption.name}
                         </h5>
-                        <p className="text-[10px] md:text-xs text-gray-500">
-                          {meal.isCompleted ? '✅ Completada' : meal.isSkipped ? '⏭️ Saltada (no como)' : '📋 Seleccionada'}
+                        <p className="text-[10px] md:text-xs text-muted-foreground">
+                          {meal.isSkipped ? '⏭️ Saltada (no como)' : '✅ Completada'}
                         </p>
                       </div>
                     </div>
@@ -321,20 +321,7 @@ export function MealDashboard() {
                   
                   {/* Botones de acción */}
                   <div className="flex gap-2">
-                    {!meal.isCompleted && (
-                      <button
-                        onClick={async () => {
-                          await markMealCompleted(meal.id)
-                        }}
-                        className="flex-1 text-xs md:text-sm text-white font-medium bg-green-500 hover:bg-green-600 px-3 md:px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5 md:gap-2 touch-manipulation"
-                      >
-                        <Check className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                        <span className="hidden sm:inline">Marcar como completada</span>
-                        <span className="sm:hidden">Completar</span>
-                      </button>
-                    )}
-
-                    {!meal.isCompleted && !meal.isSkipped && (
+                    {!meal.isSkipped && (
                       <button
                         onClick={async () => {
                           await handleSkipMeal(meal.id)
@@ -350,7 +337,7 @@ export function MealDashboard() {
                       className={`text-xs md:text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition-colors touch-manipulation ${
                         meal.isCompleted
                           ? 'text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200'
-                          : 'text-gray-600 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 active:bg-gray-200'
+                          : 'text-muted-foreground hover:text-foreground bg-muted hover:bg-muted/80'
                       }`}
                     >
                       ✏️ <span className="hidden sm:inline">Cambiar</span>

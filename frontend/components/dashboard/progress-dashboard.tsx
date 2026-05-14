@@ -401,7 +401,7 @@ export function ProgressDashboard() {
                 <div className="flex items-baseline gap-2">
                   <span className="text-2xl font-bold text-blue-700">{weightEntries[0].weight} kg</span>
                   {weightEntries.length > 1 && (
-                    <span className={`text-sm font-semibold ${weightEntries[0].weight - weightEntries[1].weight > 0 ? 'text-red-600' : weightEntries[0].weight - weightEntries[1].weight < 0 ? 'text-green-600' : 'text-gray-600'}`}>
+                    <span className={`text-sm font-semibold ${weightEntries[0].weight - weightEntries[1].weight > 0 ? 'text-red-600' : weightEntries[0].weight - weightEntries[1].weight < 0 ? 'text-green-600' : 'text-muted-foreground'}`}>
                       {weightEntries[0].weight - weightEntries[1].weight > 0 ? '+' : ''}{(weightEntries[0].weight - weightEntries[1].weight).toFixed(1)} kg
                     </span>
                   )}
