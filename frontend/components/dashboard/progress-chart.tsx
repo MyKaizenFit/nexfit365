@@ -132,7 +132,7 @@ export function ProgressChart({ metrics, overallProgress, className = "" }: Prog
           {metrics.map((metric) => (
             <Card 
               key={metric.label}
-              className="bg-white/90 border-2 border-emerald-100/50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+              className="bg-card/90 border-2 border-emerald-100/50 rounded-2xl shadow-md hover:shadow-xl transition-all duration-300 hover:scale-[1.02] overflow-hidden"
             >
               <CardContent className="p-5 space-y-4">
                 {/* Header con icono */}
@@ -174,12 +174,12 @@ export function ProgressChart({ metrics, overallProgress, className = "" }: Prog
                       ) : metric.changeType === 'decrease' ? (
                         <ArrowDown className="h-3 w-3 text-green-500" />
                       ) : (
-                        <Minus className="h-3 w-3 text-gray-500" />
+                        <Minus className="h-3 w-3 text-muted-foreground" />
                       )}
                       <span className={`text-xs font-medium ${
                         metric.changeType === 'increase' ? 'text-red-600' :
                         metric.changeType === 'decrease' ? 'text-green-600' :
-                        'text-gray-600'
+                        'text-muted-foreground'
                       }`}>
                         {getChangeDisplay(metric.change, metric.changeType, metric.unit)} {getChangeLabel(metric.changeType)}
                       </span>

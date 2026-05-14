@@ -191,8 +191,8 @@ export function NutritionPlanManager() {
             <ChefHat className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Mis planes de nutrición</h3>
-            <p className="text-xs text-gray-500">Crea, edita y activa tus planes</p>
+            <h3 className="font-semibold text-foreground">Mis planes de nutrición</h3>
+            <p className="text-xs text-muted-foreground">Crea, edita y activa tus planes</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -209,16 +209,16 @@ export function NutritionPlanManager() {
       {/* Lista de planes */}
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/70" />
         </div>
       ) : plans.length === 0 ? (
-        <Card className="border-dashed border-2 border-gray-200">
+        <Card className="border-dashed border-2 border-border">
           <CardContent className="flex flex-col items-center justify-center py-10 text-center">
             <div className="w-14 h-14 bg-orange-50 rounded-full flex items-center justify-center mb-4">
               <ChefHat className="w-7 h-7 text-orange-400" />
             </div>
             <p className="text-gray-700 font-medium">Sin planes de nutrición</p>
-            <p className="text-sm text-gray-500 mt-1">Crea tu primer plan personalizado</p>
+            <p className="text-sm text-muted-foreground mt-1">Crea tu primer plan personalizado</p>
             <Button size="sm" onClick={openCreate} className="mt-4 bg-orange-500 hover:bg-orange-600 text-white">
               <Plus className="h-3.5 w-3.5 mr-1" /> Crear plan
             </Button>
@@ -232,7 +232,7 @@ export function NutritionPlanManager() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 truncate">{plan.name}</span>
+                      <span className="font-semibold text-foreground truncate">{plan.name}</span>
                       {plan.is_active && (
                         <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs">Activo</Badge>
                       )}
@@ -241,21 +241,21 @@ export function NutritionPlanManager() {
                       )}
                     </div>
                     {(plan as any).description && (
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{(plan as any).description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{(plan as any).description}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
-                      <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Flame className="h-3 w-3 text-orange-400" />
                         <span>{plan.daily_calories ?? "—"} kcal</span>
                       </div>
                       {(plan as any).goal && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Target className="h-3 w-3 text-blue-400" />
                           <span>{GOAL_OPTIONS.find(g => g.value === (plan as any).goal)?.label || (plan as any).goal}</span>
                         </div>
                       )}
                       {(plan as any).meals_per_day && (
-                        <span className="text-xs text-gray-500">{(plan as any).meals_per_day} comidas/día</span>
+                        <span className="text-xs text-muted-foreground">{(plan as any).meals_per_day} comidas/día</span>
                       )}
                     </div>
                   </div>
@@ -279,7 +279,7 @@ export function NutritionPlanManager() {
                     {!(plan as any).is_system && (
                       <>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(plan)} className="h-8 w-8">
-                          <Pencil className="h-3.5 w-3.5 text-gray-500" />
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -358,7 +358,7 @@ export function NutritionPlanManager() {
             </div>
 
             <div className="space-y-1.5">
-              <Label className="text-sm text-gray-500">Macros (g/día) — opcional</Label>
+              <Label className="text-sm text-muted-foreground">Macros (g/día) — opcional</Label>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Label className="text-xs text-blue-600">Proteína</Label>

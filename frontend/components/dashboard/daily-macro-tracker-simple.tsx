@@ -34,13 +34,13 @@ export function DailyMacroTrackerSimple({
   }
 
   return (
-    <div className="w-full p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+    <div className="w-full p-6 bg-card rounded-lg border border-border shadow-sm">
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
+        <h2 className="text-xl font-bold text-foreground mb-2">
           Macronutrientes de Hoy
         </h2>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Tu progreso diario • {caloriesConsumed} kcal consumidas
         </p>
       </div>
@@ -53,8 +53,8 @@ export function DailyMacroTrackerSimple({
               {calculatePercentage(proteinConsumed, proteinGoal)}%
             </span>
           </div>
-          <div className="text-sm font-medium text-gray-700">Proteínas</div>
-          <div className="text-xs text-gray-500">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
+          <div className="text-sm font-medium text-foreground">Proteínas</div>
+          <div className="text-xs text-muted-foreground">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
         </div>
         
         <div className="text-center">
@@ -63,8 +63,8 @@ export function DailyMacroTrackerSimple({
               {calculatePercentage(carbsConsumed, carbsGoal)}%
             </span>
           </div>
-          <div className="text-sm font-medium text-gray-700">Carbohidratos</div>
-          <div className="text-xs text-gray-500">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
+          <div className="text-sm font-medium text-foreground">Carbohidratos</div>
+          <div className="text-xs text-muted-foreground">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
         </div>
         
         <div className="text-center">
@@ -73,8 +73,8 @@ export function DailyMacroTrackerSimple({
               {calculatePercentage(fatConsumed, fatGoal)}%
             </span>
           </div>
-          <div className="text-sm font-medium text-gray-700">Grasas</div>
-          <div className="text-xs text-gray-500">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
+          <div className="text-sm font-medium text-foreground">Grasas</div>
+          <div className="text-xs text-muted-foreground">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
         </div>
       </div>
 
@@ -84,11 +84,11 @@ export function DailyMacroTrackerSimple({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-blue-500" />
-              <span className="text-sm font-medium text-gray-700">Proteínas</span>
+              <span className="text-sm font-medium text-foreground">Proteínas</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
-              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(proteinConsumed, proteinGoal))}g</div>
+              <div className="text-sm font-medium text-foreground">{formatMacro(proteinConsumed)}/{formatMacro(proteinGoal)}g</div>
+              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(proteinConsumed, proteinGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -103,11 +103,11 @@ export function DailyMacroTrackerSimple({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-sm font-medium text-gray-700">Carbohidratos</span>
+              <span className="text-sm font-medium text-foreground">Carbohidratos</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
-              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(carbsConsumed, carbsGoal))}g</div>
+              <div className="text-sm font-medium text-foreground">{formatMacro(carbsConsumed)}/{formatMacro(carbsGoal)}g</div>
+              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(carbsConsumed, carbsGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -122,11 +122,11 @@ export function DailyMacroTrackerSimple({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-3 h-3 rounded-full bg-yellow-500" />
-              <span className="text-sm font-medium text-gray-700">Grasas</span>
+              <span className="text-sm font-medium text-foreground">Grasas</span>
             </div>
             <div className="text-right">
-              <div className="text-sm font-medium text-gray-900">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
-              <div className="text-xs text-gray-500">Faltan {formatMacro(calculateRemaining(fatConsumed, fatGoal))}g</div>
+              <div className="text-sm font-medium text-foreground">{formatMacro(fatConsumed)}/{formatMacro(fatGoal)}g</div>
+              <div className="text-xs text-muted-foreground">Faltan {formatMacro(calculateRemaining(fatConsumed, fatGoal))}g</div>
             </div>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -139,10 +139,10 @@ export function DailyMacroTrackerSimple({
       </div>
 
       {/* Resumen de calorías */}
-      <div className="pt-4 border-t border-gray-200">
+      <div className="pt-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-gray-700">Calorías del día</span>
-          <span className="text-sm text-gray-900">{caloriesConsumed} / {caloriesGoal} kcal</span>
+          <span className="text-sm font-medium text-foreground">Calorías del día</span>
+          <span className="text-sm text-foreground">{caloriesConsumed} / {caloriesGoal} kcal</span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div 

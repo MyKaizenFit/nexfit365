@@ -178,11 +178,11 @@ export function NutritionSummary({
             <p className="text-xs text-red-600 font-medium">Consumidas</p>
             <p className="text-sm font-bold text-red-700">{caloriesConsumed}</p>
           </div>
-          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+          <div className="p-3 bg-green-50 rounded-lg border border-green-200 dark:border-green-800/30">
             <p className="text-xs text-green-600 font-medium">Restantes</p>
             <p className="text-sm font-bold text-green-700">{caloriesRemaining}</p>
           </div>
-          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 dark:border-blue-800/30">
             <p className="text-xs text-blue-600 font-medium">Objetivo</p>
             <p className="text-sm font-bold text-blue-700">{caloriesGoal}</p>
           </div>
@@ -334,7 +334,7 @@ export function NutritionSummary({
         </div>
 
         {/* Consejos nutricionales */}
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200 dark:border-blue-800/30">
           <h4 className="font-medium text-center mb-3 text-blue-700">💡 Consejos del Día</h4>
           <div className="text-sm text-blue-600 space-y-2">
             {proteinStatus.status === 'low' && (

@@ -80,7 +80,7 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
 
   if (mealsLoading || nutritionLoading) {
     return (
-      <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl ${className}`}>
+      <Card className={`border shadow-xl ${className}`}>
         <CardHeader>
           <div className="h-6 bg-muted rounded w-3/4 animate-pulse"></div>
           <div className="h-4 bg-muted rounded w-1/2 animate-pulse"></div>
@@ -96,13 +96,13 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
   }
 
   return (
-    <Card className={`backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
+    <Card className={`border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01] ${className}`}>
       <CardHeader className="p-3 sm:p-4 lg:p-6">
         <CardTitle className="text-sm sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-red-600 to-orange-600 bg-clip-text text-transparent flex items-center gap-2">
           <Flame className="h-4 w-4 sm:h-5 sm:w-5" />
           Nutrición de Hoy
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm responsive-text text-gray-600">
+        <CardDescription className="text-xs sm:text-sm responsive-text text-muted-foreground">
           Tu balance energético y macronutrientes • {completedMeals}/{totalMeals} comidas completadas 🍽️
         </CardDescription>
       </CardHeader>
@@ -161,7 +161,7 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
             <div className="py-1">
               <Progress 
                 value={proteinProgress} 
-                className="h-1.5 bg-gradient-to-r from-blue-50 to-blue-100/50"
+                className="h-1.5 bg-blue-500/10"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
@@ -192,7 +192,7 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
             <div className="py-1">
               <Progress 
                 value={carbsProgress} 
-                className="h-1.5 bg-gradient-to-r from-green-50 to-green-100/50"
+                className="h-1.5 bg-green-500/10"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
@@ -223,7 +223,7 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
             <div className="py-1">
               <Progress 
                 value={fatProgress} 
-                className="h-1.5 bg-gradient-to-r from-yellow-50 to-orange-50/50"
+                className="h-1.5 bg-yellow-500/10"
               />
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">

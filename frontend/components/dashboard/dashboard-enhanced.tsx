@@ -259,8 +259,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       <div className={`space-y-6 ${className}`}>
         <div className="text-center space-y-4 animate-pulse">
           <div className="mx-auto w-20 h-20 bg-gradient-to-br from-orange-200 to-gray-200 rounded-3xl"></div>
-          <div className="h-10 bg-gray-200 rounded-lg w-2/3 mx-auto"></div>
-          <div className="h-6 bg-gray-100 rounded w-1/2 mx-auto"></div>
+          <div className="h-10 bg-muted rounded-lg w-2/3 mx-auto"></div>
+          <div className="h-6 bg-muted/60 rounded w-1/2 mx-auto"></div>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
@@ -333,92 +333,92 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       {/* Stats Grid - Métricas principales */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Progreso General */}
-        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-emerald-50 to-teal-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <Badge className="bg-emerald-100 text-emerald-700 border-0 text-xs">
+              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
                 {overallProgress >= 50 ? '👍' : '📈'}
               </Badge>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-700">{Math.round(overallProgress)}%</p>
-              <p className="text-xs sm:text-sm text-emerald-600 font-medium">Progreso Total</p>
-              <Progress value={overallProgress} className="h-2 bg-emerald-100" />
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(overallProgress)}%</p>
+              <p className="text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium">Progreso Total</p>
+              <Progress value={overallProgress} className="h-2 bg-emerald-500/20" />
             </div>
           </CardContent>
         </Card>
 
         {/* Peso Actual */}
-        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-indigo-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               {weightChange !== 0 && (
-                <Badge className={`border-0 text-xs ${weightChange < 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                <Badge className={`border-0 text-xs ${weightChange < 0 ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}>
                   {weightChange < 0 ? '↓' : '↑'} {Math.abs(weightChange).toFixed(1)}kg
                 </Badge>
               )}
             </div>
             <div className="space-y-1">
-              <p className="text-2xl sm:text-3xl font-bold text-blue-700">{currentWeight || '--'}kg</p>
-              <p className="text-xs sm:text-sm text-blue-600 font-medium">Peso Actual</p>
+              <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{currentWeight || '--'}kg</p>
+              <p className="text-xs sm:text-sm text-blue-500 dark:text-blue-400 font-medium">Peso Actual</p>
               {targetWeight && (
-                <p className="text-xs text-blue-500">Objetivo: {targetWeight}kg</p>
+                <p className="text-xs text-blue-400 dark:text-blue-500">Objetivo: {targetWeight}kg</p>
               )}
             </div>
           </CardContent>
         </Card>
 
         {/* Entrenamientos */}
-        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-purple-50 to-pink-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <Badge className="bg-purple-100 text-purple-700 border-0 text-xs">
+              <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-0 text-xs">
                 {workoutsThisWeek}/{workoutsGoal}
               </Badge>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-purple-700">{workoutsThisWeek}</p>
-              <p className="text-xs sm:text-sm text-purple-600 font-medium">Esta Semana</p>
-              <Progress value={workoutProgress} className="h-2 bg-purple-100" />
+              <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{workoutsThisWeek}</p>
+              <p className="text-xs sm:text-sm text-purple-500 dark:text-purple-400 font-medium">Esta Semana</p>
+              <Progress value={workoutProgress} className="h-2 bg-purple-500/20" />
             </div>
           </CardContent>
         </Card>
 
         {/* Calorías */}
-        <Card className="group relative overflow-hidden border-0 bg-gradient-to-br from-orange-50 to-red-50 hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
           <CardContent className="p-4 sm:p-5">
             <div className="flex items-start justify-between mb-3">
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">
+              <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-400 border-0 text-xs">
                 {Math.round(caloriesProgress)}%
               </Badge>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-orange-700">{caloriesConsumed}</p>
-              <p className="text-xs sm:text-sm text-orange-600 font-medium">Calorías Hoy</p>
-              <Progress value={caloriesProgress} className="h-2 bg-orange-100" />
+              <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">{caloriesConsumed}</p>
+              <p className="text-xs sm:text-sm text-orange-500 dark:text-orange-400 font-medium">Calorías Hoy</p>
+              <Progress value={caloriesProgress} className="h-2 bg-orange-500/20" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Resumen de Macros */}
-      <Card className="border-0 bg-gradient-to-br from-gray-50 to-white shadow-lg">
+      <Card className="border shadow-lg dark:bg-card">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -433,7 +433,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             <Button 
               variant="ghost" 
               size="sm" 
-              className="text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+              className="text-violet-600 hover:text-violet-700 hover:bg-violet-500/10"
               onClick={() => navigateToDashboardSection(router, 'meals')}
             >
               Ver más <ArrowRight className="h-4 w-4 ml-1" />
@@ -444,41 +444,41 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
           <div className="grid grid-cols-3 gap-4 sm:gap-6">
             {/* Proteína */}
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-red-100 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">🥩</span>
               </div>
               <div>
                 <p className="text-lg sm:text-xl font-bold text-red-600">{formatMacro(proteinConsumed)}g</p>
-                <p className="text-xs text-gray-500">de {formatMacro(proteinGoal)}g</p>
-                <Progress value={(proteinConsumed/proteinGoal)*100} className="h-1.5 mt-2 bg-red-100" />
+                <p className="text-xs text-muted-foreground">de {formatMacro(proteinGoal)}g</p>
+                <Progress value={(proteinConsumed/proteinGoal)*100} className="h-1.5 mt-2 bg-red-500/20" />
               </div>
-              <p className="text-xs font-medium text-gray-600">Proteína</p>
+              <p className="text-xs font-medium text-muted-foreground">Proteína</p>
             </div>
 
             {/* Carbohidratos */}
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-amber-100 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-amber-500/10 rounded-2xl flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">🍞</span>
               </div>
               <div>
                 <p className="text-lg sm:text-xl font-bold text-amber-600">{formatMacro(carbsConsumed)}g</p>
-                <p className="text-xs text-gray-500">de {formatMacro(carbsGoal)}g</p>
-                <Progress value={(carbsConsumed/carbsGoal)*100} className="h-1.5 mt-2 bg-amber-100" />
+                <p className="text-xs text-muted-foreground">de {formatMacro(carbsGoal)}g</p>
+                <Progress value={(carbsConsumed/carbsGoal)*100} className="h-1.5 mt-2 bg-amber-500/20" />
               </div>
-              <p className="text-xs font-medium text-gray-600">Carbos</p>
+              <p className="text-xs font-medium text-muted-foreground">Carbos</p>
             </div>
 
             {/* Grasas */}
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-green-100 rounded-2xl flex items-center justify-center">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center">
                 <span className="text-xl sm:text-2xl">🥑</span>
               </div>
               <div>
                 <p className="text-lg sm:text-xl font-bold text-green-600">{formatMacro(fatConsumed)}g</p>
-                <p className="text-xs text-gray-500">de {formatMacro(fatGoal)}g</p>
-                <Progress value={(fatConsumed/fatGoal)*100} className="h-1.5 mt-2 bg-green-100" />
+                <p className="text-xs text-muted-foreground">de {formatMacro(fatGoal)}g</p>
+                <Progress value={(fatConsumed/fatGoal)*100} className="h-1.5 mt-2 bg-green-500/20" />
               </div>
-              <p className="text-xs font-medium text-gray-600">Grasas</p>
+              <p className="text-xs font-medium text-muted-foreground">Grasas</p>
             </div>
           </div>
         </CardContent>
@@ -561,7 +561,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         <DialogContent className="w-[95vw] max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg">
-              <Camera className="h-5 w-5 text-gray-700" />
+              <Camera className="h-5 w-5 text-foreground" />
               Nueva Foto de Progreso
             </DialogTitle>
             <DialogDescription className="text-sm">
@@ -582,7 +582,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             </div>
 
             {previewUrl && (
-              <div className="relative w-full h-40 sm:h-48 bg-gray-100 rounded-xl overflow-hidden">
+              <div className="relative w-full h-40 sm:h-48 bg-muted rounded-xl overflow-hidden">
                 <Image fill src={previewUrl} alt="Preview" className="object-cover" />
               </div>
             )}
@@ -593,7 +593,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 id="photo-type"
                 value={selectedPhotoType}
                 onChange={(e) => setSelectedPhotoType(e.target.value as 'front' | 'side' | 'back' | 'other')}
-                className="w-full p-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                className="w-full p-2.5 border border-border rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="front">Frontal</option>
                 <option value="side">Lateral</option>

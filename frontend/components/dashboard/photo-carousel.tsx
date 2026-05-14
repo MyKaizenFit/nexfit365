@@ -134,7 +134,7 @@ export function PhotoCarousel({
 
   return (
     <Card className={`${className} overflow-hidden`}>
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+      <CardHeader className="border-b dark:bg-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
@@ -148,7 +148,7 @@ export function PhotoCarousel({
 
           <div className="flex items-center gap-3">
             {/* Indicador de estado mejorado */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-white/80 backdrop-blur-sm rounded-full border border-blue-200 shadow-sm">
+            <div className="flex items-center gap-2 px-3 py-2 bg-card/80 backdrop-blur-sm rounded-full border border-blue-200 shadow-sm">
               <div className={`w-2 h-2 rounded-full ${loading ? 'bg-yellow-500 animate-pulse' : 'bg-green-500'}`}></div>
               <span className="text-sm font-medium text-blue-800">
                 {photos.length} foto{photos.length !== 1 ? 's' : ''}
@@ -162,7 +162,7 @@ export function PhotoCarousel({
                 onClick={toggleAutoPlay}
                 className={`transition-all duration-300 ${isAutoPlaying
                     ? 'bg-green-500 text-white border-green-500 hover:bg-green-600'
-                    : 'bg-white/80 hover:bg-white border-blue-200 text-blue-700'
+                    : 'bg-card/80 hover:bg-card border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-400'
                   }`}
               >
                 {isAutoPlaying ? '⏸️ Pausar' : '▶️ Auto-play'}
@@ -174,7 +174,7 @@ export function PhotoCarousel({
               size="sm"
               onClick={onRefreshPhotos}
               disabled={loading}
-              className="flex items-center gap-2 bg-white/80 hover:bg-white border-blue-200 text-blue-700 transition-all duration-300"
+              className="flex items-center gap-2 bg-card/80 hover:bg-card border-blue-200 dark:border-blue-700/50 text-blue-700 dark:text-blue-400 transition-all duration-300"
             >
               <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
               {loading ? 'Cargando...' : 'Refrescar'}
@@ -186,7 +186,7 @@ export function PhotoCarousel({
         {photos.length === 0 ? (
           <div className="text-center py-12 px-6">
             <div className="relative mb-6">
-              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto">
+              <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
                 <Camera className="h-12 w-12 text-blue-400" />
               </div>
               <div className="absolute -top-2 -right-2 w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
@@ -194,7 +194,7 @@ export function PhotoCarousel({
               </div>
             </div>
 
-            <h3 className="text-xl font-semibold text-gray-800 mb-3">Comienza tu transformación visual</h3>
+            <h3 className="text-xl font-semibold text-foreground mb-3">Comienza tu transformación visual</h3>
             <p className="text-gray-600 mb-6 max-w-md mx-auto">
               Documenta tu progreso con fotos para ver cómo tu dedicación se convierte en resultados visibles
             </p>
@@ -207,14 +207,14 @@ export function PhotoCarousel({
               Subir Primera Foto
             </Button>
 
-            <div className="mt-6 text-sm text-gray-500">
+            <div className="mt-6 text-sm text-muted-foreground">
               📸 Tip: Toma fotos desde el mismo ángulo y con la misma iluminación para mejor comparación
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Foto Principal */}
-            <div className="relative bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 rounded-2xl p-6 overflow-hidden group">
+            <div className="relative bg-muted/30 rounded-2xl p-6 overflow-hidden group">
               <div className="flex items-center justify-center min-h-[320px]">
                 <div className="relative transform transition-all duration-500 group-hover:scale-105">
                   <div className="relative">
@@ -248,7 +248,7 @@ export function PhotoCarousel({
                   </div>
 
                   {/* Indicador de progreso */}
-                  <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
+                  <div className="absolute top-3 right-3 bg-card/90 backdrop-blur-sm rounded-full px-3 py-1 shadow-lg">
                     <span className="text-xs font-semibold text-blue-700">
                       {currentPhotoIndex + 1} / {photos.length}
                     </span>
@@ -263,7 +263,7 @@ export function PhotoCarousel({
                     variant="ghost"
                     size="icon"
                     onClick={prevPhoto}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/95 hover:bg-white shadow-xl transform transition-all duration-500 -translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110 border border-gray-200"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-card/95 hover:bg-muted shadow-xl transform transition-all duration-500 -translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110 border border-border"
                     aria-label="Foto anterior"
                     title="Foto anterior"
                   >
@@ -273,7 +273,7 @@ export function PhotoCarousel({
                     variant="ghost"
                     size="icon"
                     onClick={nextPhoto}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-white/95 hover:bg-white shadow-xl transform transition-all duration-500 translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110 border border-gray-200"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 h-12 w-12 rounded-full bg-card/95 hover:bg-muted shadow-xl transform transition-all duration-500 translate-x-3 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110 border border-border"
                     aria-label="Foto siguiente"
                     title="Foto siguiente"
                   >
@@ -284,7 +284,7 @@ export function PhotoCarousel({
             </div>
 
             {/* Información de la foto mejorada */}
-            <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100">
+            <div className="flex items-center justify-between p-4 bg-blue-500/5 dark:bg-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800/30">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2">
                   <div className="p-2 bg-blue-100 rounded-lg">
@@ -334,7 +334,7 @@ export function PhotoCarousel({
                       onClick={() => goToPhoto(index)}
                       className={`relative w-20 h-24 rounded-xl overflow-hidden border-3 transition-all duration-300 hover:scale-110 group ${index === currentPhotoIndex
                           ? "border-blue-500 shadow-lg scale-110 ring-4 ring-blue-200"
-                          : "border-gray-200 hover:border-blue-300 hover:shadow-md"
+                          : "border-border hover:border-blue-300 hover:shadow-md"
                         }`}
                       aria-label={`Ver foto ${index + 1} de ${photos.length}`}
                       title={`Ver foto ${index + 1} de ${photos.length}`}
@@ -354,7 +354,7 @@ export function PhotoCarousel({
                       {/* Indicador de foto activa */}
                       {index === currentPhotoIndex && (
                         <div className="absolute top-2 right-2 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white rounded-full"></div>
+                          <div className="w-2 h-2 bg-card rounded-full"></div>
                         </div>
                       )}
 
@@ -384,7 +384,7 @@ export function PhotoCarousel({
 
             {/* Comparativa visual antes / después */}
             {photos.length > 1 && (
-              <div className="p-4 bg-gradient-to-r from-violet-50 to-indigo-50 border border-violet-200 rounded-xl space-y-4">
+              <div className="p-4 bg-violet-500/5 dark:bg-violet-900/10 border border-violet-200 dark:border-violet-800/30 rounded-xl space-y-4">
                 <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
                   <div>
                     <h4 className="text-base font-semibold text-violet-900">Comparativa visual antes / después</h4>
@@ -407,7 +407,7 @@ export function PhotoCarousel({
                   ].map((slot) => {
                     const photo = photos[slot.index]
                     return (
-                      <div key={slot.label} className="rounded-xl border bg-white p-3 shadow-sm">
+                      <div key={slot.label} className="rounded-xl border bg-card p-3 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <Badge className={slot.label === "ANTES" ? "bg-slate-100 text-slate-700" : "bg-violet-100 text-violet-700"}>
                             {slot.label}
@@ -430,7 +430,7 @@ export function PhotoCarousel({
                             className="rounded-xl object-cover border"
                           />
                         </div>
-                        <div className="mt-3 text-sm text-gray-600 space-y-1">
+                        <div className="mt-3 text-sm text-muted-foreground space-y-1">
                           <div><span className="font-medium">Fecha:</span> {photo?.date ? formatDate(photo.date) : "—"}</div>
                           <div><span className="font-medium">Tipo:</span> {getPhotoTypeLabel(photo?.photo_type || "other")}</div>
                           <div><span className="font-medium">Peso:</span> {photo?.weight ? `${photo.weight} kg` : "—"}</div>
@@ -444,7 +444,7 @@ export function PhotoCarousel({
 
             {/* Comparativa rápida mejorada */}
             {photos.length > 1 && (
-              <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl">
+              <div className="p-4 bg-green-500/5 dark:bg-green-900/10 border border-green-200 dark:border-green-800/30 rounded-xl">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div className="p-2 bg-green-100 rounded-lg">

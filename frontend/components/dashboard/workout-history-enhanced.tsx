@@ -353,19 +353,19 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     <div className="space-y-6">
       {/* Estadísticas generales */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
             <CardDescription className="text-xs md:text-sm">Total Entrenamientos</CardDescription>
             <CardTitle className="text-2xl md:text-3xl">{completedLogs.length}</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
             <CardDescription className="text-xs md:text-sm">Tonelaje Total</CardDescription>
             <CardTitle className="text-2xl md:text-3xl">{totalTonnage.toLocaleString()} kg</CardTitle>
           </CardHeader>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader className="pb-2 md:pb-3 px-3 md:px-6 pt-3 md:pt-6">
             <CardDescription className="text-xs md:text-sm">Tonelaje Promedio</CardDescription>
             <CardTitle className="text-2xl md:text-3xl">{averageTonnage.toLocaleString()} kg</CardTitle>
@@ -383,10 +383,10 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         {/* Tab Historial */}
         <TabsContent value="history" className="space-y-4">
           {completedLogs.length === 0 ? (
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardContent className="p-8 text-center">
-                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">No hay entrenamientos completados aún</p>
+                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground/70" />
+                <p className="text-muted-foreground">No hay entrenamientos completados aún</p>
               </CardContent>
             </Card>
           ) : (
@@ -397,7 +397,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                 const logTonnage = exerciseDetails.reduce((sum: number, ex: any) => sum + ex.tonnage, 0)
 
                 return (
-                  <Card key={log.id} className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all">
+                  <Card key={log.id} className="border shadow-xl hover:shadow-2xl transition-all">
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1">
@@ -465,7 +465,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                         <div className="mt-4 pt-4 border-t space-y-3">
                           <h4 className="font-semibold text-sm mb-2">Ejercicios realizados:</h4>
                           {exerciseDetails.map((exercise: any, idx: number) => (
-                            <div key={idx} className="p-3 bg-gray-50 rounded-lg">
+                            <div key={idx} className="p-3 bg-muted rounded-lg">
                               <div className="flex items-center justify-between mb-2">
                                 <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
                                 <div className="flex items-center gap-3 text-xs">
@@ -484,14 +484,14 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                                   </Badge>
                                 </div>
                               </div>
-                              <div className="text-xs text-gray-600 space-y-1">
+                              <div className="text-xs text-muted-foreground space-y-1">
                                 {exercise.setsData.map((set: any, setIdx: number) => (
                                   <div key={setIdx} className="flex items-center gap-2">
                                     <span>Serie {setIdx + 1}:</span>
                                     {set.weight && <span>{set.weight} kg</span>}
                                     {set.reps && <span>× {set.reps} reps</span>}
                                     {set.weight && set.reps && (
-                                      <span className="text-gray-400">
+                                      <span className="text-muted-foreground/70">
                                         = {Math.round(parseFloat(set.weight) * parseInt(set.reps))} kg
                                       </span>
                                     )}
@@ -501,7 +501,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                             </div>
                           ))}
                           {log.notes && (
-                            <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-gray-700">
+                            <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-foreground">
                               <strong>Notas:</strong> {log.notes}
                             </div>
                           )}
@@ -518,16 +518,16 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         {/* Tab PR & RM */}
         <TabsContent value="pr-rem" className="space-y-4">
           {exerciseStats.length === 0 ? (
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardContent className="p-8 text-center">
-                <Target className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                <p className="text-gray-600">No hay datos suficientes para calcular PR y RM</p>
+                <Target className="h-12 w-12 mx-auto mb-4 text-muted-foreground/70" />
+                <p className="text-muted-foreground">No hay datos suficientes para calcular PR y RM</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* PR (Personal Records) */}
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="border shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Target className="h-5 w-5 text-blue-600" />
@@ -545,7 +545,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
                           <div className="flex-1">
                             <div className="font-medium text-sm">{fixEncoding(exercise.exercise_name)}</div>
-                            <div className="text-xs text-gray-600 space-y-0.5">
+                            <div className="text-xs text-muted-foreground space-y-0.5">
                               {format(new Date(exercise.lastDate), "dd MMM yyyy", { locale: es })}
                               <div>1RM est.: {Math.round(exercise.pr_estimated_1rm)} kg</div>
                             </div>
@@ -560,7 +560,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
               </Card>
 
               {/* RM (Carga Máxima) */}
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="border shadow-xl">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Repeat className="h-5 w-5 text-purple-600" />
@@ -578,7 +578,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                         <div key={exercise.exercise_id} className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
                           <div className="flex-1">
                             <div className="font-medium text-sm">{fixEncoding(exercise.exercise_name)}</div>
-                            <div className="text-xs text-gray-600">
+                            <div className="text-xs text-muted-foreground">
                               {format(new Date(exercise.lastDate), "dd MMM yyyy", { locale: es })}
                             </div>
                           </div>
@@ -596,7 +596,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
 
         {/* Tab Tonelaje */}
         <TabsContent value="tonnage" className="space-y-4">
-          <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <Card className="border shadow-xl">
             <CardHeader className="px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
                 <div className="flex-1">
@@ -638,7 +638,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
             </CardHeader>
             <CardContent className="px-3 md:px-6 pb-4 md:pb-6">
               {tonnageData.length === 0 ? (
-                <div className="text-center py-8 md:py-12 text-gray-500">
+                <div className="text-center py-8 md:py-12 text-muted-foreground">
                   <BarChart3 className="h-10 w-10 md:h-12 md:w-12 mx-auto mb-4 opacity-50" />
                   <p className="text-sm md:text-base">No hay datos de tonelaje disponibles</p>
                 </div>
@@ -680,7 +680,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                                 <p className="text-xs md:text-sm text-green-600 font-medium">
                                   Tonelaje: {data.tonnage.toLocaleString()} kg
                                 </p>
-                                <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">
+                                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
                                   Ejercicios: {data.exercises}
                                 </p>
                               </div>
@@ -706,7 +706,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
 
           {/* Gráfica de barras de tonelaje */}
           {tonnageData.length > 0 && (
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader className="px-3 md:px-6 pt-4 md:pt-6 pb-3 md:pb-4">
                 <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                   <TrendingUp className="h-4 w-4 md:h-5 md:w-5 text-orange-600 flex-shrink-0" />
@@ -752,7 +752,7 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                                 <p className="text-xs md:text-sm text-orange-600 font-medium">
                                   Tonelaje: {data.tonnage.toLocaleString()} kg
                                 </p>
-                                <p className="text-[10px] md:text-xs text-gray-600 mt-0.5">
+                                <p className="text-[10px] md:text-xs text-muted-foreground mt-0.5">
                                   Ejercicios: {data.exercises}
                                 </p>
                               </div>

@@ -78,7 +78,7 @@ export function DailyMacroTracker({
             <Sparkles className="w-4 h-4 text-teal-600" />
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>Tu progreso diario de macros</span>
           <span>•</span>
           <span className="flex items-center gap-1">
@@ -99,7 +99,7 @@ export function DailyMacroTracker({
               <div key={macro.name} className="text-center">
                 <div className="relative w-20 h-20 mx-auto mb-2">
                   {/* Círculo de fondo */}
-                  <div className="w-full h-full rounded-full border-4 border-gray-200" />
+                  <div className="w-full h-full rounded-full border-4 border-border" />
                   
                   {/* Círculo de progreso */}
                   <div 
@@ -111,16 +111,16 @@ export function DailyMacroTracker({
                   
                   {/* Porcentaje en el centro */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-lg font-bold text-gray-800">
+                    <span className="text-lg font-bold text-foreground">
                       {percentage}%
                     </span>
                   </div>
                 </div>
                 
-                <div className="text-sm font-medium text-gray-700">
+                <div className="text-sm font-medium text-foreground">
                   {macro.name}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-muted-foreground">
                   {macro.consumed}/{macro.goal}g
                 </div>
               </div>
@@ -139,15 +139,15 @@ export function DailyMacroTracker({
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     {macro.icon}
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-foreground">
                       {macro.name}
                     </span>
                   </div>
                   <div className="text-right">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm font-medium text-foreground">
                       {macro.consumed}/{macro.goal}g
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-muted-foreground">
                       Faltan {remaining}g
                     </div>
                   </div>
@@ -166,12 +166,12 @@ export function DailyMacroTracker({
         </div>
 
         {/* Resumen de calorías */}
-        <div className="pt-4 border-t border-gray-200">
+        <div className="pt-4 border-t border-border">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-gray-700">
+            <span className="text-sm font-medium text-foreground">
               Calorías del día
             </span>
-            <span className="text-sm text-gray-900">
+            <span className="text-sm text-foreground">
               {caloriesConsumed} / {caloriesGoal} kcal
             </span>
           </div>

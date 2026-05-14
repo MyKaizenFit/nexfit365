@@ -190,8 +190,8 @@ export function WorkoutProgramManager() {
             <Dumbbell className="w-4 h-4 text-white" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">Mis programas de entrenamiento</h3>
-            <p className="text-xs text-gray-500">Crea, edita y activa tus programas</p>
+            <h3 className="font-semibold text-foreground">Mis programas de entrenamiento</h3>
+            <p className="text-xs text-muted-foreground">Crea, edita y activa tus programas</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -208,16 +208,16 @@ export function WorkoutProgramManager() {
       {/* Lista de programas */}
       {loading ? (
         <div className="flex items-center justify-center py-10">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/70" />
         </div>
       ) : programs.length === 0 ? (
-        <Card className="border-dashed border-2 border-gray-200">
+        <Card className="border-dashed border-2 border-border">
           <CardContent className="flex flex-col items-center justify-center py-10 text-center">
             <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4">
               <Dumbbell className="w-7 h-7 text-blue-400" />
             </div>
             <p className="text-gray-700 font-medium">Sin programas de entrenamiento</p>
-            <p className="text-sm text-gray-500 mt-1">Crea tu primer programa personalizado</p>
+            <p className="text-sm text-muted-foreground mt-1">Crea tu primer programa personalizado</p>
             <Button size="sm" onClick={openCreate} className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
               <Plus className="h-3.5 w-3.5 mr-1" /> Crear programa
             </Button>
@@ -231,7 +231,7 @@ export function WorkoutProgramManager() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-gray-900 truncate">{prog.name}</span>
+                      <span className="font-semibold text-foreground truncate">{prog.name}</span>
                       {prog.is_active && (
                         <Badge className="bg-blue-100 text-blue-700 border-blue-200 text-xs">Activo</Badge>
                       )}
@@ -245,23 +245,23 @@ export function WorkoutProgramManager() {
                       )}
                     </div>
                     {prog.description && (
-                      <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{prog.description}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{prog.description}</p>
                     )}
                     <div className="flex items-center gap-3 mt-2 flex-wrap">
                       {prog.goal && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Target className="h-3 w-3 text-blue-400" />
                           <span>{GOAL_OPTIONS.find(g => g.value === prog.goal)?.label || prog.goal}</span>
                         </div>
                       )}
                       {prog.days_per_week && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="h-3 w-3 text-purple-400" />
                           <span>{prog.days_per_week} días/semana</span>
                         </div>
                       )}
                       {prog.estimated_duration_minutes && (
-                        <div className="flex items-center gap-1 text-xs text-gray-600">
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Clock className="h-3 w-3 text-green-400" />
                           <span>{prog.estimated_duration_minutes} min</span>
                         </div>
@@ -288,7 +288,7 @@ export function WorkoutProgramManager() {
                     {!prog.is_system && (
                       <>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(prog)} className="h-8 w-8">
-                          <Pencil className="h-3.5 w-3.5 text-gray-500" />
+                          <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                         </Button>
                         <Button
                           variant="ghost"

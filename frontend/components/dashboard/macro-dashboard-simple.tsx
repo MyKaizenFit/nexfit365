@@ -9,7 +9,7 @@ export function MacroDashboardSimple() {
 
   if (loading) {
     return (
-      <div className="w-full p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
+      <div className="w-full p-6 bg-card rounded-lg border border-border shadow-sm">
         <div className="animate-pulse">
           <div className="h-6 bg-gray-200 rounded w-64 mb-2"></div>
           <div className="h-4 bg-gray-200 rounded w-96 mb-6"></div>

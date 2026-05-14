@@ -26,7 +26,7 @@ type Period = (typeof PERIOD_OPTIONS)[number]
 
 function StatCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-lg border p-3 bg-card/60">
       <div className="flex items-center gap-2 mb-1">
         {icon}
         <p className="text-xs text-muted-foreground">{label}</p>
@@ -117,7 +117,7 @@ export function SleepPerformanceChart() {
               key={option}
               size="sm"
               variant={days === option ? "default" : "outline"}
-              className={cn("h-8", days !== option && "bg-white")}
+              className={cn("h-8", days !== option && "bg-card")}
               onClick={() => setDays(option)}
             >
               {option}d
@@ -148,7 +148,7 @@ export function SleepPerformanceChart() {
             value={summary?.sleep_rating_pairs ?? 0}
             icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
           />
-          <div className="rounded-lg border p-3 bg-white/60 col-span-2 sm:col-span-1">
+          <div className="rounded-lg border p-3 bg-card/60 col-span-2 sm:col-span-1">
             <p className="text-xs text-muted-foreground mb-1">Correlación sueño/rendimiento</p>
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <p className="text-xl font-bold">
@@ -169,7 +169,7 @@ export function SleepPerformanceChart() {
         ) : timelineData.length === 0 ? (
           <div className="rounded-xl border bg-slate-50 p-8 text-center space-y-2">
             <Moon className="h-10 w-10 text-indigo-300 mx-auto" />
-            <p className="font-medium text-gray-700">Sin datos suficientes</p>
+            <p className="font-medium text-foreground">Sin datos suficientes</p>
             <p className="text-sm text-muted-foreground">
               Registra tu sueño y motivación diariamente desde el widget de bienestar para ver esta gráfica.
             </p>
@@ -178,7 +178,7 @@ export function SleepPerformanceChart() {
           <>
             {/* Gráfico de evolución temporal */}
             <div>
-              <p className="text-sm font-medium mb-3 text-gray-700">Evolución temporal</p>
+              <p className="text-sm font-medium mb-3 text-foreground">Evolución temporal</p>
               <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={timelineData} margin={{ top: 4, right: 8, bottom: 4, left: 0 }}>
@@ -248,7 +248,7 @@ export function SleepPerformanceChart() {
             {/* Gráfico de dispersión sueño → rendimiento */}
             {scatterData.length >= 3 && (
               <div>
-                <p className="text-sm font-medium mb-3 text-gray-700">
+                <p className="text-sm font-medium mb-3 text-foreground">
                   Relación directa: sueño → rendimiento
                 </p>
                 <div className="h-56 w-full">
