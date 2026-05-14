@@ -8,6 +8,7 @@ import { NotificationContainer } from '@/components/ui/notification-toast'
 import { BetaBanner } from '@/components/beta-banner'
 import { RegisterServiceWorker } from './register-sw'
 import { ThemeProvider } from '@/components/theme-provider'
+import { CookieBanner } from '@/components/cookie-banner'
 
 const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
   || (process.env.NODE_ENV === 'production'
@@ -64,6 +65,7 @@ export default function RootLayout({
             <Toaster />
             <NotificationContainer />
           </AuthProvider>
+                  <CookieBanner />
         </ThemeProvider>
       </body>
     </html>

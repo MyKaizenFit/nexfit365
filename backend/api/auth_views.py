@@ -251,6 +251,26 @@ class RegisterView(APIView):
                 # Generar tokens JWT para login automático
                 from rest_framework_simplejwt.tokens import RefreshToken
                 refresh = RefreshToken.for_user(user)
+
+                                # Enviar email de bienvenida
+                                try:
+                                    from django.core.mail import send_mail
+                                    send_mail(
+                                        subject="¡Bienvenido/a a NexFit365!",
+                                        message=(
+                                            f"Hola {user.first_name or user.email},\n\n"
+                                            f"Tu cuenta en NexFit365 ha sido creada con éxito.\n\n"
+                                            f"Ya puedes iniciar sesión y empezar a gestionar tu entrenamiento y nutrición.\n\n"
+                                            f"Si necesitas ayuda, no dudes en contactarnos.\n\n"
+                                            f"¡Mucho ánimo!\nEl equipo de NexFit365"
+                                        ),
+                                        from_email=settings.DEFAULT_FROM_EMAIL,
+                                        recipient_list=[user.email],
+                                        fail_silently=True,
+                                    )
+                                except Exception:
+                                    pass
+
                 
                 requested_role = str(request.data.get("role", "")).lower()
                 response_role = "member" if requested_role == "member" else user.role

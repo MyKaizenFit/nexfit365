@@ -359,6 +359,139 @@ def initial_registration_status(request):
         'user_form_version': INITIAL_REGISTRATION_FORM_VERSION,  # Siempre reportar versión actual
         'needs_update': False,  # Deshabilitado por ahora
         'profile': UserProfileSerializer(user).data
+
+
+    @api_view(['GET'])
+    @permission_classes([IsAuthenticated])
+    def gdpr_export_data(request):
+        """GDPR: exportar todos los datos personales del usuario en JSON"""
+        import json
+        from django.utils import timezone
+
+        user = request.user
+        data = {
+            'exported_at': timezone.now().isoformat(),
+            'profile': UserProfileSerializer(user).data,
+        }
+
+        # Workout logs
+        try:
+            from workouts.models import WorkoutLog
+            logs = WorkoutLog.objects.filter(user=user).values(
+                'id', 'date', 'notes', 'duration_minutes', 'created_at'
+            )
+            data['workout_logs'] = list(logs)
+        except Exception:
+            data['workout_logs'] = []
+
+        # Nutrition / meal logs
+        try:
+            from nutrition.models import MealLog
+            meal_logs = MealLog.objects.filter(user=user).values(
+                'id', 'date', 'meal_type', 'notes', 'created_at'
+            )
+            data['meal_logs'] = list(meal_logs)
+        except Exception:
+            data['meal_logs'] = []
+
+        # Weight entries
+        try:
+            from progress.models import WeightEntry
+            weight_entries = WeightEntry.objects.filter(user=user).values(
+                'id', 'date', 'weight', 'notes', 'created_at'
+            )
+            data['weight_entries'] = list(weight_entries)
+        except Exception:
+            data['weight_entries'] = []
+
+        # Body measurements
+        try:
+            from progress.models import BodyMeasurement
+            measurements = BodyMeasurement.objects.filter(user=user).values(
+                'id', 'date', 'created_at'
+            )
+            data['body_measurements'] = list(measurements)
+        except Exception:
+            data['body_measurements'] = []
+
+        # Notifications
+        try:
+            from notifications.models import Notification
+            notifications = Notification.objects.filter(user=user).values(
+                'id', 'title', 'message', 'type', 'is_read', 'created_at'
+            )
+            data['notifications'] = list(notifications)
+        except Exception:
+            data['notifications'] = []
+
+        from django.http import JsonResponse
+        response = JsonResponse(data, json_dumps_params={'ensure_ascii': False, 'indent': 2})
+        response['Content-Disposition'] = f'attachment; filename="nexfit365_datos_{user.id}.json"'
+        return response
+
+
+    @api_view(['POST'])
+    @permission_classes([IsAuthenticated])
+    def gdpr_request_deletion(request):
+        """GDPR: solicitar la eliminación de la cuenta y datos personales"""
+        from django.core.mail import send_mail
+        from django.conf import settings
+        from django.utils import timezone
+
+        user = request.user
+        reason = request.data.get('reason', '')
+
+        # Notificar al admin por email
+        try:
+            admin_emails = list(
+                CustomUser.objects.filter(role='admin', is_active=True)
+                .values_list('email', flat=True)
+            )
+            if not admin_emails:
+                admin_emails = [settings.DEFAULT_FROM_EMAIL]
+
+            subject = f"[NexFit365] Solicitud de eliminación de cuenta: {user.email}"
+            message = (
+                f"Un usuario ha solicitado la eliminación de su cuenta y datos personales.\n\n"
+                f"Usuario: {user.email}\n"
+                f"ID: {user.id}\n"
+                f"Fecha de solicitud: {timezone.now().isoformat()}\n"
+                f"Motivo: {reason or 'No especificado'}\n\n"
+                f"De acuerdo con el RGPD, debes procesar esta solicitud en un plazo máximo de 30 días.\n"
+                f"Accede al panel de administración para gestionar esta solicitud."
+            )
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=admin_emails,
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+        # Enviar confirmación al usuario
+        try:
+            send_mail(
+                subject="NexFit365 – Confirmación de solicitud de eliminación",
+                message=(
+                    f"Hola {user.first_name or user.email},\n\n"
+                    f"Hemos recibido tu solicitud de eliminación de cuenta y datos personales.\n\n"
+                    f"De acuerdo con el Reglamento General de Protección de Datos (RGPD), "
+                    f"procesaremos tu solicitud en un plazo máximo de 30 días.\n\n"
+                    f"Si tienes dudas, puedes responder a este email.\n\n"
+                    f"Saludos,\nEl equipo de NexFit365"
+                ),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=True,
+            )
+        except Exception:
+            pass
+
+        return Response({
+            'detail': 'Solicitud de eliminación recibida. La procesaremos en un plazo máximo de 30 días.'
+        }, status=status.HTTP_200_OK)
     }
     
     return Response(response_data)
