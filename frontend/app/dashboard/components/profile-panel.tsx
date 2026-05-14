@@ -3,6 +3,7 @@
 import Image from "next/image"
 import { useState, useEffect, useMemo, memo } from "react"
 import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera, Plus, Trash2 } from "lucide-react"
+import { Shield, Download } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +16,7 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 import { NutritionPreview } from "./nutrition-preview"
 import { calculateNutritionPlan, type CalculatedMacros } from "@/lib/nutrition-calculator"
 import { nutritionService } from "@/lib/nutrition-service"
+import { getAuthHeaders, buildApiUrl } from "@/lib/api"
 
 export const ProfilePanel = memo(function ProfilePanel() {
   const [isEditing, setIsEditing] = useState(false)
@@ -25,6 +27,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
   const [ingredientExclusions, setIngredientExclusions] = useState<Array<{ id: string; term: string }>>([])
   const [newIngredientTerm, setNewIngredientTerm] = useState('')
   const [loadingExclusions, setLoadingExclusions] = useState(false)
+  const [gdprLoading, setGdprLoading] = useState(false)
+  const [gdprDeleting, setGdprDeleting] = useState(false)
 
   // Sincronizar perfil local cuando cambia el perfil del hook
   useEffect(() => {
@@ -265,6 +269,47 @@ export const ProfilePanel = memo(function ProfilePanel() {
 
   const handleEdit = () => {
     setIsEditing(true)
+
+      const handleExportData = async () => {
+        setGdprLoading(true)
+        try {
+          const headers = await getAuthHeaders()
+          const response = await fetch(buildApiUrl('gdpr/export/'), { headers })
+          if (!response.ok) throw new Error('Error exportando datos')
+          const blob = await response.blob()
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = 'mis_datos_nexfit365.json'
+          a.click()
+          URL.revokeObjectURL(url)
+          toast({ title: 'Datos exportados', description: 'Tu archivo JSON se ha descargado.' })
+        } catch {
+          toast({ title: 'Error', description: 'No se pudieron exportar los datos.', variant: 'destructive' })
+        } finally {
+          setGdprLoading(false)
+        }
+      }
+
+      const handleRequestDeletion = async () => {
+        if (!confirm('¿Estás seguro? Esta solicitud notificará al equipo para eliminar tu cuenta y todos tus datos personales.')) return
+        setGdprDeleting(true)
+        try {
+          const headers = await getAuthHeaders()
+          const response = await fetch(buildApiUrl('gdpr/delete/'), {
+            method: 'POST',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reason: '' }),
+          })
+          if (!response.ok) throw new Error()
+          toast({ title: 'Solicitud enviada', description: 'Procesaremos tu solicitud en un máximo de 30 días.' })
+        } catch {
+          toast({ title: 'Error', description: 'No se pudo enviar la solicitud.', variant: 'destructive' })
+        } finally {
+          setGdprDeleting(false)
+        }
+      }
+
     setLocalProfile(profile)
   }
 
@@ -776,6 +821,48 @@ export const ProfilePanel = memo(function ProfilePanel() {
       </Card>
 
       {/* Botones de acción */}
+            {/* GDPR / Privacidad */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Shield className="h-4 w-4 text-teal-500" />
+                  Privacidad y datos personales (RGPD)
+                </CardTitle>
+                <CardDescription>
+                  De acuerdo con el Reglamento General de Protección de Datos tienes derecho a acceder,
+                  exportar y eliminar tus datos personales.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleExportData}
+                    disabled={gdprLoading}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    {gdprLoading ? 'Exportando...' : 'Exportar mis datos'}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={handleRequestDeletion}
+                    disabled={gdprDeleting}
+                  >
+                    {gdprDeleting ? 'Enviando solicitud...' : 'Solicitar eliminación de cuenta'}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  La solicitud de eliminación será procesada por el equipo en un plazo máximo de 30 días.
+                  Recibirás un email de confirmación.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Botones de acción */}
+            {isEditing && (
       {isEditing && (
         <div className="flex gap-3 justify-end">
           <Button variant="outline" onClick={handleCancel}>
