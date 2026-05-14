@@ -153,7 +153,7 @@ export function ProgressPhotos() {
         {loading && (
           <div className="flex items-center justify-center p-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-            <span className="ml-2 text-gray-600">Cargando fotos...</span>
+            <span className="ml-2 text-muted-foreground">Cargando fotos...</span>
           </div>
         )}
 
@@ -176,7 +176,7 @@ export function ProgressPhotos() {
                     alt={`Progreso ${photos[currentPhoto]?.date || 'Sin fecha'}`}
                     width={120}
                     height={160}
-                    className="sm:w-[140px] sm:h-[180px] lg:w-[150px] lg:h-[200px] rounded-lg object-cover shadow-lg border-2 border-white/20 transition-all duration-500 hover:shadow-2xl animate-in fade-in-0 duration-700 cursor-zoom-in"
+                    className="sm:w-[140px] sm:h-[180px] lg:w-[150px] lg:h-[200px] rounded-lg object-cover shadow-lg border-2 border-border transition-all duration-500 hover:shadow-2xl animate-in fade-in-0 duration-700 cursor-zoom-in"
                     onClick={() => setZoomPhoto(photos[currentPhoto]?.photo_url || null)}
                   />
                   {/* Overlay con información */}
@@ -202,19 +202,19 @@ export function ProgressPhotos() {
                     variant="ghost"
                     size="icon"
                     onClick={prevPhoto}
-                    className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white/90 hover:bg-white shadow-md transform transition-all duration-500 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110"
+                    className="absolute left-1 sm:left-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-card/90 hover:bg-white shadow-md transform transition-all duration-500 -translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110"
                     aria-label="Foto anterior"
                   >
-                    <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 text-gray-700" />
+                    <ChevronLeft className="h-3 w-3 sm:h-4 sm:w-4 text-foreground" />
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon"
                     onClick={nextPhoto}
-                    className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-white/90 hover:bg-white shadow-md transform transition-all duration-500 translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110"
+                    className="absolute right-1 sm:right-2 top-1/2 -translate-y-1/2 h-7 w-7 sm:h-8 sm:w-8 rounded-full bg-card/90 hover:bg-white shadow-md transform transition-all duration-500 translate-x-2 opacity-0 group-hover:translate-x-0 group-hover:opacity-100 hover:scale-110"
                     aria-label="Foto siguiente"
                   >
-                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-gray-700" />
+                    <ChevronRight className="h-3 w-3 sm:h-4 sm:w-4 text-foreground" />
                   </Button>
                 </>
               )}

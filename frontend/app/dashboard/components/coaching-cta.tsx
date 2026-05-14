@@ -304,7 +304,7 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
           <div className={fullPage ? "rounded-3xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-orange-500 p-6 md:p-8 text-white shadow-xl" : ""}>
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="space-y-3 max-w-2xl">
-                <Badge className="bg-white/15 text-white border-white/20 hover:bg-white/15">
+                <Badge className="bg-white/15 text-white border-border hover:bg-white/15">
                   <Sparkles className="mr-1 h-3.5 w-3.5" /> Servicio personalizado 1:1
                 </Badge>
                 <h3 className="text-2xl md:text-3xl font-bold leading-tight">
@@ -319,10 +319,10 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
                   ))}
                 </div>
                 {existingInquiry && !result && (
-                  <div className="rounded-2xl border border-white/20 bg-white/10 p-3 text-sm text-white/95">
+                  <div className="rounded-2xl border border-border bg-white/10 p-3 text-sm text-white/95">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold">Tu solicitud sigue activa</span>
-                      <Badge className="border-white/20 bg-white/15 text-white hover:bg-white/15">
+                      <Badge className="border-border bg-white/15 text-white hover:bg-white/15">
                         {STATUS_LABELS[existingInquiry.status || "pending"] || existingInquiry.status || "Pendiente"}
                       </Badge>
                     </div>

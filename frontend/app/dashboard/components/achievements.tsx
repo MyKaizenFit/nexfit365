@@ -108,10 +108,10 @@ export function Achievements() {
   return (
     <div className="space-y-6">
       {/* Resumen */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
+            <CardTitle className="flex items-center gap-2 text-foreground">
               <Medal className="h-5 w-5" />
               Mis Logros
             </CardTitle>
@@ -123,7 +123,7 @@ export function Achievements() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="p-4 bg-gradient-to-br from-yellow-50 to-amber-50 rounded-lg border border-yellow-200">
+            <div className="p-4 bg-yellow-500/10 rounded-lg border border-yellow-200 dark:border-yellow-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <Trophy className="h-5 w-5 text-yellow-600" />
                 <span className="text-sm font-medium text-yellow-900">Desbloqueados</span>
@@ -133,7 +133,7 @@ export function Achievements() {
               <p className="text-xs text-yellow-600 mt-1">{Math.round(progressPercentage)}% completado</p>
             </div>
             
-            <div className="p-4 bg-gradient-to-br from-purple-50 to-violet-50 rounded-lg border border-purple-200">
+            <div className="p-4 bg-purple-500/10 rounded-lg border border-purple-200 dark:border-purple-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <Star className="h-5 w-5 text-purple-600" />
                 <span className="text-sm font-medium text-purple-900">Puntos</span>
@@ -142,7 +142,7 @@ export function Achievements() {
               <p className="text-xs text-purple-600 mt-1">Total acumulado</p>
             </div>
 
-            <div className="p-4 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-lg border border-emerald-200">
+            <div className="p-4 bg-emerald-500/10 rounded-lg border border-emerald-200 dark:border-emerald-800/30">
               <div className="flex items-center gap-2 mb-2">
                 <Zap className="h-5 w-5 text-emerald-600" />
                 <span className="text-sm font-medium text-emerald-900">Logros Recientes</span>
@@ -155,7 +155,7 @@ export function Achievements() {
       </Card>
 
       {/* Filtros por categoría */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="text-lg">Logros por Categoría</CardTitle>
         </CardHeader>
@@ -203,7 +203,7 @@ export function Achievements() {
                     key={achievement.id}
                     className={`flex items-center gap-4 p-4 rounded-lg transition-all ${
                       isUnlocked
-                        ? "bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 shadow-md"
+                        ? "bg-yellow-500/10 border-2 border-yellow-300 dark:border-yellow-700/50 shadow-md"
                         : "bg-muted/50 border border-gray-200"
                     }`}
                   >
@@ -247,7 +247,7 @@ export function Achievements() {
 
       {/* Logros recientes */}
       {summary?.recent_achievements && summary.recent_achievements.length > 0 && (
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
@@ -263,7 +263,7 @@ export function Achievements() {
                 return (
                   <div
                     key={ua.id}
-                    className="flex items-center gap-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200"
+                    className="flex items-center gap-3 p-3 bg-green-500/10 rounded-lg border border-green-200 dark:border-green-800/30"
                   >
                     <div className={`p-2 rounded-full bg-gradient-to-br ${categoryColors[achievement.category] || "from-green-500 to-emerald-500"} text-white`}>
                       <Icon className="h-4 w-4" />

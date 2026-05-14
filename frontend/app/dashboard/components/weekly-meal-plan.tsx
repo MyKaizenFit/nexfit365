@@ -62,6 +62,7 @@ export function WeeklyMealPlan() {
   const [mealOptions, setMealOptions] = useState<any[]>([])
   // Cache simple de opciones por fecha + tipo (para evitar refetch al abrir/cerrar)
   const [optionsByDateAndType, setOptionsByDateAndType] = useState<Record<string, Record<string, any[]>>>({})
+  const [planMealSlotsPerDay, setPlanMealSlotsPerDay] = useState<Record<string, Array<{ id?: string; name: string; meal_type: string; time?: string | null; order_index?: number }>> | null>(null)
 
   const getSlotIcon = (mealType: string) => {
     switch (mealType) {
@@ -116,6 +117,31 @@ export function WeeklyMealPlan() {
   useEffect(() => {
     loadWeeklySelections()
   }, [loadWeeklySelections])
+
+  // Cargar estructura del plan para cada día de la semana actual
+  useEffect(() => {
+    const days = getWeekDays()
+    Promise.all(
+      days.map(async (day) => {
+        const dateStr = format(day, 'yyyy-MM-dd')
+        try {
+          const response = await authenticatedFetch(
+            `nutrition/plan-meals-for-selection/?date=${dateStr}`,
+            { method: 'GET' }
+          )
+          if (!response.ok) return { dateStr, slots: [] }
+          const data = await response.json()
+          return { dateStr, slots: (data.meal_slots || []) as Array<{ id?: string; name: string; meal_type: string; time?: string | null; order_index?: number }> }
+        } catch {
+          return { dateStr, slots: [] }
+        }
+      })
+    ).then((results) => {
+      const perDay: Record<string, Array<{ id?: string; name: string; meal_type: string; time?: string | null; order_index?: number }>> = {}
+      results.forEach(({ dateStr, slots }) => { perDay[dateStr] = slots })
+      setPlanMealSlotsPerDay(perDay)
+    }).catch(() => {})
+  }, [getWeekDays])
 
   // Navegación de semana eliminada - siempre muestra la semana actual
 
@@ -411,16 +437,40 @@ export function WeeklyMealPlan() {
     return `${mealTypeName} - Seleccionada`
   }
 
-  // Siempre usar slots estándar (rápido). Las opciones se cargan on-demand al abrir el modal.
-  const slotsForDay = useCallback((_dateStr: string) => {
-    return FALLBACK_MEAL_TYPES.map((m) => ({
-      id: undefined,
-      name: m.name,
-      meal_type: m.type,
-      time: m.time,
-      icon: m.icon,
-    }))
-  }, [])
+  const MEAL_TYPE_META: Record<string, { name: string; time: string; icon: string }> = {
+    breakfast:        { name: 'Desayuno',      time: '08:00', icon: '🌅' },
+    morning_snack:    { name: 'Snack Mañana',  time: '10:30', icon: '☕' },
+    lunch:            { name: 'Almuerzo',      time: '13:00', icon: '🍽️' },
+    afternoon_snack:  { name: 'Snack Tarde',   time: '16:00', icon: '🍎' },
+    dinner:           { name: 'Cena',          time: '20:00', icon: '🌙' },
+    pre_workout:      { name: 'Pre-entreno',   time: '17:00', icon: '💪' },
+    post_workout:     { name: 'Post-entreno',  time: '19:00', icon: '🥤' },
+    snack:            { name: 'Snack',         time: '16:00', icon: '🍎' },
+  }
+
+  // Usar slots del plan real por día; si no hay, usar FALLBACK_MEAL_TYPES
+  const slotsForDay = useCallback((dateStr: string) => {
+    const slots = planMealSlotsPerDay?.[dateStr]
+    if (!slots || slots.length === 0) {
+      return FALLBACK_MEAL_TYPES.map((m) => ({
+        id: undefined,
+        name: m.name,
+        meal_type: m.type,
+        time: m.time,
+        icon: m.icon,
+      }))
+    }
+    return slots.map((s) => {
+      const meta = MEAL_TYPE_META[s.meal_type] || { name: s.name || s.meal_type, time: '', icon: '🍽️' }
+      return {
+        id: s.id,
+        name: s.name || meta.name,
+        meal_type: s.meal_type,
+        time: s.time ?? meta.time,
+        icon: meta.icon,
+      }
+    })
+  }, [planMealSlotsPerDay])
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -547,16 +597,16 @@ export function WeeklyMealPlan() {
                             
                             {/* Selección: Nombre completo de la receta con macros */}
                             {hasSelection && (
-                              <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-gray-200/60 space-y-1 md:space-y-1.5">
+                              <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-border/60 space-y-1 md:space-y-1.5">
                                 <img
                                   src={selection.recipe?.image_url || '/placeholder.jpg'}
                                   alt={getMealName(selection)}
-                                  className="w-full h-12 md:h-14 object-cover rounded-md border border-gray-200"
+                                  className="w-full h-12 md:h-14 object-cover rounded-md border border-border"
                                   onError={(e) => {
                                     ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
                                   }}
                                 />
-                                <div className="text-[10px] md:text-[11px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
+                                <div className="text-[10px] md:text-[11px] font-semibold text-foreground leading-tight break-words line-clamp-2">
                                   {getMealName(selection)}
                                 </div>
                                 

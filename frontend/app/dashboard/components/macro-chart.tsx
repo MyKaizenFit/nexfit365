@@ -16,12 +16,12 @@ export function MacroChart() {
   }, 0)
 
   return (
-    <Card className="responsive-card backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]">
+    <Card className="responsive-card border shadow-xl hover:shadow-2xl transition-all duration-500 hover:scale-[1.01]">
       <CardHeader className="p-3 sm:p-4 lg:p-6">
         <CardTitle className="text-sm sm:text-base lg:text-lg responsive-text bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
           Macronutrientes de Hoy ✨
         </CardTitle>
-        <CardDescription className="text-xs sm:text-sm responsive-text text-gray-600">
+        <CardDescription className="text-xs sm:text-sm responsive-text text-muted-foreground">
           Tu progreso diario de macros • {totalCalories} kcal consumidas 🔥
         </CardDescription>
       </CardHeader>
@@ -89,7 +89,7 @@ export function MacroChart() {
                     />
                     <span className="text-xs sm:text-sm font-medium responsive-text">{macro.name}</span>
                   </div>
-                  <span className="text-xs text-gray-600 responsive-text">
+                  <span className="text-xs text-muted-foreground responsive-text">
                     {macro.current}/{macro.target}
                     {macro.unit}
                   </span>
@@ -124,7 +124,7 @@ export function MacroChart() {
                       {macro.current}/{macro.target}
                       {macro.unit}
                     </span>
-                    <div className="text-xs text-gray-600 responsive-text">
+                    <div className="text-xs text-muted-foreground responsive-text">
                       {remaining > 0
                         ? `Faltan ${remaining}${macro.unit}`
                         : `Exceso de ${Math.abs(remaining)}${macro.unit}`}

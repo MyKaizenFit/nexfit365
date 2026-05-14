@@ -175,7 +175,7 @@ export function WorkoutSummary() {
         <CardContent>
           <div className="text-center py-8">
             <p className="text-red-500 mb-4">Error al cargar entrenamientos</p>
-            <p className="text-sm text-gray-600">{error}</p>
+            <p className="text-sm text-muted-foreground">{error}</p>
           </div>
         </CardContent>
       </Card>
@@ -325,7 +325,7 @@ export function WorkoutSummary() {
                     workout.completed
                       ? "text-green-600"
                       : workout.isRestDay
-                        ? "text-gray-500"
+                        ? "text-muted-foreground"
                         : "text-muted-foreground"
                   }>
                     {workout.day}
@@ -333,7 +333,7 @@ export function WorkoutSummary() {
                 </div>
                 <span className={
                   workout.isRestDay
-                    ? "text-gray-500"
+                    ? "text-muted-foreground"
                     : "text-muted-foreground"
                 }>
                   {workout.name}

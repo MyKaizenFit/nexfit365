@@ -57,7 +57,7 @@ export function PlanShoppingList() {
   }, [payload])
 
   return (
-    <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+    <Card className="border shadow-xl">
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -105,7 +105,7 @@ export function PlanShoppingList() {
         ) : (
           <div className="space-y-2">
             {grouped.map((item) => (
-              <div key={`${item.name}-${item.unit}`} className="rounded-lg border p-3 bg-white/60">
+              <div key={`${item.name}-${item.unit}`} className="rounded-lg border p-3 bg-card/60">
                 <div className="flex items-center justify-between gap-3">
                   <p className="font-medium text-sm md:text-base">{item.name}</p>
                   <Badge variant="secondary">{item.quantity} {item.unit}</Badge>

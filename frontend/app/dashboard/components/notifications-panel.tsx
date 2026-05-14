@@ -41,7 +41,7 @@ export function NotificationsPanel() {
       case "reminder":
         return <Bell className="h-4 w-4 text-blue-600" />
       case "system":
-        return <Settings className="h-4 w-4 text-gray-600" />
+        return <Settings className="h-4 w-4 text-muted-foreground" />
       case "admin":
         return <User className="h-4 w-4 text-red-600" />
       case "marketing":
@@ -49,7 +49,7 @@ export function NotificationsPanel() {
       case "general":
         return <Bell className="h-4 w-4 text-indigo-600" />
       default:
-        return <Bell className="h-4 w-4 text-gray-600" />
+        return <Bell className="h-4 w-4 text-muted-foreground" />
     }
   }
 
@@ -64,7 +64,7 @@ export function NotificationsPanel() {
       case "reminder":
         return <Badge className="bg-blue-100 text-blue-800 border-0">Recordatorio</Badge>
       case "system":
-        return <Badge className="bg-gray-100 text-gray-800 border-0">Sistema</Badge>
+        return <Badge className="bg-gray-100 text-foreground border-0">Sistema</Badge>
       case "admin":
         return <Badge className="bg-red-100 text-red-800 border-0">Admin</Badge>
       case "marketing":
@@ -160,7 +160,7 @@ export function NotificationsPanel() {
   return (
     <div className="space-y-6">
       {/* Panel de notificaciones */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
@@ -173,7 +173,7 @@ export function NotificationsPanel() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 w-full sm:w-auto">
               <Select value={filter} onValueChange={setFilter}>
-                <SelectTrigger className="w-full sm:w-40 border-2 border-gray-200 focus:border-purple-400">
+                <SelectTrigger className="w-full sm:w-40 border-2 border-border focus:border-purple-400">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,7 +191,7 @@ export function NotificationsPanel() {
                 variant="outline"
                 size="sm"
                 onClick={refresh}
-                className="w-full sm:w-auto hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
+                className="w-full sm:w-auto hover:bg-muted bg-transparent"
               >
                 <RefreshCw className="h-4 w-4 mr-1" />
                 Actualizar
@@ -201,7 +201,7 @@ export function NotificationsPanel() {
                   variant="outline"
                   size="sm"
                   onClick={markAllAsRead}
-                  className="w-full sm:w-auto hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 bg-transparent"
+                  className="w-full sm:w-auto hover:bg-muted bg-transparent"
                 >
                   <Check className="h-4 w-4 mr-1" />
                   Marcar todas
@@ -214,7 +214,7 @@ export function NotificationsPanel() {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando notificaciones...</p>
+              <p className="text-muted-foreground">Cargando notificaciones...</p>
             </div>
           ) : error ? (
             <div className="text-center py-8">
@@ -230,26 +230,26 @@ export function NotificationsPanel() {
           ) : (
             <div className="space-y-3">
               {filteredNotifications.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <div className="bg-gradient-to-br from-purple-100 to-violet-100 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
                     <Bell className="h-10 w-10 text-purple-400" />
                   </div>
-                  <p className="text-lg font-medium text-gray-700">No hay notificaciones para mostrar</p>
+                  <p className="text-lg font-medium text-foreground">No hay notificaciones para mostrar</p>
                   <p className="text-sm text-gray-400 mt-1">Cuando recibas notificaciones, aparecerán aquí</p>
                 </div>
               ) : (
               orderedGroups.map((group) => (
                 <div key={group} className="space-y-3">
-                  <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-sm px-2 py-1 rounded-md border border-gray-100">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">{group}</span>
+                  <div className="sticky top-0 z-10 bg-card/80 backdrop-blur-sm px-2 py-1 rounded-md border border-border">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group}</span>
                   </div>
                   {(groupedNotifications as Record<string, Notification[]>)[group].map((notification: Notification) => (
                 <div
                   key={notification.id}
                   className={`p-4 rounded-xl border-l-4 transition-all duration-200 hover:shadow-lg ${
                     !notification.is_read
-                      ? "bg-gradient-to-r from-purple-50 to-violet-50 border-l-purple-400 hover:from-purple-100 hover:to-violet-100"
-                      : "bg-white border-l-gray-300 hover:bg-gray-50"
+                      ? "bg-purple-500/10 border-l-purple-400 hover:bg-purple-500/15"
+                      : "bg-card border-l-border hover:bg-muted"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-4">
@@ -257,13 +257,13 @@ export function NotificationsPanel() {
                       <div className={`p-2 rounded-lg flex-shrink-0 ${
                         !notification.is_read 
                           ? "bg-purple-200/50" 
-                          : "bg-gray-200/50"
+                          : "bg-muted/50"
                       }`}>
                         {getNotificationIcon(notification.type)}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h4 className={`font-bold text-base leading-tight ${!notification.is_read ? "text-gray-900" : "text-gray-700"}`}>
+                          <h4 className={`font-bold text-base leading-tight ${!notification.is_read ? "text-foreground" : "text-foreground"}`}>
                             {notification.title}
                           </h4>
                           {getNotificationBadge(notification.type)}
@@ -274,10 +274,10 @@ export function NotificationsPanel() {
                             </div>
                           )}
                         </div>
-                        <p className={`text-sm leading-relaxed ${!notification.is_read ? "text-gray-800" : "text-gray-600"}`}>
+                        <p className={`text-sm leading-relaxed ${!notification.is_read ? "text-foreground" : "text-muted-foreground"}`}>
                           {notification.message}
                         </p>
-                        <div className="flex items-center gap-3 mt-3 text-xs text-gray-500">
+                        <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
                           <span>{formatRelativeTime(notification.created_at)}</span>
                           {notification.data?.priority && (
                             <>
@@ -294,7 +294,7 @@ export function NotificationsPanel() {
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+                      <DropdownMenuContent align="end" className="border shadow-xl bg-card/95 backdrop-blur-sm">
                         {!notification.is_read && (
                           <DropdownMenuItem onClick={() => markAsRead(notification.id)} className="cursor-pointer">
                             <Check className="h-4 w-4 mr-2 text-purple-600" />
@@ -334,9 +334,9 @@ export function NotificationsPanel() {
       </Card>
 
       {/* Configuración de notificaciones */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <Filter className="h-5 w-5" />
             Configuración de Notificaciones
           </CardTitle>
@@ -345,16 +345,16 @@ export function NotificationsPanel() {
         <CardContent className="space-y-6">
           {/* Canales de notificación */}
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-800">Canales de notificación</h4>
+            <h4 className="font-medium text-foreground">Canales de notificación</h4>
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between p-3 bg-blue-500/10 rounded-lg border border-blue-200 dark:border-blue-800/30">
                 <div className="flex items-center gap-3">
                   <Mail className="h-5 w-5 text-blue-600" />
                   <div>
                     <Label htmlFor="email-notifications" className="text-base font-medium">
                       Notificaciones por email
                     </Label>
-                    <p className="text-sm text-gray-600">Recibe notificaciones en tu correo</p>
+                    <p className="text-sm text-muted-foreground">Recibe notificaciones en tu correo</p>
                   </div>
                 </div>
                 <Switch
@@ -364,14 +364,14 @@ export function NotificationsPanel() {
                 />
               </div>
 
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+              <div className="flex items-center justify-between p-3 bg-green-500/10 rounded-lg border border-green-200 dark:border-green-800/30">
                 <div className="flex items-center gap-3">
                   <Bell className="h-5 w-5 text-green-600" />
                   <div>
                     <Label htmlFor="push-notifications" className="text-base font-medium">
                       Notificaciones push
                     </Label>
-                    <p className="text-sm text-gray-600">Recibe alertas en tu dispositivo</p>
+                    <p className="text-sm text-muted-foreground">Recibe alertas en tu dispositivo</p>
                   </div>
                 </div>
                 <Switch
@@ -385,7 +385,7 @@ export function NotificationsPanel() {
 
           {/* Tipos de notificación */}
           <div className="space-y-4">
-            <h4 className="font-medium text-gray-800">Tipos de notificación</h4>
+            <h4 className="font-medium text-foreground">Tipos de notificación</h4>
             <div className="space-y-3">
               {[
                 { key: "meals", label: "Recordatorios de comidas", icon: MessageSquare, color: "orange" },
@@ -395,7 +395,7 @@ export function NotificationsPanel() {
               ].map((setting) => (
                 <div
                   key={setting.key}
-                  className={`flex items-center justify-between p-3 bg-gradient-to-r from-${setting.color}-50 to-${setting.color}-50 rounded-lg border border-${setting.color}-200`}
+                  className={`flex items-center justify-between p-3 bg-muted/50 dark:bg-card rounded-lg border border-border`}
                 >
                   <div className="flex items-center gap-3">
                     <setting.icon className={`h-5 w-5 text-${setting.color}-600`} />
@@ -411,14 +411,14 @@ export function NotificationsPanel() {
                 </div>
               ))}
 
-              <div className="flex items-center justify-between p-3 bg-gradient-to-r from-gray-50 to-slate-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg border border-border">
                 <div className="flex items-center gap-3">
-                  <Mail className="h-5 w-5 text-gray-600" />
+                  <Mail className="h-5 w-5 text-muted-foreground" />
                   <div>
                     <Label htmlFor="marketing" className="text-base font-medium">
                       Comunicaciones de marketing
                     </Label>
-                    <p className="text-sm text-gray-600">Ofertas, noticias y actualizaciones</p>
+                    <p className="text-sm text-muted-foreground">Ofertas, noticias y actualizaciones</p>
                   </div>
                 </div>
                 <Switch

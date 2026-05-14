@@ -132,7 +132,7 @@ export function WellnessTracker() {
 
   if (loading) {
     return (
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardContent className="p-8 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </CardContent>
@@ -174,7 +174,7 @@ export function WellnessTracker() {
       </div>
 
       {/* Formulario */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader className="px-4 md:px-6 pt-5 md:pt-6 pb-4 md:pb-5">
           <CardTitle className="text-xl md:text-2xl">Registro de Hoy</CardTitle>
           <CardDescription className="text-sm md:text-base mt-1">
@@ -251,7 +251,7 @@ export function WellnessTracker() {
                   className={`flex flex-col items-center justify-center gap-1.5 md:gap-2 p-2.5 md:p-4 rounded-xl transition-all duration-200 touch-manipulation active:scale-95 ${
                     motivationScore === score
                       ? "bg-gradient-to-br from-pink-500 to-purple-500 text-white shadow-lg scale-105"
-                      : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      : "bg-muted hover:bg-muted/80 text-foreground"
                   }`}
                 >
                   <span className="text-2xl md:text-4xl">{getMotivationEmoji(score)}</span>

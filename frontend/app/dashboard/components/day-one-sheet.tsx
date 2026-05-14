@@ -322,7 +322,7 @@ export function DayOneSheet() {
 
         {/* Tab Fotos */}
         <TabsContent value="photos" className="space-y-4">
-          <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <Card className="border shadow-xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -431,7 +431,7 @@ export function DayOneSheet() {
               {sortedPhotos.length > 0 ? (
                 <div className="space-y-4">
                   {/* Galería de fotos */}
-                  <div className="relative bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 overflow-hidden group">
+                  <div className="relative bg-muted/50 rounded-xl p-4 overflow-hidden group">
                     <div className="flex items-center justify-center min-h-[280px] sm:min-h-[350px]">
                       <div className="relative w-full max-w-[250px] sm:max-w-[300px]">
                         <img
@@ -464,7 +464,7 @@ export function DayOneSheet() {
                           variant="ghost"
                           size="icon"
                           onClick={prevPhoto}
-                          className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 hover:bg-white shadow-md"
+                          className="absolute left-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-card shadow-md hover:bg-muted/50"
                         >
                           <ChevronLeft className="h-5 w-5" />
                         </Button>
@@ -472,7 +472,7 @@ export function DayOneSheet() {
                           variant="ghost"
                           size="icon"
                           onClick={nextPhoto}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-white/90 hover:bg-white shadow-md"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 rounded-full bg-card shadow-md hover:bg-muted/50"
                         >
                           <ChevronRight className="h-5 w-5" />
                         </Button>
@@ -482,7 +482,7 @@ export function DayOneSheet() {
 
                   {/* Indicador de posición */}
                   <div className="flex items-center justify-center gap-2">
-                    <span className="text-sm text-gray-600">
+                    <span className="text-sm text-muted-foreground">
                       {currentPhotoIndex + 1} de {sortedPhotos.length}
                     </span>
                   </div>
@@ -497,7 +497,7 @@ export function DayOneSheet() {
                           className={`relative w-14 h-18 rounded-md overflow-hidden border-2 transition-all flex-shrink-0 ${
                             index === currentPhotoIndex
                               ? "border-primary shadow-md scale-105"
-                              : "border-gray-200 hover:border-gray-400"
+                              : "border-border hover:border-gray-400"
                           }`}
                         >
                           <img
@@ -512,7 +512,7 @@ export function DayOneSheet() {
                   )}
                 </div>
               ) : (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-12 text-muted-foreground">
                   <Camera className="h-16 w-16 mx-auto mb-4 opacity-30" />
                   <p className="text-lg font-medium mb-2">No hay fotos aún</p>
                   <p className="text-sm mb-4">Sube tu primera foto para comenzar a documentar tu progreso</p>
@@ -527,7 +527,7 @@ export function DayOneSheet() {
 
           {/* Comparación Antes/Después */}
           {firstPhoto && latestPhoto && sortedPhotos.length > 1 && (
-            <Card className="backdrop-blur-sm bg-gradient-to-r from-pink-50 via-purple-50 to-indigo-50 border-0 shadow-xl">
+            <Card className="border shadow-xl dark:bg-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Heart className="h-6 w-6 text-pink-600" />
@@ -537,7 +537,7 @@ export function DayOneSheet() {
               <CardContent>
                 <div className="grid grid-cols-2 gap-2 sm:gap-4">
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Día 1</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 text-center font-medium">Día 1</p>
                     <div className="relative w-full aspect-[3/4]">
                       <Image
                         fill
@@ -546,12 +546,12 @@ export function DayOneSheet() {
                         className="object-cover rounded-lg border-2 border-pink-300 shadow-md"
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 text-center">
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
                       {format(new Date(firstPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
                   <div>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-2 text-center font-medium">Ahora</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mb-2 text-center font-medium">Ahora</p>
                     <div className="relative w-full aspect-[3/4]">
                       <Image
                         fill
@@ -560,7 +560,7 @@ export function DayOneSheet() {
                         className="object-cover rounded-lg border-2 border-indigo-300 shadow-md"
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-2 text-center">
+                    <p className="text-xs text-muted-foreground mt-2 text-center">
                       {format(new Date(latestPhoto.date), "dd MMM yyyy", { locale: es })}
                     </p>
                   </div>
@@ -572,7 +572,7 @@ export function DayOneSheet() {
 
         {/* Tab Peso */}
         <TabsContent value="weight" className="space-y-4">
-          <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <Card className="border shadow-xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -656,7 +656,7 @@ export function DayOneSheet() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No registrado</p>
+                    <p className="text-muted-foreground">No registrado</p>
                   )}
                 </div>
 
@@ -677,7 +677,7 @@ export function DayOneSheet() {
                       )}
                     </div>
                   ) : (
-                    <p className="text-gray-500">No definido</p>
+                    <p className="text-muted-foreground">No definido</p>
                   )}
                 </div>
 
@@ -702,7 +702,7 @@ export function DayOneSheet() {
               {/* Historial de peso */}
               <div className="mt-6">
                 <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-gray-600" />
+                  <TrendingUp className="h-5 w-5 text-muted-foreground" />
                   Historial Reciente
                 </h3>
                 {weightEntries.length > 0 ? (
@@ -716,18 +716,18 @@ export function DayOneSheet() {
                       <div 
                         key={entry.id} 
                         className={`flex items-center justify-between p-3 rounded-lg ${
-                          index === 0 ? 'bg-blue-50 border border-blue-200' : 'bg-gray-50'
+                          index === 0 ? 'bg-blue-50 border border-blue-200' : 'bg-muted'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            index === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-600'
+                            index === 0 ? 'bg-blue-500 text-white' : 'bg-gray-200 text-muted-foreground'
                           }`}>
                             <Weight className="h-5 w-5" />
                           </div>
                           <div>
                             <p className="font-semibold">{entryWeight !== null ? entryWeight.toFixed(1) : 'N/A'} kg</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs text-muted-foreground">
                               {format(new Date(entry.date), "dd MMM yyyy", { locale: es })}
                             </p>
                           </div>
@@ -735,7 +735,7 @@ export function DayOneSheet() {
                         {index > 0 && entryWeight !== null && prevEntryWeight !== null && (
                           <div className={`text-sm font-medium ${
                             entryWeight < prevEntryWeight ? 'text-green-600' : 
-                            entryWeight > prevEntryWeight ? 'text-red-600' : 'text-gray-500'
+                            entryWeight > prevEntryWeight ? 'text-red-600' : 'text-muted-foreground'
                           }`}>
                             {entryWeight < prevEntryWeight ? '↓' : 
                              entryWeight > prevEntryWeight ? '↑' : '='} 
@@ -750,7 +750,7 @@ export function DayOneSheet() {
                     })}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <Scale className="h-12 w-12 mx-auto mb-2 opacity-50" />
                     <p>No hay registros de peso</p>
                     <p className="text-sm">Comienza registrando tu peso actual</p>
@@ -762,7 +762,7 @@ export function DayOneSheet() {
 
           {/* Progreso de Peso */}
           {firstWeightEntry && latestWeightEntry && weightEntries.length > 1 && (
-            <Card className="backdrop-blur-sm bg-gradient-to-r from-purple-50 to-indigo-50 border-0 shadow-xl">
+            <Card className="border shadow-xl dark:bg-card">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-xl">
                   <Award className="h-6 w-6 text-purple-600" />
@@ -770,7 +770,7 @@ export function DayOneSheet() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="p-6 bg-white/80 rounded-xl">
+                <div className="p-6 bg-card/80 rounded-xl">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="font-bold text-lg">Tu Evolución</h3>
                     <Badge className={weightChange < 0 ? "bg-green-500" : weightChange > 0 ? "bg-red-500" : "bg-gray-500"}>
@@ -778,32 +778,32 @@ export function DayOneSheet() {
                     </Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-purple-50 rounded-lg">
-                      <p className="text-sm text-gray-600">Día 1</p>
-                      <p className="text-2xl font-bold text-purple-700">
+                    <div className="text-center p-4 bg-purple-500/10 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Día 1</p>
+                      <p className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                         {firstWeightEntry && typeof firstWeightEntry.weight === 'number' 
                           ? firstWeightEntry.weight.toFixed(1) 
                           : 'N/A'} kg
                       </p>
                       {firstWeightEntry && (
-                        <p className="text-xs text-gray-500">{format(new Date(firstWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(firstWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
                       )}
                     </div>
-                    <div className="text-center p-4 bg-indigo-50 rounded-lg">
-                      <p className="text-sm text-gray-600">Ahora</p>
-                      <p className="text-2xl font-bold text-indigo-700">
+                    <div className="text-center p-4 bg-indigo-500/10 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Ahora</p>
+                      <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">
                         {latestWeightEntry && typeof latestWeightEntry.weight === 'number' 
                           ? latestWeightEntry.weight.toFixed(1) 
                           : 'N/A'} kg
                       </p>
                       {latestWeightEntry && (
-                        <p className="text-xs text-gray-500">{format(new Date(latestWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
+                        <p className="text-xs text-muted-foreground">{format(new Date(latestWeightEntry.date), "dd MMM yyyy", { locale: es })}</p>
                       )}
                     </div>
                   </div>
                   {weightChange !== 0 && (
-                    <div className="mt-4 p-4 bg-gradient-to-r from-purple-100 to-indigo-100 rounded-lg">
-                      <p className="text-center font-semibold text-purple-900">
+                    <div className="mt-4 p-4 bg-purple-500/10 rounded-lg">
+                      <p className="text-center font-semibold text-purple-700 dark:text-purple-300">
                         {weightChange < 0 
                           ? `🎉 ¡Has perdido ${Math.abs(weightChange).toFixed(1)} kg! ¡Sigue así!`
                           : `📈 Has ganado ${weightChange.toFixed(1)} kg. ¡Continúa tu progreso!`
@@ -820,13 +820,13 @@ export function DayOneSheet() {
 
       {/* Mensaje Motivacional */}
       {daysSinceStart > 0 && (
-        <Card className="backdrop-blur-sm bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 shadow-xl">
+        <Card className="border border-emerald-200 dark:border-emerald-800/30 shadow-xl dark:bg-card">
           <CardContent className="p-6 text-center">
             <Flame className="h-12 w-12 mx-auto mb-4 text-orange-500" />
-            <p className="text-lg font-bold text-emerald-900 mb-2">
+            <p className="text-lg font-bold text-emerald-700 dark:text-emerald-300 mb-2">
               ¡Llevas {daysSinceStart} días en tu transformación! 🔥
             </p>
-            <p className="text-sm text-emerald-700">
+            <p className="text-sm text-emerald-600 dark:text-emerald-400">
               Cada día es una oportunidad para mejorar. Sigue registrando tu progreso y verás los resultados.
             </p>
           </CardContent>

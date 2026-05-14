@@ -122,7 +122,7 @@ const SettingsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Hero Section */}
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-500 via-cyan-400 to-blue-400 p-6 sm:p-8 text-white shadow-2xl">
@@ -156,18 +156,18 @@ const SettingsPage = () => {
           </div>
         </div>
 
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
+        <Card className="border shadow-lg">
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg">Apariencia</CardTitle>
             <CardDescription>Selecciona modo claro u oscuro para toda la app.</CardDescription>
           </CardHeader>
           <CardContent className="pt-0">
-            <ThemeToggle className="bg-white" />
+            <ThemeToggle className="bg-card" />
           </CardContent>
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+          <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-muted/50 shadow-sm">
             <TabsTrigger
               value="profile"
               className="flex items-center gap-2 py-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
@@ -218,7 +218,7 @@ const SettingsPage = () => {
           {/* Ayuda Tab */}
           <TabsContent value="help" className="space-y-4 md:space-y-6 max-w-full overflow-hidden">
             {/* Centro de Ayuda Principal */}
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500 max-w-full overflow-hidden">
+            <Card className="border shadow-xl hover:shadow-2xl transition-all duration-500 max-w-full overflow-hidden">
               <CardHeader className="px-3 md:px-6 pt-3 md:pt-6 pb-2 md:pb-4 max-w-full">
                 <CardTitle className="flex items-center gap-2 text-sm md:text-xl bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent max-w-full">
                   <HelpCircle className="h-4 w-4 md:h-6 md:w-6 text-blue-600 flex-shrink-0" />
@@ -229,7 +229,7 @@ const SettingsPage = () => {
               <CardContent className="space-y-2 md:space-y-4 px-3 md:px-6 pb-3 md:pb-6 max-w-full overflow-hidden">
                 {/* Acciones Rápidas */}
                 {loadingSettings ? (
-                  <div className="text-center py-8 text-gray-500 text-sm md:text-base">Cargando configuración...</div>
+                  <div className="text-center py-8 text-muted-foreground text-sm md:text-base">Cargando configuración...</div>
                 ) : (
                   <div className="space-y-3 md:space-y-4">
                     {helpSettings?.faq_enabled && (
@@ -240,12 +240,12 @@ const SettingsPage = () => {
                         <div className="flex items-start gap-3 w-full">
                           <BookOpen className="h-5 w-5 md:h-6 md:w-6 text-blue-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Preguntas Frecuentes</h5>
-                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                            <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-2">Preguntas Frecuentes</h5>
+                            <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
                               Encuentra respuestas rápidas a las preguntas más comunes
                             </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         </div>
                       </div>
                     )}
@@ -258,12 +258,12 @@ const SettingsPage = () => {
                         <div className="flex items-start gap-3 w-full">
                           <Mail className="h-5 w-5 md:h-6 md:w-6 text-green-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Contactar Soporte</h5>
-                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                            <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-2">Contactar Soporte</h5>
+                            <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
                               Habla directamente con nuestro equipo de soporte
                             </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         </div>
                       </div>
                     )}
@@ -276,12 +276,12 @@ const SettingsPage = () => {
                         <div className="flex items-start gap-3 w-full">
                           <FileText className="h-5 w-5 md:h-6 md:w-6 text-purple-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Guías de Usuario</h5>
-                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                            <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-2">Guías de Usuario</h5>
+                            <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
                               Aprende a usar todas las funciones de la aplicación
                             </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         </div>
                       </div>
                     )}
@@ -294,12 +294,12 @@ const SettingsPage = () => {
                         <div className="flex items-start gap-3 w-full">
                           <MessageCircle className="h-5 w-5 md:h-6 md:w-6 text-orange-600 flex-shrink-0 mt-0.5" />
                           <div className="flex-1 min-w-0">
-                            <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-2">Reportar Problema</h5>
-                            <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                            <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-2">Reportar Problema</h5>
+                            <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
                               Informa errores, bugs o problemas técnicos
                             </p>
                           </div>
-                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-gray-400 flex-shrink-0 mt-0.5" />
+                          <ExternalLink className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
                         </div>
                       </div>
                     )}
@@ -307,36 +307,36 @@ const SettingsPage = () => {
                 )}
 
                 {/* Preguntas Frecuentes */}
-                <div className="pt-3 md:pt-6 border-t border-gray-200">
+                <div className="pt-3 md:pt-6 border-t border-border">
                   <h4 className="font-semibold text-sm md:text-lg mb-2 md:mb-4 flex items-center gap-2">
                     <BookOpen className="h-4 w-4 md:h-6 md:w-6 text-blue-600 flex-shrink-0" />
                     <span className="truncate">Preguntas Frecuentes</span>
                   </h4>
                   <div className="space-y-2 md:space-y-4">
                     <div className="p-3 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-                      <h5 className="font-semibold text-sm md:text-lg text-gray-900 mb-1.5 md:mb-3">¿Cómo cambio mi contraseña?</h5>
-                      <p className="text-xs md:text-base text-gray-600 leading-relaxed">
+                      <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-3">¿Cómo cambio mi contraseña?</h5>
+                      <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
                         Ve a la pestaña "Seguridad" en esta misma página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
-                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo actualizo mi perfil?</h5>
-                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
+                      <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Cómo actualizo mi perfil?</h5>
+                      <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                         En la pestaña "Mi Perfil" puedes editar toda tu información personal, incluyendo nombre, altura, peso, objetivos y más.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border-2 border-purple-200">
-                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Cómo funcionan los planes de entrenamiento?</h5>
-                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
+                      <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Cómo funcionan los planes de entrenamiento?</h5>
+                      <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                         Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección "Entrenamientos" del dashboard.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border-2 border-orange-200">
-                      <h5 className="font-semibold text-base md:text-lg text-gray-900 mb-2 md:mb-3">¿Puedo personalizar mi plan nutricional?</h5>
-                      <p className="text-sm md:text-base text-gray-600 leading-relaxed">
+                      <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Puedo personalizar mi plan nutricional?</h5>
+                      <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
                         Sí, los planes nutricionales se adaptan a tus preferencias dietéticas, alergias y objetivos. Actualiza tu perfil para que el plan se ajuste automáticamente.
                       </p>
                     </div>
@@ -344,7 +344,7 @@ const SettingsPage = () => {
                 </div>
 
                 {/* Información de la App */}
-                <div className="pt-3 md:pt-6 border-t border-gray-200">
+                <div className="pt-3 md:pt-6 border-t border-border">
                   <h4 className="font-semibold text-sm md:text-lg mb-2 md:mb-4 flex items-center gap-2">
                     <Info className="h-4 w-4 md:h-6 md:w-6 text-gray-600 flex-shrink-0" />
                     <span className="truncate">Información de la Aplicación</span>

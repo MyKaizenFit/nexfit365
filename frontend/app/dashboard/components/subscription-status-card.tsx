@@ -22,11 +22,11 @@ interface MembershipStatus {
 }
 
 const statusStyles: Record<string, string> = {
-    none: "bg-slate-100 text-slate-800",
-    trial: "bg-emerald-100 text-emerald-800",
-    active: "bg-blue-100 text-blue-800",
-    expired: "bg-amber-100 text-amber-800",
-    cancelled: "bg-rose-100 text-rose-800",
+    none: "bg-muted text-muted-foreground",
+    trial: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400",
+    active: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400",
+    expired: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-400",
+    cancelled: "bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-400",
 }
 
 const statusLabels: Record<string, string> = {
@@ -109,7 +109,7 @@ export function SubscriptionStatusCard() {
     }
 
     return (
-        <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 via-white to-cyan-50">
+        <Card className="border shadow-lg">
             <CardHeader>
                 <div className="flex items-start justify-between gap-3">
                     <div>
@@ -135,18 +135,18 @@ export function SubscriptionStatusCard() {
                 ) : (
                     <>
                         <div className="grid gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border bg-white/80 p-3">
+                            <div className="rounded-xl border bg-muted/50 p-3">
                                 <p className="text-xs text-muted-foreground">Plan mensual</p>
                                 <p className="text-lg font-semibold">24,9€/mes</p>
                             </div>
-                            <div className="rounded-xl border bg-white/80 p-3">
+                            <div className="rounded-xl border bg-muted/50 p-3">
                                 <p className="text-xs text-muted-foreground">Plan anual</p>
                                 <p className="text-lg font-semibold">197€/año</p>
                             </div>
                         </div>
 
                         {status?.status === "trial" ? (
-                            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-900 dark:text-emerald-400">
                                 <div className="flex items-center gap-2 font-medium">
                                     <CalendarDays className="h-4 w-4" />
                                     Te quedan {status.days_remaining} día(s) de prueba.
@@ -156,11 +156,11 @@ export function SubscriptionStatusCard() {
                                 </p>
                             </div>
                         ) : status?.status === "expired" ? (
-                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-400">
                                 Tu prueba ya terminó. Puedes pasar a plan mensual o anual para mantener el acceso premium.
                             </div>
                         ) : (
-                            <div className="rounded-xl border bg-white/80 p-3 text-sm text-slate-700">
+                            <div className="rounded-xl border bg-muted/50 p-3 text-sm text-slate-700">
                                 Incluye seguimiento del progreso, comunicación más cercana y una experiencia premium dentro de la app.
                             </div>
                         )}

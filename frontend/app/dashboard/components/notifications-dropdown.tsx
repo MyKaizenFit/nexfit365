@@ -109,7 +109,7 @@ export function NotificationsDropdown() {
         <Button
           variant="ghost"
           size="icon"
-          className="relative hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50 rounded-xl transition-all duration-300"
+          className="relative hover:bg-muted rounded-xl transition-all duration-300"
         >
           <Bell className="h-5 w-5 text-purple-600" />
           {unreadCount > 0 && (
@@ -119,8 +119,8 @@ export function NotificationsDropdown() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[90vw] sm:w-96 p-0 shadow-2xl border-0 backdrop-blur-sm bg-white/95" side="bottom">
-        <div className="p-4 border-b border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50">
+      <DropdownMenuContent align="end" className="w-[90vw] sm:w-96 p-0 shadow-2xl border bg-card/95 backdrop-blur-sm" side="bottom">
+        <div className="p-4 border-b border-border bg-card">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-purple-600" />
@@ -183,8 +183,8 @@ export function NotificationsDropdown() {
                   key={notification.id}
                   className={`group p-3 rounded-lg transition-all duration-200 cursor-default border-l-4 ${
                     notification.read 
-                      ? "bg-gray-50 border-l-gray-200 hover:bg-gray-100" 
-                      : "bg-gradient-to-r from-purple-50 to-violet-50 border-l-purple-400 hover:from-purple-100 hover:to-violet-100"
+                      ? "bg-muted/50 border-l-border hover:bg-muted" 
+                      : "bg-purple-500/10 border-l-purple-400 hover:bg-purple-500/15"
                   }`}
                 >
                   <div className="flex items-start gap-3">
@@ -273,7 +273,7 @@ export function NotificationsDropdown() {
         </ScrollArea>
         
         {notifications.length > 0 && (
-          <div className="p-3 border-t border-purple-100 bg-gradient-to-r from-purple-50 to-violet-50">
+          <div className="p-3 border-t border-border bg-card">
             <Button
               onClick={() => {
                 setOpen(false)

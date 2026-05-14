@@ -106,7 +106,7 @@ export function ProgressAnalysisPanel() {
       case 'too_fast':
         return <AlertTriangle className="h-5 w-5 text-orange-500" />
       default:
-        return <Info className="h-5 w-5 text-gray-500" />
+        return <Info className="h-5 w-5 text-muted-foreground" />
     }
   }
 
