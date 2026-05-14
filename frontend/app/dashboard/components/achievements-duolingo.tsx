@@ -251,7 +251,7 @@ export function AchievementsDuolingo() {
       </div>
 
       {/* Objetivos Diarios */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
+      <Card className="border shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
             <Target className="h-5 w-5" />
@@ -273,14 +273,14 @@ export function AchievementsDuolingo() {
                 className={`p-4 rounded-xl border-2 transition-all ${
                   isCompleted
                     ? `bg-gradient-to-r ${goal.color} border-transparent shadow-lg`
-                    : 'bg-gray-50 border-gray-200'
+                    : 'bg-muted border-border'
                 }`}
               >
                 <div className="flex items-start gap-4">
                   <div className={`p-3 rounded-full ${
                     isCompleted 
                       ? 'bg-white/20 backdrop-blur-sm' 
-                      : 'bg-gray-200'
+                      : 'bg-muted'
                   }`}>
                     <Icon className={`h-6 w-6 ${
                       isCompleted ? 'text-white' : 'text-gray-600'
@@ -335,9 +335,9 @@ export function AchievementsDuolingo() {
       </Card>
 
       {/* Racha Semanal */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
+      <Card className="border shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+          <CardTitle className="flex items-center gap-2 text-foreground">
             <Flame className="h-5 w-5" />
             Racha Semanal
           </CardTitle>
@@ -370,10 +370,10 @@ export function AchievementsDuolingo() {
                     key={day}
                     className={`aspect-square rounded-lg flex flex-col items-center justify-center border-2 transition-all ${
                       isCompleted
-                        ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white border-orange-300 shadow-md'
+                        ? 'bg-gradient-to-br from-orange-400 to-red-500 text-white shadow-md'
                         : isToday
-                        ? 'bg-gray-100 border-gray-300 text-gray-700 font-bold'
-                        : 'bg-gray-50 border-gray-200 text-gray-400'
+                        ? 'bg-muted border-border text-foreground font-bold'
+                        : 'bg-muted/50 border-border text-muted-foreground'
                     }`}
                   >
                     <span className="text-xs font-medium">{day}</span>
@@ -389,7 +389,7 @@ export function AchievementsDuolingo() {
       </Card>
 
       {/* Acción rápida */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-500">
+      <Card className="border shadow-xl hover:shadow-2xl transition-all duration-500">
         <CardContent className="p-6 text-center">
           <p className="text-sm font-medium text-gray-900 mb-3">
             ¿Listo para completar tus objetivos de hoy? 💪

@@ -135,22 +135,22 @@ export function QuinzenalReview() {
             )}
 
             {status.review_sent_recently && (
-              <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-                <div className="flex items-center gap-2 text-green-700 font-medium">
+              <div className="p-4 bg-green-500/10 border border-green-200 dark:border-green-800/30 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-400 font-medium">
                   <CheckCircle className="h-4 w-4" /> Última revisión enviada
                 </div>
-                <p className="text-sm text-green-700 mt-1">{formatDate(status.last_review_sent_at)}</p>
+                <p className="text-sm text-green-700 dark:text-green-400 mt-1">{formatDate(status.last_review_sent_at)}</p>
               </div>
             )}
 
             <div className="space-y-2">
               <h4 className="text-sm font-medium">Preparación real para la revisión:</h4>
               <div className="space-y-1 text-xs text-muted-foreground">
-                <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
                   <span>Fotos subidas en los últimos 15 días</span>
                   <span className={status.photos_last_15_days > 0 ? "text-green-600 font-semibold" : "text-amber-600 font-semibold"}>{status.photos_last_15_days}</span>
                 </div>
-                <div className="flex items-center justify-between gap-2 rounded-md bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
                   <span>Medidas registradas en los últimos 15 días</span>
                   <span className={status.measurements_last_15_days > 0 ? "text-green-600 font-semibold" : "text-amber-600 font-semibold"}>{status.measurements_last_15_days}</span>
                 </div>

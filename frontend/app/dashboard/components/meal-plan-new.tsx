@@ -297,7 +297,7 @@ export function MealPlan() {
       case "balanced":
         return "bg-orange-50 border-orange-200 text-orange-700"
       default:
-        return "bg-gray-50 border-gray-200 text-gray-700"
+        return "bg-gray-50 border-border text-foreground"
     }
   }
 

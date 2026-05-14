@@ -64,7 +64,7 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
       )}
 
       {/* Backdrop blur */}
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-lg border-t border-white/20"></div>
+      <div className="absolute inset-0 bg-background/90 backdrop-blur-lg border-t"></div>
 
       {/* Navigation items */}
       <nav className="relative z-50 responsive-flex items-center justify-center px-2 sm:px-4 py-2 sm:py-3 w-full safe-area-pl safe-area-pr">
@@ -80,8 +80,8 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                 className={cn(
                   "relative flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-300 group flex-1 min-w-0",
                   isActive
-                    ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-600 scale-105"
-                    : "text-gray-500 hover:text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50",
+                    ? "bg-gradient-to-r bg-teal-500/15 text-teal-600 scale-105"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
                 style={{ animationDelay: `${index * 50}ms` }}
                 tabIndex={0}
@@ -123,8 +123,8 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
               type="button"
               onClick={() => setShowMore((v) => !v)}
               className={cn(
-                "relative flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-300 group w-full min-w-0 text-gray-500 hover:text-gray-700 hover:bg-gradient-to-r hover:from-gray-50 hover:to-slate-50",
-                showMore || isMoreSectionActive ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-600 scale-105" : ""
+                "relative flex flex-col items-center justify-center p-2 rounded-lg transition-all duration-300 group w-full min-w-0 text-muted-foreground hover:text-foreground hover:bg-muted",
+                showMore || isMoreSectionActive ? "bg-gradient-to-r bg-teal-500/15 text-teal-600 scale-105" : ""
               )}
               tabIndex={0}
               aria-label="Más"
@@ -149,7 +149,7 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
             </button>
 
             {showMore && (
-              <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-[60] w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-gray-100 bg-white/95 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
+              <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-[60] w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card/95 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="py-1">
                   {moreMenuItems.map((item) => {
                     const IconComponent = item.icon
@@ -164,8 +164,8 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
                           onSectionChange(item.url, item.title)
                         }}
                         className={cn(
-                          "flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-gray-700 hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-200",
-                          isActive ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-700" : ""
+                          "flex items-center gap-3 w-full px-4 py-3 text-sm text-left text-foreground hover:bg-muted transition-all duration-200",
+                          isActive ? "bg-gradient-to-r from-teal-50 to-cyan-50 text-teal-700 bg-teal-500/10" : ""
                         )}
                         tabIndex={0}
                         aria-label={item.title}

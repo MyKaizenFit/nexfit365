@@ -103,7 +103,7 @@ export function ChangePasswordPanel() {
 
   return (
     <div className="space-y-6">
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent">
             <Lock className="h-5 w-5" />
@@ -122,7 +122,7 @@ export function ChangePasswordPanel() {
                   type={showPasswords.current ? "text" : "password"}
                   value={passwords.current}
                   onChange={(e) => setPasswords((prev) => ({ ...prev, current: e.target.value }))}
-                  className="border-2 border-gray-200 focus:border-red-400 pr-10"
+                  className="border-2 border-border focus:border-red-400 pr-10"
                   placeholder="Ingresa tu contraseña actual"
                 />
                 <Button
@@ -146,7 +146,7 @@ export function ChangePasswordPanel() {
                   type={showPasswords.new ? "text" : "password"}
                   value={passwords.new}
                   onChange={(e) => setPasswords((prev) => ({ ...prev, new: e.target.value }))}
-                  className="border-2 border-gray-200 focus:border-red-400 pr-10"
+                  className="border-2 border-border focus:border-red-400 pr-10"
                   placeholder="Ingresa tu nueva contraseña"
                 />
                 <Button
@@ -164,7 +164,7 @@ export function ChangePasswordPanel() {
               {passwords.new && (
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Fortaleza de la contraseña:</span>
+                    <span className="text-sm text-muted-foreground">Fortaleza de la contraseña:</span>
                     <span
                       className={`text-sm font-medium ${strength < 40 ? "text-red-600" : strength < 70 ? "text-yellow-600" : "text-green-600"}`}
                     >
@@ -190,7 +190,7 @@ export function ChangePasswordPanel() {
                   type={showPasswords.confirm ? "text" : "password"}
                   value={passwords.confirm}
                   onChange={(e) => setPasswords((prev) => ({ ...prev, confirm: e.target.value }))}
-                  className="border-2 border-gray-200 focus:border-red-400 pr-10"
+                  className="border-2 border-border focus:border-red-400 pr-10"
                   placeholder="Confirma tu nueva contraseña"
                 />
                 <Button
@@ -234,7 +234,7 @@ export function ChangePasswordPanel() {
       </Card>
 
       {/* Requisitos de seguridad */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
             <Shield className="h-5 w-5" />
@@ -255,9 +255,9 @@ export function ChangePasswordPanel() {
                 {requirement.check ? (
                   <CheckCircle className="h-4 w-4 text-green-600" />
                 ) : (
-                  <XCircle className="h-4 w-4 text-gray-400" />
+                  <XCircle className="h-4 w-4 text-muted-foreground/70" />
                 )}
-                <span className={`text-sm ${requirement.check ? "text-green-600" : "text-gray-600"}`}>
+                <span className={`text-sm ${requirement.check ? "text-green-600" : "text-muted-foreground"}`}>
                   {requirement.text}
                 </span>
               </div>
@@ -267,7 +267,7 @@ export function ChangePasswordPanel() {
       </Card>
 
       {/* Consejos de seguridad */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-yellow-600 to-amber-600 bg-clip-text text-transparent">
             <AlertTriangle className="h-5 w-5" />
@@ -275,7 +275,7 @@ export function ChangePasswordPanel() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-2 text-sm text-gray-600">
+          <div className="space-y-2 text-sm text-muted-foreground">
             <p>• Usa una contraseña única que no hayas usado en otros sitios</p>
             <p>• Considera usar un gestor de contraseñas</p>
             <p>• Cambia tu contraseña regularmente</p>

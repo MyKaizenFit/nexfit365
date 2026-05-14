@@ -479,7 +479,7 @@ export function MonthlyMealPlan() {
                     className={`min-h-[100px] md:min-h-[120px] ${
                       !isCurrentMonth ? 'opacity-40' : ''
                     } ${isCurrentDay ? 'ring-2 ring-teal-500' : ''} ${
-                      isPastDay ? 'bg-gray-50' : ''
+                      isPastDay ? 'bg-muted' : ''
                     }`}
                   >
                     <CardHeader className="pb-1 md:pb-2 p-1.5 md:p-2">
@@ -547,8 +547,8 @@ export function MonthlyMealPlan() {
                                 
                                 {/* Selección: Nombre completo de la receta con macros */}
                                 {hasSelection && (
-                                  <div className="mt-0.5 pt-0.5 md:pt-1 border-t border-gray-200/60 space-y-0.5 md:space-y-1">
-                                    <div className="text-[8px] md:text-[9px] font-semibold text-gray-800 leading-tight break-words line-clamp-2">
+                                  <div className="mt-0.5 pt-0.5 md:pt-1 border-t border-border/60 space-y-0.5 md:space-y-1">
+                                    <div className="text-[8px] md:text-[9px] font-semibold text-foreground leading-tight break-words line-clamp-2">
                                       {getMealName(selection)}
                                     </div>
                                     
@@ -582,7 +582,7 @@ export function MonthlyMealPlan() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-5 w-5 md:h-4 md:w-4 absolute -right-0.5 -top-0.5 md:-right-1 md:-top-1 opacity-60 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity bg-white shadow-sm touch-manipulation"
+                                className="h-5 w-5 md:h-4 md:w-4 absolute -right-0.5 -top-0.5 md:-right-1 md:-top-1 opacity-60 md:opacity-0 group-hover:opacity-100 md:group-hover:opacity-100 transition-opacity bg-card shadow-sm touch-manipulation"
                                 onClick={() => {
                                   // Copiar semana anterior
                                   const previousWeekStart = new Date(day)

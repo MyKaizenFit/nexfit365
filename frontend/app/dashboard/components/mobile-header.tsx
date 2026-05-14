@@ -81,7 +81,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-white/20 backdrop-blur-lg bg-white/80 md:hidden safe-area-pt">
+    <header className="sticky top-0 z-40 w-full border-b backdrop-blur-lg bg-background/90 md:hidden safe-area-pt">
       <div className="responsive-flex h-16 items-center justify-between px-4 sm:px-6 w-full safe-area-pl safe-area-pr">
         {/* Left side - Logo/Title */}
         <div className="responsive-flex items-center gap-3 min-w-0 flex-1 pl-2">
@@ -95,7 +95,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
               ) : (
                 <span>
                   <span className="text-orange-500">NEX</span>
-                  <span className="text-gray-600">FIT</span>
+                  <span className="text-muted-foreground">FIT</span>
                 </span>
               )}
             </h1>
@@ -108,7 +108,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
           <Button
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-full hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-300"
+            className="h-10 w-10 rounded-full hover:bg-gradient-to-r hover:bg-muted transition-all duration-300"
             onClick={() => setIsSearchOpen(true)}
           >
             <Search className="h-4 w-4" />
@@ -134,16 +134,16 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
                 </AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 mr-2 backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+            <DropdownMenuContent align="end" className="w-56 mr-2 border shadow-xl bg-card/95 backdrop-blur-sm">
               <DropdownMenuItem
                 onClick={handleProfileClick}
-                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                className="hover:bg-gradient-to-r hover:bg-muted"
               >
                 Mi Perfil
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={handleSettingsClick}
-                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                className="hover:bg-gradient-to-r hover:bg-muted"
               >
                 Configuración
               </DropdownMenuItem>
@@ -161,11 +161,11 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
 
       {/* Modal de búsqueda */}
       {isSearchOpen && (
-        <div className="fixed inset-0 z-50 bg-gradient-to-br from-teal-500/20 via-cyan-500/20 to-blue-500/20 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm">
           <div className="fixed inset-0 z-50 flex items-start justify-center pt-20 px-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden border-2 border-teal-100">
+            <div className="bg-card rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden border-2 border-border">
               {/* Header del modal */}
-              <div className="flex items-center justify-between p-4 border-b border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50">
+              <div className="flex items-center justify-between p-4 border-b bg-card">
                 <h3 className="text-lg font-semibold">Buscar en la app</h3>
                 <Button
                   variant="ghost"
@@ -182,13 +182,13 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
               {/* Campo de búsqueda */}
               <div className="p-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
                     placeholder="Buscar secciones, funciones..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-3 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
                     autoFocus
                   />
                 </div>
@@ -197,12 +197,12 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
               {/* Resultados de búsqueda */}
               <div className="px-4 pb-4 max-h-96 overflow-y-auto">
                 {searchQuery.trim() === "" ? (
-                  <div className="text-center py-8 text-gray-500">
-                    <Search className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <div className="text-center py-8 text-muted-foreground">
+                    <Search className="h-12 w-12 mx-auto mb-3 text-muted-foreground/50" />
                     <p>Escribe para buscar secciones y funciones</p>
                   </div>
                 ) : filteredOptions.length === 0 ? (
-                  <div className="text-center py-8 text-gray-500">
+                  <div className="text-center py-8 text-muted-foreground">
                     <p>No se encontraron resultados para "{searchQuery}"</p>
                   </div>
                 ) : (
@@ -211,10 +211,10 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
                       <button
                         key={option.section}
                         onClick={() => handleSearchSelect(option.section)}
-                        className="w-full text-left p-3 rounded-lg hover:bg-gray-50 transition-colors"
+                        className="w-full text-left p-3 rounded-lg hover:bg-muted transition-colors"
                       >
-                        <div className="font-medium text-gray-900">{option.title}</div>
-                        <div className="text-sm text-gray-500">{option.description}</div>
+                        <div className="font-medium text-foreground">{option.title}</div>
+                        <div className="text-sm text-muted-foreground">{option.description}</div>
                       </button>
                     ))}
                   </div>

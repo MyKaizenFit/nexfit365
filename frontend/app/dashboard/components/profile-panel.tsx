@@ -285,7 +285,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
           <CardContent>
             <div className="flex items-center justify-center p-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-              <span className="ml-2 text-gray-600">Cargando datos del perfil...</span>
+              <span className="ml-2 text-muted-foreground">Cargando datos del perfil...</span>
             </div>
           </CardContent>
         </Card>
@@ -319,7 +319,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
   return (
     <div className="space-y-6">
       {/* Información Personal */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
@@ -332,7 +332,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
             variant="outline"
             size="sm"
             onClick={() => (isEditing ? handleSave() : handleEdit())}
-            className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+            className="hover:bg-muted"
           >
             {isEditing ? <Save className="h-4 w-4" /> : <Edit className="h-4 w-4" />}
           </Button>
@@ -395,7 +395,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                     type="button"
                     size="icon"
                     variant="outline"
-                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-white shadow-md hover:bg-gray-50 cursor-pointer"
+                    className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-card shadow-md hover:bg-muted cursor-pointer"
                     onClick={() => document.getElementById('profile-picture-input')?.click()}
                   >
                     <Camera className="h-4 w-4" />
@@ -404,9 +404,9 @@ export const ProfilePanel = memo(function ProfilePanel() {
               )}
             </div>
             <div className="flex-1">
-              <h3 className="text-xl font-semibold text-gray-900">{`${profile.first_name || ''} ${profile.last_name || ''}`.trim()}</h3>
-              <p className="text-gray-600">{profile.email}</p>
-              <p className="text-sm text-gray-500">
+              <h3 className="text-xl font-semibold text-foreground">{`${profile.first_name || ''} ${profile.last_name || ''}`.trim()}</h3>
+              <p className="text-muted-foreground">{profile.email}</p>
+              <p className="text-sm text-muted-foreground">
                 {(profile.birth_date || profile.date_of_birth) ? `${new Date().getFullYear() - new Date(profile.birth_date || profile.date_of_birth || '').getFullYear()} años` : 'Edad no especificada'} • 
                 {profile.activity_level || 'Nivel no especificado'}
               </p>
@@ -502,7 +502,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
       </Card>
 
       {/* Información Física */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
             <Ruler className="h-5 w-5" />
@@ -559,7 +559,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
               value={profile.weight && profile.target_weight ? Math.min(100, Math.max(0, 100 - Math.abs(profile.weight - profile.target_weight) * 10)) : 0} 
               className="h-2" 
             />
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-muted-foreground">
               <span>{profile.weight || '0'} kg</span>
               <span>{profile.target_weight || '0'} kg</span>
             </div>
@@ -568,7 +568,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
       </Card>
 
       {/* Preferencias y Objetivos */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
             <Target className="h-5 w-5" />
@@ -643,7 +643,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
         </CardContent>
       </Card>
 
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-lime-600 bg-clip-text text-transparent">
             <Target className="h-5 w-5" />
@@ -664,7 +664,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 rows={3}
                 placeholder="Ej: vegetariano, sin gluten, sin lactosa"
               />
-              <p className="mt-2 text-xs text-gray-500">Sepáralas con comas o saltos de línea.</p>
+              <p className="mt-2 text-xs text-muted-foreground">Sepáralas con comas o saltos de línea.</p>
             </div>
             <div>
               <Label htmlFor="allergies">Alergias</Label>
@@ -677,7 +677,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 rows={3}
                 placeholder="Ej: huevos, frutos secos, marisco"
               />
-              <p className="mt-2 text-xs text-gray-500">Si cambias estas alergias, el sistema intentará excluir recetas incompatibles.</p>
+              <p className="mt-2 text-xs text-muted-foreground">Si cambias estas alergias, el sistema intentará excluir recetas incompatibles.</p>
             </div>
           </div>
 
@@ -692,7 +692,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
               rows={4}
               placeholder="Ej: brócoli, hígado, atún"
             />
-            <p className="mt-2 text-xs text-gray-500">Úsalo para excluir ingredientes o comidas que no quieres ver en tu plan.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Úsalo para excluir ingredientes o comidas que no quieres ver en tu plan.</p>
           </div>
 
           <div className="space-y-3 border-t pt-4">
@@ -713,7 +713,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
             </div>
             <div className="flex flex-wrap gap-2">
               {ingredientExclusions.map((item) => (
-                <div key={item.id} className="inline-flex items-center gap-2 px-2 py-1 rounded-md border bg-white text-xs">
+                <div key={item.id} className="inline-flex items-center gap-2 px-2 py-1 rounded-md border bg-muted text-xs">
                   <span>{item.term}</span>
                   <button type="button" onClick={() => handleRemoveIngredientExclusion(item.id)} className="text-red-500 hover:text-red-600">
                     <Trash2 className="h-3.5 w-3.5" />
@@ -721,7 +721,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 </div>
               ))}
               {!loadingExclusions && ingredientExclusions.length === 0 ? (
-                <p className="text-xs text-gray-500">No hay ingredientes excluidos.</p>
+                <p className="text-xs text-muted-foreground">No hay ingredientes excluidos.</p>
               ) : null}
             </div>
           </div>
@@ -741,7 +741,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
             </div>
             <div className="space-y-2">
               {recipeExclusions.map((item) => (
-                <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-white">
+                <div key={item.id} className="flex items-center justify-between gap-3 border rounded-md p-2 bg-card">
                   <div className="flex items-center gap-2 min-w-0">
                     {item.image_url ? (
                       <Image src={item.image_url} alt={item.recipe_name} width={32} height={32} className="rounded object-cover border" />
@@ -754,7 +754,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
                 </div>
               ))}
               {!loadingExclusions && recipeExclusions.length === 0 ? (
-                <p className="text-xs text-gray-500">No hay recetas excluidas.</p>
+                <p className="text-xs text-muted-foreground">No hay recetas excluidas.</p>
               ) : null}
             </div>
           </div>
@@ -770,7 +770,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
               rows={3}
               placeholder="Ej: horarios complicados, alimentos que prefieres, observaciones para tu seguimiento"
             />
-            <p className="mt-2 text-xs text-gray-500">Este campo lo verá el equipo administrador para ayudarte mejor y generará una alerta de cambio.</p>
+            <p className="mt-2 text-xs text-muted-foreground">Este campo lo verá el equipo administrador para ayudarte mejor y generará una alerta de cambio.</p>
           </div>
         </CardContent>
       </Card>

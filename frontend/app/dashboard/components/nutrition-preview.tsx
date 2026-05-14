@@ -48,7 +48,7 @@ export function NutritionPreview({
 
   const getChangeIcon = (difference: number) => {
     if (Math.abs(difference) < 1) {
-      return <Minus className="h-4 w-4 text-gray-400" />
+      return <Minus className="h-4 w-4 text-muted-foreground/70" />
     }
     return difference > 0 ? (
       <TrendingUp className="h-4 w-4 text-green-600" />
@@ -58,7 +58,7 @@ export function NutritionPreview({
   }
 
   const getChangeColor = (difference: number) => {
-    if (Math.abs(difference) < 1) return "text-gray-600"
+    if (Math.abs(difference) < 1) return "text-muted-foreground"
     return difference > 0 ? "text-green-600" : "text-red-600"
   }
 
@@ -81,23 +81,23 @@ export function NutritionPreview({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Calorías */}
-        <div className="flex items-center justify-between p-3 bg-white rounded-lg border border-purple-100">
+        <div className="flex items-center justify-between p-3 bg-card rounded-lg border border-purple-100">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <span className="text-lg">🔥</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-700">Calorías diarias</p>
-              <p className="text-xs text-gray-500">Objetivo calórico</p>
+              <p className="text-sm font-medium text-foreground">Calorías diarias</p>
+              <p className="text-xs text-muted-foreground">Objetivo calórico</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             <div className="text-right">
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-foreground">
                 {comparison.calories.current} kcal
               </p>
             </div>
-            <ArrowRight className="h-4 w-4 text-gray-400" />
+            <ArrowRight className="h-4 w-4 text-muted-foreground/70" />
             <div className="text-right">
               <p className={`text-sm font-semibold ${getChangeColor(comparison.calories.difference)}`}>
                 {comparison.calories.proposed} kcal
@@ -113,13 +113,13 @@ export function NutritionPreview({
         {/* Macros */}
         <div className="grid grid-cols-3 gap-3">
           {/* Proteína */}
-          <div className="p-3 bg-white rounded-lg border border-blue-100">
+          <div className="p-3 bg-card rounded-lg border border-blue-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600">Proteína</span>
+              <span className="text-xs font-medium text-muted-foreground">Proteína</span>
               {getChangeIcon(comparison.protein.difference)}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-foreground">
                 {comparison.protein.current}g
               </p>
               <p className={`text-xs font-medium ${getChangeColor(comparison.protein.difference)}`}>
@@ -135,13 +135,13 @@ export function NutritionPreview({
           </div>
 
           {/* Carbohidratos */}
-          <div className="p-3 bg-white rounded-lg border border-green-100">
+          <div className="p-3 bg-card rounded-lg border border-green-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600">Carbohidratos</span>
+              <span className="text-xs font-medium text-muted-foreground">Carbohidratos</span>
               {getChangeIcon(comparison.carbs.difference)}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-foreground">
                 {comparison.carbs.current}g
               </p>
               <p className={`text-xs font-medium ${getChangeColor(comparison.carbs.difference)}`}>
@@ -157,13 +157,13 @@ export function NutritionPreview({
           </div>
 
           {/* Grasas */}
-          <div className="p-3 bg-white rounded-lg border border-yellow-100">
+          <div className="p-3 bg-card rounded-lg border border-yellow-100">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-600">Grasas</span>
+              <span className="text-xs font-medium text-muted-foreground">Grasas</span>
               {getChangeIcon(comparison.fat.difference)}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-semibold text-gray-700">
+              <p className="text-sm font-semibold text-foreground">
                 {comparison.fat.current}g
               </p>
               <p className={`text-xs font-medium ${getChangeColor(comparison.fat.difference)}`}>
@@ -181,7 +181,7 @@ export function NutritionPreview({
 
         {/* Información adicional */}
         <div className="pt-2 border-t border-purple-100">
-          <p className="text-xs text-gray-600 text-center">
+          <p className="text-xs text-muted-foreground text-center">
             💡 Estos valores se calcularán automáticamente basándose en tus nuevos datos
           </p>
         </div>

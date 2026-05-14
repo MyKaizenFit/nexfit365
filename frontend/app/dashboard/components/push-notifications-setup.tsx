@@ -146,7 +146,7 @@ export function PushNotificationsSetup() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Este navegador o dispositivo no permite avisos push en este momento. Cuando uses un navegador compatible, como Chrome, Firefox, Edge o Safari en iOS 16.4 o superior, podrás activarlos desde aquí.
           </p>
         </CardContent>
@@ -155,7 +155,7 @@ export function PushNotificationsSetup() {
   }
 
   return (
-    <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+    <Card className="border shadow-xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
           <Bell className="h-5 w-5" />
@@ -177,8 +177,8 @@ export function PushNotificationsSetup() {
               <AlertCircle className="h-5 w-5 text-orange-600" />
             )}
             <div>
-              <div className="font-medium text-gray-900">Permisos de Notificación</div>
-              <div className="text-sm text-gray-600">
+              <div className="font-medium text-foreground">Permisos de Notificación</div>
+              <div className="text-sm text-muted-foreground">
                 {permission === 'granted' && 'Permisos concedidos'}
                 {permission === 'denied' && 'Permisos denegados'}
                 {permission === 'default' && 'Permisos no solicitados'}
@@ -200,11 +200,11 @@ export function PushNotificationsSetup() {
             {isSubscribed ? (
               <Bell className="h-5 w-5 text-teal-600" />
             ) : (
-              <BellOff className="h-5 w-5 text-gray-400" />
+              <BellOff className="h-5 w-5 text-muted-foreground/70" />
             )}
             <div>
-              <div className="font-medium text-gray-900">Suscripción Push</div>
-              <div className="text-sm text-gray-600">
+              <div className="font-medium text-foreground">Suscripción Push</div>
+              <div className="text-sm text-muted-foreground">
                 {isSubscribed
                   ? `Activa (${subscriptions.length} dispositivo${subscriptions.length !== 1 ? 's' : ''})`
                   : 'No activa'}
@@ -259,8 +259,8 @@ export function PushNotificationsSetup() {
         </div>
 
         {/* Información adicional */}
-        <div className="p-4 bg-gray-50 rounded-lg">
-          <p className="text-xs text-gray-600">
+        <div className="p-4 bg-muted rounded-lg">
+          <p className="text-xs text-muted-foreground">
             Las notificaciones push te permiten recibir alertas importantes incluso cuando no estés usando la aplicación.
             Puedes activarlas o desactivarlas en cualquier momento desde aquí.
           </p>
