@@ -1,11 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   ArrowLeft,
   Dumbbell, Play, Pause, Clock,
   Timer, Star, Video,
-  Save, RotateCcw, Flame, Shield, CheckCircle2
+  Save, RotateCcw, Flame, Shield, CheckCircle2, Copy
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,8 +19,73 @@ import { ExerciseVideoPlayer } from './exercise-video-player'
 import { cn } from '@/lib/utils'
 
 // =============================================
-// COMPONENTE DE ESTRELLAS DE CALIFICACIÓN
+// INPUT NUMÉRICO PARA MÓVIL
+// Evita el problema de type="number" en iOS que impide borrar el valor
 // =============================================
+interface NumericInputProps {
+  value: number | undefined
+  onChange: (value: number | undefined) => void
+  onBlurMin?: number
+  placeholder?: string
+  className?: string
+  disabled?: boolean
+  allowDecimal?: boolean
+}
+
+function NumericInput({ value, onChange, onBlurMin, placeholder, className, disabled = false, allowDecimal = false }: NumericInputProps) {
+  const [display, setDisplay] = useState(value != null ? String(value) : '')
+  const lastExternal = useRef(value)
+
+  useEffect(() => {
+    if (value !== lastExternal.current) {
+      lastExternal.current = value
+      setDisplay(value != null ? String(value) : '')
+    }
+  }, [value])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let raw = e.target.value
+    if (allowDecimal) {
+      raw = raw.replace(/[^0-9.,]/g, '').replace(',', '.')
+    } else {
+      raw = raw.replace(/[^0-9]/g, '')
+    }
+    setDisplay(raw)
+    const num = allowDecimal ? parseFloat(raw) : parseInt(raw, 10)
+    if (!isNaN(num)) {
+      lastExternal.current = num
+      onChange(num)
+    } else if (raw === '') {
+      onChange(undefined)
+    }
+  }
+
+  const handleBlur = () => {
+    if (onBlurMin !== undefined) {
+      const num = allowDecimal ? parseFloat(display) : parseInt(display, 10)
+      const final = isNaN(num) || num < onBlurMin ? onBlurMin : num
+      setDisplay(String(final))
+      lastExternal.current = final
+      onChange(final)
+    }
+  }
+
+  return (
+    <Input
+      type="text"
+      inputMode={allowDecimal ? 'decimal' : 'numeric'}
+      pattern={allowDecimal ? '[0-9]*[.,]?[0-9]*' : '[0-9]*'}
+      className={className}
+      placeholder={placeholder}
+      disabled={disabled}
+      value={display}
+      onChange={handleChange}
+      onBlur={handleBlur}
+    />
+  )
+}
+
+
 interface StarRatingProps {
   value: number
   onChange: (value: number) => void
@@ -58,7 +123,7 @@ function StarRating({ value, onChange, size = 'md' }: StarRatingProps) {
           />
         </button>
       ))}
-      <span className="ml-2 text-sm text-gray-600">
+      <span className="ml-2 text-sm text-muted-foreground">
         {value > 0 ? `${value}/5` : 'Sin calificar'}
       </span>
     </div>
@@ -131,7 +196,7 @@ function RestTimer({ defaultSeconds, onComplete, isActive, setIsActive }: RestTi
           <Timer className="h-5 w-5" />
           Temporizador de Descanso
         </h4>
-        <Badge variant="outline" className="bg-white">
+        <Badge variant="outline" className="bg-card">
           {formatTime(timeLeft)}
         </Badge>
       </div>
@@ -635,7 +700,7 @@ export function ActiveWorkoutSession({
   }
 
   const updateSeriesCount = (exerciseId: string, value: number | undefined) => {
-    const nextCount = normalizeSeriesCount(value, 1)
+    const nextCount = Math.min(6, normalizeSeriesCount(value, 1))
 
     setExerciseSets((prev) => {
       const newSets = { ...prev }
@@ -1131,8 +1196,8 @@ export function ActiveWorkoutSession({
                   className={cn(
                     'transition-all border-2',
                     isCompleted
-                      ? 'bg-green-50 border-green-300'
-                      : 'bg-white border-gray-200 hover:border-purple-300'
+                      ? 'bg-green-500/10 border-green-500/50 dark:bg-green-900/20 dark:border-green-700/50'
+                      : 'bg-card border-border hover:border-purple-400/60'
                   )}
                 >
                   <CardContent className="p-4">
@@ -1143,7 +1208,7 @@ export function ActiveWorkoutSession({
                           <div className="flex-1">
                             <h4 className={cn(
                               'font-semibold text-lg',
-                              isCompleted ? 'text-green-700 line-through' : 'text-gray-900'
+                              isCompleted ? 'text-green-700 line-through' : 'text-foreground'
                             )}>
                               {index + 1}. {mainExercise.name || 'Ejercicio'}
                             </h4>
@@ -1152,15 +1217,15 @@ export function ActiveWorkoutSession({
                                 Respaldo activo para hoy
                               </Badge>
                             )}
-                            <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-gray-600">
+                            <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
                               <span className="flex items-center gap-1">
                                 <Timer className="h-4 w-4" />
                                 {restSeconds}s descanso
                               </span>
                             </div>
                             {Array.isArray(exercise.substitutes) && exercise.substitutes.length > 0 && (
-                              <div className="mt-3 pt-2 border-t border-amber-100 bg-amber-50/50 rounded-md p-2.5">
-                                <p className="text-xs font-semibold text-amber-900 mb-1.5 flex items-center gap-1">
+                              <div className="mt-3 pt-2 border-t border-amber-500/20 bg-amber-500/10 dark:bg-amber-900/20 rounded-md p-2.5">
+                                <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1.5 flex items-center gap-1">
                                   <Shield className="h-3.5 w-3.5" />
                                   Ejercicios de respaldo disponibles ({exercise.substitutes.length})
                                 </p>
@@ -1171,7 +1236,7 @@ export function ActiveWorkoutSession({
                                       type="button"
                                       variant="outline"
                                       size="sm"
-                                      className="h-6 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2"
+                                      className="h-6 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-[10px] px-2"
                                       onClick={() => selectSubstitute(String(exercise.id), sub)}
                                     >
                                       <Shield className="h-2.5 w-2.5 mr-1 inline" />
@@ -1183,233 +1248,131 @@ export function ActiveWorkoutSession({
                                       type="button"
                                       variant="ghost"
                                       size="sm"
-                                      className="h-6 text-[10px] text-amber-900"
+                                      className="h-6 text-[10px] text-amber-700 dark:text-amber-400"
                                       onClick={() => restorePrimaryExercise(String(exercise.id))}
                                     >
                                       Restaurar principal
                                     </Button>
                                   )}
                                 </div>
-                                <p className="text-[10px] text-amber-700 mt-1.5 italic">
+                                <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-1.5 italic">
                                   Usa estos ejercicios alternativos si no puedes realizar el principal.
                                 </p>
                               </div>
                             )}
 
-                            {/* Botones de video - VISIBLE Y ACCESIBLE */}
-                            {(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url) && (
-                              <div className="flex gap-2 flex-wrap mt-4">
-                                <ExerciseVideoPlayer exercise={mainExercise}>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className={cn(
-                                      'flex items-center gap-1',
-                                      isCompleted
-                                        ? 'bg-green-50 border-green-300 hover:bg-green-100 text-green-700'
-                                        : 'bg-blue-50 border-blue-300 hover:bg-blue-100 text-blue-700'
-                                    )}
-                                  >
-                                    {isCompleted ? (
-                                      <>
-                                        <Play className="h-4 w-4" />
-                                        Ver cómo lo hiciste
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Video className="h-4 w-4" />
-                                        Ver técnica
-                                      </>
-                                    )}
-                                  </Button>
-                                </ExerciseVideoPlayer>
-                              </div>
-                            )}
+                            {/* Botón Ver técnica - siempre visible, deshabilitado si no hay contenido */}
+                            {(() => {
+                              const hasContent = !!(mainExercise.has_video || mainExercise.google_drive_file_id || mainExercise.video_url || mainExercise.description || mainExercise.instructions)
+                              const btn = (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={!hasContent}
+                                  className={cn(
+                                    'flex items-center gap-1',
+                                    hasContent
+                                      ? isCompleted
+                                        ? 'bg-green-500/10 border-green-500/40 hover:bg-green-500/20 text-green-600 dark:text-green-400'
+                                        : 'bg-blue-500/10 border-blue-500/40 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400'
+                                      : 'opacity-40 cursor-not-allowed'
+                                  )}
+                                >
+                                  <Video className="h-4 w-4" />
+                                  Ver técnica
+                                </Button>
+                              )
+                              return (
+                                <div className="flex gap-2 flex-wrap mt-4">
+                                  {hasContent
+                                    ? <ExerciseVideoPlayer exercise={mainExercise}>{btn}</ExerciseVideoPlayer>
+                                    : btn}
+                                </div>
+                              )
+                            })()}
                           </div>
                         </div>
 
-                        {/* Registro rápido del ejercicio */}
-                        <div className="mt-3 bg-gray-50 rounded-lg p-3">
-                          <div className="grid grid-cols-1 sm:grid-cols-[140px_1fr] gap-3 mb-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-gray-600 whitespace-nowrap">Nº de series</span>
-                              <Input
-                                type="number"
-                                min={1}
-                                className="h-8 text-sm"
+                        {/* Registro por series */}
+                        <div className="mt-3 bg-muted rounded-lg p-3">
+                          {/* Cabecera: objetivo del plan + control de nº series */}
+                          <div className="flex items-center justify-between mb-2.5">
+                            <span className="text-xs text-muted-foreground">
+                              Objetivo: <span className="font-semibold text-foreground">{exerciseItem.sets ?? exerciseItem.exercise?.sets ?? '—'} × {exerciseItem.reps ?? exerciseItem.exercise?.reps ?? '—'} reps</span>
+                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">Series:</span>
+                              <NumericInput
                                 value={seriesCount}
-                                onChange={(e) => updateSeriesCount(
-                                  exerciseId,
-                                  e.target.value ? parseInt(e.target.value) : 1
-                                )}
+                                onBlurMin={1}
+                                className="h-7 w-12 text-xs text-center"
+                                onChange={(v) => updateSeriesCount(exerciseId, Math.min(6, v ?? 1))}
                                 disabled={!isStarted}
                               />
-                            </div>
-
-                            <div className="flex items-center justify-start sm:justify-end">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="text-xs"
-                                onClick={() => addDifferentSeries(exerciseId)}
-                                disabled={!isStarted || differentSeries.length >= seriesCount}
-                              >
-                                Añadir serie diferente
-                              </Button>
+                              <span className="text-[10px] text-muted-foreground">/6</span>
                             </div>
                           </div>
 
-                          <p className="text-xs text-gray-500 mb-2">
-                            Valores base (si todas las series son iguales)
-                          </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                placeholder={exerciseItem.reps || 'Reps'}
-                                className="h-8 text-sm"
-                                value={baseSetData.reps ?? ''}
-                                onChange={(e) => updateExerciseBaseData(
-                                  exerciseId,
-                                  'reps',
-                                  e.target.value ? parseInt(e.target.value) : undefined
-                                )}
-                                disabled={!isStarted}
-                              />
-                              <span className="text-gray-500 text-sm">reps</span>
+                          {/* Filas de series */}
+                          <div className="space-y-1.5">
+                            {/* Cabecera columnas */}
+                            <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr_1.5rem] gap-1 px-0.5">
+                              <span />
+                              <span className="text-[10px] text-center text-muted-foreground font-medium">Reps</span>
+                              <span className="text-[10px] text-center text-muted-foreground font-medium">Kg</span>
+                              <span className="text-[10px] text-center text-muted-foreground font-medium">RPE</span>
+                              <span />
                             </div>
-
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                placeholder="Kg"
-                                className="h-8 text-sm"
-                                value={baseSetData.weight ?? ''}
-                                onChange={(e) => updateExerciseBaseData(
-                                  exerciseId,
-                                  'weight',
-                                  e.target.value ? parseFloat(e.target.value) : undefined
-                                )}
-                                disabled={!isStarted}
-                              />
-                              <span className="text-gray-500 text-sm">kg</span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min={1}
-                                max={10}
-                                placeholder="Esfuerzo 1-10"
-                                className="h-8 text-sm"
-                                value={baseSetData.effort ?? ''}
-                                onChange={(e) => {
-                                  const value = e.target.value ? parseInt(e.target.value) : undefined
-                                  updateExerciseBaseData(exerciseId, 'effort', value)
-                                }}
-                                disabled={!isStarted}
-                              />
-                              <span className="text-gray-500 text-sm">1-10</span>
-                            </div>
-                          </div>
-
-                          {differentSeries.length > 0 && (
-                            <div className="mt-3 space-y-2">
-                              {differentSeries.map((diff) => (
-                                <div key={`${exerciseId}_diff_${diff.setNumber}`} className="bg-white border rounded-md p-2.5">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs font-medium text-gray-700">Serie diferente Nº</span>
-                                      <Input
-                                        type="number"
-                                        min={1}
-                                        max={seriesCount}
-                                        className="h-7 w-20 text-xs"
-                                        value={diff.setNumber}
-                                        onChange={(e) => updateDifferentSeriesNumber(
-                                          exerciseId,
-                                          diff.setNumber,
-                                          e.target.value ? parseInt(e.target.value) : diff.setNumber
-                                        )}
-                                        disabled={!isStarted}
-                                      />
-                                    </div>
-                                    <Button
+                            {Array.from({ length: seriesCount }, (_, i) => i + 1).map((setNum) => {
+                              const setData: ExerciseSetEntry = exerciseSetData.overrides?.[String(setNum)] ?? exerciseSetData.base ?? {}
+                              const prevData: ExerciseSetEntry | undefined = setNum > 1
+                                ? (exerciseSetData.overrides?.[String(setNum - 1)] ?? exerciseSetData.base)
+                                : undefined
+                              const canCopy = !!prevData && (prevData.reps !== undefined || prevData.weight !== undefined || prevData.effort !== undefined)
+                              return (
+                                <div key={`${exerciseId}_s${setNum}`} className="grid grid-cols-[1.5rem_1fr_1fr_1fr_1.5rem] gap-1 items-center">
+                                  <span className={`text-xs font-bold text-center ${isCompleted ? 'text-green-600 dark:text-green-400' : 'text-blue-600 dark:text-blue-400'}`}>{setNum}</span>
+                                  <NumericInput
+                                    value={setData.reps}
+                                    placeholder={String(exerciseItem.reps ?? exerciseItem.exercise?.reps ?? '')}
+                                    className="h-8 text-sm text-center"
+                                    onChange={(v) => updateDifferentSeriesData(exerciseId, setNum, 'reps', v)}
+                                    disabled={!isStarted}
+                                  />
+                                  <NumericInput
+                                    value={setData.weight}
+                                    placeholder="Kg"
+                                    className="h-8 text-sm text-center"
+                                    allowDecimal
+                                    onChange={(v) => updateDifferentSeriesData(exerciseId, setNum, 'weight', v)}
+                                    disabled={!isStarted}
+                                  />
+                                  <NumericInput
+                                    value={setData.effort}
+                                    placeholder="RPE"
+                                    className="h-8 text-sm text-center"
+                                    onChange={(v) => updateDifferentSeriesData(exerciseId, setNum, 'effort', v)}
+                                    disabled={!isStarted}
+                                  />
+                                  {/* Copiar serie anterior */}
+                                  {canCopy && isStarted ? (
+                                    <button
                                       type="button"
-                                      size="sm"
-                                      variant="ghost"
-                                      className="h-7 text-xs"
-                                      onClick={() => removeDifferentSeries(exerciseId, diff.setNumber)}
-                                      disabled={!isStarted}
+                                      title="Copiar serie anterior"
+                                      className="flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors touch-manipulation"
+                                      onClick={() => {
+                                        if (!prevData) return
+                                        if (prevData.reps !== undefined) updateDifferentSeriesData(exerciseId, setNum, 'reps', prevData.reps)
+                                        if (prevData.weight !== undefined) updateDifferentSeriesData(exerciseId, setNum, 'weight', prevData.weight)
+                                        if (prevData.effort !== undefined) updateDifferentSeriesData(exerciseId, setNum, 'effort', prevData.effort)
+                                      }}
                                     >
-                                      Quitar
-                                    </Button>
-                                  </div>
-
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                    <Input
-                                      type="number"
-                                      placeholder="Reps"
-                                      className="h-8 text-sm"
-                                      value={diff.data.reps ?? ''}
-                                      onChange={(e) => updateDifferentSeriesData(
-                                        exerciseId,
-                                        diff.setNumber,
-                                        'reps',
-                                        e.target.value ? parseInt(e.target.value) : undefined
-                                      )}
-                                      disabled={!isStarted}
-                                    />
-                                    <Input
-                                      type="number"
-                                      placeholder="Kg"
-                                      className="h-8 text-sm"
-                                      value={diff.data.weight ?? ''}
-                                      onChange={(e) => updateDifferentSeriesData(
-                                        exerciseId,
-                                        diff.setNumber,
-                                        'weight',
-                                        e.target.value ? parseFloat(e.target.value) : undefined
-                                      )}
-                                      disabled={!isStarted}
-                                    />
-                                    <Input
-                                      type="number"
-                                      min={1}
-                                      max={10}
-                                      placeholder="Esfuerzo 1-10"
-                                      className="h-8 text-sm"
-                                      value={diff.data.effort ?? ''}
-                                      onChange={(e) => updateDifferentSeriesData(
-                                        exerciseId,
-                                        diff.setNumber,
-                                        'effort',
-                                        e.target.value ? parseInt(e.target.value) : undefined
-                                      )}
-                                      disabled={!isStarted}
-                                    />
-                                  </div>
+                                      <Copy className="h-3 w-3" />
+                                    </button>
+                                  ) : <span />}
                                 </div>
-                              ))}
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex justify-end">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant={isCompleted ? 'default' : 'outline'}
-                              className={cn(
-                                'gap-1.5',
-                                isCompleted ? 'bg-green-600 hover:bg-green-700 text-white' : ''
-                              )}
-                              onClick={() => toggleExerciseCompletion(String(exerciseId))}
-                              disabled={!isStarted}
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              {isCompleted ? 'Completado' : 'Marcar completado'}
-                            </Button>
+                              )
+                            })}
                           </div>
                         </div>
                       </div>
@@ -1462,11 +1425,11 @@ export function ActiveWorkoutSession({
               {/* Resumen */}
               <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Duración</span>
+                  <span className="text-muted-foreground">Duración</span>
                   <span className="font-bold text-purple-700">{formatTime(elapsedSeconds)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Ejercicios completados</span>
+                  <span className="text-muted-foreground">Ejercicios completados</span>
                   <span className="font-bold text-purple-700">{completedExercises.size}/{exercises.length}</span>
                 </div>
               </div>
@@ -1479,7 +1442,7 @@ export function ActiveWorkoutSession({
 
               {/* Calificación con estrellas */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   ¿Cómo calificarías este entrenamiento?
                 </label>
                 <StarRating value={rating} onChange={setRating} size="lg" />
@@ -1487,7 +1450,7 @@ export function ActiveWorkoutSession({
 
               {/* Notas */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
+                <label className="text-sm font-medium text-foreground">
                   Notas (opcional)
                 </label>
                 <Textarea

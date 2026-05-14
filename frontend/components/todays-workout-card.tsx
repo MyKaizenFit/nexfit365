@@ -236,7 +236,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
     return (
       <Card className={className}>
         <CardContent className="p-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-100 to-violet-100 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-purple-500/10 rounded-full flex items-center justify-center">
             <Clock className="h-8 w-8 text-purple-600" />
           </div>
           <h3 className="text-lg font-semibold mb-2 text-purple-700">
@@ -247,14 +247,14 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
           </p>
           {trainingDays.length > 0 && (
             <div className="mt-4 pt-4 border-t">
-              <p className="text-xs text-gray-500 mb-2">Tus días de entrenamiento:</p>
+              <p className="text-xs text-muted-foreground mb-2">Tus días de entrenamiento:</p>
               <div className="flex flex-wrap gap-2 justify-center">
                 {trainingDays.map((day: number) => {
                   const dayNamesShort = ['D', 'L', 'M', 'X', 'J', 'V', 'S']
                   return (
                     <Badge
                       key={day}
-                      className={day === todayDayNumber ? 'bg-purple-600' : 'bg-gray-200 text-gray-600'}
+                      className={day === todayDayNumber ? 'bg-purple-600' : 'bg-muted text-muted-foreground'}
                     >
                       {dayNamesShort[day - 1]}
                     </Badge>
@@ -320,7 +320,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                   p-4 rounded-lg border-2 transition-all
                   ${isCompleted
                     ? 'bg-green-50 border-green-200'
-                    : 'bg-white border-gray-200 hover:border-purple-300 cursor-pointer'
+                    : 'bg-card border-border hover:border-purple-400 cursor-pointer'
                   }
                 `}
                 onClick={() => workoutStarted && handleToggleExercise(exercise.id)}
@@ -331,7 +331,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                     {isCompleted ? (
                       <CheckCircle className="h-5 w-5 text-green-600" />
                     ) : (
-                      <Circle className="h-5 w-5 text-gray-400 hover:text-purple-600" />
+                      <Circle className="h-5 w-5 text-muted-foreground hover:text-purple-500" />
                     )}
                   </div>
 
@@ -339,7 +339,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1">
-                        <h4 className={`font-semibold ${isCompleted ? 'text-green-700 line-through' : 'text-gray-900'}`}>
+                        <h4 className={`font-semibold ${isCompleted ? 'text-green-700 line-through' : 'text-foreground'}`}>
                           {index + 1}. {mainExerciseData.name}
                         </h4>
                         {substituteSelected && (
@@ -347,7 +347,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                             Respaldo activo para hoy
                           </Badge>
                         )}
-                        <div className="mt-1 flex items-center gap-3 text-sm text-gray-600">
+                        <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                           {exercise.sets && (
                             <span className="flex items-center gap-1">
                               <Dumbbell className="h-3 w-3" />
@@ -377,7 +377,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                                   type="button"
                                   variant="outline"
                                   size="sm"
-                                  className="h-6 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-[10px] px-2"
+                                  className="h-6 bg-amber-500/10 text-amber-800 dark:text-amber-400 border border-amber-300 dark:border-amber-700/50 text-[10px] px-2"
                                   onClick={(event) => {
                                     event.stopPropagation()
                                     handleSelectSubstitute(String(exerciseData.id), sub)
@@ -425,7 +425,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                     {/* Thumbnail del ejercicio si existe */}
                     {(mainExerciseData.thumbnail_url || mainExerciseData.image_url) && (
                       <ExerciseVideoPlayer exercise={mainExerciseData}>
-                        <div className="mt-2 relative w-32 h-20 bg-gray-100 rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-gray-200">
+                        <div className="mt-2 relative w-32 h-20 bg-muted rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-border">
                           <img
                             src={mainExerciseData.thumbnail_url || mainExerciseData.image_url}
                             alt={mainExerciseData.name}
@@ -440,7 +440,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
                     {/* Notas si existen */}
                     {exercise.notes && (
-                      <p className="mt-2 text-xs text-gray-600 italic">
+                      <p className="mt-2 text-xs text-muted-foreground italic">
                         {exercise.notes}
                       </p>
                     )}

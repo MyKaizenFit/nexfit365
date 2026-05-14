@@ -120,7 +120,7 @@ export function WorkoutScheduleConfig({ className }: WorkoutScheduleConfigProps)
       <CardContent className="space-y-4">
         {/* Selector de días */}
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-gray-600">Selecciona tus días de entrenamiento</Label>
+          <Label className="text-xs font-medium text-muted-foreground">Selecciona tus días de entrenamiento</Label>
           <div className="grid grid-cols-7 gap-1">
             {DAYS_OF_WEEK.map(day => {
               const isSelected = workoutDays.includes(day.number)
@@ -133,7 +133,7 @@ export function WorkoutScheduleConfig({ className }: WorkoutScheduleConfigProps)
                     relative p-2 rounded-lg border-2 transition-all
                     ${isSelected
                       ? 'bg-gradient-to-br from-purple-500 to-violet-500 border-purple-600 text-white shadow-md'
-                      : 'bg-white border-gray-200 text-gray-700 hover:border-purple-300 hover:bg-purple-50'
+                      : 'bg-white border-border text-gray-700 hover:border-purple-300 hover:bg-purple-50'
                     }
                     ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
                   `}
@@ -143,7 +143,7 @@ export function WorkoutScheduleConfig({ className }: WorkoutScheduleConfigProps)
                   </div>
                   
                   {isSelected && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm">
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-card rounded-full flex items-center justify-center shadow-sm">
                       <Dumbbell className="h-2.5 w-2.5 text-purple-600" />
                     </div>
                   )}
@@ -157,7 +157,7 @@ export function WorkoutScheduleConfig({ className }: WorkoutScheduleConfigProps)
         <div className="bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg p-3 border border-purple-100">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-600">Total días:</p>
+              <p className="text-xs text-muted-foreground">Total días:</p>
               <p className="text-2xl font-bold text-purple-600 mt-0.5">
                 {workoutDays.length}
               </p>

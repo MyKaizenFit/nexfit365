@@ -115,8 +115,8 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
     : "text-blue-500"
 
   const containerClass = inline
-    ? cn("bg-white border border-gray-200 rounded-2xl p-4 space-y-3", className)
-    : cn("bg-white rounded-2xl shadow-xl border border-gray-100 p-5 space-y-4", className)
+    ? cn("bg-white border border-border rounded-2xl p-4 space-y-3", className)
+    : cn("bg-white rounded-2xl shadow-xl border border-border p-5 space-y-4", className)
 
   return (
     <div className={containerClass}>
@@ -124,12 +124,12 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Timer className="w-4 h-4 text-blue-500" />
-          <span className="font-semibold text-sm text-gray-700">Descanso</span>
+          <span className="font-semibold text-sm text-foreground">Descanso</span>
         </div>
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 text-gray-400 hover:text-gray-600"
+          className="h-7 w-7 text-gray-400 hover:text-muted-foreground"
           onClick={() => setMuted(m => !m)}
           title={muted ? "Activar sonido" : "Silenciar"}
         >
@@ -207,7 +207,7 @@ export function RestTimer({ defaultDuration = 90, inline = false, onComplete, cl
               "px-2 py-0.5 rounded-full text-xs font-medium transition-colors",
               duration === sec && !running
                 ? "bg-blue-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-gray-100 text-muted-foreground hover:bg-gray-200"
             )}
           >
             {sec >= 60 ? `${sec / 60}m` : `${sec}s`}

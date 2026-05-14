@@ -56,7 +56,7 @@ const FormField = ({
   error?: string;
 }) => (
   <div className="space-y-2">
-    <Label htmlFor={name} className="text-sm font-medium text-gray-700">
+    <Label htmlFor={name} className="text-sm font-medium text-foreground">
       {label} {required && <span className="text-red-500">*</span>}
     </Label>
     {children}
@@ -299,7 +299,7 @@ function InitialRegistrationFormComponent({
                   "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-300",
                   isCompleted && "bg-green-500 text-white",
                   isActive && "bg-blue-600 text-white ring-4 ring-blue-200",
-                  !isActive && !isCompleted && "bg-gray-200 text-gray-500"
+                  !isActive && !isCompleted && "bg-gray-200 text-muted-foreground"
                 )}
               >
                 {isCompleted ? <Check className="w-6 h-6" /> : <Icon className="w-6 h-6" />}
@@ -328,7 +328,7 @@ function InitialRegistrationFormComponent({
   return (
     <Card className="w-full max-w-3xl mx-auto border-0 shadow-xl bg-white/95 backdrop-blur">
       <CardHeader className="text-center pb-2">
-        <CardTitle className="text-2xl font-bold text-gray-800">
+        <CardTitle className="text-2xl font-bold text-foreground">
           Configura tu Perfil
         </CardTitle>
         <CardDescription>
@@ -391,7 +391,7 @@ function InitialRegistrationFormComponent({
                   value={formState.phone_number}
                   onChange={handlePhoneChange}
                 />
-                <p className="text-xs text-gray-500 mt-1">Ingresa 9 dígitos sin espacios ni guiones</p>
+                <p className="text-xs text-muted-foreground mt-1">Ingresa 9 dígitos sin espacios ni guiones</p>
               </FormField>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -439,7 +439,7 @@ function InitialRegistrationFormComponent({
                           "flex-1 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all",
                           formState.gender === option.value
                             ? "border-blue-500 bg-blue-50 text-blue-700"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            : "border-border bg-card text-muted-foreground hover:border-gray-300"
                         )}
                       >
                         {option.label}
@@ -515,7 +515,7 @@ function InitialRegistrationFormComponent({
                         "py-3 px-2 rounded-lg border-2 text-center transition-all",
                         formState.activity_level === option.value
                           ? "border-blue-500 bg-blue-50 text-blue-700"
-                          : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                          : "border-border bg-card text-muted-foreground hover:border-gray-300"
                       )}
                     >
                       <div className="text-2xl mb-1">{option.emoji}</div>
@@ -546,7 +546,7 @@ function InitialRegistrationFormComponent({
                           "py-3 rounded-lg border-2 transition-all",
                           isSelected
                             ? "border-green-500 bg-green-50 text-green-700"
-                            : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                            : "border-border bg-card text-muted-foreground hover:border-gray-300"
                         )}
                       >
                         <div className="text-lg font-bold">{day.short}</div>
@@ -556,7 +556,7 @@ function InitialRegistrationFormComponent({
                   })}
                 </div>
                 {formState.training_days.length > 0 && (
-                  <p className="text-sm text-gray-500 mt-2">
+                  <p className="text-sm text-muted-foreground mt-2">
                     {formState.training_days.length} día{formState.training_days.length !== 1 ? 's' : ''} seleccionado{formState.training_days.length !== 1 ? 's' : ''}
                   </p>
                 )}
@@ -576,12 +576,12 @@ function InitialRegistrationFormComponent({
                         "py-4 px-4 rounded-xl border-2 text-left transition-all",
                         formState.training_location === option.value
                           ? "border-blue-500 bg-blue-50"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          : "border-border bg-card hover:border-gray-300"
                       )}
                     >
                       <div className="text-3xl mb-2">{option.emoji}</div>
-                      <div className="font-semibold text-gray-800">{option.label}</div>
-                      <div className="text-xs text-gray-500">{option.desc}</div>
+                      <div className="font-semibold text-foreground">{option.label}</div>
+                      <div className="text-xs text-muted-foreground">{option.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -607,19 +607,19 @@ function InitialRegistrationFormComponent({
                         "py-6 px-4 rounded-xl border-2 text-center transition-all",
                         formState.main_goal === option.value
                           ? "border-green-500 bg-green-50 ring-2 ring-green-200"
-                          : "border-gray-200 bg-white hover:border-gray-300"
+                          : "border-border bg-card hover:border-gray-300"
                       )}
                     >
                       <div className="text-4xl mb-2">{option.emoji}</div>
-                      <div className="font-semibold text-gray-800">{option.label}</div>
-                      <div className="text-xs text-gray-500 mt-1">{option.desc}</div>
+                      <div className="font-semibold text-foreground">{option.label}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{option.desc}</div>
                     </button>
                   ))}
                 </div>
               </FormField>
 
               <div className="bg-gray-50 rounded-xl p-4 space-y-4">
-                <p className="text-sm font-medium text-gray-700">
+                <p className="text-sm font-medium text-foreground">
                   Información adicional (opcional)
                 </p>
 

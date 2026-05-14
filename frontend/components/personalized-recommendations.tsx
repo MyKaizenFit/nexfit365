@@ -61,7 +61,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
   if (loading) {
     return (
       <div className="w-full space-y-6">
-        <Card className="border-0 bg-white shadow-xl">
+        <Card className="border-0 bg-card shadow-xl">
           <CardHeader className="text-center space-y-4">
             <Skeleton className="w-16 h-16 mx-auto rounded-2xl" />
             <Skeleton className="h-8 w-64 mx-auto" />
@@ -86,7 +86,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
   // Error state
   if (error || !recommendations) {
     return (
-      <Card className="border-0 bg-white shadow-xl">
+      <Card className="border-0 bg-card shadow-xl">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-red-600">⚠️ Error al cargar recomendaciones</CardTitle>
         </CardHeader>
@@ -139,7 +139,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
           onClick={() => setActiveTab('tips')}
           className={activeTab === 'tips' 
             ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white' 
-            : 'bg-white text-gray-700 hover:bg-gray-50'
+            : 'bg-white text-gray-700 hover:bg-muted'
           }
         >
           <Sparkles className="w-4 h-4 mr-2" />
@@ -149,7 +149,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
           onClick={() => setActiveTab('recipes')}
           className={activeTab === 'recipes' 
             ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' 
-            : 'bg-white text-gray-700 hover:bg-gray-50'
+            : 'bg-white text-gray-700 hover:bg-muted'
           }
         >
           <ChefHat className="w-4 h-4 mr-2" />
@@ -159,7 +159,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
           onClick={() => setActiveTab('workouts')}
           className={activeTab === 'workouts' 
             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
-            : 'bg-white text-gray-700 hover:bg-gray-50'
+            : 'bg-white text-gray-700 hover:bg-muted'
           }
         >
           <Dumbbell className="w-4 h-4 mr-2" />
@@ -171,7 +171,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
       {activeTab === 'tips' && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {recommendations.wellness_tips.slice(0, 6).map((tip: any) => (
-            <Card key={tip.id} className="border-0 bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+            <Card key={tip.id} className="border-0 bg-card hover:shadow-xl transition-all hover:-translate-y-1">
               <CardHeader>
                 <div className="flex items-start justify-between mb-2">
                   <Badge className="bg-emerald-100 text-emerald-700 border-0">
@@ -187,7 +187,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
                 <CardTitle className="text-lg line-clamp-2">{tip.title}</CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm text-gray-600 line-clamp-3">{tip.summary || tip.content}</p>
+                <p className="text-sm text-muted-foreground line-clamp-3">{tip.summary || tip.content}</p>
               </CardContent>
             </Card>
           ))}
@@ -198,18 +198,18 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
       {activeTab === 'recipes' && (
         <div className="space-y-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+            <h3 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
               <ChefHat className="w-6 h-6 text-orange-500" />
               Recetas para tu Objetivo
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               {profile?.main_goal && `Seleccionadas para ${getGoalText(profile.main_goal)}`}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recommendations.recipes.slice(0, 6).map((recipe: any) => (
-              <Card key={recipe.id} className="border-0 bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+              <Card key={recipe.id} className="border-0 bg-card hover:shadow-xl transition-all hover:-translate-y-1">
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start gap-2">
                     <CardTitle className="text-base line-clamp-2">{recipe.name}</CardTitle>
@@ -238,7 +238,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
                     </div>
                   </div>
                   {recipe.prep_time_minutes && (
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Clock className="w-3 h-3" />
                       {recipe.prep_time_minutes} min
                     </div>
@@ -254,18 +254,18 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
       {activeTab === 'workouts' && (
         <div className="space-y-4">
           <div className="text-center">
-            <h3 className="text-2xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+            <h3 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
               <Dumbbell className="w-6 h-6 text-purple-500" />
               Programas de Entrenamiento
             </h3>
-            <p className="text-gray-600">
+            <p className="text-muted-foreground">
               {profile?.training_location && `Para entrenar ${profile.training_location === 'home' ? 'en casa' : 'en gimnasio'}`}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {recommendations.workout_programs.slice(0, 6).map((program: any) => (
-              <Card key={program.id} className="border-0 bg-white hover:shadow-xl transition-all hover:-translate-y-1">
+              <Card key={program.id} className="border-0 bg-card hover:shadow-xl transition-all hover:-translate-y-1">
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start gap-2">
                     <CardTitle className="text-base line-clamp-2">{program.name}</CardTitle>
@@ -275,7 +275,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-sm text-gray-600 line-clamp-2">{program.description}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{program.description}</p>
                   <div className="grid grid-cols-3 gap-2 text-center">
                     <div>
                       <Clock className="w-4 h-4 text-blue-500 mx-auto mb-1" />
@@ -309,7 +309,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
           <Button
             onClick={onComplete}
             size="lg"
-            className="bg-white text-emerald-600 hover:bg-white/90 px-8 py-6 text-lg font-bold shadow-xl"
+            className="bg-white text-emerald-600 hover:bg-card/90 px-8 py-6 text-lg font-bold shadow-xl"
           >
             <Sparkles className="w-5 h-5 mr-2" />
             Ir a Inicio

@@ -207,7 +207,7 @@ export function UserProfileForm({ onProfileUpdate }: UserProfileFormProps) {
           <User className="w-6 h-6 text-blue-600" />
           Configuración de Perfil
         </CardTitle>
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Actualiza tu información personal y preferencias para personalizar tu experiencia
         </p>
       </CardHeader>
@@ -278,7 +278,7 @@ export function UserProfileForm({ onProfileUpdate }: UserProfileFormProps) {
                       >
                         <span>{country.flag}</span>
                         <span className="font-medium">{country.code}</span>
-                        <span className="text-gray-500">{country.name}</span>
+                        <span className="text-muted-foreground">{country.name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>

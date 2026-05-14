@@ -342,7 +342,7 @@ export function AdminDashboard() {
           subtitle={`${statsWithTrends?.users?.activePercentage || 0}% activos`}
           icon={Users}
           iconColor="text-blue-600"
-          bgGradient="from-blue-50 to-cyan-50"
+          bgGradient="from-blue-500/15 to-cyan-500/15"
           trend={statsWithTrends?.users?.activePercentage || 0}
         >
           <div className="mt-2 text-xs text-muted-foreground">
@@ -356,7 +356,7 @@ export function AdminDashboard() {
           subtitle={`${statsWithTrends?.workouts?.activeWorkoutPercentage || 0}% activos`}
           icon={Dumbbell}
           iconColor="text-green-600"
-          bgGradient="from-green-50 to-emerald-50"
+          bgGradient="from-green-500/15 to-emerald-500/15"
           trend={statsWithTrends?.workouts?.activeWorkoutPercentage || 0}
         >
           <div className="mt-2 text-xs text-muted-foreground">
@@ -370,7 +370,7 @@ export function AdminDashboard() {
           subtitle={`${statsWithTrends?.nutrition?.activeNutritionPercentage || 0}% activos`}
           icon={Utensils}
           iconColor="text-orange-600"
-          bgGradient="from-orange-50 to-amber-50"
+          bgGradient="from-orange-500/15 to-amber-500/15"
           trend={statsWithTrends?.nutrition?.activeNutritionPercentage || 0}
         >
           <div className="mt-2 text-xs text-muted-foreground">
@@ -384,7 +384,7 @@ export function AdminDashboard() {
           subtitle={`${statsWithTrends?.notifications?.unreadPercentage || 0}% sin leer`}
           icon={Bell}
           iconColor="text-purple-600"
-          bgGradient="from-purple-50 to-violet-50"
+          bgGradient="from-purple-500/15 to-violet-500/15"
           trend={statsWithTrends?.notifications?.unreadPercentage || 0}
         >
           <div className="mt-2 text-xs text-muted-foreground">
@@ -464,12 +464,12 @@ export function AdminDashboard() {
                 </div>
                 <Badge
                   variant="outline"
-                  className={
+                        className={
                     analyticsSummary.statusTone === "healthy"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      ? "border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                       : analyticsSummary.statusTone === "warning"
-                        ? "border-amber-200 bg-amber-50 text-amber-700"
-                        : "border-rose-200 bg-rose-50 text-rose-700"
+                        ? "border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                        : "border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400"
                   }
                 >
                   {analyticsSummary.statusLabel}
@@ -592,7 +592,7 @@ export function AdminDashboard() {
               </Button>
             </div>
 
-            <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 space-y-1">
+            <div className="rounded-xl bg-amber-500/10 p-3 text-sm text-amber-800 dark:text-amber-300 space-y-1">
               <p>Ahora mismo hay {automationSummary?.segments?.review_candidates ?? usersNeedingReview} usuarios para revisión prioritaria.</p>
               <p>{automationSummary?.segments?.reactivation_candidates ?? 0} necesitan reactivación y {automationSummary?.segments?.progress_candidates ?? 0} deberían subir check-in.</p>
             </div>
@@ -640,8 +640,8 @@ export function AdminDashboard() {
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                          <UserCheck className="h-4 w-4 text-blue-600" />
+                        <div className="h-8 w-8 rounded-full bg-blue-500/15 flex items-center justify-center flex-shrink-0">
+                          <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{user.email}</p>
@@ -672,8 +672,8 @@ export function AdminDashboard() {
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                          <Dumbbell className="h-4 w-4 text-green-600" />
+                        <div className="h-8 w-8 rounded-full bg-green-500/15 flex items-center justify-center flex-shrink-0">
+                          <Dumbbell className="h-4 w-4 text-green-600 dark:text-green-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{log.user_email}</p>
@@ -704,8 +704,8 @@ export function AdminDashboard() {
                       className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-8 w-8 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
-                          <Utensils className="h-4 w-4 text-orange-600" />
+                        <div className="h-8 w-8 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
+                          <Utensils className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{log.user_email}</p>
@@ -903,10 +903,10 @@ interface QuickStatCardProps {
 
 function QuickStatCard({ icon: Icon, value, label, color }: QuickStatCardProps) {
   const colorClasses = {
-    blue: "from-blue-50 to-cyan-50 text-blue-600",
-    green: "from-green-50 to-emerald-50 text-green-600",
-    orange: "from-orange-50 to-amber-50 text-orange-600",
-    purple: "from-purple-50 to-violet-50 text-purple-600",
+    blue: "from-blue-500/15 to-cyan-500/15 text-blue-600 dark:text-blue-400",
+    green: "from-green-500/15 to-emerald-500/15 text-green-600 dark:text-green-400",
+    orange: "from-orange-500/15 to-amber-500/15 text-orange-600 dark:text-orange-400",
+    purple: "from-purple-500/15 to-violet-500/15 text-purple-600 dark:text-purple-400",
   }
 
   return (
