@@ -264,7 +264,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-teal-600" />
-          <p className="text-gray-600">Cargando datos del usuario...</p>
+          <p className="text-muted-foreground">Cargando datos del usuario...</p>
         </div>
       </div>
     )
@@ -273,11 +273,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
   if (error || !user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl max-w-md">
+        <Card className="border shadow-xl max-w-md">
           <CardContent className="p-6 text-center">
             <AlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
             <h2 className="text-xl font-semibold mb-2">Error al cargar usuario</h2>
-            <p className="text-gray-600 mb-4">{error || "Usuario no encontrado"}</p>
+            <p className="text-muted-foreground mb-4">{error || "Usuario no encontrado"}</p>
             <Button onClick={() => router.push("/admin")} variant="outline">
               <ArrowLeft className="h-4 w-4 mr-2" />
               Volver al panel
@@ -290,25 +290,25 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
   const getStatusBadge = () => {
     if (!user.is_active) {
-      return <Badge className="bg-red-100 text-red-800 border-0">Inactivo</Badge>
+      return <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-0">Inactivo</Badge>
     }
-    return <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
+    return <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-0">Activo</Badge>
   }
 
   const getPlanBadge = () => {
     const roleColors: Record<string, string> = {
       basic: "outline",
-      premium: "bg-blue-100 text-blue-800 border-0",
-      pro: "bg-purple-100 text-purple-800 border-0",
-      admin: "bg-orange-100 text-orange-800 border-0",
+      premium: "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-0",
+      pro: "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-0",
+      admin: "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-0",
     }
     return <Badge className={roleColors[user.role] || "outline"}>{user.role_display}</Badge>
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50">
+    <div className="min-h-screen">
       {/* Header - Mobile Optimized */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-white/20 sticky top-0 z-40">
+      <div className="bg-background/90 backdrop-blur-lg border-b sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14 md:h-16 py-2">
             <div className="flex items-center gap-2 md:gap-4 min-w-0 flex-1">
@@ -316,7 +316,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 variant="outline"
                 size="icon"
                 onClick={() => router.push("/admin")}
-                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 h-8 w-8 md:h-10 md:w-10 flex-shrink-0"
+                className="hover:bg-muted h-8 w-8 md:h-10 md:w-10 flex-shrink-0"
               >
                 <ArrowLeft className="h-3 w-3 md:h-4 md:w-4" />
               </Button>
@@ -324,7 +324,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                 <h1 className="text-sm md:text-xl font-semibold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent truncate">
                   {user.first_name} {user.last_name}
                 </h1>
-                <p className="text-xs md:text-sm text-gray-600 truncate">{user.email}</p>
+                <p className="text-xs md:text-sm text-muted-foreground truncate">{user.email}</p>
               </div>
             </div>
             <div className="flex items-center gap-1 md:gap-2 flex-shrink-0">
@@ -339,7 +339,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
         <Tabs defaultValue="overview" className="space-y-4 md:space-y-6">
           {/* Mobile: Scroll horizontal, Desktop: Grid */}
           <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
-            <TabsList className="inline-flex w-max h-auto p-1 bg-white/50 backdrop-blur-sm border-0 gap-1">
+            <TabsList className="inline-flex w-max h-auto p-1 bg-muted/50 backdrop-blur-sm border gap-1">
               <TabsTrigger
                 value="overview"
                 className="flex items-center gap-1 px-2 py-1.5 text-[10px] data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white whitespace-nowrap"
@@ -400,7 +400,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
           </div>
           
           {/* Desktop: Grid tradicional */}
-          <TabsList className="hidden md:grid w-full grid-cols-4 lg:grid-cols-8 h-auto p-1 bg-white/50 backdrop-blur-sm border-0">
+          <TabsList className="hidden md:grid w-full grid-cols-4 lg:grid-cols-8 h-auto p-1 bg-muted/50 backdrop-blur-sm border">
             <TabsTrigger
               value="overview"
               className="flex items-center gap-2 py-2 text-xs md:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
@@ -503,7 +503,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               {/* Información Personal */}
-              <Card className="lg:col-span-2 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="lg:col-span-2 border shadow-xl">
                 <CardHeader className="p-4 md:p-6">
                   <CardTitle className="bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
                     <User className="h-4 w-4 md:h-5 md:w-5" />
@@ -519,10 +519,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         <Input
                           value={localData.first_name || ""}
                           onChange={(e) => setLocalData({ ...localData, first_name: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-teal-400"
+                          className="border-2 border-border focus:border-teal-400"
                         />
                       ) : (
-                        <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">{fixEncoding(user.first_name)}</p>
+                        <p className="text-sm font-medium p-2 bg-muted rounded-lg">{fixEncoding(user.first_name)}</p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -531,10 +531,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         <Input
                           value={localData.last_name || ""}
                           onChange={(e) => setLocalData({ ...localData, last_name: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-teal-400"
+                          className="border-2 border-border focus:border-teal-400"
                         />
                       ) : (
-                        <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">{fixEncoding(user.last_name)}</p>
+                        <p className="text-sm font-medium p-2 bg-muted rounded-lg">{fixEncoding(user.last_name)}</p>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -542,8 +542,8 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         <Mail className="h-4 w-4" />
                         Email
                       </Label>
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">{user.email}</p>
-                      <p className="text-xs text-gray-500">El email no se puede modificar</p>
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">{user.email}</p>
+                      <p className="text-xs text-muted-foreground">El email no se puede modificar</p>
                     </div>
                     <div className="space-y-2">
                       <Label className="flex items-center gap-2">
@@ -554,11 +554,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         <Input
                           value={localData.phone_number || ""}
                           onChange={(e) => setLocalData({ ...localData, phone_number: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-teal-400"
+                          className="border-2 border-border focus:border-teal-400"
                           placeholder="+34 600 000 000"
                         />
                       ) : (
-                        <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                           {user.phone_number || "No especificado"}
                         </p>
                       )}
@@ -573,10 +573,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           type="date"
                           value={localData.birth_date || ""}
                           onChange={(e) => setLocalData({ ...localData, birth_date: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-teal-400"
+                          className="border-2 border-border focus:border-teal-400"
                         />
                       ) : (
-                        <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                           {user.birth_date
                             ? new Date(user.birth_date).toLocaleDateString("es-ES")
                             : "No especificada"}
@@ -591,7 +591,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           value={localData.gender || ""}
                           onValueChange={(value) => setLocalData({ ...localData, gender: value as any })}
                         >
-                          <SelectTrigger className="border-2 border-gray-200 focus:border-teal-400">
+                          <SelectTrigger className="border-2 border-border focus:border-teal-400">
                             <SelectValue placeholder="Seleccionar género" />
                           </SelectTrigger>
                           <SelectContent>
@@ -601,7 +601,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           </SelectContent>
                         </Select>
                       ) : (
-                        <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                           {user.gender_display || "No especificado"}
                         </p>
                       )}
@@ -611,7 +611,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               </Card>
 
               {/* Estadísticas rápidas */}
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="border shadow-xl">
                 <CardHeader className="p-4 md:p-6">
                   <CardTitle className="bg-gradient-to-r from-emerald-600 to-green-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
                     <Activity className="h-4 w-4 md:h-5 md:w-5" />
@@ -652,7 +652,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             </div>
 
             {/* Datos Físicos */}
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent flex items-center gap-2 text-base md:text-lg">
                   <Ruler className="h-4 w-4 md:h-5 md:w-5" />
@@ -674,11 +674,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         onChange={(e) =>
                           setLocalData({ ...localData, height: e.target.value ? parseFloat(e.target.value) : undefined })
                         }
-                        className="border-2 border-gray-200 focus:border-blue-400"
+                        className="border-2 border-border focus:border-blue-400"
                         placeholder="175"
                       />
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.height ? `${user.height} cm` : "No especificada"}
                       </p>
                     )}
@@ -696,11 +696,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         onChange={(e) =>
                           setLocalData({ ...localData, weight: e.target.value ? parseFloat(e.target.value) : undefined })
                         }
-                        className="border-2 border-gray-200 focus:border-blue-400"
+                        className="border-2 border-border focus:border-blue-400"
                         placeholder="70.5"
                       />
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.weight ? `${user.weight} kg` : "No especificado"}
                       </p>
                     )}
@@ -721,11 +721,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                             target_weight: e.target.value ? parseFloat(e.target.value) : undefined,
                           })
                         }
-                        className="border-2 border-gray-200 focus:border-blue-400"
+                        className="border-2 border-border focus:border-blue-400"
                         placeholder="65.0"
                       />
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.target_weight ? `${user.target_weight} kg` : "No especificado"}
                       </p>
                     )}
@@ -735,13 +735,13 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             </Card>
 
             {/* Objetivos y Preferencias de Fitness */}
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader>
                 <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent flex items-center gap-2">
                   <Target className="h-5 w-5" />
                   Objetivos y Preferencias de Fitness
                   {user.recent_change_sections?.fitness_preferences && (
-                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                    <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-0">Cambios recientes</Badge>
                   )}
                 </CardTitle>
                 <CardDescription>Configuración de objetivos y preferencias de entrenamiento</CardDescription>
@@ -755,7 +755,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         value={localData.main_goal || ""}
                         onValueChange={(value) => setLocalData({ ...localData, main_goal: value as any })}
                       >
-                        <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                        <SelectTrigger className="border-2 border-border focus:border-purple-400">
                           <SelectValue placeholder="Seleccionar objetivo" />
                         </SelectTrigger>
                         <SelectContent>
@@ -767,7 +767,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.main_goal_display || "No especificado"}
                       </p>
                     )}
@@ -779,7 +779,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         value={localData.activity_level || ""}
                         onValueChange={(value) => setLocalData({ ...localData, activity_level: value as any })}
                       >
-                        <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                        <SelectTrigger className="border-2 border-border focus:border-purple-400">
                           <SelectValue placeholder="Seleccionar nivel" />
                         </SelectTrigger>
                         <SelectContent>
@@ -791,7 +791,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.activity_level_display || "No especificado"}
                       </p>
                     )}
@@ -806,7 +806,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         value={localData.training_location || ""}
                         onValueChange={(value) => setLocalData({ ...localData, training_location: value as any })}
                       >
-                        <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                        <SelectTrigger className="border-2 border-border focus:border-purple-400">
                           <SelectValue placeholder="Seleccionar ubicación" />
                         </SelectTrigger>
                         <SelectContent>
@@ -816,7 +816,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         </SelectContent>
                       </Select>
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.training_location_display || "No especificada"}
                       </p>
                     )}
@@ -835,10 +835,10 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                             training_days_per_week: e.target.value ? parseInt(e.target.value) : undefined,
                           })
                         }
-                        className="border-2 border-gray-200 focus:border-purple-400"
+                        className="border-2 border-border focus:border-purple-400"
                       />
                     ) : (
-                      <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                      <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                         {user.training_days_per_week || "No especificado"}
                       </p>
                     )}
@@ -878,7 +878,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           ) : null
                         })
                       ) : (
-                        <p className="text-sm text-gray-500">No hay días seleccionados</p>
+                        <p className="text-sm text-muted-foreground">No hay días seleccionados</p>
                       )}
                     </div>
                   )}
@@ -917,7 +917,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                           </Badge>
                         ))
                       ) : (
-                        <p className="text-sm text-gray-500">No hay equipamiento especificado</p>
+                        <p className="text-sm text-muted-foreground">No hay equipamiento especificado</p>
                       )}
                     </div>
                   )}
@@ -926,13 +926,13 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
             </Card>
 
             {/* Información Dietética */}
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader>
                 <CardTitle className="bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent flex items-center gap-2">
                   <UtensilsCrossed className="h-5 w-5" />
                   Información Dietética
                   {user.recent_change_sections?.dietary_information && (
-                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                    <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-0">Cambios recientes</Badge>
                   )}
                 </CardTitle>
                 <CardDescription>Restricciones dietéticas, alergias y preferencias alimentarias</CardDescription>
@@ -963,12 +963,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                     <div className="flex flex-wrap gap-2">
                       {Array.isArray(user.dietary_restrictions) && user.dietary_restrictions.length > 0 ? (
                         fixEncodingArray(user.dietary_restrictions).map((restriction) => (
-                          <Badge key={restriction} className="bg-orange-100 text-orange-700 border-0">
+                          <Badge key={restriction} className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-0">
                             {restriction}
                           </Badge>
                         ))
                       ) : (
-                        <p className="text-sm text-gray-500">No hay restricciones especificadas</p>
+                        <p className="text-sm text-muted-foreground">No hay restricciones especificadas</p>
                       )}
                     </div>
                   )}
@@ -1027,12 +1027,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                     <div className="flex flex-wrap gap-2">
                       {Array.isArray(user.allergies) && user.allergies.length > 0 ? (
                         fixEncodingArray(user.allergies).map((allergy) => (
-                          <Badge key={allergy} className="bg-red-100 text-red-700 border-0">
+                          <Badge key={allergy} className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-0">
                             {fixEncoding(allergy)}
                           </Badge>
                         ))
                       ) : (
-                        <p className="text-sm text-gray-500">No hay alergias especificadas</p>
+                        <p className="text-sm text-muted-foreground">No hay alergias especificadas</p>
                       )}
                     </div>
                   )}
@@ -1046,11 +1046,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                       value={localData.disliked_foods || ""}
                       onChange={(e) => setLocalData({ ...localData, disliked_foods: e.target.value })}
                       placeholder="Ej: brócoli, espinacas, etc."
-                      className="border-2 border-gray-200 focus:border-orange-400"
+                      className="border-2 border-border focus:border-orange-400"
                       rows={3}
                     />
                   ) : (
-                    <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                       {fixEncoding(user.disliked_foods) || "No especificado"}
                     </p>
                   )}
@@ -1061,13 +1061,13 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                   {Array.isArray(user.excluded_ingredients) && user.excluded_ingredients.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {user.excluded_ingredients.map((item) => (
-                        <Badge key={item.id} className="bg-orange-100 text-orange-700 border-0">
+                        <Badge key={item.id} className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-0">
                           {item.term}
                         </Badge>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500">No hay ingredientes excluidos</p>
+                    <p className="text-sm text-muted-foreground">No hay ingredientes excluidos</p>
                   )}
                 </div>
 
@@ -1076,26 +1076,26 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                   {Array.isArray(user.excluded_recipes) && user.excluded_recipes.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                       {user.excluded_recipes.map((item) => (
-                        <Badge key={item.id} className="bg-orange-100 text-orange-700 border-0">
+                        <Badge key={item.id} className="bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 border-0">
                           {item.recipe_name}
                         </Badge>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-500">No hay recetas excluidas</p>
+                    <p className="text-sm text-muted-foreground">No hay recetas excluidas</p>
                   )}
                 </div>
               </CardContent>
             </Card>
 
             {/* Información Médica */}
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader>
                 <CardTitle className="bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent flex items-center gap-2">
                   <Heart className="h-5 w-5" />
                   Información Médica
                   {user.recent_change_sections?.medical_information && (
-                    <Badge className="bg-amber-100 text-amber-700 border-0">Cambios recientes</Badge>
+                    <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-0">Cambios recientes</Badge>
                   )}
                 </CardTitle>
                 <CardDescription>Condiciones médicas, lesiones y otras consideraciones de salud</CardDescription>
@@ -1154,12 +1154,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                     <div className="flex flex-wrap gap-2">
                       {Array.isArray(user.medical_conditions) && user.medical_conditions.length > 0 ? (
                         fixEncodingArray(user.medical_conditions).map((condition) => (
-                          <Badge key={condition} className="bg-red-100 text-red-700 border-0">
+                          <Badge key={condition} className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-0">
                             {fixEncoding(condition)}
                           </Badge>
                         ))
                       ) : (
-                        <p className="text-sm text-gray-500">No hay condiciones médicas especificadas</p>
+                        <p className="text-sm text-muted-foreground">No hay condiciones médicas especificadas</p>
                       )}
                     </div>
                   )}
@@ -1175,11 +1175,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                         setLocalData({ ...localData, injuries_or_medical_issues: e.target.value })
                       }
                       placeholder="Describe cualquier lesión o problema médico relevante"
-                      className="border-2 border-gray-200 focus:border-red-400"
+                      className="border-2 border-border focus:border-red-400"
                       rows={4}
                     />
                   ) : (
-                    <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg whitespace-pre-wrap">
+                    <p className="text-sm font-medium p-2 bg-muted rounded-lg whitespace-pre-wrap">
                       {fixEncoding(user.injuries_or_medical_issues) || "No especificado"}
                     </p>
                   )}
@@ -1192,11 +1192,11 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
                       value={localData.additional_info_for_admin || ""}
                       onChange={(e) => setLocalData({ ...localData, additional_info_for_admin: e.target.value })}
                       placeholder="Observaciones del usuario para admin"
-                      className="border-2 border-gray-200 focus:border-red-400"
+                      className="border-2 border-border focus:border-red-400"
                       rows={4}
                     />
                   ) : (
-                    <p className="text-sm font-medium p-2 bg-gray-50 rounded-lg">
+                    <p className="text-sm font-medium p-2 bg-muted rounded-lg">
                       {fixEncoding(user.additional_info_for_admin) || "No especificado"}
                     </p>
                   )}
@@ -1253,7 +1253,7 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
 
           {/* Achievements Tab - Se implementará después */}
           <TabsContent value="achievements" className="space-y-6">
-            <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card className="border shadow-xl">
               <CardHeader>
                 <CardTitle>Logros del Usuario</CardTitle>
                 <CardDescription>Esta sección se implementará en la siguiente fase</CardDescription>

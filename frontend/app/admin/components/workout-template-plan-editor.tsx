@@ -961,16 +961,18 @@ export const WorkoutTemplatePlanEditor = forwardRef<
               return (
                 <Button
                   key={e.id}
-                  variant={alreadyAdded ? "secondary" : "outline"}
+                  variant="outline"
                   className="justify-start h-auto whitespace-normal"
                   onClick={() => {
                     addExerciseToDay(e)
                     setShowExerciseSelector(false)
                   }}
-                  disabled={alreadyAdded}
                 >
                   <div className="text-left">
-                    <div className="font-medium text-sm">{fixEncoding(e.name)}</div>
+                    <div className="font-medium text-sm flex items-center gap-1">
+                      {fixEncoding(e.name)}
+                      {alreadyAdded && <span className="text-[10px] text-muted-foreground font-normal">(ya en este día)</span>}
+                    </div>
                     <div className="flex flex-wrap gap-1 mt-1">
                       {e.category && (
                         <Badge variant="outline" className="text-[10px]">

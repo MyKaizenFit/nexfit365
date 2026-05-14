@@ -146,6 +146,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   const [saving, setSaving] = useState(false)
   const [localData, setLocalData] = useState<Partial<UserData>>({})
   const [activeTab, setActiveTab] = useState("profile")
+  const [alertExpanded, setAlertExpanded] = useState(false)
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
@@ -530,21 +531,30 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
         {user.role === "premium" ? (
           <Card className="mb-4 border-orange-200 bg-orange-50/50">
             <CardContent className="p-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div>
-                  <p className="text-sm font-semibold text-orange-900">Alertas premium del usuario</p>
-                  <p className="text-xs text-orange-800/80">
-                    Pendientes: {premiumPendingTotal} · Notificaciones: {premiumAlerts?.unread_notifications ?? 0} · Cambios perfil: {premiumAlerts?.recent_profile_changes ?? 0} · Feedback entreno: {premiumAlerts?.recent_workout_feedback ?? 0}
-                  </p>
-                  {premiumAlerts?.latest_workout_feedback ? (
-                    <p className="text-xs text-orange-900/90 mt-1">
-                      Último feedback: {new Date(premiumAlerts.latest_workout_feedback.date).toLocaleDateString("es-ES")}
-                      {premiumAlerts.latest_workout_feedback.rating != null ? ` · ${premiumAlerts.latest_workout_feedback.rating}/5` : ""}
-                      {premiumAlerts.latest_workout_feedback.message ? ` · ${premiumAlerts.latest_workout_feedback.message}` : ""}
+              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <button
+                    className="w-full text-left group"
+                    onClick={() => setAlertExpanded(v => !v)}
+                    aria-expanded={alertExpanded}
+                  >
+                    <p className="text-sm font-semibold text-orange-900 flex items-center gap-1">
+                      Alertas premium del usuario
+                      <span className="text-orange-500 text-xs font-normal ml-1">{alertExpanded ? '▲ colapsar' : '▼ ver todo'}</span>
                     </p>
-                  ) : null}
+                    <p className="text-xs text-orange-800/80">
+                      Pendientes: {premiumPendingTotal} · Notificaciones: {premiumAlerts?.unread_notifications ?? 0} · Cambios perfil: {premiumAlerts?.recent_profile_changes ?? 0} · Feedback entreno: {premiumAlerts?.recent_workout_feedback ?? 0}
+                    </p>
+                    {premiumAlerts?.latest_workout_feedback ? (
+                      <p className={`text-xs text-orange-900/90 mt-1 ${alertExpanded ? '' : 'line-clamp-1'}`}>
+                        Último feedback: {new Date(premiumAlerts.latest_workout_feedback.date).toLocaleDateString("es-ES")}
+                        {premiumAlerts.latest_workout_feedback.rating != null ? ` · ${premiumAlerts.latest_workout_feedback.rating}/5` : ""}
+                        {premiumAlerts.latest_workout_feedback.message ? ` · ${premiumAlerts.latest_workout_feedback.message}` : ""}
+                      </p>
+                    ) : null}
+                  </button>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-shrink-0">
                   <Button size="sm" variant="outline" onClick={() => setActiveTab("notifications")}>Ver notificaciones</Button>
                   <Button size="sm" variant="outline" onClick={() => setActiveTab("activity")}>Ver actividad</Button>
                 </div>

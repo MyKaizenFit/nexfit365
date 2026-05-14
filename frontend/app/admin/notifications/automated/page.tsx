@@ -135,13 +135,13 @@ export default function AutomatedNotificationsPage() {
       case "meal":
         return <Badge className="bg-orange-100 text-orange-800 border-0">Comida</Badge>
       case "workout":
-        return <Badge className="bg-purple-100 text-purple-800 border-0">Entrenamiento</Badge>
+        return <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-0">Entrenamiento</Badge>
       case "achievement":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-0">Logro</Badge>
+        return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 border-0">Logro</Badge>
       case "reminder":
-        return <Badge className="bg-blue-100 text-blue-800 border-0">Recordatorio</Badge>
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-0">Recordatorio</Badge>
       case "system":
-        return <Badge className="bg-gray-100 text-gray-800 border-0">Sistema</Badge>
+        return <Badge className="bg-muted text-foreground border-0">Sistema</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
     }
@@ -151,12 +151,12 @@ export default function AutomatedNotificationsPage() {
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="p-3 bg-green-100 rounded-lg">
+        <div className="p-3 bg-green-500/15 rounded-lg">
           <Settings className="h-6 w-6 text-green-600" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Notificaciones Automáticas</h1>
-          <p className="text-gray-600">Gestiona las reglas de notificaciones automáticas</p>
+          <p className="text-muted-foreground">Gestiona las reglas de notificaciones automáticas</p>
         </div>
       </div>
 
@@ -180,14 +180,14 @@ export default function AutomatedNotificationsPage() {
 
           <div className="grid gap-3 md:grid-cols-2">
             {(automationSummary?.automation_rules || []).map((rule) => (
-              <div key={rule.key} className="rounded-xl border bg-white p-4 shadow-sm">
+              <div key={rule.key} className="rounded-xl border bg-card p-4 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="font-medium text-foreground">{rule.name}</p>
                     <p className="text-sm text-muted-foreground">{rule.description}</p>
                   </div>
                   {rule.recommended ? (
-                    <Badge className="bg-emerald-100 text-emerald-800 border-0">Recomendada</Badge>
+                    <Badge className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 border-0">Recomendada</Badge>
                   ) : (
                     <Badge variant="secondary">Estable</Badge>
                   )}
@@ -256,7 +256,7 @@ export default function AutomatedNotificationsPage() {
         <h2 className="text-xl font-semibold">Reglas de Notificación</h2>
         <div className="grid gap-4">
           {rules.map((rule) => (
-            <Card key={rule.id} className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+            <Card key={rule.id} className="border shadow-xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">

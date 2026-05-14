@@ -80,7 +80,7 @@ export function UserNutritionSummary({ userId }: { userId: string }) {
                   <span>{d.date}</span>
                   <span>{Math.round(calories)} kcal</span>
                 </div>
-                <div className="h-2 bg-gray-100 rounded">
+                <div className="h-2 bg-muted rounded">
                   <div className="h-2 bg-orange-500 rounded" style={{ width: `${pct}%` }} />
                 </div>
               </div>

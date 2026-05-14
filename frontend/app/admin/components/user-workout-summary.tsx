@@ -372,7 +372,7 @@ export function UserWorkoutSummary({ userId }: { userId: string }) {
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-lg border p-3 bg-card/60">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-sm font-semibold">{value}</p>
     </div>

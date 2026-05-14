@@ -145,7 +145,7 @@ export function AdminNotificationsPanel({
       ? cn("container mx-auto p-6 space-y-6", className)
       : cn("space-y-6", className)
 
-  const cardClass = "backdrop-blur-sm bg-white/80 border-0 shadow-xl"
+  const cardClass = "border shadow-sm"
   const actionButtonClass =
     "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
   const totalNotifications = stats?.total_notifications ?? 0
@@ -159,7 +159,7 @@ export function AdminNotificationsPanel({
           <CardContent className="p-8 text-center">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Acceso Denegado</h2>
-            <p className="text-gray-600">No tienes permisos para acceder a esta sección.</p>
+            <p className="text-muted-foreground">No tienes permisos para acceder a esta sección.</p>
           </CardContent>
         </Card>
       </div>
@@ -177,13 +177,13 @@ export function AdminNotificationsPanel({
       case "reminder":
         return <Bell className="h-4 w-4 text-blue-600" />
       case "system":
-        return <Settings className="h-4 w-4 text-gray-600" />
+        return <Settings className="h-4 w-4 text-muted-foreground" />
       case "admin":
         return <User className="h-4 w-4 text-red-600" />
       case "marketing":
         return <Mail className="h-4 w-4 text-green-600" />
       default:
-        return <Bell className="h-4 w-4 text-gray-600" />
+        return <Bell className="h-4 w-4 text-muted-foreground" />
     }
   }
 
@@ -349,12 +349,12 @@ export function AdminNotificationsPanel({
     <div className={containerClass}>
       <Card className={cardClass}>
         <CardHeader className="flex flex-row items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg shadow-inner">
-            <Bell className="h-6 w-6 text-blue-600" />
+          <div className="p-3 bg-blue-500/15 rounded-lg shadow-inner">
+            <Bell className="h-6 w-6 text-blue-600 dark:text-blue-400" />
           </div>
           <div>
-            <CardTitle className="text-2xl font-bold text-blue-700">Panel de Notificaciones</CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardTitle className="text-2xl font-bold text-blue-700 dark:text-blue-400">Panel de Notificaciones</CardTitle>
+            <CardDescription>
               Gestiona y envía notificaciones a los usuarios
             </CardDescription>
           </div>
@@ -362,53 +362,53 @@ export function AdminNotificationsPanel({
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <Card className="border shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Total</p>
-            <p className="text-2xl font-bold text-gray-900">{stats?.total_notifications ?? 0}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+            <p className="text-2xl font-bold text-foreground">{stats?.total_notifications ?? 0}</p>
           </CardContent>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <Card className="border shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">No leídas</p>
+            <p className="text-xs text-muted-foreground">No leídas</p>
             <p className="text-2xl font-bold text-rose-600">{stats?.unread_notifications ?? 0}</p>
           </CardContent>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <Card className="border shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">Leídas</p>
+            <p className="text-xs text-muted-foreground">Leídas</p>
             <p className="text-2xl font-bold text-emerald-600">{stats?.read_notifications ?? 0}</p>
           </CardContent>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <Card className="border shadow-sm">
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500">Clicadas</p>
+                <p className="text-xs text-muted-foreground">Clicadas</p>
                 <p className="text-2xl font-bold text-blue-600">{stats?.clicked_notifications ?? 0}</p>
               </div>
               <MousePointerClick className="h-5 w-5 text-blue-500" />
             </div>
           </CardContent>
         </Card>
-        <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+        <Card className="border shadow-sm">
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">CTR</p>
+            <p className="text-xs text-muted-foreground">CTR</p>
             <p className="text-2xl font-bold text-violet-600">{ctr}%</p>
-            <p className="text-[11px] text-gray-400 mt-1">clics / total</p>
+            <p className="text-[11px] text-muted-foreground mt-1">clics / total</p>
           </CardContent>
         </Card>
       </div>
 
-      <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
+      <Card className="border shadow-sm">
         <CardContent className="p-4 flex items-center justify-between gap-4">
           <div>
-            <p className="text-sm font-semibold text-gray-800">Actividad últimos 30 días</p>
-            <p className="text-xs text-gray-500 mt-1">Volumen reciente de notificaciones enviadas desde el sistema.</p>
+            <p className="text-sm font-semibold text-foreground">Actividad últimos 30 días</p>
+            <p className="text-xs text-muted-foreground mt-1">Volumen reciente de notificaciones enviadas desde el sistema.</p>
           </div>
           <div className="text-right">
             <p className="text-3xl font-bold text-cyan-600">{stats?.recent_notifications_30_days ?? 0}</p>
-            <p className="text-xs text-gray-400">notificaciones</p>
+            <p className="text-xs text-muted-foreground">notificaciones</p>
           </div>
         </CardContent>
       </Card>
@@ -419,23 +419,18 @@ export function AdminNotificationsPanel({
           variant="outline"
           onClick={refetch}
           disabled={notificationsLoading}
-          className="bg-white/80"
+          className=""
         >
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualizar estadísticas
         </Button>
       </div>
 
-      <Card className="backdrop-blur-sm bg-white/85 border-0 shadow-md">
-        <CardHeader>
-          <CardTitle className="text-lg">Trazabilidad de entrega</CardTitle>
-          <CardDescription>
-            Estado push/email por notificación con acceso al log detallado de cada canal.
-          </CardDescription>
-        </CardHeader>
+      <Card className="border shadow-sm">
+        <CardHeader></CardHeader>
         <CardContent className="space-y-3">
           {(notifications || []).slice(0, 10).map((item) => (
-            <div key={item.id} className="rounded-lg border bg-white p-3 space-y-2">
+            <div key={item.id} className="rounded-lg border bg-card p-3 space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <p className="font-medium text-sm truncate">{item.title}</p>
@@ -454,12 +449,12 @@ export function AdminNotificationsPanel({
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <div className="flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 text-xs">
+                <div className="flex items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs">
                   <span className="font-medium">Push</span>
                   {getDeliveryBadge(item.delivery_summary?.push?.status)}
                   <span className="text-muted-foreground">intentos: {item.delivery_summary?.push?.attempts ?? 0}</span>
                 </div>
-                <div className="flex items-center gap-2 rounded-md bg-slate-50 px-2 py-1 text-xs">
+                <div className="flex items-center gap-2 rounded-md bg-muted px-2 py-1 text-xs">
                   <span className="font-medium">Email</span>
                   {getDeliveryBadge(item.delivery_summary?.email?.status)}
                   <span className="text-muted-foreground">intentos: {item.delivery_summary?.email?.attempts ?? 0}</span>
@@ -467,14 +462,14 @@ export function AdminNotificationsPanel({
               </div>
 
               {expandedDelivery === item.id && (
-                <div className="rounded-md border bg-slate-50 p-2 space-y-2">
+                <div className="rounded-md border bg-muted p-2 space-y-2">
                   {loadingDeliveryFor === item.id ? (
                     <p className="text-xs text-muted-foreground">Cargando logs de entrega...</p>
                   ) : (deliveryLogsByNotification[item.id] || []).length === 0 ? (
                     <p className="text-xs text-muted-foreground">Aún no hay logs de entrega para esta notificación.</p>
                   ) : (
                     (deliveryLogsByNotification[item.id] || []).map((log) => (
-                      <div key={log.id} className="rounded bg-white border p-2 text-xs">
+                      <div key={log.id} className="rounded bg-card border p-2 text-xs">
                         <div className="flex items-center gap-2 mb-1">
                           <Badge variant="outline">{log.channel_label}</Badge>
                           {getDeliveryBadge(log.status)}
@@ -496,7 +491,7 @@ export function AdminNotificationsPanel({
 
       <Tabs defaultValue="individual" className="space-y-6">
         <div className="w-full overflow-x-auto">
-          <TabsList className="inline-flex min-w-full md:min-w-0 bg-white/70 border border-gray-100 rounded-xl p-1 shadow-sm">
+          <TabsList className="inline-flex min-w-full md:min-w-0 bg-muted border border-border rounded-xl p-1 shadow-sm">
             <TabsTrigger
               value="individual"
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition data-[state=active]:text-white data-[state=active]:shadow data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500"
@@ -725,7 +720,7 @@ export function AdminNotificationsPanel({
                     </Select>
                   </div>
 
-                  <div className="flex items-center justify-between rounded-lg border p-3 bg-slate-50">
+                  <div className="flex items-center justify-between rounded-lg border p-3 bg-muted/50">
                     <div className="space-y-1">
                       <Label className="text-sm font-medium">Enviar correo electrónico</Label>
                       <p className="text-xs text-muted-foreground">
@@ -807,7 +802,7 @@ export function AdminNotificationsPanel({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Card className="border border-blue-100 bg-blue-50/40">
+                <Card className="border border-blue-500/20 bg-blue-500/5">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
                       <Target className="h-4 w-4 text-blue-600" />
@@ -828,7 +823,7 @@ export function AdminNotificationsPanel({
                             "px-3 py-1 rounded-full text-xs font-medium border transition-colors",
                             selectedRoles.includes(role.value)
                               ? "bg-blue-600 text-white border-blue-600"
-                              : "bg-white text-blue-700 border-blue-300 hover:bg-blue-50"
+                              : "bg-card text-blue-700 dark:text-blue-400 border-blue-300 dark:border-blue-700 hover:bg-blue-500/10"
                           )}
                         >
                           {role.label}

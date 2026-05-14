@@ -772,7 +772,7 @@ export function FoodManagement() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-amber-200">
+        <Card className="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border-amber-500/20 dark:border-amber-500/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-amber-700">Total Alimentos</CardTitle>
           </CardHeader>
@@ -780,7 +780,7 @@ export function FoodManagement() {
             <div className="text-3xl font-bold text-amber-600">{stats.total}</div>
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+        <Card className="bg-gradient-to-br from-green-500/10 to-emerald-500/10 border-green-500/20 dark:border-green-500/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-green-700">Verificados</CardTitle>
           </CardHeader>
@@ -792,7 +792,7 @@ export function FoodManagement() {
             />
           </CardContent>
         </Card>
-        <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
+        <Card className="bg-gradient-to-br from-blue-500/10 to-indigo-500/10 border-blue-500/20 dark:border-blue-500/20">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-blue-700">Categorías</CardTitle>
           </CardHeader>
@@ -859,8 +859,8 @@ export function FoodManagement() {
 
           {/* Bulk actions */}
           {selectedFoods.length > 0 && (
-            <div className="mt-4 flex items-center gap-2 p-3 bg-amber-50 rounded-lg">
-              <span className="text-sm text-amber-700 font-medium">
+            <div className="mt-4 flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg">
+              <span className="text-sm text-amber-700 dark:text-amber-400 font-medium">
                 {selectedFoods.length} seleccionados
               </span>
               <Button size="sm" variant="outline" onClick={() => handleBulkVerify(true)}>
@@ -904,7 +904,7 @@ export function FoodManagement() {
                     open={isExpanded}
                     onOpenChange={() => setExpandedFood(isExpanded ? null : food.id)}
                   >
-                    <div className={`border rounded-lg transition-all ${isExpanded ? 'border-amber-300 shadow-md' : 'border-gray-200'}`}>
+                    <div className={`border rounded-lg transition-all ${isExpanded ? 'border-amber-300 dark:border-amber-700 shadow-md' : 'border-border'}`}>
                       <div className="flex items-center p-4 gap-4">
                         <Checkbox
                           checked={selectedFoods.includes(food.id)}
@@ -918,31 +918,31 @@ export function FoodManagement() {
                         />
 
                         <CollapsibleTrigger asChild>
-                          <button className="flex-1 flex items-center gap-4 text-left hover:bg-gray-50 rounded p-2 -m-2">
+                          <button className="flex-1 flex items-center gap-4 text-left hover:bg-muted/50 rounded p-2 -m-2">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="font-medium truncate">{food.name}</span>
                                 {food.is_verified && (
-                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                  <Badge variant="outline" className="bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/30">
                                     ✓ Verificado
                                   </Badge>
                                 )}
                               </div>
                               {food.brand && (
-                                <p className="text-sm text-gray-500 truncate">{food.brand}</p>
+                                <p className="text-sm text-muted-foreground truncate">{food.brand}</p>
                               )}
-                              <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-600 md:hidden">
-                                <span className="px-2 py-0.5 bg-gray-100 rounded">{food.calories} kcal</span>
-                                <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">P: {food.protein}g</span>
-                                <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded">C: {food.carbs}g</span>
-                                <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded">G: {food.fat}g</span>
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs text-foreground md:hidden">
+                                <span className="px-2 py-0.5 bg-muted rounded">{food.calories} kcal</span>
+                                <span className="px-2 py-0.5 bg-red-500/15 text-red-700 dark:text-red-400 rounded">P: {food.protein}g</span>
+                                <span className="px-2 py-0.5 bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 rounded">C: {food.carbs}g</span>
+                                <span className="px-2 py-0.5 bg-blue-500/15 text-blue-700 dark:text-blue-400 rounded">G: {food.fat}g</span>
                                 {food.store && (
-                                  <span className="px-2 py-0.5 bg-amber-100 text-amber-700 rounded">
+                                  <span className="px-2 py-0.5 bg-amber-500/15 text-amber-700 dark:text-amber-400 rounded">
                                     {STORE_LABELS[food.store] || food.store}
                                   </span>
                                 )}
                                 {food.category && (
-                                  <span className="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded">
+                                  <span className="px-2 py-0.5 bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 rounded">
                                     {food.category}
                                   </span>
                                 )}
@@ -952,19 +952,19 @@ export function FoodManagement() {
                             <div className="hidden md:flex items-center gap-6 text-sm">
                               <div className="text-center">
                                 <div className="font-bold text-amber-600">{food.calories}</div>
-                                <div className="text-xs text-gray-500">kcal</div>
+                                <div className="text-xs text-muted-foreground">kcal</div>
                               </div>
                               <div className="text-center">
                                 <div className="font-bold text-red-500">{food.protein}g</div>
-                                <div className="text-xs text-gray-500">Prot</div>
+                                <div className="text-xs text-muted-foreground">Prot</div>
                               </div>
                               <div className="text-center">
                                 <div className="font-bold text-yellow-500">{food.carbs}g</div>
-                                <div className="text-xs text-gray-500">Carbs</div>
+                                <div className="text-xs text-muted-foreground">Carbs</div>
                               </div>
                               <div className="text-center">
                                 <div className="font-bold text-blue-500">{food.fat}g</div>
-                                <div className="text-xs text-gray-500">Grasa</div>
+                                <div className="text-xs text-muted-foreground">Grasa</div>
                               </div>
                             </div>
 
@@ -978,28 +978,28 @@ export function FoodManagement() {
                       </div>
 
                       <CollapsibleContent>
-                        <div className="px-4 pb-4 border-t border-gray-100 pt-4">
+                        <div className="px-4 pb-4 border-t border-border pt-4">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* Info General */}
                             <div className="space-y-3">
-                              <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                              <h4 className="font-semibold text-foreground flex items-center gap-2">
                                 📋 Información General
                               </h4>
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">Categoría</span>
+                                  <span className="text-muted-foreground">Categoría</span>
                                   <span className="font-medium">{food.category || '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">Supermercado</span>
+                                  <span className="text-muted-foreground">Supermercado</span>
                                   <span className="font-medium">{food.store ? STORE_LABELS[food.store] || food.store : '-'}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">Porción</span>
+                                  <span className="text-muted-foreground">Porción</span>
                                   <span className="font-medium">{food.serving_size}{food.serving_unit}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">Marca</span>
+                                  <span className="text-muted-foreground">Marca</span>
                                   <span className="font-medium">{food.brand || '-'}</span>
                                 </div>
                               </div>
@@ -1007,7 +1007,7 @@ export function FoodManagement() {
 
                             {/* Macros */}
                             <div className="space-y-3">
-                              <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                              <h4 className="font-semibold text-foreground flex items-center gap-2">
                                 💪 Macronutrientes
                               </h4>
                               <div className="space-y-2">
@@ -1015,19 +1015,19 @@ export function FoodManagement() {
                                   <div className="w-3 h-3 rounded-full bg-red-500"></div>
                                   <span className="text-sm flex-1">Proteínas</span>
                                   <span className="font-bold">{food.protein}g</span>
-                                  <span className="text-xs text-gray-400">({macros.protein}%)</span>
+                                  <span className="text-xs text-muted-foreground">({macros.protein}%)</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
                                   <span className="text-sm flex-1">Carbohidratos</span>
                                   <span className="font-bold">{food.carbs}g</span>
-                                  <span className="text-xs text-gray-400">({macros.carbs}%)</span>
+                                  <span className="text-xs text-muted-foreground">({macros.carbs}%)</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                                   <span className="text-sm flex-1">Grasas</span>
                                   <span className="font-bold">{food.fat}g</span>
-                                  <span className="text-xs text-gray-400">({macros.fat}%)</span>
+                                  <span className="text-xs text-muted-foreground">({macros.fat}%)</span>
                                 </div>
                                 {/* Barra de macros */}
                                 {(() => {
@@ -1045,20 +1045,20 @@ export function FoodManagement() {
 
                             {/* Otros nutrientes */}
                             <div className="space-y-3">
-                              <h4 className="font-semibold text-gray-700 flex items-center gap-2">
+                              <h4 className="font-semibold text-foreground flex items-center gap-2">
                                 🌿 Otros Nutrientes
                               </h4>
                               <div className="space-y-2 text-sm">
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">🌾 Fibra</span>
+                                  <span className="text-muted-foreground">🌾 Fibra</span>
                                   <span className="font-medium">{food.fiber}g</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">🍬 Azúcar</span>
+                                  <span className="text-muted-foreground">🍬 Azúcar</span>
                                   <span className="font-medium">{food.sugar}g</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">🧂 Sodio</span>
+                                  <span className="text-muted-foreground">🧂 Sodio</span>
                                   <span className="font-medium">{food.sodium}mg</span>
                                 </div>
                               </div>
@@ -1066,7 +1066,7 @@ export function FoodManagement() {
                           </div>
 
                           {/* Actions */}
-                          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-gray-100">
+                          <div className="flex justify-end gap-2 mt-4 pt-4 border-t border-border">
                             <Button
                               size="sm"
                               variant="outline"
@@ -1088,7 +1088,7 @@ export function FoodManagement() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-500/10"
                               onClick={() => handleDeleteFood(food.id)}
                             >
                               <Trash2 className="h-4 w-4 mr-1" /> Eliminar
