@@ -14,6 +14,8 @@ from datetime import datetime, timedelta
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 import requests
+import re
+import unicodedata
 from urllib.parse import urlparse
 
 from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe, NutritionPlanAssignment
@@ -3025,6 +3027,103 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminUser]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
+    ALLERGEN_KEYWORDS = {
+        'gluten': ['gluten', 'trigo', 'wheat', 'harina', 'pan', 'pasta', 'cebada', 'barley', 'centeno', 'rye', 'avena', 'oats', 'malta', 'malt', 'semola', 'semolina', 'couscous'],
+        'dairy': ['leche', 'milk', 'queso', 'cheese', 'yogur', 'yogurt', 'mantequilla', 'butter', 'nata', 'cream', 'crema', 'lactosa', 'lactose', 'whey', 'caseina', 'casein'],
+        'eggs': ['huevo', 'huevos', 'egg', 'eggs', 'mayonesa', 'mayo'],
+        'nuts': ['almendra', 'almendras', 'almond', 'nuez', 'nueces', 'walnut', 'avellana', 'hazelnut', 'pistacho', 'pistachio', 'cacahuete', 'cacahuate', 'peanut', 'mani', 'anacardo', 'cashew', 'macadamia', 'pecan'],
+        'soy': ['soja', 'soy', 'soya', 'tofu', 'tempeh', 'edamame', 'miso'],
+        'fish': ['pescado', 'fish', 'atun', 'tuna', 'salmon', 'bacalao', 'merluza', 'trucha', 'sardina'],
+        'shellfish': ['marisco', 'shellfish', 'gamba', 'gambas', 'langostino', 'camaron', 'cangrejo', 'crab', 'langosta', 'lobster', 'mejillon', 'almeja', 'ostra'],
+        'sesame': ['sesamo', 'sesame', 'ajonjoli', 'tahini'],
+    }
+
+    ALLERGEN_ALIASES = {
+        'gluten': 'gluten',
+        'dairy': 'dairy',
+        'lactose': 'dairy',
+        'lactosa': 'dairy',
+        'milk': 'dairy',
+        'eggs': 'eggs',
+        'egg': 'eggs',
+        'nuts': 'nuts',
+        'nut': 'nuts',
+        'tree-nuts': 'nuts',
+        'soy': 'soy',
+        'soya': 'soy',
+        'soja': 'soy',
+        'fish': 'fish',
+        'shellfish': 'shellfish',
+        'sesame': 'sesame',
+        'sesamo': 'sesame',
+    }
+
+    ALLERGEN_EXPORT_ORDER = ['gluten', 'dairy', 'eggs', 'nuts', 'soy', 'fish', 'shellfish', 'sesame']
+
+    def _normalize_text(self, value):
+        text = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').lower()
+        return ' '.join(text.replace('-', ' ').replace('_', ' ').split())
+
+    def _normalize_allergen(self, value):
+        key = self._normalize_text(value).replace(' ', '-')
+        if not key:
+            return ''
+        return self.ALLERGEN_ALIASES.get(key, key)
+
+    def _parse_allergens_cell(self, value):
+        if value is None:
+            return []
+
+        if isinstance(value, list):
+            parts = value
+        else:
+            text = str(value).strip()
+            if not text:
+                return []
+            cleaned = text.strip('[]')
+            parts = re.split(r'[|,;/]+', cleaned)
+
+        normalized = []
+        for item in parts:
+            allergen = self._normalize_allergen(item)
+            if allergen and allergen not in normalized:
+                normalized.append(allergen)
+
+        return normalized
+
+    def _infer_allergens_from_text(self, *values):
+        source = self._normalize_text(' '.join(str(v or '') for v in values))
+        if not source:
+            return []
+
+        inferred = []
+        for allergen, keywords in self.ALLERGEN_KEYWORDS.items():
+            if any(keyword in source for keyword in keywords):
+                inferred.append(allergen)
+        return inferred
+
+    def _resolve_allergens_for_food(self, *, name, brand, category, provided):
+        parsed = self._parse_allergens_cell(provided)
+        inferred = self._infer_allergens_from_text(name, brand, category)
+
+        merged = []
+        for allergen in self.ALLERGEN_EXPORT_ORDER:
+            if allergen in parsed or allergen in inferred:
+                merged.append(allergen)
+
+        for allergen in parsed + inferred:
+            if allergen not in merged:
+                merged.append(allergen)
+
+        return merged
+
+    def _allergens_to_export_value(self, allergens):
+        if not isinstance(allergens, list):
+            return ''
+        ordered = [allergen for allergen in self.ALLERGEN_EXPORT_ORDER if allergen in allergens]
+        extras = [allergen for allergen in allergens if allergen not in ordered]
+        return ','.join(ordered + extras)
+
     @action(detail=False, methods=['get'], url_path='list-for-recipes')
     def list_for_recipes(self, request):
         """Devuelve lista simplificada de alimentos para seleccionar en recetas"""
@@ -3043,7 +3142,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="alimentos_exportacion.csv"'
         fieldnames = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
@@ -3062,6 +3161,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                 'unidad_porcion': food.serving_unit or '',
                 'categoría': food.category or '',
                 'tienda': food.store or '',
+                'alergenos': self._allergens_to_export_value(food.allergens),
                 'verificado': 'Sí' if food.is_verified else 'No',
             })
         return response
@@ -3079,7 +3179,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
         ]
         for col, header in enumerate(headers):
             worksheet.write(0, col, header, header_format)
@@ -3097,10 +3197,12 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             worksheet.write(row_idx, 10, food.serving_unit or '')
             worksheet.write(row_idx, 11, food.category or '')
             worksheet.write(row_idx, 12, food.store or '')
-            worksheet.write(row_idx, 13, 'Sí' if food.is_verified else 'No')
+            worksheet.write(row_idx, 13, self._allergens_to_export_value(food.allergens))
+            worksheet.write(row_idx, 14, 'Sí' if food.is_verified else 'No')
         worksheet.set_column('A:A', 38)
         worksheet.set_column('B:B', 30)
         worksheet.set_column('C:C', 20)
+        worksheet.set_column('N:N', 26)
         workbook.close()
         output.seek(0)
         response = HttpResponse(output.read(), content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
@@ -3121,7 +3223,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
         ]
         for col, header in enumerate(headers):
             worksheet.write(0, col, header, header_format)
@@ -3129,7 +3231,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         # Fila de ejemplo para guiar el formato esperado.
         sample = [
             'Arroz cocido', 'Genérico', 130, 2.7, 28.2, 0.3,
-            0.4, 0.1, 1.0, 100, 'g', 'Cereales', 'Mercadona', 'No'
+            0.4, 0.1, 1.0, 100, 'g', 'Cereales', 'Mercadona', 'gluten', 'No'
         ]
         for col, value in enumerate(sample):
             worksheet.write(1, col, value)
@@ -3169,6 +3271,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
             'categoría': 'category', 'categoria': 'category', 'category': 'category',
             'tienda': 'store', 'store': 'store',
+            'alergenos': 'allergens', 'alérgenos': 'allergens', 'allergens': 'allergens',
             'verificado': 'is_verified', 'is_verified': 'is_verified',
         }
 
@@ -3208,6 +3311,12 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                 'serving_unit': gv(row, 'serving_unit', ''),
                 'category': gv(row, 'category', ''),
                 'store': gv(row, 'store', ''),
+                'allergens': self._resolve_allergens_for_food(
+                    name=name,
+                    brand=gv(row, 'brand', ''),
+                    category=gv(row, 'category', ''),
+                    provided=gv(row, 'allergens', ''),
+                ),
                 'is_verified': to_bool(gv(row, 'is_verified', 'false')),
             }
             if food:
@@ -3246,6 +3355,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
             'categoría': 'category', 'categoria': 'category', 'category': 'category',
             'tienda': 'store', 'store': 'store',
+            'alergenos': 'allergens', 'alérgenos': 'allergens', 'allergens': 'allergens',
             'verificado': 'is_verified', 'is_verified': 'is_verified',
         }
 
@@ -3414,6 +3524,12 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                     'serving_unit': get_best_value('serving_unit', '') or '',
                     'category': get_best_value('category', '') or '',
                     'store': get_best_value('store', '') or '',
+                    'allergens': self._resolve_allergens_for_food(
+                        name=name,
+                        brand=get_best_value('brand', '') or '',
+                        category=get_best_value('category', '') or '',
+                        provided=get_best_value('allergens', ''),
+                    ),
                     'is_verified': to_bool(get_best_value('is_verified', 'false')),
                 }
                 if food:

@@ -59,9 +59,39 @@ interface Food {
   sodium: number
   serving_size: number
   serving_unit: string
+  allergens?: string[]
   is_verified: boolean
   created_at: string
 }
+
+const ALLERGEN_OPTIONS = [
+  { value: 'gluten', label: 'Gluten' },
+  { value: 'dairy', label: 'Lacteos' },
+  { value: 'eggs', label: 'Huevo' },
+  { value: 'nuts', label: 'Frutos secos' },
+  { value: 'soy', label: 'Soja' },
+  { value: 'fish', label: 'Pescado' },
+  { value: 'shellfish', label: 'Marisco' },
+  { value: 'sesame', label: 'Sesamo' },
+]
+
+const ALLERGEN_KEYWORDS: Record<string, string[]> = {
+  gluten: ['gluten', 'trigo', 'wheat', 'harina', 'pan', 'pasta', 'cebada', 'barley', 'centeno', 'rye', 'avena', 'oats', 'malta', 'malt'],
+  dairy: ['leche', 'milk', 'queso', 'cheese', 'yogur', 'yogurt', 'mantequilla', 'butter', 'nata', 'cream', 'crema', 'lactosa', 'lactose', 'whey'],
+  eggs: ['huevo', 'huevos', 'egg', 'eggs', 'mayonesa', 'mayo'],
+  nuts: ['almendra', 'almond', 'nuez', 'walnut', 'avellana', 'hazelnut', 'pistacho', 'pistachio', 'cacahuete', 'cacahuate', 'peanut', 'mani', 'anacardo', 'cashew'],
+  soy: ['soja', 'soy', 'soya', 'tofu', 'tempeh', 'edamame', 'miso'],
+  fish: ['pescado', 'fish', 'atun', 'tuna', 'salmon', 'bacalao', 'merluza', 'trucha', 'sardina'],
+  shellfish: ['marisco', 'shellfish', 'gamba', 'langostino', 'camaron', 'cangrejo', 'crab', 'langosta', 'lobster', 'mejillon', 'almeja', 'ostra'],
+  sesame: ['sesamo', 'sesame', 'ajonjoli', 'tahini'],
+}
+
+const normalizeText = (value: string) =>
+  value
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
 
 // Mapeo de stores a nombres legibles
 const STORE_LABELS: Record<string, string> = {
@@ -116,6 +146,7 @@ export function FoodManagement() {
     name: '', brand: '', category: '', store: '',
     calories: '', protein: '', carbs: '', fat: '',
     fiber: '', sugar: '', sodium: '', serving_size: '100', serving_unit: 'g',
+    allergens: [] as string[],
     is_verified: false,
   }
   const [foodForm, setFoodForm] = useState(emptyForm)
@@ -354,9 +385,35 @@ export function FoodManagement() {
       sodium: String(food.sodium ?? ''),
       serving_size: String(food.serving_size ?? '100'),
       serving_unit: food.serving_unit || 'g',
+      allergens: Array.isArray(food.allergens) ? food.allergens : [],
       is_verified: food.is_verified,
     })
     setFoodModalOpen(true)
+  }
+
+  const inferredAllergens = useMemo(() => {
+    const source = normalizeText(`${foodForm.name || ''} ${foodForm.brand || ''} ${foodForm.category || ''}`)
+    const detected: string[] = []
+
+    for (const option of ALLERGEN_OPTIONS) {
+      const keywords = ALLERGEN_KEYWORDS[option.value] || []
+      if (keywords.some((keyword) => source.includes(keyword))) {
+        detected.push(option.value)
+      }
+    }
+
+    return detected
+  }, [foodForm.name, foodForm.brand, foodForm.category])
+
+  const toggleAllergen = (allergen: string, checked: boolean) => {
+    setFoodForm((prev) => {
+      const current = Array.isArray(prev.allergens) ? prev.allergens : []
+      if (checked) {
+        if (current.includes(allergen)) return prev
+        return { ...prev, allergens: [...current, allergen] }
+      }
+      return { ...prev, allergens: current.filter((item) => item !== allergen) }
+    })
   }
 
   const handleSaveFood = async () => {
@@ -381,6 +438,7 @@ export function FoodManagement() {
         sodium: Number(foodForm.sodium) || 0,
         serving_size: Number(foodForm.serving_size) || 100,
         serving_unit: foodForm.serving_unit || 'g',
+        allergens: (Array.isArray(foodForm.allergens) ? foodForm.allergens : []).filter(Boolean),
         is_verified: foodForm.is_verified,
       }
       const url = editingFood
@@ -946,6 +1004,11 @@ export function FoodManagement() {
                                     {food.category}
                                   </span>
                                 )}
+                                {Array.isArray(food.allergens) && food.allergens.length > 0 && (
+                                  <span className="px-2 py-0.5 bg-red-500/15 text-red-700 dark:text-red-400 rounded">
+                                    {food.allergens.length} alergenos
+                                  </span>
+                                )}
                               </div>
                             </div>
 
@@ -1001,6 +1064,20 @@ export function FoodManagement() {
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Marca</span>
                                   <span className="font-medium">{food.brand || '-'}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground block mb-1">Alergenos</span>
+                                  {Array.isArray(food.allergens) && food.allergens.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {food.allergens.map((allergen) => (
+                                        <Badge key={allergen} variant="outline" className="text-[10px] bg-red-50 text-red-700 border-red-200">
+                                          {ALLERGEN_OPTIONS.find((option) => option.value === allergen)?.label || allergen}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <span className="font-medium">-</span>
+                                  )}
                                 </div>
                               </div>
                             </div>
@@ -1169,6 +1246,36 @@ export function FoodManagement() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Alergenos */}
+            <div className="md:col-span-2 space-y-2 rounded-lg border border-red-100 bg-red-50/60 p-3">
+              <div>
+                <Label className="font-semibold">Alergenos del alimento</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Puedes marcarlos manualmente. Si el nombre/marca sugiere uno, te lo indicamos abajo.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {ALLERGEN_OPTIONS.map((option) => {
+                  const checked = Array.isArray(foodForm.allergens) && foodForm.allergens.includes(option.value)
+                  const suggested = inferredAllergens.includes(option.value)
+                  return (
+                    <label key={option.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${suggested ? 'border-amber-300 bg-amber-50' : 'bg-white'}`}>
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(value) => toggleAllergen(option.value, Boolean(value))}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              {inferredAllergens.length > 0 && (
+                <p className="text-xs text-amber-700">
+                  Sugeridos automaticamente: {inferredAllergens.join(', ')}
+                </p>
+              )}
+            </div>
             {/* Porción */}
             <div className="space-y-1">
               <Label>Tamaño de porción</Label>
@@ -1269,6 +1376,7 @@ export function FoodManagement() {
               <p><strong>name</strong> / nombre · brand / marca · category / categoria · store / supermercado</p>
               <p><strong>calories</strong> / calorias · protein / proteina · carbs / carbohidratos · fat / grasa</p>
               <p>fiber / fibra · sugar / azucar · sodium / sodio · serving_size · serving_unit / unidad</p>
+              <p><strong>allergens</strong> / alergenos: gluten,dairy,eggs,nuts,soy,fish,shellfish,sesame</p>
               <p className="mt-1">Los valores de <strong>store</strong> válidos: mercadona · carrefour · lidl · aldi · dia · alcampo · eroski · consum · hipercor · otro</p>
             </div>
 

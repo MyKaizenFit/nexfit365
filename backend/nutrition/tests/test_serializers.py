@@ -19,12 +19,14 @@ class FoodSerializerTest(TestCase):
             protein=30,
             carbs=0,
             fat=5,
+            allergens=["soy"],
         )
 
         data = FoodSerializer(food).data
         self.assertEqual(data["name"], "Pollo")
         self.assertEqual(data["calories"], 165)
         self.assertEqual(data["protein"], "30.00")
+        self.assertEqual(data["allergens"], ["soy"])
         self.assertIn("id", data)
 
     def test_deserialize_food(self):
@@ -36,6 +38,7 @@ class FoodSerializerTest(TestCase):
                 "protein": 2.7,
                 "carbs": 28.0,
                 "fat": 0.3,
+                "allergens": ["gluten"],
             }
         )
 
@@ -43,6 +46,7 @@ class FoodSerializerTest(TestCase):
         food = serializer.save()
         self.assertEqual(food.name, "Arroz")
         self.assertEqual(food.calories, 130)
+        self.assertEqual(food.allergens, ["gluten"])
 
 
 class PlanMealSerializerTest(TestCase):

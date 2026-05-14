@@ -3,6 +3,7 @@
 
 import re
 import uuid
+import unicodedata
 from django.conf import settings
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -202,6 +203,217 @@ class Recipe(TimeStampedModel):
         ordering = ['name']
         verbose_name = "Receta"
         verbose_name_plural = "Recetas"
+
+    AUTO_FREE_FROM_DIET_TYPES = {
+        'gluten-free': 'gluten',
+        'dairy-free': 'dairy',
+        'egg-free': 'eggs',
+        'nut-free': 'nuts',
+        'soy-free': 'soy',
+        'fish-free': 'fish',
+        'shellfish-free': 'shellfish',
+        'sesame-free': 'sesame',
+    }
+
+    ALLERGEN_KEYWORDS = {
+        'gluten': [
+            'gluten', 'trigo', 'wheat', 'harina', 'bread', 'pan', 'pasta', 'couscous',
+            'cebada', 'barley', 'centeno', 'rye', 'avena', 'oats', 'malta', 'malt',
+            'galleta', 'cookie', 'bizcocho', 'empanado', 'rebozado', 'semola', 'semolina',
+            'panko', 'masa', 'pizza', 'tarta', 'noodle', 'fideos'
+        ],
+        'dairy': [
+            'leche', 'milk', 'queso', 'cheese', 'yogur', 'yogurt', 'mantequilla', 'butter',
+            'crema', 'cream', 'nata', 'whey', 'casein', 'caseina', 'lactose', 'lactosa',
+            'buttermilk', 'ricotta', 'mozzarella', 'parmesan', 'parmesano'
+        ],
+        'eggs': [
+            'huevo', 'huevos', 'egg', 'eggs', 'mayonesa', 'mayo', 'merengue', 'albumen', 'albumina'
+        ],
+        'nuts': [
+            'almendra', 'almendras', 'almond', 'walnut', 'walnuts', 'nuez', 'nueces',
+            'avellana', 'avellanas', 'hazelnut', 'hazelnuts', 'pistacho', 'pistachios',
+            'cacahuate', 'cacahuetes', 'peanut', 'peanuts', 'mani', 'anacardo', 'cashew',
+            'cashews', 'macadamia', 'pecan', 'pecanas', 'pine nut', 'piñon', 'pinon'
+        ],
+        'soy': [
+            'soja', 'soy', 'soya', 'tofu', 'tempeh', 'edamame', 'miso', 'salsa de soja', 'lecitina de soja'
+        ],
+        'fish': [
+            'pescado', 'fish', 'salmon', 'salmon', 'atun', 'tuna', 'sardina', 'anchov', 'bacalao',
+            'trucha', 'merluza', 'caballa'
+        ],
+        'shellfish': [
+            'marisco', 'shellfish', 'gamba', 'gambas', 'langostino', 'langostinos', 'camaron', 'camarones',
+            'crab', 'cangrejo', 'lobster', 'langosta', 'mejillon', 'mejillones', 'almeja', 'almejas',
+            'ostras', 'ostra', 'scallop'
+        ],
+        'sesame': [
+            'sesamo', 'sésamo', 'sesame', 'ajonjoli', 'ajonjolí', 'tahini'
+        ],
+    }
+
+    ALLERGEN_ALIASES = {
+        'dairy-free': 'dairy',
+        'dairy': 'dairy',
+        'lactose': 'dairy',
+        'lactosa': 'dairy',
+        'milk': 'dairy',
+        'eggs': 'eggs',
+        'egg': 'eggs',
+        'nuts': 'nuts',
+        'nut': 'nuts',
+        'tree-nuts': 'nuts',
+        'soy': 'soy',
+        'soya': 'soy',
+        'soja': 'soy',
+        'fish': 'fish',
+        'shellfish': 'shellfish',
+        'sesame': 'sesame',
+        'sesamo': 'sesame',
+        'gluten': 'gluten',
+    }
+
+    def _normalize_allergen_text(self, value):
+        text = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').lower()
+        text = text.replace('-', ' ')
+        text = ' '.join(text.split())
+        return text
+
+    def _iter_allergen_source_texts(self):
+        texts = []
+
+        if isinstance(self.ingredients, list):
+            for ingredient in self.ingredients:
+                if isinstance(ingredient, dict):
+                    texts.append(ingredient.get('name', ''))
+                    texts.append(ingredient.get('notes', ''))
+                elif isinstance(ingredient, str):
+                    texts.append(ingredient)
+
+        linked_ingredients = getattr(self, 'recipe_ingredients', None)
+        if linked_ingredients is not None:
+            try:
+                for ingredient in linked_ingredients.select_related('food').all():
+                    texts.append(getattr(ingredient.food, 'name', ''))
+                    texts.append(getattr(ingredient.food, 'brand', ''))
+                    texts.append(ingredient.notes or '')
+            except Exception:
+                pass
+
+        for text in texts:
+            normalized = self._normalize_allergen_text(text)
+            if normalized:
+                yield normalized
+
+    def _normalize_allergen_key(self, value):
+        key = self._normalize_allergen_text(value).replace(' ', '-').replace('_', '-')
+        if not key:
+            return ''
+
+        return self.ALLERGEN_ALIASES.get(key, key)
+
+    def _iter_explicit_food_allergens(self):
+        linked_ingredients = getattr(self, 'recipe_ingredients', None)
+        if linked_ingredients is None:
+            return
+
+        try:
+            for ingredient in linked_ingredients.select_related('food').all():
+                food_allergens = getattr(ingredient.food, 'allergens', []) if ingredient.food else []
+                if not isinstance(food_allergens, list):
+                    continue
+                for allergen in food_allergens:
+                    normalized = self._normalize_allergen_key(allergen)
+                    if normalized:
+                        yield normalized
+        except Exception:
+            return
+
+    def _detect_common_allergens(self):
+        detected = []
+        seen = set()
+        explicit_allergens = set(self._iter_explicit_food_allergens())
+        source_texts = list(self._iter_allergen_source_texts())
+
+        for allergen, keywords in self.ALLERGEN_KEYWORDS.items():
+            has_explicit = allergen in explicit_allergens
+            has_keyword_match = any(any(keyword in source_text for keyword in keywords) for source_text in source_texts)
+            if has_explicit or has_keyword_match:
+                if allergen not in seen:
+                    seen.add(allergen)
+                    detected.append(allergen)
+
+        for allergen in explicit_allergens:
+            if allergen not in seen:
+                seen.add(allergen)
+                detected.append(allergen)
+
+        return detected
+
+    def refresh_allergen_flags(self, save=True):
+        """
+        Calcula alérgenos detectados y etiquetas sin alérgenos a partir de los ingredientes.
+        Las etiquetas free-from solo permanecen si no se detecta el alérgeno correspondiente.
+        """
+        source_texts = list(self._iter_allergen_source_texts())
+        explicit_allergens = set(self._iter_explicit_food_allergens())
+        if not source_texts and not explicit_allergens:
+            return False
+
+        detected_allergens = []
+        seen_allergens = set()
+        for allergen, keywords in self.ALLERGEN_KEYWORDS.items():
+            has_explicit = allergen in explicit_allergens
+            has_keyword_match = any(any(keyword in source_text for keyword in keywords) for source_text in source_texts)
+            if has_explicit or has_keyword_match:
+                if allergen not in seen_allergens:
+                    seen_allergens.add(allergen)
+                    detected_allergens.append(allergen)
+
+        for allergen in explicit_allergens:
+            if allergen not in seen_allergens:
+                seen_allergens.add(allergen)
+                detected_allergens.append(allergen)
+
+        current_diet_types = []
+        if isinstance(self.diet_types, list):
+            for item in self.diet_types:
+                normalized = self._normalize_allergen_text(item).replace(' ', '-')
+                if normalized and normalized not in current_diet_types:
+                    current_diet_types.append(normalized)
+
+        preserved_diet_types = [
+            diet_type
+            for diet_type in current_diet_types
+            if diet_type not in self.AUTO_FREE_FROM_DIET_TYPES
+        ]
+
+        computed_free_from = []
+        for diet_type, allergen in self.AUTO_FREE_FROM_DIET_TYPES.items():
+            if allergen not in detected_allergens:
+                computed_free_from.append(diet_type)
+
+        merged_diet_types = preserved_diet_types + computed_free_from
+        if isinstance(self.allergens, list):
+            current_allergens = [self._normalize_allergen_text(item) for item in self.allergens if self._normalize_allergen_text(item)]
+        else:
+            current_allergens = []
+
+        needs_update = current_allergens != detected_allergens or current_diet_types != merged_diet_types
+        if not needs_update:
+            return False
+
+        self.allergens = detected_allergens
+        self.diet_types = merged_diet_types
+
+        if save and self.pk:
+            Recipe.objects.filter(pk=self.pk).update(
+                allergens=detected_allergens,
+                diet_types=merged_diet_types,
+            )
+
+        return True
     
     def __str__(self):
         return f"{self.name} ({self.get_category_display()})"
@@ -364,6 +576,8 @@ class Recipe(TimeStampedModel):
                 sugar=self.sugar,
                 sodium=self.sodium,
             )
+
+        self.refresh_allergen_flags()
     
     def get_adjusted_macros(self, multiplier=1.0):
         """
@@ -445,12 +659,14 @@ class RecipeIngredient(TimeStampedModel):
         super().save(*args, **kwargs)
         # Recalcular macros de la receta al guardar ingrediente
         self.recipe.calculate_macros_from_ingredients()
+        self.recipe.refresh_allergen_flags()
     
     def delete(self, *args, **kwargs):
         recipe = self.recipe
         super().delete(*args, **kwargs)
         # Recalcular macros después de eliminar
         recipe.calculate_macros_from_ingredients()
+        recipe.refresh_allergen_flags()
 
 
 # =============================================================================
@@ -1240,6 +1456,11 @@ class Food(TimeStampedModel):
     
     # Clasificación
     category = models.CharField(max_length=100, blank=True)
+    allergens = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Alérgenos estructurados del alimento: ['gluten', 'dairy', 'eggs', 'nuts', 'soy', 'fish', 'shellfish', 'sesame']"
+    )
     is_verified = models.BooleanField(default=False)
     
     created_by = models.ForeignKey(

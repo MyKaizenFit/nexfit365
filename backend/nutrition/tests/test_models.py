@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.contrib.auth import get_user_model
 from nutrition.models import (
     Recipe, NutritionPlan, PlanMeal, MealLog,
-    NutritionPlanHistory, Food, NutritionPlanAssignment
+    NutritionPlanHistory, Food, NutritionPlanAssignment, RecipeIngredient
 )
 from datetime import date, time
 from decimal import Decimal
@@ -74,6 +74,54 @@ class FoodModelTest(TestCase):
         self.assertEqual(food.name, "Pollo")
         self.assertEqual(food.calories, 165)
         self.assertEqual(food.protein, Decimal('30.0'))
+
+    def test_food_stores_structured_allergens(self):
+        food = Food.objects.create(
+            name="Pan de molde",
+            serving_unit="g",
+            calories=250,
+            protein=Decimal('8.0'),
+            carbs=Decimal('45.0'),
+            fat=Decimal('2.0'),
+            allergens=["gluten", "soy"],
+        )
+
+        self.assertEqual(food.allergens, ["gluten", "soy"])
+
+
+class RecipeAllergenDetectionTest(TestCase):
+    def test_refresh_allergen_flags_uses_structured_food_allergens(self):
+        recipe = Recipe.objects.create(
+            name="Wrap especial",
+            category="Almuerzo",
+            prep_time_minutes=10,
+            calories=420,
+            ingredients=[],
+            instructions="Mezclar y servir",
+            diet_types=["gluten-free", "dairy-free", "vegetarian"],
+        )
+        bread = Food.objects.create(
+            name="Base neutral",
+            serving_unit="g",
+            calories=250,
+            protein=Decimal('8.0'),
+            carbs=Decimal('45.0'),
+            fat=Decimal('2.0'),
+            allergens=["gluten"],
+        )
+        RecipeIngredient.objects.create(
+            recipe=recipe,
+            food=bread,
+            quantity=100,
+            unit='g',
+            order=0,
+        )
+
+        recipe.refresh_from_db()
+        self.assertIn("gluten", recipe.allergens)
+        self.assertNotIn("gluten-free", recipe.diet_types)
+        self.assertIn("dairy-free", recipe.diet_types)
+        self.assertIn("vegetarian", recipe.diet_types)
 
 
 class NutritionPlanModelTest(TestCase):

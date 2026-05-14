@@ -563,6 +563,38 @@ class TestAdminFoodViewSet:
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
 
+    def test_import_csv_infers_allergens_when_not_marked(self, admin_client):
+        csv_content = (
+            'nombre,marca,categoria,calorias,proteinas,carbohidratos,grasas,tamano_porcion,unidad_porcion\n'
+            'Pan integral,Genérico,Cereales,245,8.0,46.0,2.0,100,g\n'
+        )
+        csv_file = io.BytesIO(csv_content.encode('utf-8'))
+        csv_file.name = 'foods_with_inference.csv'
+        response = admin_client.post(
+            f'{FOODS_URL}import-csv/',
+            {'file': csv_file},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        food = Food.objects.get(name='Pan integral')
+        assert 'gluten' in (food.allergens or [])
+
+    def test_import_csv_keeps_declared_allergens_and_adds_detected(self, admin_client):
+        csv_content = (
+            'nombre,marca,categoria,alergenos,calorias,proteinas,carbohidratos,grasas,tamano_porcion,unidad_porcion\n'
+            'Barrita proteica,Marca X,Snacks,soy,380,24.0,35.0,12.0,100,g\n'
+        )
+        csv_file = io.BytesIO(csv_content.encode('utf-8'))
+        csv_file.name = 'foods_allergens.csv'
+        response = admin_client.post(
+            f'{FOODS_URL}import-csv/',
+            {'file': csv_file},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        food = Food.objects.get(name='Barrita proteica')
+        assert 'soy' in (food.allergens or [])
+
     def test_import_excel_no_file(self, admin_client):
         response = admin_client.post(f'{FOODS_URL}import-excel/', {}, format='multipart')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -587,6 +619,26 @@ class TestAdminFoodViewSet:
             format='multipart',
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+
+    def test_import_excel_infers_allergens_when_not_marked(self, admin_client):
+        import openpyxl
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.append(['nombre', 'marca', 'categoria', 'calorias', 'proteinas', 'carbohidratos', 'grasas', 'tamano_porcion', 'unidad_porcion'])
+        ws.append(['Yogur natural', 'Marca Y', 'Lacteos', 60, 3.5, 4.7, 3.2, 100, 'g'])
+        buf = io.BytesIO()
+        wb.save(buf)
+        buf.seek(0)
+        buf.name = 'foods_infer.xlsx'
+
+        response = admin_client.post(
+            f'{FOODS_URL}import-excel/',
+            {'file': buf},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        food = Food.objects.get(name='Yogur natural')
+        assert 'dairy' in (food.allergens or [])
 
 
 # ---------------------------------------------------------------------------

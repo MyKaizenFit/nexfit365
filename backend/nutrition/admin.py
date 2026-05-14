@@ -56,7 +56,7 @@ class ImportFoodsForm(forms.Form):
 
 @admin.register(Food)
 class FoodAdmin(admin.ModelAdmin):
-    list_display = ['name', 'brand', 'category', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'is_verified']
+    list_display = ['name', 'brand', 'category', 'allergens', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'is_verified']
     list_filter = ['category', 'is_verified', 'created_at']
     search_fields = ['name', 'brand', 'category']
     ordering = ['name']
@@ -65,7 +65,7 @@ class FoodAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('Información básica', {
-            'fields': ('name', 'brand', 'category', 'is_verified')
+            'fields': ('name', 'brand', 'category', 'allergens', 'is_verified')
         }),
         ('Porción', {
             'fields': ('serving_size', 'serving_unit')
