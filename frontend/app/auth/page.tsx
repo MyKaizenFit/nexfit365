@@ -134,12 +134,12 @@ function AuthPageContent() {
   if (showForgotPassword) {
     if (forgotPasswordSent) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
           <div className="absolute inset-0 overflow-hidden">
             <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pink-200/30 to-rose-200/30 rounded-full blur-3xl animate-pulse"></div>
             <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-teal-200/30 to-cyan-200/30 rounded-full blur-3xl animate-pulse delay-1000"></div>
           </div>
-          <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
+          <Card className="w-full max-w-md relative z-10 border shadow-2xl bg-card/95 backdrop-blur-sm animate-in slide-in-from-bottom-8 duration-700">
             <CardHeader className="text-center space-y-4 pb-8">
               <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-400 to-emerald-500 rounded-2xl flex items-center justify-center">
                 <Heart className="w-8 h-8 text-white" />
@@ -147,14 +147,14 @@ function AuthPageContent() {
               <CardTitle className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 ¡Correo enviado!
               </CardTitle>
-              <CardDescription className="text-gray-600">
+              <CardDescription className="text-muted-foreground">
                 Hemos enviado un enlace de recuperación a <strong>{formData.resetEmail}</strong>. Revisa tu bandeja de entrada.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Button
                 variant="ghost"
-                className="w-full h-12 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl"
+                className="w-full h-12 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl"
                 onClick={() => { setShowForgotPassword(false); setForgotPasswordSent(false) }}
               >
                 ← Volver al inicio de sesión
@@ -165,7 +165,7 @@ function AuthPageContent() {
       )
     }
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4 relative overflow-hidden">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
         {/* Animated background elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pink-200/30 to-rose-200/30 rounded-full blur-3xl animate-pulse"></div>
@@ -173,7 +173,7 @@ function AuthPageContent() {
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-violet-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse delay-500"></div>
         </div>
 
-        <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
+        <Card className="w-full max-w-md relative z-10 border shadow-2xl bg-card/95 backdrop-blur-sm animate-in slide-in-from-bottom-8 duration-700">
           <CardHeader className="text-center space-y-4 pb-8">
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-rose-400 to-pink-500 rounded-2xl flex items-center justify-center animate-bounce">
               <Heart className="w-8 h-8 text-white" />
@@ -181,13 +181,13 @@ function AuthPageContent() {
             <CardTitle className="text-2xl font-bold bg-gradient-to-r from-rose-600 to-pink-600 bg-clip-text text-transparent">
               Recuperar Contraseña
             </CardTitle>
-            <CardDescription className="text-gray-600">
+            <CardDescription className="text-muted-foreground">
               Ingresa tu correo y te enviaremos un enlace mágico ✨
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-3">
-              <Label htmlFor="reset-email" className="text-gray-700 font-medium">
+              <Label htmlFor="reset-email" className="text-foreground font-medium">
                 Correo electrónico
               </Label>
               <Input
@@ -197,7 +197,7 @@ function AuthPageContent() {
                 value={formData.resetEmail}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("resetEmail", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl ${
-                  validationErrors.resetEmail ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-rose-400'
+                  validationErrors.resetEmail ? 'border-red-300 focus:border-red-400' : 'border-border focus:border-rose-400'
                 }`}
               />
               {validationErrors.resetEmail && (
@@ -224,7 +224,7 @@ function AuthPageContent() {
 
             <Button
               variant="ghost"
-              className="w-full h-12 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all duration-300"
+              className="w-full h-12 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all duration-300"
               onClick={() => setShowForgotPassword(false)}
             >
               ← Volver al inicio de sesión
@@ -236,7 +236,7 @@ function AuthPageContent() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-pink-200/30 to-rose-200/30 rounded-full blur-3xl animate-pulse"></div>
@@ -250,7 +250,7 @@ function AuthPageContent() {
         <div className="absolute bottom-20 right-20 w-2 h-2 bg-pink-300/50 rounded-full animate-bounce delay-500"></div>
       </div>
 
-      <Card className="w-full max-w-md relative z-10 backdrop-blur-sm bg-white/80 border-0 shadow-2xl animate-in slide-in-from-bottom-8 duration-700">
+      <Card className="w-full max-w-md relative z-10 border shadow-2xl bg-card/95 backdrop-blur-sm animate-in slide-in-from-bottom-8 duration-700">
         <CardHeader className="text-center space-y-6 pb-8 pt-10">
           <div className="flex items-center justify-center">
             <Image src="/NexFit.png" alt="Logo de NEXFIT" width={240} height={72} quality={100} priority />
@@ -263,7 +263,7 @@ function AuthPageContent() {
         <CardContent className="space-y-6">
           {!isLogin && (
             <div className="space-y-3 animate-in slide-in-from-right-4 duration-500">
-              <Label htmlFor="name" className="text-gray-700 font-medium">
+              <Label htmlFor="name" className="text-foreground font-medium">
                 Nombre completo
               </Label>
               <Input
@@ -273,7 +273,7 @@ function AuthPageContent() {
                 value={formData.name}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("name", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl ${
-                  validationErrors.name ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
+                  validationErrors.name ? 'border-red-300 focus:border-red-400' : 'border-border focus:border-teal-400'
                 }`}
               />
               {validationErrors.name && (
@@ -285,7 +285,7 @@ function AuthPageContent() {
           )}
 
           <div className="space-y-3 animate-in slide-in-from-left-4 duration-500 delay-100">
-            <Label htmlFor="email" className="text-gray-700 font-medium">
+            <Label htmlFor="email" className="text-foreground font-medium">
               Correo electrónico
             </Label>
             <Input
@@ -295,7 +295,7 @@ function AuthPageContent() {
               value={formData.email}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("email", e.target.value)}
               className={`h-12 border-2 transition-all duration-300 rounded-xl ${
-                validationErrors.email ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
+                validationErrors.email ? 'border-red-300 focus:border-red-400' : 'border-border focus:border-teal-400'
               }`}
             />
             {validationErrors.email && (
@@ -306,7 +306,7 @@ function AuthPageContent() {
           </div>
 
           <div className="space-y-3 animate-in slide-in-from-right-4 duration-500 delay-200">
-            <Label htmlFor="password" className="text-gray-700 font-medium">
+            <Label htmlFor="password" className="text-foreground font-medium">
               Contraseña
             </Label>
             <div className="relative">
@@ -317,7 +317,7 @@ function AuthPageContent() {
                 value={formData.password}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("password", e.target.value)}
                 className={`h-12 border-2 transition-all duration-300 rounded-xl pr-12 ${
-                  validationErrors.password ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
+                  validationErrors.password ? 'border-red-300 focus:border-red-400' : 'border-border focus:border-teal-400'
                 }`}
               />
               <Button
@@ -328,9 +328,9 @@ function AuthPageContent() {
                 onClick={() => setShowPassword(!showPassword)}
               >
                 {showPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                  <EyeOff className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                  <Eye className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                 )}
               </Button>
             </div>
@@ -338,7 +338,7 @@ function AuthPageContent() {
 
           {!isLogin && (
             <div className="space-y-3 animate-in slide-in-from-left-4 duration-500 delay-300">
-              <Label htmlFor="confirm-password" className="text-gray-700 font-medium">
+              <Label htmlFor="confirm-password" className="text-foreground font-medium">
                 Confirmar contraseña
               </Label>
               <div className="relative">
@@ -349,7 +349,7 @@ function AuthPageContent() {
                   value={formData.confirmPassword}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("confirmPassword", e.target.value)}
                   className={`h-12 border-2 transition-all duration-300 rounded-xl pr-12 ${
-                    validationErrors.confirmPassword ? 'border-red-300 focus:border-red-400' : 'border-gray-200 focus:border-teal-400'
+                    validationErrors.confirmPassword ? 'border-red-300 focus:border-red-400' : 'border-border focus:border-teal-400'
                   }`}
                 />
                 <Button
@@ -360,9 +360,9 @@ function AuthPageContent() {
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 >
                   {showConfirmPassword ? (
-                    <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                    <EyeOff className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                   ) : (
-                    <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
+                    <Eye className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
                   )}
                 </Button>
               </div>
@@ -395,7 +395,7 @@ function AuthPageContent() {
           {isLogin && (
             <Button
               variant="ghost"
-              className="w-full h-12 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-xl transition-all duration-300 animate-in fade-in-0 duration-500 delay-500"
+              className="w-full h-12 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-all duration-300 animate-in fade-in-0 duration-500 delay-500"
               onClick={() => setShowForgotPassword(true)}
             >
               ¿Olvidaste tu contraseña? 🤔
@@ -405,7 +405,7 @@ function AuthPageContent() {
           <div className="text-center animate-in fade-in-0 duration-500 delay-600">
             <Button
               variant="ghost"
-              className="text-gray-600 hover:text-gray-800 transition-colors duration-300 font-medium"
+              className="text-muted-foreground hover:text-foreground transition-colors duration-300 font-medium"
               onClick={() => setIsLogin(!isLogin)}
             >
               {isLogin ? "¿Primera vez aquí? ¡Regístrate! 🎉" : "¿Ya tienes cuenta? ¡Inicia sesión! 👋"}
@@ -420,7 +420,7 @@ function AuthPageContent() {
 // Loading component for Suspense fallback
 function AuthLoading() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50">
+    <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="w-8 h-8 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
     </div>
   )

@@ -72,7 +72,7 @@ export default function InitialRegistrationPage() {
   // Si ya está completo, mostrar recomendaciones o mensaje de éxito
   if (isComplete && showRecommendations) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-muted py-8">
         <div className="container mx-auto px-4">
           <PersonalizedRecommendations userProfile={profile} onComplete={handleCreatePlans} />
         </div>
@@ -82,7 +82,7 @@ export default function InitialRegistrationPage() {
 
   if (isComplete && !showRecommendations) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
@@ -109,14 +109,14 @@ export default function InitialRegistrationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       {/* Botón de cerrar sesión - Fijo en la esquina superior derecha */}
       <div className="fixed top-4 right-4 z-50">
         <Button
           onClick={handleLogout}
           variant="outline"
           size="sm"
-          className="bg-white/90 backdrop-blur-sm border-gray-300 text-gray-700 hover:bg-white hover:text-red-600 transition-all duration-300 shadow-lg"
+          className="bg-card/90 backdrop-blur-sm border-gray-300 text-gray-700 hover:bg-white hover:text-red-600 transition-all duration-300 shadow-lg"
         >
           <LogOut className="h-4 w-4 mr-2" />
           Cerrar sesión
@@ -160,7 +160,7 @@ export default function InitialRegistrationPage() {
           <div className="flex justify-center items-center py-8">
             <div className="text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-600">Cargando datos del usuario...</p>
+              <p className="text-muted-foreground">Cargando datos del usuario...</p>
             </div>
           </div>
         ) : (
@@ -172,7 +172,7 @@ export default function InitialRegistrationPage() {
         )}
         
         <div className="mt-8 text-center">
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-muted-foreground">
             Esta información nos ayuda a crear planes personalizados para ti.
             <br />
             Puedes modificar estos datos en cualquier momento desde tu perfil.

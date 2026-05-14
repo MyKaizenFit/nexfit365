@@ -85,13 +85,13 @@ export default function HomePage() {
   // Si está autenticado, el efecto anterior se encarga de redirigir.
   if (isAuthenticated && !isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
             <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
           </div>
-          <h1 className="text-3xl font-bold mb-3 text-gray-800">Redirigiendo...</h1>
-          <p className="text-gray-600">Te estamos llevando a Inicio.</p>
+          <h1 className="text-3xl font-bold mb-3 text-foreground">Redirigiendo...</h1>
+          <p className="text-muted-foreground">Te estamos llevando a Inicio.</p>
         </div>
       </div>
     )
@@ -100,7 +100,7 @@ export default function HomePage() {
   // Si no está autenticado, mostrar landing page de venta
   if (!isLoading && !isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+      <div className="min-h-screen bg-background dark:bg-background">
         {/* Header Hero Mejorado */}
         <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-700 text-white">
           <div className="absolute inset-0 bg-black/10 pointer-events-none"></div>
@@ -114,7 +114,7 @@ export default function HomePage() {
               </div>
               <h1 className="text-6xl md:text-7xl font-extrabold mb-6 leading-tight">
                 Alcanza tus Objetivos<br />
-                <span className="text-yellow-300">con Nex-Fit</span> 🏋️‍♂️
+                <span className="text-yellow-300">con Nex-Fit</span>
               </h1>
               <p className="text-2xl md:text-3xl text-blue-100 max-w-4xl mx-auto leading-relaxed mb-8 font-light">
                 La plataforma todo-en-uno que combina entrenamiento personalizado, nutrición inteligente y seguimiento avanzado para transformar tu vida
@@ -164,49 +164,49 @@ export default function HomePage() {
           {/* Beneficios Principales */}
           <div className="mb-20">
             <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold text-gray-800 mb-6">¿Por qué elegir Nex-Fit?</h2>
-              <p className="text-2xl text-gray-600 max-w-3xl mx-auto">
+              <h2 className="text-5xl font-bold text-foreground mb-6">¿Por qué elegir Nex-Fit?</h2>
+              <p className="text-2xl text-muted-foreground max-w-3xl mx-auto">
                 La solución completa para transformar tu cuerpo y alcanzar el estilo de vida que siempre has querido
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16">
-              <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center p-8 bg-card/80 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="w-24 h-24 bg-gradient-to-br from-blue-500 to-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <Dumbbell className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Entrenamientos Personalizados</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">
+                <h3 className="text-2xl font-bold text-foreground mb-4">Entrenamientos Personalizados</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
                   Rutinas diseñadas específicamente para ti, adaptadas a tu nivel, objetivos y disponibilidad
                 </p>
               </div>
 
-              <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center p-8 bg-card/80 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="w-24 h-24 bg-gradient-to-br from-green-500 to-green-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <ChefHat className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Nutrición Inteligente</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">
+                <h3 className="text-2xl font-bold text-foreground mb-4">Nutrición Inteligente</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
                   Planes de alimentación personalizados con recetas deliciosas y seguimiento de macros preciso
                 </p>
               </div>
 
-              <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center p-8 bg-card/80 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-purple-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <BarChart3 className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Seguimiento Avanzado</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">
+                <h3 className="text-2xl font-bold text-foreground mb-4">Seguimiento Avanzado</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
                   Métricas detalladas, gráficos interactivos e insights que te ayudan a optimizar tu progreso
                 </p>
               </div>
 
-              <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
+              <div className="text-center p-8 bg-card/80 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2">
                 <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-xl">
                   <Trophy className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">Logros y Motivación</h3>
-                <p className="text-gray-600 leading-relaxed text-lg">
+                <h3 className="text-2xl font-bold text-foreground mb-4">Logros y Motivación</h3>
+                <p className="text-muted-foreground leading-relaxed text-lg">
                   Sistema de logros, recordatorios y motivación constante para mantenerte en el camino
                 </p>
               </div>
@@ -216,56 +216,56 @@ export default function HomePage() {
           {/* Características Detalladas */}
           <div className="mb-20">
             <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold text-gray-800 mb-6">Todo lo que necesitas en un solo lugar</h2>
-              <p className="text-2xl text-gray-600 max-w-3xl mx-auto">
+              <h2 className="text-5xl font-bold text-foreground mb-6">Todo lo que necesitas en un solo lugar</h2>
+              <p className="text-2xl text-muted-foreground max-w-3xl mx-auto">
                 Una plataforma completa diseñada para maximizar tus resultados
               </p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-12 mb-16">
-              <div className="flex gap-6 p-8 bg-white/60 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg">
+              <div className="flex gap-6 p-8 bg-card/60 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <Activity className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">Seguimiento en Tiempo Real</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">
+                  <h3 className="text-2xl font-bold text-foreground mb-3">Seguimiento en Tiempo Real</h3>
+                  <p className="text-muted-foreground text-lg leading-relaxed">
                     Monitorea tus entrenamientos, peso, medidas y progreso fotográfico con herramientas avanzadas de análisis
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-6 p-8 bg-white/60 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg">
+              <div className="flex gap-6 p-8 bg-card/60 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg">
                 <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <Calendar className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">Planes Adaptativos</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">
+                  <h3 className="text-2xl font-bold text-foreground mb-3">Planes Adaptativos</h3>
+                  <p className="text-muted-foreground text-lg leading-relaxed">
                     Tu plan se ajusta automáticamente según tu progreso, preferencias y cambios en tus objetivos
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-6 p-8 bg-white/60 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg">
+              <div className="flex gap-6 p-8 bg-card/60 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg">
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <Heart className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">Enfoque en Salud Integral</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">
+                  <h3 className="text-2xl font-bold text-foreground mb-3">Enfoque en Salud Integral</h3>
+                  <p className="text-muted-foreground text-lg leading-relaxed">
                     No solo fitness: trabajamos en tu bienestar físico, mental y nutricional de forma holística
                   </p>
                 </div>
               </div>
 
-              <div className="flex gap-6 p-8 bg-white/60 backdrop-blur-sm rounded-3xl border border-white/40 shadow-lg">
+              <div className="flex gap-6 p-8 bg-card/60 dark:bg-card backdrop-blur-sm rounded-3xl border shadow-lg">
                 <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                   <Clock className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">Ahorra Tiempo</h3>
-                  <p className="text-gray-600 text-lg leading-relaxed">
+                  <h3 className="text-2xl font-bold text-foreground mb-3">Ahorra Tiempo</h3>
+                  <p className="text-muted-foreground text-lg leading-relaxed">
                     Todo en un solo lugar: no necesitas múltiples apps. Planifica, entrena y come mejor desde una plataforma
                   </p>
                 </div>
@@ -280,20 +280,20 @@ export default function HomePage() {
                 <Sparkles className="w-4 h-4" />
                 Todos empiezan con 7 días de prueba gratuita
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-gray-800 mb-4">Empieza gratis y elige cómo continuar</h2>
-              <p className="text-xl text-gray-600 max-w-4xl mx-auto">
+              <h2 className="text-4xl md:text-5xl font-bold text-foreground mb-4">Empieza gratis y elige cómo continuar</h2>
+              <p className="text-xl text-muted-foreground max-w-4xl mx-auto">
                 La app te da acceso inmediato a entrenamientos, recetas y herramientas de progreso. Si más adelante necesitas ayuda personalizada, dentro de la propia app podrás solicitar que evaluemos tu caso.
               </p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+              <Card className="bg-card border shadow-xl">
                 <CardContent className="p-6">
                   <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center mb-4">
                     <Smartphone className="w-7 h-7 text-white" />
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-3">La App incluye</h3>
-                  <ul className="space-y-3 text-gray-600">
+                  <h3 className="text-2xl font-bold text-foreground mb-3">La App incluye</h3>
+                  <ul className="space-y-3 text-muted-foreground">
                     {[
                       '+100 recetas de comida real',
                       '+50 recetas FAT convertidas a FIT',
@@ -403,19 +403,19 @@ export default function HomePage() {
 
   // Estado de carga
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
+    <div className="min-h-screen bg-background dark:bg-background flex items-center justify-center">
       <div className="text-center">
         <div className="mx-auto w-24 h-24 rounded-3xl overflow-hidden flex items-center justify-center mb-8 animate-pulse shadow-2xl">
           <Image src="/icono.png" alt="NEXFIT" width={96} height={96} quality={100} priority />
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-gray-800">
-          Cargando <span className="text-orange-500">NEX</span><span className="text-gray-600">FIT</span>...
+        <h1 className="text-4xl font-bold mb-4 text-foreground">
+          Cargando <span className="text-orange-500">NEX</span><span className="text-muted-foreground">FIT</span>...
         </h1>
-        <p className="text-gray-600 text-lg mb-6">Preparando tu experiencia personalizada</p>
+        <p className="text-muted-foreground text-lg mb-6">Preparando tu experiencia personalizada</p>
         <div className="flex justify-center gap-2">
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce"></div>
           <div className="w-3 h-3 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-          <div className="w-3 h-3 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+          <div className="w-3 h-3 bg-muted-foreground/50 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
         </div>
       </div>
     </div>

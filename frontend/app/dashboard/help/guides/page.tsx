@@ -139,7 +139,7 @@ export default function GuidesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-20">Cargando...</div>
         </div>
@@ -150,7 +150,7 @@ export default function GuidesPage() {
   // Si hay contenido HTML configurado, mostrarlo
   if (helpSettings?.guides_content) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto space-y-6">
           <div className="flex items-center gap-4">
             <Button
@@ -162,7 +162,7 @@ export default function GuidesPage() {
               Volver
             </Button>
           </div>
-          <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <Card className="border shadow-xl">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-3xl">
                 <FileText className="h-8 w-8 text-purple-600" />
@@ -182,7 +182,7 @@ export default function GuidesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -196,7 +196,7 @@ export default function GuidesPage() {
           </Button>
         </div>
 
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-3xl">
               <FileText className="h-8 w-8 text-purple-600" />
@@ -226,7 +226,7 @@ export default function GuidesPage() {
                           <CardTitle className="text-lg">{section.title}</CardTitle>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-gray-600">{section.content}</p>
+                          <p className="text-muted-foreground">{section.content}</p>
                         </CardContent>
                       </Card>
                     ))}
