@@ -331,7 +331,30 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                     if not value:
                         return ''
                     return translation_map.get(value, value)
-                
+
+                # Auto-link: construir mapa de videos de Google Drive (nombre normalizado -> file_id)
+                import unicodedata as _unicodedata
+                import re as _re
+
+                def _normalize_for_drive_match(name):
+                    """Normaliza un nombre para comparar con nombres de videos en Drive"""
+                    nfkd = _unicodedata.normalize('NFKD', (name or '').lower())
+                    ascii_name = ''.join(c for c in nfkd if not _unicodedata.combining(c))
+                    return _re.sub(r'[^a-z0-9]', '', ascii_name)
+
+                drive_video_map = {}
+                try:
+                    from .google_drive_service import get_google_drive_service
+                    _drive_service = get_google_drive_service()
+                    if _drive_service.is_configured():
+                        _drive_videos = _drive_service.list_videos_from_folder()
+                        for _v in _drive_videos:
+                            _key = _normalize_for_drive_match(_v['name'])
+                            if _key and _key not in drive_video_map:
+                                drive_video_map[_key] = _v['file_id']
+                except Exception:
+                    pass  # Drive no configurado o error, omitir auto-vinculación
+
                 for row_num, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
                     try:
                         # Ignorar filas completamente vacias sin contarlas como omitidas.
@@ -378,7 +401,15 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             'is_active': to_bool(row_dict.get('is_active', True)),
                             'tags': [t.strip() for t in clean_str(row_dict.get('tags', '')).split(',') if t.strip()],
                         }
-                        
+
+                        # Auto-link: si no hay google_drive_file_id en el Excel, intentar vincular por nombre
+                        if not fields['google_drive_file_id'] and drive_video_map:
+                            _matched_id = drive_video_map.get(_normalize_for_drive_match(name), '')
+                            if _matched_id:
+                                fields['google_drive_file_id'] = _matched_id
+                                if not fields['video_url']:
+                                    fields['video_url'] = f"https://drive.google.com/file/d/{_matched_id}/preview"
+
                         if exercise:
                             for k, v in fields.items():
                                 setattr(exercise, k, v)
@@ -881,6 +912,92 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
         
         return Response({'removed': deleted > 0})
     
+    @action(detail=False, methods=['post'], url_path='auto-link-videos')
+    def auto_link_videos(self, request):
+        """
+        Vincula ejercicios con videos de la carpeta pública de Google Drive.
+        El servidor hace la petición HTTP directamente, sin API key ni OAuth.
+        Acepta opcionalmente drive_map:{clave:file_id} precalculado desde el frontend.
+        """
+        import unicodedata as _unicodedata
+        import re as _re
+
+        def _norm(name):
+            nfkd = _unicodedata.normalize('NFKD', (name or '').lower())
+            ascii_name = ''.join(c for c in nfkd if not _unicodedata.combining(c))
+            return _re.sub(r'[^a-z0-9]', '', ascii_name)
+
+        force = str(request.data.get('force', 'false')).lower() in ('true', '1', 'yes')
+        drive_map = request.data.get('drive_map')  # opcional, lo puede mandar el frontend
+
+        if not drive_map:
+            # Listar la carpeta pública haciendo una petición HTTP sin API key
+            from django.conf import settings
+            folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG') or '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG'
+            try:
+                import urllib.request as _ur
+                url = f'https://drive.google.com/embeddedfolderview?id={folder_id}#list'
+                req = _ur.Request(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (compatible; NexFit/1.0)'
+                })
+                with _ur.urlopen(req, timeout=20) as resp:
+                    html = resp.read().decode('utf-8')
+
+                VIDEO_EXT = r'\.(mp4|mov|avi|mkv|webm|flv|wmv)'
+                drive_map = {}
+                # Drive embeds file metadata as JSON arrays in the HTML.
+                # Buscar pares file_id + nombre de archivo con extensión de vídeo
+                for m in _re.finditer(
+                    r'"([A-Za-z0-9_\-]{20,})"[^\]]{0,400}"([^"]+' + VIDEO_EXT + r')"',
+                    html, _re.IGNORECASE
+                ):
+                    file_id = m.group(1)
+                    filename = m.group(2)
+                    key = _norm(_re.sub(r'\.[^.]+$', '', filename))
+                    if key and key not in drive_map:
+                        drive_map[key] = file_id
+
+            except Exception as exc:
+                return Response(
+                    {'error': f'No se pudo acceder a la carpeta de Drive: {exc}'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if not drive_map:
+            return Response(
+                {'error': 'No se encontraron vídeos en la carpeta de Drive'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .models import Exercise
+        linked = 0
+        skipped = 0
+        matched_names = []
+
+        if force:
+            qs = Exercise.objects.all()
+        else:
+            qs = Exercise.objects.filter(google_drive_file_id__isnull=True) | Exercise.objects.filter(google_drive_file_id='')
+
+        for ex in qs:
+            key = _norm(ex.name)
+            file_id = drive_map.get(key)
+            if file_id:
+                ex.google_drive_file_id = file_id
+                ex.video_url = f'https://drive.google.com/file/d/{file_id}/preview'
+                ex.save(update_fields=['google_drive_file_id', 'video_url'])
+                linked += 1
+                matched_names.append(ex.name)
+            else:
+                skipped += 1
+
+        return Response({
+            'videos_in_drive': len(drive_map),
+            'linked': linked,
+            'skipped_no_match': skipped,
+            'matched': matched_names,
+        }, status=status.HTTP_200_OK)
+
     @action(detail=True, methods=['get'], url_path='substitutes')
     def list_substitutes(self, request, pk=None):
         """Listar sustitutos de un ejercicio"""
