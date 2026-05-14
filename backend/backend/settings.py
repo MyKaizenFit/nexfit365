@@ -224,6 +224,23 @@ if DEBUG:
 else:
     # En producción, usar solo los orígenes permitidos
     CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOW_HEADERS = [
+        'accept',
+        'accept-encoding',
+        'accept-language',
+        'authorization',
+        'content-type',
+        'dnt',
+        'origin',
+        'user-agent',
+        'x-csrftoken',
+        'x-requested-with',
+        'cache-control',
+        'pragma',
+    ]
+    CORS_ALLOW_METHODS = [
+        'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT',
+    ]
 
 # CSRF (necesario si usas cookies/CSRF en vez de solo JWT)
 # Ejemplo: "https://tu-frontend.vercel.app,http://localhost:3000"
