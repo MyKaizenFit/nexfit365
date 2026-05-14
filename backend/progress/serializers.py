@@ -2,6 +2,21 @@ from rest_framework import serializers
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 
 
+def _build_public_media_url(request, media_path: str | None) -> str | None:
+    """Build absolute media URLs and honor HTTPS behind reverse proxies."""
+    if not media_path:
+        return None
+
+    if not request:
+        return media_path
+
+    url = request.build_absolute_uri(media_path)
+    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip()
+    if forwarded_proto == "https" and url.startswith("http://"):
+        return "https://" + url[len("http://"):]
+    return url
+
+
 class ProgressPhotoSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")
     photo_url = serializers.SerializerMethodField()
@@ -58,23 +73,13 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
     def get_photo_url(self, obj):
         if obj.photo:
             request = self.context.get("request")
-            if request:
-                url = request.build_absolute_uri(obj.photo.url)
-                # Forzar HTTPS en producción
-                if "api.nexfit365" in url:
-                    url = url.replace("http://", "https://")
-                return url
+            return _build_public_media_url(request, obj.photo.url)
         return None
     
     def get_thumbnail_url(self, obj):
         if obj.thumbnail:
             request = self.context.get("request")
-            if request:
-                url = request.build_absolute_uri(obj.thumbnail.url)
-                # Forzar HTTPS en producción
-                if "api.nexfit365" in url:
-                    url = url.replace("http://", "https://")
-                return url
+            return _build_public_media_url(request, obj.thumbnail.url)
         return None
     
     def validate_photo(self, value):

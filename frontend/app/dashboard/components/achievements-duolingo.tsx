@@ -113,8 +113,8 @@ export function AchievementsDuolingo() {
       description: 'Completa todas tus comidas del día',
       icon: ChefHat,
       target: meals.length,
-      current: meals.filter(meal => meal.selectedOption).length,
-      completed: meals.length > 0 && meals.every(meal => meal.selectedOption),
+      current: meals.filter(meal => meal.isCompleted).length,
+      completed: meals.length > 0 && meals.every(meal => meal.isCompleted),
       color: 'from-orange-500 to-red-600'
     },
     {
@@ -130,7 +130,7 @@ export function AchievementsDuolingo() {
          (macros.fatConsumed / (macros.fatGoal || 1)) * 0.3) * 100
       ),
       // Los macros se completan automáticamente cuando el plan nutricional está completo
-      completed: meals.length > 0 && meals.every(meal => meal.selectedOption),
+      completed: meals.length > 0 && meals.every(meal => meal.isCompleted),
       color: 'from-blue-500 to-indigo-600'
     },
     {
@@ -161,9 +161,9 @@ export function AchievementsDuolingo() {
       // Si es día de descanso, solo verificar nutrición
       // Si no, verificar ambos: entrenamiento y nutrición
       const workoutComplete = isTodayRestDay || hasWorkoutToday
-      const allMealsSelected = meals.length > 0 && meals.every(meal => meal.selectedOption)
+      const allMealsCompleted = meals.length > 0 && meals.every(meal => meal.isCompleted)
       
-      const dayComplete = workoutComplete && allMealsSelected
+      const dayComplete = workoutComplete && allMealsCompleted
 
       if (!dayComplete) return
 

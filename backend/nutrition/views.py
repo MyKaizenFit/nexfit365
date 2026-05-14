@@ -1063,7 +1063,31 @@ def daily_meal_selections(request):
             except Exception as e:
                 logger.warning(f'Error obteniendo receta {recipe_id}: {e}, usando custom_description')
                 recipe = None
-        
+
+        # Bloquear si la receta contiene alérgenos del usuario (no aplica a admins)
+        if recipe and not (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
+            user_allergens = getattr(request.user, 'allergies', None) or []
+            recipe_allergens = getattr(recipe, 'allergens', None) or []
+            conflicts = [a for a in recipe_allergens if a in user_allergens]
+            if conflicts:
+                ALLERGEN_LABELS = {
+                    'gluten': 'Gluten', 'dairy': 'Lácteos', 'eggs': 'Huevo',
+                    'nuts': 'Frutos secos', 'soy': 'Soja', 'fish': 'Pescado',
+                    'shellfish': 'Marisco', 'sesame': 'Sésamo',
+                }
+                conflict_names = [ALLERGEN_LABELS.get(a, a) for a in conflicts]
+                return Response(
+                    {
+                        'error': 'allergen_conflict',
+                        'detail': (
+                            f'No puedes añadir "{recipe.name}" porque contiene alérgenos a los que eres '
+                            f'sensible: {", ".join(conflict_names)}.'
+                        ),
+                        'allergens': conflicts,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         # Crear o actualizar el log de comida
         # Si es una selección (no completada), guardar con completed=False
         # Si es una comida consumida, guardar con completed=True
@@ -2404,9 +2428,41 @@ class MealLogViewSet(viewsets.ModelViewSet):
 
         return queryset
     
+    def create(self, request, *args, **kwargs):
+        # Bloquear si la receta contiene alérgenos del usuario (no aplica a admins)
+        if not (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
+            recipe_id = request.data.get('recipe') or request.data.get('recipe_id')
+            if recipe_id:
+                try:
+                    recipe = Recipe.objects.get(id=recipe_id)
+                    user_allergens = getattr(request.user, 'allergies', None) or []
+                    recipe_allergens = getattr(recipe, 'allergens', None) or []
+                    conflicts = [a for a in recipe_allergens if a in user_allergens]
+                    if conflicts:
+                        ALLERGEN_LABELS = {
+                            'gluten': 'Gluten', 'dairy': 'Lácteos', 'eggs': 'Huevo',
+                            'nuts': 'Frutos secos', 'soy': 'Soja', 'fish': 'Pescado',
+                            'shellfish': 'Marisco', 'sesame': 'Sésamo',
+                        }
+                        conflict_names = [ALLERGEN_LABELS.get(a, a) for a in conflicts]
+                        return Response(
+                            {
+                                'error': 'allergen_conflict',
+                                'detail': (
+                                    f'No puedes añadir "{recipe.name}" porque contiene alérgenos a los que eres '
+                                    f'sensible: {", ".join(conflict_names)}.'
+                                ),
+                                'allergens': conflicts,
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                except Recipe.DoesNotExist:
+                    pass
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-    
+
     @action(detail=False, methods=['get'])
     def today(self, request):
         """Logs de hoy"""

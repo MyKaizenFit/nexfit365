@@ -14,6 +14,21 @@ from .models import CustomUser, ProfileAuditLog
 
 IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
 
+
+def _build_public_media_url(request, media_path: str | None) -> str | None:
+    """Build absolute media URLs and honor HTTPS behind reverse proxies."""
+    if not media_path:
+        return None
+
+    if not request:
+        return media_path
+
+    url = request.build_absolute_uri(media_path)
+    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip()
+    if forwarded_proto == "https" and url.startswith("http://"):
+        return "https://" + url[len("http://"):]
+    return url
+
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
     
@@ -45,9 +60,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_profile_picture_url(self, obj):
         if obj.profile_picture:
             request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
+            return _build_public_media_url(request, obj.profile_picture.url)
         return None
 
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -129,9 +142,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_profile_picture_url(self, obj):
         if obj.profile_picture:
             request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.profile_picture.url)
-            return obj.profile_picture.url
+            return _build_public_media_url(request, obj.profile_picture.url)
         return None
 
     def get_premium_alerts(self, obj):
