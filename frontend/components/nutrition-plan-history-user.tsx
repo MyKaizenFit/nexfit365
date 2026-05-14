@@ -92,14 +92,14 @@ export function NutritionPlanHistoryUser() {
         {history.length === 0 ? (
           <div className="text-center py-8">
             <AlertCircle className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-            <p className="text-gray-500">No hay cambios de plan registrados</p>
+            <p className="text-muted-foreground">No hay cambios de plan registrados</p>
           </div>
         ) : (
           <div className="space-y-3">
             {history.map((entry) => (
               <div
                 key={entry.id}
-                className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                className="border rounded-lg p-4 hover:bg-muted/50 transition-colors"
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -110,20 +110,20 @@ export function NutritionPlanHistoryUser() {
                       <Badge variant="destructive" className="text-xs">Por administrador</Badge>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-sm text-gray-500">
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Clock className="w-3 h-3" />
                     {formatDate(entry.created_at)}
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="font-medium text-gray-600">{entry.old_plan_name || 'Sin plan'}</span>
-                  <ArrowRight className="w-4 h-4 text-gray-400" />
-                  <span className="font-semibold text-gray-900">{entry.new_plan_name}</span>
+                  <span className="font-medium text-muted-foreground">{entry.old_plan_name || 'Sin plan'}</span>
+                  <ArrowRight className="w-4 h-4 text-muted-foreground/70" />
+                  <span className="font-semibold text-foreground">{entry.new_plan_name}</span>
                 </div>
                 
                 {entry.notes && (
-                  <div className="text-sm text-gray-600 italic mt-2">
+                  <div className="text-sm text-muted-foreground italic mt-2">
                     "{entry.notes}"
                   </div>
                 )}

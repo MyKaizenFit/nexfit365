@@ -27,7 +27,7 @@ export function AuthStatus() {
 
   if (isLoading) {
     return (
-      <Card className="w-full max-w-2xl mx-auto border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+      <Card className="w-full max-w-2xl mx-auto border-0 bg-card/80 backdrop-blur-sm shadow-xl">
         <CardContent className="p-8">
           <div className="flex items-center justify-center">
             <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mr-4"></div>
@@ -40,12 +40,12 @@ export function AuthStatus() {
 
   if (!isAuthenticated) {
     return (
-      <Card className="w-full max-w-2xl mx-auto border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+      <Card className="w-full max-w-2xl mx-auto border-0 bg-card/80 backdrop-blur-sm shadow-xl">
         <CardHeader className="text-center pb-4">
           <div className="mx-auto w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mb-4">
             <XCircle className="w-8 h-8 text-red-600" />
           </div>
-          <CardTitle className="text-2xl font-bold text-gray-800 flex items-center justify-center gap-3">
+          <CardTitle className="text-2xl font-bold text-foreground flex items-center justify-center gap-3">
             <User className="w-6 h-6 text-red-600" />
             No Autenticado
           </CardTitle>
@@ -74,12 +74,12 @@ export function AuthStatus() {
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto border-0 bg-white/80 backdrop-blur-sm shadow-xl">
+    <Card className="w-full max-w-4xl mx-auto border-0 bg-card/80 backdrop-blur-sm shadow-xl">
       <CardHeader className="text-center pb-6">
         <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-4">
           <CheckCircle className="w-10 h-10 text-white" />
         </div>
-        <CardTitle className="text-3xl font-bold text-gray-800 flex items-center justify-center gap-3">
+        <CardTitle className="text-3xl font-bold text-foreground flex items-center justify-center gap-3">
           <User className="w-8 h-8 text-green-600" />
           Perfil de Usuario Activo
         </CardTitle>
@@ -112,7 +112,7 @@ export function AuthStatus() {
           {/* Información del usuario */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                 <User className="w-5 h-5 text-blue-600" />
                 Información Personal
               </h3>
@@ -121,16 +121,16 @@ export function AuthStatus() {
                 <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-xl">
                   <Mail className="w-5 h-5 text-blue-600" />
                   <div>
-                    <span className="font-medium text-gray-700">Email:</span>
-                    <span className="ml-2 text-gray-600">{user?.email}</span>
+                    <span className="font-medium text-foreground">Email:</span>
+                    <span className="ml-2 text-muted-foreground">{user?.email}</span>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-3 p-3 bg-green-50 rounded-xl">
                   <UserCheck className="w-5 h-5 text-green-600" />
                   <div>
-                    <span className="font-medium text-gray-700">Nombre:</span>
-                    <span className="ml-2 text-gray-600">
+                    <span className="font-medium text-foreground">Nombre:</span>
+                    <span className="ml-2 text-muted-foreground">
                       {user?.first_name} {user?.last_name}
                     </span>
                   </div>
@@ -139,7 +139,7 @@ export function AuthStatus() {
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2">
                 <Shield className="w-5 h-5 text-purple-600" />
                 Permisos y Roles
               </h3>
@@ -148,7 +148,7 @@ export function AuthStatus() {
                 <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
                   <Shield className="w-5 h-5 text-purple-600" />
                   <div>
-                    <span className="font-medium text-gray-700">Rol:</span>
+                    <span className="font-medium text-foreground">Rol:</span>
                     <Badge variant="outline" className="ml-2">{user?.role}</Badge>
                   </div>
                 </div>
@@ -156,7 +156,7 @@ export function AuthStatus() {
                 <div className="flex items-center gap-3 p-3 bg-orange-50 rounded-xl">
                   <Settings className="w-5 h-5 text-orange-600" />
                   <div>
-                    <span className="font-medium text-gray-700">Staff:</span>
+                    <span className="font-medium text-foreground">Staff:</span>
                     <Badge variant={user?.is_staff ? "default" : "secondary"} className="ml-2">
                       {user?.is_staff ? "Sí" : "No"}
                     </Badge>
@@ -166,7 +166,7 @@ export function AuthStatus() {
                 <div className="flex items-center gap-3 p-3 bg-red-50 rounded-xl">
                   <Crown className="w-5 h-5 text-red-600" />
                   <div>
-                    <span className="font-medium text-gray-700">Superusuario:</span>
+                    <span className="font-medium text-foreground">Superusuario:</span>
                     <Badge variant={user?.is_superuser ? "destructive" : "secondary"} className="ml-2">
                       {user?.is_superuser ? "Sí" : "No"}
                     </Badge>
@@ -177,7 +177,7 @@ export function AuthStatus() {
           </div>
 
           {/* Acciones */}
-          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border">
             <Button
               variant="outline"
               size="lg"

@@ -82,8 +82,8 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
                 </div>
               )}
               <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors">
-                <div className="bg-white/90 rounded-full p-2.5 md:p-3">
-                  <Play className="w-5 h-5 md:w-6 md:h-6 text-gray-900" />
+                <div className="bg-card/90 rounded-full p-2.5 md:p-3">
+                  <Play className="w-5 h-5 md:w-6 md:h-6 text-foreground" />
                 </div>
               </div>
             </div>

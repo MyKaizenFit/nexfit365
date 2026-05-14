@@ -410,7 +410,7 @@ export function ProfileEditForm({
   );
 
   return (
-    <Card className="w-full p-2 sm:p-4 rounded-lg shadow-sm bg-white">
+    <Card className="w-full p-2 sm:p-4 rounded-lg shadow-sm bg-card">
       <CardHeader className="p-2 sm:p-4">
         <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
           <User className="h-5 w-5" />
@@ -454,7 +454,7 @@ export function ProfileEditForm({
               {renderDietary()}
             </TabsContent>
           </Tabs>
-          <div className="flex justify-end sticky bottom-0 left-0 right-0 z-10 bg-white p-2 sm:p-0">
+          <div className="flex justify-end sticky bottom-0 left-0 right-0 z-10 bg-card p-2 sm:p-0">
             <Button type="submit" disabled={isLoading} className="w-full sm:w-auto px-4 py-3 sm:px-6 sm:py-4 text-base sm:text-sm">
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               <Save className="mr-2 h-4 w-4" />

@@ -17,6 +17,8 @@ interface ExerciseVideoPlayerProps {
     image_url?: string
     has_video?: boolean
     google_drive_file_id?: string
+    description?: string
+    instructions?: string
   }
   children?: React.ReactNode
 }
@@ -137,11 +139,10 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
   const [videoError, setVideoError] = useState(false)
 
   const videoUrl = getVideoUrl(exercise)
-  const folderId = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_FOLDER_ID || ''
 
-  // Si no hay video disponible en absoluto
-  if (!videoUrl && !exercise.has_video) {
-    return children || null
+  // Si no hay ningún contenido que mostrar, renderizar children directamente (deshabilitados por el padre)
+  if (!videoUrl && !exercise.has_video && !exercise.description && !exercise.instructions) {
+    return children ? <>{children}</> : null
   }
 
   const handlePlay = () => {
@@ -239,26 +240,6 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                   fill
                   className="object-cover"
                 />
-                <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                  <p className="text-white font-medium">Video no disponible</p>
-                </div>
-              </div>
-            )}
-
-            {/* Link a la carpeta de Google Drive si no hay video */}
-            {!videoUrl && !(exercise.thumbnail_url || exercise.image_url) && folderId && (
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <p className="text-sm text-gray-700 mb-2">
-                  Video no encontrado en el mapeo. Puedes buscarlo en la carpeta de Google Drive.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => window.open(`https://drive.google.com/drive/folders/${folderId}`, '_blank')}
-                  className="w-full"
-                >
-                  <ExternalLink className="w-4 h-4 mr-2" />
-                  Abrir carpeta "Vídeos Nex+Fit" en Google Drive
-                </Button>
               </div>
             )}
 
@@ -272,6 +253,24 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Abrir en nueva pestaña
               </Button>
+            )}
+
+            {/* Descripción e instrucciones */}
+            {(exercise.description || exercise.instructions) && (
+              <div className="space-y-3 pt-2 border-t border-border">
+                {exercise.description && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-1">Descripción</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{exercise.description}</p>
+                  </div>
+                )}
+                {exercise.instructions && (
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground mb-1">Instrucciones</h4>
+                    <p className="text-sm text-muted-foreground whitespace-pre-line">{exercise.instructions}</p>
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </DialogContent>

@@ -69,7 +69,7 @@ export function NutritionPlanCard() {
         <CardContent className="p-6">
           <div className="flex items-center gap-3">
             <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
-            <span className="text-gray-600">Cargando plan nutricional...</span>
+            <span className="text-muted-foreground">Cargando plan nutricional...</span>
           </div>
         </CardContent>
       </Card>
@@ -80,7 +80,7 @@ export function NutritionPlanCard() {
     return (
       <Card>
         <CardContent className="p-6 text-center">
-          <ChefHat className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+          <ChefHat className="w-12 h-12 mx-auto mb-4 text-muted-foreground/70" />
           <p className="text-gray-600 mb-4">No tienes un plan nutricional activo</p>
           <Button onClick={() => setIsDialogOpen(true)}>
             Seleccionar Plan
@@ -118,7 +118,7 @@ export function NutritionPlanCard() {
         <CardContent className="space-y-4">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-semibold text-gray-900">
+              <h3 className="text-lg font-semibold text-foreground">
                 {currentPlan.name}
               </h3>
               {(currentPlan.is_system || currentPlan.is_template) && (
@@ -129,47 +129,47 @@ export function NutritionPlanCard() {
               )}
             </div>
             {currentPlan.description && (
-              <p className="text-sm text-gray-600">{currentPlan.description}</p>
+              <p className="text-sm text-muted-foreground">{currentPlan.description}</p>
             )}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="bg-white rounded-lg p-3 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <Target className="w-4 h-4 text-blue-500" />
-                <span className="text-xs font-medium text-gray-600">Calorías diarias</span>
+                <span className="text-xs font-medium text-muted-foreground">Calorías diarias</span>
               </div>
               <div className="text-2xl font-bold text-blue-600">
                 {currentPlan.daily_calories || 0}
               </div>
-              <div className="text-xs text-gray-500">kcal/día</div>
+              <div className="text-xs text-muted-foreground">kcal/día</div>
             </div>
 
-            <div className="bg-white rounded-lg p-3 border border-gray-200">
+            <div className="bg-white rounded-lg p-3 border border-border">
               <div className="flex items-center gap-2 mb-2">
                 <TrendingUp className="w-4 h-4 text-green-500" />
-                <span className="text-xs font-medium text-gray-600">Comidas incluidas</span>
+                <span className="text-xs font-medium text-muted-foreground">Comidas incluidas</span>
               </div>
               <div className="text-2xl font-bold text-green-600">
                 {currentPlan.meals?.length || 0}
               </div>
-              <div className="text-xs text-gray-500">opciones diarias</div>
+              <div className="text-xs text-muted-foreground">opciones diarias</div>
             </div>
           </div>
 
-          <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
-            <div className="text-xs font-medium text-gray-600 mb-2">Distribución de macronutrientes</div>
+          <div className="bg-gray-50 rounded-lg p-3 border border-border">
+            <div className="text-xs font-medium text-muted-foreground mb-2">Distribución de macronutrientes</div>
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">Proteína</span>
+                <span className="text-foreground">Proteína</span>
                 <span className="font-semibold">{proteinPct}%</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">Carbohidratos</span>
+                <span className="text-foreground">Carbohidratos</span>
                 <span className="font-semibold">{carbsPct}%</span>
               </div>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-700">Grasas</span>
+                <span className="text-foreground">Grasas</span>
                 <span className="font-semibold">{fatPct}%</span>
               </div>
             </div>
@@ -195,7 +195,7 @@ export function NutritionPlanCard() {
                     <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
                   </div>
                 ) : availablePlans.length === 0 ? (
-                  <p className="text-center text-gray-500 py-8">
+                  <p className="text-center text-muted-foreground py-8">
                     No hay planes disponibles
                   </p>
                 ) : (
@@ -211,7 +211,7 @@ export function NutritionPlanCard() {
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between mb-3">
                             <div>
-                              <h4 className="font-semibold text-gray-900">{plan.name}</h4>
+                              <h4 className="font-semibold text-foreground">{plan.name}</h4>
                               {plan.target_audience && (
                                 <Badge variant="secondary" className="mt-1 text-xs">
                                   {plan.target_audience}
@@ -223,9 +223,9 @@ export function NutritionPlanCard() {
                             )}
                           </div>
                           {plan.description && (
-                            <p className="text-sm text-gray-600 mb-3">{plan.description}</p>
+                            <p className="text-sm text-muted-foreground mb-3">{plan.description}</p>
                           )}
-                          <div className="space-y-1 text-xs text-gray-500">
+                          <div className="space-y-1 text-xs text-muted-foreground">
                             <div>Calorías: {plan.daily_calories} kcal/día</div>
                             {plan.duration_weeks && (
                               <div>Duración: {plan.duration_weeks} semanas</div>
