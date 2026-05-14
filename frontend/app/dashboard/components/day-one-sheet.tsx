@@ -73,6 +73,12 @@ export function DayOneSheet() {
   const initialWeightRaw = firstWeightEntry?.weight || profile?.weight || null
   const initialWeight = typeof initialWeightRaw === 'number' ? initialWeightRaw : null
   const weightChange = (currentWeight !== null && initialWeight !== null) ? currentWeight - initialWeight : 0
+  const hasWeightGoal = targetWeight !== null && initialWeight !== null && currentWeight !== null
+  const startDistanceToGoal = hasWeightGoal ? Math.abs(initialWeight - targetWeight) : null
+  const currentDistanceToGoal = hasWeightGoal ? Math.abs(currentWeight - targetWeight) : null
+  const distanceImprovement = hasWeightGoal ? (startDistanceToGoal! - currentDistanceToGoal!) : null
+  const movingTowardGoal = typeof distanceImprovement === 'number' && distanceImprovement > 0
+  const movingAwayFromGoal = typeof distanceImprovement === 'number' && distanceImprovement < 0
 
   // Escuchar actualizaciones de peso desde otros componentes
   useEffect(() => {
@@ -804,9 +810,13 @@ export function DayOneSheet() {
                   {weightChange !== 0 && (
                     <div className="mt-4 p-4 bg-purple-500/10 rounded-lg">
                       <p className="text-center font-semibold text-purple-700 dark:text-purple-300">
-                        {weightChange < 0 
-                          ? `🎉 ¡Has perdido ${Math.abs(weightChange).toFixed(1)} kg! ¡Sigue así!`
-                          : `📈 Has ganado ${weightChange.toFixed(1)} kg. ¡Continúa tu progreso!`
+                        {hasWeightGoal && movingTowardGoal
+                          ? `🎉 Te has acercado ${Math.abs(distanceImprovement as number).toFixed(1)} kg a tu objetivo.`
+                          : hasWeightGoal && movingAwayFromGoal
+                            ? `⚠️ Te has alejado ${Math.abs(distanceImprovement as number).toFixed(1)} kg de tu objetivo.`
+                            : weightChange < 0
+                              ? `🎉 ¡Has perdido ${Math.abs(weightChange).toFixed(1)} kg! ¡Sigue así!`
+                              : `📈 Has ganado ${weightChange.toFixed(1)} kg.`
                         }
                       </p>
                     </div>

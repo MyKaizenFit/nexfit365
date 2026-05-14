@@ -82,7 +82,7 @@ function getVideoUrl(exercise: ExerciseVideoPlayerProps['exercise']): string | n
   // Primero intentar URLs existentes (video_display_url tiene prioridad ya que viene del backend)
   const directUrl = exercise.video_display_url || exercise.video_file_url || exercise.video_url
   if (directUrl) {
-    return directUrl
+    return normalizeGoogleDriveEmbedUrl(directUrl)
   }
 
   // Segundo: usar google_drive_file_id directamente desde la base de datos (más confiable)
@@ -99,6 +99,35 @@ function getVideoUrl(exercise: ExerciseVideoPlayerProps['exercise']): string | n
 
   // Si no hay ninguna opción, retornamos null
   return null
+}
+
+function normalizeGoogleDriveEmbedUrl(url: string): string {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace('www.', '')
+
+    if (host !== 'drive.google.com') {
+      return url
+    }
+
+    // /file/d/<id>/view, /file/d/<id>/preview
+    if (parsed.pathname.includes('/file/d/')) {
+      const fileId = parsed.pathname.split('/file/d/')[1]?.split('/')[0]
+      if (fileId) {
+        return `https://drive.google.com/file/d/${fileId}/preview`
+      }
+    }
+
+    // /open?id=<id> or /uc?export=download&id=<id>
+    const id = parsed.searchParams.get('id')
+    if (id) {
+      return `https://drive.google.com/file/d/${id}/preview`
+    }
+  } catch {
+    return url
+  }
+
+  return url
 }
 
 function getYoutubeEmbedUrl(url: string): string {
@@ -185,6 +214,7 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                 {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
                   <iframe
                     src={getYoutubeEmbedUrl(videoUrl)}
+                    title={`Video de ${exercise.name}`}
                     className="w-full h-full"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     referrerPolicy="strict-origin-when-cross-origin"
@@ -194,6 +224,7 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                 ) : videoUrl.includes('drive.google.com') ? (
                   <iframe
                     src={videoUrl}
+                    title={`Video de ${exercise.name}`}
                     className="w-full h-full"
                     allow="autoplay"
                     onError={handleVideoError}
@@ -241,18 +272,6 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                   className="object-cover"
                 />
               </div>
-            )}
-
-            {/* Link externo si es URL */}
-            {videoUrl && !videoUrl.startsWith('/') && !videoError && (
-              <Button
-                variant="outline"
-                onClick={() => window.open(videoUrl, '_blank')}
-                className="w-full"
-              >
-                <ExternalLink className="w-4 h-4 mr-2" />
-                Abrir en nueva pestaña
-              </Button>
             )}
 
             {/* Descripción e instrucciones */}

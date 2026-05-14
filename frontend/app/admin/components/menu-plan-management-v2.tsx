@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Activity, ArrowDown, ArrowUp, CheckCircle, Copy, Download, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, Upload, User, XCircle } from "lucide-react"
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CheckCircle, Copy, Download, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, Upload, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
@@ -178,6 +178,21 @@ function formatAssignedLabel(emails: string[]) {
   return `${emails[0]}, ${emails[1]} +${emails.length - 2}`
 }
 
+function getNextCopyName(baseName: string, existingNames: string[]) {
+  const normalized = baseName.trim()
+  const namesSet = new Set(existingNames.map((n) => (n || "").trim().toLowerCase()))
+
+  const firstCopy = `${normalized} (Copia)`
+  if (!namesSet.has(firstCopy.toLowerCase())) return firstCopy
+
+  let copyIndex = 2
+  while (namesSet.has(`${normalized} (Copia ${copyIndex})`.toLowerCase())) {
+    copyIndex += 1
+  }
+
+  return `${normalized} (Copia ${copyIndex})`
+}
+
 export function MenuPlanManagementV2() {
   const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, updatePlan, deletePlan, toggleActive } = useAdminMenuPlans()
   const { getAuthHeaders } = useAuth()
@@ -218,6 +233,7 @@ export function MenuPlanManagementV2() {
   // Duplicar a usuario
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false)
   const [duplicating, setDuplicating] = useState(false)
+  const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null)
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
   const [duplicateUserId, setDuplicateUserId] = useState<string>("none")
 
@@ -242,12 +258,53 @@ export function MenuPlanManagementV2() {
 
   const [editSummary, setEditSummary] = useState<{ calories: number; protein: number; carbs: number; fat: number } | null>(null)
 
+  // Alérgenos: warnings al asignar usuarios a un plan
+  type AllergenWarning = { user_id: number; user_email: string; user_name: string; conflicts: { recipe_name: string; allergens: string[] }[] }
+  const [allergenWarnings, setAllergenWarnings] = useState<AllergenWarning[]>([])
+  const [checkingAllergens, setCheckingAllergens] = useState(false)
+
+  const checkAllergens = useCallback(async (planId: string, userIds: string[]) => {
+    if (!planId || userIds.length === 0) { setAllergenWarnings([]); return }
+    try {
+      setCheckingAllergens(true)
+      let headers = await getAuthHeaders()
+      const res = await fetch(buildApiUrl(`nutrition/admin/plans/${planId}/allergen-check/`), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_ids: userIds.map(Number) }),
+      })
+      if (res.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (newHeaders) {
+          const retry = await fetch(buildApiUrl(`nutrition/admin/plans/${planId}/allergen-check/`), {
+            method: 'POST',
+            headers: { ...newHeaders, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_ids: userIds.map(Number) }),
+          })
+          if (retry.ok) { const d = await retry.json(); setAllergenWarnings(d.warnings || []); return }
+        }
+      }
+      if (res.ok) { const d = await res.json(); setAllergenWarnings(d.warnings || []) }
+    } catch { /* silent */ } finally {
+      setCheckingAllergens(false)
+    }
+  }, [getAuthHeaders])
+
   const [form, setForm] = useState({
     name: "",
     description: "",
     assigned_user_ids: [] as string[],
     portion_multiplier: 1.0,
   })
+
+  // Comprobar alérgenos cuando cambian los usuarios asignados en edición
+  useEffect(() => {
+    if (editingPlanId && form.assigned_user_ids.length > 0) {
+      checkAllergens(editingPlanId, form.assigned_user_ids)
+    } else {
+      setAllergenWarnings([])
+    }
+  }, [form.assigned_user_ids, editingPlanId, checkAllergens])
 
   const resetForm = useCallback(() => {
     setForm({
@@ -263,6 +320,7 @@ export function MenuPlanManagementV2() {
     setRecipeSearch("")
     setTargetMealIndex(null)
     setEditSummary(null)
+    setAllergenWarnings([])
   }, [])
 
   const openCreate = () => {
@@ -538,6 +596,73 @@ export function MenuPlanManagementV2() {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo duplicar", variant: "destructive" })
     } finally {
       setDuplicating(false)
+    }
+  }
+
+  const handleCopyPlan = async (planId: string) => {
+    try {
+      setCopyingPlanId(planId)
+      const detail = await fetchPlanDetail(planId)
+      if (!detail) throw new Error("No se pudo cargar el plan origen")
+
+      const nextName = getNextCopyName(
+        detail.name || "Plan",
+        plans.map((p) => p.name)
+      )
+
+      const preservedUserIds = Array.isArray(detail.assigned_user_ids) && detail.assigned_user_ids.length > 0
+        ? detail.assigned_user_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0)
+        : detail.user_id
+          ? [Number(detail.user_id)]
+          : []
+
+      const created = await createPlan({
+        name: nextName,
+        description: detail.description || "",
+        daily_calories: Number(detail.daily_calories) || 0,
+        percents: {
+          protein: Number(detail.protein_percentage) || 30,
+          carbs: Number(detail.carbs_percentage) || 40,
+          fat: Number(detail.fat_percentage) || 30,
+        },
+        user_ids: preservedUserIds,
+        meals: Array.isArray(detail.meals)
+          ? detail.meals.map((m: any) => ({
+              day_of_week: m.day_of_week ?? null,
+              name: m.name,
+              meal_type: m.meal_type,
+              time: m.time,
+              description: m.description,
+              order_index: m.order_index,
+              suggested_recipes_ids: Array.isArray(m.suggested_recipes)
+                ? m.suggested_recipes.map((r: any) => (typeof r === "object" ? r.id : r))
+                : [],
+              meal_recipes: Array.isArray(m.meal_recipes)
+                ? m.meal_recipes.map((mr: any) => ({
+                    recipe_id: mr.recipe?.id || mr.recipe_id,
+                    servings: mr.servings,
+                    custom_calories: mr.custom_calories,
+                    custom_protein: mr.custom_protein,
+                    custom_carbs: mr.custom_carbs,
+                    custom_fat: mr.custom_fat,
+                    display_order: mr.display_order,
+                  }))
+                : [],
+            }))
+          : [],
+        portion_multiplier: Number(detail.portion_multiplier) || 1.0,
+      })
+
+      toast({ title: "✅ Copia creada", description: "Se creó una copia del plan para editarla rápidamente." })
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+      if (created?.id) {
+        await openEdit(String(created.id))
+        setCreateStep("week")
+      }
+    } catch (e) {
+      toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo copiar el plan", variant: "destructive" })
+    } finally {
+      setCopyingPlanId(null)
     }
   }
 
@@ -1114,6 +1239,9 @@ export function MenuPlanManagementV2() {
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyPlan(p.id)} disabled={copyingPlanId !== null}>
+                                {copyingPlanId === p.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />} Copiar plan
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
                               </DropdownMenuItem>
@@ -1230,6 +1358,9 @@ export function MenuPlanManagementV2() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditWeekly(p.id)}>
                                 <Pencil className="h-4 w-4 mr-2" /> Editar menú semanal
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyPlan(p.id)} disabled={copyingPlanId !== null}>
+                                {copyingPlanId === p.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />} Copiar plan
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
@@ -1416,6 +1547,26 @@ export function MenuPlanManagementV2() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
+                    {checkingAllergens && (
+                      <div className="flex items-center gap-1 text-xs text-amber-600 mt-1"><Loader2 className="w-3 h-3 animate-spin" /> Comprobando alérgenos...</div>
+                    )}
+                    {allergenWarnings.length > 0 && (
+                      <div className="mt-2 p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-2">
+                        <div className="flex items-center gap-1 text-sm font-semibold text-amber-700">
+                          <AlertTriangle className="w-4 h-4" />
+                          Conflictos de alérgenos detectados
+                        </div>
+                        {allergenWarnings.map((w) => (
+                          <div key={w.user_id} className="text-xs text-amber-800 space-y-1">
+                            <p className="font-medium">⚠️ {w.user_name} ({w.user_email}) tiene alergias:</p>
+                            {w.conflicts.map((c, i) => (
+                              <p key={i} className="ml-3">· Receta &quot;{c.recipe_name}&quot; contiene: <span className="font-semibold">{c.allergens.join(', ')}</span></p>
+                            ))}
+                          </div>
+                        ))}
+                        <p className="text-xs text-amber-700 font-medium">Por favor, revisa el menú y sustituye los alimentos con alérgenos por alternativas adaptadas al usuario.</p>
+                      </div>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium">Descripción</label>
@@ -1682,6 +1833,26 @@ export function MenuPlanManagementV2() {
                       )}
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">Si no seleccionas usuarios, se guarda como plantilla.</div>
+                    {checkingAllergens && (
+                      <div className="flex items-center gap-1 text-xs text-amber-600 mt-1"><Loader2 className="w-3 h-3 animate-spin" /> Comprobando alérgenos...</div>
+                    )}
+                    {allergenWarnings.length > 0 && (
+                      <div className="mt-2 p-3 rounded-lg border border-amber-300 bg-amber-50 space-y-2">
+                        <div className="flex items-center gap-1 text-sm font-semibold text-amber-700">
+                          <AlertTriangle className="w-4 h-4" />
+                          Conflictos de alérgenos detectados
+                        </div>
+                        {allergenWarnings.map((w) => (
+                          <div key={w.user_id} className="text-xs text-amber-800 space-y-1">
+                            <p className="font-medium">⚠️ {w.user_name} ({w.user_email}) tiene alergias:</p>
+                            {w.conflicts.map((c, i) => (
+                              <p key={i} className="ml-3">· Receta &quot;{c.recipe_name}&quot; contiene: <span className="font-semibold">{c.allergens.join(', ')}</span></p>
+                            ))}
+                          </div>
+                        ))}
+                        <p className="text-xs text-amber-700 font-medium">Por favor, revisa el menú y sustituye los alimentos con alérgenos por alternativas adaptadas al usuario.</p>
+                      </div>
+                    )}
                   </div>
                   <div className="md:col-span-2">
                     <label className="text-sm font-medium">Descripción</label>

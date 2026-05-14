@@ -1327,7 +1327,58 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         ).get(pk=plan.pk)
         return Response(self.get_serializer(plan).data, status=status.HTTP_200_OK)
 
+    @action(detail=True, methods=['post'], url_path='allergen-check')
+    def allergen_check(self, request, pk=None):
+        """
+        Dado un plan y una lista de user_ids, devuelve conflictos de alérgenos
+        entre las recetas del plan y los alérgenos declarados de cada usuario.
+        Respuesta: {warnings: [{user_id, user_email, user_name, conflicts: [{recipe_name, allergens}]}]}
+        """
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
 
+        user_ids = request.data.get('user_ids', [])
+        if not isinstance(user_ids, list):
+            user_ids = [user_ids]
+        user_ids = [int(uid) for uid in user_ids if uid]
+
+        plan = self.get_object()
+        recipe_allergens = []
+        for meal in plan.meals.prefetch_related('meal_recipes__recipe').all():
+            for pmr in meal.meal_recipes.all():
+                r = pmr.recipe
+                if r and r.allergens:
+                    recipe_allergens.append({'recipe_name': r.name, 'allergens': list(r.allergens)})
+
+        ALLERGEN_LABELS = {
+            'gluten': 'Gluten', 'dairy': 'Lácteos', 'eggs': 'Huevo',
+            'nuts': 'Frutos secos', 'soy': 'Soja', 'fish': 'Pescado',
+            'shellfish': 'Marisco', 'sesame': 'Sésamo',
+        }
+
+        warnings = []
+        for user in User.objects.filter(id__in=user_ids):
+            user_allergens = set(getattr(user, 'allergies', None) or [])
+            if not user_allergens:
+                continue
+            user_conflicts = []
+            for ra in recipe_allergens:
+                recipe_set = set(ra['allergens'])
+                conflict = user_allergens & recipe_set
+                if conflict:
+                    user_conflicts.append({
+                        'recipe_name': ra['recipe_name'],
+                        'allergens': [ALLERGEN_LABELS.get(a, a) for a in conflict],
+                    })
+            if user_conflicts:
+                warnings.append({
+                    'user_id': user.id,
+                    'user_email': user.email,
+                    'user_name': f'{user.first_name} {user.last_name}'.strip() or user.email,
+                    'conflicts': user_conflicts,
+                })
+
+        return Response({'warnings': warnings})
 
     @action(detail=False, methods=['get'], url_path='export-csv')
     def export_csv(self, request):

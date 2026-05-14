@@ -28,6 +28,7 @@ import {
   Calendar,
   Users,
   Activity,
+  Copy,
   GripVertical,
   ArrowUp,
   ArrowDown,
@@ -118,6 +119,21 @@ function totalizeImportStats(stats?: WorkoutImportStats) {
   return { created, updated, skipped }
 }
 
+function getNextCopyName(baseName: string, existingNames: string[]) {
+  const normalized = baseName.trim()
+  const namesSet = new Set(existingNames.map((n) => (n || "").trim().toLowerCase()))
+
+  const firstCopy = `${normalized} (Copia)`
+  if (!namesSet.has(firstCopy.toLowerCase())) return firstCopy
+
+  let copyIndex = 2
+  while (namesSet.has(`${normalized} (Copia ${copyIndex})`.toLowerCase())) {
+    copyIndex += 1
+  }
+
+  return `${normalized} (Copia ${copyIndex})`
+}
+
 export function WorkoutPlanManagement() {
   const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
   const {
@@ -157,6 +173,7 @@ export function WorkoutPlanManagement() {
   const [editingPlan, setEditingPlan] = useState<WorkoutPlan | null>(null)
   const [isViewMode, setIsViewMode] = useState(false) // Modo solo lectura
   const [isLoading, setIsLoading] = useState(false)
+  const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -1319,6 +1336,83 @@ export function WorkoutPlanManagement() {
     }
   }
 
+  const handleCopyPlan = async (planId: string) => {
+    try {
+      setCopyingPlanId(planId)
+      const planDetail = await fetchPlanDetail(planId)
+      if (!planDetail) {
+        throw new Error("No se pudo cargar la rutina origen")
+      }
+
+      const copiedName = getNextCopyName(
+        fixEncoding(planDetail.name || "Rutina"),
+        plansArray.map((p) => fixEncoding(p.name || ""))
+      )
+      const copiedDays = Array.isArray(planDetail.days)
+        ? planDetail.days.map((day: any) => ({
+            day_name: day.name || day.day_name || `Día ${day.day_number || 1}`,
+            day_number: day.day_number || day.order_index || 1,
+            is_rest_day: Boolean(day.is_rest_day),
+            notes: day.notes || "",
+            exercises: Array.isArray(day.exercises)
+              ? day.exercises.map((ex: any, index: number) => ({
+                  exercise_id: ex.exercise_id || ex.exercise?.id || ex.exercise,
+                  sets: ex.sets || 3,
+                  reps: ex.reps || "10",
+                  weight: ex.weight || 0,
+                  duration: ex.duration_seconds || ex.duration || 0,
+                  rest_time: ex.rest_seconds || ex.rest_time || 60,
+                  notes: ex.notes || "",
+                  order: ex.order_index || ex.order || index + 1,
+                  substitutes: Array.isArray(ex.substitutes)
+                    ? ex.substitutes.map((sub: any) => ({
+                        substitute_id: sub.substitute_id || sub.id,
+                        priority: sub.priority || 1,
+                        notes: sub.notes || "",
+                      }))
+                    : [],
+                }))
+              : [],
+          }))
+        : []
+
+      const created = await createPlan({
+        name: copiedName,
+        description: fixEncoding(planDetail.description || ""),
+        difficulty: planDetail.difficulty || "beginner",
+        goal: (planDetail as any).goal || undefined,
+        duration_weeks: planDetail.duration_weeks || 4,
+        min_role_required: planDetail.min_role_required || "basic",
+        estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
+        user: planDetail.user_id || planDetail.user || undefined,
+        days: [],
+      })
+
+      if (created?.id && copiedDays.length > 0) {
+        await updatePlan(String(created.id), { days: copiedDays })
+      }
+
+      toast({
+        title: "✅ Copia creada",
+        description: "La rutina se duplicó correctamente.",
+      })
+
+      if (created?.id) {
+        await handleEditPlan(String(created.id), false)
+      } else {
+        refetch()
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "No se pudo copiar la rutina",
+        variant: "destructive",
+      })
+    } finally {
+      setCopyingPlanId(null)
+    }
+  }
+
   // Funciones para manejar substitutes en planes existentes
   const openSubstitutesDialog = async (exerciseId: string, exerciseName: string) => {
     if (isViewMode) return
@@ -1992,6 +2086,14 @@ export function WorkoutPlanManagement() {
                                 )}
                                 Editar
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyPlan(plan.id)} disabled={copyingPlanId !== null}>
+                                {copyingPlanId === plan.id ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Copy className="h-4 w-4 mr-2" />
+                                )}
+                                Copiar rutina
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditWorkout(plan.id)}>
                                 <Dumbbell className="h-4 w-4 mr-2" />
                                 Editar Ejercicios
@@ -2246,6 +2348,18 @@ export function WorkoutPlanManagement() {
                                   <Edit className="h-4 w-4 mr-2" />
                                 )}
                                 Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleCopyPlan(plan.id)}
+                                className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50"
+                                disabled={copyingPlanId !== null}
+                              >
+                                {copyingPlanId === plan.id ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Copy className="h-4 w-4 mr-2" />
+                                )}
+                                Copiar rutina
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleToggleActive(plan.id)}

@@ -9,6 +9,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Loader2, ChevronLeft, ChevronRight, Check, User, Activity, Target, Calendar } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const ALLERGEN_OPTIONS = [
+  { value: 'gluten', label: 'Gluten', emoji: '🌾' },
+  { value: 'dairy', label: 'Lácteos', emoji: '🥛' },
+  { value: 'eggs', label: 'Huevo', emoji: '🥚' },
+  { value: 'nuts', label: 'Frutos secos', emoji: '🥜' },
+  { value: 'soy', label: 'Soja', emoji: '🫘' },
+  { value: 'fish', label: 'Pescado', emoji: '🐟' },
+  { value: 'shellfish', label: 'Marisco', emoji: '🦐' },
+  { value: 'sesame', label: 'Sésamo', emoji: '🌱' },
+];
+
 // Tipos para el formulario
 interface FormData {
   first_name: string;
@@ -24,7 +35,7 @@ interface FormData {
   training_days: number[];
   training_location: 'home' | 'gym' | '';
   main_goal: 'lose_weight' | 'gain_muscle' | 'body_recomposition' | '';
-  allergies: string;
+  allergies: string[];
   medical_conditions: string;
   disliked_foods: string;
 }
@@ -91,7 +102,7 @@ function InitialRegistrationFormComponent({
     training_days: [],
     training_location: '',
     main_goal: '',
-    allergies: '',
+    allergies: [] as string[],
     medical_conditions: '',
     disliked_foods: '',
   });
@@ -120,7 +131,7 @@ function InitialRegistrationFormComponent({
         training_days: userData.training_days || [],
         training_location: userData.training_location || '',
         main_goal: userData.main_goal || '',
-        allergies: userData.allergies || '',
+        allergies: Array.isArray(userData.allergies) ? userData.allergies : [],
         medical_conditions: userData.medical_conditions || '',
         disliked_foods: userData.disliked_foods || '',
       }));
@@ -147,6 +158,16 @@ function InitialRegistrationFormComponent({
   // Handler para campos de selección
   const handleSelectChange = <T extends keyof FormData>(field: T, value: FormData[T]) => {
     setFormState(prev => ({ ...prev, [field]: value }));
+  };
+
+  // Handler para alérgenos
+  const toggleAllergen = (allergen: string) => {
+    setFormState(prev => ({
+      ...prev,
+      allergies: prev.allergies.includes(allergen)
+        ? prev.allergies.filter(a => a !== allergen)
+        : [...prev.allergies, allergen],
+    }));
   };
 
   // Handler para días de entrenamiento
@@ -272,7 +293,7 @@ function InitialRegistrationFormComponent({
       training_days_per_week: formState.training_days.length,
       training_location: formState.training_location,
       main_goal: formState.main_goal,
-      allergies: formState.allergies.trim() || undefined,
+      allergies: formState.allergies.length > 0 ? formState.allergies : undefined,
       medical_conditions: formState.medical_conditions.trim() || undefined,
       disliked_foods: formState.disliked_foods.trim() || undefined,
     };
@@ -623,16 +644,41 @@ function InitialRegistrationFormComponent({
                   Información adicional (opcional)
                 </p>
 
-                <FormField label="Alergias o intolerancias alimentarias" name="allergies" error={errors.allergies}>
-                  <Textarea
-                    id="allergies"
-                    placeholder="Ej: Intolerancia a la lactosa, alergia a frutos secos..."
-                    rows={2}
-                    className="resize-none"
-                    value={formState.allergies}
-                    onChange={handleInputChange('allergies')}
-                  />
-                </FormField>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground">
+                    Alergias e intolerancias alimentarias
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Marca los alérgenos a los que eres sensible. No se te asignará ningún alimento que los contenga.
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
+                    {ALLERGEN_OPTIONS.map((option) => {
+                      const checked = formState.allergies.includes(option.value);
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => toggleAllergen(option.value)}
+                          className={cn(
+                            'flex items-center gap-2 py-2 px-3 rounded-lg border-2 text-sm font-medium transition-all text-left',
+                            checked
+                              ? 'border-red-400 bg-red-50 text-red-700'
+                              : 'border-border bg-card text-muted-foreground hover:border-gray-300'
+                          )}
+                        >
+                          <span className="text-base">{option.emoji}</span>
+                          <span>{option.label}</span>
+                          {checked && <Check className="w-3 h-3 ml-auto shrink-0 text-red-600" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {formState.allergies.length > 0 && (
+                    <p className="text-xs text-red-600 mt-1">
+                      ⚠️ Tienes {formState.allergies.length} alérgeno{formState.allergies.length > 1 ? 's' : ''} marcado{formState.allergies.length > 1 ? 's' : ''}
+                    </p>
+                  )}
+                </div>
 
                 <FormField label="Condiciones médicas" name="medical_conditions" error={errors.medical_conditions}>
                   <Textarea

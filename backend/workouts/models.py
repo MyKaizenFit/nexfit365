@@ -2,6 +2,7 @@
 # Modelos de entrenamiento - Versión reestructurada y simplificada
 
 import uuid
+from urllib.parse import parse_qs, urlparse
 from django.conf import settings
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -136,6 +137,32 @@ class Exercise(TimeStampedModel):
     def has_video(self):
         """Verifica si tiene video disponible"""
         return bool(self.video_file) or bool(self.video_url) or bool(self.google_drive_file_id)
+
+    @staticmethod
+    def _to_google_drive_preview_url(raw_url: str) -> str:
+        """Normalize different Google Drive link variants to embeddable /preview URL."""
+        try:
+            parsed = urlparse(raw_url)
+            host = parsed.hostname or ""
+            if "drive.google.com" not in host:
+                return raw_url
+
+            # /file/d/<id>/view or /file/d/<id>/preview
+            if "/file/d/" in parsed.path:
+                parts = parsed.path.split("/file/d/")
+                if len(parts) > 1:
+                    file_id = parts[1].split("/")[0]
+                    if file_id:
+                        return f"https://drive.google.com/file/d/{file_id}/preview"
+
+            # /open?id=<id> or /uc?export=download&id=<id>
+            query_id = parse_qs(parsed.query).get("id", [None])[0]
+            if query_id:
+                return f"https://drive.google.com/file/d/{query_id}/preview"
+        except Exception:
+            return raw_url
+
+        return raw_url
     
     def get_video_url(self):
         """Retorna la URL del video (prioridad: archivo > Google Drive > URL)"""
@@ -143,6 +170,8 @@ class Exercise(TimeStampedModel):
             return self.video_file.url
         if self.google_drive_file_id:
             return f"https://drive.google.com/file/d/{self.google_drive_file_id}/preview"
+        if self.video_url:
+            return self._to_google_drive_preview_url(self.video_url)
         return self.video_url
 
     def get_substitutes(self):

@@ -36,6 +36,15 @@ interface DailyMacros {
 export function useDailyMeals() {
   const { isAuthenticated } = useAuth()
   const { currentPlan } = useNutrition()
+  type PlanMealSlot = {
+    id: string
+    name: string
+    time: string | null
+    description?: string
+    meal_type: string
+    order_index?: number
+  }
+
   const [meals, setMeals] = useState<DailyMeal[]>([])
   const [macros, setMacros] = useState<DailyMacros>({
     caloriesConsumed: 0,
@@ -51,14 +60,7 @@ export function useDailyMeals() {
   const [error, setError] = useState<string | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [planMealOptions, setPlanMealOptions] = useState<Record<string, MealOption[]>>({})
-  const [planMealSlots, setPlanMealSlots] = useState<Array<{
-    id: string
-    name: string
-    time: string | null
-    description?: string
-    meal_type: string
-    order_index?: number
-  }>>([])
+  const [planMealSlots, setPlanMealSlots] = useState<PlanMealSlot[]>([])
   const [planOptionsByMealId, setPlanOptionsByMealId] = useState<Record<string, MealOption[]>>({})
   const [logMetaByKey, setLogMetaByKey] = useState<Record<string, {
     id: string
@@ -216,10 +218,12 @@ export function useDailyMeals() {
   }
 
   // Generar comidas del día (dinámico según el plan del usuario)
-  const generateDailyMeals = useCallback(() => {
+  const generateDailyMeals = useCallback((slotOverrides?: PlanMealSlot[]) => {
+    const slots = Array.isArray(slotOverrides) && slotOverrides.length > 0 ? slotOverrides : planMealSlots
+
     // Si el backend devolvió slots, respetarlos (nº variable y tipos variables)
-    if (Array.isArray(planMealSlots) && planMealSlots.length > 0) {
-      const sorted = [...planMealSlots].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+    if (Array.isArray(slots) && slots.length > 0) {
+      const sorted = [...slots].sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
       return sorted.map((m) => ({
         id: String(m.id),
         name: m.name,
@@ -903,25 +907,26 @@ export function useDailyMeals() {
   }, [calculateTotalMacros, isAuthenticated, meals])
 
   // Cargar opciones de comidas del plan activo
-  const loadPlanMealOptions = useCallback(async () => {
+  const loadPlanMealOptions = useCallback(async (): Promise<PlanMealSlot[]> => {
     try {
       const planMeals = await nutritionService.getPlanMealsForSelection()
       if (planMeals && planMeals.meals_by_type) {
         setPlanMealOptions(planMeals.meals_by_type)
 
         if (Array.isArray(planMeals.meal_slots)) {
-          setPlanMealSlots(
-            planMeals.meal_slots.map((m) => ({
-              id: String(m.id),
-              name: m.name,
-              time: (m.time || null) as any,
-              description: m.description || "",
-              meal_type: m.meal_type,
-              order_index: m.order_index,
-            }))
-          )
+          const normalizedSlots = planMeals.meal_slots.map((m) => ({
+            id: String(m.id),
+            name: m.name,
+            time: (m.time || null) as any,
+            description: m.description || "",
+            meal_type: m.meal_type,
+            order_index: m.order_index,
+          }))
+          setPlanMealSlots(normalizedSlots)
+          return normalizedSlots
         } else {
           setPlanMealSlots([])
+          return []
         }
 
         if (planMeals.options_by_meal_id && typeof planMeals.options_by_meal_id === "object") {
@@ -954,12 +959,14 @@ export function useDailyMeals() {
         setPlanMealOptions(defaultMealOptions)
         setPlanMealSlots([])
         setPlanOptionsByMealId({})
+        return []
       }
     } catch (error) {
       // Fallback a opciones por defecto
       setPlanMealOptions(defaultMealOptions)
       setPlanMealSlots([])
       setPlanOptionsByMealId({})
+      return []
     }
   }, [currentPlan])
 
@@ -976,12 +983,12 @@ export function useDailyMeals() {
     const loadData = async () => {
       try {
         // Primero cargar opciones del plan
-        await loadPlanMealOptions()
+        const loadedSlots = await loadPlanMealOptions()
         
         if (!isMounted) return
         
-        // Generar comidas del día
-        const dailyMeals = generateDailyMeals()
+        // Generar comidas del día usando los slots recién cargados
+        const dailyMeals = generateDailyMeals(loadedSlots)
         const today = new Date().toISOString().split('T')[0]
         
         // Intentar cargar desde el backend primero
