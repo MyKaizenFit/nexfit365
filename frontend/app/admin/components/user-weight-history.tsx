@@ -171,7 +171,7 @@ export function UserWeightHistory({ userId }: Props) {
         <Separator />
 
         {periodDelta && (
-          <div className="text-sm rounded-lg border p-3 bg-white/60 flex items-center justify-between">
+          <div className="text-sm rounded-lg border p-3 bg-card/60 flex items-center justify-between">
             <div>
               <p className="text-xs text-muted-foreground">Δ vs período previo ({range}d)</p>
               <p className="text-sm font-semibold">
@@ -189,7 +189,7 @@ export function UserWeightHistory({ userId }: Props) {
               key={r}
               size="sm"
               variant={range === r ? "default" : "outline"}
-              className={cn("h-8", range === r ? "" : "bg-white")}
+              className={cn("h-8", range === r ? "" : "bg-background")}
               onClick={() => setRange(r as typeof range)}
             >
               {r === 0 ? "Todo" : `${r}d`}
@@ -290,7 +290,7 @@ export function UserWeightHistory({ userId }: Props) {
 
 function Stat({ label, value, badge }: { label: string; value: string | number; badge?: string }) {
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-lg border p-3 bg-card/60">
       <p className="text-xs text-muted-foreground">{label}</p>
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold">{value}</span>

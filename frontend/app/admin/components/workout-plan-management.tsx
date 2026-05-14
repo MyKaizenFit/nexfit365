@@ -785,15 +785,7 @@ export function WorkoutPlanManagement() {
     const selectedIds = Array.isArray(selectedExercisesForDay[dayId]) ? selectedExercisesForDay[dayId] : []
 
     selectedIds.forEach(exerciseId => {
-      // Verificar si el ejercicio ya está en el día
-      const workoutDaysArray = Array.isArray(workoutDays) ? workoutDays : []
-      const day = workoutDaysArray.find(d => d && d.id === dayId)
-      const dayExercises = Array.isArray(day?.exercises) ? day.exercises : []
-      const alreadyExists = dayExercises.some(e => String(e.exercise_id) === String(exerciseId))
-
-      if (!alreadyExists) {
-        addExerciseToDay(dayId, exerciseId)
-      }
+      addExerciseToDay(dayId, exerciseId)
     })
 
     // Limpiar selección y cerrar selector

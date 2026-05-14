@@ -340,7 +340,7 @@ export function HelpSettingsPanel() {
       <div className="space-y-6">
         <Card>
           <CardContent className="py-12">
-            <div className="text-center text-gray-500">No se pudo cargar la configuración</div>
+            <div className="text-center text-muted-foreground">No se pudo cargar la configuración</div>
           </CardContent>
         </Card>
       </div>
@@ -350,7 +350,7 @@ export function HelpSettingsPanel() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+      <Card className="border shadow-xl">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-2xl">
             <HelpCircle className="h-6 w-6 text-blue-600" />
@@ -403,7 +403,7 @@ export function HelpSettingsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Activar FAQ</Label>
-                  <p className="text-sm text-gray-500">Mostrar la sección de preguntas frecuentes</p>
+                  <p className="text-sm text-muted-foreground">Mostrar la sección de preguntas frecuentes</p>
                 </div>
                 <Switch
                   checked={settings.faq_enabled}
@@ -420,7 +420,7 @@ export function HelpSettingsPanel() {
                   value={settings.faq_url || ''}
                   onChange={(e) => updateField('faq_url', e.target.value || null)}
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Si se especifica, redirigirá a esta URL en lugar de mostrar la página interna
                 </p>
               </div>
@@ -435,7 +435,7 @@ export function HelpSettingsPanel() {
                   rows={10}
                   className="font-mono text-sm"
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Si se especifica contenido, se mostrará en lugar de las FAQs por defecto
                 </p>
               </div>
@@ -456,7 +456,7 @@ export function HelpSettingsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Activar Contacto</Label>
-                  <p className="text-sm text-gray-500">Permitir contacto por email</p>
+                  <p className="text-sm text-muted-foreground">Permitir contacto por email</p>
                 </div>
                 <Switch
                   checked={settings.contact_enabled}
@@ -473,7 +473,7 @@ export function HelpSettingsPanel() {
                   value={settings.contact_email}
                   onChange={(e) => updateField('contact_email', e.target.value)}
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Email al que se enviarán las consultas de contacto
                 </p>
               </div>
@@ -494,7 +494,7 @@ export function HelpSettingsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Activar Guías</Label>
-                  <p className="text-sm text-gray-500">Mostrar la sección de guías de usuario</p>
+                  <p className="text-sm text-muted-foreground">Mostrar la sección de guías de usuario</p>
                 </div>
                 <Switch
                   checked={settings.guides_enabled}
@@ -511,7 +511,7 @@ export function HelpSettingsPanel() {
                   value={settings.guides_url || ''}
                   onChange={(e) => updateField('guides_url', e.target.value || null)}
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Si se especifica, redirigirá a esta URL en lugar de mostrar la página interna
                 </p>
               </div>
@@ -526,7 +526,7 @@ export function HelpSettingsPanel() {
                   rows={15}
                   className="font-mono text-sm"
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Si se especifica contenido, se mostrará en lugar de las guías por defecto
                 </p>
               </div>
@@ -568,7 +568,7 @@ export function HelpSettingsPanel() {
               <div className="flex items-center justify-between">
                 <div>
                   <Label>Activar Reportes</Label>
-                  <p className="text-sm text-gray-500">Permitir que los usuarios reporten problemas</p>
+                  <p className="text-sm text-muted-foreground">Permitir que los usuarios reporten problemas</p>
                 </div>
                 <Switch
                   checked={settings.report_enabled}
@@ -585,7 +585,7 @@ export function HelpSettingsPanel() {
                   value={settings.report_email}
                   onChange={(e) => updateField('report_email', e.target.value)}
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   Email al que se enviarán los reportes de problemas
                 </p>
               </div>
@@ -599,7 +599,7 @@ export function HelpSettingsPanel() {
                   value={settings.report_redirect_url || ''}
                   onChange={(e) => updateField('report_redirect_url', e.target.value || null)}
                 />
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   URL a donde redirigir después de enviar un reporte (dejar vacío para usar la página por defecto)
                 </p>
               </div>
@@ -612,7 +612,7 @@ export function HelpSettingsPanel() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Info className="h-5 w-5 text-gray-600" />
+            <Info className="h-5 w-5 text-muted-foreground" />
             Información de la Aplicación
           </CardTitle>
         </CardHeader>

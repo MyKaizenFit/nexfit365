@@ -69,11 +69,11 @@ function SafeAdminContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center p-8">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-lg font-semibold text-gray-700">Verificando permisos...</p>
+            <p className="mt-4 text-lg font-semibold text-foreground">Verificando permisos...</p>
           </CardContent>
         </Card>
       </div>
@@ -517,18 +517,18 @@ function AdminPageContent() {
 
   const getStatusBadge = (isActive: boolean) => {
     return isActive
-      ? <Badge className="bg-green-100 text-green-800 border-0">Activo</Badge>
-      : <Badge className="bg-red-100 text-red-800 border-0">Inactivo</Badge>
+      ? <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-0">Activo</Badge>
+      : <Badge className="bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400 border-0">Inactivo</Badge>
   }
 
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-100 text-purple-800 border-0">Administrador</Badge>
+        return <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-0">Administrador</Badge>
       case "premium":
-        return <Badge className="bg-yellow-100 text-yellow-800 border-0">Premium</Badge>
+        return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 border-0">Premium</Badge>
       case "pro":
-        return <Badge className="bg-blue-100 text-blue-800 border-0">Pro</Badge>
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-0">Pro</Badge>
       case "basic":
         return <Badge variant="outline">Básico</Badge>
       default:
@@ -558,7 +558,7 @@ function AdminPageContent() {
 
     return (
       <div className="space-y-1">
-        <Badge className="bg-orange-100 text-orange-800 border-0">{visibleCount} alerta(s)</Badge>
+        <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-0">{visibleCount} alerta(s)</Badge>
         <div className="flex flex-wrap gap-1">
           {premiumAlertVisibility.notifications && user.premium_alerts.unread_notifications > 0 ? (
             <Badge variant="outline">Notificaciones: {user.premium_alerts.unread_notifications}</Badge>
@@ -571,7 +571,7 @@ function AdminPageContent() {
           ) : null}
         </div>
         {premiumAlertVisibility.workoutFeedback && feedback ? (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground break-words" title={`${formatDate(feedback.date)}${feedback.rating ? ` · ${feedback.rating}/5` : ''}${feedback.message ? ` · ${feedback.message}` : ''}`}>
             Último feedback {formatDate(feedback.date)}
             {feedback.rating ? ` · ${feedback.rating}/5` : ''}
             {feedback.message ? ` · ${feedback.message}` : ''}
@@ -583,12 +583,12 @@ function AdminPageContent() {
 
   if (showNewUserForm) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 p-4">
         <Suspense fallback={
           <div className="flex items-center justify-center h-full">
             <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-              <p className="text-gray-600">Cargando formulario...</p>
+              <p className="text-muted-foreground">Cargando formulario...</p>
             </div>
           </div>
         }>
@@ -618,11 +618,11 @@ function AdminPageContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center p-8">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="mt-4 text-lg font-semibold text-gray-700">Cargando datos de usuarios...</p>
+            <p className="mt-4 text-lg font-semibold text-foreground">Cargando datos de usuarios...</p>
           </CardContent>
         </Card>
       </div>
@@ -631,12 +631,12 @@ function AdminPageContent() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center p-8">
             <AlertCircle className="h-12 w-12 text-red-500" />
-            <p className="mt-4 text-lg font-semibold text-gray-700">Error al cargar datos</p>
-            <p className="text-sm text-gray-500 mt-2">{error}</p>
+            <p className="mt-4 text-lg font-semibold text-foreground">Error al cargar datos</p>
+            <p className="text-sm text-muted-foreground mt-2">{error}</p>
             <Button onClick={refetch} className="mt-4">
               Reintentar
             </Button>
@@ -647,7 +647,7 @@ function AdminPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 dark:from-slate-950 dark:via-slate-950 dark:to-slate-950 p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -665,7 +665,7 @@ function AdminPageContent() {
               <h1 className="text-xl md:text-3xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                 Panel de Administrador
               </h1>
-              <p className="text-sm md:text-base text-gray-600 hidden md:block">Gestiona usuarios y configuraciones del sistema</p>
+              <p className="text-sm md:text-base text-muted-foreground hidden md:block">Gestiona usuarios y configuraciones del sistema</p>
             </div>
           </div>
           <div className="hidden md:flex items-center gap-2">
@@ -704,17 +704,17 @@ function AdminPageContent() {
 
         {/* Sidebar lateral para móvil */}
         <div
-          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-white via-gray-50 to-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`fixed top-0 left-0 h-full w-80 bg-gradient-to-br from-white via-gray-50 to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-900 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out md:hidden ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
             }`}
         >
           <div className="flex flex-col h-full">
             {/* Header del sidebar */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-gradient-to-r from-teal-50 to-cyan-50">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-slate-700 bg-gradient-to-r from-teal-50 to-cyan-50 dark:from-slate-800 dark:to-slate-800">
               <div>
                 <h2 className="text-lg font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                   Panel Admin
                 </h2>
-                <p className="text-xs text-gray-500 mt-0.5">Menú de navegación</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Menú de navegación</p>
               </div>
               <Button
                 variant="ghost"
@@ -769,13 +769,13 @@ function AdminPageContent() {
                     }}
                     className={`w-full justify-start gap-3 h-auto py-3 px-4 rounded-lg transition-all ${isActive
                         ? `bg-gradient-to-r ${item.gradient} text-white shadow-md`
-                        : 'hover:bg-gray-100 text-gray-700'
+                        : 'hover:bg-gray-100 dark:hover:bg-slate-700 text-gray-700 dark:text-slate-300'
                       }`}
                   >
                     <IconComponent className="h-5 w-5 flex-shrink-0" />
                     <span className="text-left font-medium">{item.label}</span>
                     {item.id === 'users' && premiumVisibleAlertsTotal > 0 ? (
-                      <Badge className="ml-auto bg-orange-100 text-orange-800 border-0">
+                      <Badge className="ml-auto bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-0">
                         {premiumVisibleAlertsTotal}
                       </Badge>
                     ) : null}
@@ -785,7 +785,7 @@ function AdminPageContent() {
             </div>
 
             {/* Footer del sidebar con botón de cerrar sesión */}
-            <div className="border-t border-gray-200 p-4 bg-gradient-to-r from-gray-50 to-slate-50">
+            <div className="border-t border-gray-200 dark:border-slate-700 p-4 bg-gradient-to-r from-gray-50 to-slate-50 dark:from-slate-900 dark:to-slate-900">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -806,16 +806,16 @@ function AdminPageContent() {
           <Button
             variant="outline"
             size="icon"
-            className="h-9 w-9 absolute left-0 -translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 bg-white shadow hover:bg-gray-100 z-20"
+            className="h-9 w-9 absolute left-0 -translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow hover:bg-gray-100 dark:hover:bg-slate-700 z-20"
             onClick={() => handleNavScroll("left")}
             aria-label="Desplazar navegación a la izquierda"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div className="w-full">
-            <div className="relative rounded-2xl border border-gray-200 bg-white/70 backdrop-blur-md shadow-sm">
-              <div className="pointer-events-none absolute inset-y-1 left-3 w-8 bg-gradient-to-r from-white/90 to-transparent rounded-l-2xl" />
-              <div className="pointer-events-none absolute inset-y-1 right-3 w-8 bg-gradient-to-l from-white/90 to-transparent rounded-r-2xl" />
+            <div className="relative rounded-2xl border border-gray-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/80 backdrop-blur-md shadow-sm">
+              <div className="pointer-events-none absolute inset-y-1 left-3 w-8 bg-gradient-to-r from-white/90 dark:from-slate-900/90 to-transparent rounded-l-2xl" />
+              <div className="pointer-events-none absolute inset-y-1 right-3 w-8 bg-gradient-to-l from-white/90 dark:from-slate-900/90 to-transparent rounded-r-2xl" />
               <div className="px-12">
                 <div
                   id="admin-nav-scroll"
@@ -827,7 +827,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('dashboard')}
                       className={`flex items-center gap-2 ${activeSection === 'dashboard'
                           ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Settings className="h-4 w-4" />
@@ -838,13 +838,13 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('users')}
                       className={`flex items-center gap-2 ${activeSection === 'users'
                           ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Users className="h-4 w-4" />
                       Usuarios
                       {premiumVisibleAlertsTotal > 0 ? (
-                        <Badge className="ml-1 bg-orange-100 text-orange-800 border-0">
+                        <Badge className="ml-1 bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-0">
                           {premiumVisibleAlertsTotal}
                         </Badge>
                       ) : null}
@@ -854,7 +854,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('profile')}
                       className={`flex items-center gap-2 ${activeSection === 'profile'
                           ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <User className="h-4 w-4" />
@@ -865,7 +865,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('exercises')}
                       className={`flex items-center gap-2 ${activeSection === 'exercises'
                           ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Dumbbell className="h-4 w-4" />
@@ -876,7 +876,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('workout-plans')}
                       className={`flex items-center gap-2 ${activeSection === 'workout-plans'
                           ? 'bg-gradient-to-r from-purple-500 to-violet-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Dumbbell className="h-4 w-4" />
@@ -887,7 +887,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('foods')}
                       className={`flex items-center gap-2 ${activeSection === 'foods'
                           ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Utensils className="h-4 w-4" />
@@ -898,7 +898,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('nutrition')}
                       className={`flex items-center gap-2 ${activeSection === 'nutrition'
                           ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Apple className="h-4 w-4" />
@@ -909,7 +909,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('nutrition-plans')}
                       className={`flex items-center gap-2 ${activeSection === 'nutrition-plans'
                           ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Apple className="h-4 w-4" />
@@ -920,7 +920,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('user-nutrition-plans')}
                       className={`flex items-center gap-2 ${activeSection === 'user-nutrition-plans'
                           ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Users className="h-4 w-4" />
@@ -931,7 +931,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('default-plan-configurations')}
                       className={`flex items-center gap-2 ${activeSection === 'default-plan-configurations'
                           ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Crown className="h-4 w-4" />
@@ -942,7 +942,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('notifications')}
                       className={`flex items-center gap-2 ${activeSection === 'notifications'
                           ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Bell className="h-4 w-4" />
@@ -953,7 +953,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('coaching')}
                       className={`flex items-center gap-2 ${activeSection === 'coaching'
                           ? 'bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <Crown className="h-4 w-4" />
@@ -964,7 +964,7 @@ function AdminPageContent() {
                       onClick={() => setActiveSection('help-settings')}
                       className={`flex items-center gap-2 ${activeSection === 'help-settings'
                           ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
-                          : 'hover:bg-gray-100'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
                         }`}
                     >
                       <HelpCircle className="h-4 w-4" />
@@ -978,7 +978,7 @@ function AdminPageContent() {
           <Button
             variant="outline"
             size="icon"
-            className="hidden md:flex h-9 w-9 absolute right-0 translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 bg-white shadow hover:bg-gray-100 z-20"
+            className="hidden md:flex h-9 w-9 absolute right-0 translate-x-1/2 top-1/2 -translate-y-1/2 border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow hover:bg-gray-100 dark:hover:bg-slate-700 z-20"
             onClick={() => handleNavScroll("right")}
             aria-label="Desplazar navegación a la derecha"
           >
@@ -991,7 +991,7 @@ function AdminPageContent() {
           <div className="flex items-center justify-center h-64">
             <div className="text-center space-y-4">
               <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-              <p className="text-gray-600">Cargando contenido...</p>
+              <p className="text-muted-foreground">Cargando contenido...</p>
             </div>
           </div>
         }>
@@ -1025,7 +1025,7 @@ function AdminPageContent() {
             <>
               {/* Stats Cards */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Total Usuarios</CardTitle>
                     <Users className="h-4 w-4 text-muted-foreground" />
@@ -1036,7 +1036,7 @@ function AdminPageContent() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Activos</CardTitle>
                     <UserCheck className="h-4 w-4 text-green-600" />
@@ -1047,7 +1047,7 @@ function AdminPageContent() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Administradores</CardTitle>
                     <UserX className="h-4 w-4 text-purple-600" />
@@ -1058,7 +1058,7 @@ function AdminPageContent() {
                     </div>
                   </CardContent>
                 </Card>
-                <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle className="text-sm font-medium">Nuevos (7 días)</CardTitle>
                     <Badge className="h-4 w-4 bg-blue-600" />
@@ -1072,7 +1072,7 @@ function AdminPageContent() {
               </div>
 
               {/* Filters and Actions */}
-              <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl">
                 <CardHeader>
                   <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
                     Gestión de Usuarios
@@ -1088,12 +1088,11 @@ function AdminPageContent() {
                         placeholder="Buscar usuarios..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 border-2 border-gray-200 focus:border-purple-400"
+                        className="pl-10 border-2 border-border focus:border-purple-400"
                       />
                     </div>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
-                        <SelectValue placeholder="Filtrar por estado" />
+                      <SelectTrigger className="w-full sm:w-48 border-2 border-border focus:border-purple-400">
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos</SelectItem>
@@ -1102,8 +1101,7 @@ function AdminPageContent() {
                       </SelectContent>
                     </Select>
                     <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-full sm:w-48 border-2 border-gray-200 focus:border-purple-400">
-                        <SelectValue placeholder="Filtrar por rol" />
+                      <SelectTrigger className="w-full sm:w-48 border-2 border-border focus:border-purple-400">
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos los roles</SelectItem>
@@ -1124,7 +1122,7 @@ function AdminPageContent() {
                         </p>
                       </div>
                       {premiumVisibleAlertsTotal > 0 ? (
-                        <Badge className="bg-orange-100 text-orange-800 border-0">Pendientes para revisión</Badge>
+                        <Badge className="bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-400 border-0">Pendientes para revisión</Badge>
                       ) : (
                         <Badge variant="outline">Sin pendientes premium</Badge>
                       )}
@@ -1189,7 +1187,7 @@ function AdminPageContent() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBulkAction("deactivate")}
-                        className="hover:bg-red-50"
+                        className="hover:bg-red-500/10"
                         disabled={isLoading}
                       >
                         <UserX className="h-3 w-3 mr-1" />
@@ -1199,7 +1197,7 @@ function AdminPageContent() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBulkRoleChange("basic")}
-                        className="hover:bg-gray-50"
+                        className="hover:bg-muted"
                         disabled={isLoading}
                       >
                         <Crown className="h-3 w-3 mr-1" />
@@ -1209,7 +1207,7 @@ function AdminPageContent() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBulkRoleChange("pro")}
-                        className="hover:bg-blue-50"
+                        className="hover:bg-blue-500/10"
                         disabled={isLoading}
                       >
                         <Star className="h-3 w-3 mr-1" />
@@ -1219,7 +1217,7 @@ function AdminPageContent() {
                         size="sm"
                         variant="outline"
                         onClick={() => handleBulkRoleChange("premium")}
-                        className="hover:bg-yellow-50"
+                        className="hover:bg-yellow-500/10"
                         disabled={isLoading}
                       >
                         <Crown className="h-3 w-3 mr-1" />
@@ -1242,7 +1240,7 @@ function AdminPageContent() {
                   )}
 
                   {/* Users List - Mobile Cards / Desktop Table */}
-                  <div className="border rounded-lg overflow-hidden backdrop-blur-sm bg-white/50 relative" style={{ isolation: 'isolate' }}>
+                  <div className="border rounded-lg overflow-hidden relative" style={{ isolation: 'isolate' }}>
                     {/* Mobile View - Cards */}
                     <div className="md:hidden space-y-3 p-3">
                       {/* Select All Header */}
@@ -1272,8 +1270,8 @@ function AdminPageContent() {
                         <Card
                           key={user.id}
                           className={`border-2 transition-all ${selectedUsers.includes(user.id)
-                              ? 'border-purple-500 bg-purple-50/50'
-                              : 'border-gray-200 hover:border-purple-300 hover:shadow-md'
+                              ? 'border-purple-500 bg-purple-500/10'
+                              : 'border-border hover:border-purple-300 hover:shadow-md'
                             }`}
                         >
                           <CardContent className="p-4">
@@ -1357,9 +1355,9 @@ function AdminPageContent() {
                                   {getStatusBadge(user.is_active)}
                                   {getRoleBadge(user.role)}
                                   {user.is_verified ? (
-                                    <Badge className="bg-green-100 text-green-800 border-0 text-xs">Verificado</Badge>
+                    <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-0 text-xs">Verificado</Badge>
                                   ) : (
-                                    <Badge className="bg-gray-100 text-gray-800 border-0 text-xs">No verificado</Badge>
+                                    <Badge className="bg-muted text-muted-foreground border-0 text-xs">No verificado</Badge>
                                   )}
                                 </div>
 
@@ -1391,7 +1389,7 @@ function AdminPageContent() {
                     {/* Desktop View - Table */}
                     <div className="hidden md:block overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-gradient-to-r from-gray-50 to-slate-50">
+                        <thead className="bg-muted/50">
                           <tr>
                             <th className="p-3 text-left">
                               <Checkbox
@@ -1421,7 +1419,7 @@ function AdminPageContent() {
                           {currentUsers.map((user) => (
                             <tr
                               key={user.id}
-                              className="border-t hover:bg-gradient-to-r hover:from-purple-50/50 hover:to-violet-50/50 transition-all duration-200"
+                              className="border-t hover:bg-muted/30 transition-all duration-200"
                             >
                               <td className="p-3">
                                 <Checkbox
@@ -1439,8 +1437,8 @@ function AdminPageContent() {
                               <td className="p-3">{getRoleBadge(user.role)}</td>
                               <td className="p-3">
                                 {user.is_verified
-                                  ? <Badge className="bg-green-100 text-green-800 border-0">Sí</Badge>
-                                  : <Badge className="bg-gray-100 text-gray-800 border-0">No</Badge>
+                                  ? <Badge className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 border-0">Sí</Badge>
+                                  : <Badge className="bg-muted text-muted-foreground border-0">No</Badge>
                                 }
                               </td>
                               <td className="p-3 text-sm text-muted-foreground">
@@ -1459,18 +1457,18 @@ function AdminPageContent() {
                               <td className="p-3">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="hover:bg-purple-50">
+                                    <Button variant="ghost" size="icon" className="hover:bg-purple-500/10">
                                       <MoreHorizontal className="h-4 w-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent
                                     align="end"
-                                    className="backdrop-blur-sm bg-white/90 border-0 shadow-xl"
+                                    className="shadow-xl"
                                   >
                                     <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                                     <DropdownMenuItem
                                       onClick={() => router.push(`/admin/user-v2/${user.id}`)}
-                                      className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50"
+                                      className="hover:bg-muted"
                                     >
                                       <Eye className="h-4 w-4 mr-2" />
                                       Ver perfil completo ✨
@@ -1478,7 +1476,7 @@ function AdminPageContent() {
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       onClick={() => handleEditUser(user)}
-                                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                                      className="hover:bg-muted"
                                     >
                                       <Edit className="h-4 w-4 mr-2" />
                                       Editar
@@ -1486,21 +1484,21 @@ function AdminPageContent() {
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem
                                       onClick={() => handleChangeRole(user.id)}
-                                      className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
+                                      className="hover:bg-muted"
                                     >
                                       <Crown className="h-4 w-4 mr-2" />
                                       Cambiar Rol
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => handleToggleVerification(user.id)}
-                                      className="hover:bg-gradient-to-r hover:from-yellow-50 hover:to-orange-50"
+                                      className="hover:bg-muted"
                                     >
                                       <Shield className="h-4 w-4 mr-2" />
                                       {user.is_verified ? 'Desverificar' : 'Verificar'}
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => handleResetPassword(user.id)}
-                                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50"
+                                      className="hover:bg-muted"
                                     >
                                       <Key className="h-4 w-4 mr-2" />
                                       Resetear Contraseña
@@ -1509,7 +1507,7 @@ function AdminPageContent() {
                                     {user.is_active ? (
                                       <DropdownMenuItem
                                         onClick={() => handleUserAction(user.id, "deactivate")}
-                                        className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
+                                        className="hover:bg-red-500/10"
                                       >
                                         <UserX className="h-4 w-4 mr-2" />
                                         Desactivar
@@ -1517,7 +1515,7 @@ function AdminPageContent() {
                                     ) : (
                                       <DropdownMenuItem
                                         onClick={() => handleUserAction(user.id, "activate")}
-                                        className="hover:bg-gradient-to-r hover:from-green-50 hover:to-emerald-50"
+                                        className="hover:bg-green-500/10"
                                       >
                                         <UserCheck className="h-4 w-4 mr-2" />
                                         Activar
@@ -1525,7 +1523,7 @@ function AdminPageContent() {
                                     )}
                                     <DropdownMenuItem
                                       onClick={() => handleUserAction(user.id, "delete")}
-                                      className="text-red-600 hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
+                                      className="text-red-600 hover:bg-red-500/10"
                                     >
                                       <Trash2 className="h-4 w-4 mr-2" />
                                       Eliminar
@@ -1678,7 +1676,7 @@ function AdminPageContent() {
 
               {/* Edit User Dialog */}
               <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="sm:max-w-md backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+                <DialogContent className="sm:max-w-md border shadow-xl">
                   <DialogHeader>
                     <DialogTitle>Editar Usuario</DialogTitle>
                     <DialogDescription>Modifica la información del usuario seleccionado</DialogDescription>
@@ -1691,16 +1689,7 @@ function AdminPageContent() {
                           id="edit-first-name"
                           value={editingUser.first_name}
                           onChange={(e) => setEditingUser({ ...editingUser, first_name: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-purple-400"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="edit-last-name">Apellido</Label>
-                        <Input
-                          id="edit-last-name"
-                          value={editingUser.last_name}
-                          onChange={(e) => setEditingUser({ ...editingUser, last_name: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-purple-400"
+                          className="border-2 border-border focus:border-purple-400"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1709,7 +1698,7 @@ function AdminPageContent() {
                           id="edit-phone"
                           value={editingUser.phone_number || ""}
                           onChange={(e) => setEditingUser({ ...editingUser, phone_number: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-purple-400"
+                          className="border-2 border-border focus:border-purple-400"
                           placeholder="+34 600 000 000"
                         />
                       </div>
@@ -1720,7 +1709,7 @@ function AdminPageContent() {
                           type="date"
                           value={editingUser.birth_date ? editingUser.birth_date.split("T")[0] : ""}
                           onChange={(e) => setEditingUser({ ...editingUser, birth_date: e.target.value })}
-                          className="border-2 border-gray-200 focus:border-purple-400"
+                          className="border-2 border-border focus:border-purple-400"
                         />
                       </div>
                       <div className="space-y-2">
@@ -1731,7 +1720,7 @@ function AdminPageContent() {
                             setEditingUser({ ...editingUser, gender: value })
                           }
                         >
-                          <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                          <SelectTrigger className="border-2 border-border focus:border-purple-400">
                             <SelectValue placeholder="Selecciona género" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1749,7 +1738,7 @@ function AdminPageContent() {
                             setEditingUser({ ...editingUser, role: value as "admin" | "basic" | "pro" | "premium" })
                           }
                         >
-                          <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
+                          <SelectTrigger className="border-2 border-border focus:border-purple-400">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -1789,7 +1778,7 @@ function AdminPageContent() {
 
               {/* Modal para cambiar rol */}
               <Dialog open={roleChangeModal.open} onOpenChange={(open) => setRoleChangeModal(prev => ({ ...prev, open }))}>
-                <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
+                <DialogContent className="border shadow-2xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Crown className="h-5 w-5 text-purple-600" />
@@ -1817,9 +1806,9 @@ function AdminPageContent() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="bg-gray-50 p-3 rounded-lg">
+                    <div className="bg-muted p-3 rounded-lg">
                       <h4 className="font-medium text-sm mb-2">Descripción del rol:</h4>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {roleChangeModal.newRole === 'basic' && 'Acceso básico a entrenamientos y nutrición'}
                         {roleChangeModal.newRole === 'pro' && 'Acceso avanzado con entrenamientos ilimitados'}
                         {roleChangeModal.newRole === 'premium' && 'Acceso completo con entrenador personal y análisis avanzado'}
@@ -1845,7 +1834,7 @@ function AdminPageContent() {
 
               {/* Modal para resetear contraseña */}
               <Dialog open={passwordResetModal.open} onOpenChange={(open) => setPasswordResetModal(prev => ({ ...prev, open }))}>
-                <DialogContent className="backdrop-blur-sm bg-white/95 border-0 shadow-2xl">
+                <DialogContent className="border shadow-2xl">
                   <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                       <Key className="h-5 w-5 text-blue-600" />
@@ -1864,14 +1853,14 @@ function AdminPageContent() {
                         placeholder="Ingresa la nueva contraseña"
                         value={passwordResetModal.newPassword}
                         onChange={(e) => setPasswordResetModal(prev => ({ ...prev, newPassword: e.target.value }))}
-                        className="border-2 border-gray-200 focus:border-blue-400"
+                        className="border-2 border-border focus:border-blue-400"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Mínimo 8 caracteres
                       </p>
                     </div>
-                    <div className="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                      <p className="text-sm text-yellow-800">
+                    <div className="bg-yellow-500/10 p-3 rounded-lg border border-yellow-500/20">
+                      <p className="text-sm text-yellow-800 dark:text-yellow-400">
                         ⚠️ El usuario necesitará usar esta nueva contraseña para iniciar sesión.
                       </p>
                     </div>

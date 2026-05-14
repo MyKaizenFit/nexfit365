@@ -211,7 +211,7 @@ export function UserWellnessPanel({ userId }: Props) {
               key={r}
               size="sm"
               variant={range === r ? "default" : "outline"}
-              className={cn("h-8", range === r ? "" : "bg-white")}
+              className={cn("h-8", range === r ? "" : "bg-background")}
               onClick={() => setRange(r as typeof range)}
             >
               {r === 0 ? "Todo" : `${r}d`}
@@ -350,7 +350,7 @@ export function UserWellnessPanel({ userId }: Props) {
 
 function Stat({ label, value, badge }: { label: string; value: string | number; badge?: string }) {
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-lg border p-3 bg-card/60">
       <p className="text-xs text-muted-foreground">{label}</p>
       <p className="text-sm font-semibold">{value}</p>
     </div>

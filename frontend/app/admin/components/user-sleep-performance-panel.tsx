@@ -97,7 +97,7 @@ export function UserSleepPerformancePanel({ userId }: Props) {
               key={option}
               size="sm"
               variant={days === option ? "default" : "outline"}
-              className={cn("h-8", days === option ? "" : "bg-white")}
+              className={cn("h-8", days === option ? "" : "bg-background")}
               onClick={() => setDays(option as typeof days)}
             >
               {option}d
@@ -117,7 +117,7 @@ export function UserSleepPerformancePanel({ userId }: Props) {
           <StatCard label="Días con bienestar" value={summary?.wellness_days ?? 0} icon={<Moon className="h-4 w-4 text-indigo-600" />} />
           <StatCard label="Días con entreno" value={summary?.workout_days ?? workoutDaysWithData} icon={<Activity className="h-4 w-4 text-emerald-600" />} />
           <StatCard label="Pares comparables" value={summary?.sleep_rating_pairs ?? scatterData.length} icon={<TrendingUp className="h-4 w-4 text-amber-600" />} />
-          <div className="rounded-lg border p-3 bg-white/60">
+          <div className="rounded-lg border p-3 bg-card/60">
             <p className="text-xs text-muted-foreground">Correlación sueño/rendimiento</p>
             <div className="flex items-center justify-between gap-3 mt-1">
               <p className="text-sm font-semibold">{correlation != null ? correlation.toFixed(4) : "—"}</p>
@@ -213,7 +213,7 @@ export function UserSleepPerformancePanel({ userId }: Props) {
               <p className="text-sm font-medium">Detalle diario</p>
               <div className="space-y-2">
                 {lastEntries.map(entry => (
-                  <div key={entry.date} className="rounded-lg border p-3 bg-white/70">
+                  <div key={entry.date} className="rounded-lg border p-3 bg-card/70">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant="outline">{new Date(entry.date).toLocaleDateString("es-ES")}</Badge>
@@ -243,7 +243,7 @@ export function UserSleepPerformancePanel({ userId }: Props) {
 
 function StatCard({ label, value, icon }: { label: string; value: string | number; icon: React.ReactNode }) {
   return (
-    <div className="rounded-lg border p-3 bg-white/60">
+    <div className="rounded-lg border p-3 bg-card/60">
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-muted-foreground">{label}</p>
         {icon}

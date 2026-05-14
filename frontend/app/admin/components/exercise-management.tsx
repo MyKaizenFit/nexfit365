@@ -24,7 +24,8 @@ import {
   ArrowLeft,
   ArrowRight,
   Download,
-  Upload
+  Upload,
+  Link2
 } from "lucide-react"
 import {
   DropdownMenu,
@@ -149,6 +150,32 @@ export function ExerciseManagement() {
   const [bulkVideoUrl, setBulkVideoUrl] = useState('');
   const [showBulkVideoDialog, setShowBulkVideoDialog] = useState(false);
   const [bulkUpdatingVideo, setBulkUpdatingVideo] = useState(false);
+  const [autoLinking, setAutoLinking] = useState(false);
+
+  const handleAutoLinkVideos = async () => {
+    setAutoLinking(true);
+    try {
+      // El backend accede directamente a la carpeta pública de Drive (sin API key)
+      const url = buildApiUrl('admin/exercises/auto-link-videos/');
+      const headers = await getAuthHeaders();
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result?.error || 'Error al vincular');
+      toast({
+        title: '✅ Vinculación completada',
+        description: `${result.linked} ejercicios vinculados (${result.videos_in_drive} vídeos en Drive).`,
+      });
+      if (result.linked > 0) refetch();
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo vincular', variant: 'destructive' });
+    } finally {
+      setAutoLinking(false);
+    }
+  };
 
   const handleImport = async () => {
     if (!importFile) return;
@@ -823,6 +850,16 @@ export function ExerciseManagement() {
               >
                 <Upload className="h-4 w-4" />
                 <span className="hidden sm:inline">Importar </span>CSV/Excel
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAutoLinkVideos}
+                disabled={autoLinking}
+                className="gap-1.5 border-purple-400 text-purple-700 hover:bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:hover:bg-purple-900/20"
+              >
+                {autoLinking ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
+                <span className="hidden sm:inline">Vincular </span>Drive
               </Button>
             </div>
           </div>

@@ -249,8 +249,8 @@ export function UserNutritionPlanManagement() {
     <div className="space-y-4 md:space-y-6">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-gray-900">Gestión de Planes de Usuarios</h2>
-          <p className="text-sm md:text-base text-gray-600 mt-1">Asigna planes nutricionales a usuarios individuales o masivamente</p>
+          <h2 className="text-xl md:text-2xl font-bold text-foreground">Gestión de Planes de Usuarios</h2>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Asigna planes nutricionales a usuarios individuales o masivamente</p>
         </div>
       </div>
 
@@ -288,7 +288,7 @@ export function UserNutritionPlanManagement() {
             <CardTitle className="text-base md:text-lg">Usuarios ({filteredUsers.length})</CardTitle>
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <div className="relative flex-1 sm:flex-initial">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-gray-400" />
+                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 md:w-4 md:h-4 text-muted-foreground" />
                 <Input
                   placeholder="Buscar usuarios..."
                   value={searchTerm}
@@ -305,18 +305,18 @@ export function UserNutritionPlanManagement() {
               <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
             </div>
           ) : filteredUsers.length === 0 ? (
-            <p className="text-center text-gray-500 py-8 text-sm">No hay usuarios</p>
+            <p className="text-center text-muted-foreground py-8 text-sm">No hay usuarios</p>
           ) : (
             <div className="space-y-2">
               {filteredUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg hover:bg-gray-50"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg hover:bg-muted/50"
                 >
                   <div className="flex items-start gap-3 min-w-0 flex-1">
                     <div className="min-w-0 flex-1">
                       <div className="font-medium text-sm md:text-base truncate">{user.email}</div>
-                      <div className="text-xs md:text-sm text-gray-500 break-words">
+                      <div className="text-xs md:text-sm text-muted-foreground break-words">
                         {user.first_name} {user.last_name} • {user.role}
                         {user.main_goal && ` • ${user.main_goal}`}
                       </div>
