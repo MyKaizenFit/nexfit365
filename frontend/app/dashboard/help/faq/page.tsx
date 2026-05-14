@@ -90,7 +90,7 @@ export default function FAQPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+      <div className="min-h-screen bg-background p-4">
         <div className="max-w-4xl mx-auto">
           <div className="text-center py-20">Cargando...</div>
         </div>
@@ -99,7 +99,7 @@ export default function FAQPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -113,7 +113,7 @@ export default function FAQPage() {
           </Button>
         </div>
 
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-3xl">
               <BookOpen className="h-8 w-8 text-blue-600" />
@@ -123,7 +123,7 @@ export default function FAQPage() {
           <CardContent className="space-y-6">
             {/* Buscador */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-muted-foreground/70" />
               <Input
                 placeholder="Buscar en las preguntas frecuentes..."
                 value={searchQuery}
@@ -134,7 +134,7 @@ export default function FAQPage() {
 
             {/* FAQs */}
             {filteredFAQs.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-muted-foreground">
                 No se encontraron preguntas que coincidan con tu búsqueda.
               </div>
             ) : (
@@ -144,13 +144,13 @@ export default function FAQPage() {
                     <CardHeader>
                       <CardTitle className="text-lg">{faq.question}</CardTitle>
                       {faq.category && (
-                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded inline-block mt-2">
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded inline-block mt-2">
                           {faq.category}
                         </span>
                       )}
                     </CardHeader>
                     <CardContent>
-                      <p className="text-gray-600">{faq.answer}</p>
+                      <p className="text-muted-foreground">{faq.answer}</p>
                     </CardContent>
                   </Card>
                 ))}

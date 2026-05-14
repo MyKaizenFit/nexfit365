@@ -123,8 +123,8 @@ export default function EntrenamientosPage() {
           <Dumbbell className="h-8 w-8 text-purple-600" />
         </div>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Entrenamientos 💪</h1>
-          <p className="text-gray-600">Gestiona tu rutina de ejercicios y objetivos</p>
+          <h1 className="text-3xl font-bold text-foreground">Entrenamientos 💪</h1>
+          <p className="text-muted-foreground">Gestiona tu rutina de ejercicios y objetivos</p>
         </div>
       </div>
 
@@ -144,7 +144,7 @@ export default function EntrenamientosPage() {
                 <span>{Math.round(progressPercentage)}%</span>
               </div>
               <Progress value={progressPercentage} className="h-2" />
-              <div className="text-sm text-gray-600">
+              <div className="text-sm text-muted-foreground">
                 {weeklyProgress >= weeklyGoal
                   ? "¡Excelente! Has cumplido tu meta semanal 🎉"
                   : `Te faltan ${weeklyGoal - weeklyProgress} entrenamientos para cumplir tu meta`
@@ -191,19 +191,19 @@ export default function EntrenamientosPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div className="text-center">
                       <div className="font-semibold">{activeProgram.days_per_week}</div>
-                      <div className="text-gray-600">Días/semana</div>
+                      <div className="text-muted-foreground">Días/semana</div>
                     </div>
                     <div className="text-center">
                       <div className="font-semibold">{activeProgram.duration_weeks}</div>
-                      <div className="text-gray-600">Semanas</div>
+                      <div className="text-muted-foreground">Semanas</div>
                     </div>
                     <div className="text-center">
                       <div className="font-semibold capitalize">{activeProgram.goal}</div>
-                      <div className="text-gray-600">Objetivo</div>
+                      <div className="text-muted-foreground">Objetivo</div>
                     </div>
                     <div className="text-center">
                       <div className="font-semibold">{activeProgram.days?.length || 0}</div>
-                      <div className="text-gray-600">Días</div>
+                      <div className="text-muted-foreground">Días</div>
                     </div>
                   </div>
                 </CardContent>
@@ -223,7 +223,7 @@ export default function EntrenamientosPage() {
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">{todaysWorkout.exercises.length} ejercicios</p>
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-muted-foreground">
                             Tiempo estimado: {todaysWorkout.exercises.length * 3} minutos
                           </p>
                         </div>
@@ -238,7 +238,7 @@ export default function EntrenamientosPage() {
 
                       <div className="grid grid-cols-1 gap-2">
                         {todaysWorkout.exercises.map((exerciseItem: any, index: number) => (
-                          <div key={index} className="flex items-center space-x-3 p-2 bg-gray-50 rounded">
+                          <div key={index} className="flex items-center space-x-3 p-2 bg-muted rounded">
                             <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center text-sm font-medium">
                               {index + 1}
                             </div>
@@ -249,7 +249,7 @@ export default function EntrenamientosPage() {
                                   <Play className="h-4 w-4 text-purple-600" />
                                 )}
                               </div>
-                              <p className="text-sm text-gray-600">
+                              <p className="text-sm text-muted-foreground">
                                 {exerciseItem.sets} series x {exerciseItem.reps} repeticiones
                               </p>
                             </div>
@@ -277,7 +277,7 @@ export default function EntrenamientosPage() {
                           </Badge>
                         </div>
                         {!day.is_rest_day && (
-                          <div className="space-y-1 text-sm text-gray-600">
+                          <div className="space-y-1 text-sm text-muted-foreground">
                             <p>{day.exercises?.length || 0} ejercicios</p>
                             <p>Tiempo: ~{(day.exercises?.length || 0) * 3} min</p>
                           </div>
@@ -358,16 +358,16 @@ export default function EntrenamientosPage() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <div className="font-medium">{template.days_per_week} días/semana</div>
-                        <div className="text-gray-600">Frecuencia</div>
+                        <div className="text-muted-foreground">Frecuencia</div>
                       </div>
                       <div>
                         <div className="font-medium">{template.duration_weeks} semanas</div>
-                        <div className="text-gray-600">Duración</div>
+                        <div className="text-muted-foreground">Duración</div>
                       </div>
                     </div>
 
                     <div className="flex items-center space-x-2">
-                      <Target className="h-4 w-4 text-gray-500" />
+                      <Target className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm capitalize">{template.goal}</span>
                     </div>
 
@@ -422,9 +422,9 @@ export default function EntrenamientosPage() {
                     <CheckCircle className="h-5 w-5 text-green-500" />
                     <div className="flex-1">
                       <p className="font-medium">{log.workout_day}</p>
-                      <p className="text-sm text-gray-600">{log.date}</p>
+                      <p className="text-sm text-muted-foreground">{log.date}</p>
                     </div>
-                    <div className="text-sm text-gray-600">
+                    <div className="text-sm text-muted-foreground">
                       {log.duration_minutes && `${log.duration_minutes} min`}
                     </div>
                   </div>

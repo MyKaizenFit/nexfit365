@@ -100,7 +100,7 @@ export default function ReportProblemPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
@@ -114,7 +114,7 @@ export default function ReportProblemPage() {
           </Button>
         </div>
 
-        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <Card className="border shadow-xl">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-3xl">
               <AlertCircle className="h-8 w-8 text-orange-600" />
@@ -239,10 +239,10 @@ export default function ReportProblemPage() {
 
               {/* Información Técnica (oculta por defecto) */}
               <details className="space-y-2">
-                <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-gray-900">
+                <summary className="cursor-pointer text-sm font-medium text-gray-700 hover:text-foreground">
                   Información Técnica (Opcional)
                 </summary>
-                <div className="mt-4 space-y-4 pl-4 border-l-2 border-gray-200">
+                <div className="mt-4 space-y-4 pl-4 border-l-2 border-border">
                   <div className="space-y-2">
                     <Label htmlFor="browser_info">Información del Navegador</Label>
                     <Input

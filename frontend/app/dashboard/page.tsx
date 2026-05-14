@@ -375,7 +375,7 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-gray-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 flex items-center justify-center min-h-full relative z-10">
-              <Card className="responsive-card max-w-md backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+              <Card className="responsive-card max-w-md border shadow-xl">
                 <CardHeader className="text-center p-3 sm:p-4 lg:p-6">
                   <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-400 via-pink-400 to-orange-400 rounded-2xl flex items-center justify-center animate-bounce mb-4 shadow-lg">
                     <IconComponent className="h-8 w-8 text-white" />
@@ -385,7 +385,7 @@ function DashboardContent() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-center space-y-4 p-3 sm:p-4 lg:p-6 pt-0">
-                  <p className="text-xs sm:text-sm text-gray-600">
+                  <p className="text-xs sm:text-sm text-muted-foreground">
                     Esta sección está en desarrollo. Pronto tendrás acceso a todas las funcionalidades. ✨
                   </p>
                   <Button
@@ -404,11 +404,11 @@ function DashboardContent() {
   }
 
   return (
-    <div className="app-container bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50 min-h-screen">
+    <div className="app-container bg-background min-h-screen">
       {/* Desktop Layout */}
       <div className="hidden md:flex h-full w-full">
         <SidebarProvider>
-          <Sidebar className="flex-shrink-0 backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <Sidebar className="flex-shrink-0 border shadow-xl">
             <SidebarHeader>
               <div className="flex items-center gap-3 px-4 py-3">
                 <div className="flex aspect-square size-10 items-center justify-center rounded-xl flex-shrink-0 overflow-hidden">
@@ -417,15 +417,15 @@ function DashboardContent() {
                 <div className="grid flex-1 text-left text-sm leading-tight min-w-0">
                   <div className="flex items-center">
                     <span className="font-bold text-orange-500">NEX</span>
-                    <span className="font-bold text-gray-600">FIT</span>
+                    <span className="font-bold text-muted-foreground">FIT</span>
                   </div>
-                  <span className="truncate text-xs text-gray-500">Inicio</span>
+                  <span className="truncate text-xs text-muted-foreground">Inicio</span>
                 </div>
               </div>
             </SidebarHeader>
             <SidebarContent>
               <SidebarGroup>
-                <SidebarGroupLabel className="text-gray-600">Navegación</SidebarGroupLabel>
+                <SidebarGroupLabel className="text-muted-foreground">Navegación</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {menuItems.map((item) => {
@@ -448,7 +448,7 @@ function DashboardContent() {
                             }}
                             className={`transition-all duration-300 ${isDisabled
                               ? "opacity-50 cursor-not-allowed"
-                              : "hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                              : "hover:bg-muted"
                               }`}
                           >
                             <button
@@ -474,7 +474,7 @@ function DashboardContent() {
                 <SidebarMenuItem>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton className="cursor-pointer hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 transition-all duration-300">
+                      <SidebarMenuButton className="cursor-pointer hover:bg-muted transition-all duration-300">
                         <Avatar className="h-6 w-6 flex-shrink-0 ring-2 ring-teal-200">
                           <AvatarImage
                             src={
@@ -494,17 +494,17 @@ function DashboardContent() {
                         </span>
                       </SidebarMenuButton>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent side="top" className="w-56 backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+                    <DropdownMenuContent side="top" className="w-56 border shadow-xl bg-card/95 backdrop-blur-sm">
                       <DropdownMenuItem
                         onClick={() => handleMenuClick("profile", "Mi Perfil")}
-                        className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                        className="hover:bg-muted"
                       >
                         <User className="mr-2 h-4 w-4" />
                         Mi Perfil
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleMenuClick("settings", "Configuración")}
-                        className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                        className="hover:bg-muted"
                       >
                         <Settings className="mr-2 h-4 w-4" />
                         Configuración
@@ -537,19 +537,19 @@ function DashboardContent() {
 
           <SidebarInset className="flex flex-col h-full flex-1 min-w-0">
             {/* Desktop Header */}
-            <header className="flex h-16 shrink-0 items-center gap-2 border-b border-white/20 px-4 w-full backdrop-blur-sm bg-white/80">
-              <SidebarTrigger className="-ml-1 flex-shrink-0 hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50 rounded-lg transition-all duration-300" />
+            <header className="flex h-16 shrink-0 items-center gap-2 border-b px-4 w-full border bg-card/95 backdrop-blur-sm">
+              <SidebarTrigger className="-ml-1 flex-shrink-0 hover:bg-muted rounded-lg transition-all duration-300" />
               <div className="responsive-flex flex-1 items-center justify-between min-w-0">
                 <div className="min-w-0 flex-1">
                   <h1 className="text-lg font-semibold responsive-text bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
                     ¡Hola, {user?.first_name || 'Usuario'}! 👋
                   </h1>
-                  <p className="text-sm text-gray-600 responsive-text">
+                  <p className="text-sm text-muted-foreground responsive-text">
                     Día {userStats?.daysInTransformation || 1} de tu transformación ✨
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <ThemeToggle className="bg-white/80" />
+                  <ThemeToggle className="bg-card/80" />
                   <Suspense fallback={<div className="w-10 h-10 animate-pulse bg-gray-200 rounded-full"></div>}>
                     <NotificationsDropdown />
                   </Suspense>
@@ -568,17 +568,17 @@ function DashboardContent() {
                         </AvatarFallback>
                       </Avatar>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56 backdrop-blur-sm bg-white/90 border-0 shadow-xl">
+                    <DropdownMenuContent align="end" className="w-56 border shadow-xl bg-card/95 backdrop-blur-sm">
                       <DropdownMenuItem
                         onClick={() => handleMenuClick("profile", "Mi Perfil")}
-                        className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                        className="hover:bg-muted"
                       >
                         <User className="mr-2 h-4 w-4" />
                         Mi Perfil
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         onClick={() => handleMenuClick("settings", "Configuración")}
-                        className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                        className="hover:bg-muted"
                       >
                         <Settings className="mr-2 h-4 w-4" />
                         Configuración
@@ -616,7 +616,7 @@ function DashboardContent() {
                     <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
                       <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
                     </div>
-                    <p className="text-gray-600">Cargando...</p>
+                    <p className="text-muted-foreground">Cargando...</p>
                   </div>
                 </div>
               }>
@@ -630,7 +630,7 @@ function DashboardContent() {
       {/* Mobile Layout */}
       <div className="md:hidden flex flex-col h-full w-full">
         {/* Mobile Header */}
-        <Suspense fallback={<div className="h-16 bg-white border-b"></div>}>
+        <Suspense fallback={<div className="h-16 bg-card border-b"></div>}>
           <MobileHeader
             notifications={unreadCount}
             onNotificationClick={handleNotificationClick}
@@ -646,7 +646,7 @@ function DashboardContent() {
                 <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
                   <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
                 </div>
-                <p className="text-gray-600">Cargando...</p>
+                <p className="text-muted-foreground">Cargando...</p>
               </div>
             </div>
           }>
@@ -655,7 +655,7 @@ function DashboardContent() {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <Suspense fallback={<div className="h-20 bg-white border-t"></div>}>
+        <Suspense fallback={<div className="h-20 bg-card border-t"></div>}>
           <MobileNavigation selectedSection={selectedSection} onSectionChange={handleMenuClick} />
         </Suspense>
       </div>
@@ -667,7 +667,7 @@ export default function Dashboard() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rose-50 via-teal-50 to-violet-50">
+        <div className="min-h-screen flex items-center justify-center bg-background">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
         </div>
       }
