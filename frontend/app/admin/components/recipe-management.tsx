@@ -85,6 +85,9 @@ interface Recipe {
   recipe_ingredients?: RecipeIngredient[]
   image_url?: string
   image?: string
+  diet_types?: string[]
+  allergens?: string[]
+  tags?: string[]
 }
 
 interface FormData {
@@ -95,6 +98,7 @@ interface FormData {
   instructions: string
   recipe_ingredients: RecipeIngredient[]
   image_url: string
+  diet_types: string[]
 }
 
 interface RecipeImportResult {
@@ -123,6 +127,99 @@ const isFatToFitRecipe = (recipe: Recipe) => {
   ].some((term) => haystack.includes(term))
 }
 
+const FREE_FROM_DIET_OPTIONS = [
+  { value: 'gluten-free', label: 'Sin gluten' },
+  { value: 'dairy-free', label: 'Sin lactosa' },
+  { value: 'egg-free', label: 'Sin huevo' },
+  { value: 'nut-free', label: 'Sin frutos secos' },
+  { value: 'soy-free', label: 'Sin soja' },
+  { value: 'fish-free', label: 'Sin pescado' },
+  { value: 'shellfish-free', label: 'Sin marisco' },
+  { value: 'sesame-free', label: 'Sin sésamo' },
+]
+
+const AUTO_FREE_FROM_KEYWORDS: Record<string, string[]> = {
+  'gluten-free': ['gluten', 'trigo', 'wheat', 'harina', 'pasta', 'pan', 'cebada', 'barley', 'centeno', 'rye', 'avena', 'oats', 'malta', 'malt', 'semola', 'semolina', 'couscous', 'rebozado', 'empanado'],
+  'dairy-free': ['leche', 'milk', 'queso', 'cheese', 'yogur', 'yogurt', 'mantequilla', 'butter', 'crema', 'cream', 'nata', 'whey', 'caseina', 'casein', 'lactosa', 'lactose'],
+  'egg-free': ['huevo', 'huevos', 'egg', 'eggs', 'mayonesa', 'mayo', 'merengue'],
+  'nut-free': ['almendra', 'almendras', 'almond', 'nuez', 'nueces', 'walnut', 'walnuts', 'avellana', 'avellanas', 'hazelnut', 'hazelnuts', 'pistacho', 'pistachios', 'cacahuate', 'cacahuetes', 'peanut', 'peanuts', 'mani', 'anacardo', 'cashew', 'cashews', 'macadamia', 'pecan', 'pecanas', 'pine nut', 'piñon', 'pinon'],
+  'soy-free': ['soja', 'soy', 'soya', 'tofu', 'tempeh', 'edamame', 'miso', 'salsa de soja'],
+  'fish-free': ['pescado', 'fish', 'salmon', 'atun', 'tuna', 'sardina', 'anchov', 'bacalao', 'trucha', 'merluza', 'caballa'],
+  'shellfish-free': ['marisco', 'shellfish', 'gamba', 'gambas', 'langostino', 'langostinos', 'camaron', 'camarones', 'crab', 'cangrejo', 'lobster', 'langosta', 'mejillon', 'mejillones', 'almeja', 'almejas', 'ostra', 'ostras', 'scallop'],
+  'sesame-free': ['sesamo', 'sesame', 'ajonjoli', 'ajonjolí', 'tahini'],
+}
+
+const normalizeFilterText = (value: string) => value
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const getRecipeIngredientTexts = (ingredients: RecipeIngredient[] = []) => {
+  return ingredients
+    .flatMap((ingredient) => [
+      ingredient.food?.name || '',
+      ingredient.food?.brand || '',
+      ingredient.notes || '',
+    ])
+    .map((text) => normalizeFilterText(text))
+    .filter(Boolean)
+}
+
+const getDetectedFreeFromFlags = (ingredients: RecipeIngredient[] = []) => {
+  const texts = getRecipeIngredientTexts(ingredients)
+  const detected = new Set<string>()
+
+  for (const [dietType, keywords] of Object.entries(AUTO_FREE_FROM_KEYWORDS)) {
+    const hasConflict = texts.some((text) => keywords.some((keyword) => text.includes(keyword)))
+    if (hasConflict) {
+      detected.add(dietType)
+    }
+  }
+
+  return detected
+}
+
+const resolveRecipeDietTypes = (dietTypes: string[] = [], ingredients: RecipeIngredient[] = []) => {
+  const selectedTypes = dietTypes.map((type) => normalizeFilterText(type).replace(/\s+/g, '-')).filter(Boolean)
+  const detectedConflicts = getDetectedFreeFromFlags(ingredients)
+  const preservedTypes = selectedTypes.filter((type) => !AUTO_FREE_FROM_KEYWORDS[type])
+  const freeFromTypes = FREE_FROM_DIET_OPTIONS
+    .map((option) => option.value)
+    .filter((type) => selectedTypes.includes(type) && !detectedConflicts.has(type))
+
+  return Array.from(new Set([...preservedTypes, ...freeFromTypes]))
+}
+
+const recipeHasAllSelectedFreeFrom = (recipe: Recipe, selectedTypes: string[]) => {
+  if (!selectedTypes.length) return true
+  const recipeTypes = (recipe.diet_types || []).map((type) => normalizeFilterText(type).replace(/\s+/g, '-'))
+  return selectedTypes.every((type) => recipeTypes.includes(type))
+}
+
+const getNextCopyName = (baseName: string, existingNames: string[]) => {
+  const trimmed = baseName.trim()
+  const escapedBaseName = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const copyPattern = new RegExp(`^${escapedBaseName} \(Copia(?: (\\d+))?\)$`, 'i')
+  let highest = 1
+
+  existingNames.forEach((name) => {
+    if (name === `${trimmed} (Copia)`) {
+      highest = Math.max(highest, 2)
+      return
+    }
+
+    const match = name.match(copyPattern)
+    if (match) {
+      const number = match[1] ? Number(match[1]) : 2
+      highest = Math.max(highest, number)
+    }
+  })
+
+  return highest <= 1 ? `${trimmed} (Copia)` : `${trimmed} (Copia ${highest})`
+}
+
 export function RecipeManagement() {
   const { getAuthHeaders } = useAuth()
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -145,10 +242,12 @@ export function RecipeManagement() {
   const [categoryFilter, setCategoryFilter] = useState<string>('all')
   const [difficultyFilter, setDifficultyFilter] = useState<string>('all')
   const [recipeTypeFilter, setRecipeTypeFilter] = useState<string>('all')
+  const [freeFromFilters, setFreeFromFilters] = useState<string[]>([])
   const [currentPage, setCurrentPage] = useState(1)
   const [sortColumn, setSortColumn] = useState<'name' | 'category' | 'calories' | 'difficulty'>('name')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
   const [selectedRecipes, setSelectedRecipes] = useState<string[]>([])
+  const [copyingRecipeId, setCopyingRecipeId] = useState<string | null>(null)
   const itemsPerPage = 25
 
   // Editing/Creating
@@ -161,6 +260,7 @@ export function RecipeManagement() {
     instructions: '',
     recipe_ingredients: [],
     image_url: '',
+    diet_types: [],
   })
 
   // Nuevo: input para URL de imagen
@@ -372,7 +472,7 @@ export function RecipeManagement() {
 
   const handleOpenCreate = () => {
     setEditingRecipe(null)
-    setFormData({ name: '', description: '', category: '', difficulty: '', instructions: '', recipe_ingredients: [], image_url: '' })
+    setFormData({ name: '', description: '', category: '', difficulty: '', instructions: '', recipe_ingredients: [], image_url: '', diet_types: [] })
     setIngredientInputValue('')
     setShowSuggestions(false)
     setImageUrlInput('')
@@ -403,6 +503,7 @@ export function RecipeManagement() {
       instructions: recipe.instructions || '',
       recipe_ingredients: normalizedIngredients,
       image_url: recipe.image_url || '',
+      diet_types: Array.isArray(recipe.diet_types) ? recipe.diet_types : [],
     })
     setIngredientInputValue('')
     setShowSuggestions(false)
@@ -416,6 +517,68 @@ export function RecipeManagement() {
   const handleOpenView = (recipe: Recipe) => {
     setEditingRecipe(recipe)
     setViewDialogOpen(true)
+  }
+
+  const handleCopyRecipe = async (recipe: Recipe) => {
+    if (!recipe.id) return
+
+    setCopyingRecipeId(recipe.id)
+    try {
+      const headers = await getAuthHeaders()
+      const nextName = getNextCopyName(recipe.name, recipes.map((item) => item.name))
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: nextName,
+          description: recipe.description || '',
+          category: recipe.category || '',
+          difficulty: recipe.difficulty || '',
+          instructions: recipe.instructions || '',
+          calories: recipe.calories || 0,
+          protein: recipe.protein || 0,
+          carbs: recipe.carbs || 0,
+          fat: recipe.fat || 0,
+          servings: 1,
+          diet_types: Array.isArray(recipe.diet_types) ? recipe.diet_types : [],
+          allergens: Array.isArray(recipe.allergens) ? recipe.allergens : [],
+          tags: Array.isArray(recipe.tags) ? recipe.tags : [],
+          image_url: recipe.image_url || '',
+          recipe_ingredients: (recipe.recipe_ingredients || []).map((ingredient, index) => ({
+            food_id: ingredient.food?.id || ingredient.food_id,
+            quantity: ingredient.quantity,
+            unit: ingredient.unit,
+            notes: ingredient.notes || '',
+            order: typeof ingredient.order === 'number' ? ingredient.order : index,
+          })),
+        }),
+      })
+
+      if (!response.ok) {
+        throw new Error(`Error ${response.status}`)
+      }
+
+      const createdRecipe = await response.json()
+      toast({ title: '✅ Copiada', description: 'La receta se duplicó correctamente.' })
+      setEditingRecipe(createdRecipe)
+      setFormData({
+        name: createdRecipe.name || nextName,
+        description: createdRecipe.description || '',
+        category: createdRecipe.category || '',
+        difficulty: createdRecipe.difficulty || '',
+        instructions: createdRecipe.instructions || '',
+        recipe_ingredients: Array.isArray(createdRecipe.recipe_ingredients) ? createdRecipe.recipe_ingredients : [],
+        image_url: createdRecipe.image_url || '',
+        diet_types: Array.isArray(createdRecipe.diet_types) ? createdRecipe.diet_types : [],
+      })
+      setEditDialogOpen(true)
+      setCreateDialogOpen(false)
+      fetchRecipes()
+    } catch (error) {
+      toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo copiar la receta', variant: 'destructive' })
+    } finally {
+      setCopyingRecipeId(null)
+    }
   }
 
   const handleAddIngredient = (food: Food) => {
@@ -525,6 +688,7 @@ export function RecipeManagement() {
         carbs: macros.carbs,
         fat: macros.fat,
         servings: 1,
+        diet_types: resolveRecipeDietTypes(formData.diet_types, formData.recipe_ingredients),
         recipe_ingredients: formData.recipe_ingredients.map((ing) => ({
           food_id: ing.food?.id || ing.food_id,
           quantity: ing.quantity,
@@ -750,10 +914,11 @@ export function RecipeManagement() {
         recipeTypeFilter === 'all' ||
         (recipeTypeFilter === 'fat-to-fit' && isFatToFitRecipe(recipe)) ||
         (recipeTypeFilter === 'general' && !isFatToFitRecipe(recipe))
+      const matchesFreeFrom = recipeHasAllSelectedFreeFrom(recipe, freeFromFilters)
 
-      return matchesSearch && matchesCategory && matchesDifficulty && matchesType
+      return matchesSearch && matchesCategory && matchesDifficulty && matchesType && matchesFreeFrom
     })
-  }, [recipes, searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter])
+  }, [recipes, searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter, freeFromFilters])
 
   const sortedRecipes = useMemo(() => {
     const recipesToSort = [...filteredRecipes]
@@ -827,7 +992,7 @@ export function RecipeManagement() {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter])
+  }, [searchTerm, categoryFilter, difficultyFilter, recipeTypeFilter, freeFromFilters])
 
   const macros = calculateMacros(formData.recipe_ingredients)
 
@@ -948,6 +1113,27 @@ export function RecipeManagement() {
                 <SelectItem value="general">Solo generales</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+          <div className="mt-4">
+            <p className="text-sm font-medium mb-2">Libre de</p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {FREE_FROM_DIET_OPTIONS.map((option) => (
+                <label key={option.value} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <Checkbox
+                    checked={freeFromFilters.includes(option.value)}
+                    onCheckedChange={(checked) => {
+                      setFreeFromFilters((prev) => {
+                        if (checked) {
+                          return prev.includes(option.value) ? prev : [...prev, option.value]
+                        }
+                        return prev.filter((item) => item !== option.value)
+                      })
+                    }}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -1104,6 +1290,10 @@ export function RecipeManagement() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleOpenEdit(recipe)}>
                                 <Edit2 className="mr-2 h-4 w-4" /> Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleCopyRecipe(recipe)} disabled={copyingRecipeId === recipe.id}>
+                                {copyingRecipeId === recipe.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+                                Copiar
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleDeleteRecipe(recipe)} className="text-red-600">
                                 <Trash2 className="mr-2 h-4 w-4" /> Eliminar
@@ -1485,6 +1675,43 @@ export function RecipeManagement() {
                     placeholder="Ej: Una deliciosa pechuga a base de ajillo fresco y limón."
                     className="mt-1 min-h-24"
                   />
+                </div>
+
+                <div className="rounded-lg border border-dashed border-orange-200 bg-orange-50/60 p-4 space-y-3">
+                  <div>
+                    <Label className="font-semibold text-sm">Checks libres de alérgenos</Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Marca las etiquetas que aplican. Si un ingrediente entra en conflicto, el check se quitará al guardar.
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {FREE_FROM_DIET_OPTIONS.map((option) => {
+                      const isChecked = resolveRecipeDietTypes(formData.diet_types, formData.recipe_ingredients).includes(option.value)
+                      return (
+                        <label key={option.value} className="flex items-center gap-2 rounded-md bg-white border px-3 py-2 text-sm shadow-sm">
+                          <Checkbox
+                            checked={isChecked}
+                            onCheckedChange={(checked) => {
+                              setFormData((prev) => {
+                                const nextDietTypes = new Set(prev.diet_types.map((item) => normalizeFilterText(item).replace(/\s+/g, '-')))
+                                if (checked) {
+                                  nextDietTypes.add(option.value)
+                                } else {
+                                  nextDietTypes.delete(option.value)
+                                }
+
+                                return {
+                                  ...prev,
+                                  diet_types: Array.from(nextDietTypes),
+                                }
+                              })
+                            }}
+                          />
+                          <span>{option.label}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
 
                 {/* Sección de Imagen URL */}

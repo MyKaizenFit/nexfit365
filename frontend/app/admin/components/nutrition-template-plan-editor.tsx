@@ -30,6 +30,8 @@ export interface AdminRecipe {
   prep_time_minutes?: number
   difficulty?: string
   image_url?: string
+  diet_types?: string[]
+  allergens?: string[]
 }
 
 interface MealRecipeOption {
@@ -82,6 +84,30 @@ const GOAL_OPTIONS = [
   { value: "body_recomposition", label: "Recomposición corporal" },
   { value: "performance", label: "Rendimiento deportivo" },
 ]
+
+const FREE_FROM_OPTIONS = [
+  { value: "gluten-free", label: "Sin gluten" },
+  { value: "dairy-free", label: "Sin lactosa" },
+  { value: "egg-free", label: "Sin huevo" },
+  { value: "nut-free", label: "Sin frutos secos" },
+  { value: "soy-free", label: "Sin soja" },
+  { value: "fish-free", label: "Sin pescado" },
+  { value: "shellfish-free", label: "Sin marisco" },
+  { value: "sesame-free", label: "Sin sésamo" },
+]
+
+const normalizeFilterText = (value: string) => value
+  .normalize('NFKD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/\s+/g, ' ')
+  .trim()
+
+const recipeMatchesFreeFromFilters = (recipe: AdminRecipe, selectedFilters: string[]) => {
+  if (!selectedFilters.length) return true
+  const recipeDietTypes = (recipe.diet_types || []).map((item) => normalizeFilterText(item).replace(/\s+/g, '-'))
+  return selectedFilters.every((filter) => recipeDietTypes.includes(filter))
+}
 
 function toNumber(value: unknown, fallback = 0) {
   const n = typeof value === "string" ? Number(value) : typeof value === "number" ? value : NaN
@@ -191,9 +217,10 @@ export function NutritionTemplatePlanEditor({
     return availableRecipes.filter((r) => {
       const matchesSearch = !q || (r.name || "").toLowerCase().includes(q)
       const matchesGoal = recipeGoalFilter === "all" || (r.goal_category || "") === recipeGoalFilter
-      return matchesSearch && matchesGoal
+      const matchesFreeFrom = recipeMatchesFreeFromFilters(r, recipeFreeFromFilters)
+      return matchesSearch && matchesGoal && matchesFreeFrom
     })
-  }, [availableRecipes, recipeSearch, recipeGoalFilter])
+  }, [availableRecipes, recipeSearch, recipeGoalFilter, recipeFreeFromFilters])
 
   const mealsForDay = useMemo(() => {
     return meals
@@ -370,6 +397,7 @@ export function NutritionTemplatePlanEditor({
     setTargetMealIndex(idx)
     setRecipeSearch("")
     setRecipeGoalFilter("all")
+    setRecipeFreeFromFilters([])
     setShowRecipeSelector(true)
   }
 
@@ -663,6 +691,30 @@ export function NutritionTemplatePlanEditor({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div>
+            <Label className="text-xs">Libre de</Label>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              {FREE_FROM_OPTIONS.map((option) => (
+                <label key={option.value} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={recipeFreeFromFilters.includes(option.value)}
+                    onChange={(event) => {
+                      setRecipeFreeFromFilters((prev) => {
+                        if (event.target.checked) {
+                          return prev.includes(option.value) ? prev : [...prev, option.value]
+                        }
+                        return prev.filter((value) => value !== option.value)
+                      })
+                    }}
+                    className="h-4 w-4"
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
