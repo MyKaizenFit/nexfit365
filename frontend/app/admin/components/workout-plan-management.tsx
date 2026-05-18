@@ -29,6 +29,7 @@ import {
   Users,
   Activity,
   Copy,
+  UserPlus,
   GripVertical,
   ArrowUp,
   ArrowDown,
@@ -174,6 +175,10 @@ export function WorkoutPlanManagement() {
   const [isViewMode, setIsViewMode] = useState(false) // Modo solo lectura
   const [isLoading, setIsLoading] = useState(false)
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null)
+  const [showAssignUserDialog, setShowAssignUserDialog] = useState(false)
+  const [assignUserSourceId, setAssignUserSourceId] = useState<string | null>(null)
+  const [assignUserTargetId, setAssignUserTargetId] = useState<string>("none")
+  const [assigningToUser, setAssigningToUser] = useState(false)
   const [importing, setImporting] = useState(false)
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
@@ -1323,6 +1328,35 @@ export function WorkoutPlanManagement() {
     }
   }
 
+  const openAssignUserDialog = (planId: string) => {
+    setAssignUserSourceId(planId)
+    setAssignUserTargetId("none")
+    setShowAssignUserDialog(true)
+  }
+
+  const handleAssignToUser = async () => {
+    if (!assignUserSourceId || assignUserTargetId === "none") return
+    try {
+      setAssigningToUser(true)
+      const userId = Number(assignUserTargetId)
+      await updatePlan(assignUserSourceId, { assigned_user_ids: [userId] })
+      const userName = usersList.find((u) => u.id === assignUserTargetId)?.email || "usuario"
+      toast({
+        title: "✅ Plan asignado",
+        description: `Se ha clonado y asignado la rutina a ${userName}`,
+      })
+      setShowAssignUserDialog(false)
+    } catch (e) {
+      toast({
+        title: "❌ Error",
+        description: e instanceof Error ? e.message : "No se pudo asignar la rutina",
+        variant: "destructive",
+      })
+    } finally {
+      setAssigningToUser(false)
+    }
+  }
+
   const handleCopyPlan = async (planId: string) => {
     try {
       setCopyingPlanId(planId)
@@ -2081,6 +2115,10 @@ export function WorkoutPlanManagement() {
                                 )}
                                 Copiar rutina
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openAssignUserDialog(plan.id)} disabled={copyingPlanId !== null}>
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Asignar copia a usuario
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditWorkout(plan.id)}>
                                 <Dumbbell className="h-4 w-4 mr-2" />
                                 Editar Ejercicios
@@ -2347,6 +2385,14 @@ export function WorkoutPlanManagement() {
                                   <Copy className="h-4 w-4 mr-2" />
                                 )}
                                 Copiar rutina
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openAssignUserDialog(plan.id)}
+                                className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
+                                disabled={copyingPlanId !== null}
+                              >
+                                <UserPlus className="h-4 w-4 mr-2" />
+                                Asignar copia a usuario
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleToggleActive(plan.id)}
@@ -3443,6 +3489,49 @@ export function WorkoutPlanManagement() {
                 )}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog para asignar copia de plantilla a usuario */}
+      <Dialog open={showAssignUserDialog} onOpenChange={setShowAssignUserDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="h-5 w-5 text-amber-500" />
+              Asignar copia a usuario
+            </DialogTitle>
+            <DialogDescription>
+              Clona esta plantilla y la asigna al usuario seleccionado como su plan de entrenamiento.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <FormLabel className="text-sm font-medium">Usuario destino</FormLabel>
+            <Select value={assignUserTargetId} onValueChange={setAssignUserTargetId}>
+              <SelectTrigger><SelectValue placeholder="Selecciona un usuario" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Selecciona un usuario</SelectItem>
+                {usersList.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>{u.email}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAssignUserDialog(false)} disabled={assigningToUser}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleAssignToUser}
+              disabled={assigningToUser || assignUserTargetId === "none"}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-0"
+            >
+              {assigningToUser ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Asignando...</>
+              ) : (
+                <><UserPlus className="h-4 w-4 mr-2" />Asignar</>
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
