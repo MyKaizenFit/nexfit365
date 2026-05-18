@@ -408,6 +408,7 @@ export function WorkoutPlanManagement() {
 
   function getPlanCategory(plan: any) {
     if (!plan) return "Desconocido"
+    if (Array.isArray(plan.assigned_user_ids) && plan.assigned_user_ids.length > 0) return "Usuario"
     if (plan.user && !plan.is_template && !plan.is_system) return "Usuario"
     if (plan.is_system) return "Sistema"
     if (plan.is_template) return "Plantilla"
@@ -981,9 +982,7 @@ export function WorkoutPlanManagement() {
       if (editingPlan) {
         const planData = {
           ...formData,
-          // En modo edición, mantener el usuario original (no permitir cambio)
-          user: editingPlan.user_id || undefined,
-          assigned_users: undefined, // No enviar assigned_users en edición
+          assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
           days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
             day_name: day.day_name,
             day_number: day.day_number,
@@ -1000,87 +999,62 @@ export function WorkoutPlanManagement() {
         resetForm()
         refetch()
       } else {
-        // Si NO hay usuarios seleccionados, crear como plantilla
-        if (formData.assigned_users.length === 0) {
-          const planData = {
-            name: formData.name,
-            description: formData.description,
-            difficulty: formData.difficulty,
-            duration_weeks: formData.duration_weeks,
-            min_role_required: formData.min_role_required,
-            estimated_duration_minutes: formData.estimated_duration_minutes,
-            user: undefined, // Sin usuario = plantilla
-            days: []
+        const assignedUserIds = formData.assigned_users
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id))
+
+        const planData = {
+          name: formData.name,
+          description: formData.description,
+          difficulty: formData.difficulty,
+          duration_weeks: formData.duration_weeks,
+          min_role_required: formData.min_role_required,
+          estimated_duration_minutes: formData.estimated_duration_minutes,
+          assigned_user_ids: assignedUserIds,
+          days: []
+        }
+
+        const created = await createPlan(planData)
+        const assignedCount = Array.isArray(created?.created_user_program_ids)
+          ? created.created_user_program_ids.length
+          : assignedUserIds.length
+
+        toast({
+          title: assignedCount > 0 ? `✅ ${assignedCount} asignación(es) creada(s)` : "✅ Plantilla creada",
+          description: configureExercises ? "Ahora configura los ejercicios." : "Creado correctamente.",
+        })
+
+        setShowCreateDialog(false)
+        setCreateStep("basic")
+
+        if (configureExercises) {
+          const createdUserProgramIds = Array.isArray(created?.created_user_program_ids)
+            ? created.created_user_program_ids
+            : []
+
+          if (createdUserProgramIds.length > 1) {
+            toast({
+              title: "ℹ️ Asignación múltiple completada",
+              description: "Con múltiples usuarios, configura ejercicios editando cada plan asignado.",
+            })
+            resetForm()
+            refetch()
+            return
           }
 
-          const created = await createPlan(planData)
-          toast({
-            title: "✅ Plantilla creada",
-            description: configureExercises ? "Ahora configura los ejercicios." : "Creada correctamente.",
-          })
-          setShowCreateDialog(false)
-          setCreateStep("basic")
-
-          if (configureExercises && created?.id) {
-            setWorkoutEditorPlanId(String(created.id))
+          const targetPlanId = createdUserProgramIds.length === 1
+            ? createdUserProgramIds[0]
+            : created?.id
+          if (targetPlanId) {
+            setWorkoutEditorPlanId(String(targetPlanId))
             setShowWorkoutEditor(true)
           } else {
             resetForm()
             refetch()
           }
         } else {
-          // Si HAY usuarios seleccionados, crear una copia del plan por cada uno
-          const createdPlans: any[] = []
-
-          for (const userId of formData.assigned_users) {
-            const planData = {
-              name: formData.name,
-              description: formData.description,
-              difficulty: formData.difficulty,
-              duration_weeks: formData.duration_weeks,
-              min_role_required: formData.min_role_required,
-              estimated_duration_minutes: formData.estimated_duration_minutes,
-              user: userId, // Asignar a este usuario específico
-              days: []
-            }
-
-            try {
-              const created = await createPlan(planData)
-              createdPlans.push(created)
-            } catch (error) {
-              console.error(`Error creating plan for user ${userId}:`, error)
-              // Continuar con los demás usuarios
-            }
-          }
-
-          if (createdPlans.length > 0) {
-            toast({
-              title: `✅ ${createdPlans.length} plan(es) creado(s)`,
-              description: `Se asignó el plan a ${createdPlans.length} usuario(s)`,
-            })
-
-            setShowCreateDialog(false)
-            setCreateStep("basic")
-
-            // Si solo se creó un plan y se quiere configurar ejercicios
-            if (configureExercises && createdPlans.length === 1 && createdPlans[0]?.id) {
-              setWorkoutEditorPlanId(String(createdPlans[0].id))
-              setShowWorkoutEditor(true)
-            } else if (configureExercises && createdPlans.length > 1) {
-              toast({
-                title: "ℹ️ Múltiples usuarios",
-                description: "Para configurar ejercicios, edita cada plan individualmente",
-                variant: "default"
-              })
-              resetForm()
-              refetch()
-            } else {
-              resetForm()
-              refetch()
-            }
-          } else {
-            throw new Error("No se pudo crear ningún plan")
-          }
+          resetForm()
+          refetch()
         }
       }
     } catch (error) {
@@ -1099,11 +1073,15 @@ export function WorkoutPlanManagement() {
     try {
       setIsLoading(true)
 
-      // Solo permitir este flujo si hay 0 o 1 usuario seleccionado
-      if (formData.assigned_users.length > 1) {
+      const assignedUserIds = formData.assigned_users
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id))
+
+      // Este flujo abre un único editor, por lo que no es compatible con múltiples asignaciones.
+      if (assignedUserIds.length > 1) {
         toast({
           title: "⚠️ Múltiples usuarios",
-          description: "Para asignar a múltiples usuarios, usa 'Crear Plan Básico' y edita cada uno individualmente",
+          description: "Para múltiples usuarios usa 'Crear Plan Básico' y luego edita cada plan asignado.",
           variant: "default"
         })
         return
@@ -1117,7 +1095,7 @@ export function WorkoutPlanManagement() {
         duration_weeks: formData.duration_weeks,
         min_role_required: formData.min_role_required,
         estimated_duration_minutes: formData.estimated_duration_minutes,
-        user: formData.assigned_users.length === 1 ? formData.assigned_users[0] : undefined,
+        assigned_user_ids: assignedUserIds,
         days: [] // Enviar los días vacíos por ahora
       }
 
@@ -1151,14 +1129,16 @@ export function WorkoutPlanManagement() {
     try {
       setIsLoading(true)
 
-      // Solo permitir este flujo si hay 0 o 1 usuario seleccionado
-      if (formData.assigned_users.length > 1) {
+      const assignedUserIds = formData.assigned_users
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id))
+
+      if (assignedUserIds.length > 1) {
         toast({
           title: "⚠️ Múltiples usuarios",
-          description: "Para asignar a múltiples usuarios, crea el plan primero y asigna luego",
+          description: "Para múltiples usuarios usa 'Crear Plan Básico' y luego edita cada plan asignado.",
           variant: "default"
         })
-        setIsLoading(false)
         return
       }
 
@@ -1169,14 +1149,17 @@ export function WorkoutPlanManagement() {
         duration_weeks: formData.duration_weeks,
         min_role_required: formData.min_role_required,
         estimated_duration_minutes: formData.estimated_duration_minutes,
-        user: formData.assigned_users.length === 1 ? formData.assigned_users[0] : undefined,
+        assigned_user_ids: assignedUserIds,
         days: []
       }
 
       const created = await createPlan(planData)
 
       if (created?.id) {
-        setWorkoutEditorPlanId(String(created.id))
+        const targetPlanId = Array.isArray(created?.created_user_program_ids) && created.created_user_program_ids.length === 1
+          ? created.created_user_program_ids[0]
+          : created.id
+        setWorkoutEditorPlanId(String(targetPlanId))
         setCreateStep("exercises")
         toast({
           title: "✅ Plan creado",
@@ -1271,7 +1254,11 @@ export function WorkoutPlanManagement() {
           duration_weeks: planDetail.duration_weeks || 4,
           min_role_required: planDetail.min_role_required || 'basic',
           estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
-          assigned_users: [] // En modo edición no permitimos cambiar usuarios
+          assigned_users: (
+            Array.isArray((planDetail as any).assigned_user_ids) && (planDetail as any).assigned_user_ids.length > 0
+              ? (planDetail as any).assigned_user_ids
+              : ((planDetail as any).user_id ? [(planDetail as any).user_id] : [])
+          ).map((id: number | string) => String(id))
         })
 
         // Convertir días del plan al formato del formulario
