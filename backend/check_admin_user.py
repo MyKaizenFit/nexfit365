@@ -17,7 +17,8 @@ User = get_user_model()
 def check_admin_user():
     """Verificar el usuario administrador"""
     try:
-        admin_user = User.objects.get(email='iagoadmin@gmail.com')
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@example.invalid')
+        admin_user = User.objects.get(email=admin_email)
         
         
         # Verificar permisos

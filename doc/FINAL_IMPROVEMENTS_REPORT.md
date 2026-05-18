@@ -34,12 +34,11 @@ Resultado: 🟢 100% CENTRALIZADO EN doc/
 
 #### **Archivos Movidos:**
 1. `backend/chechlist.md` → `doc/backend/checklist.md`
-2. `backend/CREDENCIALES_ADMIN.md` → `doc/backend/credentials.md`
-3. `backend/docs/deployment.md` → `doc/backend/deployment-old.md`
-4. `backend/docs/project_status.md` → `doc/backend/project-status.md`
-5. `backend/docs/testing.md` → `doc/backend/testing-old.md`
-6. `backend/docs/urls.md` → `doc/backend/api-urls.md`
-7. `backend/scripts/README.md` → `doc/scripts/backend-scripts.md`
+2. `backend/docs/deployment.md` → `doc/backend/deployment-old.md`
+3. `backend/docs/project_status.md` → `doc/backend/project-status.md`
+4. `backend/docs/testing.md` → `doc/backend/testing-old.md`
+5. `backend/docs/urls.md` → `doc/backend/api-urls.md`
+6. `backend/scripts/README.md` → `doc/scripts/backend-scripts.md`
 8. `frontend/SOLUCIONES_IMPLEMENTADAS.md` → `doc/fixes/frontend-solutions.md`
 
 #### **Archivos Eliminados:**

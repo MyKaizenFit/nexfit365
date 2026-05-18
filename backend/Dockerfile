@@ -23,17 +23,16 @@ RUN apt-get update \
 # Crear directorio de trabajo
 WORKDIR /app
 
-# Copiar requirements y instalar dependencias de Python
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copiar requirements de producción e instalar dependencias de Python
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Copiar código de la aplicación
 COPY . .
 
 # Crear directorios necesarios con permisos correctos
-# (Se ejecuta como root porque docker-compose.prod.yml usa user: "0:0")
 RUN mkdir -p /app/staticfiles /app/media
-RUN chmod -R 777 /app/staticfiles /app/media
+RUN chmod -R 775 /app/staticfiles /app/media
 
 # Exponer puerto
 EXPOSE 8000

@@ -37,11 +37,11 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "has_video", "video_display_url", "created_at", "updated_at"]
     
-    def get_video_display_url(self, obj):
+    def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
 
-    def get_substitutes(self, obj):
+    def get_substitutes(self, obj) -> list:
         try:
             substitutes = obj.get_substitutes()
             return ExerciseSubstituteSerializer(substitutes, many=True).data
@@ -62,7 +62,7 @@ class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer
             "video_url", "google_drive_file_id", "has_video", "video_display_url",
         ]
 
-    def get_video_display_url(self, obj):
+    def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
 
@@ -82,11 +82,11 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
             "substitutes",
         ]
     
-    def get_video_display_url(self, obj):
+    def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
 
-    def get_substitutes(self, obj):
+    def get_substitutes(self, obj) -> list:
         try:
             substitutes = obj.get_substitutes()
             return ExerciseSubstituteSerializer(substitutes, many=True).data
@@ -173,7 +173,7 @@ class WorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSeriali
             "days_count"
         ]
     
-    def get_days_count(self, obj):
+    def get_days_count(self, obj) -> int:
         return obj.days.count()
 
 

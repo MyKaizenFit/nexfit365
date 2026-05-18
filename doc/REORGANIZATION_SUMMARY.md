@@ -18,7 +18,6 @@ Consolidar toda la documentación del proyecto Nex-Fit en una única carpeta `do
 
 #### **Desde `backend/`:**
 - ✅ `chechlist.md` → `doc/backend/checklist.md`
-- ✅ `CREDENCIALES_ADMIN.md` → `doc/backend/credentials.md`
 
 #### **Desde `backend/docs/`:**
 - ✅ `deployment.md` → `doc/backend/deployment-old.md`
@@ -80,7 +79,6 @@ proyecto/
 │   ├── backend/                       # Docs del backend
 │   │   ├── README.md
 │   │   ├── checklist.md
-│   │   ├── credentials.md
 │   │   ├── project-status.md
 │   │   ├── api-urls.md
 │   │   ├── deployment-old.md
@@ -206,7 +204,6 @@ proyecto/
 
 ### **Archivos Renombrados:**
 - `chechlist.md` → `checklist.md` (corregido typo)
-- `CREDENCIALES_ADMIN.md` → `credentials.md` (simplificado)
 - `backend/docs/*.md` → `doc/backend/*-old.md` (para evitar conflictos)
 
 ### **Convenciones Aplicadas:**

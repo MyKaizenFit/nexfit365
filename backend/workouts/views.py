@@ -39,6 +39,8 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     ordering = ['name']
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return Exercise.objects.none()
         return Exercise.objects.filter(is_active=True).prefetch_related(
             'substitutions__substitute'
         )
@@ -123,6 +125,8 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return WorkoutProgram.objects.none()
         user = self.request.user
         # Mostrar programas del sistema y los propios del usuario
         return WorkoutProgram.objects.filter(
@@ -304,6 +308,8 @@ class WorkoutDayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return WorkoutDay.objects.none()
         program_id = self.kwargs.get('program_pk')
         if program_id:
             return WorkoutDay.objects.filter(program_id=program_id)
@@ -320,6 +326,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     ordering = ['-date']
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return WorkoutLog.objects.none()
         return WorkoutLog.objects.filter(user=self.request.user)
     
     def perform_create(self, serializer):
@@ -631,6 +639,8 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return WorkoutProgram.objects.none()
         # Devolver plantillas y programas del sistema
         return WorkoutProgram.objects.filter(
             models.Q(is_template=True) | models.Q(is_system=True)

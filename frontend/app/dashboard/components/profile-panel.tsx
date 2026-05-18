@@ -269,53 +269,60 @@ export const ProfilePanel = memo(function ProfilePanel() {
 
   const handleEdit = () => {
     setIsEditing(true)
-
-      const handleExportData = async () => {
-        setGdprLoading(true)
-        try {
-          const headers = await getAuthHeaders()
-          const response = await fetch(buildApiUrl('gdpr/export/'), { headers })
-          if (!response.ok) throw new Error('Error exportando datos')
-          const blob = await response.blob()
-          const url = URL.createObjectURL(blob)
-          const a = document.createElement('a')
-          a.href = url
-          a.download = 'mis_datos_nexfit365.json'
-          a.click()
-          URL.revokeObjectURL(url)
-          toast({ title: 'Datos exportados', description: 'Tu archivo JSON se ha descargado.' })
-        } catch {
-          toast({ title: 'Error', description: 'No se pudieron exportar los datos.', variant: 'destructive' })
-        } finally {
-          setGdprLoading(false)
-        }
-      }
-
-      const handleRequestDeletion = async () => {
-        if (!confirm('¿Estás seguro? Esta solicitud notificará al equipo para eliminar tu cuenta y todos tus datos personales.')) return
-        setGdprDeleting(true)
-        try {
-          const headers = await getAuthHeaders()
-          const response = await fetch(buildApiUrl('gdpr/delete/'), {
-            method: 'POST',
-            headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reason: '' }),
-          })
-          if (!response.ok) throw new Error()
-          toast({ title: 'Solicitud enviada', description: 'Procesaremos tu solicitud en un máximo de 30 días.' })
-        } catch {
-          toast({ title: 'Error', description: 'No se pudo enviar la solicitud.', variant: 'destructive' })
-        } finally {
-          setGdprDeleting(false)
-        }
-      }
-
     setLocalProfile(profile)
   }
 
-  const progressToGoal = profile?.weight && profile?.target_weight 
-    ? Math.round(
-        ((profile.weight - profile.target_weight) / (profile.weight - profile.target_weight)) * 100
+  const handleExportData = async () => {
+    setGdprLoading(true)
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl('gdpr/export/'), { headers })
+      if (!response.ok) throw new Error('Error exportando datos')
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'mis_datos_nexfit365.json'
+      a.click()
+      URL.revokeObjectURL(url)
+      toast({ title: 'Datos exportados', description: 'Tu archivo JSON se ha descargado.' })
+    } catch {
+      toast({ title: 'Error', description: 'No se pudieron exportar los datos.', variant: 'destructive' })
+    } finally {
+      setGdprLoading(false)
+    }
+  }
+
+  const handleRequestDeletion = async () => {
+    if (!confirm('¿Estás seguro? Esta solicitud notificará al equipo para eliminar tu cuenta y todos tus datos personales.')) return
+    setGdprDeleting(true)
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl('gdpr/delete/'), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: '' }),
+      })
+      if (!response.ok) throw new Error()
+      toast({ title: 'Solicitud enviada', description: 'Procesaremos tu solicitud en un máximo de 30 días.' })
+    } catch {
+      toast({ title: 'Error', description: 'No se pudo enviar la solicitud.', variant: 'destructive' })
+    } finally {
+      setGdprDeleting(false)
+    }
+  }
+
+  const progressToGoal = profile?.weight && profile?.target_weight
+    ? Math.min(
+        100,
+        Math.max(
+          0,
+          profile.weight === profile.target_weight
+            ? 100
+            : profile.weight > profile.target_weight
+              ? (1 - (profile.weight - profile.target_weight) / profile.weight) * 100
+              : (profile.weight / profile.target_weight) * 100
+        )
       )
     : 0
 
@@ -601,7 +608,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
               <span>{profile.weight && profile.target_weight ? Math.abs(profile.weight - profile.target_weight).toFixed(1) : '0'} kg restantes</span>
             </div>
             <Progress 
-              value={profile.weight && profile.target_weight ? Math.min(100, Math.max(0, 100 - Math.abs(profile.weight - profile.target_weight) * 10)) : 0} 
+              value={progressToGoal}
               className="h-2" 
             />
             <div className="flex justify-between text-xs text-muted-foreground">

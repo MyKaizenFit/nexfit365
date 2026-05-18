@@ -37,7 +37,6 @@
 - [Backend README](./backend/README.md) - Documentación completa del backend
 - [✅ Checklist Backend](./backend/checklist.md) - ✨ **Lista de tareas (79% completado)**
 - [Estado del Proyecto](./backend/project-status.md) - Estado actual del desarrollo del backend
-- [Credenciales](./backend/credentials.md) - Credenciales de administración
 - [API URLs](./backend/api-urls.md) - Documentación de endpoints de la API
 - [Deployment (Old)](./backend/deployment-old.md) - Guía de despliegue antigua del backend
 - [Testing (Old)](./backend/testing-old.md) - Guía de testing antigua del backend
@@ -146,12 +145,6 @@
 | **Frontend** | http://localhost:3000 | ✅ Funcionando |
 | **Dashboard** | http://localhost:3000/dashboard | ✅ Funcionando |
 
-### 🔐 **Credenciales de Desarrollo**
-
-Ver [credentials.md](./backend/credentials.md) para credenciales de administración.
-
----
-
 ## 📈 **Estado de Completado**
 
 ### 🔧 **Backend**
@@ -259,7 +252,6 @@ doc/
 │   ├── README.md
 │   ├── checklist.md
 │   ├── project-status.md
-│   ├── credentials.md
 │   ├── api-urls.md
 │   ├── deployment-old.md
 │   └── testing-old.md

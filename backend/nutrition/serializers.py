@@ -68,10 +68,10 @@ class RecipeSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "total_time_minutes", "macros_summary", "adjusted_macros", "recipe_ingredients", "ingredients_count", "created_at", "updated_at"]
     
-    def get_ingredients_count(self, obj):
+    def get_ingredients_count(self, obj) -> int:
         return obj.recipe_ingredients.count()
     
-    def get_adjusted_macros(self, obj):
+    def get_adjusted_macros(self, obj) -> dict:
         """
         Devuelve macros ajustados según el multiplicador del contexto.
         Se puede pasar 'portion_multiplier' en el contexto del serializer.
@@ -128,7 +128,7 @@ class NutritionPlanSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "macro_percentages", "recommended_multiplier", "created_at", "updated_at"]
     
-    def get_recommended_multiplier(self, obj):
+    def get_recommended_multiplier(self, obj) -> float:
         """Retorna el multiplicador recomendado según el objetivo"""
         return obj.get_portion_multiplier_for_goal()
     
@@ -164,7 +164,7 @@ class NutritionPlanMinimalSerializer(serializers.ModelSerializer):
             "meals_count"
         ]
     
-    def get_meals_count(self, obj):
+    def get_meals_count(self, obj) -> int:
         return obj.meals.count()
 
 
@@ -193,7 +193,7 @@ class MealLogSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "user", "recipe_name", "created_at", "updated_at"]
     
-    def get_recipe(self, obj):
+    def get_recipe(self, obj) -> dict | None:
         """Incluir información completa de la receta si existe"""
         if obj.recipe:
             return {
@@ -210,7 +210,7 @@ class MealLogSerializer(serializers.ModelSerializer):
             }
         return None
 
-    def get_plan_meal_meta(self, obj):
+    def get_plan_meal_meta(self, obj) -> dict | None:
         if not obj.plan_meal:
             return None
         pm = obj.plan_meal
@@ -273,7 +273,7 @@ class NutritionPlanHistorySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'user', 'created_at', 'updated_at']
     
-    def get_is_admin_change(self, obj):
+    def get_is_admin_change(self, obj) -> bool:
         """Determina si el cambio fue hecho por un administrador"""
         if obj.changed_by:
             return obj.changed_by.is_staff or obj.changed_by.is_superuser

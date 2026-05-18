@@ -32,9 +32,9 @@ def _build_public_media_url(request, media_path: str | None) -> str | None:
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
     
-    bmi = serializers.ReadOnlyField()
-    membership_days_remaining = serializers.ReadOnlyField()
-    has_active_membership = serializers.ReadOnlyField()
+    bmi = serializers.FloatField(read_only=True, allow_null=True)
+    membership_days_remaining = serializers.IntegerField(read_only=True, allow_null=True)
+    has_active_membership = serializers.BooleanField(read_only=True)
     profile_picture = serializers.ImageField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
     
@@ -57,7 +57,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'email', 'role', 'is_staff', 'is_superuser', 'is_active', 'is_verified', 'created_at', 'updated_at']
     
-    def get_profile_picture_url(self, obj):
+    def get_profile_picture_url(self, obj) -> str | None:
         if obj.profile_picture:
             request = self.context.get('request')
             return _build_public_media_url(request, obj.profile_picture.url)
@@ -66,8 +66,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class AdminUserSerializer(serializers.ModelSerializer):
     """Serializer para administración de usuarios con información completa"""
     
-    bmi = serializers.ReadOnlyField()
-    age = serializers.ReadOnlyField()
+    bmi = serializers.FloatField(read_only=True, allow_null=True)
+    age = serializers.IntegerField(read_only=True, allow_null=True)
     role_display = serializers.CharField(source='get_role_display', read_only=True)
     gender_display = serializers.CharField(source='get_gender_display', read_only=True)
     main_goal_display = serializers.CharField(source='get_main_goal_display', read_only=True)
@@ -83,6 +83,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
     excluded_ingredients = serializers.SerializerMethodField()
     recent_change_sections = serializers.SerializerMethodField()
     calculated_daily_calories = serializers.SerializerMethodField()
+    membership_days_remaining = serializers.IntegerField(read_only=True, allow_null=True)
+    has_active_membership = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = CustomUser
@@ -126,13 +128,13 @@ class AdminUserSerializer(serializers.ModelSerializer):
         # El mapeo de roles ya se hace en admin_views.py antes de llegar aquí
         return super().update(instance, validated_data)
     
-    def get_is_staff_display(self, obj):
+    def get_is_staff_display(self, obj) -> str:
         return 'Sí' if obj.is_staff else 'No'
     
-    def get_is_superuser_display(self, obj):
+    def get_is_superuser_display(self, obj) -> str:
         return 'Sí' if obj.is_superuser else 'No'
 
-    def get_calculated_daily_calories(self, obj):
+    def get_calculated_daily_calories(self, obj) -> int | None:
         """Retorna las calorías calculadas automáticamente (ignorando el override del admin)"""
         try:
             from nutrition.services import PersonalizedNutritionService
@@ -145,23 +147,23 @@ class AdminUserSerializer(serializers.ModelSerializer):
         except Exception:
             return getattr(obj, 'daily_calories_target', None)
     
-    def get_last_login_formatted(self, obj):
+    def get_last_login_formatted(self, obj) -> str:
         if obj.last_login:
             return obj.last_login.strftime('%d/%m/%Y %H:%M')
         return 'Nunca'
     
-    def get_created_at_formatted(self, obj):
+    def get_created_at_formatted(self, obj) -> str:
         if obj.date_joined:
             return obj.date_joined.strftime('%d/%m/%Y %H:%M')
         return 'N/A'
     
-    def get_profile_picture_url(self, obj):
+    def get_profile_picture_url(self, obj) -> str | None:
         if obj.profile_picture:
             request = self.context.get('request')
             return _build_public_media_url(request, obj.profile_picture.url)
         return None
 
-    def get_premium_alerts(self, obj):
+    def get_premium_alerts(self, obj) -> dict | None:
         if obj.role != 'premium':
             return None
 
@@ -213,7 +215,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'has_pending': pending_total > 0,
         }
 
-    def get_excluded_recipes(self, obj):
+    def get_excluded_recipes(self, obj) -> list:
         try:
             exclusions = (
                 MealRecipeExclusion.objects.filter(user=obj, is_active=True)
@@ -232,7 +234,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             for item in exclusions
         ]
 
-    def get_excluded_ingredients(self, obj):
+    def get_excluded_ingredients(self, obj) -> list:
         try:
             exclusions = MealIngredientExclusion.objects.filter(user=obj, is_active=True).order_by('term')[:50]
         except DatabaseError:
@@ -246,7 +248,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
             for item in exclusions
         ]
 
-    def get_recent_change_sections(self, obj):
+    def get_recent_change_sections(self, obj) -> dict:
         lookback = timezone.now() - timedelta(days=7)
         logs = ProfileAuditLog.objects.filter(user=obj, created_at__gte=lookback).order_by('-created_at')[:20]
         changed_fields = set()

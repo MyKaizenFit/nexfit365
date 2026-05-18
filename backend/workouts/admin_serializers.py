@@ -21,7 +21,7 @@ class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         model = Exercise
         fields = '__all__'
 
-    def get_substitutes(self, obj):
+    def get_substitutes(self, obj) -> list:
         substitutes = obj.get_substitutes()
         return AdminExerciseSubstituteSerializer(substitutes, many=True).data
 
@@ -75,7 +75,7 @@ class AdminWorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSeria
         model = WorkoutDayExercise
         fields = '__all__'
     
-    def get_substitutes(self, obj):
+    def get_substitutes(self, obj) -> list:
         """Obtener los ejercicios de reemplazo para este ejercicio"""
         if not hasattr(obj, 'exercise') or not obj.exercise:
             return []
@@ -134,25 +134,25 @@ class AdminWorkoutProgramMinimalSerializer(EncodingFixMixin, serializers.ModelSe
             "updated_at",
         ]
 
-    def get_user_email(self, obj):
+    def get_user_email(self, obj) -> str | None:
         try:
             return getattr(obj.user, "email", None)
         except Exception:
             return None
 
-    def get_created_by_email(self, obj):
+    def get_created_by_email(self, obj) -> str | None:
         try:
             return getattr(obj.created_by, "email", None)
         except Exception:
             return None
 
-    def get_days_count(self, obj):
+    def get_days_count(self, obj) -> int:
         try:
             return obj.days.count()
         except Exception:
             return 0
 
-    def get_training_days(self, obj):
+    def get_training_days(self, obj) -> int:
         try:
             return sum(1 for day in obj.days.all() if not day.is_rest_day)
         except Exception:

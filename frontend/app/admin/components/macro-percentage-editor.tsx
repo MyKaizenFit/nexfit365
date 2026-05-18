@@ -10,19 +10,10 @@ import { Slider } from "@/components/ui/slider"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
+import { getApiBaseUrl } from "@/lib/api"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, } from "@/components/ui/dialog"
 
-// Helper para obtener la URL de la API
-const getApiUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-  if (envUrl) {
-    return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
-  }
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://api.nexfit365.dpdns.org'
-  }
-  return 'http://localhost:8000'
-}
+const getApiUrl = getApiBaseUrl
 
 interface NutritionPlan {
   id: string

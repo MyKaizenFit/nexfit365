@@ -8,8 +8,8 @@ class AdminMessageSerializer(serializers.ModelSerializer):
     """Serializer para mensajes directos del admin"""
     user_email = serializers.ReadOnlyField(source='user.email')
     sent_by_email = serializers.ReadOnlyField(source='sent_by.email')
-    is_read = serializers.ReadOnlyField()
-    is_expired = serializers.ReadOnlyField()
+    is_read = serializers.BooleanField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = AdminMessage
@@ -51,8 +51,8 @@ class AdminMessageUpdateSerializer(serializers.ModelSerializer):
 
 class NotificationSerializer(serializers.ModelSerializer):
     user = serializers.ReadOnlyField(source="user.email")
-    is_read = serializers.ReadOnlyField()
-    is_expired = serializers.ReadOnlyField()
+    is_read = serializers.BooleanField(read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
     delivery_summary = serializers.SerializerMethodField()
     
     class Meta:

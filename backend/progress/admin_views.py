@@ -125,10 +125,14 @@ class AdminWeightEntryViewSet(viewsets.ModelViewSet):
     ordering = ["-date", "-created_at"]
 
     def get_user(self):
+        if getattr(self, "swagger_fake_view", False):
+            return None
         user_id = self.kwargs.get("user_id")
         return get_object_or_404(User, pk=user_id)
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return WeightEntry.objects.none()
         user = self.get_user()
         return WeightEntry.objects.filter(user=user)
 
@@ -194,10 +198,14 @@ class AdminDailyWellnessViewSet(viewsets.ModelViewSet):
     ordering = ["-date", "-created_at"]
 
     def get_user(self):
+        if getattr(self, "swagger_fake_view", False):
+            return None
         user_id = self.kwargs.get("user_id")
         return get_object_or_404(User, pk=user_id)
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return DailyWellness.objects.none()
         return DailyWellness.objects.filter(user=self.get_user())
 
     def perform_create(self, serializer):
@@ -265,10 +273,14 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
     ordering = ["-date", "-created_at"]
 
     def get_user(self):
+        if getattr(self, "swagger_fake_view", False):
+            return None
         user_id = self.kwargs.get("user_id")
         return get_object_or_404(User, pk=user_id)
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return ProgressPhoto.objects.none()
         user = self.get_user()
         return ProgressPhoto.objects.filter(user=user)
 
@@ -283,4 +295,3 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(user=self.get_user())
-

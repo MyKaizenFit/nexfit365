@@ -2227,6 +2227,8 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
     ordering = ['-created_at']
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return NutritionPlan.objects.none()
         user = self.request.user
         role = str(getattr(user, "role", "") or "").lower()
         if user.is_staff or user.is_superuser or role in {"admin", "trainer", "pro"}:
@@ -2414,6 +2416,8 @@ class MealLogViewSet(viewsets.ModelViewSet):
     ordering = ['-date', '-time']
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return MealLog.objects.none()
         queryset = MealLog.objects.filter(
             user=self.request.user
         ).select_related('user', 'recipe')
@@ -2817,6 +2821,8 @@ class FoodViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar por categoría, verificación y supermercado"""
+        if getattr(self, "swagger_fake_view", False):
+            return Food.objects.none()
         queryset = Food.objects.all()
         
         category = self.request.query_params.get('category')

@@ -63,92 +63,11 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
     ordering = ["-date", "-created_at"]
     search_fields = ["notes"]
     
-    def create(self, request, *args, **kwargs):
-        """Override del método create para agregar logging"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"🔍 Método create llamado - Usuario: {request.user.email}")
-        logger.info(f"🔍 Headers: {dict(request.headers)}")
-        logger.info(f"🔍 Content-Type: {request.content_type}")
-        logger.info(f"🔍 Datos recibidos: {request.data}")
-        
-        # Log detallado de los archivos
-        if 'photo' in request.FILES:
-            photo_files = request.FILES.getlist('photo')
-            logger.info(f"🔍 Archivos photo recibidos: {len(photo_files)}")
-            for i, file in enumerate(photo_files):
-                logger.info(f"🔍 Archivo {i}: {file.name} - {file.size} bytes - {file.content_type}")
-        else:
-            logger.warning("⚠️ No se encontró el campo 'photo' en request.FILES")
-        
-        # Log de todos los archivos
-        logger.info(f"🔍 Todos los archivos en request.FILES: {list(request.FILES.keys())}")
-        
-        try:
-            response = super().create(request, *args, **kwargs)
-            logger.info(f"✅ ProgressPhoto creado exitosamente: {response.data}")
-            return response
-        except Exception as e:
-            logger.error(f"❌ Error en create: {str(e)}")
-            logger.error(f"❌ Tipo de error: {type(e)}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
-            
-            # Devolver un error más informativo
-            from rest_framework.response import Response
-            from rest_framework import status
-            
-            error_message = str(e)
-            if hasattr(e, 'detail'):
-                error_message = str(e.detail)
-            
-            return Response(
-                {"error": error_message, "detail": str(e)},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    
-    def list(self, request, *args, **kwargs):
-        """Override del método list para debug"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"🔍 Método list llamado - Usuario: {request.user}")
-        logger.info(f"🔍 Headers: {dict(request.headers)}")
-        logger.info(f"🔍 Query params: {dict(request.query_params)}")
-        
-        # Llamar al método original
-        response = super().list(request, *args, **kwargs)
-        
-        logger.info(f"🔍 Respuesta del list: {len(response.data)} fotos")
-        logger.info(f"🔍 Datos de respuesta: {response.data}")
-        
-        return response
-    
     def get_queryset(self):
         """Filtrar fotos por usuario autenticado"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        # Debug logging
-        logger.info(f"🔍 get_queryset llamado - Usuario: {self.request.user}")
-        logger.info(f"🔍 Usuario autenticado: {self.request.user.is_authenticated}")
-        logger.info(f"🔍 ID del usuario: {self.request.user.id}")
-        logger.info(f"🔍 Email del usuario: {self.request.user.email}")
-        
-        # Obtener todas las fotos para debug
-        all_photos = ProgressPhoto.objects.all()
-        logger.info(f"🔍 Total de fotos en BD: {all_photos.count()}")
-        
-        # Obtener fotos del usuario específico
-        user_photos = ProgressPhoto.objects.filter(user=self.request.user)
-        logger.info(f"🔍 Fotos del usuario {self.request.user.email}: {user_photos.count()}")
-        
-        # Log de las fotos encontradas
-        for photo in user_photos:
-            logger.info(f"🔍 Foto encontrada: ID={photo.id}, Tipo={photo.photo_type}, Fecha={photo.date}")
-        
-        return user_photos
+        if getattr(self, "swagger_fake_view", False):
+            return ProgressPhoto.objects.none()
+        return ProgressPhoto.objects.filter(user=self.request.user)
     
     def get_serializer_context(self):
         """Agregar el request al contexto del serializer"""
@@ -280,6 +199,8 @@ class WeightEntryViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar entradas por usuario autenticado"""
+        if getattr(self, "swagger_fake_view", False):
+            return WeightEntry.objects.none()
         return WeightEntry.objects.filter(user=self.request.user)
     
     def get_serializer_context(self):
@@ -290,23 +211,7 @@ class WeightEntryViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Crear entrada con usuario autenticado"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        logger.info(f"🔍 Creando entrada de peso para usuario: {self.request.user.email}")
-        logger.info(f"🔍 Datos validados: {serializer.validated_data}")
-        logger.info(f"🔍 Tipos de datos: {[(k, type(v)) for k, v in serializer.validated_data.items()]}")
-        
-        try:
-            entry = serializer.save(user=self.request.user)
-            logger.info(f"✅ Entrada de peso creada exitosamente: ID={entry.id}")
-            return entry
-        except Exception as e:
-            logger.error(f"❌ Error creando entrada de peso: {str(e)}")
-            logger.error(f"❌ Tipo de error: {type(e)}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
-            raise
+        return serializer.save(user=self.request.user)
     
     @action(detail=False, methods=["get"])
     def summary(self, request, user_id=None):
@@ -429,12 +334,8 @@ class ProgressStatsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"])
     def dashboard(self, request):
         """Obtener estadísticas para el dashboard de progreso"""
-        import logging
-        logger = logging.getLogger(__name__)
-        
         try:
             user = request.user
-            logger.info(f"🔍 Obteniendo estadísticas para usuario: {user.email}")
             
             today = timezone.now().date()
             week_start = today - timedelta(days=today.weekday())
@@ -517,14 +418,12 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                 "overall_progress": round((float(weight_progress) + float(workout_progress) + float(nutrition_progress)) / 3.0, 1)
             }
             
-            logger.info(f"✅ Estadísticas generadas exitosamente para usuario: {user.email}")
             return Response(data)
             
         except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
             logger.error(f"❌ Error obteniendo estadísticas: {str(e)}")
-            logger.error(f"❌ Tipo de error: {type(e)}")
-            import traceback
-            logger.error(f"❌ Traceback: {traceback.format_exc()}")
             return Response(
                 {"error": f"Error interno del servidor: {str(e)}"}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -719,6 +618,8 @@ class BodyMeasurementViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar mediciones por usuario autenticado"""
+        if getattr(self, "swagger_fake_view", False):
+            return BodyMeasurement.objects.none()
         return BodyMeasurement.objects.filter(user=self.request.user)
     
     def get_serializer_context(self):
@@ -769,6 +670,8 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """Filtrar registros por usuario autenticado"""
+        if getattr(self, "swagger_fake_view", False):
+            return DailyWellness.objects.none()
         return DailyWellness.objects.filter(user=self.request.user)
     
     def get_serializer_context(self):

@@ -22,7 +22,6 @@ Hoy se han realizado mejoras significativas en **3 áreas clave** del proyecto N
 
 #### **📁 Archivos Movidos: 8**
 - `backend/chechlist.md` → `doc/backend/checklist.md`
-- `backend/CREDENCIALES_ADMIN.md` → `doc/backend/credentials.md`
 - `backend/docs/deployment.md` → `doc/backend/deployment-old.md`
 - `backend/docs/project_status.md` → `doc/backend/project-status.md`
 - `backend/docs/testing.md` → `doc/backend/testing-old.md`

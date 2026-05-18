@@ -51,10 +51,10 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   // Excluir rutas problemáticas del build estático
   // Generar BuildId único para forzar nuevos hashes de chunks
