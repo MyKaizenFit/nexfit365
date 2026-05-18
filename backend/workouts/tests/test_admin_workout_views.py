@@ -296,6 +296,33 @@ class TestAdminWorkoutProgramViewSet:
         program = WorkoutProgram.objects.get(name='Plan Con Días')
         assert program.days.count() == 1
 
+    def test_create_template_and_assign_to_multiple_users(self, admin_client, regular_user):
+        other_user = User.objects.create_user(
+            email='other-user@test.com',
+            password='testpass123',
+        )
+
+        data = {
+            'name': 'Plantilla Multiusuario',
+            'difficulty': 'beginner',
+            'goal': 'general_fitness',
+            'days_per_week': 3,
+            'duration_weeks': 4,
+            'assigned_user_ids': [regular_user.id, other_user.id],
+        }
+
+        response = admin_client.post('/api/admin/workouts/programs/', data, format='json')
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data.get('assigned_user_ids') == [regular_user.id, other_user.id]
+        assert len(response.data.get('created_user_program_ids', [])) == 2
+
+        template = WorkoutProgram.objects.get(id=response.data['id'])
+        assert template.user is None
+        assert template.is_template is True
+
+        assert WorkoutProgram.objects.filter(user=regular_user, is_active=True).exists()
+        assert WorkoutProgram.objects.filter(user=other_user, is_active=True).exists()
+
     def test_update_program(self, admin_client, workout_program):
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{workout_program.id}/',
@@ -328,6 +355,41 @@ class TestAdminWorkoutProgramViewSet:
         assert response.status_code == status.HTTP_200_OK
         workout_program.refresh_from_db()
         assert workout_program.days.count() == 1
+
+    def test_update_program_and_assign_to_multiple_users(self, admin_client):
+        user_a = User.objects.create_user(
+            email='assign-a@test.com',
+            password='testpass123',
+        )
+        user_b = User.objects.create_user(
+            email='assign-b@test.com',
+            password='testpass123',
+        )
+
+        program = WorkoutProgram.objects.create(
+            name='Plantilla Editable',
+            difficulty='beginner',
+            goal='general_fitness',
+            days_per_week=3,
+            duration_weeks=4,
+            is_template=True,
+        )
+
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{program.id}/',
+            {
+                'name': 'Plantilla Editable V2',
+                'assigned_user_ids': [user_a.id, user_b.id],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('assigned_user_ids') == [user_a.id, user_b.id]
+        assert len(response.data.get('created_user_program_ids', [])) == 2
+
+        assert WorkoutProgram.objects.filter(user=user_a, is_active=True).exists()
+        assert WorkoutProgram.objects.filter(user=user_b, is_active=True).exists()
 
     def test_delete_program(self, admin_client, workout_program):
         program_id = str(workout_program.id)

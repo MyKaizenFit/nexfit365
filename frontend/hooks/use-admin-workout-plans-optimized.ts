@@ -46,6 +46,8 @@ export interface WorkoutPlan {
   days_count?: number
   training_days?: number
   user_id?: number
+  assigned_user_ids?: number[]
+  created_user_program_ids?: string[]
   default_conditions?: Record<string, string>
   days_per_week?: number
 }

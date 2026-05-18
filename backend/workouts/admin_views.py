@@ -13,6 +13,7 @@ from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
+from .services import DefaultWorkoutAssignmentService
 from .admin_serializers import (
     AdminExerciseSerializer,
     AdminExerciseListSerializer,
@@ -236,6 +237,46 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     order_index=ex_index
                 )
 
+    def _extract_assigned_user_ids(self, data):
+        # Solo activar el flujo de asignación por plantilla cuando llega
+        # explícitamente un arreglo de usuarios para asignar.
+        has_assigned = 'assigned_user_ids' in data or 'user_ids' in data
+        raw_ids = data.get('assigned_user_ids') or data.get('user_ids')
+
+        if raw_ids is None and not has_assigned:
+            return None
+        if raw_ids is None:
+            return []
+
+        if not isinstance(raw_ids, list):
+            raw_ids = [raw_ids]
+
+        normalized = []
+        for uid in raw_ids:
+            if uid in (None, '', 'none'):
+                continue
+            try:
+                normalized.append(int(uid))
+            except (TypeError, ValueError):
+                continue
+
+        return list(dict.fromkeys(normalized))
+
+    def _assign_template_to_users(self, template_program: WorkoutProgram, user_ids, assigned_by):
+        created_program_ids = []
+        valid_user_ids = set(User.objects.filter(id__in=user_ids).values_list('id', flat=True))
+        for user_id in user_ids:
+            if user_id not in valid_user_ids:
+                continue
+            user = User.objects.get(id=user_id)
+            assigned_program = DefaultWorkoutAssignmentService(user).assign_from_default(
+                template_program,
+                assigned_by=assigned_by,
+            )
+            if assigned_program:
+                created_program_ids.append(str(assigned_program.id))
+        return created_program_ids
+
     @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
@@ -245,8 +286,14 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         """
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         days_data = data.pop('days', []) or []
+        assigned_user_ids = self._extract_assigned_user_ids(data)
+        data.pop('assigned_user_ids', None)
+        data.pop('user_ids', None)
 
         user_id = data.get('user_id') or data.get('user')
+        if assigned_user_ids:
+            user_id = None
+
         if user_id:
             data['user'] = user_id
             data['is_template'] = False
@@ -262,8 +309,24 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         self._apply_days_payload(program, days_data)
 
+        created_user_program_ids = []
+        if assigned_user_ids:
+            if program.user_id:
+                program.user = None
+                program.is_template = True
+                program.is_system = False
+                program.save(update_fields=['user', 'is_template', 'is_system'])
+
+            created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+
         response_serializer = AdminWorkoutProgramSerializer(program)
-        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+        response_data = dict(response_serializer.data)
+        if assigned_user_ids is None:
+            response_data['assigned_user_ids'] = [program.user_id] if program.user_id else []
+        else:
+            response_data['assigned_user_ids'] = assigned_user_ids
+        response_data['created_user_program_ids'] = created_user_program_ids
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
     @transaction.atomic
     def update(self, request, *args, **kwargs):
@@ -275,6 +338,9 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         days_data = data.pop('days', None)  # None => no tocar días
+        assigned_user_ids = self._extract_assigned_user_ids(data)
+        data.pop('assigned_user_ids', None)
+        data.pop('user_ids', None)
 
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -283,8 +349,27 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if days_data is not None:
             self._apply_days_payload(program, days_data)
 
+        created_user_program_ids = []
+        if assigned_user_ids is not None:
+            # Si se actualiza una rutina de usuario para múltiples usuarios,
+            # la convertimos en plantilla y asignamos copias activas a cada usuario.
+            if program.user_id:
+                program.user = None
+                program.is_template = True
+                program.is_system = False
+                program.save(update_fields=['user', 'is_template', 'is_system'])
+
+            if assigned_user_ids:
+                created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+
         response_serializer = AdminWorkoutProgramSerializer(program)
-        return Response(response_serializer.data, status=status.HTTP_200_OK)
+        response_data = dict(response_serializer.data)
+        if assigned_user_ids is None:
+            response_data['assigned_user_ids'] = [program.user_id] if program.user_id else []
+        else:
+            response_data['assigned_user_ids'] = assigned_user_ids
+        response_data['created_user_program_ids'] = created_user_program_ids
+        return Response(response_data, status=status.HTTP_200_OK)
 
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
