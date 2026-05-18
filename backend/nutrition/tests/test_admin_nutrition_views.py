@@ -19,6 +19,8 @@ MEALS_URL = '/api/admin/nutrition/meals/'
 FOODS_URL = '/api/admin/nutrition/foods/'
 MEAL_RECIPES_URL = '/api/admin/nutrition/meal-recipes/'
 DEFAULT_PLANS_URL = '/api/admin/nutrition/default-plans/'
+CHANGE_USER_PLAN_URL = '/api/admin/nutrition/change-user-plan/'
+BULK_CHANGE_PLANS_URL = '/api/admin/nutrition/bulk-change-plans/'
 USER_PLANS_STATS_URL = '/api/admin/nutrition/user-plans/stats/'
 USER_PLANS_USAGE_URL = '/api/admin/nutrition/user-plans/usage_stats/'
 USER_PLANS_HISTORY_URL = '/api/admin/nutrition/user-plans/history/'
@@ -321,6 +323,44 @@ class TestAdminNutritionPlanViewSet:
         data = {'name': 'Plan Actualizado', 'daily_calories': 2100}
         response = admin_client.patch(f'{PLANS_URL}{nutrition_plan.id}/', data, format='json')
         assert response.status_code == status.HTTP_200_OK
+
+    def test_update_plan_daily_calories_scales_meals_and_recipes(self, admin_client, nutrition_plan, recipe):
+        meal = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            day_of_week=1,
+            name='Comida principal',
+            meal_type='lunch',
+            order_index=1,
+            calories=1000,
+            protein=Decimal('50.0'),
+            carbs=Decimal('120.0'),
+            fat=Decimal('30.0'),
+        )
+        meal_recipe = PlanMealRecipe.objects.create(
+            meal=meal,
+            recipe=recipe,
+            servings=Decimal('1.0'),
+            custom_calories=500,
+            custom_protein=Decimal('25.0'),
+            custom_carbs=Decimal('40.0'),
+            custom_fat=Decimal('12.0'),
+        )
+
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'daily_calories': 2400},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        nutrition_plan.refresh_from_db()
+        meal.refresh_from_db()
+        meal_recipe.refresh_from_db()
+
+        assert nutrition_plan.daily_calories == 2400
+        assert meal.calories > 1000
+        assert meal_recipe.custom_calories and meal_recipe.custom_calories > 500
+        assert float(meal_recipe.servings) > 1.0
 
     def test_update_plan_preserves_meal_order_indexes(self, admin_client, nutrition_plan):
         payload = {
@@ -697,6 +737,43 @@ class TestAdminDefaultPlans:
         assert 'results' in response.data
 
 
+@pytest.mark.django_db
+class TestAdminPlanAssignments:
+    def test_change_user_plan_assigns_plan(self, admin_client, regular_user, template_plan):
+        response = admin_client.post(
+            CHANGE_USER_PLAN_URL,
+            {
+                'user_id': regular_user.id,
+                'default_plan_id': str(template_plan.id),
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('plan') is not None
+        assert NutritionPlan.objects.filter(user=regular_user, is_active=True).exists()
+
+    def test_bulk_change_plans_assigns_multiple_users(self, admin_client, regular_user, template_plan):
+        second_user = User.objects.create_user(
+            email='bulk_user_nutr@test.com',
+            password='testpass123',
+        )
+
+        response = admin_client.post(
+            BULK_CHANGE_PLANS_URL,
+            {
+                'default_plan_id': str(template_plan.id),
+                'user_ids': [regular_user.id, second_user.id],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('success_count') == 2
+        assert NutritionPlan.objects.filter(user=regular_user, is_active=True).exists()
+        assert NutritionPlan.objects.filter(user=second_user, is_active=True).exists()
+
+
 # ---------------------------------------------------------------------------
 # admin_user_plan function view tests
 # ---------------------------------------------------------------------------
@@ -731,6 +808,26 @@ class TestAdminUserPlan:
             f'/api/admin/nutrition/users/{regular_user.id}/plan/?days=14'
         )
         assert response.status_code in [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND]
+
+    def test_patch_user_plan_updates_daily_calories(self, admin_client, regular_user, nutrition_plan):
+        response = admin_client.patch(
+            f'/api/admin/nutrition/users/{regular_user.id}/plan/',
+            {'daily_calories': 2300},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        nutrition_plan.refresh_from_db()
+        assert nutrition_plan.daily_calories == 2300
+
+    def test_patch_user_plan_requires_numeric_daily_calories(self, admin_client, regular_user, nutrition_plan):
+        response = admin_client.patch(
+            f'/api/admin/nutrition/users/{regular_user.id}/plan/',
+            {'daily_calories': 'abc'},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
 # ---------------------------------------------------------------------------

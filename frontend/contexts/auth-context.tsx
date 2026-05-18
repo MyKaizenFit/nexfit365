@@ -197,7 +197,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
           // NO loguear payload del token por seguridad
-          isAdminFromToken = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN'
+          const userRole = (payload.role || '').toLowerCase()
+          isAdminFromToken = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
         }
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
@@ -205,7 +206,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Redirigir según el rol del usuario (priorizar información del token)
-      const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || authResponse.user.role === 'ADMIN'
+      const userRole = (authResponse.user.role || '').toLowerCase()
+      const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || userRole === 'admin' || userRole === 'trainer'
 
       // Usar window.location.href para forzar un reload completo que lea las cookies correctamente
       // Esto es necesario porque router.push hace navegación del lado del cliente y el middleware
@@ -288,7 +290,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (accessToken && !accessToken.startsWith('offline_token_')) {
           const payload = JSON.parse(atob(accessToken.split('.')[1]))
           // NO loguear payload del token por seguridad
-          isAdminFromToken = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN'
+          const userRole = (payload.role || '').toLowerCase()
+          isAdminFromToken = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
         }
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
@@ -296,7 +299,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Redirigir según el rol del usuario (priorizar información del token)
-      const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || authResponse.user.role === 'ADMIN'
+      const userRole = (authResponse.user.role || '').toLowerCase()
+      const isAdmin = isAdminFromToken || authResponse.user.is_superuser || authResponse.user.is_staff || userRole === 'admin' || userRole === 'trainer'
 
       // Usar window.location.href para forzar un reload completo
       if (isAdmin) {
@@ -659,7 +663,8 @@ export const useHasRole = (role: string) => {
 // Hook para verificar si es admin
 export const useIsAdmin = () => {
   const { user } = useAuth()
-  return user?.is_superuser || user?.role === 'ADMIN'
+  const userRole = (user?.role || '').toLowerCase()
+  return user?.is_superuser || user?.is_staff || userRole === 'admin' || userRole === 'trainer'
 }
 
 // Hook para verificar si es staff

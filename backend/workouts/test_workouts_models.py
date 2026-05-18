@@ -23,10 +23,10 @@ class ExerciseModelTest(TestCase):
         self.assertEqual(exercise.muscle_groups, ["chest", "triceps"])
         self.assertEqual(str(exercise), "Press de banca")
 
-    def test_exercise_name_is_not_unique(self):
+    def test_exercise_name_is_unique_case_insensitive(self):
         Exercise.objects.create(name="Sentadilla", category="strength")
-        duplicate = Exercise.objects.create(name="Sentadilla", category="strength")
-        self.assertEqual(duplicate.name, "Sentadilla")
+        with self.assertRaises(IntegrityError):
+            Exercise.objects.create(name="sentadilla", category="strength")
 
 
 class WorkoutProgramModelTest(TestCase):

@@ -101,6 +101,26 @@ function getVideoUrl(exercise: ExerciseVideoPlayerProps['exercise']): string | n
   return null
 }
 
+function extractGoogleDriveFileId(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.replace('www.', '')
+    if (host !== 'drive.google.com') return null
+
+    if (parsed.pathname.includes('/file/d/')) {
+      return parsed.pathname.split('/file/d/')[1]?.split('/')[0] || null
+    }
+
+    return parsed.searchParams.get('id')
+  } catch {
+    return null
+  }
+}
+
+function buildGoogleDrivePlayableUrl(fileId: string): string {
+  return `https://drive.google.com/uc?export=download&id=${fileId}`
+}
+
 function normalizeGoogleDriveEmbedUrl(url: string): string {
   try {
     const parsed = new URL(url)
@@ -168,6 +188,8 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
   const [videoError, setVideoError] = useState(false)
 
   const videoUrl = getVideoUrl(exercise)
+  const googleDriveFileId = videoUrl ? extractGoogleDriveFileId(videoUrl) : null
+  const googleDrivePlayableUrl = googleDriveFileId ? buildGoogleDrivePlayableUrl(googleDriveFileId) : null
 
   // Si no hay ningún contenido que mostrar, renderizar children directamente (deshabilitados por el padre)
   if (!videoUrl && !exercise.has_video && !exercise.description && !exercise.instructions) {
@@ -221,14 +243,16 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                     allowFullScreen
                     onError={handleVideoError}
                   />
-                ) : videoUrl.includes('drive.google.com') ? (
-                  <iframe
-                    src={videoUrl}
-                    title={`Video de ${exercise.name}`}
+                ) : googleDrivePlayableUrl ? (
+                  <video
+                    src={googleDrivePlayableUrl}
+                    controls
                     className="w-full h-full"
-                    allow="autoplay"
+                    poster={exercise.thumbnail_url || exercise.image_url}
                     onError={handleVideoError}
-                  />
+                  >
+                    Tu navegador no soporta la reproduccion de videos.
+                  </video>
                 ) : (
                   <video
                     src={videoUrl}
@@ -243,13 +267,36 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
               </div>
             )}
 
+            {!videoUrl && (
+              <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+                <div className="text-center p-6">
+                  <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+                  <p className="text-gray-700 font-medium mb-2">Video no disponible</p>
+                  <p className="text-gray-500 text-sm">
+                    Este ejercicio aun no tiene un video asignado, disculpe por las molestias.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {videoUrl && !videoError && (
+              <Button
+                variant="outline"
+                onClick={() => window.open(videoUrl, '_blank')}
+                className="w-full"
+              >
+                <ExternalLink className="w-4 h-4 mr-2" />
+                Abrir en nueva pestaña
+              </Button>
+            )}
+
             {/* Error si el video falla al cargar */}
             {videoError && videoUrl && (
               <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
                 <div className="text-center p-6">
                   <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-                  <p className="text-gray-700 font-medium mb-2">No se pudo cargar el video</p>
-                  <p className="text-gray-500 text-sm mb-4">El video puede no estar disponible en este momento</p>
+                  <p className="text-gray-700 font-medium mb-2">Video no disponible</p>
+                  <p className="text-gray-500 text-sm mb-4">Este ejercicio aun no tiene un video asignado, disculpe por las molestias.</p>
                   <Button
                     variant="outline"
                     onClick={() => window.open(videoUrl, '_blank')}

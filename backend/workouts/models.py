@@ -2,10 +2,12 @@
 # Modelos de entrenamiento - Versión reestructurada y simplificada
 
 import uuid
+import re
 from urllib.parse import parse_qs, urlparse
 from django.conf import settings
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
+from django.db.models.functions import Lower
 
 
 class TimeStampedModel(models.Model):
@@ -129,14 +131,51 @@ class Exercise(TimeStampedModel):
         ordering = ['name']
         verbose_name = "Ejercicio"
         verbose_name_plural = "Ejercicios"
+        constraints = [
+            models.UniqueConstraint(
+                Lower('name'),
+                name='unique_exercise_name_ci',
+            ),
+        ]
     
     def __str__(self):
         return self.name
+
+    @staticmethod
+    def normalize_name(raw_name: str) -> str:
+        """Normalize names to avoid duplicates by spacing/casing variants."""
+        return re.sub(r"\s+", " ", (raw_name or "").strip())
+
+    @classmethod
+    def find_existing_by_name(cls, raw_name: str):
+        normalized = cls.normalize_name(raw_name)
+        if not normalized:
+            return None
+        return cls.objects.filter(name__iexact=normalized).order_by('-updated_at', '-created_at').first()
+
+    def save(self, *args, **kwargs):
+        self.name = self.normalize_name(self.name)
+        super().save(*args, **kwargs)
     
     @property
     def has_video(self):
         """Verifica si tiene video disponible"""
-        return bool(self.video_file) or bool(self.video_url) or bool(self.google_drive_file_id)
+        return bool(self.get_video_url())
+
+    @staticmethod
+    def _is_likely_drive_file_id(file_id: str) -> bool:
+        """Basic sanity check to avoid placeholder/invalid IDs from breaking playback."""
+        if not file_id:
+            return False
+        cleaned = str(file_id).strip()
+        if len(cleaned) < 20:
+            return False
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", cleaned):
+            return False
+        upper = cleaned.upper()
+        if "REEMPLAZA" in upper or "PLACEHOLDER" in upper:
+            return False
+        return True
 
     @staticmethod
     def _to_google_drive_preview_url(raw_url: str) -> str:
@@ -165,14 +204,17 @@ class Exercise(TimeStampedModel):
         return raw_url
     
     def get_video_url(self):
-        """Retorna la URL del video (prioridad: archivo > Google Drive > URL)"""
+        """Retorna la URL del video (prioridad: archivo > URL > Google Drive ID)."""
         if self.video_file:
             return self.video_file.url
-        if self.google_drive_file_id:
-            return f"https://drive.google.com/file/d/{self.google_drive_file_id}/preview"
         if self.video_url:
-            return self._to_google_drive_preview_url(self.video_url)
-        return self.video_url
+            normalized_url = self._to_google_drive_preview_url(str(self.video_url).strip())
+            if normalized_url:
+                return normalized_url
+        if self._is_likely_drive_file_id(self.google_drive_file_id):
+            file_id = str(self.google_drive_file_id).strip()
+            return f"https://drive.google.com/file/d/{file_id}/preview"
+        return None
 
     def get_substitutes(self):
         """Retorna ejercicios sustitutos ordenados por prioridad."""

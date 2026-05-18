@@ -71,10 +71,14 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertGreaterEqual(calories, 1700)
         self.assertLessEqual(calories, 2600)
 
-    def test_calculate_daily_calories_with_missing_data_returns_default(self):
+    def test_calculate_daily_calories_with_missing_data_uses_weight_estimation(self):
         incomplete_user = User.objects.create_user(email="incomplete@example.com", password="testpass123")
+        incomplete_user.weight = 80
+        incomplete_user.activity_level = 'moderate'
+        incomplete_user.main_goal = 'lose_weight'
+        incomplete_user.save(update_fields=['weight', 'activity_level', 'main_goal'])
         calories = PersonalizedNutritionService(incomplete_user).calculate_daily_calories()
-        self.assertEqual(calories, 2000)
+        self.assertEqual(calories, 2040)
 
     def test_calculate_macros_for_goal(self):
         macros = PersonalizedNutritionService(self.user).calculate_macros(1800)

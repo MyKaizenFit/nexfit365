@@ -65,7 +65,8 @@ function SafeAdminContent() {
   const { user, isLoading } = useAuth()
 
   // Verificar permisos
-  const isAdmin = user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || user.role === 'admin' || user.role === 'trainer')
+  const userRole = (user?.role || '').toLowerCase()
+  const isAdmin = user && (user.is_superuser || user.is_staff || userRole === 'admin' || userRole === 'trainer')
 
   if (isLoading) {
     return (

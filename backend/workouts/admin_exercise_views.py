@@ -10,6 +10,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from datetime import timedelta
+from django.db import IntegrityError
 
 from .models import Exercise, ExerciseSubstitution
 from .serializers import ExerciseSerializer
@@ -160,13 +161,13 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                         if all(value is None or str(value).strip() == '' for value in row.values()):
                             continue
 
-                        name = str(get_value(row, 'name', '') or '').strip()
+                        name = Exercise.normalize_name(str(get_value(row, 'name', '') or ''))
                         if not name:
                             errors.append(f"Fila {row_num}: 'name' es requerido")
                             skipped += 1
                             continue
-                        
-                        exercise = Exercise.objects.filter(name=name).first()
+
+                        exercise = Exercise.find_existing_by_name(name)
 
                         raw_muscle_groups = [m.strip() for m in str(get_value(row, 'muscle_groups', '') or '').split(',') if m.strip()]
                         raw_equipment = [e.strip() for e in str(get_value(row, 'equipment', '') or '').split(',') if e.strip()]
@@ -192,8 +193,19 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             exercise.save()
                             updated += 1
                         else:
-                            Exercise.objects.create(name=name, **fields)
-                            created += 1
+                            try:
+                                Exercise.objects.create(name=name, **fields)
+                                created += 1
+                            except IntegrityError:
+                                # En carreras concurrentes, actualizar el registro existente.
+                                existing = Exercise.find_existing_by_name(name)
+                                if existing:
+                                    for k, v in fields.items():
+                                        setattr(existing, k, v)
+                                    existing.save()
+                                    updated += 1
+                                else:
+                                    raise
                     except Exception as e:
                         errors.append(f"Fila {row_num}: {str(e)}")
                         skipped += 1
@@ -367,14 +379,14 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             normalized_key = header_aliases.get(str(raw_key).strip().lower(), str(raw_key).strip())
                             row_dict[normalized_key] = raw_val
 
-                        name = str(row_dict.get('name', '')).strip() if row_dict.get('name') else ''
+                        name = Exercise.normalize_name(str(row_dict.get('name', '')) if row_dict.get('name') else '')
                         
                         if not name:
                             errors.append(f"Fila {row_num}: 'name' es requerido")
                             skipped += 1
                             continue
                         
-                        exercise = Exercise.objects.filter(name=name).first()
+                        exercise = Exercise.find_existing_by_name(name)
                         
                         # Función auxiliar para convertir valores a string y limpiar
                         def clean_str(val):
@@ -416,8 +428,18 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             exercise.save()
                             updated += 1
                         else:
-                            Exercise.objects.create(name=name, **fields)
-                            created += 1
+                            try:
+                                Exercise.objects.create(name=name, **fields)
+                                created += 1
+                            except IntegrityError:
+                                existing = Exercise.find_existing_by_name(name)
+                                if existing:
+                                    for k, v in fields.items():
+                                        setattr(existing, k, v)
+                                    existing.save()
+                                    updated += 1
+                                else:
+                                    raise
                     except Exception as e:
                         errors.append(f"Fila {row_num}: {str(e)}")
                         skipped += 1
@@ -694,6 +716,20 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Guardar el ejercicio con el usuario que lo crea"""
         serializer.save(created_by=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """Upsert por nombre: si existe, lo actualiza en lugar de duplicar."""
+        incoming_name = Exercise.normalize_name(request.data.get('name', ''))
+        if incoming_name:
+            existing = Exercise.find_existing_by_name(incoming_name)
+            if existing:
+                payload = request.data.copy()
+                payload['name'] = incoming_name
+                serializer = self.get_serializer(existing, data=payload, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save(created_by=existing.created_by or self.request.user)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -801,6 +837,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             for video in videos:
                 try:
                     exercise_name = video['name']
+                    exercise_name = Exercise.normalize_name(exercise_name)
                     file_id = video['file_id']
                     
                     if not exercise_name or not file_id:
@@ -808,22 +845,19 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                         continue
                     
                     # Crear o actualizar ejercicio
-                    exercise, was_created = Exercise.objects.get_or_create(
-                        name=exercise_name,
-                        defaults={
-                            'google_drive_file_id': file_id,
-                            'video_url': f"https://drive.google.com/file/d/{file_id}/preview",
-                            'category': 'strength',  # Por defecto
-                        }
-                    )
-                    
-                    if not was_created:
-                        # Actualizar ejercicio existente con el ID de Google Drive
+                    exercise = Exercise.find_existing_by_name(exercise_name)
+                    if exercise:
                         exercise.google_drive_file_id = file_id
                         exercise.video_url = f"https://drive.google.com/file/d/{file_id}/preview"
                         exercise.save()
                         updated += 1
                     else:
+                        exercise = Exercise.objects.create(
+                            name=exercise_name,
+                            google_drive_file_id=file_id,
+                            video_url=f"https://drive.google.com/file/d/{file_id}/preview",
+                            category='strength',
+                        )
                         created += 1
                         
                 except Exception as e:

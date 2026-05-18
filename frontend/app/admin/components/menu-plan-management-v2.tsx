@@ -268,7 +268,7 @@ export function MenuPlanManagementV2() {
     try {
       setCheckingAllergens(true)
       let headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl(`nutrition/admin/plans/${planId}/allergen-check/`), {
+      const res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/allergen-check/`), {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_ids: userIds.map(Number) }),
@@ -276,7 +276,7 @@ export function MenuPlanManagementV2() {
       if (res.status === 401) {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (newHeaders) {
-          const retry = await fetch(buildApiUrl(`nutrition/admin/plans/${planId}/allergen-check/`), {
+          const retry = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/allergen-check/`), {
             method: 'POST',
             headers: { ...newHeaders, 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_ids: userIds.map(Number) }),

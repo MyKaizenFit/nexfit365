@@ -45,7 +45,8 @@ export function middleware(request: NextRequest) {
       }
 
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
+      const userRole = (payload.role || '').toLowerCase()
+      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
 
       if (isAdmin) {
         return NextResponse.redirect(new URL('/admin', request.url))
@@ -90,7 +91,8 @@ export function middleware(request: NextRequest) {
     try {
       // Decodificar el token JWT para verificar el rol
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'admin' || payload.role === 'trainer'
+      const userRole = (payload.role || '').toLowerCase()
+      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
       
       // Los administradores no necesitan completar el formulario
       if (!isAdmin) {
@@ -113,7 +115,8 @@ export function middleware(request: NextRequest) {
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
       // NO loguear payload del token por seguridad
       // Verificar roles de admin: superuser, staff, admin, trainer
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
+      const userRole = (payload.role || '').toLowerCase()
+      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
       
       if (isAdmin) {
         // Si es admin, redirigir al panel de administrador
@@ -142,7 +145,8 @@ export function middleware(request: NextRequest) {
       const payload = JSON.parse(atob(accessToken.split('.')[1]))
       // NO loguear payload del token por seguridad
       // Verificar roles de admin: superuser, staff, admin, trainer
-      const isAdmin = payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer'
+      const userRole = (payload.role || '').toLowerCase()
+      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
       
       if (!isAdmin) {
         // Si no es admin, redirigir al dashboard

@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import Script from 'next/script'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
@@ -14,6 +15,8 @@ const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
   || (process.env.NODE_ENV === 'production'
     ? 'https://nexfit365.dpdns.org'
     : 'http://localhost:3000')
+
+const pwaEnabled = (process.env.NEXT_PUBLIC_ENABLE_PWA || '').toLowerCase() === 'true'
 
 export const metadata: Metadata = {
   metadataBase: new URL(frontendBaseUrl),
@@ -52,6 +55,38 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <body className={GeistSans.className}>
+        {!pwaEnabled ? (
+          <Script id="disable-stale-service-workers" strategy="beforeInteractive">
+            {`
+              (function () {
+                if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+                var clearWorkers = function () {
+                  navigator.serviceWorker.getRegistrations()
+                    .then(function (registrations) {
+                      return Promise.all(registrations.map(function (registration) {
+                        return registration.unregister().catch(function () { return false; });
+                      }));
+                    })
+                    .catch(function () {});
+
+                  if ('caches' in window) {
+                    caches.keys()
+                      .then(function (keys) {
+                        return Promise.all(keys.map(function (key) {
+                          return caches.delete(key).catch(function () { return false; });
+                        }));
+                      })
+                      .catch(function () {});
+                  }
+                };
+
+                clearWorkers();
+                navigator.serviceWorker.ready.then(clearWorkers).catch(function () {});
+              })();
+            `}
+          </Script>
+        ) : null}
         <RegisterServiceWorker />
         <BetaBanner />
         <ThemeProvider
