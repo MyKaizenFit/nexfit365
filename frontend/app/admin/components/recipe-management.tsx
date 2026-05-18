@@ -29,17 +29,9 @@ import { MoreHorizontal } from "lucide-react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
+import { getApiBaseUrl } from "@/lib/api"
 
-const getApiUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-  if (envUrl) {
-    return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
-  }
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://api.nexfit365.dpdns.org'
-  }
-  return 'http://localhost:8000'
-}
+const getApiUrl = getApiBaseUrl
 
 interface Food {
   id: string

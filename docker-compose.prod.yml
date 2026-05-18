@@ -37,15 +37,15 @@ services:
     cpus: 0.75
     pids_limit: 200
     env_file:
-      - ./docker/backend.env.production
+      - ./docker/postgres.env.production
     environment:
       # Configuración de encoding UTF-8
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
       PGCLIENTENCODING: "UTF8"
-    ports:
-      - "0.0.0.0:5433:5432"  # Puerto 5433 para producción (acceso externo)
+    # PostgreSQL queda solo en la red interna de Docker.
+    # Para mantenimiento puntual, usa `docker compose exec db psql`.
     logging:
       driver: "json-file"
       options:
@@ -101,7 +101,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    user: "0:0"  # Root para evitar problemas de permisos
+    user: "1001:1001"
     mem_limit: 1g
     cpus: 0.75
     pids_limit: 300
@@ -121,12 +121,12 @@ services:
         gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
       "
     ports:
-      - "0.0.0.0:8000:8000"  # Puerto 8000 para producción
+      - "127.0.0.1:8000:8000"  # Expuesto solo al host/reverse proxy
     volumes:
       - ./backend:/app  # Código del backend
       - /srv/mykaizenfit/pro/data/staticfiles:/app/staticfiles
       - /srv/mykaizenfit/pro/data/media:/app/media
-      - /srv:/srv:rw
+      - /srv/mykaizenfit/pro/data/backups:/app/backups
     logging:
       driver: "json-file"
       options:
@@ -165,7 +165,7 @@ services:
     env_file:
       - ./frontend/docker.env.production
     ports:
-      - "0.0.0.0:3000:3000"  # Puerto 3000 para producción
+      - "127.0.0.1:3000:3000"  # Expuesto solo al host/reverse proxy
     depends_on:
       backend:
         condition: service_healthy
@@ -193,7 +193,7 @@ services:
     cpus: 0.2
     pids_limit: 150
     env_file:
-      - ./docker/backend.env.production
+      - ./docker/postgres.env.production
     environment:
       TZ: "Europe/Madrid"
       POSTGRES_HOST: nexfit-pro-db
@@ -233,7 +233,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     restart: unless-stopped
-    user: "0:0"
+    user: "1001:1001"
     mem_limit: 512m
     cpus: 0.5
     pids_limit: 200

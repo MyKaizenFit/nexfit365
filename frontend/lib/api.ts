@@ -5,7 +5,7 @@
 // Se importará dinámicamente cuando sea necesario
 
 // Helper para obtener la URL base de forma segura (tanto en cliente como servidor)
-const getApiBaseUrl = (): string => {
+export const getApiBaseUrl = (): string => {
   // SIEMPRE usar la variable de entorno (NUNCA hardcodear localhost)
   const envUrl = process.env.NEXT_PUBLIC_API_URL
 

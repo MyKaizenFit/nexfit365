@@ -23,7 +23,6 @@ python manage.py runserver
 - **[Documentación Completa del Backend](../doc/backend/README.md)** - Documentación técnica completa
 - **[Checklist de Funcionalidades](../doc/backend/checklist.md)** - Lista de verificación
 - **[Estado del Proyecto](../doc/backend/project-status.md)** - Estado actual del desarrollo
-- **[Credenciales](../doc/backend/credentials.md)** - Credenciales de administración
 - **[API URLs](../doc/backend/api-urls.md)** - Documentación de endpoints
 - **[Testing](../doc/testing/backend-testing.md)** - Guía de testing
 

@@ -42,6 +42,8 @@ class DashboardViewSet(viewsets.ModelViewSet):
     permission_classes = [DashboardPermission]
     
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return DashboardData.objects.none()
         user_id = self.kwargs.get("user_id")
         if user_id:
             return DashboardData.objects.filter(user_id=user_id)
@@ -726,6 +728,8 @@ class CoachingPlanViewSet(viewsets.ReadOnlyModelViewSet):
     pagination_class = None
 
     def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return CoachingPlan.objects.none()
         CoachingPlan.ensure_defaults()
         queryset = CoachingPlan.objects.filter(is_active=True)
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):

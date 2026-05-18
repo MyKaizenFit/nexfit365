@@ -18,7 +18,7 @@ class UserAchievementSerializer(serializers.ModelSerializer):
     """Serializer para logros del usuario"""
     achievement = AchievementSerializer(read_only=True)
     user = serializers.ReadOnlyField(source="user.email")
-    days_since_unlocked = serializers.ReadOnlyField()
+    days_since_unlocked = serializers.IntegerField(read_only=True)
     
     class Meta:
         model = UserAchievement

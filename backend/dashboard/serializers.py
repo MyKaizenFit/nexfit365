@@ -197,28 +197,28 @@ class CoachingInquirySerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    def get_whatsapp_url(self, obj):
+    def get_whatsapp_url(self, obj) -> str:
         return obj.get_whatsapp_url()
 
-    def get_mailto_url(self, obj):
+    def get_mailto_url(self, obj) -> str:
         return obj.get_mailto_url()
 
-    def get_booking_url(self, obj):
+    def get_booking_url(self, obj) -> str:
         return obj.get_booking_url()
 
-    def get_followup_whatsapp_url(self, obj):
+    def get_followup_whatsapp_url(self, obj) -> str:
         return obj.get_followup_whatsapp_url()
 
-    def get_followup_mailto_url(self, obj):
+    def get_followup_mailto_url(self, obj) -> str:
         return obj.get_followup_mailto_url()
 
-    def get_needs_follow_up(self, obj):
+    def get_needs_follow_up(self, obj) -> bool:
         return obj.needs_follow_up
 
-    def get_days_waiting(self, obj):
+    def get_days_waiting(self, obj) -> int:
         return obj.days_waiting
 
-    def get_source_screen_display(self, obj):
+    def get_source_screen_display(self, obj) -> str:
         return obj.get_source_screen_display()
 
 
@@ -309,7 +309,7 @@ class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
     
-    def get_default_nutrition_plan(self, obj):
+    def get_default_nutrition_plan(self, obj) -> dict | None:
         if obj.default_nutrition_plan:
             return {
                 'id': str(obj.default_nutrition_plan.id),
@@ -317,7 +317,7 @@ class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
             }
         return None
     
-    def get_default_workout_program(self, obj):
+    def get_default_workout_program(self, obj) -> dict | None:
         if obj.default_workout_program:
             return {
                 'id': str(obj.default_workout_program.id),

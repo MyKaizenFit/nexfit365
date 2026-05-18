@@ -128,7 +128,7 @@ class AdminPlanMealSerializer(serializers.ModelSerializer):
             'description', 'order_index', 'suggested_recipes', 'suggested_recipes_ids', 'meal_recipes'
         ]
     
-    def get_meal_recipes(self, obj):
+    def get_meal_recipes(self, obj) -> list:
         """Obtener meal_recipes de forma segura"""
         try:
             # Intentar obtener meal_recipes si el modelo PlanMealRecipe existe
@@ -170,22 +170,22 @@ class AdminNutritionPlanSerializer(serializers.ModelSerializer):
             'meals', 'created_at', 'updated_at'
         ]
     
-    def get_protein_percentage(self, obj):
+    def get_protein_percentage(self, obj) -> float:
         if obj.daily_calories and obj.protein_grams:
             return round((obj.protein_grams * 4) / obj.daily_calories * 100, 1)
         return 30  # valor por defecto
     
-    def get_carbs_percentage(self, obj):
+    def get_carbs_percentage(self, obj) -> float:
         if obj.daily_calories and obj.carbs_grams:
             return round((obj.carbs_grams * 4) / obj.daily_calories * 100, 1)
         return 40  # valor por defecto
     
-    def get_fat_percentage(self, obj):
+    def get_fat_percentage(self, obj) -> float:
         if obj.daily_calories and obj.fat_grams:
             return round((obj.fat_grams * 9) / obj.daily_calories * 100, 1)
         return 30  # valor por defecto
 
-    def get_assigned_user_ids(self, obj):
+    def get_assigned_user_ids(self, obj) -> list:
         return list(obj.assigned_users.values_list('id', flat=True))
 
 
@@ -213,28 +213,28 @@ class AdminNutritionPlanMinimalSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
 
-    def get_meals_count(self, obj):
+    def get_meals_count(self, obj) -> int:
         try:
             return obj.meals.count()
         except Exception:
             return 0
 
-    def get_protein_percentage(self, obj):
+    def get_protein_percentage(self, obj) -> float:
         if obj.daily_calories and obj.protein_grams:
             return round((obj.protein_grams * 4) / obj.daily_calories * 100, 1)
         return 30
 
-    def get_carbs_percentage(self, obj):
+    def get_carbs_percentage(self, obj) -> float:
         if obj.daily_calories and obj.carbs_grams:
             return round((obj.carbs_grams * 4) / obj.daily_calories * 100, 1)
         return 40
 
-    def get_fat_percentage(self, obj):
+    def get_fat_percentage(self, obj) -> float:
         if obj.daily_calories and obj.fat_grams:
             return round((obj.fat_grams * 9) / obj.daily_calories * 100, 1)
         return 30
 
-    def get_assigned_user_ids(self, obj):
+    def get_assigned_user_ids(self, obj) -> list:
         return list(obj.assigned_users.values_list('id', flat=True))
 
 

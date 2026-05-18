@@ -32,18 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { useAuth } from "@/contexts/auth-context"
+import { getApiBaseUrl } from "@/lib/api"
 
-// Helper para obtener la URL de la API
-const getApiUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-  if (envUrl) {
-    return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
-  }
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://api.nexfit365.dpdns.org'
-  }
-  return 'http://localhost:8000'
-}
+const getApiUrl = getApiBaseUrl
 
 interface Food {
   id: string

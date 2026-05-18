@@ -10,6 +10,7 @@ from nutrition.models import DefaultNutritionPlan, Food, Meal
 from progress.models import WeightEntry, BodyMeasurement
 from datetime import datetime, timedelta
 import random
+import os
 
 User = get_user_model()
 
@@ -20,11 +21,12 @@ class Command(BaseCommand):
         self.stdout.write('Creando datos de prueba para el administrador...')
         
         # Buscar el usuario administrador
+        admin_email = os.getenv('ADMIN_EMAIL', 'admin@example.invalid')
         try:
-            admin_user = User.objects.get(email='iagoadmin@gmail.com')
+            admin_user = User.objects.get(email=admin_email)
             self.stdout.write(f'Usuario administrador encontrado: {admin_user.email}')
         except User.DoesNotExist:
-            self.stdout.write(self.style.ERROR('Usuario administrador no encontrado'))
+            self.stdout.write(self.style.ERROR(f'Usuario administrador no encontrado: {admin_email}'))
             return
 
         # Actualizar perfil del administrador
@@ -46,9 +48,9 @@ class Command(BaseCommand):
 
     def create_admin_profile(self, user):
         """Actualizar el perfil del administrador"""
-        user.first_name = 'Iago'
+        user.first_name = 'Admin'
         user.last_name = 'Administrador'
-        user.phone = '+34 666 777 888'
+        user.phone = ''
         user.date_of_birth = datetime(1990, 5, 15).date()
         user.gender = 'male'
         user.height = 180  # cm
@@ -56,8 +58,8 @@ class Command(BaseCommand):
         user.activity_level = 'moderate'
         user.fitness_goal = 'maintenance'
         user.medical_conditions = 'Ninguna'
-        user.emergency_contact_name = 'María García'
-        user.emergency_contact_phone = '+34 666 999 000'
+        user.emergency_contact_name = ''
+        user.emergency_contact_phone = ''
         user.save()
         
         self.stdout.write('Perfil del administrador actualizado')

@@ -16,6 +16,7 @@ export interface Exercise {
   difficulty: 'beginner' | 'intermediate' | 'advanced'
   equipment: string
   video_file?: string
+  video_url?: string
   video_file_url?: string
   video_display_url?: string
   thumbnail?: string

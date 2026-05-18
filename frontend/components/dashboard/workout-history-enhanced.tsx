@@ -131,18 +131,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
       .filter(log => log.completed)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
-    // Log para depuración
-    logs.forEach((log, index) => {
-      if (index < 3) { // Solo los primeros 3 para no saturar
-        console.log({
-          id: log.id,
-          date: log.date,
-          has_exercises_data: !!(log as any).exercises_data,
-          exercises_data_length: (log as any).exercises_data?.length || 0,
-          exercises_data: (log as any).exercises_data
-        })
-      }
-    })
     return logs
   }, [workoutLogs])
 
@@ -777,6 +765,5 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     </div>
   )
 }
-
 
 
