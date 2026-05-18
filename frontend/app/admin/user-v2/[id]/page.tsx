@@ -87,6 +87,8 @@ interface UserData {
   created_at_formatted?: string
   last_login_formatted?: string
   premium_alerts?: PremiumAlerts | null
+  admin_calories_override?: number | null
+  calculated_daily_calories?: number | null
 }
 
 interface PremiumAlerts {
@@ -147,6 +149,10 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   const [localData, setLocalData] = useState<Partial<UserData>>({})
   const [activeTab, setActiveTab] = useState("profile")
   const [alertExpanded, setAlertExpanded] = useState(false)
+
+  // Estado para override de calorías admin
+  const [caloriesOverrideInput, setCaloriesOverrideInput] = useState<string>("")
+  const [savingCalories, setSavingCalories] = useState(false)
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
@@ -252,10 +258,14 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
               has_pending: Boolean(data.premium_alerts.has_pending),
             }
           : null,
+        admin_calories_override: data.admin_calories_override != null ? safeNumber(data.admin_calories_override) : null,
+        calculated_daily_calories: data.calculated_daily_calories != null ? safeNumber(data.calculated_daily_calories) : null,
       }
 
       setUser(normalized)
       setLocalData(normalized)
+      // Inicializar el input con el valor actual del override (o vacío si no hay)
+      setCaloriesOverrideInput(data.admin_calories_override != null ? String(data.admin_calories_override) : "")
     } catch (err) {
       const message = err instanceof Error ? err.message : "Error desconocido"
       setError(message)
@@ -317,6 +327,31 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       setLocalData(user)
     }
     setIsEditing(false)
+  }
+
+  // Guardar override de calorías
+  const handleSaveCaloriesOverride = async (clear = false) => {
+    if (!userId) return
+    try {
+      setSavingCalories(true)
+      const headers = await getAuthHeaders()
+      const body = clear ? { admin_calories_override: null } : { admin_calories_override: caloriesOverrideInput ? parseInt(caloriesOverrideInput) : null }
+      const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.detail || `Error ${response.status}`)
+      }
+      await fetchUser()
+      toast({ title: clear ? "✅ Override eliminado" : "✅ Calorías guardadas", description: clear ? "Se usará el cálculo automático" : "El override del admin ha sido aplicado" })
+    } catch (err) {
+      toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al guardar", variant: "destructive" })
+    } finally {
+      setSavingCalories(false)
+    }
   }
 
   // ============================================================================
@@ -1198,6 +1233,76 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                     <p className="text-sm text-slate-700 whitespace-pre-wrap min-h-[60px]">
                       {user.disliked_foods || "No hay alimentos que no le gusten registrados"}
                     </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Override de calorías diarias */}
+            <Card className="border-indigo-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Activity className="h-4 w-4 text-indigo-600" />
+                  Calorías Diarias
+                </CardTitle>
+                <CardDescription>
+                  Valor automático calculado según el perfil del usuario (Harris-Benedict). Puedes fijar un valor personalizado que tendrá prioridad.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
+                  <div className="flex-1">
+                    <p className="text-xs text-slate-500 font-medium mb-0.5">Cálculo automático</p>
+                    <p className="text-xl font-bold text-slate-800">
+                      {user.calculated_daily_calories ? `${user.calculated_daily_calories} kcal` : "—"}
+                    </p>
+                  </div>
+                  {user.admin_calories_override ? (
+                    <div className="flex-1">
+                      <p className="text-xs text-indigo-600 font-medium mb-0.5">Override admin activo</p>
+                      <p className="text-xl font-bold text-indigo-700">{user.admin_calories_override} kcal</p>
+                    </div>
+                  ) : (
+                    <div className="flex-1">
+                      <p className="text-xs text-emerald-600 font-medium mb-0.5">Valor aplicado</p>
+                      <p className="text-sm text-emerald-700 font-semibold">Cálculo automático</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs font-medium mb-1.5 block">Fijar calorías manualmente (kcal)</Label>
+                    <Input
+                      type="number"
+                      min={800}
+                      max={6000}
+                      step={50}
+                      placeholder={user.calculated_daily_calories ? `Automático: ${user.calculated_daily_calories}` : "Ej: 2200"}
+                      value={caloriesOverrideInput}
+                      onChange={(e) => setCaloriesOverrideInput(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleSaveCaloriesOverride(false)}
+                      disabled={savingCalories || !caloriesOverrideInput}
+                      className="bg-indigo-600 hover:bg-indigo-700"
+                    >
+                      {savingCalories ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                      Guardar
+                    </Button>
+                    {user.admin_calories_override ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleSaveCaloriesOverride(true)}
+                        disabled={savingCalories}
+                      >
+                        <X className="h-3 w-3 mr-1" />
+                        Restablecer auto
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
               </CardContent>

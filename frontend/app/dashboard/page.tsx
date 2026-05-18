@@ -96,6 +96,8 @@ const menuItems = [
   { title: "Configuración", icon: Settings, url: "settings" },
 ]
 
+const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
+
 function DashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -104,24 +106,42 @@ function DashboardContent() {
   const { userStats, loading: statsLoading } = useUserData()
   const { profile, loading: profileLoading } = useUserProfile()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
+  const userRole = (user?.role || "").toLowerCase()
+  const isPremiumUser = userRole === "premium"
+  const visibleMenuItems = isPremiumUser
+    ? menuItems.filter((item) => !PREMIUM_BLOCKED_SECTIONS.has(item.url))
+    : menuItems
 
   useEffect(() => {
     const sectionParam = searchParams?.get("section")
+
+    if (sectionParam && isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
+      setSelectedSection("dashboard")
+      router.replace("/dashboard", { scroll: false })
+      return
+    }
+
     if (sectionParam && sectionParam !== selectedSection) {
       setSelectedSection(sectionParam)
     } else if (!sectionParam && selectedSection !== "dashboard") {
       setSelectedSection("dashboard")
     }
-  }, [searchParams, selectedSection])
+  }, [searchParams, selectedSection, isPremiumUser, router])
 
   const handleMenuClick = useCallback((section: string, title: string) => {
+    if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(section)) {
+      setSelectedSection("dashboard")
+      router.push("/dashboard", { scroll: false })
+      return
+    }
+
     setSelectedSection(section)
     if (section === "dashboard") {
       router.push("/dashboard", { scroll: false })
     } else {
       router.push(`/dashboard?section=${section}`, { scroll: false })
     }
-  }, [router])
+  }, [router, isPremiumUser])
 
   useEffect(() => {
     const handleSectionChange = (event: Event) => {
@@ -160,18 +180,24 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                <Suspense fallback={null}>
-                  <SubscriptionStatusCard />
-                </Suspense>
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <SubscriptionStatusCard />
+                  </Suspense>
+                ) : null}
                 <Suspense fallback={null}>
                   <QuinzenalReview />
                 </Suspense>
-                <Suspense fallback={null}>
-                  <CoachingCTA placement="dashboard-home" cooldownHours={48} />
-                </Suspense>
-                <Suspense fallback={null}>
-                  <RecommendationsSection />
-                </Suspense>
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <CoachingCTA placement="dashboard-home" cooldownHours={48} />
+                  </Suspense>
+                ) : null}
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <RecommendationsSection />
+                  </Suspense>
+                ) : null}
                 <Suspense fallback={null}>
                   <TipsShowcase />
                 </Suspense>
@@ -185,6 +211,15 @@ function DashboardContent() {
 
 
       case "recommendations":
+        if (isPremiumUser) {
+          return (
+            <div className="fade-in-stagger scroll-area h-full w-full relative">
+              <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+                <DashboardEnhanced />
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -200,6 +235,15 @@ function DashboardContent() {
         )
 
       case "coaching":
+        if (isPremiumUser) {
+          return (
+            <div className="fade-in-stagger scroll-area h-full w-full relative">
+              <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+                <DashboardEnhanced />
+              </div>
+            </div>
+          )
+        }
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -242,9 +286,11 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <MealDashboard />
-                <Suspense fallback={null}>
-                  <CoachingCTA placement="meals" cooldownHours={48} />
-                </Suspense>
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <CoachingCTA placement="meals" cooldownHours={48} />
+                  </Suspense>
+                ) : null}
               </div>
             </div>
           </div>
@@ -260,9 +306,11 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <WorkoutDashboardEnhanced />
-                <Suspense fallback={null}>
-                  <CoachingCTA placement="workouts" cooldownHours={48} />
-                </Suspense>
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <CoachingCTA placement="workouts" cooldownHours={48} />
+                  </Suspense>
+                ) : null}
               </div>
             </div>
           </div>
@@ -293,9 +341,11 @@ function DashboardContent() {
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <Suspense fallback={null}><BodyMeasurements /></Suspense>
-                <Suspense fallback={null}>
-                  <CoachingCTA placement="measurements" cooldownHours={48} />
-                </Suspense>
+                {!isPremiumUser ? (
+                  <Suspense fallback={null}>
+                    <CoachingCTA placement="measurements" cooldownHours={48} />
+                  </Suspense>
+                ) : null}
               </div>
             </div>
           </div>
@@ -365,7 +415,7 @@ function DashboardContent() {
         )
 
       default:
-        const currentMenuItem = menuItems.find((item) => item.url === selectedSection)
+        const currentMenuItem = visibleMenuItems.find((item) => item.url === selectedSection)
         const IconComponent = currentMenuItem?.icon || Home
 
         return (
@@ -428,7 +478,7 @@ function DashboardContent() {
                 <SidebarGroupLabel className="text-muted-foreground">Navegación</SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {menuItems.map((item) => {
+                    {visibleMenuItems.map((item) => {
                       const IconComponent = item.icon
                       const isDisabled = 'disabled' in item && item.disabled === true
                       return (

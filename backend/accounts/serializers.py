@@ -82,6 +82,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     excluded_recipes = serializers.SerializerMethodField()
     excluded_ingredients = serializers.SerializerMethodField()
     recent_change_sections = serializers.SerializerMethodField()
+    calculated_daily_calories = serializers.SerializerMethodField()
     
     class Meta:
         model = CustomUser
@@ -113,10 +114,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
             # Timestamps
             'date_joined', 'created_at_formatted', 'last_login', 'last_login_formatted', 
             'created_at', 'updated_at',
+            # Calorías (override admin)
+            'admin_calories_override', 'calculated_daily_calories',
             # Alertas premium para panel admin
             'premium_alerts', 'recent_change_sections'
         ]
-        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age']
+        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age', 'calculated_daily_calories']
     
     def update(self, instance, validated_data):
         """Sobrescribir update para manejar el mapeo de roles"""
@@ -128,6 +131,19 @@ class AdminUserSerializer(serializers.ModelSerializer):
     
     def get_is_superuser_display(self, obj):
         return 'Sí' if obj.is_superuser else 'No'
+
+    def get_calculated_daily_calories(self, obj):
+        """Retorna las calorías calculadas automáticamente (ignorando el override del admin)"""
+        try:
+            from nutrition.services import PersonalizedNutritionService
+            # Calcula usando Harris-Benedict sin tener en cuenta el override
+            original_override = obj.admin_calories_override
+            obj.admin_calories_override = None  # ignorar temporalmente para el cálculo
+            calories = PersonalizedNutritionService(obj).calculate_daily_calories()
+            obj.admin_calories_override = original_override  # restaurar
+            return calories
+        except Exception:
+            return getattr(obj, 'daily_calories_target', None)
     
     def get_last_login_formatted(self, obj):
         if obj.last_login:

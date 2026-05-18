@@ -284,6 +284,17 @@ class CustomUser(AbstractUser):
     subscription_ends_at = models.DateTimeField(null=True, blank=True)
     
     # ==========================================================================
+    # CALORÍAS (OVERRIDE ADMIN)
+    # ==========================================================================
+
+    admin_calories_override = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Calorías diarias fijadas manualmente por un administrador. "
+                  "Si se establece, tiene prioridad sobre el cálculo automático."
+    )
+
+    # ==========================================================================
     # TIMESTAMPS
     # ==========================================================================
     
