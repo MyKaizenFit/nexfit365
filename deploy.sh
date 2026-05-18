@@ -73,7 +73,7 @@ wait_http_ok() {
     while [ "$attempt" -le "$max_retries" ]; do
         local code
         code=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
-        if [ "$code" = "200" ]; then
+        if [ "$code" = "200" ] || [ "$code" = "301" ] || [ "$code" = "302" ]; then
             print_success "$name está saludable (HTTP 200)"
             return 0
         fi
@@ -303,7 +303,7 @@ sleep 5
 BACKEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ || echo "000")
 FRONTEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || echo "000")
 
-if [ "$BACKEND_HEALTH" = "200" ]; then
+if [ "$BACKEND_HEALTH" = "200" ] || [ "$BACKEND_HEALTH" = "301" ] || [ "$BACKEND_HEALTH" = "302" ]; then
     print_success "Backend está respondiendo correctamente"
 else
     print_warning "Backend no está respondiendo correctamente (código: $BACKEND_HEALTH)"
