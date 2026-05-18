@@ -3,7 +3,7 @@
 # ============================================
 # 📁 Carpeta: /srv/mykaizenfit/pro/
 # 
-# ⚠️ ESTE ARCHIVO ES PARA DESARROLLO, NO PRODUCCIÓN
+# ⚠️ ESTE ARCHIVO ES PARA DESARROLLO, usando BD de producción para pruebas reales
 # 
 # COMANDOS:
 #   Iniciar:  COMPOSE_PROJECT_NAME=nexfit-dev docker compose -f docker-compose.dev.yml up -d
@@ -16,9 +16,9 @@
 #   - Backend:  8000 (prod: 8000)
 #   - DB:       5434 (prod: 5433)
 #
-# BASE DE DATOS SEPARADA:
-#   - Nombre: mykaizenfit_dev (prod: mykaizenfit)
-#   - Datos en volúmenes nombrados de Docker (compatible Windows/Linux)
+# BASE DE DATOS PARA PRUEBAS:
+#   - Backend/Celery usan SIEMPRE la BD de producción (mykaizenfit)
+#   - El servicio db local queda opcional (perfil localdb) para pruebas aisladas
 
 services:
   # ============================================
@@ -30,6 +30,10 @@ services:
     env_file:
       - ./docker/backend.env.dev
     environment:
+      # Variables requeridas por la imagen oficial de Postgres
+      POSTGRES_DB: mykaizenfit_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
       # Configuración de encoding UTF-8
       POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C.UTF-8"
       LC_ALL: "C.UTF-8"
@@ -48,6 +52,8 @@ services:
       internal:
         aliases:
           - nexfit-dev-db
+    profiles:
+      - localdb
 
   # ============================================
   # REDIS (DESARROLLO)
@@ -79,16 +85,19 @@ services:
     restart: unless-stopped
     user: "0:0"
     env_file:
-      - ./docker/backend.env.dev
+      - ./docker/backend.env.production
     environment:
       # Logs
       LOG_LEVEL: DEBUG
+      # Forzar uso de BD de producción desde la red interna de producción
+      DB_HOST: nexfit-pro-db
+      DB_NAME: mykaizenfit
+      DB_PORT: 5432
+      # En dev seguimos usando redis local
+      REDIS_URL: redis://redis:6379/0
     command: >
       sh -c "
-        echo '🔄 Aplicando migraciones...' &&
-        python manage.py migrate --noinput &&
-        echo '📦 Recolectando archivos estáticos...' &&
-        python manage.py collectstatic --noinput || true &&
+        echo '🔎 Usando BD de producción para pruebas: '$$DB_NAME' @ '$$DB_HOST':'$$DB_PORT &&
         echo '🚀 Iniciando servidor de desarrollo...' &&
         python manage.py runserver 0.0.0.0:8000
       "
@@ -100,8 +109,6 @@ services:
       - nexfit-dev-staticfiles:/app/staticfiles
       - nexfit-dev-media:/app/media
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -113,6 +120,7 @@ services:
     networks:
       - internal
       - web
+      - prod_internal
 
   # ============================================
   # FRONTEND (Next.js) - DESARROLLO
@@ -150,21 +158,24 @@ services:
     restart: unless-stopped
     user: "0:0"
     env_file:
-      - ./docker/backend.env.dev
+      - ./docker/backend.env.production
     environment:
       LOG_LEVEL: DEBUG
+      DB_HOST: nexfit-pro-db
+      DB_NAME: mykaizenfit
+      DB_PORT: 5432
+      REDIS_URL: redis://redis:6379/0
     command: >
       sh -c "celery -A backend worker --loglevel=info --concurrency=2"
     volumes:
       - ./backend:/app
       - nexfit-dev-media:/app/media
     depends_on:
-      db:
-        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
       - internal
+      - prod_internal
 
 # ============================================
 # VOLÚMENES
@@ -191,3 +202,6 @@ networks:
   web:
     name: nexfit-dev-web
     driver: bridge
+  prod_internal:
+    external: true
+    name: nexfit-pro-internal-prod

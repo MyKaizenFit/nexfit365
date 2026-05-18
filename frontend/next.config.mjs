@@ -1,5 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Proxy de API solo en desarrollo (en producción se usa api.nexfit365.dpdns.org directamente)
+  async rewrites() {
+    if (process.env.NODE_ENV === 'production') {
+      return []
+    }
+
+    const backendUrl = process.env.NEXT_INTERNAL_API_URL || 'http://backend:8000'
+    return [
+      {
+        source: '/api/:path(.*)',
+        destination: `${backendUrl}/api/:path`,
+      },
+    ]
+  },
+
   // Permite usar un directorio de build alternativo en local cuando `.next`
   // tiene permisos restrictivos (por ejemplo, builds hechos como root).
   // En producción sigue usando `.next` por defecto.
@@ -21,6 +36,7 @@ const nextConfig = {
   },
   images: {
     unoptimized: true,
+    qualities: [75, 85, 100],
     remotePatterns: [
       {
         protocol: 'https',

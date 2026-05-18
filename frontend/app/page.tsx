@@ -52,7 +52,8 @@ export default function HomePage() {
       const accessToken = authService.getAccessToken()
       if (accessToken && accessToken.includes('.') && !accessToken.startsWith('offline_token_')) {
         const payload = JSON.parse(atob(accessToken.split('.')[1]))
-        isAdmin = !!(payload.is_superuser || payload.is_staff || payload.role === 'ADMIN' || payload.role === 'admin' || payload.role === 'trainer')
+        const userRole = (payload.role || '').toLowerCase()
+        isAdmin = !!(payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer')
       }
     } catch {
       // Ignorar: si falla token, caemos al chequeo por user
@@ -60,7 +61,7 @@ export default function HomePage() {
 
     isAdmin =
       isAdmin ||
-      !!(user && (user.is_superuser || user.is_staff || user.role === 'ADMIN' || (user as any).role === 'admin' || (user as any).role === 'trainer'))
+      !!(user && (user.is_superuser || user.is_staff || ((user as any).role || '').toLowerCase() === 'admin' || ((user as any).role || '').toLowerCase() === 'trainer'))
 
     if (isAdmin) {
       window.location.replace('/admin')

@@ -48,6 +48,20 @@ class ExerciseViewSet(viewsets.ModelViewSet):
             return ExerciseMinimalSerializer
         return ExerciseSerializer
 
+    def create(self, request, *args, **kwargs):
+        """Upsert por nombre: si ya existe, actualiza el ejercicio existente."""
+        incoming_name = Exercise.normalize_name(request.data.get('name', ''))
+        if incoming_name:
+            existing = Exercise.find_existing_by_name(incoming_name)
+            if existing:
+                payload = request.data.copy()
+                payload['name'] = incoming_name
+                serializer = self.get_serializer(existing, data=payload, partial=True)
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
+
     def list(self, request, *args, **kwargs):
         try:
             return super().list(request, *args, **kwargs)

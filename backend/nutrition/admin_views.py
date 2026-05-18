@@ -25,6 +25,7 @@ from .admin_serializers import (
     AdminNutritionPlanMinimalSerializer
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
+from .services import PersonalizedNutritionService
 
 User = get_user_model()
 
@@ -1158,6 +1159,14 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         plan.fat_grams = int(round(avg['fat']))
         plan.save(update_fields=['daily_calories', 'protein_grams', 'carbs_grams', 'fat_grams'])
 
+    def _to_int(self, value):
+        try:
+            if value is None:
+                return None
+            return int(float(value))
+        except (TypeError, ValueError):
+            return None
+
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
         Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
@@ -1294,6 +1303,11 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         assigned_user_ids = self._extract_assigned_user_ids(request.data)
         prev_is_active = instance.is_active
 
+        requested_daily_calories = self._to_int(request.data.get('daily_calories'))
+        requested_protein = self._to_int(request.data.get('protein_grams'))
+        requested_carbs = self._to_int(request.data.get('carbs_grams'))
+        requested_fat = self._to_int(request.data.get('fat_grams'))
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         plan = serializer.save()
@@ -1316,6 +1330,32 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         self._replace_plan_meals(plan, meals_payload)
         self._recompute_plan_macros(plan)
+
+        # Si un admin fija calorías manualmente en un plan de usuario,
+        # reescalamos comidas/recetas para no perder ese valor al recalcular.
+        if requested_daily_calories and plan.user_id and requested_daily_calories > 0:
+            current_calories = int(plan.daily_calories or 0)
+            if current_calories != requested_daily_calories:
+                service = PersonalizedNutritionService(plan.user)
+                plan = service.adjust_plan_calories(
+                    plan,
+                    requested_daily_calories - current_calories,
+                    reason='admin_manual_update',
+                    notes=f'Ajuste manual desde admin a {requested_daily_calories} kcal',
+                )
+
+        update_fields = []
+        if requested_protein is not None:
+            plan.protein_grams = requested_protein
+            update_fields.append('protein_grams')
+        if requested_carbs is not None:
+            plan.carbs_grams = requested_carbs
+            update_fields.append('carbs_grams')
+        if requested_fat is not None:
+            plan.fat_grams = requested_fat
+            update_fields.append('fat_grams')
+        if update_fields:
+            plan.save(update_fields=update_fields)
 
         plan.refresh_from_db()
         plan = NutritionPlan.objects.prefetch_related(
@@ -3711,7 +3751,158 @@ def admin_default_plans(request):
     })
 
 
-@api_view(['GET'])
+@api_view(['POST'])
+@perm_classes([IsAdminUser])
+def admin_change_user_plan(request):
+    """
+    Asigna un plan base (template/sistema) a un usuario concreto,
+    creando una copia personalizada según su perfil.
+    """
+    user_id = request.data.get('user_id')
+    default_plan_id = request.data.get('default_plan_id')
+
+    if not user_id or not default_plan_id:
+        return Response(
+            {'error': 'user_id y default_plan_id son requeridos'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        target_user = User.objects.get(pk=user_id)
+    except User.DoesNotExist:
+        return Response({'error': 'Usuario no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        default_plan = NutritionPlan.objects.prefetch_related('meals__suggested_recipes').get(pk=default_plan_id)
+    except NutritionPlan.DoesNotExist:
+        return Response({'error': 'Plan base no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not default_plan.is_active:
+        return Response({'error': 'El plan base está inactivo'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Solo permitir plantillas/sistema como origen para evitar asignar planes de otros usuarios.
+    if default_plan.user_id and not default_plan.is_template and not default_plan.is_system:
+        return Response(
+            {'error': 'Solo se pueden asignar planes plantilla o del sistema'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        service = PersonalizedNutritionService(target_user)
+        new_plan = service.assign_plan_from_default(
+            default_plan,
+            changed_by=request.user,
+            reason='admin_manual_change',
+            notes=f'Plan asignado por admin ({request.user.email}) desde plantilla {default_plan.name}',
+        )
+
+        if not new_plan:
+            return Response({'error': 'No se pudo asignar el plan al usuario'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = AdminNutritionPlanSerializer(new_plan)
+        return Response(
+            {
+                'message': 'Plan asignado correctamente',
+                'plan': serializer.data,
+                'user_id': target_user.id,
+                'default_plan_id': str(default_plan.id),
+            },
+            status=status.HTTP_200_OK,
+        )
+    except Exception as exc:
+        return Response({'error': f'Error asignando plan: {str(exc)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@perm_classes([IsAdminUser])
+def admin_bulk_change_plans(request):
+    """
+    Asignación masiva de un plan base a múltiples usuarios.
+    Soporta:
+      - user_ids: [1,2,3]
+      - change_all: true + filter { role?, main_goal? }
+    """
+    default_plan_id = request.data.get('default_plan_id')
+    if not default_plan_id:
+        return Response({'error': 'default_plan_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        default_plan = NutritionPlan.objects.prefetch_related('meals__suggested_recipes').get(pk=default_plan_id)
+    except NutritionPlan.DoesNotExist:
+        return Response({'error': 'Plan base no encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+    if not default_plan.is_active:
+        return Response({'error': 'El plan base está inactivo'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_plan.user_id and not default_plan.is_template and not default_plan.is_system:
+        return Response(
+            {'error': 'Solo se pueden asignar planes plantilla o del sistema'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    change_all = bool(request.data.get('change_all', False))
+    raw_user_ids = request.data.get('user_ids', [])
+    filters_payload = request.data.get('filter', {}) or {}
+
+    users_qs = User.objects.all()
+    if change_all:
+        role_value = filters_payload.get('role')
+        goal_value = filters_payload.get('main_goal')
+        if role_value:
+            users_qs = users_qs.filter(role=role_value)
+        if goal_value:
+            users_qs = users_qs.filter(main_goal=goal_value)
+    else:
+        if not isinstance(raw_user_ids, list) or not raw_user_ids:
+            return Response(
+                {'error': 'Debes enviar user_ids o activar change_all'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        users_qs = users_qs.filter(id__in=raw_user_ids)
+
+    users = list(users_qs)
+    if not users:
+        return Response(
+            {
+                'message': 'No hay usuarios para procesar con los filtros actuales',
+                'success_count': 0,
+                'error_count': 0,
+                'errors': [],
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    success_count = 0
+    errors = []
+
+    for target_user in users:
+        try:
+            service = PersonalizedNutritionService(target_user)
+            assigned = service.assign_plan_from_default(
+                default_plan,
+                changed_by=request.user,
+                reason='admin_bulk_change',
+                notes=f'Asignación masiva por admin ({request.user.email}) desde plantilla {default_plan.name}',
+            )
+            if assigned:
+                success_count += 1
+            else:
+                errors.append({'user_id': target_user.id, 'error': 'No se pudo asignar el plan'})
+        except Exception as exc:
+            errors.append({'user_id': target_user.id, 'error': str(exc)})
+
+    return Response(
+        {
+            'message': f'Plan cambiado para {success_count} usuarios',
+            'success_count': success_count,
+            'error_count': len(errors),
+            'errors': errors[:50],
+        },
+        status=status.HTTP_200_OK,
+    )
+
+
+@api_view(['GET', 'PUT', 'PATCH'])
 @perm_classes([IsAdminUser])
 def admin_user_plan(request, user_id: int):
     """
@@ -3723,6 +3914,49 @@ def admin_user_plan(request, user_id: int):
     user = get_object_or_404(User, pk=user_id)
 
     plan = NutritionPlan.objects.filter(user=user).prefetch_related('meals__suggested_recipes').order_by('-is_active', '-created_at').first()
+
+    if request.method in ['PUT', 'PATCH']:
+        if not plan:
+            return Response({'error': 'El usuario no tiene un plan nutricional activo'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            new_daily_calories = int(float(request.data.get('daily_calories')))
+        except (TypeError, ValueError):
+            return Response({'error': 'daily_calories es requerido y debe ser numérico'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if new_daily_calories <= 0:
+            return Response({'error': 'daily_calories debe ser mayor que 0'}, status=status.HTTP_400_BAD_REQUEST)
+
+        old_daily_calories = int(plan.daily_calories or 0)
+        service = PersonalizedNutritionService(user)
+        adjusted = service.adjust_plan_calories(
+            plan,
+            new_daily_calories - old_daily_calories,
+            reason='admin_manual_update',
+            notes=f'Ajuste manual desde endpoint usuario-plan: {old_daily_calories} -> {new_daily_calories} kcal',
+        )
+
+        protein_grams = request.data.get('protein_grams', None)
+        carbs_grams = request.data.get('carbs_grams', None)
+        fat_grams = request.data.get('fat_grams', None)
+        update_fields = []
+        for field_name, raw_value in [
+            ('protein_grams', protein_grams),
+            ('carbs_grams', carbs_grams),
+            ('fat_grams', fat_grams),
+        ]:
+            if raw_value is None:
+                continue
+            try:
+                setattr(adjusted, field_name, int(float(raw_value)))
+                update_fields.append(field_name)
+            except (TypeError, ValueError):
+                return Response({'error': f'{field_name} debe ser numérico'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if update_fields:
+            adjusted.save(update_fields=update_fields)
+
+        plan = NutritionPlan.objects.filter(pk=adjusted.pk).prefetch_related('meals__suggested_recipes').first()
     plan_data = AdminNutritionPlanSerializer(plan).data if plan else None
 
     days = max(int(request.query_params.get('days', 7)), 1)
@@ -3757,8 +3991,14 @@ def admin_user_plan(request, user_id: int):
     target_calories = None
     if plan and plan.daily_calories:
         target_calories = plan.daily_calories
-    elif hasattr(user, 'daily_calories_target'):
+    elif hasattr(user, 'daily_calories_target') and user.daily_calories_target:
         target_calories = user.daily_calories_target
+    else:
+        # Fallback inteligente: estimación personalizada por perfil (Harris-Benedict + objetivo)
+        try:
+            target_calories = PersonalizedNutritionService(user).calculate_daily_calories()
+        except Exception:
+            target_calories = None
 
     macros_target = {
         'calories': target_calories,

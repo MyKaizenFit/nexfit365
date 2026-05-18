@@ -107,6 +107,7 @@ export class AuthService {
   private accessToken: string | null = null
   private refreshToken: string | null = null
   private isOfflineMode: boolean = false
+  private readonly allowOfflineMode: boolean = process.env.NODE_ENV !== 'production'
   private isRefreshing: boolean = false // Flag para evitar múltiples renovaciones simultáneas
 
   private constructor() {
@@ -133,6 +134,11 @@ export class AuthService {
 
   // Verificar si estamos en modo offline
   private async checkOfflineMode() {
+    if (!this.allowOfflineMode) {
+      this.isOfflineMode = false
+      return
+    }
+
     try {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos de timeout
@@ -170,6 +176,9 @@ export class AuthService {
 
     // Verificar que no sean tokens offline (para desarrollo)
     if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
+      if (!this.allowOfflineMode) {
+        return false
+      }
       return true
     }
 
@@ -213,7 +222,7 @@ export class AuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       // Verificar si el backend está disponible
-      if (this.isOfflineMode) {
+      if (this.allowOfflineMode && this.isOfflineMode) {
         // Modo offline: simular login exitoso
         const mockUser: User = {
           id: 1,

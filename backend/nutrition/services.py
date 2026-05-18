@@ -209,8 +209,31 @@ class PersonalizedNutritionService:
         logger.info(f"   Datos: peso={self.user.weight}, altura={self.user.height}, edad={self.user.age}, género={self.user.gender}, objetivo={self.user.main_goal}")
         
         if not all([self.user.age, self.user.gender, self.user.height, self.user.weight]):
-            logger.warning(f"⚠️ Datos incompletos del usuario, usando valor por defecto 2000 kcal")
-            return 2000  # Valor por defecto
+            if getattr(self.user, 'daily_calories_target', None):
+                target = int(self.user.daily_calories_target)
+                logger.warning(f"⚠️ Datos incompletos del usuario, usando daily_calories_target={target} kcal")
+                return target
+
+            if self.user.weight:
+                # Estimación basada en peso para evitar un fijo 2000 sin contexto.
+                maintain_factor = 30
+                if self.user.activity_level == 'sedentary':
+                    maintain_factor = 27
+                elif self.user.activity_level in ('active', 'very_active'):
+                    maintain_factor = 33
+
+                estimated = int(float(self.user.weight) * maintain_factor)
+                if self.user.main_goal == 'lose_weight':
+                    estimated = int(estimated * 0.85)
+                elif self.user.main_goal == 'gain_muscle':
+                    estimated = int(estimated * 1.10)
+
+                estimated = max(1200, min(4500, estimated))
+                logger.warning(f"⚠️ Datos incompletos del usuario, usando estimación por peso={estimated} kcal")
+                return estimated
+
+            logger.warning("⚠️ Datos incompletos del usuario sin peso/target, usando fallback 2000 kcal")
+            return 2000
         
         # Fórmula de Harris-Benedict
         if self.user.gender == 'male':
@@ -925,16 +948,53 @@ class PersonalizedNutritionService:
         plan.updated_at = timezone.now()
         plan.save()
         
-        # Actualizar calorías de las comidas proporcionalmente
+        # Actualizar calorías de las comidas y recetas proporcionalmente
         if plan.meals.exists():
             calorie_ratio = new_daily_calories / old_calories if old_calories > 0 else 1
             
             for meal in plan.meals.all():
+                # Escalar primero cantidades/macros a nivel de receta para mantener coherencia visual
+                meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
+                for meal_recipe in meal_recipes:
+                    update_fields = []
+
+                    if meal_recipe.custom_calories is not None:
+                        meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * calorie_ratio)))
+                        update_fields.append('custom_calories')
+                    if meal_recipe.custom_protein is not None:
+                        meal_recipe.custom_protein = round(float(meal_recipe.custom_protein) * calorie_ratio, 2)
+                        update_fields.append('custom_protein')
+                    if meal_recipe.custom_carbs is not None:
+                        meal_recipe.custom_carbs = round(float(meal_recipe.custom_carbs) * calorie_ratio, 2)
+                        update_fields.append('custom_carbs')
+                    if meal_recipe.custom_fat is not None:
+                        meal_recipe.custom_fat = round(float(meal_recipe.custom_fat) * calorie_ratio, 2)
+                        update_fields.append('custom_fat')
+
+                    meal_recipe.servings = Decimal(str(max(0.10, round(float(meal_recipe.servings) * calorie_ratio, 2))))
+                    update_fields.append('servings')
+
+                    if update_fields:
+                        meal_recipe.save(update_fields=update_fields)
+
                 if meal.calories:
                     meal.calories = int(meal.calories * calorie_ratio)
-                    meal.protein = round(meal.protein * calorie_ratio, 1) if meal.protein else None
-                    meal.carbs = round(meal.carbs * calorie_ratio, 1) if meal.carbs else None
-                    meal.fat = round(meal.fat * calorie_ratio, 1) if meal.fat else None
+                    meal.protein = round(float(meal.protein) * calorie_ratio, 1) if meal.protein else None
+                    meal.carbs = round(float(meal.carbs) * calorie_ratio, 1) if meal.carbs else None
+                    meal.fat = round(float(meal.fat) * calorie_ratio, 1) if meal.fat else None
+
+                # Si la comida tiene recetas, recalcular macros usando promedio de opciones
+                if meal_recipes:
+                    display_calories = [mr.get_display_calories() for mr in meal_recipes]
+                    display_protein = [mr.get_display_protein() for mr in meal_recipes]
+                    display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
+                    display_fat = [mr.get_display_fat() for mr in meal_recipes]
+
+                    meal.calories = int(round(sum(display_calories) / len(display_calories))) if display_calories else meal.calories
+                    meal.protein = round(sum(display_protein) / len(display_protein), 1) if display_protein else meal.protein
+                    meal.carbs = round(sum(display_carbs) / len(display_carbs), 1) if display_carbs else meal.carbs
+                    meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
+
                     meal.save()
         
         # Registrar cambio en historial

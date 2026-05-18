@@ -148,6 +148,7 @@ export function NutritionTemplatePlanEditor({
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
   const [recipeSearch, setRecipeSearch] = useState("")
   const [recipeGoalFilter, setRecipeGoalFilter] = useState("all")
+  const [recipeFreeFromFilters, setRecipeFreeFromFilters] = useState<string[]>([])
   const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
 
   const recipesById = useMemo(() => {

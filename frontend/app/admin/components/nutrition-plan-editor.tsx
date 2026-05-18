@@ -78,6 +78,7 @@ interface NutritionPlan {
 type MacroPercents = { protein: number; carbs: number; fat: number }
 
 const DEFAULT_PERCENTS: MacroPercents = { protein: 30, carbs: 40, fat: 30 }
+const DEFAULT_CALORIES_FALLBACK = 1800
 
 const toNumber = (value: unknown, fallback = 0) => {
   const num = Number(value)
@@ -214,6 +215,24 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
           processPlanDetail(detail)
           return
         } else {
+          const suggestedCalories = toNumber(adminData?.macros_target?.calories, DEFAULT_CALORIES_FALLBACK)
+          const initialCalories = suggestedCalories > 0 ? suggestedCalories : DEFAULT_CALORIES_FALLBACK
+
+          setMacroPercents(DEFAULT_PERCENTS)
+          const grams = computeGramsFromPercents(DEFAULT_PERCENTS, initialCalories)
+          setPlan({
+            name: "Nuevo Plan Nutricional",
+            description: "Plan nutricional personalizado",
+            daily_calories: initialCalories,
+            target_macros: {
+              ...grams,
+              protein_percentage: DEFAULT_PERCENTS.protein,
+              carbs_percentage: DEFAULT_PERCENTS.carbs,
+              fat_percentage: DEFAULT_PERCENTS.fat,
+            },
+            meals: [],
+          })
+          return
         }
       } else {
       }
@@ -235,11 +254,11 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       } else {
         // No hay plan, crear uno nuevo
         setMacroPercents(DEFAULT_PERCENTS)
-        const grams = computeGramsFromPercents(DEFAULT_PERCENTS, 2000)
+        const grams = computeGramsFromPercents(DEFAULT_PERCENTS, DEFAULT_CALORIES_FALLBACK)
         setPlan({
           name: "Nuevo Plan Nutricional",
           description: "Plan nutricional personalizado",
-          daily_calories: 2000,
+          daily_calories: DEFAULT_CALORIES_FALLBACK,
           target_macros: {
             ...grams,
             protein_percentage: DEFAULT_PERCENTS.protein,
@@ -354,7 +373,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
     const percents =
       percentsFromApi.protein || percentsFromApi.carbs || percentsFromApi.fat
         ? percentsFromApi
-        : computePercentsFromGrams(grams, toNumber(detail.daily_calories, 2000))
+        : computePercentsFromGrams(grams, toNumber(detail.daily_calories, DEFAULT_CALORIES_FALLBACK))
 
     setMacroPercents({
       protein: percents.protein || DEFAULT_PERCENTS.protein,
@@ -366,7 +385,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
       id: detail.id,
       name: fixEncoding(detail.name || "Plan Nutricional"),
       description: fixEncoding(detail.description || ""),
-      daily_calories: toNumber(detail.daily_calories, 2000),
+      daily_calories: toNumber(detail.daily_calories, DEFAULT_CALORIES_FALLBACK),
       target_macros: {
         protein: grams.protein,
         carbs: grams.carbs,

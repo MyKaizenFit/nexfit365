@@ -49,13 +49,55 @@ check_production_status() {
   fi
 }
 
+check_dev_db_target() {
+  echo "🔍 Verificando que desarrollo usa la BD de producción..."
+
+  DB_ENV=$(COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker-compose.dev.yml exec -T backend sh -lc 'echo "$DB_NAME|$DB_HOST|$DB_PORT"' 2>/dev/null || echo "")
+  if [ -z "$DB_ENV" ]; then
+    echo "❌ No se pudo leer configuración DB del backend en desarrollo."
+    return 1
+  fi
+
+  DB_NAME_CURRENT=$(echo "$DB_ENV" | cut -d'|' -f1)
+  DB_HOST_CURRENT=$(echo "$DB_ENV" | cut -d'|' -f2)
+
+  if [ "$DB_NAME_CURRENT" != "mykaizenfit" ] || [ "$DB_HOST_CURRENT" != "nexfit-pro-db" ]; then
+    echo "❌ Desarrollo NO está usando la BD de producción."
+    echo "   Detectado: DB_NAME=$DB_NAME_CURRENT DB_HOST=$DB_HOST_CURRENT"
+    return 1
+  fi
+
+  USER_COUNT=$(COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker-compose.dev.yml exec -T backend python manage.py shell -c "from django.contrib.auth import get_user_model; print(get_user_model().objects.count())" 2>/dev/null | tail -n 1 | tr -d '\r' || echo "0")
+  if [ -z "$USER_COUNT" ] || [ "$USER_COUNT" = "0" ]; then
+    echo "⚠️  Conteo de usuarios en backend es 0. Revisa conexión/credenciales antes de probar login."
+    return 1
+  fi
+
+  echo "✅ Desarrollo conectado a BD de producción (usuarios detectados: $USER_COUNT)."
+  return 0
+}
+
+remove_stray_local_db() {
+  # Si quedó un db local antiguo, lo eliminamos para evitar confusión en pruebas.
+  STRAY_DB_ID=$(docker ps -aq --filter "name=^nexfit-dev-db-1$" 2>/dev/null || true)
+  if [ ! -z "$STRAY_DB_ID" ]; then
+    echo "🧹 Eliminando contenedor db local residual (nexfit-dev-db-1)..."
+    docker rm -f nexfit-dev-db-1 >/dev/null 2>&1 || true
+  fi
+}
+
 case $ACTION in
   up|start)
     # Verificar producción antes de iniciar desarrollo
     check_production_status
     echo ""
     echo "🚀 Iniciando entorno de DESARROLLO..."
+    remove_stray_local_db
     COMPOSE_PROJECT_NAME=$COMPOSE_PROJECT_NAME docker compose -f docker-compose.dev.yml up -d --build
+    if ! check_dev_db_target; then
+      echo "❌ Verificación de BD falló."
+      exit 1
+    fi
     echo ""
     echo "✅ Desarrollo iniciado:"
     echo "   Frontend: http://localhost:3000"
