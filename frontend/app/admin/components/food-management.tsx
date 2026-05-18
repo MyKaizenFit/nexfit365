@@ -31,18 +31,9 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Progress } from "@/components/ui/progress"
+import { getApiBaseUrl } from "@/lib/api"
 
-// Helper para obtener la URL de la API
-const getApiUrl = (): string => {
-  const envUrl = process.env.NEXT_PUBLIC_API_URL
-  if (envUrl) {
-    return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
-  }
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://api.nexfit365.dpdns.org'
-  }
-  return 'http://localhost:8000'
-}
+const getApiUrl = getApiBaseUrl
 
 interface Food {
   id: string
@@ -1260,13 +1251,18 @@ export function FoodManagement() {
                   const checked = Array.isArray(foodForm.allergens) && foodForm.allergens.includes(option.value)
                   const suggested = inferredAllergens.includes(option.value)
                   return (
-                    <label key={option.value} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${suggested ? 'border-amber-300 bg-amber-50' : 'bg-white'}`}>
+                    <div
+                      key={option.value}
+                      className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer select-none ${suggested ? 'border-amber-300 bg-amber-50' : 'bg-white'}`}
+                      onClick={() => toggleAllergen(option.value, !checked)}
+                    >
                       <Checkbox
                         checked={checked}
                         onCheckedChange={(value) => toggleAllergen(option.value, Boolean(value))}
+                        onClick={(e) => e.stopPropagation()}
                       />
                       <span>{option.label}</span>
-                    </label>
+                    </div>
                   )
                 })}
               </div>
