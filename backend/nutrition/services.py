@@ -207,7 +207,13 @@ class PersonalizedNutritionService:
         """
         logger.info(f"📊 Calculando calorías para usuario ID: {self.user.id}, email: {self.user.email}")
         logger.info(f"   Datos: peso={self.user.weight}, altura={self.user.height}, edad={self.user.age}, género={self.user.gender}, objetivo={self.user.main_goal}")
-        
+
+        # Prioridad máxima: override manual del administrador
+        admin_override = getattr(self.user, 'admin_calories_override', None)
+        if admin_override:
+            logger.info(f"   ⚙️ Usando override del administrador: {admin_override} kcal")
+            return int(admin_override)
+
         if not all([self.user.age, self.user.gender, self.user.height, self.user.weight]):
             if getattr(self.user, 'daily_calories_target', None):
                 target = int(self.user.daily_calories_target)
