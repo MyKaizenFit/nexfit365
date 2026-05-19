@@ -44,6 +44,8 @@ services:
       LC_ALL: "C.UTF-8"
       LANG: "C.UTF-8"
       PGCLIENTENCODING: "UTF8"
+    ports:
+      - "127.0.0.1:5433:5432"  # Solo acceso local (VS Code DB viewer)
     # PostgreSQL queda solo en la red interna de Docker.
     # Para mantenimiento puntual, usa `docker compose exec db psql`.
     logging:
