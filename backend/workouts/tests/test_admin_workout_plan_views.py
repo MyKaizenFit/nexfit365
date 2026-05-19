@@ -415,3 +415,74 @@ class TestImportExcel:
 
         old_plan.refresh_from_db()
         assert old_plan.is_active is False
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_import_excel_summary_sheet_assigns_user_plan(
+        self,
+        admin_client,
+        regular_user,
+        exercise,
+    ):
+        """La hoja Resumen completo también debe importar planes de usuario."""
+        import openpyxl
+
+        WorkoutProgram.objects.create(
+            name='Vamos Miriam!!!',
+            is_active=True,
+            is_template=True,
+        )
+        old_plan = WorkoutProgram.objects.create(
+            user=regular_user,
+            name='Plan anterior',
+            is_active=True,
+            is_template=False,
+        )
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Resumen completo'
+        ws.append([
+            'Categoría Plan', 'Usuario Referencia', 'Creado Por', 'Nombre Plan',
+            'Descripción Plan', 'Dificultad', 'Objetivo', 'Ubicación',
+            'Semanas', 'Días/Semana', 'Duración Plan (min)', 'Número Día',
+            'Nombre Día', 'Día Semana', 'Descanso', 'Orden Ejercicio',
+            'Nombre Ejercicio', 'Series', 'Reps', 'Peso', 'Duración (seg)',
+            'Descanso (seg)', 'Grupo Superset', 'Sustitutos (separados por |)',
+        ])
+        ws.append([
+            'Usuario', regular_user.email, '', 'Vamos Miriam!!!',
+            '', 'Principiante', 'Fitness general', 'Gimnasio',
+            4, 3, 60, 1, 'Pierna A', 'Lunes', 'No', 1,
+            exercise.name, 3, '8-12', '', '', 90, '', '',
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = 'summary.xlsx'
+
+        response = admin_client.post(
+            f'{BASE_URL}import_excel/',
+            {'file': buffer},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        user_plan = WorkoutProgram.objects.get(user=regular_user, name='Vamos Miriam!!!')
+        assert user_plan.is_active is True
+        assert user_plan.is_template is False
+        assert WorkoutProgram.objects.filter(
+            user__isnull=True,
+            name='Vamos Miriam!!!',
+            is_template=True,
+        ).exists()
+        assert user_plan.days.filter(day_number=1, name='Pierna A').exists()
+        assert WorkoutDayExercise.objects.filter(
+            workout_day__program=user_plan,
+            exercise=exercise,
+            reps='8-12',
+        ).exists()
+
+        old_plan.refresh_from_db()
+        assert old_plan.is_active is False
