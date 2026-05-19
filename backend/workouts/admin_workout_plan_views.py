@@ -1004,6 +1004,22 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     return None
                 return users_by_email.get(email)
 
+            def is_user_category(category, user_email=None):
+                return normalize_text(category) == 'usuario' or bool(str(user_email or '').strip())
+
+            def deactivate_other_active_user_plans(plan):
+                if not getattr(plan, 'user_id', None) or not getattr(plan, 'is_active', False):
+                    return
+                from django.utils import timezone
+
+                WorkoutProgram.objects.filter(
+                    user=plan.user,
+                    is_active=True,
+                ).exclude(pk=plan.pk).update(
+                    is_active=False,
+                    end_date=timezone.now().date(),
+                )
+
             def resolve_plan(name, category=None, user_email=None):
                 if not name:
                     return None
@@ -1016,6 +1032,15 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     by_user = qs.filter(user=user).first()
                     if by_user:
                         return by_user
+                    if is_user_category(category, user_email):
+                        reusable_template = qs.filter(
+                            user__isnull=True,
+                            is_template=True,
+                            is_system=False,
+                        ).first()
+                        if reusable_template:
+                            return reusable_template
+                        return None
 
                 if category_key == 'sistema':
                     system_plan = qs.filter(is_system=True).first()
@@ -1044,8 +1069,11 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
                 category_key = normalize_text(category)
                 user = resolve_user(user_email)
+                if is_user_category(category, user_email) and not user:
+                    raise ValueError(f"Usuario '{user_email}' no encontrado para el plan '{plan_name}'")
+
                 is_system = category_key == 'sistema'
-                is_template = category_key == 'plantilla'
+                is_template = category_key == 'plantilla' and not user
 
                 plan = WorkoutProgram.objects.create(
                     name=plan_name,
@@ -1061,9 +1089,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     image_url='',
                     is_active=True,
                     is_template=is_template,
-                    is_system=is_system,
+                    is_system=is_system and not user,
                     user=user,
                 )
+                deactivate_other_active_user_plans(plan)
                 return plan, True
 
             def find_exercise_by_name(name):
@@ -1095,6 +1124,12 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
                             plan = resolve_plan(name, category=category, user_email=user_ref)
                             category_key = normalize_text(category)
+                            user = resolve_user(user_ref)
+                            if is_user_category(category, user_ref) and not user:
+                                errors.append(f"Planes - Fila {row_num}: Usuario '{user_ref}' no encontrado")
+                                stats['plans']['skipped'] += 1
+                                continue
+                            plan_is_active = parse_bool(get_cell(row, plans_headers, ['Activo', 'is_active', 'plan_is_active'], fallback_index=14), default=True)
 
                             fields = {
                                 'name': name,
@@ -1108,10 +1143,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 'equipment_needed': parse_list(get_cell(row, plans_headers, ['Equipo (coma separado)', 'equipment_needed', 'plan_equipment_needed'], fallback_index=11)),
                                 'tags': parse_list(get_cell(row, plans_headers, ['Tags (coma separado)', 'tags', 'plan_tags'], fallback_index=12)),
                                 'image_url': str(get_cell(row, plans_headers, ['Imagen URL', 'image_url', 'plan_image_url'], fallback_index=13, default='') or '').strip(),
-                                'is_active': parse_bool(get_cell(row, plans_headers, ['Activo', 'is_active', 'plan_is_active'], fallback_index=14), default=True),
-                                'is_template': parse_bool(get_cell(row, plans_headers, ['Plantilla', 'is_template', 'plan_is_template'], fallback_index=15), default=(category_key == 'plantilla')),
-                                'is_system': category_key == 'sistema',
-                                'user': resolve_user(user_ref),
+                                'is_active': plan_is_active,
+                                'is_template': False if user else parse_bool(get_cell(row, plans_headers, ['Plantilla', 'is_template', 'plan_is_template'], fallback_index=15), default=(category_key == 'plantilla')),
+                                'is_system': False if user else category_key == 'sistema',
+                                'user': user,
                                 'created_by': resolve_user(created_by_ref),
                             }
 
@@ -1119,9 +1154,11 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 for k, v in fields.items():
                                     setattr(plan, k, v)
                                 plan.save()
+                                deactivate_other_active_user_plans(plan)
                                 stats['plans']['updated'] += 1
                             else:
-                                WorkoutProgram.objects.create(**fields)
+                                plan = WorkoutProgram.objects.create(**fields)
+                                deactivate_other_active_user_plans(plan)
                                 stats['plans']['created'] += 1
 
                         except Exception as e:

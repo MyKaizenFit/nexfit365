@@ -4,6 +4,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.test import override_settings
 from workouts.models import WorkoutProgram, Exercise, WorkoutDay, WorkoutDayExercise
 
 User = get_user_model()
@@ -334,3 +335,83 @@ class TestImportExcel:
             format='multipart',
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_import_excel_user_plan_is_not_template_and_deactivates_previous(
+        self,
+        admin_client,
+        regular_user,
+        exercise,
+    ):
+        """Un plan de categoría Usuario debe quedar asignado al usuario y activo."""
+        import openpyxl
+
+        old_plan = WorkoutProgram.objects.create(
+            user=regular_user,
+            name='Plan por defecto anterior',
+            is_active=True,
+            is_template=False,
+        )
+
+        wb = openpyxl.Workbook()
+        ws_plans = wb.active
+        ws_plans.title = 'Planes'
+        ws_plans.append([
+            'Categoría', 'Usuario Referencia', 'Creado Por', 'Nombre', 'Descripción',
+            'Dificultad', 'Objetivo', 'Ubicación', 'Semanas', 'Días/Semana',
+            'Duración (min)', 'Equipo (coma separado)', 'Tags (coma separado)',
+            'Imagen URL', 'Activo', 'Plantilla',
+        ])
+        ws_plans.append([
+            'Usuario', regular_user.email, '', 'Vamos Miriam!!!', '',
+            'Principiante', 'Fitness general', 'Gimnasio', 4, 3, 60,
+            '', '', '', 'Sí', 'Sí',
+        ])
+
+        ws_days = wb.create_sheet('Días')
+        ws_days.append([
+            'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Número Día',
+            'Nombre Día', 'Día Semana', 'Es Descanso', 'Duración (min)',
+            'Enfoque', 'Notas', 'Orden',
+        ])
+        ws_days.append([
+            'Usuario', regular_user.email, 'Vamos Miriam!!!', 1,
+            'Pierna A', 'Lunes', 'No', 60, '', '', 1,
+        ])
+
+        ws_exercises = wb.create_sheet('Ejercicios')
+        ws_exercises.append([
+            'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Número Día',
+            'Nombre Día', 'Orden', 'Nombre Ejercicio', 'Series', 'Reps', 'Peso',
+            'Duración (seg)', 'Descanso (seg)', 'Notas', 'Grupo Superset',
+        ])
+        ws_exercises.append([
+            'Usuario', regular_user.email, 'Vamos Miriam!!!', 1,
+            'Pierna A', 1, exercise.name, 3, '8-12', '', '', 90, '', '',
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = 'user_plan.xlsx'
+
+        response = admin_client.post(
+            f'{BASE_URL}import_excel/',
+            {'file': buffer},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+
+        new_plan = WorkoutProgram.objects.get(user=regular_user, name='Vamos Miriam!!!')
+        assert new_plan.is_active is True
+        assert new_plan.is_template is False
+        assert new_plan.is_system is False
+        assert new_plan.days.filter(day_number=1, name='Pierna A').exists()
+        assert WorkoutDayExercise.objects.filter(
+            workout_day__program=new_plan,
+            exercise=exercise,
+        ).exists()
+
+        old_plan.refresh_from_db()
+        assert old_plan.is_active is False
