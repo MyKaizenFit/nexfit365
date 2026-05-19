@@ -124,6 +124,101 @@ class RecipeAllergenDetectionTest(TestCase):
         self.assertIn("vegetarian", recipe.diet_types)
 
 
+class RecipeIngredientUnitsTest(TestCase):
+    def test_unit_based_food_uses_serving_ratio(self):
+        recipe = Recipe.objects.create(
+            name="Tortilla simple",
+            category="Almuerzo",
+            servings=1,
+            prep_time_minutes=10,
+            ingredients=[],
+            instructions="Batir y cocinar",
+        )
+        egg = Food.objects.create(
+            name="Huevo M",
+            serving_size=1,
+            serving_unit="ud",
+            calories=70,
+            protein=Decimal('6.0'),
+            carbs=Decimal('0.4'),
+            fat=Decimal('5.0'),
+        )
+
+        ingredient = RecipeIngredient.objects.create(
+            recipe=recipe,
+            food=egg,
+            quantity=2,
+            unit='uds',
+            order=0,
+        )
+
+        self.assertEqual(ingredient.calculated_macros['calories'], 140)
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.calories, 140)
+
+    def test_unit_alias_uses_food_serving_size_when_macros_are_per_100(self):
+        recipe = Recipe.objects.create(
+            name="Ensalada con atun",
+            category="Almuerzo",
+            servings=1,
+            prep_time_minutes=10,
+            ingredients=[],
+            instructions="Mezclar ingredientes",
+        )
+        tuna_can = Food.objects.create(
+            name="Atun lata natural",
+            serving_size=60,
+            serving_unit="lata",
+            calories=120,
+            protein=Decimal('26.0'),
+            carbs=Decimal('0.0'),
+            fat=Decimal('1.0'),
+        )
+
+        ingredient = RecipeIngredient.objects.create(
+            recipe=recipe,
+            food=tuna_can,
+            quantity=1,
+            unit='ud',
+            order=0,
+        )
+
+        self.assertEqual(ingredient.calculated_macros['calories'], 72)
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.calories, 72)
+
+    def test_grams_do_not_count_as_units_for_unit_based_food(self):
+        recipe = Recipe.objects.create(
+            name="Tortilla con peso",
+            category="Almuerzo",
+            servings=1,
+            prep_time_minutes=10,
+            ingredients=[],
+            instructions="Batir y cocinar",
+        )
+        egg = Food.objects.create(
+            name="Huevo M por unidad",
+            serving_size=1,
+            serving_unit="ud",
+            calories=70,
+            protein=Decimal('6.0'),
+            carbs=Decimal('0.4'),
+            fat=Decimal('5.0'),
+        )
+
+        ingredient = RecipeIngredient.objects.create(
+            recipe=recipe,
+            food=egg,
+            quantity=55,
+            unit='g',
+            order=0,
+        )
+
+        self.assertEqual(ingredient.calculated_macros['calories'], 38)
+        recipe.refresh_from_db()
+        self.assertEqual(recipe.calories, 38)
+
+
 class NutritionPlanModelTest(TestCase):
     """Tests para el modelo NutritionPlan"""
     

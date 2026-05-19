@@ -4,8 +4,13 @@ Permite listar videos de una carpeta y crear ejercicios automáticamente
 """
 import os
 import re
+import html
 from typing import List, Dict, Optional
 from django.conf import settings
+
+
+DEFAULT_GOOGLE_DRIVE_FOLDER_ID = '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG'
+VIDEO_EXTENSIONS = r'\.(mp4|mov|avi|mkv|webm|flv|wmv)'
 
 
 def extract_exercise_name_from_filename(filename: str) -> str:
@@ -49,13 +54,102 @@ def normalize_exercise_name(name: str) -> str:
     return name
 
 
+def extract_folder_id(value: Optional[str]) -> str:
+    """Acepta un ID o enlace de carpeta compartida de Drive y devuelve el folder_id."""
+    raw_value = (value or '').strip()
+    if not raw_value:
+        return DEFAULT_GOOGLE_DRIVE_FOLDER_ID
+
+    patterns = (
+        r'/folders/([A-Za-z0-9_-]{10,})',
+        r'[?&]id=([A-Za-z0-9_-]{10,})',
+    )
+    for pattern in patterns:
+        match = re.search(pattern, raw_value)
+        if match:
+            return match.group(1)
+
+    return raw_value
+
+
+def normalize_drive_match_key(name: str) -> str:
+    """Clave estable para comparar nombre de ejercicio con nombre de archivo."""
+    import unicodedata
+
+    stem = re.sub(VIDEO_EXTENSIONS + r'$', '', name or '', flags=re.IGNORECASE)
+    nfkd = unicodedata.normalize('NFKD', stem.lower())
+    ascii_name = ''.join(c for c in nfkd if not unicodedata.combining(c))
+    return re.sub(r'[^a-z0-9]', '', ascii_name)
+
+
+def parse_public_drive_folder_html(folder_html: str) -> List[Dict]:
+    """Extrae vídeos del HTML público de embeddedfolderview de Google Drive."""
+    videos = []
+    seen = set()
+
+    entry_pattern = re.compile(
+        r'<div class="flip-entry" id="entry-([A-Za-z0-9_-]{20,})".*?'
+        r'<div class="flip-entry-title">(.*?)</div>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    for match in entry_pattern.finditer(folder_html or ''):
+        file_id = match.group(1)
+        filename = html.unescape(re.sub(r'<[^>]+>', '', match.group(2))).strip()
+        if not re.search(VIDEO_EXTENSIONS + r'$', filename, re.IGNORECASE):
+            continue
+        if file_id in seen:
+            continue
+        seen.add(file_id)
+        videos.append({
+            'name': extract_exercise_name_from_filename(filename),
+            'file_id': file_id,
+            'filename': filename,
+        })
+
+    if videos:
+        return videos
+
+    fallback_pattern = re.compile(
+        r'href="https://drive\.google\.com/(?:file/d/|open\?id=)([A-Za-z0-9_-]{20,})[^"]*".{0,1200}?'
+        r'<div class="flip-entry-title">(.*?)</div>',
+        re.IGNORECASE | re.DOTALL,
+    )
+    for match in fallback_pattern.finditer(folder_html or ''):
+        file_id = match.group(1)
+        filename = html.unescape(re.sub(r'<[^>]+>', '', match.group(2))).strip()
+        if not re.search(VIDEO_EXTENSIONS + r'$', filename, re.IGNORECASE):
+            continue
+        if file_id in seen:
+            continue
+        seen.add(file_id)
+        videos.append({
+            'name': extract_exercise_name_from_filename(filename),
+            'file_id': file_id,
+            'filename': filename,
+        })
+
+    return videos
+
+
+def build_drive_map(videos: List[Dict]) -> Dict[str, str]:
+    """Convierte una lista de vídeos Drive en {nombre_normalizado: file_id}."""
+    drive_map = {}
+    for video in videos:
+        filename = video.get('filename') or video.get('name') or ''
+        key = normalize_drive_match_key(filename)
+        file_id = video.get('file_id') or video.get('id')
+        if key and file_id and key not in drive_map:
+            drive_map[key] = file_id
+    return drive_map
+
+
 class GoogleDriveService:
     """Servicio para interactuar con Google Drive API"""
     
     def __init__(self):
         self.credentials_path = getattr(settings, 'GOOGLE_DRIVE_CREDENTIALS_PATH', None)
         self.api_key = getattr(settings, 'GOOGLE_DRIVE_API_KEY', None)
-        self.folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG')
+        self.folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', None) or DEFAULT_GOOGLE_DRIVE_FOLDER_ID
         self.service = None
         self._initialize_service()
     
@@ -119,7 +213,7 @@ class GoogleDriveService:
                 'Configura GOOGLE_DRIVE_CREDENTIALS_PATH o GOOGLE_DRIVE_API_KEY en settings.'
             )
         
-        folder_id = folder_id or self.folder_id
+        folder_id = extract_folder_id(folder_id or self.folder_id)
         videos = []
         
         try:
@@ -161,6 +255,22 @@ class GoogleDriveService:
             raise Exception(f'Error inesperado al acceder a Google Drive: {e}')
         
         return videos
+
+    def list_public_videos_from_folder(self, folder_or_url: Optional[str] = None) -> List[Dict]:
+        """
+        Lista vídeos de una carpeta pública/compartida de Drive sin API key.
+        Requiere que la carpeta sea accesible por enlace.
+        """
+        import urllib.request
+
+        folder_id = extract_folder_id(folder_or_url or self.folder_id)
+        url = f'https://drive.google.com/embeddedfolderview?id={folder_id}#list'
+        request = urllib.request.Request(url, headers={
+            'User-Agent': 'Mozilla/5.0 (compatible; NexFit/1.0)',
+        })
+        with urllib.request.urlopen(request, timeout=20) as response:
+            folder_html = response.read().decode('utf-8', errors='replace')
+        return parse_public_drive_folder_html(folder_html)
     
     def get_file_info(self, file_id: str) -> Optional[Dict]:
         """
@@ -210,4 +320,3 @@ def get_google_drive_service() -> GoogleDriveService:
     if _google_drive_service is None:
         _google_drive_service = GoogleDriveService()
     return _google_drive_service
-

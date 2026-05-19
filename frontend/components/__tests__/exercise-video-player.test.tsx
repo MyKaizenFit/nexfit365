@@ -16,6 +16,13 @@ const mockExerciseYouTube = {
   has_video: true,
 }
 
+const mockExerciseDrive = {
+  id: '3',
+  name: 'Squat',
+  video_display_url: 'https://drive.google.com/file/d/1abcdefghijklmnopqrstuvwxyzABCDEF/preview',
+  has_video: true,
+}
+
 describe('ExerciseVideoPlayer', () => {
   it('renders default button when no children provided', () => {
     render(<ExerciseVideoPlayer exercise={mockExercise} />)
@@ -83,6 +90,15 @@ describe('ExerciseVideoPlayer', () => {
     
     // Verificar que el diálogo está abierto
     expect(screen.getByText(mockExercise.name)).toBeInTheDocument()
+  })
+
+  it('renders Google Drive preview iframe for Drive URLs', async () => {
+    render(<ExerciseVideoPlayer exercise={mockExerciseDrive} />)
+    const button = screen.getByText(/Ver Video/i)
+    await userEvent.click(button)
+
+    const iframe = screen.getByTitle(`Video de ${mockExerciseDrive.name}`)
+    expect(iframe).toHaveAttribute('src', mockExerciseDrive.video_display_url)
   })
 
   it('renders external link button for external URLs', async () => {

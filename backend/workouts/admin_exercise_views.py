@@ -953,43 +953,24 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
         El servidor hace la petición HTTP directamente, sin API key ni OAuth.
         Acepta opcionalmente drive_map:{clave:file_id} precalculado desde el frontend.
         """
-        import unicodedata as _unicodedata
-        import re as _re
-
-        def _norm(name):
-            nfkd = _unicodedata.normalize('NFKD', (name or '').lower())
-            ascii_name = ''.join(c for c in nfkd if not _unicodedata.combining(c))
-            return _re.sub(r'[^a-z0-9]', '', ascii_name)
+        from .google_drive_service import (
+            DEFAULT_GOOGLE_DRIVE_FOLDER_ID,
+            build_drive_map,
+            get_google_drive_service,
+            normalize_drive_match_key,
+        )
 
         force = str(request.data.get('force', 'false')).lower() in ('true', '1', 'yes')
         drive_map = request.data.get('drive_map')  # opcional, lo puede mandar el frontend
+        folder_url = request.data.get('folder_url') or request.data.get('folder_id')
+        videos_in_drive = len(drive_map) if isinstance(drive_map, dict) else 0
 
         if not drive_map:
-            # Listar la carpeta pública haciendo una petición HTTP sin API key
-            from django.conf import settings
-            folder_id = getattr(settings, 'GOOGLE_DRIVE_FOLDER_ID', '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG') or '1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG'
             try:
-                import urllib.request as _ur
-                url = f'https://drive.google.com/embeddedfolderview?id={folder_id}#list'
-                req = _ur.Request(url, headers={
-                    'User-Agent': 'Mozilla/5.0 (compatible; NexFit/1.0)'
-                })
-                with _ur.urlopen(req, timeout=20) as resp:
-                    html = resp.read().decode('utf-8')
-
-                VIDEO_EXT = r'\.(mp4|mov|avi|mkv|webm|flv|wmv)'
-                drive_map = {}
-                # Drive embeds file metadata as JSON arrays in the HTML.
-                # Buscar pares file_id + nombre de archivo con extensión de vídeo
-                for m in _re.finditer(
-                    r'"([A-Za-z0-9_\-]{20,})"[^\]]{0,400}"([^"]+' + VIDEO_EXT + r')"',
-                    html, _re.IGNORECASE
-                ):
-                    file_id = m.group(1)
-                    filename = m.group(2)
-                    key = _norm(_re.sub(r'\.[^.]+$', '', filename))
-                    if key and key not in drive_map:
-                        drive_map[key] = file_id
+                service = get_google_drive_service()
+                videos = service.list_public_videos_from_folder(folder_url or DEFAULT_GOOGLE_DRIVE_FOLDER_ID)
+                drive_map = build_drive_map(videos)
+                videos_in_drive = len(videos)
 
             except Exception as exc:
                 return Response(
@@ -1014,19 +995,19 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             qs = Exercise.objects.filter(google_drive_file_id__isnull=True) | Exercise.objects.filter(google_drive_file_id='')
 
         for ex in qs:
-            key = _norm(ex.name)
+            key = normalize_drive_match_key(ex.name)
             file_id = drive_map.get(key)
             if file_id:
                 ex.google_drive_file_id = file_id
                 ex.video_url = f'https://drive.google.com/file/d/{file_id}/preview'
-                ex.save(update_fields=['google_drive_file_id', 'video_url'])
+                ex.save(update_fields=['google_drive_file_id', 'video_url', 'updated_at'])
                 linked += 1
                 matched_names.append(ex.name)
             else:
                 skipped += 1
 
         return Response({
-            'videos_in_drive': len(drive_map),
+            'videos_in_drive': videos_in_drive or len(drive_map),
             'linked': linked,
             'skipped_no_match': skipped,
             'matched': matched_names,
@@ -1046,7 +1027,6 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             'priority': s.priority,
             'notes': s.notes
         } for s in subs])
-
 
 
 

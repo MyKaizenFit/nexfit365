@@ -151,17 +151,20 @@ export function ExerciseManagement() {
   const [showBulkVideoDialog, setShowBulkVideoDialog] = useState(false);
   const [bulkUpdatingVideo, setBulkUpdatingVideo] = useState(false);
   const [autoLinking, setAutoLinking] = useState(false);
+  const [showDriveLinkDialog, setShowDriveLinkDialog] = useState(false);
+  const [driveFolderUrl, setDriveFolderUrl] = useState('');
 
   const handleAutoLinkVideos = async () => {
     setAutoLinking(true);
     try {
-      // El backend accede directamente a la carpeta pública de Drive (sin API key)
       const url = buildApiUrl('admin/exercises/auto-link-videos/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+        body: JSON.stringify({
+          folder_url: driveFolderUrl.trim() || undefined,
+        }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error || 'Error al vincular');
@@ -170,6 +173,7 @@ export function ExerciseManagement() {
         description: `${result.linked} ejercicios vinculados (${result.videos_in_drive} vídeos en Drive).`,
       });
       if (result.linked > 0) refetch();
+      setShowDriveLinkDialog(false);
     } catch (error) {
       toast({ title: '❌ Error', description: error instanceof Error ? error.message : 'No se pudo vincular', variant: 'destructive' });
     } finally {
@@ -854,7 +858,7 @@ export function ExerciseManagement() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleAutoLinkVideos}
+                onClick={() => setShowDriveLinkDialog(true)}
                 disabled={autoLinking}
                 className="gap-1.5 border-purple-400 text-purple-700 hover:bg-purple-50 dark:border-purple-600 dark:text-purple-400 dark:hover:bg-purple-900/20"
               >
@@ -1097,6 +1101,39 @@ export function ExerciseManagement() {
             <Button onClick={() => handleBulkAssignVideoUrl(false)} disabled={bulkUpdatingVideo}>
               {bulkUpdatingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Aplicar URL
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showDriveLinkDialog} onOpenChange={setShowDriveLinkDialog}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Vincular vídeos de Drive</DialogTitle>
+            <DialogDescription>
+              Pega el enlace de una carpeta compartida. Se vincularán los vídeos cuyo nombre coincida con el nombre del ejercicio.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <FormLabel className="font-semibold">Enlace de carpeta</FormLabel>
+              <Input
+                value={driveFolderUrl}
+                onChange={(e) => setDriveFolderUrl(e.target.value)}
+                placeholder="https://drive.google.com/drive/folders/..."
+                className="mt-2"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowDriveLinkDialog(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleAutoLinkVideos} disabled={autoLinking}>
+              {autoLinking && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Vincular
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1986,4 +2023,3 @@ export function ExerciseManagement() {
     </div>
   )
 }
-
