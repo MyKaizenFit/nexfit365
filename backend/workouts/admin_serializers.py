@@ -4,6 +4,7 @@
 from rest_framework import serializers
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise
 from backend.utils.encoding_fix import fix_mojibake
+from .serializers import build_absolute_file_url
 
 
 class EncodingFixMixin:
@@ -15,6 +16,10 @@ class EncodingFixMixin:
 
 
 class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    has_video = serializers.BooleanField(read_only=True)
+    video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
     substitutes = serializers.SerializerMethodField()
 
     class Meta:
@@ -25,9 +30,22 @@ class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         substitutes = obj.get_substitutes()
         return AdminExerciseSubstituteSerializer(substitutes, many=True).data
 
+    def get_video_display_url(self, obj) -> str | None:
+        return obj.get_video_url()
+
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
+
 
 class AdminExerciseListSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer ligero para listados admin de ejercicios."""
+    has_video = serializers.BooleanField(read_only=True)
+    video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Exercise
@@ -41,11 +59,30 @@ class AdminExerciseListSerializer(EncodingFixMixin, serializers.ModelSerializer)
             "is_system",
             "is_active",
             "video_url",
+            "video_file_url",
             "image_url",
+            "thumbnail_url",
+            "google_drive_file_id",
+            "has_video",
+            "video_display_url",
         ]
+
+    def get_video_display_url(self, obj) -> str | None:
+        return obj.get_video_url()
+
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
 
 
 class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer):
+    has_video = serializers.BooleanField(read_only=True)
+    video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Exercise
         fields = [
@@ -58,12 +95,25 @@ class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSeria
             "description",
             "instructions",
             "video_url",
+            "video_file_url",
             "image_url",
+            "thumbnail_url",
             "google_drive_file_id",
+            "has_video",
+            "video_display_url",
             "is_system",
             "is_active",
             "tags",
         ]
+
+    def get_video_display_url(self, obj) -> str | None:
+        return obj.get_video_url()
+
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
 
 
 class AdminWorkoutDayExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):

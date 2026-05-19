@@ -42,6 +42,8 @@ interface Food {
   carbs: number
   fat: number
   category?: string
+  serving_size?: number
+  serving_unit?: string
 }
 
 interface RecipeIngredient {
@@ -212,6 +214,85 @@ const getNextCopyName = (baseName: string, existingNames: string[]) => {
   return highest <= 1 ? `${trimmed} (Copia)` : `${trimmed} (Copia ${highest})`
 }
 
+const UNIT_BASED_UNITS = new Set(['ud', 'uds', 'u', 'unidad', 'unidades', 'unit', 'units', 'pieza', 'piezas', 'lata', 'latas'])
+
+const normalizeUnit = (rawUnit?: string): string => {
+  const normalized = (rawUnit || 'g').toLowerCase().trim().replace(/\./g, '')
+  const aliases: Record<string, string> = {
+    gramos: 'g',
+    gramo: 'g',
+    gram: 'g',
+    grams: 'g',
+    kilogramo: 'kg',
+    kilogramos: 'kg',
+    litro: 'l',
+    litros: 'l',
+    unidad: 'ud',
+    unidades: 'ud',
+    unit: 'ud',
+    units: 'ud',
+    uds: 'ud',
+  }
+  return aliases[normalized] || normalized || 'g'
+}
+
+const parseServingSize = (food?: Food): number => {
+  const value = Number(food?.serving_size)
+  return Number.isFinite(value) && value > 0 ? value : 100
+}
+
+const getIngredientRatio = (food: Food | undefined, quantity: number, unit: string): number => {
+  if (!food) return 0
+
+  const qty = Number(quantity) || 0
+  if (qty <= 0) return 0
+
+  const ingredientUnit = normalizeUnit(unit)
+  const foodUnit = normalizeUnit(food.serving_unit)
+  const servingSize = parseServingSize(food)
+  const foodIsUnitBased = UNIT_BASED_UNITS.has(foodUnit)
+  const ingredientIsUnitBased = UNIT_BASED_UNITS.has(ingredientUnit)
+
+  const toBaseAmount = () => {
+    if (ingredientUnit === 'kg') return qty * 1000
+    if (ingredientUnit === 'l') return qty * 1000
+    if (ingredientUnit === 'g' || ingredientUnit === 'ml') return qty
+    return null
+  }
+
+  if (foodIsUnitBased) {
+    if (servingSize <= 10) {
+      if (ingredientIsUnitBased || ingredientUnit === foodUnit) {
+        return qty / servingSize
+      }
+      const converted = toBaseAmount()
+      return converted !== null ? converted / 100 : qty / servingSize
+    }
+
+    const converted = toBaseAmount()
+    if (converted !== null) return converted / 100
+    if (ingredientIsUnitBased || ingredientUnit === foodUnit) return (qty * servingSize) / 100
+    return qty / 100
+  }
+
+  const converted = toBaseAmount()
+  if (converted !== null) return converted / 100
+  if (ingredientIsUnitBased) return (qty * servingSize) / 100
+  return qty / 100
+}
+
+const getIngredientUnitOptions = (ingredient: RecipeIngredient) => {
+  const options = ['g', 'ml', 'ud', 'lata', 'pieza', 'cda', 'cdta']
+  const known = new Set(options)
+  ;[ingredient.unit, ingredient.food?.serving_unit].map(normalizeUnit).forEach((unit) => {
+    if (unit && !known.has(unit)) {
+      options.push(unit)
+      known.add(unit)
+    }
+  })
+  return options
+}
+
 export function RecipeManagement() {
   const { getAuthHeaders } = useAuth()
   const [recipes, setRecipes] = useState<Recipe[]>([])
@@ -374,7 +455,7 @@ export function RecipeManagement() {
     let totalCals = 0, totalProt = 0, totalCarbs = 0, totalFat = 0
     ingredients.forEach((ing) => {
       if (ing.food) {
-        const ratio = ing.quantity / 100
+        const ratio = getIngredientRatio(ing.food, ing.quantity, ing.unit)
         totalCals += ing.food.calories * ratio
         totalProt += ing.food.protein * ratio
         totalCarbs += ing.food.carbs * ratio
@@ -574,11 +655,12 @@ export function RecipeManagement() {
   }
 
   const handleAddIngredient = (food: Food) => {
+    const defaultUnit = normalizeUnit(food.serving_unit)
     const newIngredient: RecipeIngredient = {
       food_id: food.id,
       food: food,
-      quantity: 100,
-      unit: 'g',
+      quantity: UNIT_BASED_UNITS.has(defaultUnit) ? 1 : 100,
+      unit: defaultUnit,
       order: formData.recipe_ingredients.length,
     }
     setFormData({
@@ -649,7 +731,7 @@ export function RecipeManagement() {
       }
     }
 
-    const ratio = (Number(ingredient.quantity) || 0) / 100
+    const ratio = getIngredientRatio(ingredient.food, Number(ingredient.quantity) || 0, ingredient.unit)
     return {
       calories: Math.round((ingredient.food.calories || 0) * ratio),
       protein: Math.round((ingredient.food.protein || 0) * ratio * 100) / 100,
@@ -1844,7 +1926,7 @@ export function RecipeManagement() {
                   <div className="rounded-lg border border-orange-200 bg-orange-50/70 p-3">
                     <p className="text-xs text-orange-900">
                       <strong>Como se calculan las calorias:</strong> para cada ingrediente se usa la formula
-                      {' '}<span className="font-mono">kcal = (cantidad / 100) x kcal_por_100g</span>. La receta suma todos los ingredientes y luego divide por porciones.
+                      {' '}<span className="font-mono">kcal = ratio(cantidad, unidad, porcion_alimento) x kcal_base</span>. La receta suma todos los ingredientes y luego divide por porciones.
                     </p>
                   </div>
 
@@ -1900,7 +1982,7 @@ export function RecipeManagement() {
                                 <p className="text-sm font-medium truncate">{food.name}</p>
                                 {food.brand && <p className="text-xs text-gray-500">{food.brand}</p>}
                                 <p className="text-xs text-gray-500 mt-0.5">
-                                  {food.calories} cal/100g • P:{food.protein}g • C:{food.carbs}g • F:{food.fat}g
+                                  {food.calories} cal/{parseServingSize(food)}{normalizeUnit(food.serving_unit)} • P:{food.protein}g • C:{food.carbs}g • F:{food.fat}g
                                 </p>
                               </div>
                               <Plus className="h-4 w-4 text-orange-600 flex-shrink-0" />
@@ -1944,7 +2026,7 @@ export function RecipeManagement() {
                                     )}
                                   </div>
                                   <p className={`text-xs mt-0.5 ${isValid ? 'text-gray-600' : 'text-red-700'}`}>
-                                    {ing.food?.calories || '?'} cal/100g
+                                    {ing.food?.calories || '?'} cal/{parseServingSize(ing.food)}{normalizeUnit(ing.food?.serving_unit)}
                                   </p>
                                 </div>
                                 <Button
@@ -1976,11 +2058,9 @@ export function RecipeManagement() {
                                     onChange={(e) => handleUpdateIngredientUnit(idx, e.target.value)}
                                     className="w-full h-8 px-2 border border-gray-300 rounded-md text-xs"
                                   >
-                                    <option value="g">g</option>
-                                    <option value="ml">ml</option>
-                                    <option value="ud">ud</option>
-                                    <option value="cda">cda</option>
-                                    <option value="cdta">cdta</option>
+                                    {getIngredientUnitOptions(ing).map((unit) => (
+                                      <option key={unit} value={unit}>{unit}</option>
+                                    ))}
                                   </select>
                                 </div>
                                 <div className="md:col-span-2">

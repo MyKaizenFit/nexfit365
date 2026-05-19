@@ -155,6 +155,9 @@ class Exercise(TimeStampedModel):
 
     def save(self, *args, **kwargs):
         self.name = self.normalize_name(self.name)
+        drive_file_id = self._extract_google_drive_file_id(self.google_drive_file_id)
+        if self._is_likely_drive_file_id(drive_file_id):
+            self.google_drive_file_id = drive_file_id
         super().save(*args, **kwargs)
     
     @property
@@ -163,11 +166,35 @@ class Exercise(TimeStampedModel):
         return bool(self.get_video_url())
 
     @staticmethod
-    def _is_likely_drive_file_id(file_id: str) -> bool:
+    def _extract_google_drive_file_id(value: str) -> str:
+        """Accept either a raw Drive file ID or a shared Google Drive URL."""
+        raw_value = str(value or "").strip()
+        if not raw_value:
+            return ""
+
+        try:
+            parsed = urlparse(raw_value)
+            host = parsed.hostname or ""
+            if "drive.google.com" in host:
+                if "/file/d/" in parsed.path:
+                    parts = parsed.path.split("/file/d/")
+                    if len(parts) > 1:
+                        return parts[1].split("/")[0].strip()
+
+                query_id = parse_qs(parsed.query).get("id", [None])[0]
+                if query_id:
+                    return query_id.strip()
+        except Exception:
+            pass
+
+        return raw_value
+
+    @classmethod
+    def _is_likely_drive_file_id(cls, file_id: str) -> bool:
         """Basic sanity check to avoid placeholder/invalid IDs from breaking playback."""
-        if not file_id:
+        cleaned = cls._extract_google_drive_file_id(file_id)
+        if not cleaned:
             return False
-        cleaned = str(file_id).strip()
         if len(cleaned) < 20:
             return False
         if not re.fullmatch(r"[A-Za-z0-9_-]+", cleaned):
@@ -211,8 +238,8 @@ class Exercise(TimeStampedModel):
             normalized_url = self._to_google_drive_preview_url(str(self.video_url).strip())
             if normalized_url:
                 return normalized_url
-        if self._is_likely_drive_file_id(self.google_drive_file_id):
-            file_id = str(self.google_drive_file_id).strip()
+        file_id = self._extract_google_drive_file_id(self.google_drive_file_id)
+        if self._is_likely_drive_file_id(file_id):
             return f"https://drive.google.com/file/d/{file_id}/preview"
         return None
 

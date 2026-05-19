@@ -45,6 +45,8 @@ interface Food {
   protein: number
   carbs: number
   fat: number
+  serving_size?: number
+  serving_unit?: string
 }
 
 interface RecipeIngredient {
@@ -95,12 +97,51 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
   const [quantityDrafts, setQuantityDrafts] = useState<Record<string, string>>({})
   const ingredientsListRef = useRef<HTMLDivElement | null>(null)
 
-  const unitOptions = [
-    { value: 'g', label: 'g' },
-    { value: 'ml', label: 'ml' },
-    { value: 'ud', label: 'ud' },
-  ]
-  
+  const unitBasedUnits = new Set(['ud', 'uds', 'u', 'unidad', 'unidades', 'unit', 'units', 'pieza', 'piezas', 'lata', 'latas'])
+
+  const normalizeUnit = (rawUnit?: string): string => {
+    const normalized = (rawUnit || 'g').toLowerCase().trim().replace(/\./g, '')
+    const aliases: Record<string, string> = {
+      gramos: 'g',
+      gramo: 'g',
+      gram: 'g',
+      grams: 'g',
+      kilogramo: 'kg',
+      kilogramos: 'kg',
+      litro: 'l',
+      litros: 'l',
+      unidad: 'ud',
+      unidades: 'ud',
+      unit: 'ud',
+      units: 'ud',
+      uds: 'ud',
+    }
+    return aliases[normalized] || normalized || 'g'
+  }
+
+  const getDefaultIngredientConfig = (food: Food) => {
+    const unit = normalizeUnit(food.serving_unit)
+    const quantity = unitBasedUnits.has(unit) ? 1 : 100
+    return { quantity, unit }
+  }
+
+  const getUnitOptions = (ingredient: RecipeIngredient) => {
+    const base = [
+      { value: 'g', label: 'g' },
+      { value: 'ml', label: 'ml' },
+      { value: 'ud', label: 'ud' },
+    ]
+    const known = new Set(base.map(option => option.value))
+    const dynamicUnits = [ingredient.unit, ingredient.food_detail?.serving_unit].map(normalizeUnit)
+    dynamicUnits.forEach((unit) => {
+      if (!known.has(unit)) {
+        base.push({ value: unit, label: unit })
+        known.add(unit)
+      }
+    })
+    return base
+  }
+
   // Calcular totales
   const totals = ingredients.reduce((acc, ing) => {
     if (ing.calculated_macros) {
@@ -195,6 +236,8 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       })
       return
     }
+    const defaults = getDefaultIngredientConfig(food)
+
     setSaving(true)
     try {
       const headers = await getAuthHeaders()
@@ -208,8 +251,8 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
           },
           body: JSON.stringify({
             food_id: food.id,
-            quantity: 100,
-            unit: 'g',
+            quantity: defaults.quantity,
+            unit: defaults.unit,
             order: ingredients.length
           })
         }
@@ -460,7 +503,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
                       <div className="font-medium">{food.name}</div>
                       <div className="text-xs text-muted-foreground">
                         {food.brand && `${food.brand} • `}
-                        {food.calories} kcal | P: {food.protein}g | C: {food.carbs}g | G: {food.fat}g
+                        {food.calories} kcal/{food.serving_size || 100}{normalizeUnit(food.serving_unit)} | P: {food.protein}g | C: {food.carbs}g | G: {food.fat}g
                       </div>
                     </div>
                     <Plus className="h-4 w-4 text-green-600" />
@@ -564,7 +607,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
                             <SelectValue placeholder="g" />
                           </SelectTrigger>
                           <SelectContent>
-                            {unitOptions.map(option => (
+                            {getUnitOptions(ingredient).map(option => (
                               <SelectItem key={option.value} value={option.value}>
                                 {option.label}
                               </SelectItem>

@@ -18,10 +18,27 @@ class EncodingFixMixin:
         return fix_mojibake(data)
 
 
+def build_absolute_file_url(serializer, file_field) -> str | None:
+    if not file_field:
+        return None
+
+    try:
+        url = file_field.url
+    except (ValueError, AttributeError):
+        return None
+
+    request = serializer.context.get("request") if hasattr(serializer, "context") else None
+    if request:
+        return request.build_absolute_uri(url)
+    return url
+
+
 class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
     substitutes = serializers.SerializerMethodField()
     
     class Meta:
@@ -29,17 +46,23 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "instructions",
             "category", "muscle_groups", "equipment", "difficulty",
-            "video_url", "image_url", "google_drive_file_id",
+            "video_url", "video_file_url", "image_url", "thumbnail_url", "google_drive_file_id",
             "has_video", "video_display_url",
             "substitutes",
             "is_system", "is_active", "tags",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "has_video", "video_display_url", "created_at", "updated_at"]
+        read_only_fields = ["id", "has_video", "video_display_url", "video_file_url", "thumbnail_url", "created_at", "updated_at"]
     
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
+
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
 
     def get_substitutes(self, obj) -> list:
         try:
@@ -53,24 +76,35 @@ class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer
     """Serializer minimo para sustitutos"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Exercise
         fields = [
             "id", "name", "category", "muscle_groups", "equipment", "difficulty",
             "description", "instructions",
-            "video_url", "google_drive_file_id", "has_video", "video_display_url",
+            "video_url", "video_file_url", "image_url", "thumbnail_url",
+            "google_drive_file_id", "has_video", "video_display_url",
         ]
 
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
 
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
+
 
 class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer minimal para listas - incluye datos de video para reproducción"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
+    video_file_url = serializers.SerializerMethodField()
+    thumbnail_url = serializers.SerializerMethodField()
     substitutes = serializers.SerializerMethodField()
     
     class Meta:
@@ -78,13 +112,20 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
         fields = [
             "id", "name", "category", "muscle_groups", "difficulty",
             "description", "instructions",
-            "video_url", "google_drive_file_id", "has_video", "video_display_url",
+            "video_url", "video_file_url", "image_url", "thumbnail_url",
+            "google_drive_file_id", "has_video", "video_display_url",
             "substitutes",
         ]
     
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
         return obj.get_video_url()
+
+    def get_video_file_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.video_file)
+
+    def get_thumbnail_url(self, obj) -> str | None:
+        return build_absolute_file_url(self, obj.thumbnail)
 
     def get_substitutes(self, obj) -> list:
         try:

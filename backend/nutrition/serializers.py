@@ -9,7 +9,10 @@ class FoodMinimalSerializer(serializers.ModelSerializer):
     """Serializer minimal para alimentos en ingredientes"""
     class Meta:
         model = Food
-        fields = ['id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'category']
+        fields = [
+            'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'category',
+            'serving_size', 'serving_unit'
+        ]
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):

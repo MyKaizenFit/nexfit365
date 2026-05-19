@@ -2152,10 +2152,10 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
-    @action(detail=True, methods=['put', 'delete'], url_path='ingredients/(?P<ingredient_id>[^/.]+)')
+    @action(detail=True, methods=['put', 'patch', 'delete'], url_path='ingredients/(?P<ingredient_id>[^/.]+)')
     def ingredient_detail(self, request, pk=None, ingredient_id=None):
         """
-        PUT: Actualiza un ingrediente
+        PUT/PATCH: Actualiza un ingrediente
         DELETE: Elimina un ingrediente
         """
         recipe = self.get_object()
@@ -2175,7 +2175,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
         
-        if request.method == 'PUT':
+        if request.method in ['PUT', 'PATCH']:
             serializer = RecipeIngredientSerializer(ingredient, data=request.data, partial=True)
             if serializer.is_valid():
                 serializer.save()

@@ -456,3 +456,42 @@ class TestAdminExerciseSyncGoogleDrive:
         client.force_authenticate(user=regular_user)
         response = client.post('/api/admin/exercises/sync_from_google_drive/')
         assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+# ---------------------------------------------------------------------------
+# auto_link_videos action
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+class TestAdminExerciseAutoLinkVideos:
+    """Tests para vincular vídeos por nombre desde carpeta pública de Drive"""
+
+    def test_auto_link_accepts_folder_url_and_matches_by_name(self, admin_client):
+        exercise = Exercise.objects.create(name='Curl de Bíceps Bayesian', category='strength')
+        drive_video = {
+            'name': 'Curl de Bíceps Bayesian',
+            'filename': 'CURL de BÍCEPS BAYESIAN.MOV',
+            'file_id': '1g8xvzPVSm9IixCdFQYb_TFjBgQzyg1L0',
+        }
+
+        with patch('workouts.google_drive_service.GoogleDriveService.list_public_videos_from_folder') as mock_list:
+            mock_list.return_value = [drive_video]
+            response = admin_client.post(
+                '/api/admin/exercises/auto-link-videos/',
+                {'folder_url': 'https://drive.google.com/drive/folders/1dbDvVZKOwYJ4A13FtVslIid2JKLcN4fG?usp=sharing'},
+                format='json',
+                secure=True,
+            )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['videos_in_drive'] == 1
+        assert response.data['linked'] == 1
+        exercise.refresh_from_db()
+        assert exercise.google_drive_file_id == drive_video['file_id']
+        assert exercise.video_url == f"https://drive.google.com/file/d/{drive_video['file_id']}/preview"
+
+    def test_auto_link_requires_admin(self, regular_user):
+        client = APIClient()
+        client.force_authenticate(user=regular_user)
+        response = client.post('/api/admin/exercises/auto-link-videos/', secure=True)
+        assert response.status_code == status.HTTP_403_FORBIDDEN

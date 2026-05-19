@@ -117,10 +117,6 @@ function extractGoogleDriveFileId(url: string): string | null {
   }
 }
 
-function buildGoogleDrivePlayableUrl(fileId: string): string {
-  return `https://drive.google.com/uc?export=download&id=${fileId}`
-}
-
 function normalizeGoogleDriveEmbedUrl(url: string): string {
   try {
     const parsed = new URL(url)
@@ -189,7 +185,7 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
 
   const videoUrl = getVideoUrl(exercise)
   const googleDriveFileId = videoUrl ? extractGoogleDriveFileId(videoUrl) : null
-  const googleDrivePlayableUrl = googleDriveFileId ? buildGoogleDrivePlayableUrl(googleDriveFileId) : null
+  const googleDriveEmbedUrl = googleDriveFileId ? `https://drive.google.com/file/d/${googleDriveFileId}/preview` : null
 
   // Si no hay ningún contenido que mostrar, renderizar children directamente (deshabilitados por el padre)
   if (!videoUrl && !exercise.has_video && !exercise.description && !exercise.instructions) {
@@ -243,16 +239,15 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
                     allowFullScreen
                     onError={handleVideoError}
                   />
-                ) : googleDrivePlayableUrl ? (
-                  <video
-                    src={googleDrivePlayableUrl}
-                    controls
+                ) : googleDriveEmbedUrl ? (
+                  <iframe
+                    src={googleDriveEmbedUrl}
+                    title={`Video de ${exercise.name}`}
                     className="w-full h-full"
-                    poster={exercise.thumbnail_url || exercise.image_url}
+                    allow="autoplay; fullscreen"
+                    allowFullScreen
                     onError={handleVideoError}
-                  >
-                    Tu navegador no soporta la reproduccion de videos.
-                  </video>
+                  />
                 ) : (
                   <video
                     src={videoUrl}
@@ -344,4 +339,3 @@ export function ExerciseVideoPlayer({ exercise, children }: ExerciseVideoPlayerP
     </>
   )
 }
-

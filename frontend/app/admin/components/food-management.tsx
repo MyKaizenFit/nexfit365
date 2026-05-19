@@ -84,6 +84,28 @@ const normalizeText = (value: string) =>
     .toLowerCase()
     .trim()
 
+const UNIT_BASED_UNITS = new Set(['ud', 'uds', 'u', 'unidad', 'unidades', 'unit', 'units', 'pieza', 'piezas', 'lata', 'latas'])
+
+const normalizeUnit = (rawUnit: string) => {
+  const normalized = normalizeText(rawUnit || '').replace(/\./g, '')
+  const aliases: Record<string, string> = {
+    gramos: 'g',
+    gramo: 'g',
+    gram: 'g',
+    grams: 'g',
+    kilogramo: 'kg',
+    kilogramos: 'kg',
+    litro: 'l',
+    litros: 'l',
+    unidad: 'ud',
+    unidades: 'ud',
+    unit: 'ud',
+    units: 'ud',
+    uds: 'ud',
+  }
+  return aliases[normalized] || normalized || 'g'
+}
+
 // Mapeo de stores a nombres legibles
 const STORE_LABELS: Record<string, string> = {
   'mercadona': 'Mercadona',
@@ -141,6 +163,7 @@ export function FoodManagement() {
     is_verified: false,
   }
   const [foodForm, setFoodForm] = useState(emptyForm)
+  const [nutritionBasis, setNutritionBasis] = useState<'per_100' | 'per_unit'>('per_100')
 
   // Modal importar CSV/Excel
   const [fileImportOpen, setFileImportOpen] = useState(false)
@@ -357,10 +380,16 @@ export function FoodManagement() {
   const openCreateModal = () => {
     setEditingFood(null)
     setFoodForm(emptyForm)
+    setNutritionBasis('per_100')
     setFoodModalOpen(true)
   }
 
   const openEditModal = (food: Food) => {
+    const normalizedUnit = normalizeUnit(food.serving_unit || 'g')
+    const normalizedServingSize = Number(food.serving_size || 0)
+    const inferredBasis: 'per_100' | 'per_unit' =
+      UNIT_BASED_UNITS.has(normalizedUnit) && normalizedServingSize <= 10 ? 'per_unit' : 'per_100'
+
     setEditingFood(food)
     setFoodForm({
       name: food.name,
@@ -379,7 +408,31 @@ export function FoodManagement() {
       allergens: Array.isArray(food.allergens) ? food.allergens : [],
       is_verified: food.is_verified,
     })
+    setNutritionBasis(inferredBasis)
     setFoodModalOpen(true)
+  }
+
+  const applyNutritionBasis = (basis: 'per_100' | 'per_unit') => {
+    setNutritionBasis(basis)
+    setFoodForm((prev) => {
+      if (basis === 'per_100') {
+        const unit = normalizeUnit(prev.serving_unit || 'g')
+        const safeUnit = UNIT_BASED_UNITS.has(unit) ? 'g' : (unit || 'g')
+        const safeSize = Number(prev.serving_size) > 0 ? prev.serving_size : '100'
+        return {
+          ...prev,
+          serving_unit: safeUnit,
+          serving_size: safeSize,
+        }
+      }
+
+      const safeSize = Number(prev.serving_size) > 0 ? prev.serving_size : '1'
+      return {
+        ...prev,
+        serving_unit: 'ud',
+        serving_size: safeSize,
+      }
+    })
   }
 
   const inferredAllergens = useMemo(() => {
@@ -412,6 +465,24 @@ export function FoodManagement() {
       toast({ title: 'Error', description: 'El nombre es obligatorio', variant: 'destructive' })
       return
     }
+    const normalizedUnit = normalizeUnit(foodForm.serving_unit || 'g')
+    const servingSize = Number(foodForm.serving_size)
+
+    if (!Number.isFinite(servingSize) || servingSize <= 0) {
+      toast({ title: 'Error', description: 'El tamaño de porción debe ser mayor que 0', variant: 'destructive' })
+      return
+    }
+
+    if (nutritionBasis === 'per_unit' && !UNIT_BASED_UNITS.has(normalizedUnit)) {
+      toast({ title: 'Error', description: 'Si introduces macros por unidad, usa una unidad tipo ud/unidad/lata', variant: 'destructive' })
+      return
+    }
+
+    if (nutritionBasis === 'per_100' && UNIT_BASED_UNITS.has(normalizedUnit) && servingSize <= 10) {
+      toast({ title: 'Error', description: 'En modo por 100g/ml no uses unidad tipo ud con porción 1. Cambia a g/ml o ajusta el modo.', variant: 'destructive' })
+      return
+    }
+
     setSavingFood(true)
     try {
       const headers = await getAuthHeaders()
@@ -427,8 +498,8 @@ export function FoodManagement() {
         fiber: Number(foodForm.fiber) || 0,
         sugar: Number(foodForm.sugar) || 0,
         sodium: Number(foodForm.sodium) || 0,
-        serving_size: Number(foodForm.serving_size) || 100,
-        serving_unit: foodForm.serving_unit || 'g',
+        serving_size: servingSize,
+        serving_unit: normalizedUnit,
         allergens: (Array.isArray(foodForm.allergens) ? foodForm.allergens : []).filter(Boolean),
         is_verified: foodForm.is_verified,
       }
@@ -1279,6 +1350,38 @@ export function FoodManagement() {
                 <Input type="number" min="0" value={foodForm.serving_size} onChange={(e) => setFoodForm(f => ({ ...f, serving_size: e.target.value }))} className="w-24" />
                 <Input value={foodForm.serving_unit} onChange={(e) => setFoodForm(f => ({ ...f, serving_unit: e.target.value }))} placeholder="g" className="w-20" />
               </div>
+            </div>
+
+            <div className="md:col-span-2 space-y-2 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+              <div className="space-y-1">
+                <Label className="font-semibold">Modo nutricional</Label>
+                <p className="text-xs text-muted-foreground">
+                  Define como has introducido los macros para este alimento.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={nutritionBasis === 'per_100' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => applyNutritionBasis('per_100')}
+                >
+                  Macros por 100g/ml
+                </Button>
+                <Button
+                  type="button"
+                  variant={nutritionBasis === 'per_unit' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => applyNutritionBasis('per_unit')}
+                >
+                  Macros por unidad
+                </Button>
+              </div>
+              <p className="text-xs text-amber-800">
+                {nutritionBasis === 'per_unit'
+                  ? 'Ejemplo: 1 huevo M, 1 lata de atún, 1 manzana. Recomendado: porción 1 y unidad ud/lata.'
+                  : 'Ejemplo: macros por 100g o 100ml. Recomendado: unidad g/ml y porción 100.'}
+              </p>
             </div>
 
             <div className="md:col-span-2">

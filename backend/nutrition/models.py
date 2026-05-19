@@ -452,8 +452,8 @@ class Recipe(TimeStampedModel):
         total_sodium = 0
         
         for ingredient in ingredients:
-            # Calcular proporción (cantidad usada / 100g base del alimento)
-            ratio = float(ingredient.quantity) / 100
+            # Calcular proporción teniendo en cuenta unidades por pieza (ud, unidad, lata, etc.)
+            ratio = ingredient.get_nutrition_ratio()
             
             total_calories += ingredient.food.calories * ratio
             total_protein += float(ingredient.food.protein) * ratio
@@ -524,7 +524,11 @@ class Recipe(TimeStampedModel):
             if not food:
                 continue
 
-            ratio = float(quantity) / 100
+            ratio = RecipeIngredient.compute_nutrition_ratio(
+                quantity=quantity,
+                unit=unit,
+                food=food,
+            )
             total_calories += food.calories * ratio
             total_protein += float(food.protein) * ratio
             total_carbs += float(food.carbs) * ratio
@@ -637,6 +641,122 @@ class RecipeIngredient(TimeStampedModel):
         ordering = ['order', 'created_at']
         verbose_name = "Ingrediente de receta"
         verbose_name_plural = "Ingredientes de receta"
+
+    WEIGHT_UNITS = {
+        'g', 'gr', 'gramo', 'gramos',
+        'kg', 'kilo', 'kilos', 'kilogramo', 'kilogramos',
+    }
+    VOLUME_UNITS = {
+        'ml', 'mililitro', 'mililitros',
+        'l', 'lt', 'litro', 'litros',
+    }
+    UNIT_BASED_UNITS = {
+        'ud', 'uds', 'u', 'unit', 'units',
+        'unidad', 'unidades', 'pieza', 'piezas',
+        'lata', 'latas',
+    }
+
+    @classmethod
+    def _normalize_unit(cls, value):
+        normalized = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').lower().strip()
+        normalized = normalized.replace('.', '')
+        normalized = normalized.replace('-', ' ')
+        normalized = ' '.join(normalized.split())
+
+        aliases = {
+            'gram': 'g',
+            'grams': 'g',
+            'kilogram': 'kg',
+            'kilograms': 'kg',
+            'milliliter': 'ml',
+            'milliliters': 'ml',
+            'liter': 'l',
+            'liters': 'l',
+            'unidades': 'unidades',
+            'uni': 'ud',
+        }
+        return aliases.get(normalized, normalized)
+
+    @classmethod
+    def _to_base_weight_or_volume(cls, quantity, normalized_unit):
+        if normalized_unit in {'g', 'gr', 'gramo', 'gramos'}:
+            return quantity
+        if normalized_unit in {'kg', 'kilo', 'kilos', 'kilogramo', 'kilogramos'}:
+            return quantity * 1000
+        if normalized_unit in {'ml', 'mililitro', 'mililitros'}:
+            return quantity
+        if normalized_unit in {'l', 'lt', 'litro', 'litros'}:
+            return quantity * 1000
+        return None
+
+    @classmethod
+    def compute_nutrition_ratio(cls, quantity, unit, food):
+        """
+        Retorna el ratio a aplicar sobre macros del alimento.
+
+        Convenciones soportadas:
+        - Alimentos base en gramos/ml (por 100): ratio = cantidad_equivalente / 100
+        - Alimentos por pieza/unidad (ud, unidad, lata...):
+          - Si serving_size <= 10, se asume macros por unidad base (normalmente 1 ud)
+          - Si serving_size > 10, se asume gramos/ml por unidad y se convierte a base 100
+        """
+        qty = float(quantity or 0)
+        if qty <= 0 or not food:
+            return 0.0
+
+        ingredient_unit = cls._normalize_unit(unit) or 'g'
+        food_unit = cls._normalize_unit(getattr(food, 'serving_unit', 'g')) or 'g'
+
+        try:
+            serving_size = float(getattr(food, 'serving_size', 0) or 0)
+        except (TypeError, ValueError):
+            serving_size = 0
+
+        food_is_unit_based = food_unit in cls.UNIT_BASED_UNITS
+        ingredient_is_unit_based = ingredient_unit in cls.UNIT_BASED_UNITS
+
+        if food_is_unit_based:
+            base_amount = serving_size if serving_size > 0 else 1.0
+
+            # Heurística para cubrir dos modos frecuentes en datos reales:
+            # - serving_size pequeño (1-2): macros introducidos por unidad
+            # - serving_size grande (ej: 55): gramos/ml por unidad
+            if base_amount <= 10:
+                if ingredient_is_unit_based or ingredient_unit == food_unit:
+                    return qty / base_amount
+
+                converted = cls._to_base_weight_or_volume(qty, ingredient_unit)
+                if converted is not None:
+                    # No conocemos el peso real de una unidad cuando el alimento
+                    # esta definido como "1 ud"; evita interpretar 55 g como 55 uds.
+                    return converted / 100.0
+
+                return qty / base_amount
+
+            converted = cls._to_base_weight_or_volume(qty, ingredient_unit)
+            if converted is not None:
+                return converted / 100.0
+
+            if ingredient_is_unit_based or ingredient_unit == food_unit:
+                return (qty * base_amount) / 100.0
+
+            return qty / 100.0
+
+        converted = cls._to_base_weight_or_volume(qty, ingredient_unit)
+        if converted is not None:
+            return converted / 100.0
+
+        if ingredient_is_unit_based and serving_size > 0:
+            return (qty * serving_size) / 100.0
+
+        return qty / 100.0
+
+    def get_nutrition_ratio(self):
+        return self.compute_nutrition_ratio(
+            quantity=self.quantity,
+            unit=self.unit,
+            food=self.food,
+        )
     
     def __str__(self):
         return f"{self.quantity}{self.unit} {self.food.name}"
@@ -644,7 +764,7 @@ class RecipeIngredient(TimeStampedModel):
     @property
     def calculated_macros(self):
         """Macros calculados para esta cantidad de ingrediente"""
-        ratio = float(self.quantity) / 100
+        ratio = self.get_nutrition_ratio()
         return {
             'calories': int(self.food.calories * ratio),
             'protein': round(float(self.food.protein) * ratio, 2),
@@ -656,6 +776,11 @@ class RecipeIngredient(TimeStampedModel):
         }
     
     def save(self, *args, **kwargs):
+        normalized_unit = self._normalize_unit(self.unit)
+        if not normalized_unit and self.food_id:
+            normalized_unit = self._normalize_unit(getattr(self.food, 'serving_unit', 'g'))
+        self.unit = normalized_unit or 'g'
+
         super().save(*args, **kwargs)
         # Recalcular macros de la receta al guardar ingrediente
         self.recipe.calculate_macros_from_ingredients()
@@ -1479,6 +1604,10 @@ class Food(TimeStampedModel):
         if self.brand:
             return f"{self.name} ({self.brand})"
         return self.name
+
+    def save(self, *args, **kwargs):
+        self.serving_unit = RecipeIngredient._normalize_unit(self.serving_unit) or 'g'
+        super().save(*args, **kwargs)
 
 
 # =============================================================================
