@@ -1033,13 +1033,6 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     if by_user:
                         return by_user
                     if is_user_category(category, user_email):
-                        reusable_template = qs.filter(
-                            user__isnull=True,
-                            is_template=True,
-                            is_system=False,
-                        ).first()
-                        if reusable_template:
-                            return reusable_template
                         return None
 
                 if category_key == 'sistema':
@@ -1296,6 +1289,121 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
                         except Exception as e:
                             errors.append(f"Ejercicios - Fila {row_num}: {str(e)}")
+                            stats['exercises']['skipped'] += 1
+
+                # === IMPORTAR RESUMEN COMPLETO ===
+                # Muchos clientes editan la primera hoja exportada. Procesarla al final
+                # permite que sus cambios prevalezcan sobre las hojas detalladas.
+                ws_summary = get_sheet('Resumen completo', 'Resumen')
+                if ws_summary:
+                    summary_headers = build_header_index(ws_summary)
+
+                    for row_num, row in enumerate(ws_summary.iter_rows(min_row=2, values_only=True), start=2):
+                        try:
+                            if not row_has_content_tuple(row):
+                                continue
+
+                            plan_name = str(get_cell(row, summary_headers, ['Nombre Plan', 'plan_name'], fallback_index=3, default='') or '').strip()
+                            if not plan_name:
+                                continue
+
+                            category = str(get_cell(row, summary_headers, ['Categoría Plan', 'Categoria Plan', 'Categoría', 'Categoria', 'categoria_plan'], fallback_index=0, default='') or '').strip()
+                            user_ref = str(get_cell(row, summary_headers, ['Usuario Referencia', 'usuario_referencia'], fallback_index=1, default='') or '').strip()
+                            created_by_ref = str(get_cell(row, summary_headers, ['Creado Por', 'creado_por'], fallback_index=2, default='') or '').strip()
+                            user = resolve_user(user_ref)
+                            if is_user_category(category, user_ref) and not user:
+                                errors.append(f"Resumen completo - Fila {row_num}: Usuario '{user_ref}' no encontrado")
+                                stats['plans']['skipped'] += 1
+                                continue
+
+                            plan, created_from_reference = get_or_create_referenced_plan(plan_name, category=category, user_email=user_ref)
+                            if created_from_reference:
+                                stats['plans']['created'] += 1
+
+                            plan_fields = {
+                                'name': plan_name,
+                                'description': str(get_cell(row, summary_headers, ['Descripción Plan', 'Descripcion Plan', 'description', 'plan_description'], fallback_index=4, default='') or '').strip(),
+                                'difficulty': normalize_choice(str(get_cell(row, summary_headers, ['Dificultad', 'difficulty', 'plan_difficulty'], fallback_index=5, default=plan.difficulty or 'beginner') or plan.difficulty or 'beginner').strip(), difficulty_map) or 'beginner',
+                                'goal': normalize_choice(str(get_cell(row, summary_headers, ['Objetivo', 'goal', 'plan_goal'], fallback_index=6, default=plan.goal or 'general_fitness') or plan.goal or 'general_fitness').strip(), goal_map) or 'general_fitness',
+                                'location': normalize_choice(str(get_cell(row, summary_headers, ['Ubicación', 'Ubicacion', 'location', 'plan_location'], fallback_index=7, default=plan.location or 'any') or plan.location or 'any').strip(), location_map) or 'any',
+                                'duration_weeks': parse_int(get_cell(row, summary_headers, ['Semanas', 'duration_weeks', 'plan_duration_weeks'], fallback_index=8), default=plan.duration_weeks or 4),
+                                'days_per_week': parse_int(get_cell(row, summary_headers, ['Días/Semana', 'Dias/Semana', 'days_per_week', 'plan_days_per_week'], fallback_index=9), default=plan.days_per_week or 3),
+                                'estimated_duration_minutes': parse_int(get_cell(row, summary_headers, ['Duración Plan (min)', 'Duracion Plan (min)', 'Duración (min)', 'Duracion (min)', 'estimated_duration_minutes', 'plan_estimated_duration_minutes'], fallback_index=10), default=plan.estimated_duration_minutes or 60),
+                                'is_active': True,
+                                'is_template': False if user else (normalize_text(category) == 'plantilla'),
+                                'is_system': False if user else (normalize_text(category) == 'sistema'),
+                                'user': user,
+                                'created_by': resolve_user(created_by_ref),
+                            }
+                            for k, v in plan_fields.items():
+                                setattr(plan, k, v)
+                            plan.save()
+                            deactivate_other_active_user_plans(plan)
+                            stats['plans']['updated'] += 1
+
+                            day_number = parse_int(get_cell(row, summary_headers, ['Número Día', 'Numero Día', 'day_number'], fallback_index=11), default=None)
+                            if day_number is None:
+                                continue
+
+                            day = WorkoutDay.objects.filter(program=plan, day_number=day_number).first()
+                            day_fields = {
+                                'program': plan,
+                                'name': str(get_cell(row, summary_headers, ['Nombre Día', 'Nombre Dia', 'day_name'], fallback_index=12, default=f'Día {day_number}') or f'Día {day_number}').strip(),
+                                'day_number': day_number,
+                                'day_of_week': normalize_choice(str(get_cell(row, summary_headers, ['Día Semana', 'Dia Semana', 'day_of_week'], fallback_index=13, default='') or '').strip(), day_map),
+                                'is_rest_day': parse_bool(get_cell(row, summary_headers, ['Descanso', 'Es Descanso', 'day_is_rest_day'], fallback_index=14), default=False),
+                                'duration_minutes': None,
+                                'focus': '',
+                                'notes': '',
+                                'order_index': day_number,
+                            }
+                            if day:
+                                for k, v in day_fields.items():
+                                    setattr(day, k, v)
+                                day.save()
+                                stats['days']['updated'] += 1
+                            else:
+                                day = WorkoutDay.objects.create(**day_fields)
+                                stats['days']['created'] += 1
+
+                            exercise_name = str(get_cell(row, summary_headers, ['Nombre Ejercicio', 'exercise_name'], fallback_index=16, default='') or '').strip()
+                            if not exercise_name:
+                                continue
+
+                            exercise = find_exercise_by_name(exercise_name)
+                            if not exercise:
+                                errors.append(f"Resumen completo - Fila {row_num}: Ejercicio '{exercise_name}' no encontrado")
+                                stats['exercises']['skipped'] += 1
+                                continue
+
+                            order_index = parse_int(get_cell(row, summary_headers, ['Orden Ejercicio', 'Orden', 'exercise_order'], fallback_index=15), default=1)
+                            workout_ex = WorkoutDayExercise.objects.filter(
+                                workout_day=day,
+                                order_index=order_index,
+                            ).first()
+                            exercise_fields = {
+                                'workout_day': day,
+                                'exercise': exercise,
+                                'sets': parse_int(get_cell(row, summary_headers, ['Series', 'sets'], fallback_index=17), default=3),
+                                'reps': str(get_cell(row, summary_headers, ['Reps', 'reps'], fallback_index=18, default='10') or '10').strip() or '10',
+                                'weight': str(get_cell(row, summary_headers, ['Peso', 'weight'], fallback_index=19, default='') or '').strip(),
+                                'duration_seconds': parse_int(get_cell(row, summary_headers, ['Duración (seg)', 'Duracion (seg)', 'duration_seconds'], fallback_index=20), default=None),
+                                'rest_seconds': parse_int(get_cell(row, summary_headers, ['Descanso (seg)', 'rest_seconds'], fallback_index=21), default=60),
+                                'notes': '',
+                                'order_index': order_index,
+                                'superset_group': parse_int(get_cell(row, summary_headers, ['Grupo Superset', 'superset_group'], fallback_index=22), default=None),
+                            }
+                            if workout_ex:
+                                for k, v in exercise_fields.items():
+                                    setattr(workout_ex, k, v)
+                                workout_ex.save()
+                                stats['exercises']['updated'] += 1
+                            else:
+                                WorkoutDayExercise.objects.create(**exercise_fields)
+                                stats['exercises']['created'] += 1
+
+                        except Exception as e:
+                            errors.append(f"Resumen completo - Fila {row_num}: {str(e)}")
                             stats['exercises']['skipped'] += 1
 
                 # === IMPORTAR SUSTITUTOS (match por nombre ejercicio) ===
