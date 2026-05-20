@@ -874,6 +874,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 'substitutes': {'created': 0, 'updated': 0, 'skipped': 0},
             }
             errors = []
+            imported_day_ids_by_plan = {}
+            imported_exercise_ids_by_day = {}
             
             def parse_bool(value, default=False):
                 if value is None or str(value).strip() == '':
@@ -1096,6 +1098,14 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     return exercise
                 return exercises_cache.get(normalize_text(name))
 
+            def remember_imported_day(day):
+                imported_day_ids_by_plan.setdefault(day.program_id, set()).add(day.id)
+                imported_exercise_ids_by_day.setdefault(day.id, set())
+
+            def remember_imported_exercise(workout_exercise):
+                remember_imported_day(workout_exercise.workout_day)
+                imported_exercise_ids_by_day.setdefault(workout_exercise.workout_day_id, set()).add(workout_exercise.id)
+
             with transaction.atomic():
                 # === IMPORTAR PLANES ===
                 ws_plans = get_sheet('Planes')
@@ -1201,8 +1211,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 day.save()
                                 stats['days']['updated'] += 1
                             else:
-                                WorkoutDay.objects.create(**fields)
+                                day = WorkoutDay.objects.create(**fields)
                                 stats['days']['created'] += 1
+                            remember_imported_day(day)
 
                         except Exception as e:
                             errors.append(f"Días - Fila {row_num}: {str(e)}")
@@ -1284,8 +1295,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 workout_ex.save()
                                 stats['exercises']['updated'] += 1
                             else:
-                                WorkoutDayExercise.objects.create(**fields)
+                                workout_ex = WorkoutDayExercise.objects.create(**fields)
                                 stats['exercises']['created'] += 1
+                            remember_imported_exercise(workout_ex)
 
                         except Exception as e:
                             errors.append(f"Ejercicios - Fila {row_num}: {str(e)}")
@@ -1365,6 +1377,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             else:
                                 day = WorkoutDay.objects.create(**day_fields)
                                 stats['days']['created'] += 1
+                            remember_imported_day(day)
 
                             exercise_name = str(get_cell(row, summary_headers, ['Nombre Ejercicio', 'exercise_name'], fallback_index=16, default='') or '').strip()
                             if not exercise_name:
@@ -1399,12 +1412,28 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 workout_ex.save()
                                 stats['exercises']['updated'] += 1
                             else:
-                                WorkoutDayExercise.objects.create(**exercise_fields)
+                                workout_ex = WorkoutDayExercise.objects.create(**exercise_fields)
                                 stats['exercises']['created'] += 1
+                            remember_imported_exercise(workout_ex)
 
                         except Exception as e:
                             errors.append(f"Resumen completo - Fila {row_num}: {str(e)}")
                             stats['exercises']['skipped'] += 1
+
+                for day_id, imported_exercise_ids in imported_exercise_ids_by_day.items():
+                    stale_exercises = WorkoutDayExercise.objects.filter(workout_day_id=day_id)
+                    if imported_exercise_ids:
+                        stale_exercises = stale_exercises.exclude(id__in=imported_exercise_ids)
+                    deleted_count, _ = stale_exercises.delete()
+                    stats['exercises']['deleted'] += deleted_count
+
+                for plan_id, imported_day_ids in imported_day_ids_by_plan.items():
+                    stale_days = WorkoutDay.objects.filter(program_id=plan_id)
+                    if imported_day_ids:
+                        stale_days = stale_days.exclude(id__in=imported_day_ids)
+                    deleted_count, deleted_details = stale_days.delete()
+                    stats['days']['deleted'] += deleted_details.get('workouts.WorkoutDay', 0)
+                    stats['exercises']['deleted'] += deleted_details.get('workouts.WorkoutDayExercise', 0)
 
                 # === IMPORTAR SUSTITUTOS (match por nombre ejercicio) ===
                 ws_subs = get_sheet('Sustitutos')
