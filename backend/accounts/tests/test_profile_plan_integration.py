@@ -180,3 +180,33 @@ class TestProfilePlanIntegration:
         ).exists()
         assert result.nutrition_plan.meals.count() == 1
         assert result.workout_program.days.first().exercises.count() == 1
+
+    def test_default_assignment_preserves_active_custom_workout_plan(self, user):
+        custom_workout = WorkoutProgram.objects.create(
+            user=user,
+            name="Vamos Miriam!!!",
+            is_active=True,
+            is_template=False,
+            is_system=False,
+        )
+        workout_template = WorkoutProgram.objects.create(
+            name="Rutina pérdida",
+            goal="weight_loss",
+            is_template=True,
+            is_active=True,
+            days_per_week=1,
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config pérdida",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_workout_program=workout_template,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        custom_workout.refresh_from_db()
+        assert result.workout_program == custom_workout
+        assert custom_workout.is_active is True
+        assert WorkoutProgram.objects.filter(user=user).count() == 1
