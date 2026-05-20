@@ -302,6 +302,17 @@ class DefaultPlanAssignmentService:
     """
     def __init__(self, user):
         self.user = user
+
+    def _is_auto_assigned_workout(self, program, template_program):
+        if not program:
+            return True
+        if program.is_template or program.is_system:
+            return True
+        if template_program and program.name.startswith(f"{template_program.name} - "):
+            return True
+        if not program.created_by_id and " - " in program.name:
+            return True
+        return False
     
     def find_best_configuration(self):
         """Encontrar la mejor configuración para el usuario"""
@@ -448,6 +459,24 @@ class DefaultPlanAssignmentService:
         # =====================================================================
         if configuration.default_workout_program:
             template_program = configuration.default_workout_program
+            existing_active_workout = WorkoutProgram.objects.filter(
+                user=self.user,
+                is_active=True,
+            ).order_by('-created_at').first()
+
+            if existing_active_workout and not self._is_auto_assigned_workout(existing_active_workout, template_program):
+                logger.info(
+                    "default_plan_assignment.workout_preserved user_id=%s workout_program_id=%s template_id=%s",
+                    self.user.id,
+                    existing_active_workout.id,
+                    template_program.id,
+                )
+                workout_program = existing_active_workout
+                return AssignmentResult(
+                    configuration=configuration,
+                    nutrition_plan=nutrition_plan,
+                    workout_program=workout_program,
+                )
 
             deactivated_count = WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
