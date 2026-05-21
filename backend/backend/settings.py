@@ -410,8 +410,9 @@ MEDIA_ROOT = BASE_DIR / os.getenv("UPLOAD_DIR", "media")
 # Configuración de uploads
 MAX_AVATAR_SIZE = int(os.getenv("MAX_AVATAR_MB", "2")) * 1024 * 1024  # en bytes
 MAX_PROGRESS_PHOTO_SIZE = int(os.getenv("MAX_PROGRESS_PHOTO_MB", "5")) * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_PROGRESS_PHOTO_SIZE
-DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_PROGRESS_PHOTO_SIZE
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_MB", "50")) * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
+DATA_UPLOAD_MAX_MEMORY_SIZE = MAX_UPLOAD_SIZE
 
 # ---------------------------------
 # Validación de contraseñas

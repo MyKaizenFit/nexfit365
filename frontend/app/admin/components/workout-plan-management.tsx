@@ -107,6 +107,43 @@ function formatImportError(error: unknown): string {
   return JSON.stringify(error)
 }
 
+async function readImportError(response: Response): Promise<string> {
+  const contentType = response.headers.get("content-type") || ""
+
+  if (contentType.includes("application/json")) {
+    try {
+      const data = await response.json()
+      const message = formatImportError(data)
+      if (message && message !== "{}") return message
+    } catch { }
+  }
+
+  const text = await response.text()
+  if (text.trim()) return text
+
+  if (response.status === 413) {
+    return "El archivo es demasiado grande para subirlo. Reduce el tamaño del Excel o aumenta el límite del servidor."
+  }
+
+  if (response.status === 502 || response.status === 503 || response.status === 504) {
+    return "El servidor ha cortado la importación antes de terminar. Suele pasar con Excel grandes o importaciones lentas."
+  }
+
+  return `Error al importar (HTTP ${response.status})`
+}
+
+function formatImportRequestError(error: unknown): string {
+  if (error instanceof Error) {
+    const message = error.message || ""
+    if (message.toLowerCase().includes("failed to fetch")) {
+      return "No se pudo conectar con el servidor durante la subida. Si el Excel es grande, probablemente se superó el límite o el tiempo máximo de importación."
+    }
+    return message
+  }
+
+  return "No se pudo importar"
+}
+
 function totalizeImportStats(stats?: WorkoutImportStats) {
   const plans = stats?.plans || {}
   const days = stats?.days || {}
@@ -666,8 +703,7 @@ export function WorkoutPlanManagement() {
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Error al importar');
+        throw new Error(await readImportError(response));
       }
 
       let data = null;
@@ -696,7 +732,7 @@ export function WorkoutPlanManagement() {
       setImportResult(null)
       toast({
         title: '❌ Error',
-        description: error instanceof Error ? error.message : 'No se pudo importar',
+        description: formatImportRequestError(error),
         variant: 'destructive'
       });
     } finally {

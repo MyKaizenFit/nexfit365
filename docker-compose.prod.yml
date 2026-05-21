@@ -120,7 +120,7 @@ services:
         echo '�📦 Recolectando archivos estáticos...' &&
         python manage.py collectstatic --noinput &&
         echo '🚀 Iniciando Gunicorn...' &&
-        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 120 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
+        gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 300 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
       "
     ports:
       - "127.0.0.1:8000:8000"  # Expuesto solo al host/reverse proxy

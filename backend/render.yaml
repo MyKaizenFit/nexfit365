@@ -9,7 +9,7 @@ services:
       python manage.py migrate
       python manage.py populate_exercises_simple
       python manage.py populate_workout_templates
-    startCommand: gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT --timeout 300
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: backend.settings
