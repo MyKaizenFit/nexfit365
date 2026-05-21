@@ -48,16 +48,16 @@ rZXgycF+uDhoqmKc5sJdndVO7IycrpKV3PCjl1y7IaF3j338x8/ASpFz
 
 ### 1. Agregar Variables de Entorno
 
-#### Backend (docker-compose.dev.yml o .env)
-Ya agregadas en `docker-compose.dev.yml`:
+#### Backend (docker-compose.prod.yml o entorno del backend)
+Variables requeridas:
 ```yaml
 VAPID_PUBLIC_KEY: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfqnWlIIIdFQjZ0aZ07qt8WYXMlA57a2V4MnBfrg4aKpinObCXZ3VTuyMnK6Sldzwo5dcuyGhd499/MfPwEqRcw"
 VAPID_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nMIGHAgEAMBMGByqGSM49AgEGCCqGSM49AwEHBG0wawIBAQQgdYzlgLecndjj9Y26\nE8REPzFxhVj29o6EEfkzLA/v2i6hRANCAAR+qdaUggh0VCNnRpnTuq3xZhcyUDnt\nrZXgycF+uDhoqmKc5sJdndVO7IycrpKV3PCjl1y7IaF3j338x8/ASpFz\n-----END PRIVATE KEY-----\n"
 VAPID_CLAIM_EMAIL: "no-reply@nex-fit.local"
 ```
 
-#### Frontend (.env.local o docker-compose.dev.yml)
-Ya agregada en `docker-compose.dev.yml`:
+#### Frontend (entorno del frontend)
+Variable requerida:
 ```yaml
 NEXT_PUBLIC_VAPID_PUBLIC_KEY: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfqnWlIIIdFQjZ0aZ07qt8WYXMlA57a2V4MnBfrg4aKpinObCXZ3VTuyMnK6Sldzwo5dcuyGhd499/MfPwEqRcw"
 ```
@@ -65,23 +65,23 @@ NEXT_PUBLIC_VAPID_PUBLIC_KEY: "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEfqnWlIIIdFQjZ
 ### 2. Reiniciar Contenedores
 
 ```bash
-docker compose -f docker-compose.dev.yml restart backend frontend
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml restart backend frontend
 ```
 
 O si necesitas reconstruir:
 
 ```bash
-docker compose -f docker-compose.dev.yml up -d --build backend frontend
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d --build backend frontend
 ```
 
 ### 3. Verificar Configuración
 
 ```bash
 # Verificar que las claves se cargaron en backend
-docker compose -f docker-compose.dev.yml exec backend python manage.py shell -c "from django.conf import settings; print('VAPID_PUBLIC_KEY:', settings.VAPID_PUBLIC_KEY[:50] if settings.VAPID_PUBLIC_KEY else 'No configurada')"
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec backend python manage.py shell -c "from django.conf import settings; print('VAPID_PUBLIC_KEY:', settings.VAPID_PUBLIC_KEY[:50] if settings.VAPID_PUBLIC_KEY else 'No configurada')"
 
 # Verificar que el frontend tiene la clave pública
-docker compose -f docker-compose.dev.yml exec frontend env | grep VAPID
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec frontend env | grep VAPID
 ```
 
 ## 🎯 Uso
@@ -120,8 +120,8 @@ Las notificaciones push se envían automáticamente cuando se crea una `Notifica
 
 ### Las claves no se cargan
 
-1. Verifica que las variables estén en `docker-compose.dev.yml`
-2. Reinicia los contenedores: `docker compose -f docker-compose.dev.yml restart`
+1. Verifica que las variables estén en el entorno correspondiente
+2. Reinicia los contenedores: `COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml restart`
 3. Si usas archivo `.env`, asegúrate de que esté en la ruta correcta
 
 ### El Service Worker no se registra
@@ -154,7 +154,6 @@ Las notificaciones push se envían automáticamente cuando se crea una `Notifica
 - ✅ Sincronización en segundo plano
 
 ¡El sistema está listo para usar! 🚀
-
 
 
 

@@ -60,7 +60,7 @@
 
 ### Otros Archivos de Configuración
 
-#### 1. **docker-compose.dev.yml** y **docker-compose.prod.yml**
+#### 1. **docker-compose.prod.yml**
 - Posibles cambios en configuración de servicios
 
 ## 📋 Lista Detallada de Cambios en Frontend
@@ -199,4 +199,3 @@ El error probablemente existe desde antes. La solución correcta es:
 - ✅ Build usando `NEXT_DIST_DIR=.next-temp`
 - ✅ Movimiento de `.next-temp` a `.next` después del build
 - ✅ Solución a problemas de permisos
-
