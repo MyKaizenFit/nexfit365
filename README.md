@@ -10,7 +10,7 @@ _Test commit automático: verificación de push y autor correcto (IagoPL)_
 
 ## 🚀 Descripción
 
-NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Combina un frontend Next.js con un backend Django en un **mono-repo** unificado, diseñado para facilitar el desarrollo y despliegue.
+NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Esta copia corresponde al entorno de **desarrollo** separado de producción.
 
 ## ✨ Características Principales
 
@@ -43,7 +43,7 @@ NexFit365 es una aplicación web moderna para la gestión integral de fitness y 
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   Frontend      │    │   Backend       │    │   PostgreSQL    │
 │   Next.js 14    │◄──►│   Django 4.2    │◄──►│   + Redis       │
-│   Port: 3000    │    │   Port: 8000    │    │   Port: 5432    │
+│   Port: 3001    │    │   Port: 8001    │    │   Port: 5434    │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                      │                      │
          └──────────────────────┴──────────────────────┘
@@ -74,8 +74,7 @@ nexfit365/
 │
 ├── doc/                        # Documentación
 │
-├── docker-compose.prod.yml     # Configuración para producción
-├── docker-compose.dev.yml      # Configuración para desarrollo
+├── docker-compose.dev.yml      # Configuración para desarrollo separado
 └── .gitignore
 ```
 
@@ -85,103 +84,60 @@ nexfit365/
 - Docker y Docker Compose
 - Git
 
-### 1. Clonar el repositorio
+### 1. Entrar en el repositorio dev
 ```bash
-git clone https://github.com/MyKaizenFit/nexfit365.git
-cd nexfit365
+cd /srv/mykaizenfit/dev
+git checkout dev
 ```
 
-### 2. Configurar variables de entorno
+### 2. Levantar los servicios
 ```bash
-# Backend
-cp backend/docker/backend.env.example backend/docker/backend.env
-# Editar backend/docker/backend.env con tus valores
-
-# Frontend
-cp frontend/docker.env.example frontend/docker.env
-# Editar frontend/docker.env con tus valores
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml up -d
 ```
 
-### 3. Levantar los servicios
-
-**Producción:**
-```bash
-POSTGRES_PASSWORD='tu_password' \
-REDIS_PASSWORD='tu_password_redis' \
-docker compose -f docker-compose.prod.yml up -d
-```
-
-**Desarrollo:**
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-### 4. Acceder a la aplicación
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000/api
-- **Admin Django**: http://localhost:8000/admin
+### 3. Acceder a la aplicación
+- **Frontend dev**: http://localhost:3001
+- **Backend API dev**: http://localhost:8001/api
+- **Admin Django dev**: http://localhost:8001/admin
+- **Postgres dev**: 127.0.0.1:5434
 
 ## 🔧 Comandos Útiles
 
 ### Docker
 ```bash
 # Ver logs
-docker compose -f docker-compose.prod.yml logs -f
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml logs -f
 
 # Reiniciar un servicio
-docker compose -f docker-compose.prod.yml restart backend
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml restart backend
 
 # Ejecutar migraciones
-docker compose -f docker-compose.prod.yml exec backend python manage.py migrate
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec backend python manage.py migrate
 
 # Crear superusuario
-docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec backend python manage.py createsuperuser
 
 # Acceder al shell de Django
-docker compose -f docker-compose.prod.yml exec backend python manage.py shell
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec backend python manage.py shell
 
 # Ver estado de los contenedores
-docker compose -f docker-compose.prod.yml ps
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml ps
 ```
 
 ### Base de datos
 ```bash
 # Backup de la base de datos
-docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfit > backup.sql
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec db pg_dump -U postgres mykaizenfit_dev > backup-dev.sql
 
 # Restaurar backup
-docker compose -f docker-compose.prod.yml exec -T db psql -U postgres mykaizenfit < backup.sql
+COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec -T db psql -U postgres mykaizenfit_dev < backup-dev.sql
 ```
 
-## 🔄 Flujo de Trabajo: Desarrollo y Producción
+## 🔄 Separación de Entornos
 
-Para separar correctamente desarrollo de producción, consulta **[WORKFLOW.md](WORKFLOW.md)** para el flujo completo recomendado.
+Desarrollo vive en `/srv/mykaizenfit/dev`, rama `dev`, con datos en `/srv/mykaizenfit/dev/data`.
 
-### Resumen Rápido
-
-**En tu máquina local:**
-```bash
-git clone <repo-url> nexfit365
-cd nexfit365
-git checkout -b develop
-# Trabaja en tus cambios...
-git commit -m "feat: nueva funcionalidad"
-git push origin develop
-```
-
-**En el servidor (desarrollo):**
-```bash
-cd /srv/mykaizenfit/pro
-git checkout develop
-git pull origin develop
-./dev.sh up  # Inicia en puertos 3001, 8001, 5434
-```
-
-**Deploy a producción:**
-```bash
-cd /srv/mykaizenfit/pro
-./deploy.sh  # Script automatizado de deploy
-```
+Producción vive en `/srv/mykaizenfit/pro`, rama `main`, con datos en `/srv/mykaizenfit/pro/data`.
 
 ## 🛠️ Desarrollo Local (sin Docker)
 
@@ -220,7 +176,4 @@ npm run dev
 
 ## 📚 Documentación Adicional
 
-- **[WORKFLOW.md](WORKFLOW.md)**: Flujo completo de desarrollo y despliegue
-- **`deploy.sh`**: Script automatizado para deploy a producción
-- **`dev.sh`**: Script para gestionar el entorno de desarrollo
-
+- **`docker-compose.dev.yml`**: stack Docker de desarrollo

@@ -43,7 +43,7 @@ print_error() {
 ENV="prod"
 if [[ "$1" == "--dev" ]]; then
     ENV="dev"
-    COMPOSE_PROJECT_NAME="nexfit-dev"
+    COMPOSE_PROJECT_NAME="mykaizenfit-dev"
     COMPOSE_FILE="docker-compose.dev.yml"
     DB_NAME="mykaizenfit_dev"
 elif [[ "$1" == "--prod" ]] || [[ -z "$1" ]]; then
@@ -180,4 +180,3 @@ echo ""
 print_warning "NOTA: Si la base de datos no estaba en UTF8, considera recrearla con UTF8"
 echo "      para evitar problemas futuros."
 echo ""
-
