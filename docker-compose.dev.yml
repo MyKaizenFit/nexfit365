@@ -51,7 +51,7 @@ services:
     networks:
       internal:
         aliases:
-          - nexfit-dev-db
+          - mykaizenfit-dev-db
       db_access:
 
   # ============================================
@@ -72,7 +72,7 @@ services:
     networks:
       internal:
         aliases:
-          - nexfit-dev-redis
+          - mykaizenfit-dev-redis
 
   # ============================================
   # BACKEND (Django) - DESARROLLO
@@ -88,7 +88,7 @@ services:
     environment:
       # Logs
       LOG_LEVEL: DEBUG
-      DB_HOST: nexfit-dev-db
+      DB_HOST: mykaizenfit-dev-db
       DB_NAME: mykaizenfit_dev
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/0
@@ -162,7 +162,7 @@ services:
       - ./docker/backend.env.dev
     environment:
       LOG_LEVEL: DEBUG
-      DB_HOST: nexfit-dev-db
+      DB_HOST: mykaizenfit-dev-db
       DB_NAME: mykaizenfit_dev
       DB_PORT: 5432
       REDIS_URL: redis://redis:6379/0
