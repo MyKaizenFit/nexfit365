@@ -52,6 +52,7 @@ services:
       internal:
         aliases:
           - nexfit-dev-db
+      db_access:
 
   # ============================================
   # REDIS (DESARROLLO)
@@ -193,4 +194,7 @@ networks:
     internal: true
   web:
     name: mykaizenfit-dev-web
+    driver: bridge
+  db_access:
+    name: mykaizenfit-dev-db-access
     driver: bridge
