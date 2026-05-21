@@ -6,7 +6,7 @@
 # Este script corrige problemas de encoding en la base de datos existente
 #
 # Uso:
-#   ./scripts/deployment/fix-db-encoding.sh [--prod|--dev]
+#   ./scripts/deployment/fix-db-encoding.sh [--prod]
 #
 # Requisitos:
 #   - Docker corriendo
@@ -41,19 +41,15 @@ print_error() {
 
 # Determinar entorno
 ENV="prod"
-if [[ "$1" == "--dev" ]]; then
-    ENV="dev"
-    COMPOSE_PROJECT_NAME="nexfit-dev"
-    COMPOSE_FILE="docker-compose.dev.yml"
-    DB_NAME="mykaizenfit_dev"
-elif [[ "$1" == "--prod" ]] || [[ -z "$1" ]]; then
+if [[ "$1" == "--prod" ]] || [[ -z "$1" ]]; then
     ENV="prod"
     COMPOSE_PROJECT_NAME="nexfit-pro"
     COMPOSE_FILE="docker-compose.prod.yml"
     DB_NAME="mykaizenfit"
 else
     print_error "Opción desconocida: $1"
-    echo "Uso: $0 [--prod|--dev]"
+    echo "Uso: $0 [--prod]"
+    echo "El entorno dev está separado en /srv/mykaizenfit/dev."
     exit 1
 fi
 
@@ -180,4 +176,3 @@ echo ""
 print_warning "NOTA: Si la base de datos no estaba en UTF8, considera recrearla con UTF8"
 echo "      para evitar problemas futuros."
 echo ""
-

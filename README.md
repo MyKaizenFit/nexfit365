@@ -10,7 +10,7 @@ _Test commit automático: verificación de push y autor correcto (IagoPL)_
 
 ## 🚀 Descripción
 
-NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Combina un frontend Next.js con un backend Django en un **mono-repo** unificado, diseñado para facilitar el desarrollo y despliegue.
+NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Esta copia corresponde al entorno de **producción**.
 
 ## ✨ Características Principales
 
@@ -75,7 +75,6 @@ nexfit365/
 ├── doc/                        # Documentación
 │
 ├── docker-compose.prod.yml     # Configuración para producción
-├── docker-compose.dev.yml      # Configuración para desarrollo
 └── .gitignore
 ```
 
@@ -104,16 +103,10 @@ cp frontend/docker.env.example frontend/docker.env
 
 ### 3. Levantar los servicios
 
-**Producción:**
 ```bash
 POSTGRES_PASSWORD='tu_password' \
 REDIS_PASSWORD='tu_password_redis' \
 docker compose -f docker-compose.prod.yml up -d
-```
-
-**Desarrollo:**
-```bash
-docker compose -f docker-compose.dev.yml up -d
 ```
 
 ### 4. Acceder a la aplicación
@@ -153,29 +146,11 @@ docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfi
 docker compose -f docker-compose.prod.yml exec -T db psql -U postgres mykaizenfit < backup.sql
 ```
 
-## 🔄 Flujo de Trabajo: Desarrollo y Producción
+## 🔄 Separación de Entornos
 
-Para separar correctamente desarrollo de producción, consulta **[WORKFLOW.md](WORKFLOW.md)** para el flujo completo recomendado.
+Producción vive en `/srv/mykaizenfit/pro`, rama `main`, con `docker-compose.prod.yml`.
 
-### Resumen Rápido
-
-**En tu máquina local:**
-```bash
-git clone <repo-url> nexfit365
-cd nexfit365
-git checkout -b develop
-# Trabaja en tus cambios...
-git commit -m "feat: nueva funcionalidad"
-git push origin develop
-```
-
-**En el servidor (desarrollo):**
-```bash
-cd /srv/mykaizenfit/pro
-git checkout develop
-git pull origin develop
-./dev.sh up  # Inicia en puertos 3001, 8001, 5434
-```
+Desarrollo vive separado en `/srv/mykaizenfit/dev`, rama `dev`, con sus propios contenedores, puertos y base de datos.
 
 **Deploy a producción:**
 ```bash
@@ -220,7 +195,5 @@ npm run dev
 
 ## 📚 Documentación Adicional
 
-- **[WORKFLOW.md](WORKFLOW.md)**: Flujo completo de desarrollo y despliegue
-- **`deploy.sh`**: Script automatizado para deploy a producción
-- **`dev.sh`**: Script para gestionar el entorno de desarrollo
-
+- **`docker-compose.prod.yml`**: stack Docker de producción
+- **`scripts/deployment/`**: utilidades operativas de despliegue y mantenimiento

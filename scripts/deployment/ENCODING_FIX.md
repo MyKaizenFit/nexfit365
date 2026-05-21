@@ -13,9 +13,8 @@ Este documento describe las correcciones aplicadas para solucionar problemas de 
 
 ### 1. Configuración de PostgreSQL en Docker
 
-**Archivos modificados:**
+**Archivo modificado:**
 - `docker-compose.prod.yml`
-- `docker-compose.dev.yml`
 
 **Cambios:**
 - Agregadas variables de entorno para forzar UTF-8:
@@ -30,8 +29,7 @@ Este documento describe las correcciones aplicadas para solucionar problemas de 
 
 ### 2. Scripts de Exportación/Importación
 
-**Archivos modificados:**
-- `scripts/deployment/export-dev-db.sh`
+**Archivo modificado:**
 - `scripts/deployment/import-to-prod.sh`
 
 **Cambios:**
@@ -76,9 +74,6 @@ Si estás creando una nueva base de datos, simplemente:
    COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml down
    COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d db
    
-   # Desarrollo
-   COMPOSE_PROJECT_NAME=nexfit-dev docker compose -f docker-compose.dev.yml down
-   COMPOSE_PROJECT_NAME=nexfit-dev docker compose -f docker-compose.dev.yml up -d db
    ```
 
 2. **Recrea la base de datos** (si es necesario):
@@ -97,8 +92,6 @@ Si ya tienes una base de datos con datos, tienes dos opciones:
    # Producción
    ./scripts/deployment/fix-db-encoding.sh --prod
    
-   # Desarrollo
-   ./scripts/deployment/fix-db-encoding.sh --dev
    ```
 
 2. **Verifica los resultados** en la consola
@@ -109,7 +102,7 @@ Si ya tienes una base de datos con datos, tienes dos opciones:
 
 1. **Exporta los datos actuales:**
    ```bash
-   ./scripts/deployment/export-dev-db.sh
+   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfit > backup.sql
    ```
 
 2. **Elimina y recrea la base de datos:**
@@ -197,4 +190,3 @@ gunzip < backups/encoding_fix_backup_prod_YYYYMMDD_HHMMSS.sql.gz | \
   - `backend/scripts/fix_utf8_comprehensive.py`
   - `backend/scripts/diagnose_utf8_issues.py`
   - `backend/accounts/management/commands/fix_users_utf8.py`
-

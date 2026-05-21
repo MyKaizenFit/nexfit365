@@ -62,7 +62,7 @@ Si después de limpiar la caché sigues viendo caracteres mal codificados:
 1. **Verifica que el backend esté devolviendo datos correctos:**
    ```bash
    # Desde el contenedor del backend
-   docker compose -f docker-compose.dev.yml exec backend python manage.py shell
+   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec backend python manage.py shell
    ```
    ```python
    from accounts.models import CustomUser
@@ -89,7 +89,6 @@ Para evitar problemas futuros:
 1. **Asegúrate de que todas las nuevas inserciones usen UTF-8**
 2. **Verifica que el frontend siempre use UTF-8 al enviar datos**
 3. **Configura el servidor web (nginx/apache) para usar UTF-8**
-
 
 
 

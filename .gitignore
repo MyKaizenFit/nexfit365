@@ -11,29 +11,16 @@
 *.env.dev
 docker.env
 backend/docker/backend.env
-docker/backend.env.dev
-frontend/docker.env.dev
 !*.env.example
 
 # ===== Docker =====
 data/
-data-dev/
 docker-data/
 
 # ===== Backups =====
 backups/
 # Backups/exports operativos del servidor (no deben versionarse)
 backups-current/
-# Pero permitir backups de desarrollo para sincronización entre equipos
-!backups/dev/
-!backups/dev/*.sql.gz
-!backups/dev/latest_backup.txt
-# Ignorar archivos SQL sin comprimir (solo mantener .gz)
-backups/dev/*.sql
-# Permitir archivos de exportación para deployment
-!backups/dev_database_export_*.sql
-!backups/dev_database_export_*.sql.zip
-!backups/dev_database_export_*.dump
 
 # ===== Python/Django =====
 __pycache__/

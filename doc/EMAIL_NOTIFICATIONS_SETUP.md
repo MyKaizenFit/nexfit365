@@ -31,7 +31,7 @@ Se ha implementado completamente el sistema de notificaciones por email para Nex
 
 ### Variables de Entorno Requeridas
 
-Agrega estas variables a tu archivo `.env` o `docker-compose.dev.yml`:
+Agrega estas variables al entorno de producción del backend:
 
 ```bash
 # Configuración SMTP
@@ -169,7 +169,7 @@ email_service.send_notification_email(
 
 2. **Verifica los logs**:
    ```bash
-   docker compose -f docker-compose.dev.yml logs backend | grep -i email
+   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs backend | grep -i email
    ```
 
 3. **Prueba el envío manualmente**:
@@ -199,7 +199,7 @@ El servicio registra automáticamente:
 
 Revisa los logs para monitorear el funcionamiento:
 ```bash
-docker compose -f docker-compose.dev.yml logs backend | grep -i "email\|notification"
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs backend | grep -i "email\|notification"
 ```
 
 ## ✨ Características
@@ -213,7 +213,6 @@ docker compose -f docker-compose.dev.yml logs backend | grep -i "email\|notifica
 - ✅ Configuración flexible para desarrollo/producción
 
 ¡El sistema está listo para usar! 🚀
-
 
 
 
