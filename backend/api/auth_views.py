@@ -14,6 +14,7 @@ from django.utils.crypto import get_random_string
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
+from urllib.parse import urlencode
 import json
 
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
@@ -339,45 +340,25 @@ class ForgotPasswordView(APIView):
                     "detail": "Si el email existe, se ha enviado un link de reset"
                 }, status=status.HTTP_200_OK)
             
-            # Generar contraseña temporal (12 caracteres: mayúsculas, minúsculas, números)
-            import string
-            import secrets
-            alphabet = string.ascii_letters + string.digits
-            # Asegurar al menos una mayúscula, una minúscula y un número
-            temp_password = ''.join(secrets.choice(string.ascii_uppercase) for _ in range(1))
-            temp_password += ''.join(secrets.choice(string.ascii_lowercase) for _ in range(1))
-            temp_password += ''.join(secrets.choice(string.digits) for _ in range(1))
-            temp_password += ''.join(secrets.choice(alphabet) for _ in range(9))  # 9 más para total de 12
-            # Mezclar los caracteres
-            temp_password_list = list(temp_password)
-            secrets.SystemRandom().shuffle(temp_password_list)
-            temp_password = ''.join(temp_password_list)
-            
-            # Generar token de reset (compatibilidad con tests/API) y establecer contraseña temporal
-            user.generate_password_reset_token()
-            user.set_password(temp_password)
-            user.must_change_password = True
-            user.temporary_password_used = False
-            user.save()
-            
-            # Enviar email con contraseña temporal
-            subject = "Contraseña Temporal - Nex-Fit"
+            token = user.generate_password_reset_token()
+            reset_url = f"{settings.FRONTEND_URL}/auth/reset-password?{urlencode({'token': token})}"
+
+            subject = "Recupera tu contraseña - NexFit365"
             message = f"""
 Hola {user.first_name or user.email},
 
-Has solicitado resetear tu contraseña.
+Hemos recibido una solicitud para recuperar tu contraseña.
 
-Tu contraseña temporal es: {temp_password}
+Para crear una nueva contraseña, abre este enlace:
 
-IMPORTANTE:
-- Esta contraseña solo puede usarse UNA VEZ
-- Después de iniciar sesión, deberás establecer una nueva contraseña
-- Esta contraseña expira en 24 horas
+{reset_url}
+
+El enlace caduca en 24 horas.
 
 Si no solicitaste este reset, contacta con soporte inmediatamente.
 
 Saludos,
-Equipo Nex-Fit
+Equipo NexFit365
             """
             
             try:

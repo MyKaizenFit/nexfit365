@@ -451,7 +451,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }))
 
       // Mostrar notificación de éxito
-      authNotifications.showLoginSuccess('Se ha enviado una contraseña temporal a tu correo')
+      authNotifications.showLoginSuccess('Te hemos enviado un enlace de recuperación')
     } catch (error: any) {
       const errorMessage = error.message || 'Error al solicitar reset de contraseña'
 
