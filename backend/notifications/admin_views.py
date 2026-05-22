@@ -337,7 +337,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def get_throttles(self):
-        if self.action in ['send_bulk', 'send_to_all', 'run_automation']:
+        if self.action in ['send_single', 'send_bulk', 'send_to_all', 'run_automation']:
             return [AdminNotificationSendThrottle()]
         return super().get_throttles()
 
@@ -356,6 +356,60 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 'results': [],
                 'warning': 'No se pudieron cargar notificaciones por incidencia temporal en base de datos'
             }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def send_single(self, request):
+        """Enviar una notificación a un único usuario."""
+        serializer = CreateNotificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user_id = request.data.get('user_id')
+        user_ids = data.get('user_ids') or []
+
+        if user_id is None and len(user_ids) == 1:
+            user_id = user_ids[0]
+
+        if user_id is None:
+            return Response(
+                {'error': 'Se requiere user_id para enviar una notificación individual'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized_type = _normalize_notification_type(data.get('type'))
+        expires_at = data.get('expires_at') or _default_expiration_for_type(normalized_type)
+
+        notification = Notification.objects.create(
+            user_id=user_id,
+            type=normalized_type,
+            title=data['title'],
+            message=data['message'],
+            data={
+                'priority': data.get('priority', 'medium'),
+                'created_by_admin': True,
+                'created_by_admin_id': str(request.user.id),
+                'delivery_scope': 'single',
+            },
+            action_url=data.get('action_url', ''),
+            expires_at=expires_at,
+        )
+
+        logger.info(
+            'admin_notification_send_single',
+            extra={
+                'admin_user_id': str(request.user.id),
+                'admin_email': getattr(request.user, 'email', ''),
+                'target_user_id': str(user_id),
+                'message_type': normalized_type,
+            }
+        )
+
+        return Response({
+            'message': 'Notificación individual enviada correctamente',
+            'notifications_created': 1,
+            'notification_id': str(notification.id),
+        }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['post'])
     @extend_schema(

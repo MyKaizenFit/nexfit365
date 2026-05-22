@@ -159,11 +159,11 @@ export function useAdminNotifications() {
   const sendBulkNotification = async (notificationData: CreateNotificationData) => {
     try {
       const headers = await getAuthHeaders()
-      const endpoint = notificationData.user_ids && notificationData.user_ids.length > 0
-        ? 'admin/notifications/send_bulk/'
-        : 'admin/notifications/send_to_all/'
+      if (!notificationData.user_ids || notificationData.user_ids.length === 0) {
+        throw new Error('Selecciona al menos un destinatario')
+      }
 
-      const response = await fetch(buildApiUrl(endpoint), {
+      const response = await fetch(buildApiUrl('admin/notifications/send_bulk/'), {
         method: 'POST',
         headers: {
           ...headers,
@@ -179,6 +179,75 @@ export function useAdminNotifications() {
 
       const result = await response.json()
       // Recargar las notificaciones después del envío
+      await fetchNotifications()
+      await fetchStats()
+      return result
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
+  const sendIndividualNotification = async (notificationData: CreateNotificationData) => {
+    try {
+      const headers = await getAuthHeaders()
+      const userId = notificationData.user_ids?.[0]
+      if (!userId) {
+        throw new Error('Selecciona un usuario destinatario')
+      }
+
+      const response = await fetch(buildApiUrl('admin/notifications/send_single/'), {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          ...notificationData,
+          user_id: userId,
+          user_ids: [userId],
+        })
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || errorData.error || `Error ${response.status}`)
+      }
+
+      const result = await response.json()
+      await fetchNotifications()
+      await fetchStats()
+      return result
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
+  const sendBroadcastNotification = async (notificationData: CreateNotificationData) => {
+    try {
+      const headers = await getAuthHeaders()
+      const endpoint = notificationData.user_ids && notificationData.user_ids.length > 0
+        ? 'admin/notifications/send_bulk/'
+        : 'admin/notifications/send_to_all/'
+
+      const response = await fetch(buildApiUrl(endpoint), {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(notificationData)
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || errorData.error || `Error ${response.status}`)
+      }
+
+      const result = await response.json()
       await fetchNotifications()
       await fetchStats()
       return result
@@ -303,6 +372,8 @@ export function useAdminNotifications() {
     loading,
     error,
     sendBulkNotification,
+    sendIndividualNotification,
+    sendBroadcastNotification,
     runAutomation,
     deleteNotification,
     markAsRead,
