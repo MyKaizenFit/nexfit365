@@ -109,8 +109,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Pull',
     border: 'border-sky-200 dark:border-sky-800/50',
     card: 'bg-sky-50/60 dark:bg-sky-950/20',
-    hero: 'from-sky-600 via-blue-600 to-indigo-700',
-    heroSoft: 'from-sky-500/15 via-blue-500/10 to-indigo-500/15',
+    hero: 'from-sky-400 via-blue-400 to-indigo-500',
+    heroSoft: 'from-sky-400/10 via-blue-400/8 to-indigo-400/10',
     title: 'text-sky-950 dark:text-sky-100',
     text: 'text-sky-700 dark:text-sky-300',
     badge: 'bg-sky-500 text-white',
@@ -125,8 +125,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Lower',
     border: 'border-emerald-200 dark:border-emerald-800/50',
     card: 'bg-emerald-50/60 dark:bg-emerald-950/20',
-    hero: 'from-emerald-600 via-lime-600 to-teal-700',
-    heroSoft: 'from-emerald-500/15 via-lime-500/10 to-teal-500/15',
+    hero: 'from-emerald-400 via-lime-400 to-teal-500',
+    heroSoft: 'from-emerald-400/10 via-lime-400/8 to-teal-400/10',
     title: 'text-emerald-950 dark:text-emerald-100',
     text: 'text-emerald-700 dark:text-emerald-300',
     badge: 'bg-emerald-500 text-white',
@@ -141,8 +141,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Push',
     border: 'border-rose-200 dark:border-rose-800/50',
     card: 'bg-rose-50/60 dark:bg-rose-950/20',
-    hero: 'from-rose-600 via-red-500 to-orange-600',
-    heroSoft: 'from-rose-500/15 via-red-500/10 to-orange-500/15',
+    hero: 'from-rose-400 via-red-400 to-orange-400',
+    heroSoft: 'from-rose-400/10 via-red-400/8 to-orange-400/10',
     title: 'text-rose-950 dark:text-rose-100',
     text: 'text-rose-700 dark:text-rose-300',
     badge: 'bg-rose-500 text-white',
@@ -157,8 +157,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Delts',
     border: 'border-amber-200 dark:border-amber-800/50',
     card: 'bg-amber-50/60 dark:bg-amber-950/20',
-    hero: 'from-amber-500 via-yellow-500 to-orange-600',
-    heroSoft: 'from-amber-500/15 via-yellow-500/10 to-orange-500/15',
+    hero: 'from-amber-300 via-yellow-300 to-orange-400',
+    heroSoft: 'from-amber-300/12 via-yellow-300/10 to-orange-300/12',
     title: 'text-amber-950 dark:text-amber-100',
     text: 'text-amber-700 dark:text-amber-300',
     badge: 'bg-amber-500 text-white',
@@ -173,8 +173,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Arms',
     border: 'border-fuchsia-200 dark:border-fuchsia-800/50',
     card: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/20',
-    hero: 'from-fuchsia-600 via-pink-600 to-rose-600',
-    heroSoft: 'from-fuchsia-500/15 via-pink-500/10 to-rose-500/15',
+    hero: 'from-fuchsia-400 via-pink-400 to-rose-400',
+    heroSoft: 'from-fuchsia-400/10 via-pink-400/8 to-rose-400/10',
     title: 'text-fuchsia-950 dark:text-fuchsia-100',
     text: 'text-fuchsia-700 dark:text-fuchsia-300',
     badge: 'bg-fuchsia-500 text-white',
@@ -189,8 +189,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Core',
     border: 'border-violet-200 dark:border-violet-800/50',
     card: 'bg-violet-50/60 dark:bg-violet-950/20',
-    hero: 'from-violet-600 via-purple-600 to-indigo-700',
-    heroSoft: 'from-violet-500/15 via-purple-500/10 to-indigo-500/15',
+    hero: 'from-violet-400 via-purple-400 to-indigo-500',
+    heroSoft: 'from-violet-400/10 via-purple-400/8 to-indigo-400/10',
     title: 'text-violet-950 dark:text-violet-100',
     text: 'text-violet-700 dark:text-violet-300',
     badge: 'bg-violet-500 text-white',
@@ -205,8 +205,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Cardio',
     border: 'border-orange-200 dark:border-orange-800/50',
     card: 'bg-orange-50/60 dark:bg-orange-950/20',
-    hero: 'from-orange-500 via-red-500 to-pink-600',
-    heroSoft: 'from-orange-500/15 via-red-500/10 to-pink-500/15',
+    hero: 'from-orange-300 via-red-300 to-pink-400',
+    heroSoft: 'from-orange-300/12 via-red-300/10 to-pink-300/12',
     title: 'text-orange-950 dark:text-orange-100',
     text: 'text-orange-700 dark:text-orange-300',
     badge: 'bg-orange-500 text-white',
@@ -221,8 +221,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Full',
     border: 'border-teal-200 dark:border-teal-800/50',
     card: 'bg-teal-50/60 dark:bg-teal-950/20',
-    hero: 'from-teal-600 via-cyan-600 to-blue-700',
-    heroSoft: 'from-teal-500/15 via-cyan-500/10 to-blue-500/15',
+    hero: 'from-teal-400 via-cyan-400 to-blue-500',
+    heroSoft: 'from-teal-400/10 via-cyan-400/8 to-blue-400/10',
     title: 'text-teal-950 dark:text-teal-100',
     text: 'text-teal-700 dark:text-teal-300',
     badge: 'bg-teal-500 text-white',
@@ -237,8 +237,8 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Rest',
     border: 'border-slate-200 dark:border-slate-800',
     card: 'bg-slate-50/70 dark:bg-slate-950/20',
-    hero: 'from-slate-500 via-gray-500 to-zinc-600',
-    heroSoft: 'from-slate-500/15 via-gray-500/10 to-zinc-500/15',
+    hero: 'from-slate-300 via-gray-300 to-zinc-400',
+    heroSoft: 'from-slate-300/12 via-gray-300/10 to-zinc-300/12',
     title: 'text-slate-950 dark:text-slate-100',
     text: 'text-slate-700 dark:text-slate-300',
     badge: 'bg-slate-500 text-white',
@@ -1186,24 +1186,24 @@ export function WorkoutDashboardEnhanced() {
                     key={day.number}
                     className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
                       ? isTrainingByProfile
-                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg md:scale-105'
-                        : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg md:scale-105'
+                        ? 'bg-gradient-to-br from-blue-200 to-cyan-200 text-blue-900 border-blue-300 shadow-md md:scale-105'
+                        : 'bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 border-slate-300 shadow-md md:scale-105'
                       : isTrainingByProfile
-                        ? 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700/50 text-blue-800 dark:text-blue-300'
+                        ? 'bg-blue-50 border-blue-200 text-blue-700'
                         : 'bg-muted border-border text-muted-foreground'
                       }`}
                   >
                     <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
                     <div className="flex items-center justify-center">
                       {isTrainingByProfile ? (
-                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-blue-800' : ''}`} />
                       ) : (
-                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
                       )}
                     </div>
                     {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
                     {day.hasPlanWorkout && day.workoutDay && (
-                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
+                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? (isTrainingByProfile ? 'text-blue-900' : 'text-slate-700') : isTrainingByProfile ? 'text-blue-700' : 'text-orange-600'
                         }`}>
                         {day.workoutDay.exercises?.length || 0} ej.
                       </div>
@@ -1273,8 +1273,8 @@ export function WorkoutDashboardEnhanced() {
                   const dayTheme = getWorkoutFocusTheme(planDay)
 
                   return (
-                    <Card key={userDayNumber} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${planDay ? `border-2 ${dayTheme.border}` : 'border-orange-200 bg-orange-50/30'}`}>
-                      <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-orange-300 to-amber-500'}`}>
+                    <Card key={userDayNumber} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${planDay ? `border-2 ${dayTheme.border}` : 'border-orange-100 bg-orange-50/20'}`}>
+                      <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-orange-100 via-amber-100 to-orange-200'}`}>
                         <div className="absolute inset-0 opacity-25">
                           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/50" />
                           <div className="absolute right-12 bottom-5 h-16 w-16 rounded-full bg-white/20" />

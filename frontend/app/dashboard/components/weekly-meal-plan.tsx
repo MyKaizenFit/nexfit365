@@ -578,7 +578,7 @@ export function WeeklyMealPlan() {
                           variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
                           className={`w-full justify-start h-auto text-[10px] md:text-xs touch-manipulation ${
                             hasSelection
-                              ? `overflow-hidden rounded-2xl border p-0 shadow-sm hover:shadow-lg ${isCompleted ? 'border-teal-300' : 'border-orange-200'}`
+                              ? `overflow-hidden rounded-2xl border p-0 shadow-sm hover:shadow-md ${isCompleted ? 'border-teal-200' : 'border-orange-100'}`
                               : 'min-h-[40px] md:min-h-[45px] p-1.5 md:p-2'
                           }`}
                           onClick={() => handleSelectMeal(dateStr, slot)}
@@ -597,7 +597,7 @@ export function WeeklyMealPlan() {
                                 />
                                 <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
                                 <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
-                                  <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
                                     {mealLabel}
                                   </span>
                                   <span className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
@@ -618,22 +618,22 @@ export function WeeklyMealPlan() {
                               </div>
 
                               <div className="grid grid-cols-3 gap-1.5 p-2">
-                                <span className="rounded-xl border border-orange-100 bg-orange-50 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-orange-700">{calories}</span>
-                                  <span className="block text-[8px] font-semibold text-orange-500">kcal</span>
+                                <span className="rounded-xl border border-orange-100/80 bg-orange-50/60 px-1.5 py-1.5 text-center">
+                                  <span className="block text-[11px] font-black text-orange-600">{calories}</span>
+                                  <span className="block text-[8px] font-semibold text-orange-400">kcal</span>
                                 </span>
                                 <span className="rounded-xl border border-blue-100 bg-blue-50 px-1.5 py-1.5 text-center">
                                   <span className="block text-[11px] font-black text-blue-700">{protein}g</span>
                                   <span className="block text-[8px] font-semibold text-blue-500">prot</span>
                                 </span>
-                                <span className="rounded-xl border border-green-100 bg-green-50 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-green-700">{carbs}g</span>
-                                  <span className="block text-[8px] font-semibold text-green-500">carb</span>
+                                <span className="rounded-xl border border-emerald-100/80 bg-emerald-50/60 px-1.5 py-1.5 text-center">
+                                  <span className="block text-[11px] font-black text-emerald-600">{carbs}g</span>
+                                  <span className="block text-[8px] font-semibold text-emerald-400">carb</span>
                                 </span>
                               </div>
 
                               <div className="grid grid-cols-3 gap-1.5 px-2 pb-2 text-[10px] font-bold">
-                                <span className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 text-orange-700">
+                                <span className="flex items-center justify-center gap-1 rounded-xl bg-orange-50/60 px-2 py-2 text-orange-600">
                                   <BookOpen className="h-3 w-3" />
                                   Receta
                                 </span>
