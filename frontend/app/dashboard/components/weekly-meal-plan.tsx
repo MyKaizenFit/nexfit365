@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Calendar, ChefHat, Check, Clock, Loader2, Copy, ArrowRight } from "lucide-react"
+import { Calendar, ChefHat, Check, Clock, Loader2, Copy, ArrowRight, BookOpen, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +11,7 @@ import { nutritionService } from "@/lib/nutrition-service"
 import { MealSelectionModal } from "@/components/dashboard/meal-selection-modal"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { authenticatedFetch } from "@/lib/api"
+import { API_CONFIG, authenticatedFetch } from "@/lib/api"
 
 const FALLBACK_MEAL_TYPES = [
   { name: "Desayuno", type: "breakfast", time: "08:00", icon: "🌅" },
@@ -20,6 +20,18 @@ const FALLBACK_MEAL_TYPES = [
   { name: "Snack Tarde", type: "afternoon_snack", time: "16:00", icon: "🍎" },
   { name: "Cena", type: "dinner", time: "20:00", icon: "🌙" },
 ]
+
+const resolveRecipeImageSrc = (src?: string | null) => {
+  const value = String(src || '').trim()
+  if (!value) return '/placeholder.jpg'
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:') || value.startsWith('blob:')) {
+    return value
+  }
+  if (value.startsWith('/')) {
+    return `${API_CONFIG.BASE_URL}${value}`
+  }
+  return value
+}
 
 interface WeeklyMealSelection {
   date: string
@@ -548,6 +560,13 @@ export function WeeklyMealPlan() {
                     // Verificar si está completada (por defecto false si no se especifica)
                     const isCompleted = selection?.completed === true
                     const hasSelection = !!selection
+                    const mealLabel = slot.name || slot.meal_type
+                    const mealTime = (slot.time || "").slice(0, 5) || ""
+                    const selectedName = selection ? getMealName(selection) : ""
+                    const imageSrc = resolveRecipeImageSrc(selection?.recipe?.image_url)
+                    const calories = selection?.recipe?.calories || selection?.calories || 0
+                    const protein = selection?.recipe?.protein || selection?.protein || 0
+                    const carbs = selection?.recipe?.carbs || selection?.carbs || 0
                     
                     return (
                       <div
@@ -557,99 +576,111 @@ export function WeeklyMealPlan() {
                         <Button
                           type="button"
                           variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
-                          className={`w-full justify-start h-auto p-1.5 md:p-2 text-[10px] md:text-xs touch-manipulation ${
-                            hasSelection && !isCompleted ? 'border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200' : ''
-                          } ${hasSelection ? 'min-h-[90px] md:min-h-[110px]' : 'min-h-[40px] md:min-h-[45px]'}`}
+                          className={`w-full justify-start h-auto text-[10px] md:text-xs touch-manipulation ${
+                            hasSelection
+                              ? `overflow-hidden rounded-2xl border p-0 shadow-sm hover:shadow-lg ${isCompleted ? 'border-teal-300' : 'border-orange-200'}`
+                              : 'min-h-[40px] md:min-h-[45px] p-1.5 md:p-2'
+                          }`}
                           onClick={() => handleSelectMeal(dateStr, slot)}
                           disabled={saving}
                         >
-                          <div className="flex flex-col gap-1.5 w-full text-left">
-                            {/* Header: Icono, nombre de comida y hora */}
-                            <div className="flex items-center gap-2">
-                              <span className="text-base flex-shrink-0">{slot.icon || getSlotIcon(slot.meal_type)}</span>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium text-xs leading-tight">{slot.name || slot.meal_type}</div>
-                                {!hasSelection && (
-                                  <div className="text-[10px] text-muted-foreground">{(slot.time || "").slice(0,5) || ""}</div>
-                                )}
-                              </div>
-                              {hasSelection && (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className={`flex-shrink-0 h-6 w-6 md:h-7 md:w-7 p-0 rounded-full hover:bg-teal-50 active:bg-teal-100 transition-colors touch-manipulation ${
-                                    isCompleted ? 'bg-teal-100' : 'bg-blue-100 hover:bg-blue-200 active:bg-blue-300'
-                                  }`}
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    handleToggleCompleted(dateStr, slot)
-                                  }}
-                                  disabled={saving}
-                                  title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
-                                >
-                                  <Check className={`h-3.5 w-3.5 md:h-4 md:w-4 ${
-                                    isCompleted ? 'text-teal-600' : 'text-blue-500'
-                                  }`} />
-                                </Button>
-                              )}
-                            </div>
-                            
-                            {/* Selección: Nombre completo de la receta con macros */}
-                            {hasSelection && (
-                              <div className="mt-0.5 pt-1 md:pt-1.5 border-t border-border/60 space-y-1 md:space-y-1.5">
+                          {hasSelection ? (
+                            <div className="w-full text-left bg-white">
+                              <div className="relative h-44 md:h-36 overflow-hidden">
                                 <img
-                                  src={selection.recipe?.image_url || '/placeholder.jpg'}
-                                  alt={getMealName(selection)}
-                                  className="w-full h-12 md:h-14 object-cover rounded-md border border-border"
+                                  src={imageSrc}
+                                  alt={selectedName}
+                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                                   onError={(e) => {
                                     ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
                                   }}
                                 />
-                                <div className="text-[10px] md:text-[11px] font-semibold text-foreground leading-tight break-words line-clamp-2">
-                                  {getMealName(selection)}
+                                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
+                                <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+                                  <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                                    {mealLabel}
+                                  </span>
+                                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
+                                    isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-700'
+                                  }`}>
+                                    {isCompleted ? 'Completada' : 'Planificada'}
+                                  </span>
                                 </div>
-                                
-                                {/* Estado: Seleccionada o Completada */}
-                                <div className="flex items-center gap-1 md:gap-1.5">
-                                  {!isCompleted && (
-                                    <Badge variant="outline" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-3.5 md:h-4 border-blue-300 text-blue-600 bg-blue-50">
-                                      📋 Seleccionada
-                                    </Badge>
-                                  )}
-                                  {isCompleted && (
-                                    <Badge variant="outline" className="text-[8px] md:text-[9px] px-1 md:px-1.5 py-0 h-3.5 md:h-4 border-teal-300 text-teal-600 bg-teal-50">
-                                      ✅ Completada
-                                    </Badge>
-                                  )}
-                                </div>
-                                
-                                {/* Macros nutricionales */}
-                                {(selection.recipe?.calories || selection.calories) && (
-                                  <div className="grid grid-cols-3 gap-1.5 pt-1">
-                                    <div className="text-center bg-orange-50 rounded p-1">
-                                      <div className="font-bold text-orange-600 text-[10px]">
-                                        {selection.recipe?.calories || selection.calories || 0}
-                                      </div>
-                                      <div className="text-[8px] text-orange-500">kcal</div>
-                                    </div>
-                                    <div className="text-center bg-blue-50 rounded p-1">
-                                      <div className="font-bold text-blue-600 text-[10px]">
-                                        {selection.recipe?.protein || selection.protein || 0}
-                                      </div>
-                                      <div className="text-[8px] text-blue-500">prot</div>
-                                    </div>
-                                    <div className="text-center bg-green-50 rounded p-1">
-                                      <div className="font-bold text-green-600 text-[10px]">
-                                        {selection.recipe?.carbs || selection.carbs || 0}
-                                      </div>
-                                      <div className="text-[8px] text-green-500">carb</div>
-                                    </div>
+                                <div className="absolute bottom-3 left-3 right-3">
+                                  <h4 className="line-clamp-2 text-base md:text-sm font-black leading-tight text-white drop-shadow">
+                                    {selectedName}
+                                  </h4>
+                                  <div className="mt-1.5 flex items-center gap-2 text-[10px] font-semibold text-white/90">
+                                    <span>{slot.icon || getSlotIcon(slot.meal_type)}</span>
+                                    {mealTime && <span>{mealTime}</span>}
                                   </div>
-                                )}
+                                </div>
                               </div>
-                            )}
-                          </div>
+
+                              <div className="grid grid-cols-3 gap-1.5 p-2">
+                                <span className="rounded-xl border border-orange-100 bg-orange-50 px-1.5 py-1.5 text-center">
+                                  <span className="block text-[11px] font-black text-orange-700">{calories}</span>
+                                  <span className="block text-[8px] font-semibold text-orange-500">kcal</span>
+                                </span>
+                                <span className="rounded-xl border border-blue-100 bg-blue-50 px-1.5 py-1.5 text-center">
+                                  <span className="block text-[11px] font-black text-blue-700">{protein}g</span>
+                                  <span className="block text-[8px] font-semibold text-blue-500">prot</span>
+                                </span>
+                                <span className="rounded-xl border border-green-100 bg-green-50 px-1.5 py-1.5 text-center">
+                                  <span className="block text-[11px] font-black text-green-700">{carbs}g</span>
+                                  <span className="block text-[8px] font-semibold text-green-500">carb</span>
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-3 gap-1.5 px-2 pb-2 text-[10px] font-bold">
+                                <span className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 text-orange-700">
+                                  <BookOpen className="h-3 w-3" />
+                                  Receta
+                                </span>
+                                <span className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-gray-600">
+                                  <RefreshCw className="h-3 w-3" />
+                                  Cambiar
+                                </span>
+                                <span className="flex items-center justify-center rounded-xl bg-gray-50 px-2 py-2 text-gray-600">
+                                  No me gusta
+                                </span>
+                              </div>
+
+                              <button
+                                type="button"
+                                className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow transition-colors ${
+                                  isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-600'
+                                }`}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleToggleCompleted(dateStr, slot)
+                                }}
+                                disabled={saving}
+                                title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+                              >
+                                <Check className="h-4 w-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col gap-1.5 w-full text-left">
+                              <div className="flex items-center gap-2">
+                                <span className="text-base flex-shrink-0">{slot.icon || getSlotIcon(slot.meal_type)}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium text-xs leading-tight">{mealLabel}</div>
+                                  <div className="text-[10px] text-muted-foreground">{mealTime}</div>
+                                </div>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 flex-shrink-0"
+                                  tabIndex={-1}
+                                >
+                                  <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </Button>
                       </div>
                     )
@@ -680,5 +711,3 @@ export function WeeklyMealPlan() {
     </div>
   )
 }
-
-

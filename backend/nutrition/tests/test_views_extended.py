@@ -300,6 +300,29 @@ class TestDailyMealSelections:
         assert log.skip_reason == 'No me gusta esta receta'
         assert MealRecipeExclusion.objects.filter(user=log.user, recipe=recipe, is_active=True).exists()
 
+    def test_delete_daily_selection_by_meal_type(self, auth_client, user, recipe):
+        MealLog.objects.create(
+            user=user,
+            date='2026-05-21',
+            meal_type='lunch',
+            recipe=recipe,
+            completed=True,
+            calories=recipe.calories,
+            protein=recipe.protein,
+            carbs=recipe.carbs,
+            fat=recipe.fat,
+        )
+
+        response = auth_client.delete(
+            '/api/nutrition/daily-meal-selections/?date=2026-05-21',
+            {'meal_type': 'lunch'},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['deleted'] == 1
+        assert not MealLog.objects.filter(user=user, date='2026-05-21', meal_type='lunch').exists()
+
 
 @pytest.mark.django_db
 class TestMealExclusionsManagement:
