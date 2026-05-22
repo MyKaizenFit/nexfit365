@@ -965,13 +965,14 @@ def daily_meal_selections_today(request):
         ),
     ],
 )
-@api_view(['GET', 'POST'])
+@api_view(['GET', 'POST', 'DELETE'])
 @permission_classes([IsAuthenticated])
 def daily_meal_selections(request):
     """
     Obtener o crear selecciones de comidas para un día específico.
     GET: Obtener las selecciones de comidas del día
     POST: Guardar/actualizar las selecciones de comidas del día
+    DELETE: Quitar la selección de una comida del día
     """
     from django.utils import timezone
     
@@ -1008,6 +1009,24 @@ def daily_meal_selections(request):
             'plan_meals': plan_meals,
             'has_plan': user_plan is not None
         }, status=200)
+
+    elif request.method == 'DELETE':
+        meal_type = request.query_params.get('meal_type') or request.data.get('meal_type')
+        plan_meal_id = request.query_params.get('plan_meal_id') or request.data.get('plan_meal_id')
+
+        queryset = MealLog.objects.filter(user=user, date=date)
+        if plan_meal_id:
+            queryset = queryset.filter(plan_meal_id=plan_meal_id)
+        elif meal_type:
+            queryset = queryset.filter(meal_type=meal_type)
+        else:
+            return Response(
+                {'error': 'meal_type o plan_meal_id es requerido'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        deleted_count, _ = queryset.delete()
+        return Response({'deleted': deleted_count}, status=status.HTTP_200_OK)
     
     elif request.method == 'POST':
         # Guardar selección de comida

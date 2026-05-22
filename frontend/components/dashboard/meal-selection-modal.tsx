@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
+import { API_CONFIG } from '@/lib/api'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
@@ -19,6 +20,19 @@ interface MealSelectionModalProps {
     recipeId?: string | null
   }
   onSelectOption: (option: MealOption) => void
+  onDeselectOption?: () => void
+}
+
+const resolveRecipeImageSrc = (src?: string | null) => {
+  const value = String(src || '').trim()
+  if (!value) return '/placeholder.jpg'
+  if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:') || value.startsWith('blob:')) {
+    return value
+  }
+  if (value.startsWith('/')) {
+    return `${API_CONFIG.BASE_URL}${value}`
+  }
+  return value
 }
 
 export function MealSelectionModal({
@@ -29,7 +43,8 @@ export function MealSelectionModal({
   mealType,
   options,
   currentSelection,
-  onSelectOption
+  onSelectOption,
+  onDeselectOption
 }: MealSelectionModalProps) {
   const [selectedOption, setSelectedOption] = useState<MealOption | null>(null)
   const [showRecipe, setShowRecipe] = useState(false)
@@ -391,7 +406,20 @@ export function MealSelectionModal({
 
   if (!isOpen || !mounted) return null
 
+  const isOptionCurrentSelection = (option: MealOption) => {
+    return (
+      (currentSelection?.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) ||
+      (currentSelection?.optionId && String(currentSelection.optionId) === String(option.id))
+    )
+  }
+
   const handleSelectOption = (option: MealOption) => {
+    if (isOptionCurrentSelection(option) && onDeselectOption) {
+      onDeselectOption()
+      onClose()
+      return
+    }
+
     setSelectedOption(option)
     onSelectOption(option)
     onClose()
@@ -484,123 +512,130 @@ export function MealSelectionModal({
 
               {visibleOptions.map((option) => (
                 (() => {
-                  const isCurrentSelection =
-                    (currentSelection?.recipeId && option.recipeId && String(currentSelection.recipeId) === String(option.recipeId)) ||
-                    (currentSelection?.optionId && String(currentSelection.optionId) === String(option.id))
+                  const isCurrentSelection = isOptionCurrentSelection(option)
+                  const imageSrc = resolveRecipeImageSrc(option.imageUrl)
+                  const hasImage = Boolean(option.imageUrl)
 
                   return (
                 <div
                   key={option.id}
                   onClick={() => handleSelectOption(option)}
-                  className={`border-2 md:border rounded-2xl md:rounded-lg p-5 md:p-3 cursor-pointer transition-all touch-manipulation active:scale-[0.98] ${
+                  className={`group overflow-hidden cursor-pointer rounded-2xl border bg-white shadow-sm transition-all touch-manipulation active:scale-[0.98] hover:-translate-y-0.5 hover:shadow-xl ${
                     isCurrentSelection
-                      ? 'border-emerald-500 bg-emerald-50 shadow-md'
+                      ? 'border-emerald-500 shadow-emerald-100 ring-4 ring-emerald-100'
                       : option.recipeId 
-                      ? 'border-orange-300 md:border-orange-200 bg-gradient-to-br from-orange-50 to-pink-50 hover:border-orange-500 md:hover:border-orange-400 hover:shadow-xl md:hover:shadow-md' 
-                      : 'border-gray-300 md:border-border hover:border-blue-400 md:hover:border-blue-300 hover:bg-blue-50'
+                      ? 'border-orange-200 hover:border-orange-400' 
+                      : 'border-gray-200 hover:border-blue-300'
                   }`}
                 >
-                  <div className="flex items-start gap-4 md:gap-3">
-                    <img
-                      src={option.imageUrl || '/placeholder.jpg'}
-                      alt={option.name}
-                      className="w-14 h-14 md:w-12 md:h-12 rounded-lg object-cover border border-border flex-shrink-0"
-                      onError={(e) => {
-                        ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
-                      }}
-                    />
-                    <div className="text-4xl md:text-2xl flex-shrink-0">{option.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-col md:flex-row md:items-center gap-2 md:gap-2 mb-3 md:mb-1">
-                        <h4 className="font-bold md:font-medium text-lg md:text-base text-foreground leading-tight">{option.name}</h4>
-                        {(option.recipeId || isCurrentSelection) && (
-                          <div className="flex flex-wrap gap-2 md:gap-2">
-                            {isCurrentSelection && (
-                              <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-emerald-100 text-emerald-700 text-sm md:text-xs font-semibold md:font-medium rounded-full">
-                                ✅ Seleccionada
-                              </span>
-                            )}
-                            <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-gradient-to-r from-orange-100 to-pink-100 text-orange-700 text-sm md:text-xs font-semibold md:font-medium rounded-full flex items-center gap-1.5 md:gap-1">
-                              <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                              Receta disponible
-                            </span>
-                            <span className="px-3 py-1.5 md:px-2 md:py-0.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-700 text-sm md:text-xs font-semibold md:font-medium rounded-full flex items-center gap-1.5 md:gap-1">
-                              <Target className="w-4 h-4 md:w-3 md:h-3" />
-                              Recomendado
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <p className="text-base md:text-sm text-gray-700 md:text-gray-600 mb-4 md:mb-2 leading-relaxed">{option.description}</p>
-
-                      {/* Macros - Grid en móvil, flex en desktop */}
-                      <div className="grid grid-cols-2 md:flex md:items-center gap-3 md:gap-4 text-sm md:text-xs text-muted-foreground md:text-gray-500 mb-4 md:mb-2">
-                        <span className="flex items-center gap-2 md:gap-1">
-                          <Zap className="w-5 h-5 md:w-3 md:h-3 text-orange-500 flex-shrink-0" />
-                          <span className="font-semibold md:font-normal">{option.calories} kcal</span>
+                  <div className="flex flex-col">
+                    <div className="relative h-44 md:h-36 overflow-hidden bg-gray-100">
+                      <img
+                        src={imageSrc}
+                        alt={option.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-black/55 via-black/20 to-transparent" />
+                      <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[11px] font-black text-lime-950 shadow">
+                          {mealName}
                         </span>
-                        <span className="flex items-center gap-2 md:gap-1">
-                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-blue-500 flex-shrink-0" />
-                          <span className="font-semibold md:font-normal">{formatMacro(option.protein)}g proteína</span>
-                        </span>
-                        <span className="flex items-center gap-2 md:gap-1">
-                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-green-500 flex-shrink-0" />
-                          <span className="font-semibold md:font-normal">{formatMacro(option.carbs)}g carbos</span>
-                        </span>
-                        <span className="flex items-center gap-2 md:gap-1">
-                          <div className="w-3 h-3 md:w-2 md:h-2 rounded-full bg-yellow-500 flex-shrink-0" />
-                          <span className="font-semibold md:font-normal">{formatMacro(option.fat)}g grasas</span>
-                        </span>
-                      </div>
-
-                      {/* Categoría */}
-                      <div className="flex items-center gap-2 mb-4 md:mb-2">
-                        <div className="scale-125 md:scale-100">
-                          {getCategoryIcon(option.category || "balanced")}
-                        </div>
-                        <span className="text-sm md:text-xs text-muted-foreground md:text-gray-500 font-medium md:font-normal">
-                          {getCategoryName(option.category || "balanced")}
-                        </span>
-                        {option.cookTime && (
-                          <span className="text-sm md:text-xs text-muted-foreground md:text-muted-foreground/70">
-                            • {option.cookTime}
+                        {isCurrentSelection && (
+                          <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white shadow">
+                            Seleccionada
                           </span>
                         )}
                       </div>
+                      <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between gap-3">
+                        <div className="min-w-0">
+                          <h4 className="line-clamp-2 text-lg md:text-base font-black leading-tight text-white drop-shadow">
+                            {option.name}
+                          </h4>
+                          <div className="mt-1.5 flex items-center gap-2 text-[11px] font-semibold text-white/90">
+                            {getCategoryIcon(option.category || "balanced")}
+                            <span>{getCategoryName(option.category || "balanced")}</span>
+                            {option.cookTime && <span>• {option.cookTime}</span>}
+                          </div>
+                        </div>
+                        {!hasImage && <div className="text-4xl flex-shrink-0 drop-shadow">{option.icon}</div>}
+                      </div>
+                    </div>
 
-                      {/* Botón Ver Receta - Más grande en móvil */}
-                      <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div className="flex flex-col gap-2 bg-white p-3">
+                      <div className="grid grid-cols-4 gap-1.5 text-center">
+                        <span className="rounded-xl bg-orange-50 px-1.5 py-1.5 border border-orange-100">
+                          <span className="block text-xs font-black text-orange-700">{option.calories}</span>
+                          <span className="block text-[9px] font-semibold text-orange-500">kcal</span>
+                        </span>
+                        <span className="rounded-xl bg-blue-50 px-1.5 py-1.5 border border-blue-100">
+                          <span className="block text-xs font-black text-blue-700">{formatMacro(option.protein)}g</span>
+                          <span className="block text-[9px] font-semibold text-blue-500">prot</span>
+                        </span>
+                        <span className="rounded-xl bg-green-50 px-1.5 py-1.5 border border-green-100">
+                          <span className="block text-xs font-black text-green-700">{formatMacro(option.carbs)}g</span>
+                          <span className="block text-[9px] font-semibold text-green-500">carb</span>
+                        </span>
+                        <span className="rounded-xl bg-yellow-50 px-1.5 py-1.5 border border-yellow-100">
+                          <span className="block text-xs font-black text-yellow-700">{formatMacro(option.fat)}g</span>
+                          <span className="block text-[9px] font-semibold text-yellow-500">grasa</span>
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2 text-[11px]">
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleViewRecipe(option)
                           }}
-                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-bold md:font-semibold text-white bg-gradient-to-r from-orange-500 to-pink-500 hover:from-orange-600 hover:to-pink-600 rounded-xl md:rounded-lg transition-all shadow-lg md:shadow-md hover:shadow-xl md:hover:shadow-lg flex items-center justify-center gap-3 md:gap-2 touch-manipulation active:scale-[0.98]"
+                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 font-bold text-orange-700 transition-colors hover:bg-orange-100"
                           disabled={loadingRecipe}
                         >
                           {loadingRecipe ? (
                             <>
-                              <Loader2 className="w-5 h-5 md:w-4 md:h-4 animate-spin" />
-                              <span>Buscando receta...</span>
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <span>Receta</span>
                             </>
                           ) : (
                             <>
-                              <BookOpen className="w-5 h-5 md:w-4 md:h-4" />
-                              <span>📖 Ver Receta</span>
+                              <BookOpen className="h-3.5 w-3.5" />
+                              <span>Receta</span>
                             </>
                           )}
                         </button>
+                        {isCurrentSelection && onDeselectOption && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              onDeselectOption()
+                              onClose()
+                            }}
+                            className="rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          >
+                            Quitar
+                          </button>
+                        )}
+                        {!isCurrentSelection && (
+                          <span className="flex items-center justify-center rounded-xl bg-lime-50 px-2 py-2 font-bold text-lime-700">
+                            Recom.
+                          </span>
+                        )}
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
                             handleExcludeOption(option)
                           }}
-                          className="px-6 py-4 md:px-4 md:py-2.5 text-base md:text-sm font-semibold text-amber-900 bg-amber-100 hover:bg-amber-200 rounded-xl md:rounded-lg transition-all touch-manipulation active:scale-[0.98]"
+                          className="rounded-xl bg-gray-50 px-2 py-2 font-bold text-gray-600 transition-colors hover:bg-gray-100"
                           disabled={!option.recipeId || excludingRecipeId === String(option.recipeId)}
                         >
-                          {excludingRecipeId === String(option.recipeId) ? 'Guardando...' : '⏭️ No me gusta esta comida'}
+                          {excludingRecipeId === String(option.recipeId) ? '...' : 'No me gusta'}
                         </button>
                       </div>
                     </div>
@@ -862,6 +897,19 @@ function RecipeDetailModal({
               </div>
             </div>
 
+            <div className="bg-gray-100">
+              <img
+                src={resolveRecipeImageSrc(recipe.image_url)}
+                alt={recipe.name}
+                className="w-full h-64 md:h-80 object-cover"
+                loading="eager"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
+                }}
+              />
+            </div>
+
           {/* Resto del contenido */}
           <div className="p-5 md:p-6 space-y-5 md:space-y-6">
             {/* Macros personalizados */}
@@ -993,19 +1041,6 @@ function RecipeDetailModal({
                 </div>
               </div>
             )}
-
-            {/* Imagen de la receta */}
-            <div>
-              <h3 className="text-xl md:text-lg font-bold md:font-semibold text-foreground mb-4 md:mb-3">Imagen de la Receta</h3>
-              <img
-                src={recipe.image_url || '/placeholder.jpg'}
-                alt={recipe.name}
-                className="w-full rounded-xl md:rounded-lg object-cover shadow-lg md:shadow-md"
-                onError={(e) => {
-                  ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
-                }}
-              />
-            </div>
           </div>{/* cierre: resto del contenido */}
           </div>{/* cierre: scroll completo */}
 
@@ -1202,76 +1237,92 @@ function AllRecipesModal({
                 {filteredRecipes.slice(0, visibleCount).map((recipe) => (
                   <div
                     key={recipe.id}
-                    className="border border-border rounded-lg p-4 hover:shadow-lg transition-all cursor-pointer group"
+                    className="group overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-xl dark:bg-card dark:border-orange-900/30 cursor-pointer"
                     onClick={async () => {
                       await onSelectRecipe(recipe)
                     }}
                   >
-                    <div className="flex items-start gap-3 mb-3">
+                    <div className="relative h-44 overflow-hidden bg-orange-50">
                       <img
-                        src={recipe.image_url || '/placeholder.jpg'}
+                        src={resolveRecipeImageSrc(recipe.image_url)}
                         alt={recipe.name}
-                        className="w-12 h-12 rounded-lg object-cover border border-border flex-shrink-0"
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
                         onError={(e) => {
                           ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
                         }}
                       />
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground mb-1 line-clamp-2 group-hover:text-purple-600">
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                      <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+                        {recipe.category && (
+                          <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                            {recipe.category}
+                          </span>
+                        )}
+                        {recipe.difficulty && (
+                          <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold text-gray-700 shadow">
+                            {recipe.difficulty}
+                          </span>
+                        )}
+                      </div>
+                      <div className="absolute bottom-3 left-3 right-3">
+                        <h3 className="line-clamp-2 text-lg font-black leading-tight text-white drop-shadow">
                           {recipe.name}
                         </h3>
-                        <p className="text-xs text-muted-foreground line-clamp-2">
+                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-snug text-white/85">
                           {recipe.description}
                         </p>
                       </div>
                     </div>
 
-                    {/* Macros */}
-                    <div className="grid grid-cols-4 gap-2 mb-3">
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-orange-600">{recipe.calories}</div>
-                        <div className="text-xs text-muted-foreground">kcal</div>
+                    <div className="p-3">
+                      {/* Macros */}
+                      <div className="grid grid-cols-4 gap-1.5">
+                        <div className="rounded-xl border border-orange-100 bg-orange-50 px-1 py-2 text-center">
+                          <div className="text-sm font-black text-orange-700">{recipe.calories}</div>
+                          <div className="text-[10px] font-semibold text-orange-500">kcal</div>
+                        </div>
+                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-1 py-2 text-center">
+                          <div className="text-sm font-black text-blue-700">{formatMacro(recipe.protein)}</div>
+                          <div className="text-[10px] font-semibold text-blue-500">P</div>
+                        </div>
+                        <div className="rounded-xl border border-green-100 bg-green-50 px-1 py-2 text-center">
+                          <div className="text-sm font-black text-green-700">{formatMacro(recipe.carbs)}</div>
+                          <div className="text-[10px] font-semibold text-green-500">C</div>
+                        </div>
+                        <div className="rounded-xl border border-yellow-100 bg-yellow-50 px-1 py-2 text-center">
+                          <div className="text-sm font-black text-yellow-700">{formatMacro(recipe.fat)}</div>
+                          <div className="text-[10px] font-semibold text-yellow-500">G</div>
+                        </div>
                       </div>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-blue-600">{formatMacro(recipe.protein)}</div>
-                        <div className="text-xs text-muted-foreground">P</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-green-600">{formatMacro(recipe.carbs)}</div>
-                        <div className="text-xs text-muted-foreground">C</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-sm font-bold text-yellow-600">{formatMacro(recipe.fat)}</div>
-                        <div className="text-xs text-muted-foreground">G</div>
-                      </div>
-                    </div>
 
-                    {/* Info adicional */}
-                    <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                      {recipe.prep_time_minutes > 0 && (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {recipe.prep_time_minutes} min
+                      {/* Info adicional */}
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
+                        {recipe.prep_time_minutes > 0 && (
+                          <span className="flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1">
+                            <Clock className="w-3 h-3" />
+                            {recipe.prep_time_minutes} min
+                          </span>
+                        )}
+                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
+                          Recomendada
                         </span>
-                      )}
-                      {recipe.difficulty && (
-                        <span className="px-2 py-0.5 bg-gray-100 rounded">
-                          {recipe.difficulty}
-                        </span>
-                      )}
-                    </div>
+                      </div>
 
-                    {/* Botón seleccionar */}
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation()
-                        await onSelectRecipe(recipe)
-                      }}
-                      className="w-full mt-3 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-lg transition-all"
-                    >
-                      Seleccionar
-                    </button>
+                      {/* Botón seleccionar */}
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await onSelectRecipe(recipe)
+                        }}
+                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg transition-all hover:from-orange-600 hover:to-pink-600 active:scale-[0.98]"
+                      >
+                        <BookOpen className="h-4 w-4" />
+                        Seleccionar
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

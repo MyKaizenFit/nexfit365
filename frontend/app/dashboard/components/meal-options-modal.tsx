@@ -104,32 +104,64 @@ export function MealOptionsModal({
           {options.map((option, index) => (
             <Card 
               key={option.id} 
-              className="hover:shadow-lg transition-all duration-300 cursor-pointer group"
+              className="overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-sm transition-all duration-300 cursor-pointer group hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-xl"
               onClick={() => setSelectedOption(option)}
             >
-              <CardHeader className="pb-2 sm:pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className="text-xl sm:text-2xl flex-shrink-0">{getCategoryIcon(option.name)}</span>
+              <CardHeader className="relative min-h-[170px] overflow-hidden bg-gradient-to-br from-orange-500 via-rose-500 to-pink-500 p-0">
+                <div className="absolute inset-0 opacity-25">
+                  <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/50" />
+                  <div className="absolute right-12 bottom-6 h-16 w-16 rounded-full bg-white/20" />
+                  <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/20" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+                </div>
+                <div className="relative z-10 flex min-h-[170px] flex-col justify-between p-4 text-white">
+                  <div className="flex items-start justify-between gap-2">
+                    <Badge className="border-0 bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                      Opción {index + 1}
+                    </Badge>
+                    {option.difficulty && (
+                      <Badge className="border-0 bg-white/90 px-2 py-1 text-[10px] font-bold text-gray-700 shadow">
+                        {option.difficulty}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-end justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="text-sm sm:text-base lg:text-lg leading-tight truncate">{option.name}</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm mt-1 truncate">
-                        {option.calories} kcal • P: {formatMacro(option.protein)}g • C: {formatMacro(option.carbs)}g • G: {formatMacro(option.fat)}g
+                      <CardTitle className="line-clamp-2 text-xl font-black leading-tight text-white drop-shadow">
+                        {option.name}
+                      </CardTitle>
+                      <CardDescription className="mt-1 line-clamp-2 text-xs font-medium leading-snug text-white/85">
+                        {option.description}
                       </CardDescription>
                     </div>
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/18 text-3xl shadow ring-1 ring-white/25 backdrop-blur">
+                      {getCategoryIcon(option.name)}
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-xs flex-shrink-0">
-                    #{index + 1}
-                  </Badge>
                 </div>
               </CardHeader>
 
-              <CardContent className="pt-0">
-                <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                  {option.description}
-                </p>
+              <CardContent className="p-3">
+                <div className="grid grid-cols-4 gap-1.5">
+                  <div className="rounded-xl border border-orange-100 bg-orange-50 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-orange-700">{option.calories}</div>
+                    <div className="text-[10px] font-semibold text-orange-500">kcal</div>
+                  </div>
+                  <div className="rounded-xl border border-blue-100 bg-blue-50 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-blue-700">{formatMacro(option.protein)}</div>
+                    <div className="text-[10px] font-semibold text-blue-500">P</div>
+                  </div>
+                  <div className="rounded-xl border border-green-100 bg-green-50 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-green-700">{formatMacro(option.carbs)}</div>
+                    <div className="text-[10px] font-semibold text-green-500">C</div>
+                  </div>
+                  <div className="rounded-xl border border-yellow-100 bg-yellow-50 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-yellow-700">{formatMacro(option.fat)}</div>
+                    <div className="text-[10px] font-semibold text-yellow-500">G</div>
+                  </div>
+                </div>
 
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="mt-2 flex flex-wrap gap-2">
                   {option.cookTime && (
                     <Badge variant="secondary" className="text-xs flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -147,7 +179,7 @@ export function MealOptionsModal({
                 </div>
 
                 {option.tags && option.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
+                  <div className="flex flex-wrap gap-1 mt-2">
                     {option.tags.slice(0, 3).map((tag, tagIndex) => (
                       <Badge key={tagIndex} variant="outline" className="text-xs">
                         {tag}
@@ -156,11 +188,11 @@ export function MealOptionsModal({
                   </div>
                 )}
 
-                <div className="flex gap-2">
+                <div className="mt-3 flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    className="flex-1 text-xs sm:text-sm"
+                    className="flex-1 rounded-xl text-xs sm:text-sm"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (option.recipeUrl) {
@@ -178,7 +210,7 @@ export function MealOptionsModal({
                       e.stopPropagation()
                       handleSelectMeal(option)
                     }}
-                    className="flex-1 text-xs sm:text-sm"
+                    className="flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-xs font-black text-white shadow hover:from-orange-600 hover:to-pink-600 sm:text-sm"
                   >
                     <ChefHat className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Seleccionar
