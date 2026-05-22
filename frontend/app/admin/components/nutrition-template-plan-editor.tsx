@@ -76,13 +76,14 @@ const MEAL_TYPES: Array<{ value: string; label: string }> = [
   { value: "dinner", label: "Cena" },
 ]
 
-const GOAL_OPTIONS = [
+const RECIPE_CATEGORY_OPTIONS = [
   { value: "all", label: "Todos" },
-  { value: "lose_weight", label: "Perder peso" },
-  { value: "gain_muscle", label: "Ganar músculo" },
-  { value: "maintain", label: "Mantener peso" },
-  { value: "body_recomposition", label: "Recomposición corporal" },
-  { value: "performance", label: "Rendimiento deportivo" },
+  { value: "Desayuno", label: "Desayuno" },
+  { value: "Almuerzo", label: "Comida" },
+  { value: "Snack", label: "Snack" },
+  { value: "Cena", label: "Cena" },
+  { value: "Postre", label: "Postre" },
+  { value: "Bebida", label: "Bebida" },
 ]
 
 const FREE_FROM_OPTIONS = [
@@ -102,6 +103,19 @@ const normalizeFilterText = (value: string) => value
   .toLowerCase()
   .replace(/\s+/g, ' ')
   .trim()
+
+const recipeMatchesCategoryFilter = (recipe: AdminRecipe, selectedCategory: string) => {
+  if (selectedCategory === "all") return true
+
+  const category = normalizeFilterText(recipe.category || "")
+  const selected = normalizeFilterText(selectedCategory)
+
+  if (selected === "almuerzo") {
+    return category === "almuerzo" || category === "comida" || category === "lunch"
+  }
+
+  return category === selected
+}
 
 const recipeMatchesFreeFromFilters = (recipe: AdminRecipe, selectedFilters: string[]) => {
   if (!selectedFilters.length) return true
@@ -147,7 +161,7 @@ export function NutritionTemplatePlanEditor({
   // selector recetas
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
   const [recipeSearch, setRecipeSearch] = useState("")
-  const [recipeGoalFilter, setRecipeGoalFilter] = useState("all")
+  const [recipeCategoryFilter, setRecipeCategoryFilter] = useState("all")
   const [recipeFreeFromFilters, setRecipeFreeFromFilters] = useState<string[]>([])
   const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
 
@@ -217,11 +231,11 @@ export function NutritionTemplatePlanEditor({
     const q = recipeSearch.trim().toLowerCase()
     return availableRecipes.filter((r) => {
       const matchesSearch = !q || (r.name || "").toLowerCase().includes(q)
-      const matchesGoal = recipeGoalFilter === "all" || (r.goal_category || "") === recipeGoalFilter
+      const matchesCategory = recipeMatchesCategoryFilter(r, recipeCategoryFilter)
       const matchesFreeFrom = recipeMatchesFreeFromFilters(r, recipeFreeFromFilters)
-      return matchesSearch && matchesGoal && matchesFreeFrom
+      return matchesSearch && matchesCategory && matchesFreeFrom
     })
-  }, [availableRecipes, recipeSearch, recipeGoalFilter, recipeFreeFromFilters])
+  }, [availableRecipes, recipeSearch, recipeCategoryFilter, recipeFreeFromFilters])
 
   const mealsForDay = useMemo(() => {
     return meals
@@ -397,7 +411,7 @@ export function NutritionTemplatePlanEditor({
     if (idx < 0) return
     setTargetMealIndex(idx)
     setRecipeSearch("")
-    setRecipeGoalFilter("all")
+    setRecipeCategoryFilter("all")
     setRecipeFreeFromFilters([])
     setShowRecipeSelector(true)
   }
@@ -612,10 +626,10 @@ export function NutritionTemplatePlanEditor({
                               <div key={r.id} className="border rounded-md p-2 flex items-center justify-between gap-2">
                                 <div className="min-w-0">
                                   <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
-                                  {r.goal_category && (
+                                  {r.category && (
                                     <div className="mt-1">
                                       <Badge variant="secondary" className="text-[10px]">
-                                        {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
+                                        {RECIPE_CATEGORY_OPTIONS.find(option => option.value === r.category)?.label || r.category}
                                       </Badge>
                                     </div>
                                   )}
@@ -679,13 +693,13 @@ export function NutritionTemplatePlanEditor({
           </div>
 
           <div>
-            <Label className="text-xs">Objetivo</Label>
-            <Select value={recipeGoalFilter} onValueChange={setRecipeGoalFilter}>
+            <Label className="text-xs">Categoría</Label>
+            <Select value={recipeCategoryFilter} onValueChange={setRecipeCategoryFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                {GOAL_OPTIONS.map((option) => (
+                {RECIPE_CATEGORY_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -735,11 +749,6 @@ export function NutritionTemplatePlanEditor({
                     {r.category && (
                       <Badge variant="outline" className="text-[10px]">
                         {r.category}
-                      </Badge>
-                    )}
-                    {r.goal_category && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
                       </Badge>
                     )}
                   </div>

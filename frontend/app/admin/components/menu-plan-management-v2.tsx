@@ -89,13 +89,14 @@ const MEAL_TYPES: Array<{ value: string; label: string }> = [
   { value: "dinner", label: "Cena" },
 ]
 
-const GOAL_OPTIONS = [
+const RECIPE_CATEGORY_OPTIONS = [
   { value: "all", label: "Todos" },
-  { value: "lose_weight", label: "Perder peso" },
-  { value: "gain_muscle", label: "Ganar músculo" },
-  { value: "maintain", label: "Mantener peso" },
-  { value: "body_recomposition", label: "Recomposición corporal" },
-  { value: "performance", label: "Rendimiento deportivo" },
+  { value: "Desayuno", label: "Desayuno" },
+  { value: "Almuerzo", label: "Comida" },
+  { value: "Snack", label: "Snack" },
+  { value: "Cena", label: "Cena" },
+  { value: "Postre", label: "Postre" },
+  { value: "Bebida", label: "Bebida" },
 ]
 
 function toNumber(value: unknown, fallback = 0) {
@@ -109,6 +110,27 @@ function formatRange(min: number, max: number, decimals = 0) {
   const maxVal = round(max)
   if (minVal === maxVal) return `${minVal}`
   return `${minVal}-${maxVal}`
+}
+
+function normalizeRecipeCategory(value?: string) {
+  return (value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+}
+
+function recipeMatchesCategoryFilter(recipe: AdminRecipe, selectedCategory: string) {
+  if (selectedCategory === "all") return true
+
+  const category = normalizeRecipeCategory(recipe.category)
+  const selected = normalizeRecipeCategory(selectedCategory)
+
+  if (selected === "almuerzo") {
+    return category === "almuerzo" || category === "comida" || category === "lunch"
+  }
+
+  return category === selected
 }
 
 function formatImportError(error: unknown): string {
@@ -227,7 +249,7 @@ export function MenuPlanManagementV2() {
   const [draftMeals, setDraftMeals] = useState<PlanMealDraft[]>([])
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
   const [recipeSearch, setRecipeSearch] = useState("")
-  const [recipeGoalFilter, setRecipeGoalFilter] = useState("all")
+  const [recipeCategoryFilter, setRecipeCategoryFilter] = useState("all")
   const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
 
   // Duplicar a usuario
@@ -867,7 +889,7 @@ export function MenuPlanManagementV2() {
   const openRecipePickerForDraftMeal = (draftIndex: number) => {
     setTargetMealIndex(draftIndex)
     setRecipeSearch("")
-    setRecipeGoalFilter("all")
+    setRecipeCategoryFilter("all")
     setShowRecipeSelector(true)
   }
 
@@ -989,10 +1011,10 @@ export function MenuPlanManagementV2() {
     const q = recipeSearch.trim().toLowerCase()
     return availableRecipes.filter((r) => {
       const matchesSearch = !q || (r.name || "").toLowerCase().includes(q)
-      const matchesGoal = recipeGoalFilter === "all" || (r.goal_category || "") === recipeGoalFilter
-      return matchesSearch && matchesGoal
+      const matchesCategory = recipeMatchesCategoryFilter(r, recipeCategoryFilter)
+      return matchesSearch && matchesCategory
     })
-  }, [availableRecipes, recipeSearch, recipeGoalFilter])
+  }, [availableRecipes, recipeSearch, recipeCategoryFilter])
 
   const addRecipeToDraftMeal = (recipe: AdminRecipe) => {
     if (targetMealIndex == null) return
@@ -1750,10 +1772,10 @@ export function MenuPlanManagementV2() {
                                     <div key={r.id} className="border rounded-md p-3 flex items-center justify-between gap-3">
                                       <div className="min-w-0">
                                         <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
-                                        {r.goal_category && (
+                                        {r.category && (
                                           <div className="mt-1">
                                             <Badge variant="secondary" className="text-[10px]">
-                                              {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
+                                              {RECIPE_CATEGORY_OPTIONS.find(option => option.value === r.category)?.label || r.category}
                                             </Badge>
                                           </div>
                                         )}
@@ -1950,13 +1972,13 @@ export function MenuPlanManagementV2() {
           </div>
 
           <div>
-            <FormLabel>Objetivo</FormLabel>
-            <Select value={recipeGoalFilter} onValueChange={setRecipeGoalFilter}>
+            <FormLabel>Categoría</FormLabel>
+            <Select value={recipeCategoryFilter} onValueChange={setRecipeCategoryFilter}>
               <SelectTrigger>
                 <SelectValue placeholder="Todos" />
               </SelectTrigger>
               <SelectContent>
-                {GOAL_OPTIONS.map((option) => (
+                {RECIPE_CATEGORY_OPTIONS.map((option) => (
                   <SelectItem key={option.value} value={option.value}>
                     {option.label}
                   </SelectItem>
@@ -1982,11 +2004,6 @@ export function MenuPlanManagementV2() {
                     {r.category && (
                       <Badge variant="outline" className="text-[10px]">
                         {r.category}
-                      </Badge>
-                    )}
-                    {r.goal_category && (
-                      <Badge variant="secondary" className="text-[10px]">
-                        {GOAL_OPTIONS.find(option => option.value === r.goal_category)?.label || r.goal_category}
                       </Badge>
                     )}
                   </div>
