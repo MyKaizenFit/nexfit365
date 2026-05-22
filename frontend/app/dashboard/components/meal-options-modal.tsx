@@ -89,52 +89,53 @@ export function MealOptionsModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
-            <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="truncate">Opciones para {mealName}</span>
-          </DialogTitle>
-          <DialogDescription className="text-xs sm:text-sm">
-            Selecciona una opción de comida para {mealTime}.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="flex max-h-[92dvh] w-[95vw] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:rounded-xl">
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-5 sm:px-6 sm:pb-6 sm:pt-6">
+          <DialogHeader className="pr-8">
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+              <Utensils className="h-4 w-4 sm:h-5 sm:w-5" />
+              <span className="truncate">Opciones para {mealName}</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Selecciona una opción de comida para {mealTime}.
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-4">
-          {options.map((option, index) => (
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            {options.map((option, index) => (
             <Card 
               key={option.id} 
-              className="overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-sm transition-all duration-300 cursor-pointer group hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-xl"
+              className="group cursor-pointer overflow-hidden rounded-2xl border border-orange-100/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
               onClick={() => setSelectedOption(option)}
             >
-              <CardHeader className="relative min-h-[170px] overflow-hidden bg-gradient-to-br from-orange-500 via-rose-500 to-pink-500 p-0">
-                <div className="absolute inset-0 opacity-25">
-                  <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/50" />
-                  <div className="absolute right-12 bottom-6 h-16 w-16 rounded-full bg-white/20" />
-                  <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/20" />
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/45 to-transparent" />
+              <CardHeader className="relative min-h-[170px] overflow-hidden bg-gradient-to-br from-orange-100 via-amber-100 to-rose-100 p-0">
+                <div className="absolute inset-0 opacity-60">
+                  <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/70" />
+                  <div className="absolute right-12 bottom-6 h-16 w-16 rounded-full bg-white/45" />
+                  <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/45" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-orange-200/55 to-transparent" />
                 </div>
-                <div className="relative z-10 flex min-h-[170px] flex-col justify-between p-4 text-white">
+                <div className="relative z-10 flex min-h-[170px] flex-col justify-between p-4 text-slate-900">
                   <div className="flex items-start justify-between gap-2">
-                    <Badge className="border-0 bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                    <Badge className="border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
                       Opción {index + 1}
                     </Badge>
                     {option.difficulty && (
-                      <Badge className="border-0 bg-white/90 px-2 py-1 text-[10px] font-bold text-gray-700 shadow">
+                      <Badge className="border border-white bg-white/80 px-2 py-1 text-[10px] font-bold text-slate-600 shadow-sm">
                         {option.difficulty}
                       </Badge>
                     )}
                   </div>
                   <div className="flex items-end justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <CardTitle className="line-clamp-2 text-xl font-black leading-tight text-white drop-shadow">
+                      <CardTitle className="line-clamp-2 text-xl font-black leading-tight text-slate-900">
                         {option.name}
                       </CardTitle>
-                      <CardDescription className="mt-1 line-clamp-2 text-xs font-medium leading-snug text-white/85">
+                      <CardDescription className="mt-1 line-clamp-2 text-xs font-medium leading-snug text-slate-600">
                         {option.description}
                       </CardDescription>
                     </div>
-                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/18 text-3xl shadow ring-1 ring-white/25 backdrop-blur">
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/70 text-3xl shadow-sm ring-1 ring-orange-100 backdrop-blur">
                       {getCategoryIcon(option.name)}
                     </div>
                   </div>
@@ -143,17 +144,17 @@ export function MealOptionsModal({
 
               <CardContent className="p-3">
                 <div className="grid grid-cols-4 gap-1.5">
-                  <div className="rounded-xl border border-orange-100 bg-orange-50 px-1 py-2 text-center">
-                    <div className="text-sm font-black text-orange-700">{option.calories}</div>
-                    <div className="text-[10px] font-semibold text-orange-500">kcal</div>
+                  <div className="rounded-xl border border-orange-100/80 bg-orange-50/60 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-orange-600">{option.calories}</div>
+                    <div className="text-[10px] font-semibold text-orange-400">kcal</div>
                   </div>
                   <div className="rounded-xl border border-blue-100 bg-blue-50 px-1 py-2 text-center">
                     <div className="text-sm font-black text-blue-700">{formatMacro(option.protein)}</div>
                     <div className="text-[10px] font-semibold text-blue-500">P</div>
                   </div>
-                  <div className="rounded-xl border border-green-100 bg-green-50 px-1 py-2 text-center">
-                    <div className="text-sm font-black text-green-700">{formatMacro(option.carbs)}</div>
-                    <div className="text-[10px] font-semibold text-green-500">C</div>
+                  <div className="rounded-xl border border-emerald-100/80 bg-emerald-50/60 px-1 py-2 text-center">
+                    <div className="text-sm font-black text-emerald-600">{formatMacro(option.carbs)}</div>
+                    <div className="text-[10px] font-semibold text-emerald-400">C</div>
                   </div>
                   <div className="rounded-xl border border-yellow-100 bg-yellow-50 px-1 py-2 text-center">
                     <div className="text-sm font-black text-yellow-700">{formatMacro(option.fat)}</div>
@@ -210,7 +211,7 @@ export function MealOptionsModal({
                       e.stopPropagation()
                       handleSelectMeal(option)
                     }}
-                    className="flex-1 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 text-xs font-black text-white shadow hover:from-orange-600 hover:to-pink-600 sm:text-sm"
+                    className="flex-1 rounded-xl bg-orange-500 text-xs font-black text-white shadow-sm hover:bg-orange-600 sm:text-sm"
                   >
                     <ChefHat className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Seleccionar
@@ -218,19 +219,20 @@ export function MealOptionsModal({
                 </div>
               </CardContent>
             </Card>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-          <h4 className="font-medium mb-2 flex items-center gap-2">
-            <ChefHat className="h-4 w-4" />
-            Consejos para cuadrar macros
-          </h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>• <strong>Sube/baja proteína:</strong> añade/quita ½ scoop de whey, 80–100 g de pechuga o 1 clara</li>
-            <li>• <strong>Ajusta carbohidratos:</strong> juega con 40–70 g de pan/arroz/pasta en crudo por comida</li>
-            <li>• <strong>Controla grasas:</strong> usa 1–2 cditas de AOVE por plato; aguacate y frutos secos en porciones de 15–25 g</li>
-          </ul>
+          <div className="mt-6 rounded-lg bg-muted/50 p-4">
+            <h4 className="mb-2 flex items-center gap-2 font-medium">
+              <ChefHat className="h-4 w-4" />
+              Consejos para cuadrar macros
+            </h4>
+            <ul className="space-y-1 text-sm text-muted-foreground">
+              <li>• <strong>Sube/baja proteína:</strong> añade/quita ½ scoop de whey, 80–100 g de pechuga o 1 clara</li>
+              <li>• <strong>Ajusta carbohidratos:</strong> juega con 40–70 g de pan/arroz/pasta en crudo por comida</li>
+              <li>• <strong>Controla grasas:</strong> usa 1–2 cditas de AOVE por plato; aguacate y frutos secos en porciones de 15–25 g</li>
+            </ul>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

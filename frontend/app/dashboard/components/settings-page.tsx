@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "@/hooks/use-toast"
 import { helpService, HelpSettings } from "@/lib/help-service"
-import { ThemeToggle } from "@/components/theme-toggle"
 
 const SettingsPage = () => {
   const router = useRouter()
@@ -155,16 +154,6 @@ const SettingsPage = () => {
             </div>
           </div>
         </div>
-
-        <Card className="border shadow-lg">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg">Apariencia</CardTitle>
-            <CardDescription>Selecciona modo claro u oscuro para toda la app.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <ThemeToggle className="bg-card" />
-          </CardContent>
-        </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-2 lg:grid-cols-4 h-auto p-1 bg-muted/50 shadow-sm">
