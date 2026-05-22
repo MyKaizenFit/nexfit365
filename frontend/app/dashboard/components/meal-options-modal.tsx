@@ -105,15 +105,15 @@ export function MealOptionsModal({
             {options.map((option, index) => (
             <Card 
               key={option.id} 
-              className="group cursor-pointer overflow-hidden rounded-2xl border border-orange-100/80 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
+              className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-orange-200 hover:shadow-lg"
               onClick={() => setSelectedOption(option)}
             >
-              <CardHeader className="relative min-h-[170px] overflow-hidden bg-gradient-to-br from-orange-100 via-amber-100 to-rose-100 p-0">
-                <div className="absolute inset-0 opacity-60">
-                  <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/70" />
-                  <div className="absolute right-12 bottom-6 h-16 w-16 rounded-full bg-white/45" />
-                  <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-white/45" />
-                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-orange-200/55 to-transparent" />
+              <CardHeader className="relative min-h-[170px] overflow-hidden bg-gradient-to-br from-slate-50 via-orange-50 to-stone-50 p-0">
+                <div className="absolute inset-0 opacity-70">
+                  <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-orange-200/70" />
+                  <div className="absolute right-12 bottom-6 h-16 w-16 rounded-full bg-white/70 shadow-sm ring-1 ring-orange-100" />
+                  <div className="absolute -bottom-16 -left-10 h-40 w-40 rounded-full bg-orange-100/45" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/65 to-transparent" />
                 </div>
                 <div className="relative z-10 flex min-h-[170px] flex-col justify-between p-4 text-slate-900">
                   <div className="flex items-start justify-between gap-2">
@@ -135,7 +135,7 @@ export function MealOptionsModal({
                         {option.description}
                       </CardDescription>
                     </div>
-                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/70 text-3xl shadow-sm ring-1 ring-orange-100 backdrop-blur">
+                    <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-2xl bg-white/85 text-3xl shadow-sm ring-1 ring-orange-100 backdrop-blur">
                       {getCategoryIcon(option.name)}
                     </div>
                   </div>
@@ -211,7 +211,7 @@ export function MealOptionsModal({
                       e.stopPropagation()
                       handleSelectMeal(option)
                     }}
-                    className="flex-1 rounded-xl bg-orange-500 text-xs font-black text-white shadow-sm hover:bg-orange-600 sm:text-sm"
+                    className="flex-1 rounded-xl border border-orange-200 bg-orange-100 text-xs font-black text-orange-800 shadow-sm hover:bg-orange-200 sm:text-sm"
                   >
                     <ChefHat className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                     Seleccionar

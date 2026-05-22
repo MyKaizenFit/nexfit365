@@ -125,7 +125,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Lower',
     border: 'border-emerald-200 dark:border-emerald-800/50',
     card: 'bg-emerald-50/60 dark:bg-emerald-950/20',
-    hero: 'from-emerald-400 via-lime-400 to-teal-500',
+    hero: 'from-emerald-50 via-lime-50 to-teal-50',
     heroSoft: 'from-emerald-400/10 via-lime-400/8 to-teal-400/10',
     title: 'text-emerald-950 dark:text-emerald-100',
     text: 'text-emerald-700 dark:text-emerald-300',
@@ -141,7 +141,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Push',
     border: 'border-rose-200 dark:border-rose-800/50',
     card: 'bg-rose-50/60 dark:bg-rose-950/20',
-    hero: 'from-rose-400 via-red-400 to-orange-400',
+    hero: 'from-rose-50 via-red-50 to-orange-50',
     heroSoft: 'from-rose-400/10 via-red-400/8 to-orange-400/10',
     title: 'text-rose-950 dark:text-rose-100',
     text: 'text-rose-700 dark:text-rose-300',
@@ -157,7 +157,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Delts',
     border: 'border-amber-200 dark:border-amber-800/50',
     card: 'bg-amber-50/60 dark:bg-amber-950/20',
-    hero: 'from-amber-300 via-yellow-300 to-orange-400',
+    hero: 'from-amber-50 via-yellow-50 to-orange-50',
     heroSoft: 'from-amber-300/12 via-yellow-300/10 to-orange-300/12',
     title: 'text-amber-950 dark:text-amber-100',
     text: 'text-amber-700 dark:text-amber-300',
@@ -173,7 +173,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Arms',
     border: 'border-fuchsia-200 dark:border-fuchsia-800/50',
     card: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/20',
-    hero: 'from-fuchsia-400 via-pink-400 to-rose-400',
+    hero: 'from-fuchsia-50 via-pink-50 to-rose-50',
     heroSoft: 'from-fuchsia-400/10 via-pink-400/8 to-rose-400/10',
     title: 'text-fuchsia-950 dark:text-fuchsia-100',
     text: 'text-fuchsia-700 dark:text-fuchsia-300',
@@ -189,7 +189,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Core',
     border: 'border-violet-200 dark:border-violet-800/50',
     card: 'bg-violet-50/60 dark:bg-violet-950/20',
-    hero: 'from-violet-400 via-purple-400 to-indigo-500',
+    hero: 'from-violet-50 via-purple-50 to-indigo-50',
     heroSoft: 'from-violet-400/10 via-purple-400/8 to-indigo-400/10',
     title: 'text-violet-950 dark:text-violet-100',
     text: 'text-violet-700 dark:text-violet-300',
@@ -205,7 +205,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Cardio',
     border: 'border-orange-200 dark:border-orange-800/50',
     card: 'bg-orange-50/60 dark:bg-orange-950/20',
-    hero: 'from-orange-300 via-red-300 to-pink-400',
+    hero: 'from-orange-50 via-red-50 to-pink-50',
     heroSoft: 'from-orange-300/12 via-red-300/10 to-pink-300/12',
     title: 'text-orange-950 dark:text-orange-100',
     text: 'text-orange-700 dark:text-orange-300',
@@ -221,7 +221,7 @@ const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
     shortLabel: 'Full',
     border: 'border-teal-200 dark:border-teal-800/50',
     card: 'bg-teal-50/60 dark:bg-teal-950/20',
-    hero: 'from-teal-400 via-cyan-400 to-blue-500',
+    hero: 'from-teal-50 via-cyan-50 to-blue-50',
     heroSoft: 'from-teal-400/10 via-cyan-400/8 to-blue-400/10',
     title: 'text-teal-950 dark:text-teal-100',
     text: 'text-teal-700 dark:text-teal-300',
@@ -1274,30 +1274,30 @@ export function WorkoutDashboardEnhanced() {
 
                   return (
                     <Card key={userDayNumber} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${planDay ? `border-2 ${dayTheme.border}` : 'border-orange-100 bg-orange-50/20'}`}>
-                      <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-orange-100 via-amber-100 to-orange-200'}`}>
-                        <div className="absolute inset-0 opacity-25">
-                          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/50" />
-                          <div className="absolute right-12 bottom-5 h-16 w-16 rounded-full bg-white/20" />
-                          <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/20" />
-                          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 to-transparent" />
+                      <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-slate-50 via-orange-50 to-stone-50'}`}>
+                        <div className="absolute inset-0 opacity-70">
+                          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/80" />
+                          <div className="absolute right-12 bottom-5 h-16 w-16 rounded-full bg-white/65 shadow-sm ring-1 ring-white/80" />
+                          <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/55" />
+                          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white/80 to-transparent" />
                         </div>
-                        <div className="relative z-10 flex h-full min-h-[132px] flex-col justify-between p-3 text-white">
+                        <div className="relative z-10 flex h-full min-h-[132px] flex-col justify-between p-3 text-slate-900">
                           <div className="flex items-start justify-between gap-2">
-                            <Badge className="border-0 bg-white/90 px-2 py-0.5 text-[10px] font-black text-slate-950 shadow">
+                            <Badge className={`px-2 py-0.5 text-[10px] font-black shadow-sm ${planDay ? dayTheme.chip : 'border-orange-200 bg-orange-50 text-orange-800'}`}>
                               {planDay ? dayTheme.label : 'Pendiente'}
                             </Badge>
                             {isToday && (
-                              <Badge variant="default" className="border-0 bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                              <Badge variant="default" className="border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
                                 Hoy
                               </Badge>
                             )}
                           </div>
                           <div className="flex items-end justify-between gap-3">
                             <div className="min-w-0 flex-1">
-                              <CardDescription className="text-[10px] font-semibold uppercase tracking-normal text-white/75">
+                              <CardDescription className={`text-[10px] font-semibold uppercase tracking-normal ${planDay ? dayTheme.text : 'text-slate-500'}`}>
                                 {dayName}
                               </CardDescription>
-                              <CardTitle className="mt-0.5 line-clamp-2 text-lg font-black leading-tight text-white">
+                              <CardTitle className="mt-0.5 line-clamp-2 text-lg font-black leading-tight text-slate-900">
                                 {planDay?.day_name || (planDay ? 'Entrenamiento' : 'Sin plan asignado')}
                               </CardTitle>
                             </div>

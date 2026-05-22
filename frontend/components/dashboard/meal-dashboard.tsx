@@ -124,17 +124,17 @@ export function MealDashboard() {
               Actualizar
             </Button>
           </div>
-          <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-gradient-to-br from-orange-400 to-red-500 rounded-full flex items-center justify-center mb-3 md:mb-4 shadow-2xl animate-pulse">
-            <ChefHat className="h-8 w-8 md:h-12 md:w-12 text-white" />
+          <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-orange-100 rounded-full flex items-center justify-center mb-3 md:mb-4 shadow-sm ring-1 ring-orange-200">
+            <ChefHat className="h-8 w-8 md:h-12 md:w-12 text-orange-700" />
           </div>
-          <CardTitle className="text-xl md:text-3xl font-bold bg-gradient-to-r from-orange-600 via-red-600 to-pink-600 bg-clip-text text-transparent">
-            Plan Nutricional 🍽️
+          <CardTitle className="text-xl md:text-3xl font-bold text-slate-900">
+            Plan Nutricional
           </CardTitle>
           <CardDescription className="text-sm md:text-base mt-2 text-foreground">
             Tu alimentación equilibrada para alcanzar tus objetivos
           </CardDescription>
           {daysInTransformation > 0 && (
-            <Badge className="mt-2 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs md:text-sm">
+            <Badge className="mt-2 border border-orange-200 bg-orange-50 text-orange-700 text-xs md:text-sm">
               <Flame className="h-3 w-3 mr-1" />
               {daysInTransformation} días en tu transformación
             </Badge>
@@ -175,8 +175,8 @@ export function MealDashboard() {
           {/* Progreso Detallado del Día - Movido a la parte superior */}
       <div className="space-y-4 md:space-y-6">
         <div className="flex items-center gap-2 md:gap-3">
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
-            <Target className="w-4 h-4 md:w-5 md:h-5 text-white" />
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0 ring-1 ring-orange-200">
+            <Target className="w-4 h-4 md:w-5 md:h-5 text-orange-700" />
           </div>
           <div className="min-w-0">
             <h3 className="text-lg md:text-xl font-bold text-foreground">Progreso Detallado del Día</h3>
@@ -200,8 +200,8 @@ export function MealDashboard() {
       <div className="space-y-4 md:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Utensils className="w-4 h-4 md:w-5 md:h-5 text-white" />
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-sky-100 rounded-lg flex items-center justify-center flex-shrink-0 ring-1 ring-sky-200">
+              <Utensils className="w-4 h-4 md:w-5 md:h-5 text-sky-700" />
             </div>
             <div className="min-w-0">
               <h3 className="text-lg md:text-xl font-bold text-foreground">Plan de Comidas del Día</h3>
@@ -219,15 +219,15 @@ export function MealDashboard() {
           {meals.map((meal) => (
             <div
               key={meal.id}
-              className={`group overflow-hidden rounded-2xl border-2 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl dark:bg-card ${
+              className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:bg-card ${
                 meal.isCompleted
-                  ? 'border-green-300 dark:border-green-700/50'
+                  ? 'border-emerald-200 dark:border-emerald-700/50'
                   : meal.selectedOption
-                  ? 'border-orange-300 dark:border-orange-800/50'
-                  : 'border-border hover:border-orange-300'
+                  ? 'border-orange-200 dark:border-orange-800/50'
+                  : 'border-slate-200 hover:border-orange-200'
               }`}
             >
-              <div className="relative h-48 overflow-hidden bg-gradient-to-br from-orange-500 via-rose-500 to-pink-500">
+              <div className="relative h-48 overflow-hidden bg-gradient-to-br from-orange-50 via-stone-50 to-rose-50">
                 {meal.selectedOption?.imageUrl ? (
                   <img
                     src={meal.selectedOption.imageUrl}
@@ -239,32 +239,32 @@ export function MealDashboard() {
                   />
                 ) : (
                   <div className="absolute inset-0">
-                    <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full border border-white/45" />
-                    <div className="absolute right-12 bottom-6 h-20 w-20 rounded-full bg-white/20" />
-                    <div className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-white/20" />
+                    <div className="absolute -right-10 -top-10 h-36 w-36 rounded-full border border-orange-200/70" />
+                    <div className="absolute right-12 bottom-6 h-20 w-20 rounded-full bg-white/70 shadow-sm ring-1 ring-orange-100" />
+                    <div className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-100/45" />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
+                <div className={`absolute inset-0 ${meal.selectedOption?.imageUrl ? 'bg-gradient-to-t from-black/70 via-black/20 to-transparent' : 'bg-gradient-to-t from-white/75 via-white/25 to-transparent'}`} />
 
                 <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
-                  <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
+                  <span className="rounded-full border border-orange-200 bg-white/85 px-2.5 py-1 text-[10px] font-black text-orange-800 shadow-sm">
                     {meal.selectedOption ? 'Planificada' : 'Pendiente'}
                   </span>
                   {meal.isCompleted && (
-                    <span className="rounded-full bg-green-500 px-2.5 py-1 text-[10px] font-black text-white shadow">
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
                       Completada
                     </span>
                   )}
                   {meal.isSkipped && (
-                    <span className="rounded-full bg-amber-500 px-2.5 py-1 text-[10px] font-black text-white shadow">
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[10px] font-black text-amber-700 shadow-sm">
                       No como
                     </span>
                   )}
                 </div>
 
                 <div className="absolute bottom-3 left-3 right-3">
-                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-white/85">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/18 text-lg shadow ring-1 ring-white/25 backdrop-blur">
+                  <div className={`mb-2 flex items-center gap-2 text-xs font-semibold ${meal.selectedOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-lg shadow-sm ring-1 backdrop-blur ${meal.selectedOption?.imageUrl ? 'bg-white/18 ring-white/25' : 'bg-white/80 ring-orange-100'}`}>
                       {meal.icon}
                     </span>
                     <span className="flex items-center gap-1">
@@ -272,10 +272,10 @@ export function MealDashboard() {
                       {meal.time}
                     </span>
                   </div>
-                  <h4 className="line-clamp-2 text-xl font-black leading-tight text-white drop-shadow">
+                  <h4 className={`line-clamp-2 text-xl font-black leading-tight ${meal.selectedOption?.imageUrl ? 'text-white drop-shadow' : 'text-slate-900'}`}>
                     {meal.selectedOption?.name || meal.name}
                   </h4>
-                  <p className="mt-1 line-clamp-2 text-xs font-medium text-white/85">
+                  <p className={`mt-1 line-clamp-2 text-xs font-medium ${meal.selectedOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
                     {meal.selectedOption ? meal.description : 'Selecciona una receta para esta comida'}
                   </p>
                 </div>
@@ -335,7 +335,7 @@ export function MealDashboard() {
                 ) : (
                   <button
                     onClick={() => handleOpenMealOptions(meal)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg transition-all hover:from-orange-600 hover:to-pink-600 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-100 px-4 py-3 text-sm font-black text-orange-800 shadow-sm transition-all hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={syncing}
                   >
                     <Plus className="h-4 w-4" />
