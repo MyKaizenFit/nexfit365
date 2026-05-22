@@ -917,7 +917,7 @@ export class AuthService {
     }
   }
 
-  // Solicitar reset de contraseña (envía contraseña temporal por email)
+  // Solicitar reset de contraseña (envía enlace por email)
   async forgotPassword(email: string): Promise<void> {
     try {
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.FORGOT_PASSWORD), {
@@ -933,6 +933,36 @@ export class AuthService {
 
       // El backend siempre devuelve éxito por seguridad (no revela si el email existe)
       return
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string, newPasswordConfirm: string): Promise<void> {
+    try {
+      if (!token) {
+        throw new Error('El enlace de recuperación no es válido')
+      }
+
+      if (newPassword !== newPasswordConfirm) {
+        throw new Error('Las contraseñas no coinciden')
+      }
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.RESET_PASSWORD), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          token,
+          new_password: newPassword,
+          new_password_confirm: newPasswordConfirm,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const passwordError = Array.isArray(errorData.errors) ? errorData.errors.join(' ') : null
+        throw new Error(passwordError || errorData.detail || 'Error al actualizar la contraseña')
+      }
     } catch (error) {
       throw handleFetchError(error)
     }

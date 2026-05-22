@@ -182,7 +182,7 @@ function AuthPageContent() {
               Recuperar Contraseña
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Ingresa tu correo y te enviaremos un enlace mágico ✨
+              Ingresa tu correo y te enviaremos un enlace seguro para crear una nueva contraseña.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -218,7 +218,7 @@ function AuthPageContent() {
                   Enviando...
                 </div>
               ) : (
-                "Enviar enlace mágico ✨"
+                "Enviar enlace de recuperación"
               )}
             </Button>
 
