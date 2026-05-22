@@ -62,9 +62,20 @@ def _get_user_blocked_terms(user: CustomUser) -> List[str]:
     unique_terms = []
     seen = set()
     for term in blocked_terms:
-        if term not in seen:
-            seen.add(term)
-            unique_terms.append(term)
+        expanded_terms = [term]
+        allergen_key = term.replace(' ', '-')
+        canonical_allergen = Recipe.ALLERGEN_ALIASES.get(allergen_key)
+        if canonical_allergen:
+            expanded_terms.append(canonical_allergen)
+
+        for allergen, keywords in Recipe.ALLERGEN_KEYWORDS.items():
+            if term == allergen or term in keywords:
+                expanded_terms.append(allergen)
+
+        for expanded_term in expanded_terms:
+            if expanded_term and expanded_term not in seen:
+                seen.add(expanded_term)
+                unique_terms.append(expanded_term)
 
     return unique_terms
 
@@ -106,8 +117,20 @@ def _recipe_matches_blocked_terms(recipe: Recipe, blocked_terms: List[str]) -> b
 
     recipe_allergens = _normalize_preference_terms(getattr(recipe, 'allergens', []))
     for allergen in recipe_allergens:
+        allergen_matches = {allergen}
+        allergen_matches.update(Recipe.ALLERGEN_KEYWORDS.get(allergen, []))
+        allergen_matches.update(
+            alias.replace('-', ' ')
+            for alias, canonical in Recipe.ALLERGEN_ALIASES.items()
+            if canonical == allergen
+        )
         for term in blocked_terms:
-            if term == allergen or term in allergen or allergen in term:
+            if (
+                term == allergen
+                or term in allergen
+                or allergen in term
+                or term in allergen_matches
+            ):
                 return True
 
     recipe_ingredients = getattr(recipe, 'ingredients', []) or []
@@ -124,6 +147,9 @@ def _recipe_matches_blocked_terms(recipe: Recipe, blocked_terms: List[str]) -> b
 
         for term in blocked_terms:
             if term in normalized_name or normalized_name in term:
+                return True
+            allergen_keywords = Recipe.ALLERGEN_KEYWORDS.get(term, [])
+            if allergen_keywords and any(keyword in normalized_name for keyword in allergen_keywords):
                 return True
 
     return False
@@ -159,6 +185,7 @@ def recipe_matches_meal_type(recipe: Recipe, meal_type: str) -> bool:
 
 
 def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal, desired_count: int = 3) -> List[Recipe]:
+    template_recipe_ids = set(meal_template.suggested_recipes.values_list('id', flat=True))
     suggested_recipes = [
         recipe
         for recipe in meal_template.suggested_recipes.filter(is_active=True)
@@ -176,6 +203,8 @@ def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal
     fallback_recipes = []
     for recipe in Recipe.objects.filter(is_active=True):
         if recipe.id in {item.id for item in selected_recipes}:
+            continue
+        if recipe.id in template_recipe_ids:
             continue
         if not recipe_matches_meal_type(recipe, meal_template.meal_type):
             continue

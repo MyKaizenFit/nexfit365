@@ -233,7 +233,7 @@ class Recipe(TimeStampedModel):
         'nuts': [
             'almendra', 'almendras', 'almond', 'walnut', 'walnuts', 'nuez', 'nueces',
             'avellana', 'avellanas', 'hazelnut', 'hazelnuts', 'pistacho', 'pistachios',
-            'cacahuate', 'cacahuetes', 'peanut', 'peanuts', 'mani', 'anacardo', 'cashew',
+            'cacahuate', 'cacahuete', 'cacahuetes', 'peanut', 'peanuts', 'mani', 'anacardo', 'cashew',
             'cashews', 'macadamia', 'pecan', 'pecanas', 'pine nut', 'piñon', 'pinon'
         ],
         'soy': [
