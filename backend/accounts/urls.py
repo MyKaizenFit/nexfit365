@@ -8,6 +8,7 @@ from api.auth_views import (
     ForgotPasswordView,
     ResetPasswordView,
     ChangePasswordView,
+    ChangePasswordAfterTemporaryView,
 )
 from . import views
 
@@ -22,6 +23,7 @@ urlpatterns = [
     path('auth/forgot-password/', ForgotPasswordView.as_view(), name='auth-forgot-password'),
     path('auth/reset-password/', ResetPasswordView.as_view(), name='auth-reset-password'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),
+    path('auth/change-password-after-temporary/', ChangePasswordAfterTemporaryView.as_view(), name='auth-change-password-after-temporary'),
     
     # Registro y perfil
     path('register/', RegisterView.as_view(), name='register'),
