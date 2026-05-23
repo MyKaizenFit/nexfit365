@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast"
 import { helpService, CreateProblemReportData } from "@/lib/help-service"
 import { useAuth } from "@/contexts/auth-context"
+import { dashboardSectionHref } from "@/lib/dashboard-navigation"
 
 export default function ReportProblemPage() {
   const router = useRouter()
@@ -86,7 +87,7 @@ export default function ReportProblemPage() {
 
       // Redirigir después de un momento
       setTimeout(() => {
-        router.push('/dashboard/settings')
+        router.push(dashboardSectionHref("settings"))
       }, 2000)
     } catch (error) {
       toast({
@@ -306,4 +307,3 @@ export default function ReportProblemPage() {
     </div>
   )
 }
-

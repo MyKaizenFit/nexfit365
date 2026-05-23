@@ -39,11 +39,11 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   const [searchQuery, setSearchQuery] = useState("")
 
   const handleProfileClick = () => {
-    router.push('/dashboard/profile')
+    navigateToDashboardSection(router, "profile")
   }
 
   const handleSettingsClick = () => {
-    router.push('/dashboard/settings')
+    navigateToDashboardSection(router, "settings")
   }
 
   const handleLogout = async () => {
@@ -71,11 +71,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   )
 
   const handleSearchSelect = (section: string) => {
-    if (section === "settings") {
-      router.push('/dashboard/settings')
-    } else {
-      navigateToDashboardSection(router, section)
-    }
+    navigateToDashboardSection(router, section)
     setIsSearchOpen(false)
     setSearchQuery("")
   }
