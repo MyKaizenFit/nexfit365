@@ -505,6 +505,43 @@ class PersonalizedNutritionService:
                 description=f"{meal_name} personalizado para tu objetivo de {self.user.main_goal}",
                 order_index=list(meal_distribution.keys()).index(meal_name) + 1
             )
+
+    def _scale_meal_recipe(self, meal_recipe, calorie_ratio):
+        """Escala una opción de receta manteniendo coherentes porciones y macros custom."""
+        update_fields = []
+
+        if meal_recipe.custom_calories is not None:
+            meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * calorie_ratio)))
+            update_fields.append('custom_calories')
+        if meal_recipe.custom_protein is not None:
+            meal_recipe.custom_protein = round(float(meal_recipe.custom_protein) * calorie_ratio, 2)
+            update_fields.append('custom_protein')
+        if meal_recipe.custom_carbs is not None:
+            meal_recipe.custom_carbs = round(float(meal_recipe.custom_carbs) * calorie_ratio, 2)
+            update_fields.append('custom_carbs')
+        if meal_recipe.custom_fat is not None:
+            meal_recipe.custom_fat = round(float(meal_recipe.custom_fat) * calorie_ratio, 2)
+            update_fields.append('custom_fat')
+
+        meal_recipe.servings = Decimal(str(max(0.10, round(float(meal_recipe.servings) * calorie_ratio, 2))))
+        update_fields.append('servings')
+        meal_recipe.save(update_fields=update_fields)
+
+    def _sync_meal_with_recipe_options(self, meal, meal_recipes):
+        """Recalcula una comida como promedio de sus opciones de receta visibles."""
+        if not meal_recipes:
+            return False
+
+        display_calories = [mr.get_display_calories() for mr in meal_recipes]
+        display_protein = [mr.get_display_protein() for mr in meal_recipes]
+        display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
+        display_fat = [mr.get_display_fat() for mr in meal_recipes]
+
+        meal.calories = int(round(sum(display_calories) / len(display_calories))) if display_calories else meal.calories
+        meal.protein = round(sum(display_protein) / len(display_protein), 1) if display_protein else meal.protein
+        meal.carbs = round(sum(display_carbs) / len(display_carbs), 1) if display_carbs else meal.carbs
+        meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
+        return True
     
     def get_recommendations(self) -> Dict[str, any]:
         """Obtiene recomendaciones nutricionales basadas en el perfil del usuario"""
@@ -585,11 +622,12 @@ class PersonalizedNutritionService:
             # Si la receta no tiene calorías, usar un factor por defecto
             scale_factor = 1.0
         
-        # Ajustar según objetivo del usuario
-        if self.user.main_goal == 'lose_weight':
-            scale_factor *= 0.9  # Reducir un 10% para déficit
-        elif self.user.main_goal == 'gain_muscle':
-            scale_factor *= 1.1  # Aumentar un 10% para superávit
+        # Ajustar según objetivo solo cuando no hay kcal fijadas manualmente por admin.
+        if not getattr(self.user, 'admin_calories_override', None):
+            if self.user.main_goal == 'lose_weight':
+                scale_factor *= 0.9  # Reducir un 10% para déficit
+            elif self.user.main_goal == 'gain_muscle':
+                scale_factor *= 1.1  # Aumentar un 10% para superávit
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -893,6 +931,10 @@ class PersonalizedNutritionService:
                 calorie_ratio = Decimal(str(new_daily_calories)) / Decimal(str(total_old_calories))
                 
                 for meal in plan.meals.all():
+                    meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
+                    for meal_recipe in meal_recipes:
+                        self._scale_meal_recipe(meal_recipe, float(calorie_ratio))
+
                     if meal.calories:
                         meal.calories = int(Decimal(meal.calories) * calorie_ratio)
                         if meal.protein is not None:
@@ -901,7 +943,9 @@ class PersonalizedNutritionService:
                             meal.carbs = (Decimal(meal.carbs) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
                         if meal.fat is not None:
                             meal.fat = (Decimal(meal.fat) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                        meal.save()
+
+                    self._sync_meal_with_recipe_options(meal, meal_recipes)
+                    meal.save()
         
         # Crear nota descriptiva
         weight_note = ""
@@ -991,26 +1035,7 @@ class PersonalizedNutritionService:
                 # Escalar primero cantidades/macros a nivel de receta para mantener coherencia visual
                 meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
                 for meal_recipe in meal_recipes:
-                    update_fields = []
-
-                    if meal_recipe.custom_calories is not None:
-                        meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * calorie_ratio)))
-                        update_fields.append('custom_calories')
-                    if meal_recipe.custom_protein is not None:
-                        meal_recipe.custom_protein = round(float(meal_recipe.custom_protein) * calorie_ratio, 2)
-                        update_fields.append('custom_protein')
-                    if meal_recipe.custom_carbs is not None:
-                        meal_recipe.custom_carbs = round(float(meal_recipe.custom_carbs) * calorie_ratio, 2)
-                        update_fields.append('custom_carbs')
-                    if meal_recipe.custom_fat is not None:
-                        meal_recipe.custom_fat = round(float(meal_recipe.custom_fat) * calorie_ratio, 2)
-                        update_fields.append('custom_fat')
-
-                    meal_recipe.servings = Decimal(str(max(0.10, round(float(meal_recipe.servings) * calorie_ratio, 2))))
-                    update_fields.append('servings')
-
-                    if update_fields:
-                        meal_recipe.save(update_fields=update_fields)
+                    self._scale_meal_recipe(meal_recipe, calorie_ratio)
 
                 if meal.calories:
                     meal.calories = int(meal.calories * calorie_ratio)
@@ -1019,18 +1044,8 @@ class PersonalizedNutritionService:
                     meal.fat = round(float(meal.fat) * calorie_ratio, 1) if meal.fat else None
 
                 # Si la comida tiene recetas, recalcular macros usando promedio de opciones
-                if meal_recipes:
-                    display_calories = [mr.get_display_calories() for mr in meal_recipes]
-                    display_protein = [mr.get_display_protein() for mr in meal_recipes]
-                    display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
-                    display_fat = [mr.get_display_fat() for mr in meal_recipes]
-
-                    meal.calories = int(round(sum(display_calories) / len(display_calories))) if display_calories else meal.calories
-                    meal.protein = round(sum(display_protein) / len(display_protein), 1) if display_protein else meal.protein
-                    meal.carbs = round(sum(display_carbs) / len(display_carbs), 1) if display_carbs else meal.carbs
-                    meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
-
-                    meal.save()
+                self._sync_meal_with_recipe_options(meal, meal_recipes)
+                meal.save()
         
         # Registrar cambio en historial
         adjustment_text = f"{calorie_adjustment:+d}" if calorie_adjustment != 0 else "0"

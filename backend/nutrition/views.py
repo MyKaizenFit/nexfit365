@@ -367,6 +367,7 @@ def plan_meals_for_selection(request):
     
     logger.info(f"🔥 Calorías diarias calculadas: {daily_calories} kcal")
     logger.info(f"📈 Macros diarios: P={daily_macros['protein']:.1f}g, C={daily_macros['carbs']:.1f}g, G={daily_macros['fat']:.1f}g")
+    has_admin_calorie_override = bool(getattr(user, 'admin_calories_override', None))
 
     excluded_recipe_ids = _get_excluded_recipe_ids(user)
 
@@ -460,11 +461,12 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        # Ajustar según objetivo del usuario
-        if user.main_goal == 'lose_weight':
-            scale_factor *= 0.9  # Reducir un 10% para déficit
-        elif user.main_goal == 'gain_muscle':
-            scale_factor *= 1.1  # Aumentar un 10% para superávit
+        # Si el admin fija kcal manualmente, ese número tiene prioridad absoluta.
+        if not has_admin_calorie_override:
+            if user.main_goal == 'lose_weight':
+                scale_factor *= 0.9  # Reducir un 10% para déficit
+            elif user.main_goal == 'gain_muscle':
+                scale_factor *= 1.1  # Aumentar un 10% para superávit
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -507,11 +509,11 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        # Ajustar según objetivo
-        if user.main_goal == 'lose_weight':
-            scale_factor *= 0.9
-        elif user.main_goal == 'gain_muscle':
-            scale_factor *= 1.1
+        if not has_admin_calorie_override:
+            if user.main_goal == 'lose_weight':
+                scale_factor *= 0.9
+            elif user.main_goal == 'gain_muscle':
+                scale_factor *= 1.1
         
         scale_factor = max(0.5, min(2.0, scale_factor))
         
@@ -579,6 +581,19 @@ def plan_meals_for_selection(request):
             'meals__meal_recipes',
             'meals__meal_recipes__recipe',
         ).first()
+
+    def plan_target_ratio(plan):
+        if not plan or not plan.daily_calories:
+            return 1.0
+        return max(0.1, float(daily_calories) / float(plan.daily_calories))
+
+    def scaled_meal_recipe_macros(meal_recipe, ratio=1.0):
+        return {
+            'calories': int(round(meal_recipe.get_display_calories() * ratio)),
+            'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
+            'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
+            'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
+        }
     
     meals_by_type = {}
     # Nuevo: devolver slots (comidas del día) y opciones por slot
@@ -612,6 +627,7 @@ def plan_meals_for_selection(request):
             # Si hay recetas configuradas (PlanMealRecipe), crear una opción por receta
             if meal.meal_recipes.exists():
                 used_recipe_ids = set()
+                meal_recipe_ratio = plan_target_ratio(user_plan)
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
                     replacement = None
@@ -626,17 +642,14 @@ def plan_meals_for_selection(request):
                             continue
                     selected_recipe = replacement or recipe
                     used_recipe_ids.add(selected_recipe.id)
-                    calories = meal_recipe.get_display_calories()
-                    protein = meal_recipe.get_display_protein()
-                    carbs = meal_recipe.get_display_carbs()
-                    fat = meal_recipe.get_display_fat()
+                    scaled_macros = scaled_meal_recipe_macros(meal_recipe, meal_recipe_ratio)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{selected_recipe.id}",
                         'name': selected_recipe.name,
-                        'calories': int(calories) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['calories'],
-                        'protein': round(float(protein), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['protein'],
-                        'carbs': round(float(carbs), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['carbs'],
-                        'fat': round(float(fat), 1) if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['fat'],
+                        'calories': scaled_macros['calories'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['calories'],
+                        'protein': scaled_macros['protein'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['protein'],
+                        'carbs': scaled_macros['carbs'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['carbs'],
+                        'fat': scaled_macros['fat'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
                         'description': selected_recipe.description or meal.description,
@@ -731,21 +744,19 @@ def plan_meals_for_selection(request):
             # Crear opciones basadas en la comida y sus recetas sugeridas (sin límite)
             meal_options = []
             if meal.meal_recipes.exists():
+                meal_recipe_ratio = max(0.1, float(daily_calories) / float(plan.daily_calories)) if plan.daily_calories else 1.0
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
                     if not recipe_allowed_for_user(recipe):
                         continue
-                    calories = meal_recipe.get_display_calories()
-                    protein = meal_recipe.get_display_protein()
-                    carbs = meal_recipe.get_display_carbs()
-                    fat = meal_recipe.get_display_fat()
+                    scaled_macros = scaled_meal_recipe_macros(meal_recipe, meal_recipe_ratio)
                     meal_options.append({
                         'id': f"meal-{meal.id}-recipe-{recipe.id}",
                         'name': recipe.name,
-                        'calories': int(calories),
-                        'protein': round(float(protein), 1),
-                        'carbs': round(float(carbs), 1),
-                        'fat': round(float(fat), 1),
+                        'calories': scaled_macros['calories'],
+                        'protein': scaled_macros['protein'],
+                        'carbs': scaled_macros['carbs'],
+                        'fat': scaled_macros['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
                         'description': recipe.description or meal.description,
