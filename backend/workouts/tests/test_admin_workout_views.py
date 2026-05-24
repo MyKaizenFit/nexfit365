@@ -391,6 +391,35 @@ class TestAdminWorkoutProgramViewSet:
         assert WorkoutProgram.objects.filter(user=user_a, is_active=True).exists()
         assert WorkoutProgram.objects.filter(user=user_b, is_active=True).exists()
 
+    def test_update_user_program_with_same_assigned_user_keeps_it_individual(self, admin_client, regular_user):
+        program = WorkoutProgram.objects.create(
+            name='Rutina Individual',
+            user=regular_user,
+            difficulty='beginner',
+            goal='general_fitness',
+            days_per_week=3,
+            duration_weeks=4,
+            is_template=False,
+            is_system=False,
+        )
+
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{program.id}/',
+            {
+                'name': 'Rutina Individual Editada',
+                'assigned_user_ids': [regular_user.id],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        program.refresh_from_db()
+        assert program.name == 'Rutina Individual Editada'
+        assert program.user == regular_user
+        assert program.is_template is False
+        assert program.is_system is False
+        assert response.data.get('created_user_program_ids') == []
+
     def test_delete_program(self, admin_client, workout_program):
         program_id = str(workout_program.id)
         response = admin_client.delete(f'/api/admin/workouts/programs/{program_id}/')
