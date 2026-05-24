@@ -351,15 +351,24 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         created_user_program_ids = []
         if assigned_user_ids is not None:
-            # Si se actualiza una rutina de usuario para múltiples usuarios,
-            # la convertimos en plantilla y asignamos copias activas a cada usuario.
-            if program.user_id:
+            valid_user_ids = set(User.objects.filter(id__in=assigned_user_ids).values_list('id', flat=True))
+            assigned_user_ids = [user_id for user_id in assigned_user_ids if user_id in valid_user_ids]
+            same_user_assignment = (
+                program.user_id
+                and len(assigned_user_ids) == 1
+                and assigned_user_ids[0] == program.user_id
+            )
+
+            # Mantener una rutina individual como individual si el PATCH solo
+            # reenvía su mismo usuario asignado. Convertir a plantilla solo al
+            # asignar a otros usuarios desde esta rutina.
+            if program.user_id and not same_user_assignment:
                 program.user = None
                 program.is_template = True
                 program.is_system = False
                 program.save(update_fields=['user', 'is_template', 'is_system'])
 
-            if assigned_user_ids:
+            if assigned_user_ids and not same_user_assignment:
                 created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
 
         response_serializer = AdminWorkoutProgramSerializer(program)

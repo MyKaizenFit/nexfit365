@@ -1121,16 +1121,20 @@ export function WorkoutPlanManagement() {
 
       // Si estamos editando, guardamos todo (info básica + días/ejercicios)
       if (editingPlan) {
+        const currentUserId = (editingPlan as any).user_id || (editingPlan as any).user
+        const shouldSendAssignedUsers = !currentUserId && formData.assigned_users.length > 0
         const planData = {
           ...formData,
-          assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
           days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
             day_name: day.day_name,
             day_number: day.day_number,
             is_rest_day: day.is_rest_day,
             notes: day.notes,
             exercises: day.exercises
-          }))
+          })),
+          ...(shouldSendAssignedUsers
+            ? { assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)) }
+            : {}),
         }
         await updatePlan(editingPlan.id, planData)
         toast({
