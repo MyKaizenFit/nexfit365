@@ -11,6 +11,26 @@ import random
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+DAY_NUMBER_TO_WEEKDAY = {
+    1: 'monday',
+    2: 'tuesday',
+    3: 'wednesday',
+    4: 'thursday',
+    5: 'friday',
+    6: 'saturday',
+    7: 'sunday',
+}
+
+DAY_NUMBER_TO_SPANISH = {
+    1: 'Lunes',
+    2: 'Martes',
+    3: 'Miércoles',
+    4: 'Jueves',
+    5: 'Viernes',
+    6: 'Sábado',
+    7: 'Domingo',
+}
+
 
 def get_default_workout_program_for_user(user):
     """
@@ -112,6 +132,38 @@ def normalize_training_days(training_days):
     return sorted(set(normalized))
 
 
+def get_admin_training_days_for_user(user):
+    """
+    Devuelve los días que deben mandar para un usuario.
+    La configuración del perfil administrado tiene preferencia sobre la plantilla.
+    """
+    user_training_days = normalize_training_days(getattr(user, 'training_days', None))
+    if user_training_days:
+        return user_training_days
+
+    days_per_week = getattr(user, 'training_days_per_week', None)
+    if days_per_week:
+        return list(DAY_NUMBER_TO_WEEKDAY.keys())[:int(days_per_week)]
+
+    return []
+
+
+def get_admin_days_per_week_for_user(user, fallback=3):
+    admin_training_days = get_admin_training_days_for_user(user)
+    if admin_training_days:
+        return len(admin_training_days)
+
+    days_per_week = getattr(user, 'training_days_per_week', None)
+    if days_per_week:
+        return int(days_per_week)
+
+    return fallback or 3
+
+
+def weekday_for_day_number(day_number):
+    return DAY_NUMBER_TO_WEEKDAY.get(((int(day_number) - 1) % 7) + 1, 'monday')
+
+
 def assign_default_plans_to_user(user):
     """
     Asigna planes por defecto a un usuario nuevo.
@@ -183,9 +235,9 @@ def assign_default_plans_to_user(user):
             end_date=timezone.localdate(),
         )
 
-        # Obtener días de entrenamiento del usuario (normalizados a números)
-        user_training_days = normalize_training_days(user.training_days)
-        days_per_week = len(user_training_days) if user_training_days else (user.training_days_per_week or 3)
+        # La configuración del perfil administrado manda sobre los días de la plantilla.
+        user_training_days = get_admin_training_days_for_user(user)
+        days_per_week = get_admin_days_per_week_for_user(user, fallback=3)
         
         # Crear programa personalizado
         program = WorkoutProgram.objects.create(
@@ -211,12 +263,6 @@ def assign_default_plans_to_user(user):
         ).order_by('day_number'))
         
         if template_days:
-            # Mapeo de número de día a nombre
-            day_names = {
-                1: 'Lunes', 2: 'Martes', 3: 'Miércoles',
-                4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'
-            }
-            
             # Si el usuario tiene días específicos, asignar a esos días
             if user_training_days:
                 for i, user_day in enumerate(sorted(user_training_days)):
@@ -224,12 +270,13 @@ def assign_default_plans_to_user(user):
                     template_day = template_days[i % len(template_days)]
                     
                     # Crear día de entrenamiento
-                    day_name = f"{day_names.get(user_day, f'Día {user_day}')} - {template_day.name}"
+                    day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} - {template_day.name}"
                     
                     new_day = WorkoutDay.objects.create(
                         program=program,
                         name=day_name,
                         day_number=user_day,
+                        day_of_week=weekday_for_day_number(user_day),
                         is_rest_day=False,
                         notes=template_day.notes,
                         duration_minutes=template_day.duration_minutes,
@@ -260,6 +307,7 @@ def assign_default_plans_to_user(user):
                         program=program,
                         name=template_day.name,
                         day_number=template_day.day_number,
+                        day_of_week=template_day.day_of_week or weekday_for_day_number(template_day.day_number),
                         is_rest_day=template_day.is_rest_day,
                         notes=template_day.notes,
                         duration_minutes=template_day.duration_minutes,
@@ -483,9 +531,9 @@ class DefaultPlanAssignmentService:
                 end_date=timezone.now().date(),
             )
             
-            # Obtener días de entrenamiento del usuario (normalizados a números)
-            user_training_days = normalize_training_days(self.user.training_days)
-            days_per_week = len(user_training_days) if user_training_days else (self.user.training_days_per_week or template_program.days_per_week)
+            # La configuración del perfil administrado manda sobre los días de la plantilla.
+            user_training_days = get_admin_training_days_for_user(self.user)
+            days_per_week = get_admin_days_per_week_for_user(self.user, fallback=template_program.days_per_week)
             
             # Crear programa personalizado
             workout_program = WorkoutProgram.objects.create(
@@ -512,22 +560,18 @@ class DefaultPlanAssignmentService:
             if template_days:
                 copied_days_count = 0
                 copied_exercises_count = 0
-                day_names = {
-                    1: 'Lunes', 2: 'Martes', 3: 'Miércoles',
-                    4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo'
-                }
-                
                 if user_training_days:
                     # Ajustar a los días específicos del usuario
                     for i, user_day in enumerate(sorted(user_training_days)):
                         template_day = template_days[i % len(template_days)]
                         
-                        day_name = f"{day_names.get(user_day, f'Día {user_day}')} - {template_day.name}"
+                        day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} - {template_day.name}"
                         
                         new_day = WorkoutDay.objects.create(
                             program=workout_program,
                             name=day_name,
                             day_number=user_day,
+                            day_of_week=weekday_for_day_number(user_day),
                             is_rest_day=False,
                             notes=template_day.notes,
                             duration_minutes=template_day.duration_minutes,
@@ -559,6 +603,7 @@ class DefaultPlanAssignmentService:
                             program=workout_program,
                             name=template_day.name,
                             day_number=template_day.day_number,
+                            day_of_week=template_day.day_of_week or weekday_for_day_number(template_day.day_number),
                             is_rest_day=template_day.is_rest_day,
                             notes=template_day.notes,
                             duration_minutes=template_day.duration_minutes,
