@@ -1,4 +1,5 @@
 """Tests para workouts/admin_workout_plan_views.py - AdminWorkoutPlanExportImportViewSet"""
+import datetime
 import io
 import pytest
 from rest_framework.test import APIClient
@@ -171,6 +172,20 @@ class TestExportExcel:
         assert response.status_code == status.HTTP_200_OK
         assert 'attachment' in response.get('Content-Disposition', '')
 
+    def test_export_excel_reps_column_is_text_format(self, admin_client, template_with_days):
+        """Las reps deben salir como texto para evitar autoconversión a fecha."""
+        import openpyxl
+
+        response = admin_client.get(f'{BASE_URL}export_excel/')
+        assert response.status_code == status.HTTP_200_OK
+
+        workbook = openpyxl.load_workbook(io.BytesIO(response.content))
+        worksheet = workbook['Ejercicios']
+        headers = [cell.value for cell in worksheet[1]]
+        reps_column = headers.index('Reps') + 1
+
+        assert worksheet.cell(row=2, column=reps_column).number_format == '@'
+
 
 # ---------------------------------------------------------------------------
 # import_csv tests
@@ -335,6 +350,42 @@ class TestImportExcel:
             format='multipart',
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_import_excel_converts_date_like_reps_back_to_range(self, admin_client, exercise):
+        """Si Excel convirtió 8-12 en fecha, no debe persistirse como datetime."""
+        import openpyxl
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Ejercicios'
+        ws.append([
+            'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Número Día',
+            'Nombre Día', 'Orden', 'Nombre Ejercicio', 'Series', 'Reps', 'Peso',
+            'Duración (seg)', 'Descanso (seg)', 'Notas', 'Grupo Superset',
+        ])
+        ws.append([
+            'Plantilla', '', 'Plan Fecha Reps', 1,
+            'Día 1', 1, exercise.name, 3, datetime.datetime(2026, 8, 12), '', '', 90, '', '',
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = 'date_reps.xlsx'
+
+        response = admin_client.post(
+            f'{BASE_URL}import_excel/',
+            {'file': buffer},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        workout_exercise = WorkoutDayExercise.objects.get(
+            workout_day__program__name='Plan Fecha Reps',
+            exercise=exercise,
+        )
+        assert workout_exercise.reps == '8-12'
 
     @override_settings(SECURE_SSL_REDIRECT=False)
     def test_import_excel_user_plan_is_not_template_and_deactivates_previous(
