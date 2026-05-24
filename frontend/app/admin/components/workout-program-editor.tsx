@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2 } from "lucide-react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,8 @@ import { fixEncoding } from "@/lib/encoding-fix"
 
 interface Exercise {
   id?: string
+  localId?: string
+  exerciseId?: string
   name: string
   sets: number
   reps: string
@@ -24,6 +26,7 @@ interface Exercise {
 
 interface WorkoutDay {
   id?: string
+  localId?: string
   day: string
   name: string
   duration: number
@@ -43,6 +46,22 @@ interface WorkoutProgram {
   weeklySchedule: WorkoutDay[]
   durationWeeks?: number
   isActive?: boolean
+}
+
+const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+function createLocalId(prefix: string) {
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
+function normalizeDateLikeWorkoutText(value: string) {
+  const raw = String(value || "").trim()
+  const match = raw.match(/^20\d{2}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])(?: 00:00:00)?$/)
+  if (!match) return value
+  return `${Number(match[2])}-${Number(match[1])}`
 }
 
 export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSave: () => void }) {
@@ -110,6 +129,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
       const weeklySchedule: WorkoutDay[] = sortedDays.map((day: any, index: number) => ({
         id: day.id,
+        localId: createLocalId("day"),
         day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
         name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
         duration: day.duration_minutes || 60,
@@ -118,9 +138,11 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         notes: day.notes || "",
         exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
           id: ex.id,
+          localId: createLocalId("exercise"),
+          exerciseId: ex.exercise?.id || ex.exercise_id,
           name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
           sets: ex.sets ?? 3,
-          reps: ex.reps || "10-12",
+          reps: normalizeDateLikeWorkoutText(ex.reps || "10-12"),
           weight: ex.weight || "",
           rest: ex.rest_seconds ?? 60,
           notes: ex.notes || "",
@@ -168,39 +190,77 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
     const newDay: WorkoutDay = {
       id: undefined,
-      day: "Lunes",
+      localId: createLocalId("day"),
+      day: DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length],
       name: "Nuevo entrenamiento",
       duration: 60,
       isRestDay: false,
       exercises: [],
       dayNumber: (program.weeklySchedule.length || 0) + 1,
     }
-    setProgram({ ...program, weeklySchedule: [...program.weeklySchedule, newDay] })
+    const weeklySchedule = [...program.weeklySchedule, newDay]
+    setProgram({ ...program, daysPerWeek: weeklySchedule.length, weeklySchedule })
   }
 
-  const updateWorkoutDay = (dayId: string | undefined, updates: Partial<WorkoutDay>) => {
+  const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
     if (!program) return
 
     setProgram({
       ...program,
-      weeklySchedule: program.weeklySchedule.map((day) => (day.id === dayId ? { ...day, ...updates } : day)),
+      weeklySchedule: program.weeklySchedule.map((day) =>
+        (day.id ?? day.localId) === dayKey ? { ...day, ...updates } : day,
+      ),
     })
   }
 
-  const deleteWorkoutDay = (dayId: string | undefined) => {
+  const deleteWorkoutDay = (dayKey: string) => {
     if (!program) return
 
     setProgram({
       ...program,
-      weeklySchedule: program.weeklySchedule.filter((day) => day.id !== dayId),
+      daysPerWeek: Math.max(1, program.weeklySchedule.length - 1),
+      weeklySchedule: program.weeklySchedule
+        .filter((day) => (day.id ?? day.localId) !== dayKey)
+        .map((day, index) => ({ ...day, dayNumber: index + 1 })),
     })
   }
 
-  const addExercise = (dayId: string | undefined) => {
+  const syncDaysPerWeek = (targetDays: number) => {
+    if (!program) return
+    const normalizedTarget = Math.min(7, Math.max(1, targetDays || 1))
+    const currentDays = program.weeklySchedule
+    let nextDays = [...currentDays]
+
+    if (normalizedTarget > currentDays.length) {
+      for (let index = currentDays.length; index < normalizedTarget; index += 1) {
+        nextDays.push({
+          id: undefined,
+          localId: createLocalId("day"),
+          day: DAY_OPTIONS[index % DAY_OPTIONS.length],
+          name: "Nuevo entrenamiento",
+          duration: 60,
+          isRestDay: false,
+          exercises: [],
+          dayNumber: index + 1,
+        })
+      }
+    } else {
+      nextDays = nextDays.slice(0, normalizedTarget)
+    }
+
+    setProgram({
+      ...program,
+      daysPerWeek: normalizedTarget,
+      weeklySchedule: nextDays.map((day, index) => ({ ...day, dayNumber: index + 1 })),
+    })
+  }
+
+  const addExercise = (dayKey: string) => {
     if (!program) return
 
     const newExercise: Exercise = {
       id: undefined,
+      localId: createLocalId("exercise"),
       name: "Nuevo ejercicio",
       sets: 3,
       reps: "10-12",
@@ -209,30 +269,32 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
       notes: "",
     }
 
-    const targetDay = program.weeklySchedule.find((d) => d.id === dayId)
+    const targetDay = program.weeklySchedule.find((d) => (d.id ?? d.localId) === dayKey)
     const currentExercises = targetDay?.exercises || []
-    updateWorkoutDay(dayId, {
+    updateWorkoutDay(dayKey, {
       exercises: [...currentExercises, newExercise],
     })
   }
 
-  const updateExercise = (dayId: string | undefined, exerciseId: string | undefined, updates: Partial<Exercise>) => {
+  const updateExercise = (dayKey: string, exerciseKey: string, updates: Partial<Exercise>) => {
     if (!program) return
-    const day = program.weeklySchedule.find((d) => d.id === dayId)
+    const day = program.weeklySchedule.find((d) => (d.id ?? d.localId) === dayKey)
     if (day) {
       const updatedExercises = day.exercises.map((exercise) =>
-        exercise.id === exerciseId ? { ...exercise, ...updates } : exercise,
+        (exercise.id ?? exercise.localId) === exerciseKey
+          ? { ...exercise, ...updates, reps: updates.reps ? normalizeDateLikeWorkoutText(updates.reps) : exercise.reps }
+          : exercise,
       )
-      updateWorkoutDay(dayId, { exercises: updatedExercises })
+      updateWorkoutDay(dayKey, { exercises: updatedExercises })
     }
   }
 
-  const deleteExercise = (dayId: string | undefined, exerciseId: string | undefined) => {
+  const deleteExercise = (dayKey: string, exerciseKey: string) => {
     if (!program) return
-    const day = program.weeklySchedule.find((d) => d.id === dayId)
+    const day = program.weeklySchedule.find((d) => (d.id ?? d.localId) === dayKey)
     if (day) {
-      const updatedExercises = day.exercises.filter((exercise) => exercise.id !== exerciseId)
-      updateWorkoutDay(dayId, { exercises: updatedExercises })
+      const updatedExercises = day.exercises.filter((exercise) => (exercise.id ?? exercise.localId) !== exerciseKey)
+      updateWorkoutDay(dayKey, { exercises: updatedExercises })
     }
   }
 
@@ -269,7 +331,8 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
           ? []
           : day.exercises.map((ex, exIndex) => ({
               id: ex.id,
-              exercise_id: null,
+              exercise_id: ex.exerciseId || null,
+              name: ex.name,
               sets: ex.sets,
               reps: ex.reps,
               weight: ex.weight,
@@ -385,9 +448,13 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                 min="1"
                 max="7"
                 value={program.daysPerWeek}
-                onChange={(e) => setProgram({ ...program, daysPerWeek: Number(e.target.value) })}
+                onChange={(e) => setProgram({ ...program, daysPerWeek: Math.min(7, Math.max(1, Number(e.target.value) || 1)) })}
                 className="border-2 border-gray-200 focus:border-purple-400"
               />
+              <Button type="button" variant="outline" size="sm" onClick={() => syncDaysPerWeek(program.daysPerWeek)}>
+                <RefreshCw className="h-3 w-3 mr-2" />
+                Ajustar días
+              </Button>
             </div>
           </div>
 
@@ -414,7 +481,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                 <SelectContent>
                   <SelectItem value="weight_loss">Pérdida de peso</SelectItem>
                   <SelectItem value="muscle_gain">Ganancia muscular</SelectItem>
-                  <SelectItem value="strength_building">Fuerza</SelectItem>
+                  <SelectItem value="strength">Fuerza</SelectItem>
                   <SelectItem value="endurance">Resistencia</SelectItem>
                   <SelectItem value="general_fitness">Fitness general</SelectItem>
                 </SelectContent>
@@ -449,7 +516,11 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         </div>
 
         {program.weeklySchedule.map((day, index) => (
-          <Card key={day.id ?? index} className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
+          <Card key={day.id ?? day.localId ?? index} className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
+            {(() => {
+              const dayKey = day.id ?? day.localId ?? String(index)
+              return (
+                <>
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
@@ -467,7 +538,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={() => deleteWorkoutDay(day.id)}
+                  onClick={() => deleteWorkoutDay(dayKey)}
                   className="h-8 w-8 text-red-600 hover:bg-red-50"
                 >
                   <Trash2 className="h-4 w-4" />
@@ -478,7 +549,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label>Día de la semana</Label>
-                  <Select value={day.day} onValueChange={(value) => updateWorkoutDay(day.id, { day: value })}>
+                  <Select value={day.day} onValueChange={(value) => updateWorkoutDay(dayKey, { day: value })}>
                     <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
                       <SelectValue />
                     </SelectTrigger>
@@ -497,7 +568,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                   <Label>Nombre del entrenamiento</Label>
                   <Input
                     value={day.name}
-                    onChange={(e) => updateWorkoutDay(day.id, { name: e.target.value })}
+                    onChange={(e) => updateWorkoutDay(dayKey, { name: e.target.value })}
                     className="border-2 border-gray-200 focus:border-purple-400"
                     disabled={day.isRestDay}
                   />
@@ -509,7 +580,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                     <Input
                       type="number"
                       value={day.duration}
-                      onChange={(e) => updateWorkoutDay(day.id, { duration: Number(e.target.value) })}
+                      onChange={(e) => updateWorkoutDay(dayKey, { duration: Number(e.target.value) })}
                       className="pl-10 border-2 border-gray-200 focus:border-purple-400"
                       disabled={day.isRestDay}
                     />
@@ -522,7 +593,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                   type="checkbox"
                   id={`rest-day-${day.id ?? index}`}
                   checked={day.isRestDay}
-                  onChange={(e) => updateWorkoutDay(day.id, { isRestDay: e.target.checked })}
+                  onChange={(e) => updateWorkoutDay(dayKey, { isRestDay: e.target.checked })}
                   className="rounded"
                   title="Marcar como día de descanso"
                   aria-label="Marcar como día de descanso"
@@ -537,7 +608,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => addExercise(day.id)}
+                      onClick={() => addExercise(dayKey)}
                       className="text-purple-600 border-purple-300 hover:bg-purple-50"
                     >
                       <Plus className="h-3 w-3 mr-1" />
@@ -547,8 +618,11 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
 
                   <div className="space-y-3">
                     {day.exercises.map((exercise, exerciseIndex) => (
+                      (() => {
+                        const exerciseKey = exercise.id ?? exercise.localId ?? String(exerciseIndex)
+                        return (
                       <div
-                        key={exercise.id ?? exerciseIndex}
+                        key={exercise.id ?? exercise.localId ?? exerciseIndex}
                         className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200"
                       >
                         <div className="flex items-center justify-between mb-3">
@@ -556,7 +630,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                           <Button
                             variant="outline"
                             size="icon"
-                            onClick={() => deleteExercise(day.id, exercise.id)}
+                            onClick={() => deleteExercise(dayKey, exerciseKey)}
                             className="h-6 w-6 text-red-600 hover:bg-red-50"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -568,7 +642,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                             <Label className="text-xs">Nombre del ejercicio</Label>
                             <Input
                               value={exercise.name}
-                              onChange={(e) => updateExercise(day.id, exercise.id, { name: e.target.value })}
+                              onChange={(e) => updateExercise(dayKey, exerciseKey, { name: e.target.value })}
                               className="h-8 text-sm border-purple-300 focus:border-purple-500"
                             />
                           </div>
@@ -576,7 +650,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                             <Label className="text-xs">Peso/Resistencia</Label>
                             <Input
                               value={exercise.weight}
-                              onChange={(e) => updateExercise(day.id, exercise.id, { weight: e.target.value })}
+                              onChange={(e) => updateExercise(dayKey, exerciseKey, { weight: e.target.value })}
                               className="h-8 text-sm border-purple-300 focus:border-purple-500"
                               placeholder="ej: 80kg, peso corporal"
                             />
@@ -590,7 +664,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                               type="number"
                               value={exercise.sets}
                               onChange={(e) =>
-                                updateExercise(day.id, exercise.id, { sets: Number(e.target.value) })
+                                updateExercise(dayKey, exerciseKey, { sets: Number(e.target.value) })
                               }
                               className="h-8 text-sm border-purple-300 focus:border-purple-500"
                             />
@@ -599,7 +673,10 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                             <Label className="text-xs">Repeticiones</Label>
                             <Input
                               value={exercise.reps}
-                              onChange={(e) => updateExercise(day.id, exercise.id, { reps: e.target.value })}
+                              onChange={(e) => updateExercise(dayKey, exerciseKey, { reps: e.target.value })}
+                              type="text"
+                              inputMode="text"
+                              autoComplete="off"
                               className="h-8 text-sm border-purple-300 focus:border-purple-500"
                               placeholder="ej: 8-10, 12"
                             />
@@ -610,7 +687,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                               type="number"
                               value={exercise.rest}
                               onChange={(e) =>
-                                updateExercise(day.id, exercise.id, { rest: Number(e.target.value) })
+                                updateExercise(dayKey, exerciseKey, { rest: Number(e.target.value) })
                               }
                               className="h-8 text-sm border-purple-300 focus:border-purple-500"
                             />
@@ -621,13 +698,15 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                           <Label className="text-xs">Notas técnicas</Label>
                           <Textarea
                             value={exercise.notes}
-                            onChange={(e) => updateExercise(day.id, exercise.id, { notes: e.target.value })}
+                            onChange={(e) => updateExercise(dayKey, exerciseKey, { notes: e.target.value })}
                             className="text-sm border-purple-300 focus:border-purple-500"
                             rows={2}
                             placeholder="Técnica, consejos, modificaciones..."
                           />
                         </div>
                       </div>
+                        )
+                      })()
                     ))}
 
                     {day.exercises.length === 0 && (
@@ -640,6 +719,9 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                 </>
               )}
             </CardContent>
+                </>
+              )
+            })()}
           </Card>
         ))}
       </div>
