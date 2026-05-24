@@ -175,7 +175,7 @@ function getNextCopyName(baseName: string, existingNames: string[]) {
 function normalizeDateLikeWorkoutText(value: unknown) {
   const text = String(value ?? "").trim()
   const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]00:00:00)?$/)
-  if (isoDate) return `${Number(isoDate[2])}-${Number(isoDate[3])}`
+  if (isoDate) return `${Number(isoDate[3])}-${Number(isoDate[2])}`
 
   const slashDate = text.match(/^(\d{1,2})\/(\d{1,2})\/(?:\d{2}|\d{4})$/)
   if (slashDate) return `${Number(slashDate[1])}-${Number(slashDate[2])}`

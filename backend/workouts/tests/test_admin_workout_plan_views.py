@@ -366,7 +366,7 @@ class TestImportExcel:
         ])
         ws.append([
             'Plantilla', '', 'Plan Fecha Reps', 1,
-            'Día 1', 1, exercise.name, 3, datetime.datetime(2026, 8, 12), '', '', 90, '', '',
+            'Día 1', 1, exercise.name, 3, datetime.datetime(2026, 12, 8), '', '', 90, '', '',
         ])
 
         buffer = io.BytesIO()

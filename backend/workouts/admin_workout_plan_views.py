@@ -944,9 +944,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 if value is None:
                     return default
                 if isinstance(value, datetime.datetime):
-                    return f"{value.month}-{value.day}"
+                    return f"{value.day}-{value.month}"
                 if isinstance(value, datetime.date):
-                    return f"{value.month}-{value.day}"
+                    return f"{value.day}-{value.month}"
                 return str(value).strip()
 
             difficulty_map = {
