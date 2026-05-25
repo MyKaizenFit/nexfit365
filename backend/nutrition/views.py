@@ -19,7 +19,7 @@ from .serializers import (
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
     NutritionPlanHistorySerializer, RecipeIngredientSerializer
 )
-from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
+from .services import PersonalizedNutritionService, apply_fat_dense_ingredient_caps, recipe_is_compatible_for_user
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
@@ -440,7 +440,7 @@ def plan_meals_for_selection(request):
         'morning_snack': 0.10,  # 10% del día
         'lunch': 0.35,          # 35% del día
         'afternoon_snack': 0.10, # 10% del día
-        'dinner': 0.25,          # 25% del día
+        'dinner': 0.20,          # 20% del día
         'evening_snack': 0.10,   # 10% del día
         'snack': 0.15            # 15% del día (genérico)
     }
@@ -461,12 +461,7 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        # Si el admin fija kcal manualmente, ese número tiene prioridad absoluta.
-        if not has_admin_calorie_override:
-            if user.main_goal == 'lose_weight':
-                scale_factor *= 0.9  # Reducir un 10% para déficit
-            elif user.main_goal == 'gain_muscle':
-                scale_factor *= 1.1  # Aumentar un 10% para superávit
+        # calculate_daily_calories() ya incluye déficit/superávit según objetivo.
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -487,12 +482,18 @@ def plan_meals_for_selection(request):
         personalized_protein = float(recipe_protein * scale_factor) if recipe_protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
         personalized_carbs = float(recipe_carbs * scale_factor) if recipe_carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
         personalized_fat = float(recipe_fat * scale_factor) if recipe_fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
+        capped_macros = apply_fat_dense_ingredient_caps(recipe, scale_factor, {
+            'calories': personalized_calories,
+            'protein': personalized_protein,
+            'carbs': personalized_carbs,
+            'fat': personalized_fat,
+        })
         
         return {
-            'calories': personalized_calories,
-            'protein': round(personalized_protein, 1),
-            'carbs': round(personalized_carbs, 1),
-            'fat': round(personalized_fat, 1),
+            'calories': capped_macros['calories'],
+            'protein': capped_macros['protein'],
+            'carbs': capped_macros['carbs'],
+            'fat': capped_macros['fat'],
             'scale_factor': round(scale_factor, 2)
         }
     
@@ -509,11 +510,7 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        if not has_admin_calorie_override:
-            if user.main_goal == 'lose_weight':
-                scale_factor *= 0.9
-            elif user.main_goal == 'gain_muscle':
-                scale_factor *= 1.1
+        # calculate_daily_calories() ya incluye déficit/superávit según objetivo.
         
         scale_factor = max(0.5, min(2.0, scale_factor))
         
@@ -603,12 +600,13 @@ def plan_meals_for_selection(request):
         return max(0.1, float(daily_calories) / float(plan.daily_calories))
 
     def scaled_meal_recipe_macros(meal_recipe, ratio=1.0):
-        return {
+        scale_factor = float(meal_recipe.servings or 1) * float(ratio or 1)
+        return apply_fat_dense_ingredient_caps(meal_recipe.recipe, scale_factor, {
             'calories': int(round(meal_recipe.get_display_calories() * ratio)),
             'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
             'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
             'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
-        }
+        })
     
     meals_by_type = {}
     # Nuevo: devolver slots (comidas del día) y opciones por slot
