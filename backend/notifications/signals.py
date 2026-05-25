@@ -13,6 +13,7 @@ from .models import NotificationDeliveryLog
 from .push_service import push_service
 from .email_service import email_service
 from .delivery_tracking import update_delivery_log
+from .delivery_options import should_send_email, should_send_push
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def _dispatch_notification_send(notification_id):
     # Intentar Celery
     try:
         from .tasks import dispatch_notification_task
-        dispatch_notification_task.delay(notification_id)
+        dispatch_notification_task.delay(str(notification_id))
         logger.info("Notificación %s encolada en Celery", notification_id)
         return
     except Exception as exc:
@@ -91,7 +92,15 @@ def send_notifications_sync(notification_id: int):
         
         # Enviar push notification
         try:
-            if notification.user.push_subscriptions.exists():
+            if not should_send_push(notification):
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                    status=NotificationDeliveryLog.STATUS_SKIPPED,
+                    attempts=1,
+                    metadata={"reason": "channel_disabled"},
+                )
+            elif notification.user.push_subscriptions.exists():
                 logger.info(f"Enviando push para notificación {notification.id} a {notification.user.email}")
                 sent_push = push_service.send_to_user(
                     user=notification.user,
@@ -134,7 +143,15 @@ def send_notifications_sync(notification_id: int):
         
         # Enviar email notification
         try:
-            if notification.user.email:
+            if not should_send_email(notification):
+                update_delivery_log(
+                    notification_id=notification.id,
+                    channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                    status=NotificationDeliveryLog.STATUS_SKIPPED,
+                    attempts=1,
+                    metadata={"reason": "channel_disabled"},
+                )
+            elif notification.user.email:
                 logger.info(f"Enviando email para notificación {notification.id} a {notification.user.email}")
                 sent_email = email_service.send_notification_email(notification)
                 update_delivery_log(
@@ -190,4 +207,3 @@ def send_notifications_on_created(sender, instance, created, **kwargs):
         return
     
     transaction.on_commit(lambda: _dispatch_notification_send(instance.id))
-
