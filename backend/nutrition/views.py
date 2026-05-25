@@ -582,6 +582,21 @@ def plan_meals_for_selection(request):
             'meals__meal_recipes__recipe',
         ).first()
 
+    # Si el usuario tiene un plan activo con calorías definidas y no hay override manual del admin,
+    # usar las calorías y macros del plan (configuradas por el nutricionista/admin).
+    # El cálculo del perfil solo aplica como fallback cuando no hay plan asignado.
+    if user_plan and user_plan.daily_calories and not has_admin_calorie_override:
+        daily_calories = user_plan.daily_calories
+        daily_macros = {
+            'protein': user_plan.protein_grams,
+            'carbs': user_plan.carbs_grams,
+            'fat': user_plan.fat_grams,
+        }
+        logger.info(
+            f"📋 Usando calorías del plan activo '{user_plan.name}': {daily_calories} kcal, "
+            f"P={daily_macros['protein']}g C={daily_macros['carbs']}g G={daily_macros['fat']}g"
+        )
+
     def plan_target_ratio(plan):
         if not plan or not plan.daily_calories:
             return 1.0
