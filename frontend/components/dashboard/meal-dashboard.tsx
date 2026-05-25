@@ -50,6 +50,10 @@ export function MealDashboard() {
     }
   }
 
+  const handleSelectPreviewOption = async (mealId: string, option: MealOption) => {
+    await selectMealOption(mealId, option)
+  }
+
   const handleDeselectOption = async () => {
     if (selectedMeal) {
       await deselectMealOption(selectedMeal.id)
@@ -216,22 +220,27 @@ export function MealDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {meals.map((meal) => (
+          {meals.map((meal) => {
+            const previewOption = meal.selectedOption ? null : getMealOptions(meal.id)[0] || null
+            const displayOption = meal.selectedOption || previewOption
+            const isPreview = !meal.selectedOption && !!previewOption
+
+            return (
             <div
               key={meal.id}
               className={`group overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:bg-card ${
                 meal.isCompleted
                   ? 'border-emerald-200 dark:border-emerald-700/50'
-                  : meal.selectedOption
+                  : displayOption
                   ? 'border-orange-200 dark:border-orange-800/50'
                   : 'border-slate-200 hover:border-orange-200'
               }`}
             >
               <div className="relative h-48 overflow-hidden bg-gradient-to-br from-orange-50 via-stone-50 to-rose-50">
-                {meal.selectedOption?.imageUrl ? (
+                {displayOption?.imageUrl ? (
                   <img
-                    src={meal.selectedOption.imageUrl}
-                    alt={meal.selectedOption.name}
+                    src={displayOption.imageUrl}
+                    alt={displayOption.name}
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     onError={(e) => {
                       ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
@@ -244,11 +253,11 @@ export function MealDashboard() {
                     <div className="absolute -bottom-16 -left-10 h-44 w-44 rounded-full bg-orange-100/45" />
                   </div>
                 )}
-                <div className={`absolute inset-0 ${meal.selectedOption?.imageUrl ? 'bg-gradient-to-t from-black/70 via-black/20 to-transparent' : 'bg-gradient-to-t from-white/75 via-white/25 to-transparent'}`} />
+                <div className={`absolute inset-0 ${displayOption?.imageUrl ? 'bg-gradient-to-t from-black/70 via-black/20 to-transparent' : 'bg-gradient-to-t from-white/75 via-white/25 to-transparent'}`} />
 
                 <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full border border-orange-200 bg-white/85 px-2.5 py-1 text-[10px] font-black text-orange-800 shadow-sm">
-                    {meal.selectedOption ? 'Planificada' : 'Pendiente'}
+                    {meal.selectedOption ? 'Planificada' : isPreview ? 'Sugerida' : 'Pendiente'}
                   </span>
                   {meal.isCompleted && (
                     <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
@@ -263,8 +272,8 @@ export function MealDashboard() {
                 </div>
 
                 <div className="absolute bottom-3 left-3 right-3">
-                  <div className={`mb-2 flex items-center gap-2 text-xs font-semibold ${meal.selectedOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
-                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-lg shadow-sm ring-1 backdrop-blur ${meal.selectedOption?.imageUrl ? 'bg-white/18 ring-white/25' : 'bg-white/80 ring-orange-100'}`}>
+                  <div className={`mb-2 flex items-center gap-2 text-xs font-semibold ${displayOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
+                    <span className={`flex h-8 w-8 items-center justify-center rounded-xl text-lg shadow-sm ring-1 backdrop-blur ${displayOption?.imageUrl ? 'bg-white/18 ring-white/25' : 'bg-white/80 ring-orange-100'}`}>
                       {meal.icon}
                     </span>
                     <span className="flex items-center gap-1">
@@ -272,11 +281,11 @@ export function MealDashboard() {
                       {meal.time}
                     </span>
                   </div>
-                  <h4 className={`line-clamp-2 text-xl font-black leading-tight ${meal.selectedOption?.imageUrl ? 'text-white drop-shadow' : 'text-slate-900'}`}>
-                    {meal.selectedOption?.name || meal.name}
+                  <h4 className={`line-clamp-2 text-xl font-black leading-tight ${displayOption?.imageUrl ? 'text-white drop-shadow' : 'text-slate-900'}`}>
+                    {displayOption?.name || meal.name}
                   </h4>
-                  <p className={`mt-1 line-clamp-2 text-xs font-medium ${meal.selectedOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
-                    {meal.selectedOption ? meal.description : 'Selecciona una receta para esta comida'}
+                  <p className={`mt-1 line-clamp-2 text-xs font-medium ${displayOption?.imageUrl ? 'text-white/85' : 'text-slate-600'}`}>
+                    {displayOption ? (displayOption.description || meal.description) : 'Selecciona una receta para esta comida'}
                   </p>
                 </div>
               </div>
@@ -332,6 +341,42 @@ export function MealDashboard() {
                       </button>
                     </div>
                   </>
+                ) : isPreview && previewOption ? (
+                  <>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl border border-orange-100 bg-orange-50 p-2 text-center">
+                        <div className="text-lg font-black text-orange-700">{previewOption.calories}</div>
+                        <div className="text-[10px] font-semibold text-orange-500">kcal</div>
+                      </div>
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-center">
+                        <div className="text-lg font-black text-blue-700">{previewOption.protein}</div>
+                        <div className="text-[10px] font-semibold text-blue-500">prot</div>
+                      </div>
+                      <div className="rounded-xl border border-green-100 bg-green-50 p-2 text-center">
+                        <div className="text-lg font-black text-green-700">{previewOption.carbs}</div>
+                        <div className="text-[10px] font-semibold text-green-500">carb</div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleSelectPreviewOption(meal.id, previewOption)}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-orange-100 px-2 py-2 text-xs font-bold text-orange-800 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={syncing}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Seleccionar</span>
+                      </button>
+
+                      <button
+                        onClick={() => handleOpenMealOptions(meal)}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span>Cambiar</span>
+                      </button>
+                    </div>
+                  </>
                 ) : (
                   <button
                     onClick={() => handleOpenMealOptions(meal)}
@@ -344,7 +389,8 @@ export function MealDashboard() {
                 )}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
