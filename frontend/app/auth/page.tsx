@@ -193,6 +193,10 @@ function AuthPageContent() {
               <Input
                 id="reset-email"
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="tu@correo.com"
                 value={formData.resetEmail}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("resetEmail", e.target.value)}
@@ -291,6 +295,10 @@ function AuthPageContent() {
             <Input
               id="email"
               type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="tu@correo.com"
               value={formData.email}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("email", e.target.value)}

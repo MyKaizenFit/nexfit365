@@ -12,8 +12,11 @@ class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
     password = serializers.CharField(write_only=True, style={"input_type": "password"})
 
     def validate(self, attrs):
-        # Usar email directamente como username_field
-        attrs["username"] = attrs.get("email")
+        # iOS/Safari puede autocapitalizar el primer carácter del email.
+        # SimpleJWT hace una búsqueda exacta, así que normalizamos antes de autenticar.
+        email = attrs.get("email", "")
+        attrs["email"] = email.strip().lower()
+        attrs["username"] = attrs["email"]
         validated_data = super().validate(attrs)
         
         # Detectar si el usuario tiene contraseña temporal y marcarla como usada
