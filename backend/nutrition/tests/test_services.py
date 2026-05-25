@@ -143,6 +143,46 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertEqual(personalized["ingredients"][0]["name"], "Pollo test relacional")
         self.assertGreater(personalized["ingredients"][0]["amount"], 0)
 
+    def test_personalized_recipe_caps_oil_and_adjusts_fat(self):
+        recipe = Recipe.objects.create(
+            name="Ensalada con aceite",
+            calories=0,
+            protein=0,
+            carbs=0,
+            fat=0,
+        )
+        oil = Food.objects.create(
+            name="Aceite de oliva test",
+            calories=884,
+            protein=0,
+            carbs=0,
+            fat=100,
+            serving_size=100,
+            serving_unit="g",
+            category="aceite",
+        )
+        rice = Food.objects.create(
+            name="Arroz test limitador",
+            calories=130,
+            protein=2.7,
+            carbs=28,
+            fat=0.3,
+            serving_size=100,
+            serving_unit="g",
+        )
+        RecipeIngredient.objects.create(recipe=recipe, food=oil, quantity=20, unit="g")
+        RecipeIngredient.objects.create(recipe=recipe, food=rice, quantity=100, unit="g")
+        recipe.refresh_from_db()
+
+        personalized = PersonalizedNutritionService(self.user).calculate_personalized_recipe_quantities(
+            recipe,
+            "breakfast",
+        )
+
+        oil_row = next(item for item in personalized["ingredients"] if item["name"] == "Aceite de oliva test")
+        self.assertEqual(oil_row["amount"], 15)
+        self.assertLessEqual(personalized["macros"]["fat"], 16)
+
     def test_assign_best_plan_creates_user_plan_and_history(self):
         service = PersonalizedNutritionService(self.user)
         assigned_plan = service.assign_best_plan()
