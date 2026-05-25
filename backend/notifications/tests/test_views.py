@@ -305,6 +305,26 @@ class TestAdminNotificationViews:
         notification = Notification.objects.get(user=member_user, title="Aviso sistema")
         assert notification.expires_at is not None
         assert notification.expires_at > timezone.now() + timedelta(days=13)
+        assert notification.data["send_push"] is True
+        assert notification.data["send_email"] is False
+
+    def test_admin_send_bulk_respects_email_flag(self, admin_headers, member_user):
+        """Test de flag explícito de email en envíos masivos"""
+        url = reverse("admin-notifications-send-bulk")
+        payload = {
+            "user_ids": [member_user.id],
+            "title": "Aviso con email",
+            "message": "Mensaje importante",
+            "type": "system",
+            "priority": "high",
+            "send_email": True,
+        }
+
+        response = admin_headers.post(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        notification = Notification.objects.get(user=member_user, title="Aviso con email")
+        assert notification.data["send_email"] is True
 
     def test_admin_stats_include_clicked_notifications(self, admin_headers, member_user):
         """Test de stats admin con conteo de notificaciones clicadas"""
