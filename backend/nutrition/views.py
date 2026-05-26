@@ -19,7 +19,7 @@ from .serializers import (
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
     NutritionPlanHistorySerializer, RecipeIngredientSerializer
 )
-from .services import PersonalizedNutritionService, apply_fat_dense_ingredient_caps, recipe_is_compatible_for_user
+from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
@@ -482,18 +482,11 @@ def plan_meals_for_selection(request):
         personalized_protein = float(recipe_protein * scale_factor) if recipe_protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
         personalized_carbs = float(recipe_carbs * scale_factor) if recipe_carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
         personalized_fat = float(recipe_fat * scale_factor) if recipe_fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
-        capped_macros = apply_fat_dense_ingredient_caps(recipe, scale_factor, {
+        return {
             'calories': personalized_calories,
             'protein': personalized_protein,
             'carbs': personalized_carbs,
             'fat': personalized_fat,
-        })
-        
-        return {
-            'calories': capped_macros['calories'],
-            'protein': capped_macros['protein'],
-            'carbs': capped_macros['carbs'],
-            'fat': capped_macros['fat'],
             'scale_factor': round(scale_factor, 2)
         }
     
@@ -600,13 +593,12 @@ def plan_meals_for_selection(request):
         return max(0.1, float(daily_calories) / float(plan.daily_calories))
 
     def scaled_meal_recipe_macros(meal_recipe, ratio=1.0):
-        scale_factor = float(meal_recipe.servings or 1) * float(ratio or 1)
-        return apply_fat_dense_ingredient_caps(meal_recipe.recipe, scale_factor, {
+        return {
             'calories': int(round(meal_recipe.get_display_calories() * ratio)),
             'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
             'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
             'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
-        })
+        }
     
     meals_by_type = {}
     # Nuevo: devolver slots (comidas del día) y opciones por slot
