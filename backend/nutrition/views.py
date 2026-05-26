@@ -154,7 +154,8 @@ def is_liquid_equivalence_food(food: Food) -> bool:
         'agua', 'leche', 'bebida', 'zumo', 'jugo', 'caldo', 'sopa',
         'aceite', 'vinagre', 'salsa', 'yogur liquido', 'smoothie',
     ]
-    return any(keyword in name or keyword in category for keyword in liquid_keywords)
+    source = f"{name} {category}"
+    return any(re.search(rf"(^|\s){re.escape(keyword)}(\s|$)", source) for keyword in liquid_keywords)
 
 
 def preferred_equivalence_unit(food: Food) -> str:
@@ -2459,7 +2460,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El ingrediente original no tiene calorías suficientes para calcular equivalencia.'}, status=status.HTTP_400_BAD_REQUEST)
 
         category = normalize_equivalence_category(category_param) if category_param else infer_food_equivalence_category(original_food)
-        foods = Food.objects.exclude(pk=original_food.pk).filter(calories__gt=0)
+        foods = Food.objects.exclude(pk=original_food.pk).filter(calories__gt=0, is_verified=True)
         if search:
             foods = foods.filter(Q(name__icontains=search) | Q(brand__icontains=search))
 
