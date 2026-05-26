@@ -7,11 +7,12 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
-import { nutritionService } from "@/lib/nutrition-service"
+import { MealIngredientSubstitution, nutritionService } from "@/lib/nutrition-service"
 import { MealSelectionModal } from "@/components/dashboard/meal-selection-modal"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { API_CONFIG, authenticatedFetch } from "@/lib/api"
+import { formatMacro } from "@/lib/utils"
 
 const FALLBACK_MEAL_TYPES = [
   { name: "Desayuno", type: "breakfast", time: "08:00", icon: "🌅" },
@@ -49,6 +50,7 @@ interface WeeklyMealSelection {
   recipe_id?: string
   recipe_name?: string
   custom_description?: string
+  substitution_details?: MealIngredientSubstitution[]
   calories?: number
   protein?: number
   carbs?: number
@@ -223,7 +225,8 @@ export function WeeklyMealPlan() {
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
-        custom_description: option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
+        custom_description: option.customDescription || option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
+        substitution_details: option.substitution_details || [],
         completed: false // Solo planificación, no completada
       }]
 
@@ -274,6 +277,7 @@ export function WeeklyMealPlan() {
         carbs: selection.recipe?.carbs || selection.carbs || 0,
         fat: selection.recipe?.fat || selection.fat || 0,
         custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
+        substitution_details: selection.substitution_details || [],
         completed: newCompletedStatus
       }]
 
@@ -323,6 +327,7 @@ export function WeeklyMealPlan() {
         carbs: selection.recipe?.carbs || selection.carbs || 0,
         fat: selection.recipe?.fat || selection.fat || 0,
         custom_description: selection.custom_description || selection.recipe?.name || (selection as any).recipe_name || '',
+        substitution_details: selection.substitution_details || [],
         completed: false // Solo planificación al copiar
       }))
 
@@ -379,6 +384,7 @@ export function WeeklyMealPlan() {
             carbs: selection.recipe?.carbs || selection.carbs || 0,
             fat: selection.recipe?.fat || selection.fat || 0,
             custom_description: selection.custom_description || selection.recipe?.name || (selection as any).recipe_name || '',
+            substitution_details: selection.substitution_details || [],
             completed: false // Solo planificación al aplicar
           })
         })
@@ -605,6 +611,11 @@ export function WeeklyMealPlan() {
                                   }`}>
                                     {isCompleted ? 'Completada' : 'Planificada'}
                                   </span>
+                                  {selection?.substitution_details?.length ? (
+                                    <span className="rounded-full bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white shadow">
+                                      Cambio
+                                    </span>
+                                  ) : null}
                                 </div>
                                 <div className="absolute bottom-3 left-3 right-3">
                                   <h4 className="line-clamp-2 text-base md:text-sm font-black leading-tight text-white drop-shadow">
@@ -623,11 +634,11 @@ export function WeeklyMealPlan() {
                                   <span className="block text-[8px] font-semibold text-orange-400">kcal</span>
                                 </span>
                                 <span className="rounded-xl border border-blue-100 bg-blue-50 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-blue-700">{protein}g</span>
+                                  <span className="block text-[11px] font-black text-blue-700">{formatMacro(protein)}g</span>
                                   <span className="block text-[8px] font-semibold text-blue-500">prot</span>
                                 </span>
                                 <span className="rounded-xl border border-emerald-100/80 bg-emerald-50/60 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-emerald-600">{carbs}g</span>
+                                  <span className="block text-[11px] font-black text-emerald-600">{formatMacro(carbs)}g</span>
                                   <span className="block text-[8px] font-semibold text-emerald-400">carb</span>
                                 </span>
                               </div>

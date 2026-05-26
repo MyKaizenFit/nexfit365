@@ -6,7 +6,8 @@ from .views import (
     current_plan, plan_meals_for_selection, daily_meal_selections, daily_meal_selections_today,
     weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
     adjust_plan, plan_history, meal_exclusions, meal_exclusion_detail,
-    ingredient_exclusions, ingredient_exclusion_detail, shopping_list
+    ingredient_exclusions, ingredient_exclusion_detail, shopping_list,
+    CommunityRecipePostViewSet
 )
 
 router = DefaultRouter()
@@ -15,6 +16,7 @@ router = DefaultRouter()
 router.register(r'plans', NutritionPlanViewSet, basename='nutrition-plans')
 router.register(r'meal-logs', MealLogViewSet, basename='meal-logs')
 router.register(r'foods', FoodViewSet, basename='foods')
+router.register(r'community-recipes', CommunityRecipePostViewSet, basename='community-recipes')
 
 urlpatterns = [
     path('current-plan/', current_plan, name='current-plan'),
@@ -46,6 +48,7 @@ urlpatterns = [
     # Endpoints para recetas específicas
     path('recipes/<uuid:pk>/', RecipeViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'}), name='recipe-detail'),
     path('recipes/<uuid:pk>/personalized/', RecipeViewSet.as_view({'get': 'personalized'}), name='recipe-personalized'),
+    path('recipes/<uuid:pk>/ingredient-substitutions/', RecipeViewSet.as_view({'get': 'ingredient_substitutions'}), name='recipe-ingredient-substitutions'),
     path('recipes/<uuid:pk>/ingredients/', RecipeViewSet.as_view({'get': 'ingredients', 'post': 'ingredients'}), name='recipe-ingredients'),
     path('recipes/<uuid:pk>/ingredients/<uuid:ingredient_id>/', RecipeViewSet.as_view({'put': 'ingredient_detail', 'delete': 'ingredient_detail'}), name='recipe-ingredient-detail'),
     path('recipes/<uuid:pk>/recalculate_macros/', RecipeViewSet.as_view({'post': 'recalculate_macros'}), name='recipe-recalculate-macros'),

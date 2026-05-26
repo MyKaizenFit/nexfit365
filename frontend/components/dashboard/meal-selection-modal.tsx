@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
+import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { API_CONFIG } from '@/lib/api'
-import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2 } from 'lucide-react'
+import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 
@@ -51,6 +51,8 @@ export function MealSelectionModal({
   const [showAllRecipes, setShowAllRecipes] = useState(false)
   const [allRecipes, setAllRecipes] = useState<Recipe[]>([])
   const [loadingRecipes, setLoadingRecipes] = useState(false)
+  const [autoOpenEquivalenceRecipeId, setAutoOpenEquivalenceRecipeId] = useState<string | null>(null)
+  const [equivalenceOnlyMode, setEquivalenceOnlyMode] = useState(false)
   const [recipeData, setRecipeData] = useState<{
     recipe: Recipe
     personalized: PersonalizedRecipeQuantities
@@ -71,8 +73,10 @@ export function MealSelectionModal({
   }
 
   // Cargar recetas recomendadas o todas las disponibles
-  const handleViewAllRecipes = async () => {
+  const handleViewAllRecipes = async (autoOpenRecipeId?: string | number | null) => {
     setLoadingRecipes(true)
+    setAutoOpenEquivalenceRecipeId(autoOpenRecipeId ? String(autoOpenRecipeId) : null)
+    setEquivalenceOnlyMode(Boolean(autoOpenRecipeId))
     setShowAllRecipes(true)
     try {
       const allRecipes = await nutritionService.listRecipes()
@@ -491,7 +495,7 @@ export function MealSelectionModal({
                   </button>
                   <button
                     type="button"
-                    onClick={handleViewAllRecipes}
+                    onClick={() => handleViewAllRecipes()}
                     className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
                     disabled={loadingRecipes}
                   >
@@ -503,7 +507,7 @@ export function MealSelectionModal({
                     ) : (
                       <>
                         <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                        <span>Ver Recetas Disponibles</span>
+                        <span>Ver recetas y equivalencias</span>
                       </>
                     )}
                   </button>
@@ -586,7 +590,7 @@ export function MealSelectionModal({
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
                         <button
                           type="button"
                           onClick={(e) => {
@@ -607,6 +611,22 @@ export function MealSelectionModal({
                               <span>Receta</span>
                             </>
                           )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewAllRecipes(option.recipeId || option.id)
+                          }}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          disabled={loadingRecipes}
+                        >
+                          {loadingRecipes ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <Shuffle className="h-3.5 w-3.5" />
+                          )}
+                          <span>Equivalencias</span>
                         </button>
                         {isCurrentSelection && onDeselectOption && (
                           <button
@@ -707,7 +727,14 @@ export function MealSelectionModal({
           mealName={mealName}
           mealTime={mealTime}
           loading={loadingRecipes}
-          onClose={() => setShowAllRecipes(false)}
+          onClose={() => {
+            setShowAllRecipes(false)
+            setAutoOpenEquivalenceRecipeId(null)
+            setEquivalenceOnlyMode(false)
+          }}
+          autoOpenEquivalenceRecipeId={autoOpenEquivalenceRecipeId}
+          equivalenceOnlyMode={equivalenceOnlyMode}
+          onAutoOpenConsumed={() => setAutoOpenEquivalenceRecipeId(null)}
           onSelectRecipe={async (recipe: Recipe) => {
             try {
               setLoadingRecipe(true)
@@ -795,6 +822,7 @@ export function MealSelectionModal({
               setLoadingRecipe(false)
             }
           }}
+          onSelectOption={handleSelectOption}
         />
       )}
     </>
@@ -1078,6 +1106,10 @@ interface AllRecipesModalProps {
   loading: boolean
   onClose: () => void
   onSelectRecipe: (recipe: Recipe) => void | Promise<void>
+  onSelectOption: (option: MealOption) => void
+  autoOpenEquivalenceRecipeId?: string | null
+  equivalenceOnlyMode?: boolean
+  onAutoOpenConsumed?: () => void
 }
 
 function AllRecipesModal({
@@ -1086,13 +1118,22 @@ function AllRecipesModal({
   mealTime,
   loading,
   onClose,
-  onSelectRecipe
+  onSelectRecipe,
+  onSelectOption,
+  autoOpenEquivalenceRecipeId,
+  equivalenceOnlyMode = false,
+  onAutoOpenConsumed
 }: AllRecipesModalProps) {
   const [mounted, setMounted] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [selectedMealType, setSelectedMealType] = useState<string>("all")
   const [visibleCount, setVisibleCount] = useState(20)
+  const [substitutionRecipe, setSubstitutionRecipe] = useState<Recipe | null>(null)
+  const [selectedIngredientId, setSelectedIngredientId] = useState<string>("")
+  const [substitutionSearch, setSubstitutionSearch] = useState("")
+  const [substitutions, setSubstitutions] = useState<IngredientSubstitutionResponse | null>(null)
+  const [loadingSubstitutions, setLoadingSubstitutions] = useState(false)
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -1115,7 +1156,7 @@ function AllRecipesModal({
   const filteredRecipes = recipes.filter(recipe => {
     const recipeName = String(recipe?.name || '').toLowerCase()
     const recipeDescription = String(recipe?.description || '').toLowerCase()
-    const query = searchQuery.toLowerCase()
+    const query = searchQuery.trim().toLowerCase()
     const matchesSearch = recipeName.includes(query) || recipeDescription.includes(query)
     const matchesCategory = selectedCategory === "all" ||
                            recipe.category?.toLowerCase() === selectedCategory.toLowerCase()
@@ -1129,8 +1170,6 @@ function AllRecipesModal({
     setVisibleCount(20)
   }, [searchQuery, selectedCategory, selectedMealType, recipes.length])
 
-  if (!mounted) return null
-
   const handleScroll = () => {
     const el = scrollRef.current
     if (!el) return
@@ -1138,6 +1177,113 @@ function AllRecipesModal({
       setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length))
     }
   }
+
+  const linkedIngredients = substitutionRecipe?.recipe_ingredients?.filter((ingredient) => ingredient.food_detail || ingredient.food_id || ingredient.food) || []
+
+  const loadSubstitutions = async (recipe: Recipe, ingredientId: string, search = substitutionSearch, unit: "g" | "ml" | "" = "") => {
+    if (!ingredientId) {
+      setSubstitutions(null)
+      return
+    }
+
+    setLoadingSubstitutions(true)
+    try {
+      const data = await nutritionService.getIngredientSubstitutions(recipe.id, {
+        ingredientId,
+        search,
+        unit: unit || undefined,
+      })
+      setSubstitutions(data)
+    } finally {
+      setLoadingSubstitutions(false)
+    }
+  }
+
+  const openSubstitutions = async (recipe: Recipe) => {
+    setLoadingSubstitutions(true)
+    setSubstitutionSearch("")
+    setSubstitutions(null)
+    try {
+      const detailedRecipe = await nutritionService.getRecipe(recipe.id)
+      const resolvedRecipe = detailedRecipe || recipe
+      setSubstitutionRecipe(resolvedRecipe)
+      const firstIngredient = resolvedRecipe.recipe_ingredients?.find((ingredient) => ingredient.food_detail || ingredient.food_id || ingredient.food)
+      const firstIngredientId = firstIngredient?.id || ""
+      setSelectedIngredientId(firstIngredientId)
+      if (firstIngredientId) {
+        await loadSubstitutions(resolvedRecipe, firstIngredientId, "")
+      }
+    } catch (error) {
+      toast({
+        title: 'No se pudieron cargar equivalencias',
+        description: 'Prueba de nuevo en unos segundos.',
+        variant: 'destructive',
+      })
+    } finally {
+      setLoadingSubstitutions(false)
+    }
+  }
+
+  const buildSubstitutionPayload = (item: IngredientSubstitution): MealIngredientSubstitution | null => {
+    if (!substitutions) return null
+    return {
+      ingredient_id: substitutions.ingredient.id || null,
+      original_food_id: substitutions.ingredient.food_id,
+      original_food_name: substitutions.ingredient.food_name,
+      original_quantity: substitutions.ingredient.quantity,
+      original_unit: substitutions.ingredient.unit,
+      replacement_food_id: item.food_id,
+      replacement_food_name: item.food_name,
+      replacement_quantity: item.quantity,
+      replacement_unit: item.unit,
+      target_calories: item.target_calories,
+    }
+  }
+
+  const applySubstitution = (item: IngredientSubstitution) => {
+    if (!substitutionRecipe || !substitutions) return
+    const substitution = buildSubstitutionPayload(item)
+    if (!substitution) return
+
+    const note = `${substitution.original_food_name} por ${substitution.replacement_quantity}${substitution.replacement_unit} de ${substitution.replacement_food_name}`
+    const option: MealOption = {
+      id: `recipe-${substitutionRecipe.id}`,
+      name: substitutionRecipe.name,
+      calories: substitutionRecipe.calories || 0,
+      protein: Number(substitutionRecipe.protein) || 0,
+      carbs: Number(substitutionRecipe.carbs) || 0,
+      fat: Number(substitutionRecipe.fat) || 0,
+      imageUrl: substitutionRecipe.image_url || '',
+      category: 'balanced',
+      icon: '🍽️',
+      description: `${substitutionRecipe.description || 'Receta seleccionada'} · Cambio: ${note}`,
+      cookTime: substitutionRecipe.prep_time_minutes ? `${substitutionRecipe.prep_time_minutes} min` : undefined,
+      recipeId: substitutionRecipe.id,
+      customDescription: `${substitutionRecipe.name} (${note})`,
+      substitution_details: [substitution],
+    }
+
+    onSelectOption(option)
+    setSubstitutionRecipe(null)
+    onClose()
+  }
+
+  const closeSubstitutions = () => {
+    setSubstitutionRecipe(null)
+    if (equivalenceOnlyMode) {
+      onClose()
+    }
+  }
+
+  useEffect(() => {
+    if (!autoOpenEquivalenceRecipeId || loading || recipes.length === 0) return
+    const targetRecipe = recipes.find((recipe) => String(recipe.id) === String(autoOpenEquivalenceRecipeId))
+    if (!targetRecipe) return
+    onAutoOpenConsumed?.()
+    openSubstitutions(targetRecipe)
+  }, [autoOpenEquivalenceRecipeId, loading, onAutoOpenConsumed, recipes])
+
+  if (!mounted) return null
 
   // Obtener categorías y tipos de comida únicos de las recetas
   const categories = Array.from(new Set(recipes.map(r => r.category).filter(Boolean)))
@@ -1147,6 +1293,7 @@ function AllRecipesModal({
 
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-start sm:items-center justify-center p-4">
+      {!equivalenceOnlyMode && (
       <div className="w-full max-w-4xl h-[90dvh] max-h-[90dvh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-card flex flex-col">
           {/* Header */}
           <div className="border-b border-border p-6 rounded-t-2xl bg-card flex-shrink-0">
@@ -1174,7 +1321,7 @@ function AllRecipesModal({
             <div className="flex flex-col gap-2 mt-4">
               <input
                 type="text"
-                placeholder="Buscar recetas..."
+                placeholder="Buscar por nombre o parte del nombre..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
@@ -1322,6 +1469,17 @@ function AllRecipesModal({
                         <BookOpen className="h-4 w-4" />
                         Seleccionar
                       </button>
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation()
+                          await openSubstitutions(recipe)
+                        }}
+                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition-all hover:bg-emerald-100 active:scale-[0.98]"
+                      >
+                        <Shuffle className="h-4 w-4" />
+                        Ver equivalencias
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -1351,6 +1509,156 @@ function AllRecipesModal({
             </button>
           </div>
       </div>
+      )}
+
+      {equivalenceOnlyMode && !substitutionRecipe && (
+        <div className="z-[9999] flex w-full max-w-md items-center justify-center rounded-2xl bg-white p-8 shadow-2xl">
+          <Loader2 className="mr-3 h-6 w-6 animate-spin text-emerald-600" />
+          <span className="text-sm font-semibold text-gray-600">Cargando equivalencias...</span>
+        </div>
+      )}
+
+      {substitutionRecipe && (
+        <div className={`${equivalenceOnlyMode ? 'relative z-[9999] w-full' : 'absolute inset-0 z-[10000]'} flex items-start justify-center ${equivalenceOnlyMode ? '' : 'bg-black/55'} p-4 sm:items-center`}>
+          <div className="flex max-h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="border-b border-gray-100 p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Equivalencias de ingredientes</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {substitutionRecipe.name}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeSubstitutions}
+                  className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                  aria-label="Cerrar equivalencias"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[280px_1fr]">
+              <div className="border-b border-gray-100 p-4 md:border-b-0 md:border-r">
+                <p className="mb-3 text-xs font-black uppercase text-gray-400">Ingrediente original</p>
+                {linkedIngredients.length === 0 ? (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
+                    Esta receta todavía no tiene ingredientes vinculados a alimentos. Cuando el admin los estructure, se podrán calcular cambios automáticos.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {linkedIngredients.map((ingredient) => {
+                      const foodName = ingredient.food_detail?.name || ingredient.food || 'Ingrediente'
+                      const isSelected = selectedIngredientId === ingredient.id
+                      return (
+                        <button
+                          key={ingredient.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedIngredientId(ingredient.id)
+                            loadSubstitutions(substitutionRecipe, ingredient.id)
+                          }}
+                          className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                            isSelected
+                              ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-200 hover:bg-emerald-50/50'
+                          }`}
+                        >
+                          <div className="text-sm font-black">{foodName}</div>
+                          <div className="text-xs font-medium text-gray-500">
+                            {ingredient.quantity}{ingredient.unit ? ` ${ingredient.unit}` : ''}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex min-h-0 flex-col p-4">
+                <div className="mb-3 flex gap-2">
+                  <input
+                    type="text"
+                    value={substitutionSearch}
+                    onChange={(e) => setSubstitutionSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && selectedIngredientId) {
+                        loadSubstitutions(substitutionRecipe, selectedIngredientId, substitutionSearch)
+                      }
+                    }}
+                    placeholder="Buscar alimento equivalente..."
+                    className="min-w-0 flex-1 rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => loadSubstitutions(substitutionRecipe, selectedIngredientId, substitutionSearch)}
+                    disabled={!selectedIngredientId || loadingSubstitutions}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-black text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Buscar
+                  </button>
+                </div>
+
+                <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+                  {loadingSubstitutions ? (
+                    <div className="flex items-center justify-center py-10 text-sm font-semibold text-gray-500">
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin text-emerald-600" />
+                      Calculando equivalencias...
+                    </div>
+                  ) : substitutions && substitutions.results.length > 0 ? (
+                    <div className="space-y-2">
+                      <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <span>
+                            Equivalencia para {substitutions.ingredient.quantity}{substitutions.ingredient.unit} de {substitutions.ingredient.food_name}: {substitutions.ingredient.target_calories} kcal
+                          </span>
+                          <span className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700">
+                            {substitutions.ingredient.unit}
+                          </span>
+                        </div>
+                      </div>
+                      {substitutions.results.map((item) => (
+                        <div key={item.food_id} className="rounded-xl border border-gray-200 p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-black text-gray-900">{item.food_name}</div>
+                              <div className="mt-1 text-sm font-semibold text-emerald-700">
+                                {item.quantity}{item.unit} para mantener unas {item.calories} kcal
+                              </div>
+                            </div>
+                            <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600">
+                              {item.category.replace(/_/g, ' ')}
+                            </span>
+                          </div>
+                          <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-bold">
+                            <div className="rounded-lg bg-blue-50 px-2 py-1 text-blue-700">P {formatMacro(item.protein)}</div>
+                            <div className="rounded-lg bg-green-50 px-2 py-1 text-green-700">C {formatMacro(item.carbs)}</div>
+                            <div className="rounded-lg bg-yellow-50 px-2 py-1 text-yellow-700">G {formatMacro(item.fat)}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => applySubstitution(item)}
+                            className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-black text-white transition hover:bg-emerald-700"
+                          >
+                            <Shuffle className="h-3.5 w-3.5" />
+                            Usar este cambio
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm font-medium text-gray-500">
+                      Selecciona un ingrediente para ver alternativas con los gramos ajustados a sus kcal.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 

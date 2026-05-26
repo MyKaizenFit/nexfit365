@@ -13,6 +13,7 @@ import { MealOptionsModal } from "./meal-options-modal"
 import { buildApiUrl, authenticatedFetch } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { getAuthService } from "@/lib/auth-service"
+import { formatMacro } from "@/lib/utils"
 
 // Estructura de las 5 comidas fijas
 const MEAL_STRUCTURE = [
@@ -398,7 +399,7 @@ export function MealPlanEnhanced() {
                             {selection.selected_meal.calories} kcal
                           </Badge>
                           <div className="text-xs text-muted-foreground">
-                            P: {selection.selected_meal.protein}g • C: {selection.selected_meal.carbs}g • G: {selection.selected_meal.fat}g
+                            P: {formatMacro(selection.selected_meal.protein)}g • C: {formatMacro(selection.selected_meal.carbs)}g • G: {formatMacro(selection.selected_meal.fat)}g
                           </div>
                         </div>
                       ) : (

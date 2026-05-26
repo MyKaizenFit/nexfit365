@@ -431,7 +431,9 @@ export function useDailyMeals() {
               carbs: option.carbs || 0,
               fat: option.fat || 0,
               skip_meal: false,
-              completed: true // Seleccionar = marcar como completada directamente
+              completed: true, // Seleccionar = marcar como completada directamente
+              custom_description: option.customDescription || option.name || 'Comida seleccionada',
+              substitution_details: option.substitution_details || []
             }
             
             // Preferir recipeId (viene explícito del backend). Evita enviar IDs compuestos tipo "meal-...-recipe-...".
@@ -441,7 +443,7 @@ export function useDailyMeals() {
               requestData.recipe_id = String(option.id).split('recipe-').pop()
             } else {
               // Si no hay recipe_id, usar custom_description
-              requestData.custom_description = option.name || 'Comida seleccionada'
+              requestData.custom_description = option.customDescription || option.name || 'Comida seleccionada'
             }
             
             
@@ -472,6 +474,42 @@ export function useDailyMeals() {
     }, 100)
 
   }, [calculateTotalMacros, saveSelectionsToStorage, meals])
+
+  const deselectMealOption = useCallback(async (mealId: string) => {
+    const meal = meals.find(m => m.id === mealId)
+
+    setMeals(prevMeals => {
+      const updatedMeals = prevMeals.map(currentMeal =>
+        currentMeal.id === mealId
+          ? { ...currentMeal, selectedOption: null, isCompleted: false, isSkipped: false, skipReason: null, photo: null, mealLogId: null }
+          : currentMeal
+      )
+      saveSelectionsToStorage(updatedMeals)
+      setMacros(calculateTotalMacros(updatedMeals))
+      return updatedMeals
+    })
+
+    if (!meal?.mealType) return
+
+    try {
+      setSyncing(true)
+      const today = new Date().toISOString().split('T')[0]
+      const headers = await getAuthHeaders()
+      const params = new URLSearchParams({ date: today })
+      if (meal.id && !String(meal.id).startsWith('meal-')) {
+        params.set('plan_meal_id', String(meal.id))
+      } else {
+        params.set('meal_type', meal.mealType)
+      }
+
+      await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?${params.toString()}`, {
+        headers,
+        method: 'DELETE',
+      })
+    } finally {
+      setSyncing(false)
+    }
+  }, [calculateTotalMacros, meals, saveSelectionsToStorage])
 
   // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
   const loadSelectionsFromBackend = useCallback(async (date: string) => {
@@ -557,7 +595,9 @@ export function useDailyMeals() {
             icon: fallbackOption?.icon || '🍽️',
             description: log.recipe?.description || log.custom_description || fallbackOption?.description || '',
             cookTime: log.recipe?.prep_time_minutes ? `${log.recipe.prep_time_minutes} min` : '15 min',
-            recipeId: log.recipe?.id || log.recipe || fallbackOption?.recipeId
+            recipeId: log.recipe?.id || log.recipe || fallbackOption?.recipeId,
+            customDescription: log.custom_description || '',
+            substitution_details: Array.isArray(log.substitution_details) ? log.substitution_details : []
           }
 
           nextMetaByKey[key] = {
@@ -619,7 +659,9 @@ export function useDailyMeals() {
             carbs: meal.selectedOption.carbs || 0,
             fat: meal.selectedOption.fat || 0,
             skip_meal: false,
-            completed: true // Ahora sí está completada
+            completed: true, // Ahora sí está completada
+            custom_description: meal.selectedOption.customDescription || meal.selectedOption.name || meal.name,
+            substitution_details: meal.selectedOption.substitution_details || []
           })
         })
 
@@ -804,7 +846,8 @@ export function useDailyMeals() {
         }
       }
 
-      formData.append('custom_description', meal.selectedOption?.name || meal.name)
+      formData.append('custom_description', meal.selectedOption?.customDescription || meal.selectedOption?.name || meal.name)
+      formData.append('substitution_details', JSON.stringify(meal.selectedOption?.substitution_details || []))
       formData.append('photo', photoFile)
 
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
@@ -857,7 +900,8 @@ export function useDailyMeals() {
         skip_meal: true,
         skip_reason: reason || '',
         exclude_from_recommendations: excludeFromRecommendations,
-        custom_description: meal.selectedOption.name || meal.name,
+        custom_description: meal.selectedOption.customDescription || meal.selectedOption.name || meal.name,
+        substitution_details: meal.selectedOption.substitution_details || [],
       }
 
       if (!String(meal.id).startsWith('meal-')) {
@@ -1122,6 +1166,7 @@ export function useDailyMeals() {
     error,
     syncing,
     selectMealOption,
+    deselectMealOption,
     markMealCompleted,
     markMealAsNotEaten,
     uploadMealPhoto,

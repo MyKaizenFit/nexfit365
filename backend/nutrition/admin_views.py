@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import transaction
 from django.db import DatabaseError
-from django.db.models import Count, Avg, Sum, Min, Max, Q
+from django.db.models import Count, Avg, Sum, Min, Max, Q, Exists, OuterRef
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -18,16 +18,79 @@ import re
 import unicodedata
 from urllib.parse import urlparse
 
-from .models import Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory, PlanMealRecipe, NutritionPlanAssignment
+from .models import (
+    Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory,
+    PlanMealRecipe, NutritionPlanAssignment, CommunityRecipePost,
+    CommunityRecipeLike
+)
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer,
     AdminNutritionPlanMinimalSerializer
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
+from .serializers import AdminCommunityRecipePostSerializer
 from .services import PersonalizedNutritionService
+from notifications.models import Notification
 
 User = get_user_model()
+
+
+class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = CommunityRecipePost.objects.all()
+    serializer_class = AdminCommunityRecipePostSerializer
+    permission_classes = [IsAdminUser]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['title', 'description', 'ingredients', 'instructions', 'author__email']
+    ordering_fields = ['created_at', 'expires_at']
+    ordering = ['-created_at']
+
+    def get_queryset(self):
+        liked_subquery = CommunityRecipeLike.objects.filter(post=OuterRef('pk'), user=self.request.user)
+        queryset = (
+            CommunityRecipePost.objects.all()
+            .select_related('author')
+            .prefetch_related('comments__author')
+            .annotate(
+                likes_count=Count('likes', distinct=True),
+                comments_count=Count('comments', distinct=True),
+                liked_by_me=Exists(liked_subquery),
+            )
+            .order_by('-created_at')
+        )
+        status_filter = self.request.query_params.get('status')
+        if status_filter == 'active':
+            queryset = queryset.filter(expires_at__gt=timezone.now())
+        elif status_filter == 'expired':
+            queryset = queryset.filter(expires_at__lte=timezone.now())
+        return queryset
+
+    @action(detail=True, methods=['post'], url_path='delete-with-reason')
+    def delete_with_reason(self, request, pk=None):
+        post = self.get_object()
+        reason = str(request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'La razón es obligatoria.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        author = post.author
+        title = post.title
+        Notification.objects.create(
+            user=author,
+            type='nutrition',
+            title='Publicación de receta eliminada',
+            message=f'Tu publicación "{title}" ha sido eliminada por el equipo. Motivo: {reason}',
+            data={
+                'priority': 'high',
+                'source': 'community_recipe_moderation',
+                'post_id': str(post.id),
+                'post_title': title,
+                'reason': reason,
+            },
+            action_url='/dashboard?section=recipe-community',
+            expires_at=timezone.now() + timedelta(days=14),
+        )
+        post.delete()
+        return Response({'message': 'Publicación eliminada y usuaria notificada.'})
 
 
 class AdminRecipeViewSet(viewsets.ModelViewSet):
@@ -3233,7 +3296,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         response['Content-Disposition'] = 'attachment; filename="alimentos_exportacion.csv"'
         fieldnames = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'equivalencia', 'tienda', 'alergenos', 'verificado'
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
@@ -3251,6 +3314,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                 'tamaño_porcion': food.serving_size or 0,
                 'unidad_porcion': food.serving_unit or '',
                 'categoría': food.category or '',
+                'equivalencia': food.equivalence_category or '',
                 'tienda': food.store or '',
                 'alergenos': self._allergens_to_export_value(food.allergens),
                 'verificado': 'Sí' if food.is_verified else 'No',
@@ -3270,7 +3334,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'equivalencia', 'tienda', 'alergenos', 'verificado'
         ]
         for col, header in enumerate(headers):
             worksheet.write(0, col, header, header_format)
@@ -3287,9 +3351,10 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             worksheet.write(row_idx, 9, food.serving_size or 0)
             worksheet.write(row_idx, 10, food.serving_unit or '')
             worksheet.write(row_idx, 11, food.category or '')
-            worksheet.write(row_idx, 12, food.store or '')
-            worksheet.write(row_idx, 13, self._allergens_to_export_value(food.allergens))
-            worksheet.write(row_idx, 14, 'Sí' if food.is_verified else 'No')
+            worksheet.write(row_idx, 12, food.equivalence_category or '')
+            worksheet.write(row_idx, 13, food.store or '')
+            worksheet.write(row_idx, 14, self._allergens_to_export_value(food.allergens))
+            worksheet.write(row_idx, 15, 'Sí' if food.is_verified else 'No')
         worksheet.set_column('A:A', 38)
         worksheet.set_column('B:B', 30)
         worksheet.set_column('C:C', 20)
@@ -3314,7 +3379,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         header_format = workbook.add_format({'bold': True, 'bg_color': '#D3D3D3'})
         headers = [
             'nombre', 'marca', 'calorías', 'proteínas', 'carbohidratos', 'grasas',
-            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'tienda', 'alergenos', 'verificado'
+            'fibra', 'azúcar', 'sodio', 'tamaño_porcion', 'unidad_porcion', 'categoría', 'equivalencia', 'tienda', 'alergenos', 'verificado'
         ]
         for col, header in enumerate(headers):
             worksheet.write(0, col, header, header_format)
@@ -3322,7 +3387,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
         # Fila de ejemplo para guiar el formato esperado.
         sample = [
             'Arroz cocido', 'Genérico', 130, 2.7, 28.2, 0.3,
-            0.4, 0.1, 1.0, 100, 'g', 'Cereales', 'Mercadona', 'gluten', 'No'
+            0.4, 0.1, 1.0, 100, 'g', 'Cereales', 'arroz_cereales', 'Mercadona', 'gluten', 'No'
         ]
         for col, value in enumerate(sample):
             worksheet.write(1, col, value)
@@ -3361,6 +3426,8 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             'tamaño_porcion': 'serving_size', 'tamano_porcion': 'serving_size', 'serving_size': 'serving_size',
             'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
             'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'equivalencia': 'equivalence_category', 'grupo_equivalencia': 'equivalence_category',
+            'equivalence': 'equivalence_category', 'equivalence_category': 'equivalence_category',
             'tienda': 'store', 'store': 'store',
             'alergenos': 'allergens', 'alérgenos': 'allergens', 'allergens': 'allergens',
             'verificado': 'is_verified', 'is_verified': 'is_verified',
@@ -3401,6 +3468,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                 'serving_size': float(gv(row, 'serving_size', 0) or 0),
                 'serving_unit': gv(row, 'serving_unit', ''),
                 'category': gv(row, 'category', ''),
+                'equivalence_category': gv(row, 'equivalence_category', ''),
                 'store': gv(row, 'store', ''),
                 'allergens': self._resolve_allergens_for_food(
                     name=name,
@@ -3445,6 +3513,8 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
             'tamaño_porcion': 'serving_size', 'tamano_porcion': 'serving_size', 'serving_size': 'serving_size',
             'unidad_porcion': 'serving_unit', 'serving_unit': 'serving_unit',
             'categoría': 'category', 'categoria': 'category', 'category': 'category',
+            'equivalencia': 'equivalence_category', 'grupo_equivalencia': 'equivalence_category',
+            'equivalence': 'equivalence_category', 'equivalence_category': 'equivalence_category',
             'tienda': 'store', 'store': 'store',
             'alergenos': 'allergens', 'alérgenos': 'allergens', 'allergens': 'allergens',
             'verificado': 'is_verified', 'is_verified': 'is_verified',
@@ -3614,6 +3684,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                     'serving_size': to_float(get_best_value('serving_size', 0, numeric=True), 'serving_size', name),
                     'serving_unit': get_best_value('serving_unit', '') or '',
                     'category': get_best_value('category', '') or '',
+                    'equivalence_category': get_best_value('equivalence_category', '') or '',
                     'store': get_best_value('store', '') or '',
                     'allergens': self._resolve_allergens_for_food(
                         name=name,

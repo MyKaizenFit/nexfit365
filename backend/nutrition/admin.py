@@ -4,7 +4,10 @@ from django.contrib import messages
 from django.shortcuts import render, redirect
 from django.urls import path
 from django import forms
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory
+from .models import (
+    Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
+    CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike
+)
 from .fatsecret_client import OpenFoodFactsClient
 
 
@@ -36,6 +39,30 @@ class MealLogAdmin(admin.ModelAdmin):
     list_filter = ['meal_type', 'completed', 'date']
     search_fields = ['user__email']
     ordering = ['-date']
+
+
+class CommunityRecipeCommentInline(admin.TabularInline):
+    model = CommunityRecipeComment
+    extra = 0
+    readonly_fields = ['author', 'text', 'created_at']
+    can_delete = True
+
+
+@admin.register(CommunityRecipePost)
+class CommunityRecipePostAdmin(admin.ModelAdmin):
+    list_display = ['title', 'author', 'created_at', 'expires_at']
+    list_filter = ['created_at', 'expires_at']
+    search_fields = ['title', 'description', 'author__email']
+    readonly_fields = ['created_at', 'updated_at']
+    inlines = [CommunityRecipeCommentInline]
+    ordering = ['-created_at']
+
+
+@admin.register(CommunityRecipeLike)
+class CommunityRecipeLikeAdmin(admin.ModelAdmin):
+    list_display = ['post', 'user', 'created_at']
+    search_fields = ['post__title', 'user__email']
+    ordering = ['-created_at']
 
 
 class ImportFoodsForm(forms.Form):

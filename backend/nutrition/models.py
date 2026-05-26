@@ -4,6 +4,7 @@
 import re
 import uuid
 import unicodedata
+from datetime import timedelta
 from django.conf import settings
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -18,6 +19,10 @@ class TimeStampedModel(models.Model):
     
     class Meta:
         abstract = True
+
+
+def community_recipe_image_path(instance, filename):
+    return f"community-recipes/{instance.author_id}/{uuid.uuid4()}-{filename}"
 
 
 # =============================================================================
@@ -1378,6 +1383,11 @@ class MealLog(TimeStampedModel):
         blank=True, 
         help_text="Descripción si no usó receta"
     )
+    substitution_details = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Sustituciones aplicadas en la receta: ingrediente original, alimento equivalente y gramos calculados"
+    )
     
     # Nutrición real consumida
     calories = models.PositiveIntegerField(
@@ -1581,6 +1591,12 @@ class Food(TimeStampedModel):
     
     # Clasificación
     category = models.CharField(max_length=100, blank=True)
+    equivalence_category = models.CharField(
+        max_length=50,
+        blank=True,
+        db_index=True,
+        help_text="Grupo usado para intercambios equivalentes: carnes, pescados, legumbres, fruta, verduras, etc."
+    )
     allergens = models.JSONField(
         default=list,
         blank=True,
@@ -1673,3 +1689,101 @@ class NutritionPlanHistory(TimeStampedModel):
     
     def __str__(self):
         return f"{self.user.email} - {self.old_plan_name} → {self.new_plan_name}"
+
+
+# =============================================================================
+# COMUNIDAD DE RECETAS
+# =============================================================================
+
+class CommunityRecipePost(TimeStampedModel):
+    """Publicación temporal de receta subida por una usuaria del Team."""
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='community_recipe_posts',
+    )
+    title = models.CharField(max_length=160)
+    description = models.TextField(blank=True)
+    ingredients = models.TextField(blank=True)
+    instructions = models.TextField(blank=True)
+    photo = models.ImageField(upload_to=community_recipe_image_path)
+    expires_at = models.DateTimeField(db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['expires_at', 'created_at']),
+            models.Index(fields=['author', 'created_at']),
+        ]
+        verbose_name = "Publicación de receta de comunidad"
+        verbose_name_plural = "Publicaciones de recetas de comunidad"
+
+    def __str__(self):
+        return f"{self.title} - {self.author.email}"
+
+    def save(self, *args, **kwargs):
+        if not self.expires_at:
+            self.expires_at = timezone.now() + timedelta(days=7)
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        photo = self.photo
+        super().delete(*args, **kwargs)
+        if photo:
+            photo.delete(save=False)
+
+    @property
+    def is_expired(self):
+        return timezone.now() >= self.expires_at
+
+
+class CommunityRecipeComment(TimeStampedModel):
+    post = models.ForeignKey(
+        CommunityRecipePost,
+        on_delete=models.CASCADE,
+        related_name='comments',
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='community_recipe_comments',
+    )
+    text = models.TextField(max_length=1000)
+
+    class Meta:
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['post', 'created_at']),
+        ]
+        verbose_name = "Comentario de receta de comunidad"
+        verbose_name_plural = "Comentarios de recetas de comunidad"
+
+    def __str__(self):
+        return f"Comentario de {self.author.email} en {self.post_id}"
+
+
+class CommunityRecipeLike(TimeStampedModel):
+    post = models.ForeignKey(
+        CommunityRecipePost,
+        on_delete=models.CASCADE,
+        related_name='likes',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='community_recipe_likes',
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['post', 'user'], name='unique_community_recipe_like'),
+        ]
+        indexes = [
+            models.Index(fields=['post', 'user']),
+        ]
+        verbose_name = "Like de receta de comunidad"
+        verbose_name_plural = "Likes de recetas de comunidad"
+
+    def __str__(self):
+        return f"Like de {self.user.email} en {self.post_id}"

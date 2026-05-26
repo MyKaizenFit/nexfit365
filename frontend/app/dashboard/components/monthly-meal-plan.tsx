@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
-import { nutritionService } from "@/lib/nutrition-service"
+import { MealIngredientSubstitution, nutritionService } from "@/lib/nutrition-service"
 import { MealSelectionModal } from "@/components/dashboard/meal-selection-modal"
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isSameDay, isToday, isPast, addMonths, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
@@ -34,6 +34,7 @@ interface MonthlyMealSelection {
   }
   recipe_name?: string
   custom_description?: string
+  substitution_details?: MealIngredientSubstitution[]
   completed?: boolean
   // Macros directos (alternativa a recipe.macros)
   calories?: number
@@ -147,7 +148,8 @@ export function MonthlyMealPlan() {
         protein: option.protein || 0,
         carbs: option.carbs || 0,
         fat: option.fat || 0,
-        custom_description: option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
+        custom_description: option.customDescription || option.name || '', // Preservar el nombre como custom_description si no hay recipe_id
+        substitution_details: option.substitution_details || [],
         completed: false // Solo planificación, no completada
       }]
 
@@ -220,6 +222,7 @@ export function MonthlyMealPlan() {
             carbs: selection.recipe?.carbs || selection.carbs || 0,
             fat: selection.recipe?.fat || selection.fat || 0,
             custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
+            substitution_details: selection.substitution_details || [],
             completed: false // Solo planificación al copiar
           })
         })
@@ -281,6 +284,7 @@ export function MonthlyMealPlan() {
             carbs: selection.recipe?.carbs || selection.carbs || 0,
             fat: selection.recipe?.fat || selection.fat || 0,
             custom_description: selection.custom_description || selection.recipe?.name || selection.recipe_name || '',
+            substitution_details: selection.substitution_details || [],
             completed: false // Solo planificación al aplicar
           })
         })
@@ -564,6 +568,11 @@ export function MonthlyMealPlan() {
                                           ✅
                                         </Badge>
                                       )}
+                                      {selection.substitution_details?.length ? (
+                                        <Badge variant="outline" className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-emerald-300 text-emerald-700 bg-emerald-50">
+                                          Cambio
+                                        </Badge>
+                                      ) : null}
                                     </div>
                                     
                                     {/* Macros nutricionales (solo calorías en vista mensual por espacio) */}
@@ -627,5 +636,3 @@ export function MonthlyMealPlan() {
     </div>
   )
 }
-
-

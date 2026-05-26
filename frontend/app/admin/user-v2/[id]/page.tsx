@@ -1246,13 +1246,13 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                   Calorías Diarias
                 </CardTitle>
                 <CardDescription>
-                  Valor automático calculado según el perfil del usuario (Harris-Benedict). Puedes fijar un valor personalizado que tendrá prioridad.
+                  Valor base aplicado por la app: plan activo si existe, o cálculo por perfil como fallback. Puedes fijar un valor personalizado que tendrá prioridad.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex-1">
-                    <p className="text-xs text-slate-500 font-medium mb-0.5">Cálculo automático</p>
+                    <p className="text-xs text-slate-500 font-medium mb-0.5">Objetivo base de la app</p>
                     <p className="text-xl font-bold text-slate-800">
                       {user.calculated_daily_calories ? `${user.calculated_daily_calories} kcal` : "—"}
                     </p>
@@ -1265,7 +1265,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                   ) : (
                     <div className="flex-1">
                       <p className="text-xs text-emerald-600 font-medium mb-0.5">Valor aplicado</p>
-                      <p className="text-sm text-emerald-700 font-semibold">Cálculo automático</p>
+                      <p className="text-sm text-emerald-700 font-semibold">Objetivo base</p>
                     </div>
                   )}
                 </div>
@@ -1277,7 +1277,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                       min={800}
                       max={6000}
                       step={50}
-                      placeholder={user.calculated_daily_calories ? `Automático: ${user.calculated_daily_calories}` : "Ej: 2200"}
+                      placeholder={user.calculated_daily_calories ? `Base: ${user.calculated_daily_calories}` : "Ej: 2200"}
                       value={caloriesOverrideInput}
                       onChange={(e) => setCaloriesOverrideInput(e.target.value)}
                     />

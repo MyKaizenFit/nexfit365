@@ -74,6 +74,7 @@ const BodyMeasurements = lazy(() => import("./components/body-measurements").the
 const CoachingCTA = lazy(() => import("./components/coaching-cta").then(module => ({ default: module.CoachingCTA })))
 const QuinzenalReview = lazy(() => import("./components/quinzenal-review").then(module => ({ default: module.QuinzenalReview })))
 const SubscriptionStatusCard = lazy(() => import("./components/subscription-status-card").then(module => ({ default: module.SubscriptionStatusCard })))
+const RecipeCommunity = lazy(() => import("./components/recipe-community").then(module => ({ default: module.RecipeCommunity })))
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
@@ -88,6 +89,7 @@ const menuItems = [
   { title: "Ayuda 1:1", icon: Crown, url: "coaching" },
   { title: "Consejos", icon: Heart, url: "tips" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
+  { title: "Recetas Team", icon: Camera, url: "recipe-community" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
   { title: "Medidas", icon: TrendingUp, url: "measurements" },
@@ -273,6 +275,15 @@ function DashboardContent() {
                 <TipsBoard />
               </Suspense>
             </div>
+          </div>
+        )
+
+      case "recipe-community":
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <Suspense fallback={null}>
+              <RecipeCommunity />
+            </Suspense>
           </div>
         )
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X, Utensils } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X, Utensils, Camera, Shuffle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -40,6 +40,7 @@ const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-manag
 const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const RecipeManagement = lazy(() => import("./components/recipe-management").then(module => ({ default: module.RecipeManagement })))
 const FoodManagement = lazy(() => import("./components/food-management").then(module => ({ default: module.FoodManagement })))
+const EquivalenceManagement = lazy(() => import("./components/equivalence-management").then(module => ({ default: module.EquivalenceManagement })))
 const MenuPlanManagementV2 = lazy(() => import("./components/menu-plan-management-v2").then(module => ({ default: module.MenuPlanManagementV2 })))
 const UserNutritionPlanManagement = lazy(() => import("./components/user-nutrition-plan-management").then(module => ({ default: module.UserNutritionPlanManagement })))
 const DefaultPlanConfigurationsPanel = lazy(() => import("./components/default-plan-configurations-v2").then(module => ({ default: module.DefaultPlanConfigurationsPanelV2 })))
@@ -47,6 +48,7 @@ const NotificationsPanel = lazy(() => import("./components/notifications-panel")
 const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").then(module => ({ default: module.HelpSettingsPanel })))
 const CoachingManagement = lazy(() => import("./components/coaching-management").then(module => ({ default: module.CoachingManagement })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
+const CommunityRecipesManagement = lazy(() => import("./components/community-recipes-management").then(module => ({ default: module.CommunityRecipesManagement })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
 import { fixEncoding } from "@/lib/encoding-fix"
@@ -145,11 +147,13 @@ function AdminPageContent() {
     | 'exercises'
     | 'workout-plans'
     | 'foods'
+    | 'equivalences'
     | 'nutrition'
     | 'nutrition-plans'
     | 'user-nutrition-plans'
     | 'default-plan-configurations'
     | 'notifications'
+    | 'community-recipes'
     | 'coaching'
     | 'help-settings'
   >('dashboard')
@@ -750,7 +754,9 @@ function AdminPageContent() {
                 { id: 'exercises', label: 'Ejercicios', icon: Dumbbell, gradient: 'from-orange-500 to-red-500' },
                 { id: 'workout-plans', label: 'Planes de Entrenamiento', icon: Dumbbell, gradient: 'from-purple-500 to-violet-500' },
                 { id: 'foods', label: 'Alimentos', icon: Utensils, gradient: 'from-amber-500 to-orange-500' },
+                { id: 'equivalences', label: 'Equivalencias', icon: Shuffle, gradient: 'from-emerald-500 to-teal-500' },
                 { id: 'nutrition', label: 'Recetas', icon: Apple, gradient: 'from-green-500 to-emerald-500' },
+                { id: 'community-recipes', label: 'Recetas Team', icon: Camera, gradient: 'from-teal-500 to-emerald-500' },
                 { id: 'nutrition-plans', label: 'Planes de Menús', icon: Apple, gradient: 'from-orange-500 to-amber-500' },
                 { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
                 { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
@@ -895,6 +901,17 @@ function AdminPageContent() {
                       Alimentos
                     </Button>
                     <Button
+                      variant={activeSection === 'equivalences' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('equivalences')}
+                      className={`flex items-center gap-2 ${activeSection === 'equivalences'
+                          ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <Shuffle className="h-4 w-4" />
+                      Equivalencias
+                    </Button>
+                    <Button
                       variant={activeSection === 'nutrition' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('nutrition')}
                       className={`flex items-center gap-2 ${activeSection === 'nutrition'
@@ -904,6 +921,17 @@ function AdminPageContent() {
                     >
                       <Apple className="h-4 w-4" />
                       Recetas
+                    </Button>
+                    <Button
+                      variant={activeSection === 'community-recipes' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('community-recipes')}
+                      className={`flex items-center gap-2 ${activeSection === 'community-recipes'
+                          ? 'bg-gradient-to-r from-teal-500 to-emerald-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <Camera className="h-4 w-4" />
+                      Recetas Team
                     </Button>
                     <Button
                       variant={activeSection === 'nutrition-plans' ? 'default' : 'ghost'}
@@ -1008,8 +1036,12 @@ function AdminPageContent() {
             <WorkoutPlanManagement />
           ) : activeSection === 'foods' ? (
             <FoodManagement />
+          ) : activeSection === 'equivalences' ? (
+            <EquivalenceManagement />
           ) : activeSection === 'nutrition' ? (
             <RecipeManagement />
+          ) : activeSection === 'community-recipes' ? (
+            <CommunityRecipesManagement />
           ) : activeSection === 'nutrition-plans' ? (
             <MenuPlanManagementV2 />
           ) : activeSection === 'user-nutrition-plans' ? (

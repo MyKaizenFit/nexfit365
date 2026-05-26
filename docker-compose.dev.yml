@@ -102,7 +102,7 @@ services:
         python manage.py runserver 0.0.0.0:8000
       "
     ports:
-      - "127.0.0.1:8001:8000"
+      - "0.0.0.0:8001:8000"
     volumes:
       - ./backend:/app
       - /srv/mykaizenfit/dev/data/staticfiles:/app/staticfiles
@@ -138,7 +138,7 @@ services:
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
     ports:
-      - "127.0.0.1:3001:3000"
+      - "0.0.0.0:3001:3000"
     volumes:
       - ./frontend:/app
       - /app/node_modules

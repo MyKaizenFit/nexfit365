@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Evita bucles en dev: Django usa slash final en API y Next intentaba quitarlo
+  // antes de aplicar el rewrite hacia el backend.
+  skipTrailingSlashRedirect: true,
+
   async headers() {
     return [
       {
@@ -40,6 +44,10 @@ const nextConfig = {
       {
         source: '/api/:path(.*)',
         destination: `${backendUrl}/api/:path`,
+      },
+      {
+        source: '/media/:path(.*)',
+        destination: `${backendUrl}/media/:path`,
       },
     ]
   },
