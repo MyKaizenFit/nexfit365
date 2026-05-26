@@ -1,12 +1,13 @@
 # notifications/admin_views.py
 import logging
+import threading
 
 from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from django.contrib.auth import get_user_model
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 from datetime import timedelta
@@ -295,6 +296,59 @@ class AdminNotificationSendThrottle(UserRateThrottle):
     scope = 'admin_notifications_send'
 
 
+def _build_admin_notification(user_id, data, request_user, normalized_type, expires_at, delivery_scope):
+    return Notification(
+        user_id=user_id,
+        type=normalized_type,
+        title=data['title'],
+        message=data['message'],
+        data={
+            'priority': data.get('priority', 'medium'),
+            'created_by_admin': True,
+            'created_by_admin_id': str(request_user.id),
+            'delivery_scope': delivery_scope,
+            'send_push': True,
+            'send_email': bool(data.get('send_email', False)),
+        },
+        action_url=data.get('action_url', ''),
+        expires_at=expires_at,
+    )
+
+
+def _dispatch_bulk_delivery(notification_ids):
+    if not notification_ids:
+        return
+
+    notification_ids = [str(notification_id) for notification_id in notification_ids]
+
+    try:
+        from .tasks import dispatch_bulk_notifications_task
+
+        dispatch_bulk_notifications_task.delay(notification_ids)
+        logger.info("Lote de %s notificaciones encolado en Celery", len(notification_ids))
+        return
+    except Exception as exc:
+        logger.warning(
+            "Celery no disponible (%s). Usando threading para lote de %s notificaciones.",
+            exc,
+            len(notification_ids),
+        )
+
+    def send_all_sync():
+        from .signals import send_notifications_sync
+
+        for notification_id in notification_ids:
+            send_notifications_sync(notification_id)
+
+    thread = threading.Thread(target=send_all_sync, daemon=True)
+    thread.start()
+
+
+def _queue_bulk_delivery_after_commit(notifications):
+    notification_ids = [notification.id for notification in notifications]
+    transaction.on_commit(lambda: _dispatch_bulk_delivery(notification_ids))
+
+
 class AdminNotificationViewSet(viewsets.ModelViewSet):
     """ViewSet para gestión de notificaciones por administradores"""
     queryset = Notification.objects.all()
@@ -337,7 +391,7 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         return queryset.order_by('-created_at')
 
     def get_throttles(self):
-        if self.action in ['send_bulk', 'send_to_all', 'run_automation']:
+        if self.action in ['send_single', 'send_bulk', 'send_to_all', 'run_automation']:
             return [AdminNotificationSendThrottle()]
         return super().get_throttles()
 
@@ -356,6 +410,62 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
                 'results': [],
                 'warning': 'No se pudieron cargar notificaciones por incidencia temporal en base de datos'
             }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['post'])
+    def send_single(self, request):
+        """Enviar una notificación a un único usuario."""
+        serializer = CreateNotificationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        data = serializer.validated_data
+        user_id = request.data.get('user_id')
+        user_ids = data.get('user_ids') or []
+
+        if user_id is None and len(user_ids) == 1:
+            user_id = user_ids[0]
+
+        if user_id is None:
+            return Response(
+                {'error': 'Se requiere user_id para enviar una notificación individual'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        normalized_type = _normalize_notification_type(data.get('type'))
+        expires_at = data.get('expires_at') or _default_expiration_for_type(normalized_type)
+
+        notification = Notification.objects.create(
+            user_id=user_id,
+            type=normalized_type,
+            title=data['title'],
+            message=data['message'],
+            data={
+                'priority': data.get('priority', 'medium'),
+                'created_by_admin': True,
+                'created_by_admin_id': str(request.user.id),
+                'delivery_scope': 'single',
+                'send_push': True,
+                'send_email': bool(data.get('send_email', False)),
+            },
+            action_url=data.get('action_url', ''),
+            expires_at=expires_at,
+        )
+
+        logger.info(
+            'admin_notification_send_single',
+            extra={
+                'admin_user_id': str(request.user.id),
+                'admin_email': getattr(request.user, 'email', ''),
+                'target_user_id': str(user_id),
+                'message_type': normalized_type,
+            }
+        )
+
+        return Response({
+            'message': 'Notificación individual enviada correctamente',
+            'notifications_created': 1,
+            'notification_id': str(notification.id),
+        }, status=status.HTTP_201_CREATED)
     
     @action(detail=False, methods=['post'])
     @extend_schema(
@@ -404,20 +514,19 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
 
         notifications = []
         for user_id in user_ids:
-            notification = Notification.objects.create(
-                user_id=user_id,
-                type=normalized_type,
-                title=data['title'],
-                message=data['message'],
-                data={
-                    'priority': data.get('priority', 'medium'),
-                    'created_by_admin': True,
-                    'created_by_admin_id': str(request.user.id),
-                },
-                action_url=data.get('action_url', ''),
-                expires_at=expires_at,
+            notifications.append(
+                _build_admin_notification(
+                    user_id=user_id,
+                    data=data,
+                    request_user=request.user,
+                    normalized_type=normalized_type,
+                    expires_at=expires_at,
+                    delivery_scope='bulk',
+                )
             )
-            notifications.append(notification)
+
+        notifications = Notification.objects.bulk_create(notifications, batch_size=500)
+        _queue_bulk_delivery_after_commit(notifications)
 
         logger.info(
             'admin_notification_send_bulk',
@@ -452,22 +561,20 @@ class AdminNotificationViewSet(viewsets.ModelViewSet):
         normalized_type = _normalize_notification_type(data.get('type'))
         expires_at = data.get('expires_at') or _default_expiration_for_type(normalized_type)
 
-        notifications = []
-        for user in active_users:
-            notification = Notification.objects.create(
-                user=user,
-                type=normalized_type,
-                title=data['title'],
-                message=data['message'],
-                data={
-                    'priority': data.get('priority', 'medium'),
-                    'created_by_admin': True,
-                    'created_by_admin_id': str(request.user.id),
-                },
-                action_url=data.get('action_url', ''),
+        notifications = [
+            _build_admin_notification(
+                user_id=user_id,
+                data=data,
+                request_user=request.user,
+                normalized_type=normalized_type,
                 expires_at=expires_at,
+                delivery_scope='broadcast',
             )
-            notifications.append(notification)
+            for user_id in active_users.values_list('id', flat=True)
+        ]
+
+        notifications = Notification.objects.bulk_create(notifications, batch_size=500)
+        _queue_bulk_delivery_after_commit(notifications)
 
         logger.info(
             'admin_notification_send_to_all',

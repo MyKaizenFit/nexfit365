@@ -182,7 +182,7 @@ function AuthPageContent() {
               Recuperar Contraseña
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              Ingresa tu correo y te enviaremos un enlace mágico ✨
+              Ingresa tu correo y te enviaremos un enlace seguro para crear una nueva contraseña.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -193,6 +193,10 @@ function AuthPageContent() {
               <Input
                 id="reset-email"
                 type="email"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="tu@correo.com"
                 value={formData.resetEmail}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("resetEmail", e.target.value)}
@@ -218,7 +222,7 @@ function AuthPageContent() {
                   Enviando...
                 </div>
               ) : (
-                "Enviar enlace mágico ✨"
+                "Enviar enlace de recuperación"
               )}
             </Button>
 
@@ -291,6 +295,10 @@ function AuthPageContent() {
             <Input
               id="email"
               type="email"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="tu@correo.com"
               value={formData.email}
               onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("email", e.target.value)}

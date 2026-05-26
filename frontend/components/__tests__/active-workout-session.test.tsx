@@ -28,6 +28,29 @@ const workoutDay = {
 }
 
 describe('ActiveWorkoutSession', () => {
+  it('shows the target RPE in the exercise detail objective', () => {
+    render(
+      <ActiveWorkoutSession
+        workoutDay={{
+          ...workoutDay,
+          exercises: [
+            {
+              ...workoutDay.exercises[0],
+              sets: 3,
+              reps: '12',
+              weight: 'RPE 8',
+            },
+          ],
+        }}
+        isOpen
+        onClose={jest.fn()}
+        onComplete={jest.fn()}
+      />
+    )
+
+    expect(screen.getByText('3 × 12 reps @ RPE 8')).toBeInTheDocument()
+  })
+
   it('closes the workout detail from the mobile back button', async () => {
     const user = userEvent.setup()
     const onClose = jest.fn()

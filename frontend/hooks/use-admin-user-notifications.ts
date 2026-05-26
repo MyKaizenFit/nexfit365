@@ -44,10 +44,10 @@ export function useAdminUserNotifications(userId: string | number) {
     refetch: fetchAll,
     send: async (payload: { title: string; message: string; type?: string; priority?: string }) => {
       const headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl(`admin/notifications/send_bulk/`), {
+      const res = await fetch(buildApiUrl(`admin/notifications/send_single/`), {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
-        body: JSON.stringify({ user_ids: [Number(userId)], ...payload }),
+        body: JSON.stringify({ user_id: Number(userId), user_ids: [Number(userId)], ...payload }),
       })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
@@ -57,7 +57,6 @@ export function useAdminUserNotifications(userId: string | number) {
     },
   }
 }
-
 
 
 

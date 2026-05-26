@@ -10,6 +10,7 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.http import HttpResponse
 from django.contrib.auth import get_user_model
 import csv
+import datetime
 import io
 
 from openpyxl import Workbook
@@ -234,6 +235,14 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             pass
                     ws.column_dimensions[column_letter].width = min(max_length + 2, 50)
 
+            def force_text_columns(ws, headers):
+                """Evita que Excel convierta rangos como 8-12 en fechas al editar."""
+                normalized_headers = {str(header).strip().lower() for header in headers}
+                for cell in ws[1]:
+                    if str(cell.value or '').strip().lower() in normalized_headers:
+                        for row in ws.iter_rows(min_row=2, min_col=cell.column, max_col=cell.column):
+                            row[0].number_format = '@'
+
             wb = Workbook()
             ws_summary = wb.active
             ws_summary.title = "Resumen completo"
@@ -279,6 +288,11 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     parse_bool_label(plan.is_template),
                 ])
             auto_adjust_columns(ws_plans)
+            force_text_columns(ws_plans, [
+                'Categoría', 'Usuario Referencia', 'Creado Por', 'Nombre', 'Descripción',
+                'Dificultad', 'Objetivo', 'Ubicación', 'Equipo (coma separado)',
+                'Tags (coma separado)', 'Imagen URL', 'Activo', 'Plantilla',
+            ])
 
             # === HOJA 2: DÍAS ===
             ws_days = wb.create_sheet("Días")
@@ -304,6 +318,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                         day.order_index,
                     ])
             auto_adjust_columns(ws_days)
+            force_text_columns(ws_days, [
+                'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Nombre Día',
+                'Día Semana', 'Es Descanso', 'Enfoque', 'Notas',
+            ])
 
             # === HOJA 3: EJERCICIOS ===
             ws_exercises = wb.create_sheet("Ejercicios")
@@ -334,6 +352,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             exercise.superset_group or '',
                         ])
             auto_adjust_columns(ws_exercises)
+            force_text_columns(ws_exercises, [
+                'Categoría Plan', 'Usuario Referencia', 'Nombre Plan', 'Nombre Día',
+                'Nombre Ejercicio', 'Reps', 'Peso', 'Notas',
+            ])
 
             ws_user_plans = wb.create_sheet("Planes_Usuario")
             ws_user_plans.append([
@@ -356,6 +378,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     parse_bool_label(plan.is_active),
                 ])
             auto_adjust_columns(ws_user_plans)
+            force_text_columns(ws_user_plans, [
+                'Usuario Referencia', 'Creado Por', 'Nombre', 'Descripción',
+                'Dificultad', 'Objetivo', 'Ubicación', 'Activo',
+            ])
 
             ws_base_plans = wb.create_sheet("Planes_Base")
             ws_base_plans.append([
@@ -378,6 +404,10 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     parse_bool_label(plan.is_template),
                 ])
             auto_adjust_columns(ws_base_plans)
+            force_text_columns(ws_base_plans, [
+                'Categoría', 'Nombre', 'Descripción', 'Dificultad', 'Objetivo',
+                'Ubicación', 'Activo', 'Plantilla',
+            ])
 
             # === HOJA 4: SUSTITUTOS ===
             ws_subs = wb.create_sheet("Sustitutos")
@@ -408,6 +438,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     sub.notes or '',
                 ])
             auto_adjust_columns(ws_subs)
+            force_text_columns(ws_subs, ['Nombre Ejercicio', 'Nombre Sustituto', 'Notas'])
 
             # Completar hoja principal de resumen completo
             for plan in plans:
@@ -481,6 +512,12 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             ' | '.join(substitutes),
                         ])
             auto_adjust_columns(ws_summary)
+            force_text_columns(ws_summary, [
+                'Categoría Plan', 'Usuario Referencia', 'Creado Por', 'Nombre Plan',
+                'Descripción Plan', 'Dificultad', 'Objetivo', 'Ubicación',
+                'Nombre Día', 'Día Semana', 'Descanso', 'Nombre Ejercicio',
+                'Reps', 'Peso', 'Grupo Superset', 'Sustitutos (separados por |)',
+            ])
 
             # === HOJA 5: REFERENCIAS ===
             ws_ref = wb.create_sheet("Referencias")
@@ -903,6 +940,15 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                     except (TypeError, ValueError):
                         return default
 
+            def text_cell(value, default=''):
+                if value is None:
+                    return default
+                if isinstance(value, datetime.datetime):
+                    return f"{value.day}-{value.month}"
+                if isinstance(value, datetime.date):
+                    return f"{value.day}-{value.month}"
+                return str(value).strip()
+
             difficulty_map = {
                 'principiante': 'beginner',
                 'intermedio': 'intermediate',
@@ -1280,11 +1326,11 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 'workout_day': day,
                                 'exercise': exercise,
                                 'sets': parse_int(get_cell(row, exercises_headers, ['Series', 'sets'], fallback_index=7), default=3),
-                                'reps': str(get_cell(row, exercises_headers, ['Reps', 'reps'], fallback_index=8, default='10') or '10').strip() or '10',
-                                'weight': str(get_cell(row, exercises_headers, ['Peso', 'weight'], fallback_index=9, default='') or '').strip(),
+                                'reps': text_cell(get_cell(row, exercises_headers, ['Reps', 'reps'], fallback_index=8, default='10'), default='10') or '10',
+                                'weight': text_cell(get_cell(row, exercises_headers, ['Peso', 'weight'], fallback_index=9, default='')),
                                 'duration_seconds': parse_int(get_cell(row, exercises_headers, ['Duración (seg)', 'Duracion (seg)', 'duration_seconds'], fallback_index=10), default=None),
                                 'rest_seconds': parse_int(get_cell(row, exercises_headers, ['Descanso (seg)', 'rest_seconds'], fallback_index=11), default=60),
-                                'notes': str(get_cell(row, exercises_headers, ['Notas', 'exercise_notes'], fallback_index=12, default='') or '').strip(),
+                                'notes': text_cell(get_cell(row, exercises_headers, ['Notas', 'exercise_notes'], fallback_index=12, default='')),
                                 'order_index': order_index,
                                 'superset_group': parse_int(get_cell(row, exercises_headers, ['Grupo Superset', 'superset_group'], fallback_index=13), default=None),
                             }
@@ -1398,8 +1444,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                                 'workout_day': day,
                                 'exercise': exercise,
                                 'sets': parse_int(get_cell(row, summary_headers, ['Series', 'sets'], fallback_index=17), default=3),
-                                'reps': str(get_cell(row, summary_headers, ['Reps', 'reps'], fallback_index=18, default='10') or '10').strip() or '10',
-                                'weight': str(get_cell(row, summary_headers, ['Peso', 'weight'], fallback_index=19, default='') or '').strip(),
+                                'reps': text_cell(get_cell(row, summary_headers, ['Reps', 'reps'], fallback_index=18, default='10'), default='10') or '10',
+                                'weight': text_cell(get_cell(row, summary_headers, ['Peso', 'weight'], fallback_index=19, default='')),
                                 'duration_seconds': parse_int(get_cell(row, summary_headers, ['Duración (seg)', 'Duracion (seg)', 'duration_seconds'], fallback_index=20), default=None),
                                 'rest_seconds': parse_int(get_cell(row, summary_headers, ['Descanso (seg)', 'rest_seconds'], fallback_index=21), default=60),
                                 'notes': '',

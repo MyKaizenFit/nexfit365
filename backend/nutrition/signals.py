@@ -25,15 +25,18 @@ def store_user_previous_values(sender, instance, **kwargs):
             instance._old_weight = old_instance.weight
             instance._old_main_goal = old_instance.main_goal
             instance._old_activity_level = old_instance.activity_level
+            instance._old_admin_calories_override = old_instance.admin_calories_override
         except CustomUser.DoesNotExist:
             instance._old_weight = None
             instance._old_main_goal = None
             instance._old_activity_level = None
+            instance._old_admin_calories_override = None
     else:
         # Nuevo usuario, no hay valores anteriores
         instance._old_weight = None
         instance._old_main_goal = None
         instance._old_activity_level = None
+        instance._old_admin_calories_override = None
 
 
 @receiver(post_save, sender=CustomUser)
@@ -50,16 +53,50 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
     old_weight = getattr(instance, '_old_weight', None)
     old_main_goal = getattr(instance, '_old_main_goal', None)
     old_activity_level = getattr(instance, '_old_activity_level', None)
+    old_admin_calories_override = getattr(instance, '_old_admin_calories_override', None)
     
     # Solo actualizar si hay cambios relevantes
     weight_changed = old_weight is not None and instance.weight is not None and old_weight != instance.weight
     goal_changed = old_main_goal != instance.main_goal
     activity_changed = old_activity_level != instance.activity_level
+    admin_calories_override_changed = old_admin_calories_override != instance.admin_calories_override
     
-    if not (weight_changed or goal_changed or activity_changed):
+    if not (weight_changed or goal_changed or activity_changed or admin_calories_override_changed):
         return
     
     try:
+        active_plan = NutritionPlan.objects.filter(user=instance, is_active=True).first()
+
+        if admin_calories_override_changed and active_plan:
+            nutrition_service = PlanAutoUpdateService(instance).nutrition_service
+            if instance.admin_calories_override:
+                target_calories = int(instance.admin_calories_override)
+                updated_plan = nutrition_service.adjust_plan_calories(
+                    active_plan,
+                    target_calories - int(active_plan.daily_calories or 0),
+                    reason="admin_calories_override",
+                    notes=f"Override manual de administrador aplicado: {target_calories} kcal",
+                )
+                logger.info(
+                    "✅ Override manual de kcal aplicado para %s: %s kcal",
+                    instance.email,
+                    updated_plan.daily_calories,
+                )
+                return
+
+            updated_plan = nutrition_service.update_existing_plan(
+                plan=active_plan,
+                reason="admin_calories_override_removed",
+                notes="Override manual de administrador eliminado; recalculado por perfil.",
+                old_weight=old_weight,
+            )
+            logger.info(
+                "✅ Override manual de kcal eliminado para %s; plan recalculado a %s kcal",
+                instance.email,
+                updated_plan.daily_calories,
+            )
+            return
+
         update_service = PlanAutoUpdateService(instance)
         should_update, update_reason = update_service.should_update_plan(
             old_weight=old_weight,
@@ -68,7 +105,6 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
         )
         
         if should_update:
-            active_plan = NutritionPlan.objects.filter(user=instance, is_active=True).first()
             if active_plan:
                 # Aplicar actualización automática con transición gradual
                 nutrition_service = update_service.nutrition_service
@@ -166,5 +202,4 @@ def update_plan_on_weight_entry(sender, instance, created, **kwargs):
         import traceback
         logger.error(traceback.format_exc())
         # No fallar la operación principal si hay error en la actualización
-
 
