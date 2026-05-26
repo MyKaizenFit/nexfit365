@@ -45,7 +45,8 @@ export function AdminNotificationsPanel({
   const { user: currentUser } = useAuth()
   const { users, loading: usersLoading } = useAdminUsers()
   const {
-    sendBulkNotification,
+    sendIndividualNotification,
+    sendBroadcastNotification,
     stats,
     refetch,
     loading: notificationsLoading,
@@ -250,7 +251,7 @@ export function AdminNotificationsPanel({
 
     setSending(true)
     try {
-      const result = await sendBulkNotification(individualNotification)
+      const result = await sendIndividualNotification(individualNotification)
 
       toast({
         title: "✅ Notificación enviada",
@@ -289,7 +290,7 @@ export function AdminNotificationsPanel({
     setSending(true)
     try {
       const segmentedIds = getSegmentedUserIds()
-      const result = await sendBulkNotification({
+      const result = await sendBroadcastNotification({
         ...broadcastNotification,
         ...(segmentedIds ? { user_ids: segmentedIds } : {}),
       })

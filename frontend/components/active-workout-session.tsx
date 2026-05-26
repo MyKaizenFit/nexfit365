@@ -290,6 +290,31 @@ interface ExerciseSetState {
   overrides: Record<string, ExerciseSetEntry>
 }
 
+function getTargetRpe(exerciseItem: any, exercise: any): string {
+  const explicitRpe = exerciseItem?.target_rpe ?? exerciseItem?.rpe ?? exercise?.target_rpe ?? exercise?.rpe
+  if (explicitRpe !== undefined && explicitRpe !== null && String(explicitRpe).trim() !== '') {
+    return String(explicitRpe).trim().replace(/^rpe\s*/i, '')
+  }
+
+  const weight = String(exerciseItem?.weight ?? exercise?.weight ?? '').trim()
+  const match = weight.match(/\brpe\s*[:=-]?\s*([0-9]+(?:[.,][0-9]+)?)/i)
+  return match ? match[1].replace(',', '.') : ''
+}
+
+function formatPlanTarget(exerciseItem: any, exercise: any): string {
+  const sets = exerciseItem?.sets ?? exercise?.sets ?? '—'
+  const reps = exerciseItem?.reps ?? exercise?.reps ?? '—'
+  const weight = String(exerciseItem?.weight ?? exercise?.weight ?? '').trim()
+  const targetRpe = getTargetRpe(exerciseItem, exercise)
+  const suffix = targetRpe
+    ? ` @ RPE ${targetRpe}`
+    : weight
+      ? ` @ ${weight}`
+      : ''
+
+  return `${sets} × ${reps} reps${suffix}`
+}
+
 export function ActiveWorkoutSession({
   workoutDay,
   initialSubstituteSelections = {},
@@ -1175,6 +1200,8 @@ export function ActiveWorkoutSession({
               const mainExercise = selectedSubstitute || exercise
               const exerciseId = getExerciseStateKey(exerciseItem)
               const isCompleted = completedExercises.has(String(exerciseId))
+              const targetRpe = getTargetRpe(exerciseItem, exercise)
+              const targetLabel = formatPlanTarget(exerciseItem, exercise)
               const exerciseSetData = exerciseSets[exerciseId] || {
                 seriesCount: normalizeSeriesCount(exerciseItem?.sets || exercise?.sets || 1, 1),
                 base: {},
@@ -1298,7 +1325,7 @@ export function ActiveWorkoutSession({
                           {/* Cabecera: objetivo del plan + control de nº series */}
                           <div className="flex items-center justify-between mb-2.5">
                             <span className="text-xs text-muted-foreground">
-                              Objetivo: <span className="font-semibold text-foreground">{exerciseItem.sets ?? exerciseItem.exercise?.sets ?? '—'} × {exerciseItem.reps ?? exerciseItem.exercise?.reps ?? '—'} reps</span>
+                              Objetivo: <span className="font-semibold text-foreground">{targetLabel}</span>
                             </span>
                             <div className="flex items-center gap-1.5">
                               <span className="text-xs text-muted-foreground whitespace-nowrap">Series:</span>
@@ -1349,7 +1376,7 @@ export function ActiveWorkoutSession({
                                   />
                                   <NumericInput
                                     value={setData.effort}
-                                    placeholder="RPE"
+                                    placeholder={targetRpe || 'RPE'}
                                     className="h-8 text-sm text-center"
                                     onChange={(v) => updateDifferentSeriesData(exerciseId, setNum, 'effort', v)}
                                     disabled={!isStarted}

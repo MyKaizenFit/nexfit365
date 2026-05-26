@@ -30,6 +30,7 @@ def send_push_notification_task(self, notification_id: int):
         from .delivery_tracking import update_delivery_log
         from .models import Notification, NotificationDeliveryLog
         from .push_service import push_service
+        from .delivery_options import should_send_push
 
         notification = Notification.objects.get(id=notification_id)
         attempt = int(getattr(self.request, "retries", 0)) + 1
@@ -40,6 +41,16 @@ def send_push_notification_task(self, notification_id: int):
             attempts=attempt,
             task_id=getattr(self.request, "id", "") or "",
         )
+
+        if not should_send_push(notification):
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_PUSH,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "channel_disabled"},
+            )
+            return
 
         if not notification.user or not notification.user.push_subscriptions.exists():
             update_delivery_log(
@@ -125,6 +136,7 @@ def send_email_notification_task(self, notification_id: int):
         from .delivery_tracking import update_delivery_log
         from .models import Notification, NotificationDeliveryLog
         from .email_service import email_service
+        from .delivery_options import should_send_email
 
         notification = Notification.objects.get(id=notification_id)
         attempt = int(getattr(self.request, "retries", 0)) + 1
@@ -135,6 +147,16 @@ def send_email_notification_task(self, notification_id: int):
             attempts=attempt,
             task_id=getattr(self.request, "id", "") or "",
         )
+
+        if not should_send_email(notification):
+            update_delivery_log(
+                notification_id=notification.id,
+                channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                attempts=attempt,
+                metadata={"reason": "channel_disabled"},
+            )
+            return
 
         if not notification.user or not notification.user.email:
             update_delivery_log(
@@ -209,9 +231,30 @@ def dispatch_notification_task(self, notification_id: int):
     fallo en push no bloquee el email y viceversa.
     """
     try:
-        send_push_notification_task.delay(notification_id)
-        send_email_notification_task.delay(notification_id)
+        send_push_notification_task.delay(str(notification_id))
+        send_email_notification_task.delay(str(notification_id))
         logger.info("Despachadas tareas push+email para notificación %s", notification_id)
     except Exception as exc:
         logger.error("Error al despachar tareas de notificación %s: %s", notification_id, exc)
+        raise self.retry(exc=exc, countdown=15)
+
+
+@shared_task(
+    bind=True,
+    name="notifications.dispatch_bulk_notifications",
+    max_retries=2,
+    default_retry_delay=15,
+    ignore_result=True,
+)
+def dispatch_bulk_notifications_task(self, notification_ids: list[str]):
+    """
+    Despacha un lote de notificaciones desde el worker para que la petición
+    HTTP de envío masivo no bloquee abriendo una tarea por destinatario.
+    """
+    try:
+        for notification_id in notification_ids:
+            dispatch_notification_task.delay(str(notification_id))
+        logger.info("Despachado lote de %s notificaciones", len(notification_ids))
+    except Exception as exc:
+        logger.error("Error al despachar lote de notificaciones: %s", exc)
         raise self.retry(exc=exc, countdown=15)

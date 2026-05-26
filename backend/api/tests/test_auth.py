@@ -132,6 +132,19 @@ class TestUserLogin:
         assert "access" in response.data
         assert "refresh" in response.data
 
+    def test_login_normalizes_email_case_and_spaces(self, api_client, regular_user):
+        """Test de login tolerante a mayúsculas/autocapitalización móvil"""
+        url = reverse("auth-login")
+        data = {
+            "email": " User@Example.com ",
+            "password": "UserPass123!"
+        }
+        response = api_client.post(url, data)
+
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        assert "refresh" in response.data
+
     def test_login_user_invalid_credentials(self, api_client):
         """Test de login con credenciales inválidas"""
         url = reverse("auth-login")
@@ -430,4 +443,4 @@ class TestThrottling:
                 assert response.status_code == status.HTTP_401_UNAUTHORIZED
             else:
                 # La sexta vez debe ser throttled
-                assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS 
+                assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS

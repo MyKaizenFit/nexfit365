@@ -13,9 +13,8 @@ Este documento describe las correcciones aplicadas para solucionar problemas de 
 
 ### 1. Configuración de PostgreSQL en Docker
 
-**Archivos modificados:**
+**Archivo modificado:**
 - `docker-compose.prod.yml`
-- `docker-compose.dev.yml`
 
 **Cambios:**
 - Agregadas variables de entorno para forzar UTF-8:
@@ -97,8 +96,6 @@ Si ya tienes una base de datos con datos, tienes dos opciones:
    # Producción
    ./scripts/deployment/fix-db-encoding.sh --prod
    
-   # Desarrollo
-   ./scripts/deployment/fix-db-encoding.sh --dev
    ```
 
 2. **Verifica los resultados** en la consola
@@ -110,6 +107,11 @@ Si ya tienes una base de datos con datos, tienes dos opciones:
 1. **Exporta los datos actuales:**
    ```bash
    COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec db pg_dump -U postgres mykaizenfit_dev > backup-dev.sql
+   # Desarrollo
+   COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml exec db pg_dump -U postgres mykaizenfit_dev > backup-dev.sql
+
+   # Producción
+   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml exec db pg_dump -U postgres mykaizenfit > backup.sql
    ```
 
 2. **Elimina y recrea la base de datos:**

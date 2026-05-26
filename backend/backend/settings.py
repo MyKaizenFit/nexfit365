@@ -250,6 +250,11 @@ CSRF_TRUSTED_ORIGINS = [
     o for o in os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:3000,http://192.168.1.148:3000").split(",") if o
 ]
 
+FRONTEND_URL = os.getenv(
+    "FRONTEND_URL",
+    (CORS_ALLOWED_ORIGINS[0] if CORS_ALLOWED_ORIGINS else "http://localhost:3000")
+).rstrip("/")
+
 # ---------------------------------
 # URLs y WSGI
 # ---------------------------------

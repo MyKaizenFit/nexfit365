@@ -172,6 +172,46 @@ function getNextCopyName(baseName: string, existingNames: string[]) {
   return `${normalized} (Copia ${copyIndex})`
 }
 
+function normalizeDateLikeWorkoutText(value: unknown) {
+  const text = String(value ?? "").trim()
+  const isoDate = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})(?:[ T]00:00:00)?$/)
+  if (isoDate) return `${Number(isoDate[3])}-${Number(isoDate[2])}`
+
+  const slashDate = text.match(/^(\d{1,2})\/(\d{1,2})\/(?:\d{2}|\d{4})$/)
+  if (slashDate) return `${Number(slashDate[1])}-${Number(slashDate[2])}`
+
+  return text
+}
+
+function cloneWorkoutDay(day: any, suffix: string) {
+  return {
+    ...day,
+    id: `${Date.now()}-${suffix}`,
+    exercises: Array.isArray(day?.exercises)
+      ? day.exercises.map((exercise: any, index: number) => ({
+          ...exercise,
+          order: index,
+        }))
+      : [],
+  }
+}
+
+function normalizeWorkoutDaysOrder(days: any[]) {
+  return (Array.isArray(days) ? days : [])
+    .filter(Boolean)
+    .map((day, index) => ({
+      ...day,
+      day_number: index + 1,
+      exercises: Array.isArray(day.exercises)
+        ? day.exercises.map((exercise: any, exerciseIndex: number) => ({
+            ...exercise,
+            reps: normalizeDateLikeWorkoutText(exercise.reps || "10"),
+            order: exerciseIndex,
+          }))
+        : [],
+    }))
+}
+
 export function WorkoutPlanManagement() {
   const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
   const {
@@ -314,6 +354,18 @@ export function WorkoutPlanManagement() {
   const [exerciseSearchTerm, setExerciseSearchTerm] = useState<{ [dayId: string]: string }>({})
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState<{ [dayId: string]: string }>({})
   const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState<{ [dayId: string]: string }>({})
+
+  const workoutWeekGroups = useMemo(() => {
+    const daysArray = Array.isArray(workoutDays) ? workoutDays.filter(Boolean) : []
+    const groups: Array<{ weekIndex: number; days: typeof workoutDays }> = []
+    for (let index = 0; index < daysArray.length; index += 7) {
+      groups.push({
+        weekIndex: Math.floor(index / 7),
+        days: daysArray.slice(index, index + 7),
+      })
+    }
+    return groups
+  }, [workoutDays])
 
   const groupedImportErrors = useMemo<GroupedImportError[]>(() => {
     if (!importResult?.errors || importResult.errors.length === 0) return []
@@ -749,14 +801,33 @@ export function WorkoutPlanManagement() {
   const addWorkoutDay = () => {
     if (isViewMode) return
     const newDayNumber = workoutDays.length + 1
-    setWorkoutDays(prev => [...prev, {
+    setWorkoutDays(prev => normalizeWorkoutDaysOrder([...prev, {
       id: Date.now().toString(),
       day_name: `Día ${newDayNumber}`,
       day_number: newDayNumber,
       is_rest_day: false,
       notes: '',
       exercises: []
-    }])
+    }]))
+  }
+
+  const addWorkoutWeek = () => {
+    if (isViewMode) return
+    const currentLength = Array.isArray(workoutDays) ? workoutDays.length : 0
+    const nextWeekNumber = Math.floor(currentLength / 7) + 1
+    const newDays = Array.from({ length: 7 }, (_, index) => {
+      const dayNumber = currentLength + index + 1
+      return {
+        id: `${Date.now()}-week-${nextWeekNumber}-${index}`,
+        day_name: `Semana ${nextWeekNumber} - Día ${index + 1}`,
+        day_number: dayNumber,
+        is_rest_day: index > 2,
+        notes: '',
+        exercises: [],
+      }
+    })
+    setWorkoutDays(prev => normalizeWorkoutDaysOrder([...(Array.isArray(prev) ? prev : []), ...newDays]))
+    setFormData(prev => ({ ...prev, duration_weeks: Math.max(prev.duration_weeks || 1, nextWeekNumber) }))
   }
 
   const removeWorkoutDay = (dayId: string) => {
@@ -765,7 +836,7 @@ export function WorkoutPlanManagement() {
     if (daysArray.length > 1) {
       setWorkoutDays(prev => {
         const prevArray = Array.isArray(prev) ? prev : []
-        return prevArray.filter(day => day && day.id !== dayId)
+        return normalizeWorkoutDaysOrder(prevArray.filter(day => day && day.id !== dayId))
       })
     }
   }
@@ -945,11 +1016,7 @@ export function WorkoutPlanManagement() {
         newDays[dayIndex] = newDays[dayIndex - 1]
         newDays[dayIndex - 1] = temp
 
-        // Actualizar day_number
-        return newDays.map((day, index) => ({
-          ...day,
-          day_number: index + 1
-        }))
+        return normalizeWorkoutDaysOrder(newDays)
       })
     }
   }
@@ -963,13 +1030,45 @@ export function WorkoutPlanManagement() {
         newDays[dayIndex] = newDays[dayIndex + 1]
         newDays[dayIndex + 1] = temp
 
-        // Actualizar day_number
-        return newDays.map((day, index) => ({
-          ...day,
-          day_number: index + 1
-        }))
+        return normalizeWorkoutDaysOrder(newDays)
       })
     }
+  }
+
+  const copyWorkoutWeek = (weekIndex: number) => {
+    if (isViewMode) return
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev.filter(Boolean) : []
+      const start = weekIndex * 7
+      const weekDays = prevArray.slice(start, start + 7)
+      if (weekDays.length === 0) return prevArray
+      const copiedDays = weekDays.map((day, index) => cloneWorkoutDay(day, `copy-week-${weekIndex}-${index}`))
+      const nextDays = [
+        ...prevArray.slice(0, start + weekDays.length),
+        ...copiedDays,
+        ...prevArray.slice(start + weekDays.length),
+      ]
+      setFormData(current => ({ ...current, duration_weeks: Math.max(current.duration_weeks || 1, Math.ceil(nextDays.length / 7)) }))
+      return normalizeWorkoutDaysOrder(nextDays)
+    })
+  }
+
+  const moveWorkoutWeek = (weekIndex: number, direction: -1 | 1) => {
+    if (isViewMode) return
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev.filter(Boolean) : []
+      const groups = []
+      for (let index = 0; index < prevArray.length; index += 7) {
+        groups.push(prevArray.slice(index, index + 7))
+      }
+      const targetIndex = weekIndex + direction
+      if (targetIndex < 0 || targetIndex >= groups.length) return prevArray
+      const nextGroups = [...groups]
+      const temp = nextGroups[weekIndex]
+      nextGroups[weekIndex] = nextGroups[targetIndex]
+      nextGroups[targetIndex] = temp
+      return normalizeWorkoutDaysOrder(nextGroups.flat())
+    })
   }
 
   const removeExerciseFromDay = (dayId: string, exerciseIndex: number) => {
@@ -989,6 +1088,7 @@ export function WorkoutPlanManagement() {
 
   const updateExerciseInDay = (dayId: string, exerciseIndex: number, field: string, value: any) => {
     if (isViewMode) return
+    const safeValue = field === 'reps' ? normalizeDateLikeWorkoutText(value) : value
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev : []
       return prevArray.map(day => {
@@ -998,7 +1098,7 @@ export function WorkoutPlanManagement() {
           return {
             ...day,
             exercises: exercisesArray.map((exercise, index) =>
-              index === exerciseIndex ? { ...exercise, [field]: value } : exercise
+              index === exerciseIndex ? { ...exercise, [field]: safeValue } : exercise
             )
           }
         }
@@ -1021,16 +1121,20 @@ export function WorkoutPlanManagement() {
 
       // Si estamos editando, guardamos todo (info básica + días/ejercicios)
       if (editingPlan) {
+        const currentUserId = (editingPlan as any).user_id || (editingPlan as any).user
+        const shouldSendAssignedUsers = !currentUserId && formData.assigned_users.length > 0
         const planData = {
           ...formData,
-          assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)),
           days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
             day_name: day.day_name,
             day_number: day.day_number,
             is_rest_day: day.is_rest_day,
             notes: day.notes,
             exercises: day.exercises
-          }))
+          })),
+          ...(shouldSendAssignedUsers
+            ? { assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)) }
+            : {}),
         }
         await updatePlan(editingPlan.id, planData)
         toast({
@@ -1317,7 +1421,7 @@ export function WorkoutPlanManagement() {
                 exercise_id: exerciseObj ? exerciseObj.id : (ex.exercise_id || ex.exercise),
                 exercise_name: exerciseObj ? exerciseObj.name : '',  // Guardar nombre para mostrar
                 sets: ex.sets || 3,
-                reps: ex.reps || '10',
+                reps: normalizeDateLikeWorkoutText(ex.reps || '10'),
                 weight: ex.weight || 0,
                 duration: ex.duration_seconds || 0,
                 rest_time: ex.rest_seconds || 60,
@@ -3052,35 +3156,105 @@ export function WorkoutPlanManagement() {
 
             {/* Días de entrenamiento */}
             <div>
-              <div className="flex items-center justify-between mb-4">
-                <FormLabel className="text-lg font-semibold">Días de Entrenamiento</FormLabel>
+              <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <FormLabel className="text-lg font-semibold">Días de Entrenamiento</FormLabel>
+                  <div className="text-xs text-muted-foreground">
+                    {workoutWeekGroups.length} semana{workoutWeekGroups.length === 1 ? '' : 's'} · {workoutDays.length} día{workoutDays.length === 1 ? '' : 's'}
+                  </div>
+                </div>
                 {!isViewMode && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={addWorkoutDay}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Día
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addWorkoutDay}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Día
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addWorkoutWeek}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Agregar Semana
+                    </Button>
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-4">
-                {Array.isArray(workoutDays) ? workoutDays.map((day, dayIndex) => {
-                  if (!day) return null
-                  return (
-                    <Card key={day.id} className="border-2 border-purple-100">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
+              <div className="space-y-6">
+                {workoutWeekGroups.map(({ weekIndex, days }) => (
+                  <section key={`week-${weekIndex}`} className="rounded-md border-2 border-blue-200 bg-blue-50/30">
+                    <div className="flex flex-col gap-3 border-b border-blue-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-600 text-sm font-semibold text-white">
+                          {weekIndex + 1}
+                        </div>
+                        <div>
+                          <h3 className="text-base font-semibold text-blue-950">Semana {weekIndex + 1}</h3>
+                          <p className="text-xs text-blue-800">
+                            {days.length} día{days.length === 1 ? '' : 's'} · {days.reduce((total, day) => total + (Array.isArray(day?.exercises) ? day.exercises.length : 0), 0)} ejercicios
+                          </p>
+                        </div>
+                      </div>
+                      {!isViewMode && (
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyWorkoutWeek(weekIndex)}
+                            className="h-8 border-blue-300 bg-white text-blue-800 hover:bg-blue-50"
+                          >
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copiar
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => moveWorkoutWeek(weekIndex, -1)}
+                            disabled={weekIndex === 0}
+                            className="h-8 bg-white"
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            onClick={() => moveWorkoutWeek(weekIndex, 1)}
+                            disabled={weekIndex === workoutWeekGroups.length - 1}
+                            className="h-8 bg-white"
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4 p-4">
+                      {days.map((day, dayOffset) => {
+                        if (!day) return null
+                        const dayIndex = weekIndex * 7 + dayOffset
+                        return (
+                          <div key={day.id} className="rounded-md border-2 border-slate-300 bg-white shadow-sm">
+                            <div className="border-b border-slate-200 px-4 py-3">
+                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                                <div className="flex min-w-0 flex-1 items-center space-x-3">
                             <GripVertical className="h-4 w-4 text-muted-foreground" />
                             <Input
                               value={day.day_name}
                               onChange={(e) => updateWorkoutDay(day.id, 'day_name', e.target.value)}
-                              className="font-medium text-lg border-0 bg-transparent p-0 h-auto"
+                              className="h-auto min-w-0 border-0 bg-transparent p-0 text-base font-semibold"
                               disabled={isViewMode}
+                              type="text"
+                              autoComplete="off"
                             />
                             <Checkbox
                               checked={day.is_rest_day}
@@ -3122,9 +3296,9 @@ export function WorkoutPlanManagement() {
                             </div>
                           )}
                         </div>
-                      </CardHeader>
+                      </div>
 
-                      <CardContent className="space-y-4">
+                      <div className="space-y-4 p-4">
                         {!day.is_rest_day && (
                           <>
                             <div>
@@ -3135,6 +3309,7 @@ export function WorkoutPlanManagement() {
                                 onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
                                 rows={2}
                                 disabled={isViewMode}
+                                autoComplete="off"
                               />
                             </div>
 
@@ -3377,6 +3552,8 @@ export function WorkoutPlanManagement() {
                                             <FormLabel className="text-xs">Repeticiones</FormLabel>
                                             <Input
                                               type="text"
+                                              inputMode="text"
+                                              autoComplete="off"
                                               placeholder="ej: 10 o 8-12"
                                               value={exercise.reps || ''}
                                               onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
@@ -3388,6 +3565,8 @@ export function WorkoutPlanManagement() {
                                             <FormLabel className="text-xs">Peso (kg)</FormLabel>
                                             <Input
                                               type="text"
+                                              inputMode="text"
+                                              autoComplete="off"
                                               placeholder="ej: 50 o RPE 8"
                                               value={exercise.weight || ''}
                                               onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
@@ -3410,6 +3589,9 @@ export function WorkoutPlanManagement() {
                                         <div className="mt-3">
                                           <FormLabel className="text-xs">Notas del ejercicio</FormLabel>
                                           <Input
+                                            type="text"
+                                            inputMode="text"
+                                            autoComplete="off"
                                             placeholder="Técnica, variaciones, etc..."
                                             value={exercise.notes}
                                             onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'notes', e.target.value)}
@@ -3479,26 +3661,42 @@ export function WorkoutPlanManagement() {
                               value={day.notes}
                               onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
                               rows={3}
+                              disabled={isViewMode}
+                              autoComplete="off"
                             />
                           </div>
                         )}
-                      </CardContent>
-                    </Card>
+                      </div>
+                    </div>
                   )
-                }) : null}
+                })}
+              </div>
+            </section>
+          ))}
 
                 {/* Botón para agregar día debajo de la lista */}
-                <div className="flex justify-center pt-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={addWorkoutDay}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Agregar Nuevo Día
-                  </Button>
-                </div>
+                {!isViewMode && (
+                  <div className="flex flex-wrap justify-center gap-2 pt-4">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addWorkoutDay}
+                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Agregar Día
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addWorkoutWeek}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                    >
+                      <Calendar className="h-4 w-4 mr-2" />
+                      Agregar Semana
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
           </div>

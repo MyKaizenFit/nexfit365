@@ -177,3 +177,4 @@ npm run dev
 ## 📚 Documentación Adicional
 
 - **`docker-compose.dev.yml`**: stack Docker de desarrollo
+- **`scripts/deployment/`**: utilidades operativas de despliegue y mantenimiento

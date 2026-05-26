@@ -6,7 +6,7 @@
 # Este script corrige problemas de encoding en la base de datos existente
 #
 # Uso:
-#   ./scripts/deployment/fix-db-encoding.sh [--prod|--dev]
+#   ./scripts/deployment/fix-db-encoding.sh [--prod]
 #
 # Requisitos:
 #   - Docker corriendo
@@ -53,7 +53,8 @@ elif [[ "$1" == "--prod" ]] || [[ -z "$1" ]]; then
     DB_NAME="mykaizenfit"
 else
     print_error "Opción desconocida: $1"
-    echo "Uso: $0 [--prod|--dev]"
+    echo "Uso: $0 [--dev|--prod]"
+    echo "El entorno dev está separado en /srv/mykaizenfit/dev."
     exit 1
 fi
 

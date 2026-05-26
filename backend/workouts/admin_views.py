@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from datetime import datetime, timedelta, date
+import re
 from django.db.models import Sum, Count, Avg, Q
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
@@ -193,7 +194,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
                 5: 'friday', 6: 'saturday', 7: 'sunday'
             }
-            day_of_week = day_of_week_map.get(day_number, 'monday')
+            day_of_week = day_data.get('day_of_week') or day_of_week_map.get(day_number, 'monday')
 
             workout_day = WorkoutDay.objects.create(
                 program=program,
@@ -209,12 +210,29 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             exercises_data = day_data.get('exercises', []) or []
             for ex_index, exercise_data in enumerate(exercises_data):
                 exercise_id = exercise_data.get('exercise_id') or exercise_data.get('exercise')
-                if not exercise_id:
-                    continue
-                try:
-                    exercise = Exercise.objects.get(id=exercise_id, is_active=True)
-                except Exercise.DoesNotExist:
-                    continue
+                exercise = None
+                if exercise_id:
+                    try:
+                        exercise = Exercise.objects.get(id=exercise_id, is_active=True)
+                    except Exercise.DoesNotExist:
+                        exercise = None
+
+                if exercise is None:
+                    exercise_name = Exercise.normalize_name(
+                        exercise_data.get('exercise_name') or exercise_data.get('name') or ''
+                    )
+                    if not exercise_name:
+                        continue
+                    exercise = Exercise.find_existing_by_name(exercise_name)
+                    if exercise is None:
+                        exercise = Exercise.objects.create(
+                            name=exercise_name,
+                            category='strength',
+                            difficulty=program.difficulty or 'beginner',
+                            is_system=False,
+                            is_active=True,
+                            created_by=program.created_by,
+                        )
 
                 sets_value = exercise_data.get('sets')
                 if sets_value is None:
@@ -229,13 +247,21 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     workout_day=workout_day,
                     exercise=exercise,
                     sets=sets_value if sets_value is not None else 3,
-                    reps=exercise_data.get('reps') or '10-12',
+                    reps=self._normalize_date_like_workout_text(exercise_data.get('reps') or '10-12'),
                     weight=exercise_data.get('weight') or '',
                     rest_seconds=rest_seconds_value if rest_seconds_value is not None else 60,
                     duration_seconds=exercise_data.get('duration') or None,
                     notes=exercise_data.get('notes') or '',
                     order_index=ex_index
                 )
+
+    @staticmethod
+    def _normalize_date_like_workout_text(value):
+        raw_value = str(value or '').strip()
+        match = re.match(r'^20\d{2}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])(?: 00:00:00)?$', raw_value)
+        if not match:
+            return value
+        return f'{int(match.group(2))}-{int(match.group(1))}'
 
     def _extract_assigned_user_ids(self, data):
         # Solo activar el flujo de asignación por plantilla cuando llega
@@ -351,15 +377,24 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         created_user_program_ids = []
         if assigned_user_ids is not None:
-            # Si se actualiza una rutina de usuario para múltiples usuarios,
-            # la convertimos en plantilla y asignamos copias activas a cada usuario.
-            if program.user_id:
+            valid_user_ids = set(User.objects.filter(id__in=assigned_user_ids).values_list('id', flat=True))
+            assigned_user_ids = [user_id for user_id in assigned_user_ids if user_id in valid_user_ids]
+            same_user_assignment = (
+                program.user_id
+                and len(assigned_user_ids) == 1
+                and assigned_user_ids[0] == program.user_id
+            )
+
+            # Mantener una rutina individual como individual si el PATCH solo
+            # reenvía su mismo usuario asignado. Convertir a plantilla solo al
+            # asignar a otros usuarios desde esta rutina.
+            if program.user_id and not same_user_assignment:
                 program.user = None
                 program.is_template = True
                 program.is_system = False
                 program.save(update_fields=['user', 'is_template', 'is_system'])
 
-            if assigned_user_ids:
+            if assigned_user_ids and not same_user_assignment:
                 created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
 
         response_serializer = AdminWorkoutProgramSerializer(program)

@@ -83,6 +83,215 @@ const fixEncoding = (text: string): string => {
   return fixed
 }
 
+type WorkoutFocusKey = 'back' | 'legs' | 'chest' | 'shoulders' | 'arms' | 'core' | 'cardio' | 'full_body' | 'rest'
+
+type WorkoutFocusTheme = {
+  key: WorkoutFocusKey
+  label: string
+  shortLabel: string
+  border: string
+  card: string
+  hero: string
+  heroSoft: string
+  title: string
+  text: string
+  badge: string
+  chip: string
+  button: string
+  progress: string
+  completed: string
+}
+
+const WORKOUT_FOCUS_THEMES: Record<WorkoutFocusKey, WorkoutFocusTheme> = {
+  back: {
+    key: 'back',
+    label: 'Espalda',
+    shortLabel: 'Pull',
+    border: 'border-sky-200 dark:border-sky-800/50',
+    card: 'bg-sky-50/60 dark:bg-sky-950/20',
+    hero: 'from-sky-400 via-blue-400 to-indigo-500',
+    heroSoft: 'from-sky-400/10 via-blue-400/8 to-indigo-400/10',
+    title: 'text-sky-950 dark:text-sky-100',
+    text: 'text-sky-700 dark:text-sky-300',
+    badge: 'bg-sky-500 text-white',
+    chip: 'border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200',
+    button: 'bg-sky-600 hover:bg-sky-700 text-white',
+    progress: 'from-sky-500 to-blue-600',
+    completed: 'bg-sky-100 border-sky-300 text-sky-800',
+  },
+  legs: {
+    key: 'legs',
+    label: 'Pierna',
+    shortLabel: 'Lower',
+    border: 'border-emerald-200 dark:border-emerald-800/50',
+    card: 'bg-emerald-50/60 dark:bg-emerald-950/20',
+    hero: 'from-emerald-50 via-lime-50 to-teal-50',
+    heroSoft: 'from-emerald-400/10 via-lime-400/8 to-teal-400/10',
+    title: 'text-emerald-950 dark:text-emerald-100',
+    text: 'text-emerald-700 dark:text-emerald-300',
+    badge: 'bg-emerald-500 text-white',
+    chip: 'border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200',
+    button: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    progress: 'from-emerald-500 to-lime-600',
+    completed: 'bg-emerald-100 border-emerald-300 text-emerald-800',
+  },
+  chest: {
+    key: 'chest',
+    label: 'Pecho',
+    shortLabel: 'Push',
+    border: 'border-rose-200 dark:border-rose-800/50',
+    card: 'bg-rose-50/60 dark:bg-rose-950/20',
+    hero: 'from-rose-50 via-red-50 to-orange-50',
+    heroSoft: 'from-rose-400/10 via-red-400/8 to-orange-400/10',
+    title: 'text-rose-950 dark:text-rose-100',
+    text: 'text-rose-700 dark:text-rose-300',
+    badge: 'bg-rose-500 text-white',
+    chip: 'border-rose-200 bg-rose-50 text-rose-800 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200',
+    button: 'bg-rose-600 hover:bg-rose-700 text-white',
+    progress: 'from-rose-500 to-orange-600',
+    completed: 'bg-rose-100 border-rose-300 text-rose-800',
+  },
+  shoulders: {
+    key: 'shoulders',
+    label: 'Hombro',
+    shortLabel: 'Delts',
+    border: 'border-amber-200 dark:border-amber-800/50',
+    card: 'bg-amber-50/60 dark:bg-amber-950/20',
+    hero: 'from-amber-50 via-yellow-50 to-orange-50',
+    heroSoft: 'from-amber-300/12 via-yellow-300/10 to-orange-300/12',
+    title: 'text-amber-950 dark:text-amber-100',
+    text: 'text-amber-700 dark:text-amber-300',
+    badge: 'bg-amber-500 text-white',
+    chip: 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
+    button: 'bg-amber-600 hover:bg-amber-700 text-white',
+    progress: 'from-amber-500 to-orange-600',
+    completed: 'bg-amber-100 border-amber-300 text-amber-800',
+  },
+  arms: {
+    key: 'arms',
+    label: 'Brazos',
+    shortLabel: 'Arms',
+    border: 'border-fuchsia-200 dark:border-fuchsia-800/50',
+    card: 'bg-fuchsia-50/60 dark:bg-fuchsia-950/20',
+    hero: 'from-fuchsia-50 via-pink-50 to-rose-50',
+    heroSoft: 'from-fuchsia-400/10 via-pink-400/8 to-rose-400/10',
+    title: 'text-fuchsia-950 dark:text-fuchsia-100',
+    text: 'text-fuchsia-700 dark:text-fuchsia-300',
+    badge: 'bg-fuchsia-500 text-white',
+    chip: 'border-fuchsia-200 bg-fuchsia-50 text-fuchsia-800 dark:border-fuchsia-800 dark:bg-fuchsia-950/40 dark:text-fuchsia-200',
+    button: 'bg-fuchsia-600 hover:bg-fuchsia-700 text-white',
+    progress: 'from-fuchsia-500 to-pink-600',
+    completed: 'bg-fuchsia-100 border-fuchsia-300 text-fuchsia-800',
+  },
+  core: {
+    key: 'core',
+    label: 'Core',
+    shortLabel: 'Core',
+    border: 'border-violet-200 dark:border-violet-800/50',
+    card: 'bg-violet-50/60 dark:bg-violet-950/20',
+    hero: 'from-violet-50 via-purple-50 to-indigo-50',
+    heroSoft: 'from-violet-400/10 via-purple-400/8 to-indigo-400/10',
+    title: 'text-violet-950 dark:text-violet-100',
+    text: 'text-violet-700 dark:text-violet-300',
+    badge: 'bg-violet-500 text-white',
+    chip: 'border-violet-200 bg-violet-50 text-violet-800 dark:border-violet-800 dark:bg-violet-950/40 dark:text-violet-200',
+    button: 'bg-violet-600 hover:bg-violet-700 text-white',
+    progress: 'from-violet-500 to-purple-600',
+    completed: 'bg-violet-100 border-violet-300 text-violet-800',
+  },
+  cardio: {
+    key: 'cardio',
+    label: 'Cardio',
+    shortLabel: 'Cardio',
+    border: 'border-orange-200 dark:border-orange-800/50',
+    card: 'bg-orange-50/60 dark:bg-orange-950/20',
+    hero: 'from-orange-50 via-red-50 to-pink-50',
+    heroSoft: 'from-orange-300/12 via-red-300/10 to-pink-300/12',
+    title: 'text-orange-950 dark:text-orange-100',
+    text: 'text-orange-700 dark:text-orange-300',
+    badge: 'bg-orange-500 text-white',
+    chip: 'border-orange-200 bg-orange-50 text-orange-800 dark:border-orange-800 dark:bg-orange-950/40 dark:text-orange-200',
+    button: 'bg-orange-600 hover:bg-orange-700 text-white',
+    progress: 'from-orange-500 to-red-600',
+    completed: 'bg-orange-100 border-orange-300 text-orange-800',
+  },
+  full_body: {
+    key: 'full_body',
+    label: 'Full body',
+    shortLabel: 'Full',
+    border: 'border-teal-200 dark:border-teal-800/50',
+    card: 'bg-teal-50/60 dark:bg-teal-950/20',
+    hero: 'from-teal-50 via-cyan-50 to-blue-50',
+    heroSoft: 'from-teal-400/10 via-cyan-400/8 to-blue-400/10',
+    title: 'text-teal-950 dark:text-teal-100',
+    text: 'text-teal-700 dark:text-teal-300',
+    badge: 'bg-teal-500 text-white',
+    chip: 'border-teal-200 bg-teal-50 text-teal-800 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200',
+    button: 'bg-teal-600 hover:bg-teal-700 text-white',
+    progress: 'from-teal-500 to-cyan-600',
+    completed: 'bg-teal-100 border-teal-300 text-teal-800',
+  },
+  rest: {
+    key: 'rest',
+    label: 'Descanso',
+    shortLabel: 'Rest',
+    border: 'border-slate-200 dark:border-slate-800',
+    card: 'bg-slate-50/70 dark:bg-slate-950/20',
+    hero: 'from-slate-300 via-gray-300 to-zinc-400',
+    heroSoft: 'from-slate-300/12 via-gray-300/10 to-zinc-300/12',
+    title: 'text-slate-950 dark:text-slate-100',
+    text: 'text-slate-700 dark:text-slate-300',
+    badge: 'bg-slate-500 text-white',
+    chip: 'border-slate-200 bg-slate-50 text-slate-700 dark:border-slate-800 dark:bg-slate-950/40 dark:text-slate-200',
+    button: 'bg-slate-600 hover:bg-slate-700 text-white',
+    progress: 'from-slate-500 to-gray-600',
+    completed: 'bg-slate-100 border-slate-300 text-slate-800',
+  },
+}
+
+const WORKOUT_FOCUS_KEYWORDS: Record<Exclude<WorkoutFocusKey, 'rest'>, string[]> = {
+  back: ['espalda', 'dorsal', 'trapecio', 'romboide', 'remo', 'jalon', 'jalón', 'pull', 'dominada'],
+  legs: ['pierna', 'legs', 'quads', 'cuadriceps', 'cuádriceps', 'femoral', 'hamstrings', 'glutes', 'gluteo', 'glúteo', 'isquio', 'gemelo', 'sentadilla', 'zancada', 'prensa', 'peso muerto'],
+  chest: ['pecho', 'chest', 'pectoral', 'pectorales', 'press banca', 'apertura', 'flexion', 'flexión'],
+  shoulders: ['hombro', 'shoulder', 'shoulders', 'deltoide', 'deltoides', 'militar', 'elevacion', 'elevación', 'lateral'],
+  arms: ['biceps', 'bíceps', 'triceps', 'tríceps', 'curl', 'extension', 'extensión', 'brazo'],
+  core: ['abdomen', 'abdominal', 'core', 'oblicuo', 'plancha', 'crunch'],
+  cardio: ['cardio', 'hiit', 'correr', 'carrera', 'bicicleta', 'eliptica', 'elíptica', 'remo cardio', 'metabolico', 'metabólico'],
+  full_body: ['full body', 'fullbody', 'cuerpo completo', 'total body', 'funcional', 'circuito'],
+}
+
+const getWorkoutFocusTheme = (day: any): WorkoutFocusTheme => {
+  if (!day || day.is_rest_day) return WORKOUT_FOCUS_THEMES.rest
+
+  const haystackParts: string[] = [
+    day.day_name,
+    day.name,
+    day.notes,
+  ].filter(Boolean)
+
+  if (Array.isArray(day.exercises)) {
+    day.exercises.forEach((item: any) => {
+      const exercise = item?.exercise || item
+      haystackParts.push(
+        exercise?.name,
+        exercise?.category,
+        exercise?.description,
+        Array.isArray(exercise?.muscle_groups) ? exercise.muscle_groups.join(' ') : ''
+      )
+    })
+  }
+
+  const haystack = fixEncoding(haystackParts.filter(Boolean).join(' ').toLowerCase())
+  const scores = Object.entries(WORKOUT_FOCUS_KEYWORDS).map(([key, keywords]) => ({
+    key: key as Exclude<WorkoutFocusKey, 'rest'>,
+    score: keywords.reduce((total, keyword) => total + (haystack.includes(keyword) ? 1 : 0), 0),
+  }))
+
+  const winner = scores.sort((a, b) => b.score - a.score)[0]
+  if (!winner || winner.score === 0) return WORKOUT_FOCUS_THEMES.full_body
+  return WORKOUT_FOCUS_THEMES[winner.key]
+}
+
 export function WorkoutDashboardEnhanced() {
   const {
     workoutPrograms,
@@ -715,33 +924,54 @@ export function WorkoutDashboardEnhanced() {
           const completedByLog = todayWorkoutCompleted[dayId] === true
           const completedByExercises = isWorkoutFullyCompleted(todaysWorkoutFromProfile)
           const isTodayCompleted = completedByLog || completedByExercises
+          const todayTheme = getWorkoutFocusTheme(todaysWorkoutFromProfile)
 
           return (
-            <Card className="border-2 border-blue-200/50 dark:border-blue-800/30 shadow-xl dark:bg-card">
-              <CardHeader className="pb-3 md:pb-4 px-3 md:px-6 pt-3 md:pt-6">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                    <div className="w-10 h-10 md:w-14 md:h-14 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-md flex-shrink-0">
-                      <Play className="h-5 w-5 md:h-7 md:w-7 text-white" />
+            <Card className={`overflow-hidden border-2 ${todayTheme.border} shadow-xl dark:bg-card`}>
+              <CardHeader className={`relative min-h-[190px] overflow-hidden bg-gradient-to-br ${todayTheme.hero} px-4 pt-4 pb-5 text-white md:min-h-[230px] md:px-6 md:pt-6`}>
+                <div className="absolute inset-0 opacity-25">
+                  <div className="absolute -right-12 -top-14 h-44 w-44 rounded-full border border-white/40" />
+                  <div className="absolute right-10 top-20 h-28 w-28 rounded-full border border-white/25" />
+                  <div className="absolute -bottom-20 -left-12 h-56 w-56 rounded-full bg-white/20" />
+                  <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/25 to-transparent" />
+                </div>
+                <div className="relative z-10 flex h-full flex-col justify-between gap-8">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-white/18 shadow-md ring-1 ring-white/25 backdrop-blur md:h-16 md:w-16">
+                        <Dumbbell className="h-6 w-6 text-white md:h-8 md:w-8" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <CardDescription className="text-xs font-semibold uppercase tracking-normal text-white/75 md:text-sm">
+                          {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
+                        </CardDescription>
+                        <CardTitle className="mt-1 text-2xl font-black leading-tight text-white md:text-4xl">
+                          Entrenamiento de Hoy
+                        </CardTitle>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-lg md:text-2xl text-blue-700 dark:text-blue-300 leading-tight">Entrenamiento de Hoy</CardTitle>
-                      <CardDescription className="text-blue-500/80 dark:text-blue-400 text-xs md:text-sm">
-                        {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
-                      </CardDescription>
+                    <Badge className="flex-shrink-0 border-0 bg-white/20 px-2 py-1 text-[10px] font-black text-white shadow backdrop-blur md:px-3 md:text-sm">
+                      {todaysWorkoutFromProfile.exercises?.length || 0} ej.
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <Badge className="border-0 bg-white px-3 py-1 font-black text-slate-950 shadow">
+                        {todayTheme.label}
+                      </Badge>
                       {userPlan && (
-                        <CardDescription className="text-blue-500/70 text-[10px] md:text-xs mt-0.5 md:mt-1 line-clamp-2">
-                          Plan: {userPlan.name} • Asignado desde panel de administración
+                        <CardDescription className="mt-2 line-clamp-2 text-[11px] font-medium text-white/80 md:text-sm">
+                          {userPlan.name}
                         </CardDescription>
                       )}
                     </div>
+                    <div className="text-right text-[10px] font-bold uppercase tracking-normal text-white/70 md:text-xs">
+                      {todayTheme.shortLabel}
+                    </div>
                   </div>
-                  <Badge className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0 text-[10px] md:text-sm px-2 py-0.5 md:px-3 md:py-1 flex-shrink-0">
-                    {todaysWorkoutFromProfile.exercises?.length || 0} ej.
-                  </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 px-3 md:px-6 pb-3 md:pb-6">
+              <CardContent className={`space-y-4 bg-gradient-to-br ${todayTheme.heroSoft} px-3 pb-3 pt-3 md:px-6 md:pb-6 md:pt-5`}>
                 {/* Ejercicios completos */}
                 {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-3">
@@ -763,9 +993,9 @@ export function WorkoutDashboardEnhanced() {
                     return (
                       <Card
                         key={exercise.id || index}
-                        className={`bg-card/90 border-2 transition-all touch-manipulation ${isExerciseCompleted
+                        className={`border-2 bg-white/92 shadow-sm transition-all touch-manipulation dark:bg-card/90 ${isExerciseCompleted
                           ? 'bg-green-50/90 border-green-300 shadow-md'
-                          : 'border-blue-100'
+                          : todayTheme.border
                           }`}
                       >
                         <CardContent className="p-1.5 md:p-4">
@@ -774,7 +1004,7 @@ export function WorkoutDashboardEnhanced() {
                               <div className="flex items-start gap-1.5 md:gap-2.5 mb-1.5">
                                 <div className={`w-7 h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-white text-xs md:text-sm font-bold flex-shrink-0 ${isExerciseCompleted
                                   ? 'bg-gradient-to-br from-green-500 to-emerald-600'
-                                  : 'bg-gradient-to-br from-blue-400 to-cyan-500'
+                                  : `bg-gradient-to-br ${todayTheme.hero}`
                                   }`} style={{ fontSize: '11.5px' }}>
                                   {isExerciseCompleted ? (
                                     <CheckCircle2 className="h-4 w-4 md:h-5 md:w-5" />
@@ -783,7 +1013,7 @@ export function WorkoutDashboardEnhanced() {
                                   )}
                                 </div>
                                 <div className="flex-1 min-w-0">
-                                  <h4 className={`font-semibold text-xs md:text-lg leading-tight break-words ${isExerciseCompleted ? 'text-green-900' : 'text-blue-900'
+                                  <h4 className={`font-semibold text-xs md:text-lg leading-tight break-words ${isExerciseCompleted ? 'text-green-900' : todayTheme.title
                                     }`}>
                                     {fixEncoding(exerciseData.name)}
                                   </h4>
@@ -795,7 +1025,7 @@ export function WorkoutDashboardEnhanced() {
                                 </div>
                               </div>
                               <div className="space-y-0.5 md:space-y-1">
-                                <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${isExerciseCompleted ? 'text-green-700' : 'text-blue-700'
+                                <div className={`flex flex-wrap items-center gap-2 md:gap-4 text-xs md:text-sm ${isExerciseCompleted ? 'text-green-700' : todayTheme.text
                                   }`}>
                                   <span className="font-semibold md:font-medium">{exercise.sets} series</span>
                                   <span className="font-semibold md:font-medium">{exercise.reps} rep.</span>
@@ -811,7 +1041,7 @@ export function WorkoutDashboardEnhanced() {
                                         variant="outline"
                                         className={`text-[9px] md:text-xs px-1 py-0.5 max-w-full truncate ${isExerciseCompleted
                                           ? 'border-green-200 text-green-700 bg-green-50'
-                                          : 'border-blue-200 text-blue-700 bg-blue-50'
+                                          : todayTheme.chip
                                           }`}
                                       >
                                         {fixEncoding(mg)}
@@ -828,7 +1058,7 @@ export function WorkoutDashboardEnhanced() {
                                   className={`flex-shrink-0 flex items-center gap-1 text-[10px] md:text-xs px-1.5 py-1 rounded-md border font-medium transition-colors ${
                                     isExerciseCompleted
                                       ? 'border-green-200 text-green-700 bg-green-50 hover:bg-green-100'
-                                      : 'border-blue-200 text-blue-700 bg-blue-50 hover:bg-blue-100'
+                                      : `${todayTheme.chip} hover:bg-white`
                                   }`}
                                 >
                                   <Play className="h-2.5 w-2.5 md:h-3 md:w-3" />
@@ -852,7 +1082,7 @@ export function WorkoutDashboardEnhanced() {
                     </div>
                   ) : (
                     <Button
-                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20"
+                      className={`w-full ${todayTheme.button} border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20`}
                       style={{ position: 'sticky', bottom: 0, left: 0, right: 0 }}
                       onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
                     >
@@ -956,24 +1186,24 @@ export function WorkoutDashboardEnhanced() {
                     key={day.number}
                     className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
                       ? isTrainingByProfile
-                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500 text-white border-blue-600 shadow-lg md:scale-105'
-                        : 'bg-gradient-to-br from-gray-400 to-slate-500 text-white border-gray-600 shadow-lg md:scale-105'
+                        ? 'bg-gradient-to-br from-blue-200 to-cyan-200 text-blue-900 border-blue-300 shadow-md md:scale-105'
+                        : 'bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 border-slate-300 shadow-md md:scale-105'
                       : isTrainingByProfile
-                        ? 'bg-blue-100 dark:bg-blue-900/20 border-blue-300 dark:border-blue-700/50 text-blue-800 dark:text-blue-300'
+                        ? 'bg-blue-50 border-blue-200 text-blue-700'
                         : 'bg-muted border-border text-muted-foreground'
                       }`}
                   >
                     <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
                     <div className="flex items-center justify-center">
                       {isTrainingByProfile ? (
-                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-blue-800' : ''}`} />
                       ) : (
-                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-white' : ''}`} />
+                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
                       )}
                     </div>
                     {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
                     {day.hasPlanWorkout && day.workoutDay && (
-                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? 'text-white' : isTrainingByProfile ? 'text-blue-700' : 'text-orange-700'
+                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? (isTrainingByProfile ? 'text-blue-900' : 'text-slate-700') : isTrainingByProfile ? 'text-blue-700' : 'text-orange-600'
                         }`}>
                         {day.workoutDay.exercises?.length || 0} ej.
                       </div>
@@ -1040,25 +1270,41 @@ export function WorkoutDashboardEnhanced() {
                 {mappedDays.map(({ userDayNumber, planDay }) => {
                   const dayName = getDayNameFromNumber(userDayNumber)
                   const isToday = userDayNumber === (new Date().getDay() === 0 ? 7 : new Date().getDay())
+                  const dayTheme = getWorkoutFocusTheme(planDay)
 
                   return (
-                    <Card key={userDayNumber} className={planDay ? '' : 'border-orange-200 bg-orange-50/30'}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base flex items-center gap-2">
-                            <div className="p-2 bg-gradient-to-r from-purple-400 to-violet-500 rounded-full">
-                              <Dumbbell className="h-4 w-4 text-white" />
-                            </div>
-                            {dayName}
-                          </CardTitle>
-                          {isToday && (
-                            <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
-                              Hoy
+                    <Card key={userDayNumber} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${planDay ? `border-2 ${dayTheme.border}` : 'border-orange-100 bg-orange-50/20'}`}>
+                      <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-slate-50 via-orange-50 to-stone-50'}`}>
+                        <div className="absolute inset-0 opacity-70">
+                          <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/80" />
+                          <div className="absolute right-12 bottom-5 h-16 w-16 rounded-full bg-white/65 shadow-sm ring-1 ring-white/80" />
+                          <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/55" />
+                          <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white/80 to-transparent" />
+                        </div>
+                        <div className="relative z-10 flex h-full min-h-[132px] flex-col justify-between p-3 text-slate-900">
+                          <div className="flex items-start justify-between gap-2">
+                            <Badge className={`px-2 py-0.5 text-[10px] font-black shadow-sm ${planDay ? dayTheme.chip : 'border-orange-200 bg-orange-50 text-orange-800'}`}>
+                              {planDay ? dayTheme.label : 'Pendiente'}
                             </Badge>
-                          )}
+                            {isToday && (
+                              <Badge variant="default" className="border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
+                                Hoy
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <CardDescription className={`text-[10px] font-semibold uppercase tracking-normal ${planDay ? dayTheme.text : 'text-slate-500'}`}>
+                                {dayName}
+                              </CardDescription>
+                              <CardTitle className="mt-0.5 line-clamp-2 text-lg font-black leading-tight text-slate-900">
+                                {planDay?.day_name || (planDay ? 'Entrenamiento' : 'Sin plan asignado')}
+                              </CardTitle>
+                            </div>
+                          </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-2">
+                      <CardContent className={`space-y-2 p-3 ${planDay ? `bg-gradient-to-br ${dayTheme.heroSoft}` : ''}`}>
                         {planDay ? (() => {
                           // Obtener ejercicios completados para este día
                           const dayId = planDay.id || planDay.day_number || userDayNumber
@@ -1070,7 +1316,7 @@ export function WorkoutDashboardEnhanced() {
                           return (
                             <>
                               <div className="flex items-center justify-between">
-                                <div className="text-sm text-muted-foreground">
+                                <div className={`text-sm font-semibold ${dayTheme.text}`}>
                                   {totalExercises} ejercicios
                                 </div>
                                 {completedCount > 0 && (
@@ -1084,7 +1330,12 @@ export function WorkoutDashboardEnhanced() {
                               {/* Barra de progreso */}
                               {completedCount > 0 && (
                                 <div className="space-y-1">
-                                  <Progress value={progressPercentage} className="h-2" />
+                                  <div className="h-2 overflow-hidden rounded-full bg-white/70">
+                                    <div
+                                      className={`h-full rounded-full bg-gradient-to-r ${dayTheme.progress} transition-all duration-500`}
+                                      style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                                    />
+                                  </div>
                                   <p className="text-xs text-muted-foreground text-center">
                                     {Math.round(progressPercentage)}% completado
                                   </p>
@@ -1100,9 +1351,9 @@ export function WorkoutDashboardEnhanced() {
                                   return (
                                     <div
                                       key={exercise.id}
-                                      className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded transition-all touch-manipulation ${isCompleted
-                                        ? 'bg-green-50 border border-green-200'
-                                        : 'bg-muted/50'
+                                      className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded-xl border transition-all touch-manipulation ${isCompleted
+                                        ? 'bg-green-50 border-green-200'
+                                        : `bg-white/85 ${dayTheme.border}`
                                         }`}
                                     >
                                       <div className="flex items-center gap-2">
@@ -1110,7 +1361,7 @@ export function WorkoutDashboardEnhanced() {
                                           <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                         )}
                                         <div className="flex-1 min-w-0">
-                                          <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-foreground'}`}>
+                                          <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : dayTheme.title}`}>
                                             {fixEncoding(exerciseData.name)}
                                           </div>
                                           <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
@@ -1136,7 +1387,7 @@ export function WorkoutDashboardEnhanced() {
                               ) : (
                                 <Button
                                   size="sm"
-                                  className="w-full"
+                                  className={`w-full ${dayTheme.button}`}
                                   onClick={() => handleStartWorkout(planDay)}
                                   variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
                                 >
@@ -1168,31 +1419,41 @@ export function WorkoutDashboardEnhanced() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {userPlan?.days?.map((day: any, index: number) => {
                 const isToday = day.day_number === (new Date().getDay() === 0 ? 7 : new Date().getDay())
+                const dayTheme = getWorkoutFocusTheme(day)
 
                 return (
-                  <Card key={day.id} className={day.is_rest_day ? 'opacity-75' : ''}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-base flex items-center gap-2">
-                          {day.is_rest_day ? (
-                            <div className="p-2 bg-gradient-to-br from-gray-400 to-slate-500 rounded-full">
-                              <Clock className="h-4 w-4 text-white" />
-                            </div>
-                          ) : (
-                            <div className="p-2 bg-gradient-to-r from-purple-400 to-violet-500 rounded-full">
-                              <Dumbbell className="h-4 w-4 text-white" />
-                            </div>
-                          )}
-                          {day.day_name || getDayNameFromNumber(day.day_number)}
-                        </CardTitle>
-                        {isToday && (
-                          <Badge variant="default" className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white border-0">
-                            Hoy
+                  <Card key={day.id} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${day.is_rest_day ? 'opacity-80' : `border-2 ${dayTheme.border}`}`}>
+                    <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 bg-gradient-to-br ${dayTheme.hero}`}>
+                      <div className="absolute inset-0 opacity-25">
+                        <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/50" />
+                        <div className="absolute right-12 bottom-5 h-16 w-16 rounded-full bg-white/20" />
+                        <div className="absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-white/20" />
+                        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/35 to-transparent" />
+                      </div>
+                      <div className="relative z-10 flex h-full min-h-[132px] flex-col justify-between p-3 text-white">
+                        <div className="flex items-start justify-between gap-2">
+                          <Badge className="border-0 bg-white/90 px-2 py-0.5 text-[10px] font-black text-slate-950 shadow">
+                            {dayTheme.label}
                           </Badge>
-                        )}
+                          {isToday && (
+                            <Badge variant="default" className="border-0 bg-white/20 px-2 py-0.5 text-[10px] font-bold text-white backdrop-blur">
+                              Hoy
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-end justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <CardDescription className="text-[10px] font-semibold uppercase tracking-normal text-white/75">
+                              {getDayNameFromNumber(day.day_number)}
+                            </CardDescription>
+                            <CardTitle className="mt-0.5 line-clamp-2 text-lg font-black leading-tight text-white">
+                              {day.day_name || getDayNameFromNumber(day.day_number)}
+                            </CardTitle>
+                          </div>
+                        </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className={`space-y-3 p-3 bg-gradient-to-br ${dayTheme.heroSoft}`}>
                       {day.is_rest_day ? (
                         <div className="text-center py-4">
                           <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
@@ -1208,8 +1469,8 @@ export function WorkoutDashboardEnhanced() {
 
                         return (
                           <>
-                            <div className="flex items-center justify-between">
-                              <div className="text-sm text-muted-foreground">
+                              <div className="flex items-center justify-between">
+                              <div className={`text-sm font-semibold ${dayTheme.text}`}>
                                 {totalExercises} ejercicios
                               </div>
                               {completedCount > 0 && (
@@ -1223,7 +1484,12 @@ export function WorkoutDashboardEnhanced() {
                             {/* Barra de progreso */}
                             {completedCount > 0 && (
                               <div className="space-y-1">
-                                <Progress value={progressPercentage} className="h-2" />
+                                <div className="h-2 overflow-hidden rounded-full bg-white/70">
+                                  <div
+                                    className={`h-full rounded-full bg-gradient-to-r ${dayTheme.progress} transition-all duration-500`}
+                                    style={{ width: `${Math.min(progressPercentage, 100)}%` }}
+                                  />
+                                </div>
                                 <p className="text-xs text-muted-foreground text-center">
                                   {Math.round(progressPercentage)}% completado
                                 </p>
@@ -1239,9 +1505,9 @@ export function WorkoutDashboardEnhanced() {
                                 return (
                                   <div
                                     key={exercise.id}
-                                    className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded transition-all touch-manipulation ${isCompleted
-                                      ? 'bg-green-50 border border-green-200'
-                                      : 'bg-muted/50'
+                                    className={`text-[11px] md:text-xs p-2 md:p-2.5 rounded-xl border transition-all touch-manipulation ${isCompleted
+                                      ? 'bg-green-50 border-green-200'
+                                      : `bg-white/85 ${dayTheme.border}`
                                       }`}
                                   >
                                     <div className="flex items-center gap-2">
@@ -1249,7 +1515,7 @@ export function WorkoutDashboardEnhanced() {
                                         <CheckCircle2 className="h-3.5 w-3.5 md:h-3 md:w-3 text-green-600 flex-shrink-0" />
                                       )}
                                       <div className="flex-1 min-w-0">
-                                        <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : 'text-foreground'}`}>
+                                        <div className={`font-semibold md:font-medium leading-tight break-words ${isCompleted ? 'text-green-700 line-through' : dayTheme.title}`}>
                                           {fixEncoding(exerciseData.name)}
                                         </div>
                                         <div className="text-muted-foreground mt-0.5 text-[10px] md:text-xs">
@@ -1275,7 +1541,7 @@ export function WorkoutDashboardEnhanced() {
                             ) : (
                               <Button
                                 size="sm"
-                                className="w-full"
+                                className={`w-full ${dayTheme.button}`}
                                 onClick={() => handleStartWorkout(day)}
                                 variant={completedCount === totalExercises && totalExercises > 0 ? "default" : "default"}
                               >

@@ -44,6 +44,15 @@ LOGGING = {
 # Configuración de CORS para pruebas
 CORS_ALLOW_ALL_ORIGINS = True
 
+# Las pruebas usan el cliente HTTP interno de Django. Aunque CI ejecute con
+# DEBUG=False, no debe aplicar redirecciones/cookies seguras propias de prod.
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+SECURE_SSL_REDIRECT = False
+SECURE_HSTS_SECONDS = 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+SECURE_HSTS_PRELOAD = False
+
 # Configuración de JWT para pruebas
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
