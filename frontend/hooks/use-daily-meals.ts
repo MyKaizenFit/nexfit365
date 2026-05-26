@@ -365,7 +365,7 @@ export function useDailyMeals() {
             if (selection && selection.option && typeof selection.option === 'object') {
               // Validar que la opción tenga la estructura correcta
               if (selection.option.id && selection.option.name) {
-                return { ...meal, selectedOption: selection.option, isCompleted: false }
+                return { ...meal, selectedOption: selection.option, isCompleted: true }
               }
             }
             return meal
@@ -382,15 +382,15 @@ export function useDailyMeals() {
     return meals
   }, [])
 
-  // Seleccionar opción de comida y marcarla como completada automáticamente.
+  // Seleccionar opción de comida (solo planificación, no completada)
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
     
-    // Actualizar estado inmediatamente
+    // Actualizar estado inmediatamente (marcar como no completada por defecto)
     setMeals(prevMeals => {
       
       const updatedMeals = prevMeals.map(meal => 
         meal.id === mealId 
-          ? { ...meal, selectedOption: option, isCompleted: true, isSkipped: false, skipReason: null }
+          ? { ...meal, selectedOption: option, isCompleted: true, isSkipped: false, skipReason: null } // Seleccionar = completar
           : meal
       )
       
@@ -398,7 +398,7 @@ export function useDailyMeals() {
       // Guardar en localStorage como backup
       saveSelectionsToStorage(updatedMeals)
       
-      // Actualizar macros: al seleccionar ya cuenta como completada.
+      // Actualizar macros (comidas completadas al seleccionar)
       const newMacros = calculateTotalMacros(updatedMeals)
       setMacros(newMacros)
       
@@ -417,7 +417,7 @@ export function useDailyMeals() {
           const mealType = meal.mealType
           if (mealType) {
             
-            // Guardar como MealLog completado al seleccionar.
+            // Guardar como MealLog con completed=False
             const headers = await getAuthHeaders()
             
             // Preparar datos para enviar
@@ -431,7 +431,7 @@ export function useDailyMeals() {
               carbs: option.carbs || 0,
               fat: option.fat || 0,
               skip_meal: false,
-              completed: true
+              completed: true // Seleccionar = marcar como completada directamente
             }
             
             // Preferir recipeId (viene explícito del backend). Evita enviar IDs compuestos tipo "meal-...-recipe-...".
@@ -471,52 +471,6 @@ export function useDailyMeals() {
       }
     }, 100)
 
-  }, [calculateTotalMacros, saveSelectionsToStorage, meals])
-
-  const deselectMealOption = useCallback(async (mealId: string) => {
-    const meal = meals.find(m => m.id === mealId)
-
-    setMeals(prevMeals => {
-      const updatedMeals = prevMeals.map(meal =>
-        meal.id === mealId
-          ? {
-              ...meal,
-              selectedOption: null,
-              isCompleted: false,
-              isSkipped: false,
-              skipReason: null,
-              mealLogId: null,
-              photo: null,
-            }
-          : meal
-      )
-
-      saveSelectionsToStorage(updatedMeals)
-      setMacros(calculateTotalMacros(updatedMeals))
-      return updatedMeals
-    })
-
-    if (!meal) return
-
-    try {
-      setSyncing(true)
-      const today = new Date().toISOString().split('T')[0]
-      const headers = await getAuthHeaders()
-      await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-        method: 'DELETE',
-        body: JSON.stringify({
-          meal_type: meal.mealType,
-          plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
-        }),
-      })
-    } catch (error) {
-    } finally {
-      setSyncing(false)
-    }
   }, [calculateTotalMacros, saveSelectionsToStorage, meals])
 
   // Cargar selecciones del backend desde MealLog (incluye completadas y no completadas)
@@ -653,10 +607,7 @@ export function useDailyMeals() {
       if (mealType) {
         const headers = await getAuthHeaders()
         const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-          headers: {
-            ...headers,
-            'Content-Type': 'application/json; charset=utf-8',
-          },
+          headers,
           method: 'POST',
           body: JSON.stringify({
             date: today,
@@ -1171,7 +1122,6 @@ export function useDailyMeals() {
     error,
     syncing,
     selectMealOption,
-    deselectMealOption,
     markMealCompleted,
     markMealAsNotEaten,
     uploadMealPhoto,
