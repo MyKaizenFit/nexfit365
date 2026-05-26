@@ -79,6 +79,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
+import { ThemeToggle } from "@/components/theme-toggle"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -598,6 +599,7 @@ function DashboardContent() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <ThemeToggle className="bg-card/80" />
                   <Suspense fallback={<div className="w-10 h-10 animate-pulse bg-gray-200 rounded-full"></div>}>
                     <NotificationsDropdown />
                   </Suspense>

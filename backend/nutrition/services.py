@@ -5,101 +5,13 @@ from django.db import DatabaseError
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from accounts.models import CustomUser
-from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe, RecipeIngredient, MealIngredientExclusion
+from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe, MealIngredientExclusion
 import math
 import logging
 import random
 import unicodedata
 
 logger = logging.getLogger(__name__)
-
-INGREDIENT_PORTION_LIMITS = {
-    'oil': 15.0,
-    'nuts': 30.0,
-}
-
-
-def _normalize_food_name(value: str) -> str:
-    normalized = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').lower().strip()
-    normalized = normalized.replace('-', ' ')
-    return ' '.join(normalized.split())
-
-
-def _ingredient_limit_kind(name: str, allergens=None, category: str = '') -> Optional[str]:
-    normalized_name = _normalize_food_name(name)
-    normalized_category = _normalize_food_name(category)
-    normalized_allergens = set(_normalize_preference_terms(allergens or []))
-
-    oil_terms = {'aceite', 'aove', 'oil', 'olive oil', 'aceite de oliva', 'aceite oliva'}
-    if any(term in normalized_name for term in oil_terms) or 'aceite' in normalized_category or 'oil' in normalized_category:
-        return 'oil'
-
-    nut_terms = set(Recipe.ALLERGEN_KEYWORDS.get('nuts', []))
-    if 'nuts' in normalized_allergens or any(term in normalized_name for term in nut_terms):
-        return 'nuts'
-
-    return None
-
-
-def limit_scaled_ingredient_amount(name: str, amount: float, unit: str = 'g', allergens=None, category: str = '') -> Tuple[float, Optional[str]]:
-    limit_kind = _ingredient_limit_kind(name, allergens=allergens, category=category)
-    if not limit_kind:
-        return amount, None
-
-    normalized_unit = RecipeIngredient._normalize_unit(unit) or 'g'
-    if normalized_unit not in {'g', 'gr', 'gramo', 'gramos', 'ml', 'mililitro', 'mililitros'}:
-        return amount, None
-
-    return min(amount, INGREDIENT_PORTION_LIMITS[limit_kind]), limit_kind
-
-
-def apply_fat_dense_ingredient_caps(recipe: Recipe, scale_factor: float, macros: Dict[str, float]) -> Dict[str, float]:
-    adjusted = {
-        'calories': float(macros.get('calories') or 0),
-        'protein': float(macros.get('protein') or 0),
-        'carbs': float(macros.get('carbs') or 0),
-        'fat': float(macros.get('fat') or 0),
-    }
-
-    recipe_ingredients = list(recipe.recipe_ingredients.select_related('food').all())
-    if not recipe_ingredients:
-        return macros
-
-    for ingredient in recipe_ingredients:
-        original_amount = float(ingredient.quantity or 0)
-        scaled_amount = original_amount * scale_factor
-        capped_amount, limit_kind = limit_scaled_ingredient_amount(
-            ingredient.food.name,
-            scaled_amount,
-            ingredient.unit or ingredient.food.serving_unit or 'g',
-            allergens=getattr(ingredient.food, 'allergens', []),
-            category=getattr(ingredient.food, 'category', ''),
-        )
-        if not limit_kind or capped_amount >= scaled_amount:
-            continue
-
-        raw_ratio = RecipeIngredient.compute_nutrition_ratio(
-            quantity=scaled_amount,
-            unit=ingredient.unit,
-            food=ingredient.food,
-        )
-        capped_ratio = RecipeIngredient.compute_nutrition_ratio(
-            quantity=capped_amount,
-            unit=ingredient.unit,
-            food=ingredient.food,
-        )
-        delta_ratio = max(0.0, raw_ratio - capped_ratio)
-        adjusted['calories'] -= float(ingredient.food.calories or 0) * delta_ratio
-        adjusted['protein'] -= float(ingredient.food.protein or 0) * delta_ratio
-        adjusted['carbs'] -= float(ingredient.food.carbs or 0) * delta_ratio
-        adjusted['fat'] -= float(ingredient.food.fat or 0) * delta_ratio
-
-    return {
-        'calories': max(0, int(round(adjusted['calories']))),
-        'protein': max(0.0, round(adjusted['protein'], 1)),
-        'carbs': max(0.0, round(adjusted['carbs'], 1)),
-        'fat': max(0.0, round(adjusted['fat'], 1)),
-    }
 
 
 def _normalize_preference_terms(value) -> List[str]:
@@ -150,20 +62,9 @@ def _get_user_blocked_terms(user: CustomUser) -> List[str]:
     unique_terms = []
     seen = set()
     for term in blocked_terms:
-        expanded_terms = [term]
-        allergen_key = term.replace(' ', '-')
-        canonical_allergen = Recipe.ALLERGEN_ALIASES.get(allergen_key)
-        if canonical_allergen:
-            expanded_terms.append(canonical_allergen)
-
-        for allergen, keywords in Recipe.ALLERGEN_KEYWORDS.items():
-            if term == allergen or term in keywords:
-                expanded_terms.append(allergen)
-
-        for expanded_term in expanded_terms:
-            if expanded_term and expanded_term not in seen:
-                seen.add(expanded_term)
-                unique_terms.append(expanded_term)
+        if term not in seen:
+            seen.add(term)
+            unique_terms.append(term)
 
     return unique_terms
 
@@ -205,20 +106,8 @@ def _recipe_matches_blocked_terms(recipe: Recipe, blocked_terms: List[str]) -> b
 
     recipe_allergens = _normalize_preference_terms(getattr(recipe, 'allergens', []))
     for allergen in recipe_allergens:
-        allergen_matches = {allergen}
-        allergen_matches.update(Recipe.ALLERGEN_KEYWORDS.get(allergen, []))
-        allergen_matches.update(
-            alias.replace('-', ' ')
-            for alias, canonical in Recipe.ALLERGEN_ALIASES.items()
-            if canonical == allergen
-        )
         for term in blocked_terms:
-            if (
-                term == allergen
-                or term in allergen
-                or allergen in term
-                or term in allergen_matches
-            ):
+            if term == allergen or term in allergen or allergen in term:
                 return True
 
     recipe_ingredients = getattr(recipe, 'ingredients', []) or []
@@ -235,9 +124,6 @@ def _recipe_matches_blocked_terms(recipe: Recipe, blocked_terms: List[str]) -> b
 
         for term in blocked_terms:
             if term in normalized_name or normalized_name in term:
-                return True
-            allergen_keywords = Recipe.ALLERGEN_KEYWORDS.get(term, [])
-            if allergen_keywords and any(keyword in normalized_name for keyword in allergen_keywords):
                 return True
 
     return False
@@ -273,7 +159,6 @@ def recipe_matches_meal_type(recipe: Recipe, meal_type: str) -> bool:
 
 
 def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal, desired_count: int = 3) -> List[Recipe]:
-    template_recipe_ids = set(meal_template.suggested_recipes.values_list('id', flat=True))
     suggested_recipes = [
         recipe
         for recipe in meal_template.suggested_recipes.filter(is_active=True)
@@ -291,8 +176,6 @@ def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal
     fallback_recipes = []
     for recipe in Recipe.objects.filter(is_active=True):
         if recipe.id in {item.id for item in selected_recipes}:
-            continue
-        if recipe.id in template_recipe_ids:
             continue
         if not recipe_matches_meal_type(recipe, meal_template.meal_type):
             continue
@@ -593,43 +476,6 @@ class PersonalizedNutritionService:
                 description=f"{meal_name} personalizado para tu objetivo de {self.user.main_goal}",
                 order_index=list(meal_distribution.keys()).index(meal_name) + 1
             )
-
-    def _scale_meal_recipe(self, meal_recipe, calorie_ratio):
-        """Escala una opción de receta manteniendo coherentes porciones y macros custom."""
-        update_fields = []
-
-        if meal_recipe.custom_calories is not None:
-            meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * calorie_ratio)))
-            update_fields.append('custom_calories')
-        if meal_recipe.custom_protein is not None:
-            meal_recipe.custom_protein = round(float(meal_recipe.custom_protein) * calorie_ratio, 2)
-            update_fields.append('custom_protein')
-        if meal_recipe.custom_carbs is not None:
-            meal_recipe.custom_carbs = round(float(meal_recipe.custom_carbs) * calorie_ratio, 2)
-            update_fields.append('custom_carbs')
-        if meal_recipe.custom_fat is not None:
-            meal_recipe.custom_fat = round(float(meal_recipe.custom_fat) * calorie_ratio, 2)
-            update_fields.append('custom_fat')
-
-        meal_recipe.servings = Decimal(str(max(0.10, round(float(meal_recipe.servings) * calorie_ratio, 2))))
-        update_fields.append('servings')
-        meal_recipe.save(update_fields=update_fields)
-
-    def _sync_meal_with_recipe_options(self, meal, meal_recipes):
-        """Recalcula una comida como promedio de sus opciones de receta visibles."""
-        if not meal_recipes:
-            return False
-
-        display_calories = [mr.get_display_calories() for mr in meal_recipes]
-        display_protein = [mr.get_display_protein() for mr in meal_recipes]
-        display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
-        display_fat = [mr.get_display_fat() for mr in meal_recipes]
-
-        meal.calories = int(round(sum(display_calories) / len(display_calories))) if display_calories else meal.calories
-        meal.protein = round(sum(display_protein) / len(display_protein), 1) if display_protein else meal.protein
-        meal.carbs = round(sum(display_carbs) / len(display_carbs), 1) if display_carbs else meal.carbs
-        meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
-        return True
     
     def get_recommendations(self) -> Dict[str, any]:
         """Obtiene recomendaciones nutricionales basadas en el perfil del usuario"""
@@ -694,7 +540,7 @@ class PersonalizedNutritionService:
             'morning_snack': 0.10,  # 10% del día
             'lunch': 0.35,          # 35% del día
             'afternoon_snack': 0.10, # 10% del día
-            'dinner': 0.20,          # 20% del día
+            'dinner': 0.25,          # 25% del día
             'evening_snack': 0.10,   # 10% del día
             'snack': 0.15            # 15% del día (genérico)
         }
@@ -710,7 +556,11 @@ class PersonalizedNutritionService:
             # Si la receta no tiene calorías, usar un factor por defecto
             scale_factor = 1.0
         
-        # calculate_daily_calories() ya incluye déficit/superávit según objetivo.
+        # Ajustar según objetivo del usuario
+        if self.user.main_goal == 'lose_weight':
+            scale_factor *= 0.9  # Reducir un 10% para déficit
+        elif self.user.main_goal == 'gain_muscle':
+            scale_factor *= 1.1  # Aumentar un 10% para superávit
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -726,13 +576,6 @@ class PersonalizedNutritionService:
             for ingredient in recipe_ingredients:
                 original_amount = float(ingredient.quantity or 0)
                 scaled_amount = original_amount * scale_factor
-                scaled_amount, _ = limit_scaled_ingredient_amount(
-                    ingredient.food.name,
-                    scaled_amount,
-                    ingredient.unit or ingredient.food.serving_unit or 'g',
-                    allergens=getattr(ingredient.food, 'allergens', []),
-                    category=getattr(ingredient.food, 'category', ''),
-                )
                 scaled_ingredients.append({
                     'name': ingredient.food.name,
                     'amount': round(scaled_amount, 1),
@@ -748,11 +591,6 @@ class PersonalizedNutritionService:
                 if isinstance(ingredient, dict):
                     original_amount = float(ingredient.get('amount', 0))
                     scaled_amount = original_amount * scale_factor
-                    scaled_amount, _ = limit_scaled_ingredient_amount(
-                        ingredient.get('name', 'Ingrediente'),
-                        scaled_amount,
-                        ingredient.get('unit', 'g'),
-                    )
                     scaled_ingredients.append({
                         'name': ingredient.get('name', 'Ingrediente'),
                         'amount': round(scaled_amount, 1),
@@ -776,8 +614,6 @@ class PersonalizedNutritionService:
             'fat': round(float(recipe.fat) * scale_factor, 1) if recipe.fat else 0,
             'fiber': round(float(recipe.fiber) * scale_factor, 1) if recipe.fiber else 0
         }
-        capped_macros = apply_fat_dense_ingredient_caps(recipe, scale_factor, scaled_macros)
-        scaled_macros.update(capped_macros)
         
         # Calcular porciones ajustadas
         servings = max(1, round(recipe.servings * scale_factor)) if recipe.servings else 1
@@ -1028,10 +864,6 @@ class PersonalizedNutritionService:
                 calorie_ratio = Decimal(str(new_daily_calories)) / Decimal(str(total_old_calories))
                 
                 for meal in plan.meals.all():
-                    meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
-                    for meal_recipe in meal_recipes:
-                        self._scale_meal_recipe(meal_recipe, float(calorie_ratio))
-
                     if meal.calories:
                         meal.calories = int(Decimal(meal.calories) * calorie_ratio)
                         if meal.protein is not None:
@@ -1040,9 +872,7 @@ class PersonalizedNutritionService:
                             meal.carbs = (Decimal(meal.carbs) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
                         if meal.fat is not None:
                             meal.fat = (Decimal(meal.fat) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-
-                    self._sync_meal_with_recipe_options(meal, meal_recipes)
-                    meal.save()
+                        meal.save()
         
         # Crear nota descriptiva
         weight_note = ""
@@ -1132,7 +962,26 @@ class PersonalizedNutritionService:
                 # Escalar primero cantidades/macros a nivel de receta para mantener coherencia visual
                 meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
                 for meal_recipe in meal_recipes:
-                    self._scale_meal_recipe(meal_recipe, calorie_ratio)
+                    update_fields = []
+
+                    if meal_recipe.custom_calories is not None:
+                        meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * calorie_ratio)))
+                        update_fields.append('custom_calories')
+                    if meal_recipe.custom_protein is not None:
+                        meal_recipe.custom_protein = round(float(meal_recipe.custom_protein) * calorie_ratio, 2)
+                        update_fields.append('custom_protein')
+                    if meal_recipe.custom_carbs is not None:
+                        meal_recipe.custom_carbs = round(float(meal_recipe.custom_carbs) * calorie_ratio, 2)
+                        update_fields.append('custom_carbs')
+                    if meal_recipe.custom_fat is not None:
+                        meal_recipe.custom_fat = round(float(meal_recipe.custom_fat) * calorie_ratio, 2)
+                        update_fields.append('custom_fat')
+
+                    meal_recipe.servings = Decimal(str(max(0.10, round(float(meal_recipe.servings) * calorie_ratio, 2))))
+                    update_fields.append('servings')
+
+                    if update_fields:
+                        meal_recipe.save(update_fields=update_fields)
 
                 if meal.calories:
                     meal.calories = int(meal.calories * calorie_ratio)
@@ -1141,8 +990,18 @@ class PersonalizedNutritionService:
                     meal.fat = round(float(meal.fat) * calorie_ratio, 1) if meal.fat else None
 
                 # Si la comida tiene recetas, recalcular macros usando promedio de opciones
-                self._sync_meal_with_recipe_options(meal, meal_recipes)
-                meal.save()
+                if meal_recipes:
+                    display_calories = [mr.get_display_calories() for mr in meal_recipes]
+                    display_protein = [mr.get_display_protein() for mr in meal_recipes]
+                    display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
+                    display_fat = [mr.get_display_fat() for mr in meal_recipes]
+
+                    meal.calories = int(round(sum(display_calories) / len(display_calories))) if display_calories else meal.calories
+                    meal.protein = round(sum(display_protein) / len(display_protein), 1) if display_protein else meal.protein
+                    meal.carbs = round(sum(display_carbs) / len(display_carbs), 1) if display_carbs else meal.carbs
+                    meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
+
+                    meal.save()
         
         # Registrar cambio en historial
         adjustment_text = f"{calorie_adjustment:+d}" if calorie_adjustment != 0 else "0"

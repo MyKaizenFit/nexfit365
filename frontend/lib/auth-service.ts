@@ -41,8 +41,6 @@ export interface AuthResponse {
   must_change_password?: boolean
 }
 
-const normalizeEmail = (email: string) => email.trim().toLowerCase()
-
 // Utilidades para cookies
 const setCookie = (name: string, value: string, days: number = 7) => {
   if (typeof window === 'undefined') return
@@ -223,17 +221,12 @@ export class AuthService {
   // Login de usuario
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const normalizedCredentials = {
-        ...credentials,
-        email: normalizeEmail(credentials.email || ''),
-      }
-
       // Verificar si el backend está disponible
       if (this.allowOfflineMode && this.isOfflineMode) {
         // Modo offline: simular login exitoso
         const mockUser: User = {
           id: 1,
-          email: normalizedCredentials.email,
+          email: credentials.email,
           first_name: "Usuario",
           last_name: "Demo",
           role: "basic", // Usar "basic" como valor por defecto
@@ -262,13 +255,13 @@ export class AuthService {
       }
 
       // Validar datos antes de enviar
-      if (!normalizedCredentials.email || !normalizedCredentials.password) {
+      if (!credentials.email || !credentials.password) {
         throw new Error('Email y contraseña son requeridos')
       }
 
       // Validar formato de email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(normalizedCredentials.email)) {
+      if (!emailRegex.test(credentials.email)) {
         throw new Error('Formato de email inválido')
       }
 
@@ -282,7 +275,7 @@ export class AuthService {
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGIN), {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify(normalizedCredentials),
+        body: JSON.stringify(credentials),
       })
 
       // Manejar diferentes códigos de respuesta
@@ -413,17 +406,12 @@ export class AuthService {
   // Registro de usuario
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     try {
-      const normalizedCredentials = {
-        ...credentials,
-        email: normalizeEmail(credentials.email || ''),
-      }
-
       // Verificar si el backend está disponible
       if (this.isOfflineMode) {
         // Modo offline: simular registro exitoso
         const mockUser: User = {
           id: Date.now(),
-          email: normalizedCredentials.email,
+          email: credentials.email,
           first_name: credentials.first_name || "Usuario",
           last_name: credentials.last_name || "Nuevo",
           role: "basic", // Usar "basic" como valor por defecto
@@ -452,28 +440,28 @@ export class AuthService {
       }
 
       // Validar datos antes de enviar
-      if (!normalizedCredentials.email || !normalizedCredentials.password || !normalizedCredentials.password_confirm) {
+      if (!credentials.email || !credentials.password || !credentials.password_confirm) {
         throw new Error('Todos los campos son requeridos')
       }
 
-      if (normalizedCredentials.password !== normalizedCredentials.password_confirm) {
+      if (credentials.password !== credentials.password_confirm) {
         throw new Error('Las contraseñas no coinciden')
       }
 
-      if (normalizedCredentials.password.length < 8) {
+      if (credentials.password.length < 8) {
         throw new Error('La contraseña debe tener al menos 8 caracteres')
       }
 
       // Validar formato de email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(normalizedCredentials.email)) {
+      if (!emailRegex.test(credentials.email)) {
         throw new Error('Formato de email inválido')
       }
 
       // Corregir el role para que coincida con el backend
       const correctedCredentials = {
-        ...normalizedCredentials,
-        role: normalizedCredentials.role || "basic" // Usar "basic" como valor por defecto
+        ...credentials,
+        role: credentials.role || "basic" // Usar "basic" como valor por defecto
       }
       // (debug object removed)
       // (debug object removed)
@@ -929,14 +917,13 @@ export class AuthService {
     }
   }
 
-  // Solicitar reset de contraseña (envía enlace por email)
+  // Solicitar reset de contraseña (envía contraseña temporal por email)
   async forgotPassword(email: string): Promise<void> {
     try {
-      const normalizedEmail = normalizeEmail(email || '')
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.FORGOT_PASSWORD), {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ email: normalizedEmail }),
+        body: JSON.stringify({ email }),
       })
 
       if (!response.ok) {
@@ -946,36 +933,6 @@ export class AuthService {
 
       // El backend siempre devuelve éxito por seguridad (no revela si el email existe)
       return
-    } catch (error) {
-      throw handleFetchError(error)
-    }
-  }
-
-  async resetPassword(token: string, newPassword: string, newPasswordConfirm: string): Promise<void> {
-    try {
-      if (!token) {
-        throw new Error('El enlace de recuperación no es válido')
-      }
-
-      if (newPassword !== newPasswordConfirm) {
-        throw new Error('Las contraseñas no coinciden')
-      }
-
-      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.RESET_PASSWORD), {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          token,
-          new_password: newPassword,
-          new_password_confirm: newPasswordConfirm,
-        }),
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const passwordError = Array.isArray(errorData.errors) ? errorData.errors.join(' ') : null
-        throw new Error(passwordError || errorData.detail || 'Error al actualizar la contraseña')
-      }
     } catch (error) {
       throw handleFetchError(error)
     }
