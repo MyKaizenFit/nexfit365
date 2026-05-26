@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Flame, Zap, Apple, Droplets, Info, Target, CheckCircle, AlertCircle, Trophy } from "lucide-react"
+import { formatMacro } from "@/lib/utils"
 
 interface NutritionSummaryProps {
   caloriesConsumed: number
@@ -311,7 +312,7 @@ export function NutritionSummary({
                         {meal.selectedOption.calories} kcal
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        P: {meal.selectedOption.protein}g | C: {meal.selectedOption.carbs}g | G: {meal.selectedOption.fat}g
+                        P: {formatMacro(meal.selectedOption.protein)}g | C: {formatMacro(meal.selectedOption.carbs)}g | G: {formatMacro(meal.selectedOption.fat)}g
                       </div>
                     </div>
                   ) : (

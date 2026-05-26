@@ -40,6 +40,7 @@ interface Food {
   name: string
   brand: string
   category: string
+  equivalence_category?: string
   store: string
   calories: number
   protein: number
@@ -65,6 +66,25 @@ const ALLERGEN_OPTIONS = [
   { value: 'shellfish', label: 'Marisco' },
   { value: 'sesame', label: 'Sesamo' },
 ]
+
+const EQUIVALENCE_OPTIONS = [
+  { value: 'none', label: 'Sin grupo manual' },
+  { value: 'carnes', label: 'Carnes' },
+  { value: 'pescados', label: 'Pescados' },
+  { value: 'marisco', label: 'Marisco' },
+  { value: 'huevos', label: 'Huevos' },
+  { value: 'arroz_cereales', label: 'Arroz / cereales / pasta' },
+  { value: 'legumbres', label: 'Legumbres' },
+  { value: 'fruta', label: 'Fruta' },
+  { value: 'verduras', label: 'Verduras' },
+  { value: 'lacteos', label: 'Lacteos' },
+  { value: 'frutos_secos', label: 'Frutos secos' },
+  { value: 'grasas', label: 'Grasas' },
+  { value: 'otros', label: 'Otros' },
+]
+
+const getEquivalenceLabel = (value?: string) =>
+  EQUIVALENCE_OPTIONS.find((option) => option.value === value)?.label || value || '-'
 
 const ALLERGEN_KEYWORDS: Record<string, string[]> = {
   gluten: ['gluten', 'trigo', 'wheat', 'harina', 'pan', 'pasta', 'cebada', 'barley', 'centeno', 'rye', 'avena', 'oats', 'malta', 'malt'],
@@ -156,7 +176,7 @@ export function FoodManagement() {
   const [editingFood, setEditingFood] = useState<Food | null>(null)
   const [savingFood, setSavingFood] = useState(false)
   const emptyForm = {
-    name: '', brand: '', category: '', store: '',
+    name: '', brand: '', category: '', equivalence_category: 'none', store: '',
     calories: '', protein: '', carbs: '', fat: '',
     fiber: '', sugar: '', sodium: '', serving_size: '100', serving_unit: 'g',
     allergens: [] as string[],
@@ -395,6 +415,7 @@ export function FoodManagement() {
       name: food.name,
       brand: food.brand || '',
       category: food.category || '',
+      equivalence_category: food.equivalence_category || 'none',
       store: food.store || '',
       calories: String(food.calories ?? ''),
       protein: String(food.protein ?? ''),
@@ -490,6 +511,7 @@ export function FoodManagement() {
         name: foodForm.name.trim(),
         brand: foodForm.brand.trim(),
         category: foodForm.category.trim(),
+        equivalence_category: foodForm.equivalence_category === 'none' ? '' : foodForm.equivalence_category,
         store: foodForm.store || '',
         calories: Number(foodForm.calories) || 0,
         protein: Number(foodForm.protein) || 0,
@@ -1066,6 +1088,11 @@ export function FoodManagement() {
                                     {food.category}
                                   </span>
                                 )}
+                                {food.equivalence_category && (
+                                  <span className="px-2 py-0.5 bg-teal-500/15 text-teal-700 dark:text-teal-400 rounded">
+                                    Eq: {getEquivalenceLabel(food.equivalence_category)}
+                                  </span>
+                                )}
                                 {Array.isArray(food.allergens) && food.allergens.length > 0 && (
                                   <span className="px-2 py-0.5 bg-red-500/15 text-red-700 dark:text-red-400 rounded">
                                     {food.allergens.length} alergenos
@@ -1114,6 +1141,10 @@ export function FoodManagement() {
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Categoría</span>
                                   <span className="font-medium">{food.category || '-'}</span>
+                                </div>
+                                <div className="flex justify-between gap-3">
+                                  <span className="text-muted-foreground">Equivalencia</span>
+                                  <span className="font-medium text-right">{getEquivalenceLabel(food.equivalence_category)}</span>
                                 </div>
                                 <div className="flex justify-between">
                                   <span className="text-muted-foreground">Supermercado</span>
@@ -1309,6 +1340,28 @@ export function FoodManagement() {
               </Select>
             </div>
 
+            <div className="md:col-span-2 space-y-2 rounded-lg border border-emerald-100 bg-emerald-50/60 p-3">
+              <div>
+                <Label className="font-semibold">Grupo de equivalencia</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Este grupo decide con qué alimentos puede intercambiarse en las recetas.
+                </p>
+              </div>
+              <Select
+                value={foodForm.equivalence_category || 'none'}
+                onValueChange={(value) => setFoodForm((form) => ({ ...form, equivalence_category: value }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sin grupo manual" />
+                </SelectTrigger>
+                <SelectContent>
+                  {EQUIVALENCE_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Alergenos */}
             <div className="md:col-span-2 space-y-2 rounded-lg border border-red-100 bg-red-50/60 p-3">
               <div>
@@ -1473,6 +1526,7 @@ export function FoodManagement() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
               <p className="font-semibold">Columnas reconocidas (en inglés o español):</p>
               <p><strong>name</strong> / nombre · brand / marca · category / categoria · store / supermercado</p>
+              <p><strong>equivalence_category</strong> / equivalencia: carnes,pescados,marisco,huevos,arroz_cereales,legumbres,fruta,verduras,lacteos,frutos_secos,grasas,otros</p>
               <p><strong>calories</strong> / calorias · protein / proteina · carbs / carbohidratos · fat / grasa</p>
               <p>fiber / fibra · sugar / azucar · sodium / sodio · serving_size · serving_unit / unidad</p>
               <p><strong>allergens</strong> / alergenos: gluten,dairy,eggs,nuts,soy,fish,shellfish,sesame</p>

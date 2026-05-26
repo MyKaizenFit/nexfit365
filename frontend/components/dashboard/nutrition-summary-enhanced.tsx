@@ -269,7 +269,7 @@ export const NutritionSummaryEnhanced = memo(function NutritionSummaryEnhanced({
                         {meal.selectedOption.calories} kcal
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        P: {meal.selectedOption.protein}g | C: {meal.selectedOption.carbs}g | G: {meal.selectedOption.fat}g
+                        P: {formatMacro(meal.selectedOption.protein)}g | C: {formatMacro(meal.selectedOption.carbs)}g | G: {formatMacro(meal.selectedOption.fat)}g
                       </div>
                     </div>
                   ) : (

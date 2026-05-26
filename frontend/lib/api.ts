@@ -58,8 +58,8 @@ export const AUTH_ENDPOINTS = {
 export const USER_ENDPOINTS = {
   PROFILE: 'me/',
   UPDATE_PROFILE: 'me/',
-  COMPLETE_INITIAL_REGISTRATION: 'profile/initial-registration/',
-  INITIAL_REGISTRATION_STATUS: 'profile/initial-registration/status/',
+  COMPLETE_INITIAL_REGISTRATION: 'profile/initial-registration',
+  INITIAL_REGISTRATION_STATUS: 'profile/initial-registration/status',
 }
 
 // Endpoints de entrenamientos

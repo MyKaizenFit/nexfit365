@@ -12,6 +12,7 @@ import {
   RegisterCredentials,
   AuthResponse
 } from '@/lib/auth-service'
+import { buildApiUrl, USER_ENDPOINTS } from '@/lib/api'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
 
 // Estado de autenticación
@@ -41,6 +42,48 @@ interface AuthContextType extends AuthState, AuthActions { }
 
 // Crear contexto
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
+
+const setInitialRegistrationCookie = (completed: boolean) => {
+  if (typeof document === 'undefined') return
+
+  if (completed) {
+    document.cookie = `initial_form_completed=true; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`
+  } else {
+    document.cookie = 'initial_form_completed=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+  }
+}
+
+const syncInitialRegistrationStatus = async (accessToken: string): Promise<boolean> => {
+  const response = await fetch(buildApiUrl(USER_ENDPOINTS.INITIAL_REGISTRATION_STATUS), {
+    method: 'GET',
+    headers: {
+      'Accept': 'application/json; charset=utf-8',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  })
+
+  if (!response.ok) {
+    localStorage.removeItem('initial_form_completed')
+    setInitialRegistrationCookie(false)
+    return false
+  }
+
+  const data = await response.json()
+  const isComplete = Boolean(data.is_complete)
+
+  if (isComplete) {
+    localStorage.setItem('initial_form_completed', 'true')
+    localStorage.setItem('user_profile', JSON.stringify(data.profile || {}))
+    if (data.form_version) {
+      localStorage.setItem('form_version', data.form_version.toString())
+    }
+  } else {
+    localStorage.removeItem('initial_form_completed')
+  }
+  setInitialRegistrationCookie(isComplete)
+
+  return isComplete
+}
 
 // Hook personalizado para usar el contexto
 export const useAuth = () => {
@@ -217,9 +260,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = '/admin'
       } else {
-        // Verificar si el formulario inicial está completo
-        const formCompleted = localStorage.getItem('initial_form_completed')
-        if (!formCompleted || formCompleted !== 'true') {
+        const accessToken = authService.getAccessToken()
+        const formCompleted = accessToken
+          ? await syncInitialRegistrationStatus(accessToken)
+          : localStorage.getItem('initial_form_completed') === 'true'
+
+        if (!formCompleted) {
           await new Promise(resolve => setTimeout(resolve, 100))
           window.location.href = '/initial-registration'
         } else {

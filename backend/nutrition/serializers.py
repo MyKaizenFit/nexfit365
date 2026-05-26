@@ -2,7 +2,15 @@
 # Serializers para la nueva estructura simplificada
 
 from rest_framework import serializers
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient
+from .models import (
+    Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
+    RecipeIngredient, CommunityRecipePost, CommunityRecipeComment
+)
+
+
+def user_display_name(user) -> str:
+    full_name = f"{getattr(user, 'first_name', '') or ''} {getattr(user, 'last_name', '') or ''}".strip()
+    return full_name or getattr(user, 'email', 'Usuario')
 
 
 class FoodMinimalSerializer(serializers.ModelSerializer):
@@ -13,6 +21,19 @@ class FoodMinimalSerializer(serializers.ModelSerializer):
             'id', 'name', 'brand', 'calories', 'protein', 'carbs', 'fat', 'category',
             'serving_size', 'serving_unit'
         ]
+
+
+class IngredientSubstitutionSerializer(serializers.Serializer):
+    food_id = serializers.UUIDField()
+    food_name = serializers.CharField()
+    category = serializers.CharField(allow_blank=True)
+    quantity = serializers.FloatField()
+    unit = serializers.CharField()
+    target_calories = serializers.FloatField()
+    calories = serializers.FloatField()
+    protein = serializers.FloatField()
+    carbs = serializers.FloatField()
+    fat = serializers.FloatField()
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
@@ -93,6 +114,81 @@ class RecipeMinimalSerializer(serializers.ModelSerializer):
             "prep_time_minutes", "cook_time_minutes", "difficulty",
             "servings", "image", "image_url", "goal_category"
         ]
+
+
+class CommunityRecipeCommentSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityRecipeComment
+        fields = ["id", "post", "author", "author_name", "text", "can_delete", "created_at", "updated_at"]
+        read_only_fields = ["id", "post", "author", "author_name", "can_delete", "created_at", "updated_at"]
+
+    def get_author_name(self, obj) -> str:
+        return user_display_name(obj.author)
+
+    def get_can_delete(self, obj) -> bool:
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
+
+
+class CommunityRecipePostSerializer(serializers.ModelSerializer):
+    author_name = serializers.SerializerMethodField()
+    comments = CommunityRecipeCommentSerializer(many=True, read_only=True)
+    comments_count = serializers.IntegerField(read_only=True)
+    likes_count = serializers.IntegerField(read_only=True)
+    liked_by_me = serializers.BooleanField(read_only=True)
+    can_delete = serializers.SerializerMethodField()
+    photo_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CommunityRecipePost
+        fields = [
+            "id", "author", "author_name", "title", "description", "ingredients", "instructions",
+            "photo", "photo_url", "expires_at", "is_expired", "likes_count", "comments_count",
+            "liked_by_me", "can_delete", "comments", "created_at", "updated_at",
+        ]
+        read_only_fields = [
+            "id", "author", "author_name", "photo_url", "expires_at", "is_expired",
+            "likes_count", "comments_count", "liked_by_me", "can_delete",
+            "comments", "created_at", "updated_at",
+        ]
+
+    def get_author_name(self, obj) -> str:
+        return user_display_name(obj.author)
+
+    def get_photo_url(self, obj) -> str:
+        if not obj.photo:
+            return ""
+        return obj.photo.url
+
+    def get_can_delete(self, obj) -> bool:
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
+
+    def validate_photo(self, value):
+        allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'}
+        content_type = getattr(value, 'content_type', '')
+        if content_type and content_type not in allowed_types:
+            raise serializers.ValidationError('Formato no soportado. Usa JPG, PNG, WEBP o HEIC.')
+        max_size = 6 * 1024 * 1024
+        if value.size and value.size > max_size:
+            raise serializers.ValidationError('La foto no puede superar 6MB.')
+        return value
+
+
+class AdminCommunityRecipePostSerializer(CommunityRecipePostSerializer):
+    author_email = serializers.EmailField(source='author.email', read_only=True)
+
+    class Meta(CommunityRecipePostSerializer.Meta):
+        fields = CommunityRecipePostSerializer.Meta.fields + ["author_email"]
 
 
 class PlanMealSerializer(serializers.ModelSerializer):
@@ -189,7 +285,7 @@ class MealLogSerializer(serializers.ModelSerializer):
         fields = [
             "id", "user", "date", "meal_type", "time",
             "plan_meal_id", "plan_meal_meta",
-            "recipe", "recipe_name", "custom_description",
+            "recipe", "recipe_name", "custom_description", "substitution_details",
             "calories", "protein", "carbs", "fat", "servings",
             "completed", "is_skipped", "skip_reason", "rating", "notes", "photo", "meal",
             "created_at", "updated_at"

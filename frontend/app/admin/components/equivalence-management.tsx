@@ -1,0 +1,274 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { RefreshCw, Search, Shuffle, Check, Loader2 } from "lucide-react"
+import { useAuth } from "@/contexts/auth-context"
+import { getApiBaseUrl } from "@/lib/api"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "@/hooks/use-toast"
+
+const getApiUrl = getApiBaseUrl
+
+const EQUIVALENCE_CATEGORIES = [
+  { value: "carnes", label: "Carnes" },
+  { value: "pescados", label: "Pescados" },
+  { value: "marisco", label: "Marisco" },
+  { value: "huevos", label: "Huevos" },
+  { value: "arroz_cereales", label: "Arroz / cereales / pasta" },
+  { value: "legumbres", label: "Legumbres" },
+  { value: "fruta", label: "Fruta" },
+  { value: "verduras", label: "Verduras" },
+  { value: "lacteos", label: "Lacteos" },
+  { value: "frutos_secos", label: "Frutos secos" },
+  { value: "grasas", label: "Grasas" },
+  { value: "otros", label: "Otros" },
+]
+
+interface Food {
+  id: string
+  name: string
+  brand?: string
+  category?: string
+  equivalence_category?: string
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+  serving_unit?: string
+  is_verified?: boolean
+}
+
+export function EquivalenceManagement() {
+  const { getAuthHeaders } = useAuth()
+  const [foods, setFoods] = useState<Food[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [search, setSearch] = useState("")
+  const [categoryFilter, setCategoryFilter] = useState("all")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [bulkCategory, setBulkCategory] = useState("arroz_cereales")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(50)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const fetchFoods = useCallback(async () => {
+    setLoading(true)
+    try {
+      const params = new URLSearchParams({ page_size: String(pageSize), page: String(currentPage) })
+      if (search.trim()) params.set("search", search.trim())
+      if (categoryFilter !== "all") params.set("equivalence_category", categoryFilter)
+
+      const headers = await getAuthHeaders()
+      const response = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params.toString()}`, { headers })
+      if (!response.ok) throw new Error("No se pudieron cargar alimentos")
+      const data = await response.json()
+      setFoods(Array.isArray(data) ? data : data.results || [])
+      setTotalCount(Array.isArray(data) ? data.length : data.count || 0)
+      setSelectedIds([])
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron cargar las equivalencias.", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }, [categoryFilter, currentPage, getAuthHeaders, pageSize, search])
+
+  useEffect(() => {
+    fetchFoods()
+  }, [fetchFoods])
+
+  const categoryLabel = useMemo(() => {
+    return Object.fromEntries(EQUIVALENCE_CATEGORIES.map((category) => [category.value, category.label]))
+  }, [])
+
+  const updateFoodCategory = async (foodId: string, equivalenceCategory: string) => {
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${getApiUrl()}/api/nutrition/foods/${foodId}/`, {
+      method: "PATCH",
+      headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ equivalence_category: equivalenceCategory === "none" ? "" : equivalenceCategory }),
+    })
+    if (!response.ok) throw new Error("No se pudo actualizar")
+  }
+
+  const handleSingleUpdate = async (food: Food, equivalenceCategory: string) => {
+    setSaving(true)
+    try {
+      await updateFoodCategory(food.id, equivalenceCategory)
+      setFoods((current) => current.map((item) => item.id === food.id ? { ...item, equivalence_category: equivalenceCategory === "none" ? "" : equivalenceCategory } : item))
+      toast({ title: "Equivalencia actualizada", description: food.name })
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudo actualizar el alimento.", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleBulkUpdate = async () => {
+    if (selectedIds.length === 0) return
+    setSaving(true)
+    try {
+      await Promise.all(selectedIds.map((id) => updateFoodCategory(id, bulkCategory)))
+      setFoods((current) => current.map((item) => selectedIds.includes(item.id) ? { ...item, equivalence_category: bulkCategory } : item))
+      toast({ title: "Equivalencias actualizadas", description: `${selectedIds.length} alimentos asignados a ${categoryLabel[bulkCategory]}` })
+      setSelectedIds([])
+    } catch (error) {
+      toast({ title: "Error", description: "No se pudieron actualizar todos los alimentos.", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const toggleFood = (foodId: string) => {
+    setSelectedIds((current) => current.includes(foodId) ? current.filter((id) => id !== foodId) : [...current, foodId])
+  }
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize))
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Equivalencias de Alimentos</h2>
+          <p className="text-sm text-muted-foreground">Gestiona los grupos que usa el intercambio automático de ingredientes.</p>
+        </div>
+        <Button onClick={fetchFoods} variant="outline" disabled={loading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Shuffle className="h-5 w-5 text-emerald-600" />
+            Clasificacion para intercambios
+          </CardTitle>
+          <CardDescription>Si un alimento no tiene grupo manual, el sistema intentara inferirlo por nombre y categoria.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
+            <div className="relative">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }} placeholder="Buscar alimento, marca o categoria..." className="pl-9" />
+            </div>
+            <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setCurrentPage(1) }}>
+              <SelectTrigger>
+                <SelectValue placeholder="Filtrar grupo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los grupos</SelectItem>
+                {EQUIVALENCE_CATEGORIES.map((category) => (
+                  <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button onClick={fetchFoods} disabled={loading}>
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+              Buscar
+            </Button>
+          </div>
+
+          <div className="flex flex-col gap-2 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+            <span>Mostrando {foods.length} de {totalCount} alimentos</span>
+            <div className="flex items-center gap-2">
+              <span>Por pagina</span>
+              <Select value={String(pageSize)} onValueChange={(value) => { setPageSize(Number(value)); setCurrentPage(1) }}>
+                <SelectTrigger className="h-9 w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="200">200</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="text-sm font-medium">{selectedIds.length} seleccionados</div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Select value={bulkCategory} onValueChange={setBulkCategory}>
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {EQUIVALENCE_CATEGORIES.map((category) => (
+                    <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button onClick={handleBulkUpdate} disabled={saving || selectedIds.length === 0}>
+                <Check className="mr-2 h-4 w-4" />
+                Aplicar a seleccionados
+              </Button>
+            </div>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border">
+            <div className="grid grid-cols-[44px_1fr_150px_220px] bg-muted px-3 py-2 text-xs font-bold uppercase text-muted-foreground">
+              <span />
+              <span>Alimento</span>
+              <span>Macros</span>
+              <span>Grupo equivalencia</span>
+            </div>
+            <div className="divide-y">
+              {loading ? (
+                <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                  Cargando alimentos...
+                </div>
+              ) : foods.length === 0 ? (
+                <div className="py-10 text-center text-sm text-muted-foreground">No hay alimentos con esos filtros.</div>
+              ) : foods.map((food) => (
+                <div key={food.id} className="grid grid-cols-[44px_1fr_150px_220px] items-center gap-2 px-3 py-3">
+                  <Checkbox checked={selectedIds.includes(food.id)} onCheckedChange={() => toggleFood(food.id)} />
+                  <div className="min-w-0">
+                    <div className="truncate font-semibold">{food.name}</div>
+                    <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                      {food.brand ? <span>{food.brand}</span> : null}
+                      {food.category ? <Badge variant="outline">{food.category}</Badge> : null}
+                    </div>
+                  </div>
+                  <div className="text-xs font-semibold text-muted-foreground">
+                    <div>{food.calories} kcal</div>
+                    <div>P {food.protein} · C {food.carbs} · G {food.fat}</div>
+                  </div>
+                  <Select value={food.equivalence_category || "none"} onValueChange={(value) => handleSingleUpdate(food, value)} disabled={saving}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Sin grupo manual" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sin grupo manual</SelectItem>
+                      {EQUIVALENCE_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="flex items-center justify-center gap-3">
+              <Button variant="outline" size="sm" disabled={currentPage === 1 || loading} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">Pagina {currentPage} de {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages || loading} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>
+                Siguiente
+              </Button>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}

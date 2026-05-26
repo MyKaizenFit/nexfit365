@@ -135,14 +135,18 @@ class AdminUserSerializer(serializers.ModelSerializer):
         return 'Sí' if obj.is_superuser else 'No'
 
     def get_calculated_daily_calories(self, obj) -> int | None:
-        """Retorna las calorías calculadas automáticamente (ignorando el override del admin)"""
+        """Retorna el objetivo base que usa la app antes del override manual."""
         try:
+            from nutrition.models import get_active_plan_for_user
+            active_plan = get_active_plan_for_user(obj)
+            if active_plan and active_plan.daily_calories:
+                return int(active_plan.daily_calories)
+
             from nutrition.services import PersonalizedNutritionService
-            # Calcula usando Harris-Benedict sin tener en cuenta el override
             original_override = obj.admin_calories_override
-            obj.admin_calories_override = None  # ignorar temporalmente para el cálculo
+            obj.admin_calories_override = None
             calories = PersonalizedNutritionService(obj).calculate_daily_calories()
-            obj.admin_calories_override = original_override  # restaurar
+            obj.admin_calories_override = original_override
             return calories
         except Exception:
             return getattr(obj, 'daily_calories_target', None)

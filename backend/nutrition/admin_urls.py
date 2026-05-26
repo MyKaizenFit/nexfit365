@@ -9,6 +9,7 @@ router.register(r'plans', admin_views.AdminNutritionPlanViewSet, basename='admin
 router.register(r'meals', admin_views.AdminPlanMealViewSet, basename='admin-plan-meals')
 router.register(r'meal-recipes', admin_views.AdminPlanMealRecipeViewSet, basename='admin-plan-meal-recipes')
 router.register(r'foods', admin_views.AdminFoodViewSet, basename='admin-foods')
+router.register(r'community-recipes', admin_views.AdminCommunityRecipePostViewSet, basename='admin-community-recipes')
 
 urlpatterns = [
     path('', include(router.urls)),

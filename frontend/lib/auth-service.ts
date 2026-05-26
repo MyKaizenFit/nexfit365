@@ -144,7 +144,7 @@ export class AuthService {
       const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 segundos de timeout
 
       // Usar el endpoint público de health que no requiere autenticación
-      const response = await fetch(buildApiUrl('/public-health/'), {
+      const response = await fetch(buildApiUrl('/public-health-check'), {
         method: 'GET',
         signal: controller.signal
       })
@@ -933,6 +933,31 @@ export class AuthService {
 
       // El backend siempre devuelve éxito por seguridad (no revela si el email existe)
       return
+    } catch (error) {
+      throw handleFetchError(error)
+    }
+  }
+
+  async resetPassword(token: string, newPassword: string, newPasswordConfirm: string): Promise<void> {
+    try {
+      if (newPassword !== newPasswordConfirm) {
+        throw new Error('Las contraseñas no coinciden')
+      }
+
+      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.RESET_PASSWORD), {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          token,
+          new_password: newPassword,
+          new_password_confirm: newPasswordConfirm,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Error al restablecer contraseña')
+      }
     } catch (error) {
       throw handleFetchError(error)
     }

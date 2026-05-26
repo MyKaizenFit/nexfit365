@@ -13,6 +13,8 @@ urlpatterns = [
 
     # Healthcheck
     path("api/health/", health),
+    path("api/public-health-check", public_health),  # Alias nuevo para evitar redirects cacheados en navegador
+    path("api/public-health", public_health),  # Alias sin barra para evitar bucle Next/Django en dev
     path("api/public-health/", public_health),  # Endpoint completamente público
 
     # Alias legacy para clientes antiguos del dashboard

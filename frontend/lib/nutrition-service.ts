@@ -14,6 +14,10 @@ export interface Food {
   protein: number
   carbs: number
   fat: number
+  category?: string
+  brand?: string
+  serving_size?: number
+  serving_unit?: string
 }
 
 export interface NutritionPlan {
@@ -74,6 +78,8 @@ export interface MealOption {
   description: string
   cookTime?: string
   recipeId?: number | string  // ID de la receta si está asociada (puede ser número o UUID)
+  customDescription?: string
+  substitution_details?: MealIngredientSubstitution[]
 }
 
 export interface RecipeExclusionItem {
@@ -111,6 +117,16 @@ export interface Recipe {
     amount: number | string
     unit: string
   }>
+  recipe_ingredients?: Array<{
+    id: string
+    food?: string
+    food_id?: string
+    food_detail?: Food
+    quantity: number | string
+    unit: string
+    notes?: string
+    order?: number
+  }>
   instructions: string
   image_url?: string
   video_url?: string
@@ -118,6 +134,47 @@ export interface Recipe {
   meal_types?: string[]
   allergens?: string[]
   tags?: string[]
+}
+
+export interface IngredientSubstitution {
+  food_id: string
+  food_name: string
+  category: string
+  quantity: number
+  unit: string
+  target_calories: number
+  calories: number
+  protein: number
+  carbs: number
+  fat: number
+}
+
+export interface IngredientSubstitutionResponse {
+  recipe_id: string
+  ingredient: {
+    id?: string | null
+    food_id: string
+    food_name: string
+    quantity: number
+    unit: string
+    category: string
+    supports_volume?: boolean
+    target_calories: number
+  }
+  results: IngredientSubstitution[]
+}
+
+export interface MealIngredientSubstitution {
+  ingredient_id?: string | null
+  original_food_id: string
+  original_food_name: string
+  original_quantity: number
+  original_unit: string
+  replacement_food_id: string
+  replacement_food_name: string
+  replacement_quantity: number
+  replacement_unit: string
+  target_calories: number
 }
 
 export interface PersonalizedRecipeQuantities {
@@ -1060,6 +1117,46 @@ class NutritionService {
     }
   }
 
+  async getIngredientSubstitutions(
+    recipeId: number | string,
+    params: {
+      ingredientId?: string
+      foodId?: string
+      quantity?: number | string
+      unit?: string
+      search?: string
+      category?: string
+    }
+  ): Promise<IngredientSubstitutionResponse | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const query = new URLSearchParams()
+
+      if (params.ingredientId) query.set('ingredient_id', params.ingredientId)
+      if (params.foodId) query.set('food_id', params.foodId)
+      if (params.quantity !== undefined) query.set('quantity', String(params.quantity))
+      if (params.unit) query.set('unit', params.unit)
+      if (params.search?.trim()) query.set('search', params.search.trim())
+      if (params.category?.trim()) query.set('category', params.category.trim())
+
+      const response = await fetch(
+        buildApiUrl(`nutrition/recipes/${recipeId}/ingredient-substitutions/?${query.toString()}`),
+        {
+          headers,
+          method: 'GET',
+        }
+      )
+
+      if (!response.ok) {
+        return null
+      }
+
+      return await response.json()
+    } catch (error) {
+      return null
+    }
+  }
+
   /**
    * Obtener selecciones de comidas para una semana
    */
@@ -1132,6 +1229,7 @@ class NutritionService {
     carbs?: number
     fat?: number
     custom_description?: string
+    substitution_details?: MealIngredientSubstitution[]
   }>): Promise<{ created: number; updated: number; errors?: any[] }> {
     try {
       const headers = await getAuthHeaders()
@@ -1176,6 +1274,7 @@ class NutritionService {
       carbs?: number
       fat?: number
       custom_description?: string
+      substitution_details?: MealIngredientSubstitution[]
     }>
   ): Promise<{ created: number; updated: number; errors?: any[] }> {
     try {

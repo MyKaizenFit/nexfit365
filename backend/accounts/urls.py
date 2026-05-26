@@ -34,7 +34,9 @@ urlpatterns = [
     path('auth/me/', views.profile, name='auth_me'),  # Alias alternativo
     path('profile/goals/', views.update_goals, name='update_goals'),
     path('profile/summary/', views.profile_summary, name='profile_summary'),
+    path('profile/initial-registration', views.complete_initial_registration, name='complete_initial_registration_no_slash'),
     path('profile/initial-registration/', views.complete_initial_registration, name='complete_initial_registration'),
+    path('profile/initial-registration/status', views.initial_registration_status, name='initial_registration_status_no_slash'),
     path('profile/initial-registration/status/', views.initial_registration_status, name='initial_registration_status'),
     # GDPR
     path('gdpr/export/', views.gdpr_export_data, name='gdpr_export_data'),

@@ -13,6 +13,7 @@ import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 import { PlanShoppingList } from '@/app/dashboard/components/plan-shopping-list'
+import { formatMacro } from '@/lib/utils'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
@@ -303,6 +304,11 @@ export function MealDashboard() {
                         ) : null}
                       </div>
                     ) : null}
+                    {meal.selectedOption.substitution_details?.length ? (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800 md:text-xs">
+                        Cambio: {meal.selectedOption.substitution_details[0].original_food_name} por {meal.selectedOption.substitution_details[0].replacement_quantity}{meal.selectedOption.substitution_details[0].replacement_unit} de {meal.selectedOption.substitution_details[0].replacement_food_name}
+                      </div>
+                    ) : null}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl border border-orange-100 bg-orange-50 p-2 text-center">
@@ -310,11 +316,11 @@ export function MealDashboard() {
                         <div className="text-[10px] font-semibold text-orange-500">kcal</div>
                       </div>
                       <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-center">
-                        <div className="text-lg font-black text-blue-700">{meal.selectedOption.protein}</div>
+                        <div className="text-lg font-black text-blue-700">{formatMacro(meal.selectedOption.protein)}</div>
                         <div className="text-[10px] font-semibold text-blue-500">prot</div>
                       </div>
                       <div className="rounded-xl border border-green-100 bg-green-50 p-2 text-center">
-                        <div className="text-lg font-black text-green-700">{meal.selectedOption.carbs}</div>
+                        <div className="text-lg font-black text-green-700">{formatMacro(meal.selectedOption.carbs)}</div>
                         <div className="text-[10px] font-semibold text-green-500">carb</div>
                       </div>
                     </div>
@@ -349,11 +355,11 @@ export function MealDashboard() {
                         <div className="text-[10px] font-semibold text-orange-500">kcal</div>
                       </div>
                       <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-center">
-                        <div className="text-lg font-black text-blue-700">{previewOption.protein}</div>
+                        <div className="text-lg font-black text-blue-700">{formatMacro(previewOption.protein)}</div>
                         <div className="text-[10px] font-semibold text-blue-500">prot</div>
                       </div>
                       <div className="rounded-xl border border-green-100 bg-green-50 p-2 text-center">
-                        <div className="text-lg font-black text-green-700">{previewOption.carbs}</div>
+                        <div className="text-lg font-black text-green-700">{formatMacro(previewOption.carbs)}</div>
                         <div className="text-[10px] font-semibold text-green-500">carb</div>
                       </div>
                     </div>
