@@ -12,6 +12,8 @@ interface DailyMacroTrackerSimpleProps {
   carbsGoal: number
   fatConsumed: number
   fatGoal: number
+  /** Cuando true, el objetivo fue ajustado al consumo real (dentro del ±5% o todas las comidas hechas) */
+  isGoalAdjusted?: boolean
 }
 
 export function DailyMacroTrackerSimple({
@@ -22,7 +24,8 @@ export function DailyMacroTrackerSimple({
   carbsConsumed,
   carbsGoal,
   fatConsumed,
-  fatGoal
+  fatGoal,
+  isGoalAdjusted = false,
 }: DailyMacroTrackerSimpleProps) {
   const calculatePercentage = (consumed: number, goal: number): number => {
     if (goal === 0) return 0
@@ -141,15 +144,31 @@ export function DailyMacroTrackerSimple({
       {/* Resumen de calorías */}
       <div className="pt-4 border-t border-border">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-foreground">Calorías del día</span>
-          <span className="text-sm text-foreground">{caloriesConsumed} / {caloriesGoal} kcal</span>
+          <span className="text-sm font-medium text-foreground">
+            Calorías del día
+            {isGoalAdjusted && (
+              <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                ✓ Objetivo del día
+              </span>
+            )}
+          </span>
+          <span className="text-sm text-foreground">
+            {isGoalAdjusted
+              ? `${caloriesConsumed} kcal`
+              : `${caloriesConsumed} / ${caloriesGoal} kcal`}
+          </span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
-          <div 
-            className="bg-orange-500 h-2 rounded-full transition-all duration-300"
+          <div
+            className={`h-2 rounded-full transition-all duration-300 ${isGoalAdjusted ? 'bg-emerald-500' : 'bg-orange-500'}`}
             style={{ width: `${calculatePercentage(caloriesConsumed, caloriesGoal)}%` }}
           />
         </div>
+        {!isGoalAdjusted && caloriesGoal > caloriesConsumed && (
+          <p className="mt-1 text-[11px] text-muted-foreground text-right">
+            Faltan {caloriesGoal - caloriesConsumed} kcal
+          </p>
+        )}
       </div>
     </div>
   )

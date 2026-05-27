@@ -45,14 +45,47 @@ export function MealDashboard() {
     setIsModalOpen(true)
   }
 
+  // Ajusta las macros de una opción de cena para que sus calorías se acerquen
+  // al presupuesto calórico restante del día (escala proporcional de todos los macros).
+  // Solo actúa si la diferencia es > 5 %.
+  const applyDinnerScaling = React.useCallback(
+    (mealId: string, option: MealOption): MealOption => {
+      const meal = meals.find((m) => m.id === mealId)
+      if (!meal || meal.mealType !== 'dinner') return option
+      if (option.calories <= 0) return option
+
+      const otherConsumed = meals
+        .filter((m) => m.mealType !== 'dinner' && m.selectedOption && !m.isSkipped)
+        .reduce((sum, m) => sum + (m.selectedOption?.calories ?? 0), 0)
+      const budget = macros.caloriesGoal - otherConsumed
+      if (budget <= 0) return option
+
+      const diff = Math.abs(option.calories - budget) / budget
+      if (diff <= 0.05) return option // ya está dentro del margen
+
+      const factor = budget / option.calories
+      return {
+        ...option,
+        calories: Math.round(budget),
+        protein: Math.round(option.protein * factor * 10) / 10,
+        carbs: Math.round(option.carbs * factor * 10) / 10,
+        fat: Math.round(option.fat * factor * 10) / 10,
+        customDescription: `${option.name} (cantidades ajustadas)`,
+      }
+    },
+    [meals, macros.caloriesGoal]
+  )
+
   const handleSelectOption = async (option: MealOption) => {
     if (selectedMeal) {
-      await selectMealOption(selectedMeal.id, option)
+      const finalOption = applyDinnerScaling(selectedMeal.id, option)
+      await selectMealOption(selectedMeal.id, finalOption)
     }
   }
 
   const handleSelectPreviewOption = async (mealId: string, option: MealOption) => {
-    await selectMealOption(mealId, option)
+    const finalOption = applyDinnerScaling(mealId, option)
+    await selectMealOption(mealId, finalOption)
   }
 
   const handleDeselectOption = async () => {
@@ -78,6 +111,37 @@ export function MealDashboard() {
       daysInTransformation: userStats?.daysInTransformation || 1
     }
   }, [meals, userStats?.daysInTransformation])
+
+  // Objetivo efectivo de calorías: si el total está dentro del ±5% del objetivo
+  // o todas las comidas están decididas, ajustar la meta al consumo real (barra al 100%)
+  const { effectiveCaloriesGoal, isGoalAdjusted } = useMemo(() => {
+    const consumed = macros.caloriesConsumed
+    const goal = macros.caloriesGoal
+    if (goal <= 0) return { effectiveCaloriesGoal: goal, isGoalAdjusted: false }
+
+    const allMealsDone =
+      meals.length > 0 && meals.every((m) => m.isCompleted || m.isSkipped)
+    const withinFivePercent = Math.abs(consumed - goal) / goal <= 0.05
+
+    if (allMealsDone || withinFivePercent) {
+      return { effectiveCaloriesGoal: consumed, isGoalAdjusted: true }
+    }
+    return { effectiveCaloriesGoal: goal, isGoalAdjusted: false }
+  }, [meals, macros.caloriesConsumed, macros.caloriesGoal])
+
+  // Presupuesto calórico para la cena: calorías que faltan para alcanzar el objetivo
+  const dinnerCalorieBudget = useMemo(() => {
+    const dinnerMeal = meals.find((m) => m.mealType === 'dinner')
+    if (!dinnerMeal || dinnerMeal.selectedOption || dinnerMeal.isSkipped) return null
+
+    const otherConsumed = meals
+      .filter((m) => m.mealType !== 'dinner' && m.selectedOption && !m.isSkipped)
+      .reduce((sum, m) => sum + (m.selectedOption?.calories ?? 0), 0)
+
+    const budget = macros.caloriesGoal - otherConsumed
+    if (budget <= 0) return null
+    return { mealId: dinnerMeal.id, budget: Math.round(budget) }
+  }, [meals, macros.caloriesGoal])
   
   const { completedMeals, totalMeals, progressPercentage, daysInTransformation } = progressData
 
@@ -191,13 +255,14 @@ export function MealDashboard() {
         
         <DailyMacroTrackerSimple
           caloriesConsumed={macros.caloriesConsumed}
-          caloriesGoal={macros.caloriesGoal}
+          caloriesGoal={effectiveCaloriesGoal}
           proteinConsumed={macros.proteinConsumed}
           proteinGoal={macros.proteinGoal}
           carbsConsumed={macros.carbsConsumed}
           carbsGoal={macros.carbsGoal}
           fatConsumed={macros.fatConsumed}
           fatGoal={macros.fatGoal}
+          isGoalAdjusted={isGoalAdjusted}
         />
       </div>
 
@@ -349,6 +414,16 @@ export function MealDashboard() {
                   </>
                 ) : isPreview && previewOption ? (
                   <>
+                    {dinnerCalorieBudget?.mealId === meal.id && (
+                      <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-center">
+                        <span className="text-xs font-bold text-violet-700">
+                          🎯 Objetivo cena: ~{dinnerCalorieBudget.budget} kcal
+                        </span>
+                        <p className="text-[10px] text-violet-500 mt-0.5">
+                          Las cantidades se ajustarán para alcanzar tu meta
+                        </p>
+                      </div>
+                    )}
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl border border-orange-100 bg-orange-50 p-2 text-center">
                         <div className="text-lg font-black text-orange-700">{previewOption.calories}</div>
@@ -384,6 +459,17 @@ export function MealDashboard() {
                     </div>
                   </>
                 ) : (
+                  <>
+                    {dinnerCalorieBudget?.mealId === meal.id && (
+                      <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-center">
+                        <span className="text-xs font-bold text-violet-700">
+                          🎯 Objetivo cena: ~{dinnerCalorieBudget.budget} kcal
+                        </span>
+                        <p className="text-[10px] text-violet-500 mt-0.5">
+                          Las cantidades se ajustarán para alcanzar tu meta
+                        </p>
+                      </div>
+                    )}
                   <button
                     onClick={() => handleOpenMealOptions(meal)}
                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-orange-100 px-4 py-3 text-sm font-black text-orange-800 shadow-sm transition-all hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
@@ -392,6 +478,7 @@ export function MealDashboard() {
                     <Plus className="h-4 w-4" />
                     <span>{syncing ? 'Sincronizando...' : 'Ver opciones'}</span>
                   </button>
+                  </>
                 )}
               </div>
             </div>

@@ -165,6 +165,9 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
     def get_photo_url(self, obj) -> str:
         if not obj.photo:
             return ""
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.photo.url)
         return obj.photo.url
 
     def get_can_delete(self, obj) -> bool:

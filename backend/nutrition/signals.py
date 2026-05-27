@@ -7,9 +7,129 @@ from django.dispatch import receiver
 from accounts.models import CustomUser
 from progress.models import WeightEntry
 from nutrition.services import PlanAutoUpdateService
-from nutrition.models import NutritionPlan
+from nutrition.models import NutritionPlan, Recipe, PlanMeal, PlanMealRecipe
 
 logger = logging.getLogger(__name__)
+
+
+def _recompute_plan_daily_calories(plan_id: int) -> None:
+    """Recalcula daily_calories/macros de un NutritionPlan a partir de sus PlanMeals almacenados."""
+    meals = list(PlanMeal.objects.filter(plan_id=plan_id))
+    day_totals = {}
+    for day in range(1, 8):
+        totals = {'calories': 0.0, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.0}
+        for meal in meals:
+            if meal.day_of_week and meal.day_of_week != day:
+                continue
+            totals['calories'] += float(meal.calories or 0)
+            totals['protein'] += float(meal.protein or 0)
+            totals['carbs'] += float(meal.carbs or 0)
+            totals['fat'] += float(meal.fat or 0)
+        day_totals[day] = totals
+
+    active_days = [t for t in day_totals.values() if sum(t.values()) > 0]
+    if not active_days:
+        return
+
+    count = len(active_days)
+    NutritionPlan.objects.filter(pk=plan_id).update(
+        daily_calories=int(round(sum(t['calories'] for t in active_days) / count)),
+        protein_grams=int(round(sum(t['protein'] for t in active_days) / count)),
+        carbs_grams=int(round(sum(t['carbs'] for t in active_days) / count)),
+        fat_grams=int(round(sum(t['fat'] for t in active_days) / count)),
+    )
+
+
+@receiver(pre_save, sender=Recipe)
+def store_recipe_previous_macros(sender, instance, **kwargs):
+    """Guarda los valores nutricionales previos de la receta para detectar cambios."""
+    if instance.pk:
+        try:
+            old = Recipe.objects.get(pk=instance.pk)
+            instance._old_calories = old.calories
+            instance._old_protein = old.protein
+            instance._old_carbs = old.carbs
+            instance._old_fat = old.fat
+        except Recipe.DoesNotExist:
+            instance._old_calories = None
+            instance._old_protein = None
+            instance._old_carbs = None
+            instance._old_fat = None
+    else:
+        instance._old_calories = None
+        instance._old_protein = None
+        instance._old_carbs = None
+        instance._old_fat = None
+
+
+@receiver(post_save, sender=Recipe)
+def update_meal_macros_on_recipe_change(sender, instance, created, **kwargs):
+    """
+    Cuando cambian las calorías o macros de una receta, recalcula automáticamente
+    los PlanMeal y NutritionPlan que la referencian (sin override personalizado).
+    """
+    if created:
+        return
+
+    old_calories = getattr(instance, '_old_calories', None)
+    if old_calories is None:
+        return
+
+    macros_changed = (
+        int(old_calories or 0) != int(instance.calories or 0)
+        or float(getattr(instance, '_old_protein', 0) or 0) != float(instance.protein or 0)
+        or float(getattr(instance, '_old_carbs', 0) or 0) != float(instance.carbs or 0)
+        or float(getattr(instance, '_old_fat', 0) or 0) != float(instance.fat or 0)
+    )
+    if not macros_changed:
+        return
+
+    try:
+        # IDs de comidas que usan esta receta
+        affected_meal_ids = set(
+            PlanMealRecipe.objects.filter(recipe=instance).values_list('meal_id', flat=True)
+        )
+        if not affected_meal_ids:
+            return
+
+        affected_plan_ids = set()
+
+        for meal in PlanMeal.objects.filter(id__in=affected_meal_ids).select_related('plan'):
+            options = []
+            for mr in PlanMealRecipe.objects.filter(meal=meal).select_related('recipe'):
+                servings = float(mr.servings or 1)
+                cal = float(mr.custom_calories) if mr.custom_calories is not None else float(mr.recipe.calories or 0) * servings
+                prot = float(mr.custom_protein) if mr.custom_protein is not None else float(mr.recipe.protein or 0) * servings
+                carbs = float(mr.custom_carbs) if mr.custom_carbs is not None else float(mr.recipe.carbs or 0) * servings
+                fat = float(mr.custom_fat) if mr.custom_fat is not None else float(mr.recipe.fat or 0) * servings
+                options.append({'calories': cal, 'protein': prot, 'carbs': carbs, 'fat': fat})
+
+            if not options:
+                continue
+
+            n = len(options)
+            PlanMeal.objects.filter(pk=meal.pk).update(
+                calories=int(round(sum(o['calories'] for o in options) / n)),
+                protein=round(sum(o['protein'] for o in options) / n, 2),
+                carbs=round(sum(o['carbs'] for o in options) / n, 2),
+                fat=round(sum(o['fat'] for o in options) / n, 2),
+            )
+
+            if meal.plan_id:
+                affected_plan_ids.add(meal.plan_id)
+
+        for plan_id in affected_plan_ids:
+            _recompute_plan_daily_calories(plan_id)
+
+        logger.info(
+            "✅ Receta %s actualizada: recalculadas %d comidas en %d planes",
+            instance.name, len(affected_meal_ids), len(affected_plan_ids),
+        )
+
+    except Exception as exc:
+        logger.error("❌ Error propagando cambios de receta %s a planes: %s", instance.name, exc)
+        import traceback
+        logger.error(traceback.format_exc())
 
 
 @receiver(pre_save, sender=CustomUser)
