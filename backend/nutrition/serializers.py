@@ -4,7 +4,7 @@
 from rest_framework import serializers
 from .models import (
     Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
-    RecipeIngredient, CommunityRecipePost, CommunityRecipeComment
+    RecipeIngredient, CommunityRecipePost, CommunityRecipeComment, FoodEquivalenceGroup
 )
 
 
@@ -34,6 +34,7 @@ class IngredientSubstitutionSerializer(serializers.Serializer):
     protein = serializers.FloatField()
     carbs = serializers.FloatField()
     fat = serializers.FloatField()
+    equivalence_groups = serializers.ListField(child=serializers.CharField(), required=False)
 
 
 class RecipeIngredientSerializer(serializers.ModelSerializer):
@@ -352,9 +353,36 @@ class MealLogSerializer(serializers.ModelSerializer):
 
 class FoodSerializer(serializers.ModelSerializer):
     """Serializer para alimentos"""
+    equivalence_group_ids = serializers.PrimaryKeyRelatedField(
+        source='equivalence_groups',
+        queryset=FoodEquivalenceGroup.objects.all(),
+        many=True,
+        required=False,
+        write_only=True,
+    )
+    equivalence_groups = serializers.SerializerMethodField()
+
     class Meta:
         model = Food
         fields = '__all__'
+
+    def get_equivalence_groups(self, obj):
+        return [
+            {'id': str(group.id), 'name': group.name, 'slug': group.slug}
+            for group in obj.equivalence_groups.all()
+        ]
+
+
+class FoodEquivalenceGroupSerializer(serializers.ModelSerializer):
+    foods_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = FoodEquivalenceGroup
+        fields = [
+            'id', 'name', 'slug', 'description', 'is_active',
+            'foods_count', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'foods_count', 'created_at', 'updated_at']
 
 
 class NutritionPlanHistorySerializer(serializers.ModelSerializer):

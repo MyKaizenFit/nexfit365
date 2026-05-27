@@ -16,7 +16,7 @@ from .models import (
     Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
     RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion,
     MealIngredientExclusion, CommunityRecipePost, CommunityRecipeComment,
-    CommunityRecipeLike
+    CommunityRecipeLike, FoodEquivalenceGroup
 )
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
@@ -24,7 +24,7 @@ from .serializers import (
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
     NutritionPlanHistorySerializer, RecipeIngredientSerializer,
     CommunityRecipePostSerializer, CommunityRecipeCommentSerializer,
-    IngredientSubstitutionSerializer
+    IngredientSubstitutionSerializer, FoodEquivalenceGroupSerializer
 )
 from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
 from django.shortcuts import get_object_or_404
@@ -2491,17 +2491,26 @@ class RecipeViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El ingrediente original no tiene calorías suficientes para calcular equivalencia.'}, status=status.HTTP_400_BAD_REQUEST)
 
         category = normalize_equivalence_category(category_param) if category_param else infer_food_equivalence_category(original_food)
+        original_groups = list(original_food.equivalence_groups.filter(is_active=True).order_by('name'))
+        no_results_message = 'Actualmente este alimento no tiene equivalencias disponibles. Estamos terminando de ajustar esta función durante la beta.'
+
         foods = Food.objects.exclude(pk=original_food.pk).filter(calories__gt=0, is_verified=True)
+        if original_groups:
+            foods = foods.filter(equivalence_groups__in=original_groups, equivalence_groups__is_active=True).distinct()
+        else:
+            foods = Food.objects.none()
         if search:
             foods = foods.filter(Q(name__icontains=search) | Q(brand__icontains=search))
 
         candidates = []
-        for food in foods.order_by('name')[:500]:
+        for food in foods.prefetch_related('equivalence_groups').order_by('name')[:500]:
             food_category = infer_food_equivalence_category(food)
-            if category and food_category != category:
-                continue
             if not are_foods_reasonable_equivalents(original_food, food):
                 continue
+            shared_groups = [
+                group.name for group in food.equivalence_groups.all()
+                if group.id in {original_group.id for original_group in original_groups}
+            ]
 
             calories_per_100 = float(food.calories or 0)
             quantity = (target_calories / calories_per_100) * 100 if calories_per_100 > 0 else 0
@@ -2521,6 +2530,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'protein': round(float(food.protein or 0) * ratio, 1),
                 'carbs': round(float(food.carbs or 0) * ratio, 1),
                 'fat': round(float(food.fat or 0) * ratio, 1),
+                'equivalence_groups': shared_groups,
             })
             if len(candidates) >= 30:
                 break
@@ -2535,10 +2545,12 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'quantity': original_quantity,
                 'unit': original_unit,
                 'category': category,
+                'equivalence_groups': [{'id': str(group.id), 'name': group.name, 'slug': group.slug} for group in original_groups],
                 'supports_volume': original_is_liquid,
                 'target_calories': round(target_calories, 1),
             },
             'results': serializer.data,
+            'message': no_results_message if not candidates else '',
         })
     
     @action(detail=True, methods=['get', 'post'])
@@ -2919,9 +2931,35 @@ class MealLogViewSet(viewsets.ModelViewSet):
         })
 
 
+class FoodEquivalenceGroupViewSet(viewsets.ModelViewSet):
+    queryset = FoodEquivalenceGroup.objects.annotate(foods_count=Count('foods')).order_by('name')
+    serializer_class = FoodEquivalenceGroupSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
+    filterset_fields = {'is_active': ['exact']}
+    search_fields = ['name', 'slug', 'description']
+
+    def get_permissions(self):
+        if getattr(self, 'swagger_fake_view', False):
+            return super().get_permissions()
+
+        if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
+            user = self.request.user
+            role = str(getattr(user, 'role', '') or '').lower()
+            if not (user.is_staff or user.is_superuser or role == 'admin'):
+                self.permission_denied(
+                    self.request,
+                    message='Solo administradores pueden modificar grupos de equivalencia.',
+                )
+        return super().get_permissions()
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
 class FoodViewSet(viewsets.ModelViewSet):
     """ViewSet para alimentos"""
-    queryset = Food.objects.all()
+    queryset = Food.objects.prefetch_related('equivalence_groups').all()
     serializer_class = FoodSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
@@ -2932,8 +2970,9 @@ class FoodViewSet(viewsets.ModelViewSet):
         'fat': ['gte', 'lte', 'exact'],
         'category': ['exact'],
         'equivalence_category': ['exact'],
+        'equivalence_groups': ['exact'],
     }
-    search_fields = ['name', 'brand', 'category', 'equivalence_category']
+    search_fields = ['name', 'brand', 'category', 'equivalence_category', 'equivalence_groups__name']
 
     def get_permissions(self):
         if getattr(self, 'swagger_fake_view', False):

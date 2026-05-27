@@ -1541,6 +1541,35 @@ class MealIngredientExclusion(TimeStampedModel):
 # ALIMENTOS (para tracking detallado - opcional)
 # =============================================================================
 
+class FoodEquivalenceGroup(TimeStampedModel):
+    """
+    Grupo personalizado de alimentos equivalentes.
+
+    Un alimento puede pertenecer a varios grupos para permitir equivalencias finas
+    como pan de molde, pan integral, arroz, pasta, etc.
+    """
+
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.SlugField(max_length=140, unique=True)
+    description = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='created_food_equivalence_groups',
+    )
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Grupo de equivalencia"
+        verbose_name_plural = "Grupos de equivalencia"
+
+    def __str__(self):
+        return self.name
+
+
 class Food(TimeStampedModel):
     """
     Alimento base para tracking detallado
@@ -1596,6 +1625,12 @@ class Food(TimeStampedModel):
         blank=True,
         db_index=True,
         help_text="Grupo usado para intercambios equivalentes: carnes, pescados, legumbres, fruta, verduras, etc."
+    )
+    equivalence_groups = models.ManyToManyField(
+        FoodEquivalenceGroup,
+        blank=True,
+        related_name='foods',
+        help_text="Grupos personalizados usados para recomendaciones de equivalencias."
     )
     allergens = models.JSONField(
         default=list,

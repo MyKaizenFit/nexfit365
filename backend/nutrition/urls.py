@@ -7,7 +7,7 @@ from .views import (
     weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
     adjust_plan, plan_history, meal_exclusions, meal_exclusion_detail,
     ingredient_exclusions, ingredient_exclusion_detail, shopping_list,
-    CommunityRecipePostViewSet
+    CommunityRecipePostViewSet, FoodEquivalenceGroupViewSet
 )
 
 router = DefaultRouter()
@@ -16,6 +16,7 @@ router = DefaultRouter()
 router.register(r'plans', NutritionPlanViewSet, basename='nutrition-plans')
 router.register(r'meal-logs', MealLogViewSet, basename='meal-logs')
 router.register(r'foods', FoodViewSet, basename='foods')
+router.register(r'food-equivalence-groups', FoodEquivalenceGroupViewSet, basename='food-equivalence-groups')
 router.register(r'community-recipes', CommunityRecipePostViewSet, basename='community-recipes')
 
 urlpatterns = [

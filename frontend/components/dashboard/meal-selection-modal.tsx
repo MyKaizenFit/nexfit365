@@ -1629,7 +1629,7 @@ function AllRecipesModal({
                               </div>
                             </div>
                             <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600">
-                              {item.category.replace(/_/g, ' ')}
+                              {(item.equivalence_groups && item.equivalence_groups.length > 0 ? item.equivalence_groups.join(', ') : item.category.replace(/_/g, ' '))}
                             </span>
                           </div>
                           <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs font-bold">
@@ -1650,7 +1650,7 @@ function AllRecipesModal({
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm font-medium text-gray-500">
-                      Selecciona un ingrediente para ver alternativas con los gramos ajustados a sus kcal.
+                      {substitutions?.message || 'Selecciona un ingrediente para ver alternativas con los gramos ajustados a sus kcal.'}
                     </div>
                   )}
                 </div>

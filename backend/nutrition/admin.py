@@ -6,7 +6,7 @@ from django.urls import path
 from django import forms
 from .models import (
     Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
-    CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike
+    CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike, FoodEquivalenceGroup
 )
 from .fatsecret_client import OpenFoodFactsClient
 
@@ -81,6 +81,14 @@ class ImportFoodsForm(forms.Form):
     )
 
 
+@admin.register(FoodEquivalenceGroup)
+class FoodEquivalenceGroupAdmin(admin.ModelAdmin):
+    list_display = ['name', 'slug', 'is_active', 'created_at']
+    list_filter = ['is_active', 'created_at']
+    search_fields = ['name', 'slug', 'description']
+    readonly_fields = ['created_at', 'updated_at']
+
+
 @admin.register(Food)
 class FoodAdmin(admin.ModelAdmin):
     list_display = ['name', 'brand', 'category', 'allergens', 'calories', 'protein', 'carbs', 'fat', 'fiber', 'sugar', 'is_verified']
@@ -88,11 +96,12 @@ class FoodAdmin(admin.ModelAdmin):
     search_fields = ['name', 'brand', 'category']
     ordering = ['name']
     readonly_fields = ['created_at', 'updated_at']
+    filter_horizontal = ['equivalence_groups']
     list_per_page = 50
     
     fieldsets = (
         ('Información básica', {
-            'fields': ('name', 'brand', 'category', 'allergens', 'is_verified')
+            'fields': ('name', 'brand', 'category', 'allergens', 'is_verified', 'equivalence_category', 'equivalence_groups')
         }),
         ('Porción', {
             'fields': ('serving_size', 'serving_unit')

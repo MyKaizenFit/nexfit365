@@ -147,6 +147,7 @@ export interface IngredientSubstitution {
   protein: number
   carbs: number
   fat: number
+  equivalence_groups?: string[]
 }
 
 export interface IngredientSubstitutionResponse {
@@ -158,10 +159,12 @@ export interface IngredientSubstitutionResponse {
     quantity: number
     unit: string
     category: string
+    equivalence_groups?: Array<{ id: string; name: string; slug: string }>
     supports_volume?: boolean
     target_calories: number
   }
   results: IngredientSubstitution[]
+  message?: string
 }
 
 export interface MealIngredientSubstitution {
