@@ -143,6 +143,17 @@ class TestProgressStatsViewSet:
         assert response.data["weight"]["goal"] is None
         assert response.data["weight"]["progress"] == 0.0
 
+    def test_dashboard_progress_stays_zero_with_single_weight_entry(self, auth_client, user):
+        user.target_weight = Decimal("70.0")
+        user.save(update_fields=["target_weight"])
+        WeightEntry.objects.create(user=user, weight=Decimal("80.0"), date=date(2026, 3, 1))
+
+        response = auth_client.get(reverse("progress-stats-dashboard"))
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["weight"]["progress"] == 0.0
+        assert response.data["overall_progress"] == 0.0
+
     def test_analysis_success(self, auth_client, monkeypatch):
         fake_module = types.ModuleType("progress.services")
 

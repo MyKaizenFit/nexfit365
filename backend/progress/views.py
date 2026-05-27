@@ -27,6 +27,9 @@ def calculate_weight_goal_progress(user, weight_entries):
     if not target_weight:
         return 0.0
 
+    if weight_entries.count() < 2:
+        return 0.0
+
     first_entry = weight_entries.order_by("date", "created_at").first()
     current_entry = weight_entries.order_by("-date", "-created_at").first()
     if not first_entry or not current_entry:
@@ -415,7 +418,7 @@ class ProgressStatsViewSet(viewsets.ViewSet):
                         date__gte=month_start
                     ).count()
                 },
-                "overall_progress": round((float(weight_progress) + float(workout_progress) + float(nutrition_progress)) / 3.0, 1)
+                "overall_progress": round(float(weight_progress), 1)
             }
             
             return Response(data)

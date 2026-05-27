@@ -68,7 +68,8 @@ export function ProgressSummaryEnhanced({
   const currentWeight = getCurrentWeight()
   const targetWeight = user?.target_weight || progressStats?.weight.goal || userStats?.targetWeight || null
   const weightChange = getWeightChange()
-  const weightProgress = progressStats?.weight.progress || 0
+  const hasTrackedWeightProgress = Boolean(weightEntries && weightEntries.length >= 2 && targetWeight)
+  const weightProgress = hasTrackedWeightProgress ? Math.min(Math.max(progressStats?.weight.progress || 0, 0), 100) : 0
 
   // Estadísticas de entrenamientos
   const workoutsThisWeek = progressStats?.workouts.this_week || userStats?.workoutsThisWeek || 0
@@ -84,8 +85,8 @@ export function ProgressSummaryEnhanced({
   const totalPhotos = progressStats?.photos.total || photos.length || 0
   const photosThisMonth = progressStats?.photos.this_month || 0
 
-  // Progreso general
-  const overallProgress = progressStats?.overall_progress || 0
+  // Progreso general: solo debe avanzar con progreso real de peso.
+  const overallProgress = weightProgress
 
   // Obtener la última entrada de peso
   const lastWeightEntry = weightEntries.length > 0 ? weightEntries[0] : null
@@ -157,7 +158,8 @@ export function ProgressSummaryEnhanced({
             className="h-2.5 sm:h-4"
           />
           <div className="text-xs sm:text-sm text-muted-foreground">
-            {overallProgress >= 80 ? "🎯 ¡Excelente progreso!" :
+            {!hasTrackedWeightProgress ? "Registra al menos dos pesos para medir tu progreso real" :
+             overallProgress >= 80 ? "🎯 ¡Excelente progreso!" :
              overallProgress >= 60 ? "🚀 ¡Buen ritmo!" :
              overallProgress >= 40 ? "💪 ¡Sigue así!" :
              "🌟 ¡Cada paso cuenta!"}
@@ -173,7 +175,7 @@ export function ProgressSummaryEnhanced({
             </div>
             <div className="text-sm sm:text-lg font-bold text-blue-700">{currentWeight}kg</div>
             <div className="text-xs text-blue-600">Peso actual</div>
-            {weightChange !== 0 && (
+            {hasTrackedWeightProgress && weightChange !== 0 && (
               <div className={`text-xs flex items-center justify-center gap-1 mt-1 ${
                 weightChange < 0 ? 'text-green-600' : 'text-red-600'
               }`}>
