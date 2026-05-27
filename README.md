@@ -86,13 +86,20 @@ nexfit365/
 
 ### 1. Entrar en el repositorio dev
 ```bash
-cd /srv/mykaizenfit/dev
+cd "D:\nexfit dev\dev"
 git checkout dev
 ```
 
 ### 2. Levantar los servicios
 ```bash
 COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml up -d
+```
+
+En Windows puedes usar el wrapper local:
+```powershell
+.\dev.bat up
+.\dev.bat logs
+.\dev.bat down
 ```
 
 ### 3. Acceder a la aplicación
@@ -135,7 +142,7 @@ COMPOSE_PROJECT_NAME=mykaizenfit-dev docker compose -f docker-compose.dev.yml ex
 
 ## 🔄 Separación de Entornos
 
-Desarrollo vive en `/srv/mykaizenfit/dev`, rama `dev`, con datos en `/srv/mykaizenfit/dev/data`.
+Desarrollo local vive en esta carpeta, rama `dev`, con datos aislados en volumenes Docker del proyecto `mykaizenfit-dev`.
 
 Producción vive en `/srv/mykaizenfit/pro`, rama `main`, con datos en `/srv/mykaizenfit/pro/data`.
 

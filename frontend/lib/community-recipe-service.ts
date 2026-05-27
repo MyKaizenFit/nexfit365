@@ -1,4 +1,4 @@
-import { authenticatedFetch } from "@/lib/api"
+import { authenticatedFetch, getApiBaseUrl } from "@/lib/api"
 
 export interface CommunityRecipeComment {
   id: string
@@ -32,8 +32,34 @@ const normalizeList = async (response: Response): Promise<CommunityRecipePost[]>
     throw new Error(errorData.detail || `Error ${response.status}`)
   }
   const data = await response.json()
-  return Array.isArray(data) ? data : data.results || []
+  const posts = Array.isArray(data) ? data : data.results || []
+  return posts.map(normalizePost)
 }
+
+const normalizeMediaUrl = (url: string): string => {
+  if (!url) return ""
+  if (url.startsWith("blob:") || url.startsWith("data:")) return url
+
+  const apiBaseUrl = getApiBaseUrl()
+  if (url.startsWith("/media/")) return `${apiBaseUrl}${url}`
+
+  try {
+    const parsedUrl = new URL(url)
+    const isInternalBackendHost = ["backend", "localhost", "127.0.0.1", "0.0.0.0"].includes(parsedUrl.hostname)
+    if (isInternalBackendHost && parsedUrl.pathname.startsWith("/media/")) {
+      return `${apiBaseUrl}${parsedUrl.pathname}${parsedUrl.search}${parsedUrl.hash}`
+    }
+  } catch {
+    return url
+  }
+
+  return url
+}
+
+const normalizePost = (post: CommunityRecipePost): CommunityRecipePost => ({
+  ...post,
+  photo_url: normalizeMediaUrl(post.photo_url),
+})
 
 export const communityRecipeService = {
   async list(): Promise<CommunityRecipePost[]> {
@@ -62,7 +88,8 @@ export const communityRecipeService = {
       const errorData = await response.json().catch(() => ({}))
       throw new Error(errorData.detail || errorData.photo?.[0] || `Error ${response.status}`)
     }
-    return response.json()
+    const created = await response.json()
+    return normalizePost(created)
   },
 
   async toggleLike(postId: string): Promise<{ liked_by_me: boolean; likes_count: number }> {

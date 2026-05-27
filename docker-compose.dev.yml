@@ -42,7 +42,7 @@ services:
     ports:
       - "127.0.0.1:5434:5432"
     volumes:
-      - /srv/mykaizenfit/dev/data/postgres:/var/lib/postgresql/data
+      - dev_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -63,7 +63,7 @@ services:
     command: ["redis-server", "--appendonly", "yes"]
     # Sin password en desarrollo para simplicidad
     volumes:
-      - /srv/mykaizenfit/dev/data/redis:/data
+      - dev_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -105,9 +105,9 @@ services:
       - "0.0.0.0:8001:8000"
     volumes:
       - ./backend:/app
-      - /srv/mykaizenfit/dev/data/staticfiles:/app/staticfiles
-      - /srv/mykaizenfit/dev/data/media:/app/media
-      - /srv/mykaizenfit/dev/data/backups:/app/backups
+      - dev_staticfiles:/app/staticfiles
+      - dev_media:/app/media
+      - dev_backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -130,6 +130,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.dev
+    stdin_open: true
+    tty: true
     env_file:
       - ./frontend/docker.env.dev
     restart: unless-stopped
@@ -137,6 +139,7 @@ services:
       NEXT_PUBLIC_VAPID_PUBLIC_KEY: "BA4lHz3MgE1aCZulpFl3fgl6wDt5busFjax0SlqbxO6Xmu1XqHkId_AGbOuYCdhiFnYTCx4l7KdJrDTNVBN4BRk"
       WATCHPACK_POLLING: "true"
       CHOKIDAR_USEPOLLING: "true"
+    command: ["sh", "-c", "./node_modules/.bin/next dev -H 0.0.0.0"]
     ports:
       - "0.0.0.0:3001:3000"
     volumes:
@@ -171,7 +174,7 @@ services:
       sh -c "celery -A backend worker --loglevel=info --concurrency=2"
     volumes:
       - ./backend:/app
-      - /srv/mykaizenfit/dev/data/media:/app/media
+      - dev_media:/app/media
     depends_on:
       db:
         condition: service_healthy
@@ -183,6 +186,13 @@ services:
 # ============================================
 # VOLÚMENES
 # ============================================
+volumes:
+  dev_postgres_data:
+  dev_redis_data:
+  dev_staticfiles:
+  dev_media:
+  dev_backups:
+
 # ============================================
 # REDES
 # ============================================

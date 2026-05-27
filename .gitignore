@@ -19,6 +19,7 @@ frontend/docker.env.dev
 # ===== Docker =====
 data/
 docker-data/
+.docker-local/
 
 # ===== Backups =====
 backups/
