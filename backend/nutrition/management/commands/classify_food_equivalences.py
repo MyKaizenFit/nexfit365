@@ -104,10 +104,22 @@ def keyword_matches(source, keyword):
     return re.search(pattern, source) is not None
 
 
+def is_plant_based_milk_or_drink(source):
+    plant_drink_markers = [
+        "leche de coco", "leche de almendra", "leche de avellana", "leche de avena",
+        "leche de soja", "bebida vegetal", "bebida de almendra", "bebida de avellana",
+        "bebida de avena", "bebida de soja", "bebida de coco",
+    ]
+    return any(marker in source for marker in plant_drink_markers)
+
+
 def classify_equivalence(food):
     source = normalize_text(" ".join([food.name, food.brand, food.category]))
     if not source:
         return ""
+
+    if is_plant_based_milk_or_drink(source):
+        return "otros"
 
     category_text = normalize_text(food.category)
     category_aliases = {
@@ -124,7 +136,6 @@ def classify_equivalence(food):
         "cereals": "arroz_cereales",
         "grain": "arroz_cereales",
         "grains": "arroz_cereales",
-        "plant based foods and beverages": "arroz_cereales",
         "legumes": "legumbres",
         "fruit": "fruta",
         "fruits": "fruta",
