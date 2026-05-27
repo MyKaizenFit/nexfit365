@@ -683,6 +683,22 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Crear registro con usuario autenticado"""
         serializer.save(user=self.request.user)
+
+    def create(self, request, *args, **kwargs):
+        """
+        Crear o actualizar el registro del dia.
+        Evita errores si el frontend intenta crear dos veces el bienestar de la misma fecha.
+        """
+        entry_date = request.data.get("date") or timezone.now().date().isoformat()
+        existing = DailyWellness.objects.filter(user=request.user, date=entry_date).first()
+
+        if existing:
+            serializer = self.get_serializer(existing, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(user=request.user)
+            return Response(serializer.data)
+
+        return super().create(request, *args, **kwargs)
     
     @action(detail=False, methods=["get"])
     def today(self, request):

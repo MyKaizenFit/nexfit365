@@ -92,7 +92,7 @@ const menuItems = [
   { title: "Recetas Team", icon: Camera, url: "recipe-community" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
-  { title: "Medidas", icon: TrendingUp, url: "measurements" },
+  { title: "Peso y Medidas", icon: TrendingUp, url: "measurements" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
   { title: "Configuración", icon: Settings, url: "settings" },
@@ -573,16 +573,7 @@ function DashboardContent() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={async () => {
-                          try {
-                            await logout()
-                            toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
-                          } catch (error) {
-                            toast({
-                              title: "❌ Error",
-                              description: "Error al cerrar sesión",
-                              variant: "destructive"
-                            })
-                          }
+                          await logout()
                         }}
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >
@@ -647,16 +638,7 @@ function DashboardContent() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         onClick={async () => {
-                          try {
-                            await logout()
-                            toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
-                          } catch (error) {
-                            toast({
-                              title: "❌ Error",
-                              description: "Error al cerrar sesión",
-                              variant: "destructive"
-                            })
-                          }
+                          await logout()
                         }}
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >

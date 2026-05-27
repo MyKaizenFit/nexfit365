@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Moon, Heart, Save, Loader2, ChevronUp, ChevronDown } from "lucide-react"
 import { toast } from "@/hooks/use-toast"
-import { authenticatedFetch, buildApiUrl } from "@/lib/api"
+import { authenticatedFetch } from "@/lib/api"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -18,6 +18,19 @@ interface DailyWellness {
   sleep_hours: number
   motivation_score: number
   notes?: string
+}
+
+const readJsonIfAvailable = async <T,>(response: Response): Promise<T | null> => {
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return null
+  }
+
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
 }
 
 export function WellnessTracker() {
@@ -40,7 +53,8 @@ export function WellnessTracker() {
     try {
       const response = await authenticatedFetch("daily-wellness/today/")
       if (response.ok) {
-        const data = await response.json()
+        const data = await readJsonIfAvailable<DailyWellness>(response)
+        if (!data) return
         setTodayEntry(data)
         setSleepHours(data.sleep_hours?.toString() || "")
         setMotivationScore(data.motivation_score || 3)
@@ -99,15 +113,15 @@ export function WellnessTracker() {
       }
 
       if (response.ok) {
-        const savedData = await response.json()
+        const savedData = await readJsonIfAvailable<DailyWellness>(response) || data
         setTodayEntry(savedData)
         toast({
           title: "¡Registro guardado! ✅",
           description: `Sueño: ${savedData.sleep_hours}h | Motivación: ${savedData.motivation_score}/5`,
         })
       } else {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || "Error al guardar")
+        const errorData = await readJsonIfAvailable<{ detail?: string }>(response)
+        throw new Error(errorData?.detail || "Error al guardar")
       }
     } catch (error: any) {
       toast({
@@ -313,8 +327,6 @@ export function WellnessTracker() {
     </div>
   )
 }
-
-
 
 
 

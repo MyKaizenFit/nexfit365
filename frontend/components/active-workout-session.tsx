@@ -366,6 +366,8 @@ export function ActiveWorkoutSession({
   const [isPaused, setIsPaused] = useState(false)
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [workoutStartTime, setWorkoutStartTime] = useState<number | null>(null)
+  const runningStartedAtRef = useRef<number | null>(null)
+  const elapsedAtRunningStartRef = useRef(0)
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set())
   const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0)
   const [showRestTimer, setShowRestTimer] = useState(false)
@@ -573,15 +575,19 @@ export function ActiveWorkoutSession({
         setRating(savedState.rating || 0)
         setNotes(savedState.notes || '')
 
-        // Restaurar cronómetro sin doble conteo:
-        // sumar solo el tiempo transcurrido desde el último guardado (savedAt)
         if (savedState.isStarted && !savedState.isPaused) {
+          const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
           const lastSavedAt = typeof savedState.savedAt === 'number' ? savedState.savedAt : Date.now()
           const deltaSinceSave = Math.max(0, Math.floor((Date.now() - lastSavedAt) / 1000))
-          setElapsedSeconds((savedState.elapsedSeconds || 0) + deltaSinceSave)
-          setWorkoutStartTime(Date.now())
+          const nextElapsed = restoredElapsed + deltaSinceSave
+          setElapsedSeconds(nextElapsed)
+          elapsedAtRunningStartRef.current = nextElapsed
+          runningStartedAtRef.current = Date.now()
         } else {
-          setElapsedSeconds(savedState.elapsedSeconds || 0)
+          const restoredElapsed = Math.max(0, Number(savedState.elapsedSeconds || 0))
+          setElapsedSeconds(restoredElapsed)
+          elapsedAtRunningStartRef.current = restoredElapsed
+          runningStartedAtRef.current = null
         }
       }
     }
@@ -627,40 +633,78 @@ export function ActiveWorkoutSession({
     return () => clearTimeout(timeoutId)
   }, [rating, notes]) // Solo cuando cambian rating o notes
 
-  // Temporizador de entrenamiento
+  const syncElapsedFromClock = useCallback(() => {
+    if (!isStarted || isPaused || !runningStartedAtRef.current) {
+      return elapsedSeconds
+    }
+
+    const delta = Math.max(0, Math.floor((Date.now() - runningStartedAtRef.current) / 1000))
+    const nextElapsed = elapsedAtRunningStartRef.current + delta
+    setElapsedSeconds(nextElapsed)
+    return nextElapsed
+  }, [elapsedSeconds, isPaused, isStarted])
+
+  // Temporizador de entrenamiento basado en hora real.
+  // En móviles el navegador pausa JS al bloquear pantalla, así que no podemos fiarnos de +1s por tick.
   useEffect(() => {
     let interval: NodeJS.Timeout
 
     if (isStarted && !isPaused) {
-      // Si no hay tiempo de inicio, establecerlo ahora
-      if (!workoutStartTime) {
-        const startTime = Date.now()
-        setWorkoutStartTime(startTime)
-      }
+      runningStartedAtRef.current = Date.now()
+      elapsedAtRunningStartRef.current = elapsedSeconds
 
       interval = setInterval(() => {
-        setElapsedSeconds((prev) => {
-          const newSeconds = prev + 1
-          // Guardar estado cada 5 segundos para no saturar localStorage
-          if (newSeconds % 5 === 0) {
-            saveWorkoutState({
-              isStarted,
-              isPaused,
-              elapsedSeconds: newSeconds,
-              workoutStartTime,
-              completedExercises: Array.from(completedExercises),
-              exerciseSets,
-              rating,
-              notes
-            })
-          }
-          return newSeconds
-        })
+        const startedAt = runningStartedAtRef.current
+        if (!startedAt) return
+
+        const nextElapsed = elapsedAtRunningStartRef.current + Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
+        setElapsedSeconds(nextElapsed)
+
+        // Guardar estado cada 5 segundos para no saturar localStorage.
+        if (nextElapsed % 5 === 0) {
+          saveWorkoutState({
+            isStarted,
+            isPaused,
+            elapsedSeconds: nextElapsed,
+            workoutStartTime,
+            completedExercises: Array.from(completedExercises),
+            exerciseSets,
+            rating,
+            notes
+          })
+        }
       }, 1000)
     }
 
     return () => clearInterval(interval)
-  }, [isStarted, isPaused, workoutStartTime, completedExercises, exerciseSets, rating, notes, saveWorkoutState])
+  }, [isStarted, isPaused])
+
+  useEffect(() => {
+    if (!isStarted || isPaused || typeof document === 'undefined') return
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const nextElapsed = syncElapsedFromClock()
+        saveWorkoutState({
+          isStarted,
+          isPaused,
+          elapsedSeconds: nextElapsed,
+          workoutStartTime,
+          completedExercises: Array.from(completedExercises),
+          exerciseSets,
+          rating,
+          notes
+        })
+      }
+    }
+
+    window.addEventListener('focus', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => {
+      window.removeEventListener('focus', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
+  }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
 
   // Formatear tiempo
   const formatTime = useCallback((seconds: number) => {
@@ -948,6 +992,8 @@ export function ActiveWorkoutSession({
     setIsPaused(false)
     setWorkoutStartTime(startTime)
     setElapsedSeconds(0)
+    runningStartedAtRef.current = startTime
+    elapsedAtRunningStartRef.current = 0
 
     // Guardar estado inicial
     saveWorkoutState({
@@ -969,14 +1015,22 @@ export function ActiveWorkoutSession({
 
   // Pausar entrenamiento
   const handlePause = () => {
+    const currentElapsed = syncElapsedFromClock()
     const newPausedState = !isPaused
     setIsPaused(newPausedState)
+    if (newPausedState) {
+      runningStartedAtRef.current = null
+      elapsedAtRunningStartRef.current = currentElapsed
+    } else {
+      runningStartedAtRef.current = Date.now()
+      elapsedAtRunningStartRef.current = currentElapsed
+    }
 
     // Guardar estado al pausar/reanudar
     saveWorkoutState({
       isStarted,
       isPaused: newPausedState,
-      elapsedSeconds,
+      elapsedSeconds: currentElapsed,
       workoutStartTime,
       completedExercises: Array.from(completedExercises),
       exerciseSets,
@@ -987,8 +1041,11 @@ export function ActiveWorkoutSession({
 
   // Preparar finalización
   const handlePrepareFinish = () => {
+    const currentElapsed = syncElapsedFromClock()
     // Pausar el temporizador cuando se abre el diálogo de finalización
     setIsPaused(true)
+    runningStartedAtRef.current = null
+    elapsedAtRunningStartRef.current = currentElapsed
     setConfirmMissingExercises(false)
     setShowFinishDialog(true)
 
@@ -996,7 +1053,7 @@ export function ActiveWorkoutSession({
     saveWorkoutState({
       isStarted,
       isPaused: true,
-      elapsedSeconds,
+      elapsedSeconds: currentElapsed,
       workoutStartTime,
       completedExercises: Array.from(completedExercises),
       exerciseSets,

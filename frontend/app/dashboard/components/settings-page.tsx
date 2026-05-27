@@ -305,28 +305,28 @@ const SettingsPage = () => {
                     <div className="p-3 md:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
                       <h5 className="font-semibold text-sm md:text-lg text-foreground mb-1.5 md:mb-3">¿Cómo cambio mi contraseña?</h5>
                       <p className="text-xs md:text-base text-muted-foreground leading-relaxed">
-                        Ve a la pestaña "Seguridad" en esta misma página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.
+                        Ve al apartado de configuración y entra en la pestaña “Seguridad”. Desde ahí podrás cambiar tu contraseña de forma rápida y segura.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border-2 border-green-200">
                       <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Cómo actualizo mi perfil?</h5>
                       <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                        En la pestaña "Mi Perfil" puedes editar toda tu información personal, incluyendo nombre, altura, peso, objetivos y más.
+                        En “Mi Perfil” puedes modificar peso, altura, objetivos, preferencias, actividad y otros datos importantes para adaptar mejor el método a ti.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border-2 border-purple-200">
                       <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Cómo funcionan los planes de entrenamiento?</h5>
                       <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                        Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección "Entrenamientos" del dashboard.
+                        Tus entrenamientos se organizan según tus objetivos, nivel, disponibilidad y el enfoque del método de Sara.
                       </p>
                     </div>
                     
                     <div className="p-4 md:p-5 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border-2 border-orange-200">
                       <h5 className="font-semibold text-base md:text-lg text-foreground mb-2 md:mb-3">¿Puedo personalizar mi plan nutricional?</h5>
                       <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
-                        Sí, los planes nutricionales se adaptan a tus preferencias dietéticas, alergias y objetivos. Actualiza tu perfil para que el plan se ajuste automáticamente.
+                        Sí. Puedes actualizar alergias, intolerancias, preferencias y alimentos que no te gustan para que el menú se adapte mejor a ti.
                       </p>
                     </div>
                   </div>
