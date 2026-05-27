@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta http-equiv="refresh" content="60">
+  <title>NexFit - Mantenimiento</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #fff7ed;
+      --panel: #ffffff;
+      --ink: #111827;
+      --muted: #6b7280;
+      --line: #fed7aa;
+      --accent: #f97316;
+      --accent-strong: #ea580c;
+      --ok: #059669;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 15% 20%, rgba(249, 115, 22, 0.12), transparent 28rem),
+        radial-gradient(circle at 90% 10%, rgba(20, 184, 166, 0.10), transparent 24rem),
+        var(--bg);
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    main {
+      width: min(680px, 100%);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: 0 24px 70px rgba(17, 24, 39, 0.12);
+      padding: clamp(28px, 6vw, 52px);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 34px;
+    }
+
+    .mark {
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #fff;
+      display: grid;
+      place-items: center;
+      font-size: 34px;
+      font-weight: 900;
+      line-height: 1;
+    }
+
+    .brand strong {
+      display: block;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .brand span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    h1 {
+      margin: 0 0 16px;
+      font-size: clamp(32px, 7vw, 54px);
+      line-height: 1.02;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      font-size: clamp(16px, 2.4vw, 19px);
+      line-height: 1.6;
+    }
+
+    .eta {
+      margin: 30px 0;
+      padding: 18px 20px;
+      border-radius: 14px;
+      border: 1px solid #bbf7d0;
+      background: #ecfdf5;
+      color: #065f46;
+      font-weight: 700;
+      font-size: clamp(18px, 3vw, 24px);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 28px;
+    }
+
+    a {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 10px;
+      padding: 0 18px;
+      background: var(--ink);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    small {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="brand">
+      <div class="mark">X</div>
+      <div>
+        <strong>NexFit</strong>
+        <span>Actualizacion programada</span>
+      </div>
+    </div>
+
+    <h1>Estamos mejorando la app</h1>
+    <p>
+      Estamos aplicando una actualizacion para mejorar menus, equivalencias,
+      progreso y estabilidad. Durante unos minutos la app no estara disponible.
+    </p>
+
+    <div class="eta">
+      Vuelta estimada: {{ETA}}
+    </div>
+
+    <p>
+      Puedes dejar esta pagina abierta: se actualizara automaticamente cada minuto.
+    </p>
+
+    <div class="actions">
+      <a href="/">Reintentar ahora</a>
+      <small>Gracias por la paciencia. Estamos dejandolo fino.</small>
+    </div>
+  </main>
+</body>
+</html>
