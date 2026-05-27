@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { RefreshCw, Search, Shuffle, Check, Loader2, Plus } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { getApiBaseUrl } from "@/lib/api"
@@ -55,10 +55,13 @@ interface EquivalenceGroup {
 
 export function EquivalenceManagement() {
   const { getAuthHeaders } = useAuth()
+  const getAuthHeadersRef = useRef(getAuthHeaders)
   const [foods, setFoods] = useState<Food[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [savingFoodIds, setSavingFoodIds] = useState<string[]>([])
   const [search, setSearch] = useState("")
+  const [submittedSearch, setSubmittedSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkCategory, setBulkCategory] = useState("arroz_cereales")
@@ -70,15 +73,19 @@ export function EquivalenceManagement() {
   const [newGroupName, setNewGroupName] = useState("")
   const [newGroupDescription, setNewGroupDescription] = useState("")
 
+  useEffect(() => {
+    getAuthHeadersRef.current = getAuthHeaders
+  }, [getAuthHeaders])
+
   const fetchFoods = useCallback(async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams({ page_size: String(pageSize), page: String(currentPage) })
-      if (search.trim()) params.set("search", search.trim())
+      if (submittedSearch) params.set("search", submittedSearch)
       if (categoryFilter !== "all") params.set("equivalence_category", categoryFilter)
       if (groupFilter !== "all") params.set("equivalence_groups", groupFilter)
 
-      const headers = await getAuthHeaders()
+      const headers = await getAuthHeadersRef.current()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params.toString()}`, { headers })
       if (!response.ok) throw new Error("No se pudieron cargar alimentos")
       const data = await response.json()
@@ -90,11 +97,11 @@ export function EquivalenceManagement() {
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter, currentPage, getAuthHeaders, groupFilter, pageSize, search])
+  }, [categoryFilter, currentPage, groupFilter, pageSize, submittedSearch])
 
   const fetchGroups = useCallback(async () => {
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAuthHeadersRef.current()
       const response = await fetch(`${getApiUrl()}/api/nutrition/food-equivalence-groups/?page_size=500`, { headers })
       if (!response.ok) throw new Error("No se pudieron cargar grupos")
       const data = await response.json()
@@ -102,7 +109,7 @@ export function EquivalenceManagement() {
     } catch (error) {
       toast({ title: "Error", description: "No se pudieron cargar los grupos personalizados.", variant: "destructive" })
     }
-  }, [getAuthHeaders])
+  }, [])
 
   useEffect(() => {
     fetchFoods()
@@ -112,12 +119,22 @@ export function EquivalenceManagement() {
     fetchGroups()
   }, [fetchGroups])
 
+  const submitSearch = () => {
+    const nextSearch = search.trim()
+    if (nextSearch === submittedSearch && currentPage === 1) {
+      fetchFoods()
+      return
+    }
+    setCurrentPage(1)
+    setSubmittedSearch(nextSearch)
+  }
+
   const categoryLabel = useMemo(() => {
     return Object.fromEntries(EQUIVALENCE_CATEGORIES.map((category) => [category.value, category.label]))
   }, [])
 
   const updateFoodCategory = async (foodId: string, equivalenceCategory: string) => {
-    const headers = await getAuthHeaders()
+    const headers = await getAuthHeadersRef.current()
     const response = await fetch(`${getApiUrl()}/api/nutrition/foods/${foodId}/`, {
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
@@ -137,7 +154,7 @@ export function EquivalenceManagement() {
     if (!newGroupName.trim()) return
     setSaving(true)
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAuthHeadersRef.current()
       const response = await fetch(`${getApiUrl()}/api/nutrition/food-equivalence-groups/`, {
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
@@ -161,9 +178,9 @@ export function EquivalenceManagement() {
   }
 
   const updateFoodGroups = async (food: Food, groupIds: string[]) => {
-    setSaving(true)
+    setSavingFoodIds((current) => Array.from(new Set([...current, food.id])))
     try {
-      const headers = await getAuthHeaders()
+      const headers = await getAuthHeadersRef.current()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/${food.id}/`, {
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
@@ -178,7 +195,7 @@ export function EquivalenceManagement() {
     } catch (error) {
       toast({ title: "Error", description: "No se pudieron actualizar los grupos del alimento.", variant: "destructive" })
     } finally {
-      setSaving(false)
+      setSavingFoodIds((current) => current.filter((id) => id !== food.id))
     }
   }
 
@@ -190,7 +207,7 @@ export function EquivalenceManagement() {
   }
 
   const handleSingleUpdate = async (food: Food, equivalenceCategory: string) => {
-    setSaving(true)
+    setSavingFoodIds((current) => Array.from(new Set([...current, food.id])))
     try {
       await updateFoodCategory(food.id, equivalenceCategory)
       setFoods((current) => current.map((item) => item.id === food.id ? { ...item, equivalence_category: equivalenceCategory === "none" ? "" : equivalenceCategory } : item))
@@ -198,7 +215,7 @@ export function EquivalenceManagement() {
     } catch (error) {
       toast({ title: "Error", description: "No se pudo actualizar el alimento.", variant: "destructive" })
     } finally {
-      setSaving(false)
+      setSavingFoodIds((current) => current.filter((id) => id !== food.id))
     }
   }
 
@@ -248,7 +265,15 @@ export function EquivalenceManagement() {
           <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_220px_auto]">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={(e) => { setSearch(e.target.value); setCurrentPage(1) }} placeholder="Buscar alimento, marca o categoria..." className="pl-9" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") submitSearch()
+                }}
+                placeholder="Buscar alimento, marca o categoria..."
+                className="pl-9"
+              />
             </div>
             <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setCurrentPage(1) }}>
               <SelectTrigger>
@@ -272,7 +297,7 @@ export function EquivalenceManagement() {
                 ))}
               </SelectContent>
             </Select>
-            <Button onClick={fetchFoods} disabled={loading}>
+            <Button onClick={submitSearch} disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
               Buscar
             </Button>
@@ -349,51 +374,54 @@ export function EquivalenceManagement() {
                 </div>
               ) : foods.length === 0 ? (
                 <div className="py-10 text-center text-sm text-muted-foreground">No hay alimentos con esos filtros.</div>
-              ) : foods.map((food) => (
-                <div key={food.id} className="grid grid-cols-[44px_1fr_150px_220px_280px] items-center gap-2 px-3 py-3">
-                  <Checkbox checked={selectedIds.includes(food.id)} onCheckedChange={() => toggleFood(food.id)} />
-                  <div className="min-w-0">
-                    <div className="truncate font-semibold">{food.name}</div>
-                    <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
-                      {food.brand ? <span>{food.brand}</span> : null}
-                      {food.category ? <Badge variant="outline">{food.category}</Badge> : null}
+              ) : foods.map((food) => {
+                const isFoodSaving = savingFoodIds.includes(food.id)
+                return (
+                  <div key={food.id} className="grid grid-cols-[44px_1fr_150px_220px_280px] items-center gap-2 px-3 py-3">
+                    <Checkbox checked={selectedIds.includes(food.id)} onCheckedChange={() => toggleFood(food.id)} />
+                    <div className="min-w-0">
+                      <div className="truncate font-semibold">{food.name}</div>
+                      <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                        {food.brand ? <span>{food.brand}</span> : null}
+                        {food.category ? <Badge variant="outline">{food.category}</Badge> : null}
+                      </div>
+                    </div>
+                    <div className="text-xs font-semibold text-muted-foreground">
+                      <div>{food.calories} kcal</div>
+                      <div>P {food.protein} · C {food.carbs} · G {food.fat}</div>
+                    </div>
+                    <Select value={food.equivalence_category || "none"} onValueChange={(value) => handleSingleUpdate(food, value)} disabled={saving || isFoodSaving}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Sin grupo manual" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Sin grupo manual</SelectItem>
+                        {EQUIVALENCE_CATEGORIES.map((category) => (
+                          <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto rounded-lg border bg-white p-2">
+                      {groups.length === 0 ? (
+                        <span className="text-xs text-muted-foreground">Crea grupos para asignar alimentos.</span>
+                      ) : groups.map((group) => {
+                        const checked = Boolean(food.equivalence_groups?.some((item) => item.id === group.id))
+                        return (
+                          <button
+                            key={group.id}
+                            type="button"
+                            onClick={() => toggleFoodGroup(food, group.id)}
+                            disabled={saving || isFoodSaving}
+                            className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${checked ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-gray-50 text-gray-500 hover:border-emerald-200"}`}
+                          >
+                            {group.name}
+                          </button>
+                        )
+                      })}
                     </div>
                   </div>
-                  <div className="text-xs font-semibold text-muted-foreground">
-                    <div>{food.calories} kcal</div>
-                    <div>P {food.protein} · C {food.carbs} · G {food.fat}</div>
-                  </div>
-                  <Select value={food.equivalence_category || "none"} onValueChange={(value) => handleSingleUpdate(food, value)} disabled={saving}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Sin grupo manual" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Sin grupo manual</SelectItem>
-                      {EQUIVALENCE_CATEGORIES.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>{category.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <div className="flex max-h-28 flex-wrap gap-1 overflow-y-auto rounded-lg border bg-white p-2">
-                    {groups.length === 0 ? (
-                      <span className="text-xs text-muted-foreground">Crea grupos para asignar alimentos.</span>
-                    ) : groups.map((group) => {
-                      const checked = Boolean(food.equivalence_groups?.some((item) => item.id === group.id))
-                      return (
-                        <button
-                          key={group.id}
-                          type="button"
-                          onClick={() => toggleFoodGroup(food, group.id)}
-                          disabled={saving}
-                          className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition ${checked ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-gray-200 bg-gray-50 text-gray-500 hover:border-emerald-200"}`}
-                        >
-                          {group.name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
 
