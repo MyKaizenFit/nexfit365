@@ -143,6 +143,37 @@ def infer_food_equivalence_category(food: Food) -> str:
     return normalize_equivalence_category(food.category) or 'otros'
 
 
+def _normalized_food_text(food: Food) -> str:
+    text = " ".join([getattr(food, 'name', '') or '', getattr(food, 'brand', '') or '', getattr(food, 'category', '') or ''])
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()
+    return re.sub(r'[^a-z0-9\s_-]', ' ', text)
+
+
+def _contains_any_word(source: str, words: list[str]) -> bool:
+    return any(re.search(rf"(^|\s){re.escape(word)}(\s|$)", source) for word in words)
+
+
+def are_foods_reasonable_equivalents(original_food: Food, candidate_food: Food) -> bool:
+    """Evita recomendaciones absurdas dentro de categorías demasiado amplias."""
+    original_text = _normalized_food_text(original_food)
+    candidate_text = _normalized_food_text(candidate_food)
+
+    bread_words = [
+        'pan', 'molde', 'bikini', 'sandwich', 'sandwiches', 'tostada', 'tostadas',
+        'toast', 'bagel', 'pita', 'bocadillo', 'bocata', 'chapata', 'barra',
+    ]
+    wrap_words = ['wrap', 'tortilla trigo', 'tortilla maiz', 'tortilla integral', 'fajita', 'taco']
+    rice_words = ['arroz', 'rice', 'basmati']
+    pasta_words = ['pasta', 'macarron', 'macarrones', 'espagueti', 'espaguetis', 'noodle', 'noodles']
+
+    constrained_groups = [bread_words, wrap_words, rice_words, pasta_words]
+    for group in constrained_groups:
+        if _contains_any_word(original_text, group):
+            return _contains_any_word(candidate_text, group)
+
+    return True
+
+
 def is_liquid_equivalence_food(food: Food) -> bool:
     unit = RecipeIngredient._normalize_unit(getattr(food, 'serving_unit', 'g')) or 'g'
     if unit in RecipeIngredient.VOLUME_UNITS:
@@ -2468,6 +2499,8 @@ class RecipeViewSet(viewsets.ModelViewSet):
         for food in foods.order_by('name')[:500]:
             food_category = infer_food_equivalence_category(food)
             if category and food_category != category:
+                continue
+            if not are_foods_reasonable_equivalents(original_food, food):
                 continue
 
             calories_per_100 = float(food.calories or 0)
