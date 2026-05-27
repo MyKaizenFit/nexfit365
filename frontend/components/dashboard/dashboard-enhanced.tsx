@@ -94,14 +94,19 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const metrics = useMemo(() => {
     const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
     const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
+    const hasTrackedWeightProgress = Boolean(latestWeightEntry && firstWeightEntry && weightEntries.length >= 2)
     const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
     const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
-    const weightChange = (latestWeightEntry && firstWeightEntry) 
+    const weightChange = latestWeightEntry && firstWeightEntry && hasTrackedWeightProgress
       ? latestWeightEntry.weight - firstWeightEntry.weight 
-      : (progressStats?.weight?.change || userStats?.weightChange || 0)
+      : 0
+    const weightProgress = hasTrackedWeightProgress && targetWeight
+      ? Math.min(Math.max(progressStats?.weight?.progress || 0, 0), 100)
+      : 0
     
     return {
-      overallProgress: progressStats?.overall_progress || 0,
+      transformationProgress: weightProgress,
+      hasTrackedWeightProgress,
       latestWeightEntry,
       firstWeightEntry,
       currentWeight,
@@ -111,13 +116,13 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     }
   }, [weightEntries, progressStats, user, userStats])
   
-  const { overallProgress, latestWeightEntry, firstWeightEntry, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
+  const { transformationProgress, hasTrackedWeightProgress, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
 
   // Calcular calorías y macros con useMemo
   const nutritionData = useMemo(() => {
     const caloriesConsumed = macros.caloriesConsumed || 0
     const caloriesGoal = macros.caloriesGoal || 2000
-    const caloriesProgress = Math.min((caloriesConsumed / caloriesGoal) * 100, 100)
+    const caloriesProgress = caloriesGoal > 0 ? Math.min(Math.max((caloriesConsumed / caloriesGoal) * 100, 0), 100) : 0
     
     return {
       caloriesConsumed,
@@ -133,6 +138,9 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   }, [macros])
   
   const { caloriesConsumed, caloriesGoal, caloriesProgress, proteinConsumed, proteinGoal, carbsConsumed, carbsGoal, fatConsumed, fatGoal } = nutritionData
+  const proteinProgress = proteinGoal > 0 ? Math.min(Math.max((proteinConsumed / proteinGoal) * 100, 0), 100) : 0
+  const carbsProgress = carbsGoal > 0 ? Math.min(Math.max((carbsConsumed / carbsGoal) * 100, 0), 100) : 0
+  const fatProgress = fatGoal > 0 ? Math.min(Math.max((fatConsumed / fatGoal) * 100, 0), 100) : 0
 
   // Estadísticas de entrenamientos con useMemo
   const workoutStats = useMemo(() => {
@@ -152,7 +160,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const trainingData = useMemo(() => {
     const trainingDays = profile?.training_days || []
     const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
-    const workoutProgress = workoutsGoal > 0 ? Math.round((workoutsThisWeek / workoutsGoal) * 100) : 0
+    const workoutProgress = workoutsGoal > 0 ? Math.min(Math.round((workoutsThisWeek / workoutsGoal) * 100), 100) : 0
     
     // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
     const getRemainingTrainingDays = () => {
@@ -319,10 +327,12 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
               <Zap className="h-5 w-5 text-yellow-300 flex-shrink-0" />
               <span>
-                {overallProgress >= 80 
+                {transformationProgress >= 80 
                   ? "¡Increíble progreso! Estás cerca de tu objetivo 🎯"
-                  : overallProgress >= 50 
+                  : transformationProgress >= 50 
                   ? "¡Vas por buen camino! Mantén el ritmo 🔥"
+                  : !hasTrackedWeightProgress
+                  ? "Registra tu peso para empezar a medir tu progreso real 📈"
                   : "¡Cada día cuenta! Sigue adelante 💪"}
               </span>
             </p>
@@ -341,13 +351,13 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
               <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
-                {overallProgress >= 50 ? '👍' : '📈'}
+                {hasTrackedWeightProgress && transformationProgress >= 50 ? '👍' : '📈'}
               </Badge>
             </div>
             <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(overallProgress)}%</p>
+              <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(transformationProgress)}%</p>
               <p className="text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium">Progreso Total</p>
-              <Progress value={overallProgress} className="h-2 bg-emerald-500/20" />
+              <Progress value={transformationProgress} className="h-2 bg-emerald-500/20" />
             </div>
           </CardContent>
         </Card>
@@ -360,7 +370,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
                 <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
               </div>
-              {weightChange !== 0 && (
+              {hasTrackedWeightProgress && weightChange !== 0 && (
                 <Badge className={`border-0 text-xs ${weightChange < 0 ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}>
                   {weightChange < 0 ? '↓' : '↑'} {Math.abs(weightChange).toFixed(1)}kg
                 </Badge>
@@ -450,7 +460,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <div>
                 <p className="text-lg sm:text-xl font-bold text-red-600">{formatMacro(proteinConsumed)}g</p>
                 <p className="text-xs text-muted-foreground">de {formatMacro(proteinGoal)}g</p>
-                <Progress value={(proteinConsumed/proteinGoal)*100} className="h-1.5 mt-2 bg-red-500/20" />
+                <Progress value={proteinProgress} className="h-1.5 mt-2 bg-red-500/20" />
               </div>
               <p className="text-xs font-medium text-muted-foreground">Proteína</p>
             </div>
@@ -463,7 +473,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <div>
                 <p className="text-lg sm:text-xl font-bold text-amber-600">{formatMacro(carbsConsumed)}g</p>
                 <p className="text-xs text-muted-foreground">de {formatMacro(carbsGoal)}g</p>
-                <Progress value={(carbsConsumed/carbsGoal)*100} className="h-1.5 mt-2 bg-amber-500/20" />
+                <Progress value={carbsProgress} className="h-1.5 mt-2 bg-amber-500/20" />
               </div>
               <p className="text-xs font-medium text-muted-foreground">Carbos</p>
             </div>
@@ -476,7 +486,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <div>
                 <p className="text-lg sm:text-xl font-bold text-green-600">{formatMacro(fatConsumed)}g</p>
                 <p className="text-xs text-muted-foreground">de {formatMacro(fatGoal)}g</p>
-                <Progress value={(fatConsumed/fatGoal)*100} className="h-1.5 mt-2 bg-green-500/20" />
+                <Progress value={fatProgress} className="h-1.5 mt-2 bg-green-500/20" />
               </div>
               <p className="text-xs font-medium text-muted-foreground">Grasas</p>
             </div>
