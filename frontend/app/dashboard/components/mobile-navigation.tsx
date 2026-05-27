@@ -15,7 +15,7 @@ const mainMenuItems = [
 const moreMenuItems = [
   { title: "Día 1", icon: Target, url: "day-one", badge: null },
   { title: "Recetas Team", icon: Camera, url: "recipe-community", badge: null },
-  { title: "Medidas", icon: TrendingUp, url: "measurements", badge: null },
+  { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null },
   { title: "Logros", icon: Medal, url: "achievements", badge: null },
   { title: "Configuración", icon: Settings, url: "settings", badge: null },

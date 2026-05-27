@@ -793,8 +793,12 @@ export class AuthService {
 
   // Logout
   async logout(): Promise<void> {
+    const accessTokenToRevoke = this.getAccessToken()
+    const refreshTokenToRevoke = this.getRefreshToken()
+    this.clearTokens()
+
     try {
-      if (!this.isOfflineMode && this.refreshToken) {
+      if (!this.isOfflineMode && refreshTokenToRevoke) {
         // Intentar invalidar el token en el backend
         try {
           // NO loguear tokens por seguridad
@@ -803,8 +807,8 @@ export class AuthService {
 
           const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
             method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({ refresh: this.refreshToken }),
+            headers: getAuthHeaders(accessTokenToRevoke || undefined),
+            body: JSON.stringify({ refresh: refreshTokenToRevoke }),
           })
 
           if (!response.ok) {
@@ -821,8 +825,6 @@ export class AuthService {
       } else {
       }
 
-      // Limpiar tokens localmente
-      this.clearTokens()
     } catch (error) {
       // Asegurar que se limpien los tokens incluso si hay error
       this.clearTokens()

@@ -26,6 +26,13 @@ const actionTypes = {
 } as const
 
 let count = 0
+const recentToastKeys = new Map<string, number>()
+
+const noopToast = {
+  id: "",
+  dismiss: () => {},
+  update: () => {},
+}
 
 function genId() {
   count = (count + 1) % Number.MAX_SAFE_INTEGER
@@ -143,6 +150,29 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
+  const isDestructive = props.variant === "destructive"
+
+  if (
+    isDestructive &&
+    typeof window !== "undefined" &&
+    localStorage.getItem("auth_logout_in_progress") === "true"
+  ) {
+    return noopToast
+  }
+
+  const toastKey = [
+    props.variant || "default",
+    typeof props.title === "string" ? props.title : "",
+    typeof props.description === "string" ? props.description : "",
+  ].join("|")
+
+  const now = Date.now()
+  const lastShownAt = recentToastKeys.get(toastKey) || 0
+  if (now - lastShownAt < 4000) {
+    return noopToast
+  }
+  recentToastKeys.set(toastKey, now)
+
   const id = genId()
 
   const update = (props: ToasterToast) =>

@@ -3,7 +3,7 @@
 
 "use client"
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   getAuthService,
@@ -101,6 +101,7 @@ interface AuthProviderProps {
 
 // Provider del contexto
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const logoutInProgressRef = useRef(false)
   const [state, setState] = useState<AuthState>({
     user: null,
     isAuthenticated: false,
@@ -116,6 +117,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth')) {
+          localStorage.removeItem('auth_logout_in_progress')
+        }
+
         // Verificar si hay tokens válidos
         const authService = getAuthService()
         const hasValidTokens = await authService.hasValidTokens()
@@ -375,42 +380,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Función de logout
   const logout = async () => {
+    if (logoutInProgressRef.current) {
+      return
+    }
+
+    logoutInProgressRef.current = true
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('auth_logout_in_progress', 'true')
+    }
+
+    const authService = getAuthService()
+    localStorage.removeItem('initial_form_completed')
+    localStorage.removeItem('user_profile')
+    localStorage.removeItem('form_version')
+    setInitialRegistrationCookie(false)
+
+    setState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+      mustChangePassword: false,
+    })
+
     try {
-      setState(prev => ({
-        ...prev,
-        isLoading: true,
-      }))
-
-      const authService = getAuthService()
       await authService.logout()
-
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-        mustChangePassword: false,
-      })
-
-      // Mostrar notificación de éxito
-      authNotifications.showLogoutSuccess()
-
-      // Redirigir al login
-      router.push('/auth')
     } catch (error) {
-
-      // Mostrar notificación de error
-      authNotifications.showLogoutError('Error al cerrar sesión')
-
-      // Asegurar que se limpie el estado incluso si hay error
-      setState({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: null,
-        mustChangePassword: false,
-      })
-      router.push('/auth')
+      // El cierre local ya se ha completado. No mostrar errores si falla invalidar el token remoto.
+    } finally {
+      authNotifications.showLogoutSuccess()
+      if (typeof window !== 'undefined') {
+        window.location.replace('/auth')
+      } else {
+        router.replace('/auth')
+      }
     }
   }
 

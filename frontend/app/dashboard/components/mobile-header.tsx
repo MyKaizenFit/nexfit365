@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { toast } from "@/hooks/use-toast"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/contexts/auth-context"
 import { useState } from "react"
@@ -47,13 +46,7 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
   }
 
   const handleLogout = async () => {
-    try {
-      await logout()
-      toast({ title: "👋 Cerrar sesión", description: "Sesión cerrada correctamente" })
-      router.push('/auth')
-    } catch (error) {
-      toast({ title: "❌ Error", description: "Error al cerrar sesión" })
-    }
+    await logout()
   }
 
   const searchOptions = [

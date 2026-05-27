@@ -39,42 +39,42 @@ export default function FAQPage() {
   const defaultFAQs = [
     {
       question: "¿Cómo cambio mi contraseña?",
-      answer: "Ve a la pestaña 'Seguridad' en la página de configuración. Allí encontrarás la opción para cambiar tu contraseña de forma segura.",
+      answer: "Ve al apartado de configuración y entra en la pestaña “Seguridad”. Desde ahí podrás cambiar tu contraseña de forma rápida y segura para mantener protegida toda tu información dentro de la App.",
       category: "Cuenta"
     },
     {
       question: "¿Cómo actualizo mi perfil?",
-      answer: "En la pestaña 'Mi Perfil' puedes editar toda tu información personal, incluyendo nombre, altura, peso, objetivos y más.",
+      answer: "En la pestaña “Mi Perfil” podrás modificar toda tu información personal:\n- peso,\n- altura,\n- objetivos,\n- preferencias,\n- actividad,\n- y mucho más.\n\nMantener esta información actualizada es importante para que el sistema pueda adaptarse mejor a ti y seguir el método de la mejor manera posible.",
       category: "Cuenta"
     },
     {
       question: "¿Cómo funcionan los planes de entrenamiento?",
-      answer: "Los planes de entrenamiento se asignan automáticamente según tus objetivos y nivel de actividad. Puedes verlos en la sección 'Entrenamientos' de Inicio.",
+      answer: "Tus entrenamientos se organizan según tus objetivos, nivel, disponibilidad y el enfoque del método de Sara.\n\nLa idea no es darte simplemente una rutina cualquiera, sino seguir una estructura pensada para ayudarte a progresar de manera realista y sostenible.\n\nLas chicas VIP cuentan además con intervención directa de Sara, revisiones prioritarias y adaptaciones más personalizadas.",
       category: "Entrenamiento"
     },
     {
       question: "¿Puedo personalizar mi plan nutricional?",
-      answer: "Sí, los planes nutricionales se adaptan a tus preferencias dietéticas, alergias y objetivos. Actualiza tu perfil para que el plan se ajuste automáticamente.",
+      answer: "Sí. Conforme vayamos conociendo mejor tus preferencias, el menú será cada vez más personalizado, especialmente si te encuentras dentro del plan VIP.\n\nAdemás, puedes actualizar:\n- alergias,\n- intolerancias,\n- preferencias,\n- alimentos que no te gustan,\n- y otros detalles importantes desde tu perfil.\n\nLas chicas VIP también pueden solicitar recetas concretas y tienen prioridad a la hora de adaptar más el proceso nutricional.",
       category: "Nutrición"
     },
     {
       question: "¿Cómo registro mi progreso?",
-      answer: "Puedes registrar tu progreso subiendo fotos y registrando tu peso en la sección 'Progreso' de Inicio. Esto te ayudará a visualizar tu evolución.",
+      answer: "Puedes registrar peso, medidas, fotos y revisiones generales desde los apartados “Day 1” e “Inicio”.\n\nLa idea es que no tengas que guiarte solo por sensaciones, sino que puedas ver de manera clara todo lo que estás avanzando con el paso de las semanas.",
       category: "Progreso"
     },
     {
       question: "¿Qué son los logros?",
-      answer: "Los logros son recompensas que obtienes al completar objetivos y mantener tu consistencia. Puedes verlos en la sección 'Logros' de Inicio.",
+      answer: "Los logros están pensados para ayudarte a avanzar y mantener la constancia dentro del programa de una forma más visual.\n\nPorque ya sabes que lo importante no es lo que haces en un día, sino lo que acumulas con las semanas.",
       category: "Gamificación"
     },
     {
       question: "¿Cómo cancelo mi suscripción?",
-      answer: "Puedes cancelar tu suscripción en cualquier momento desde la sección de configuración de tu cuenta. No se aplicarán cargos adicionales.",
+      answer: "Puedes solicitar la cancelación de tu suscripción contactando con el equipo de soporte desde el apartado de ayuda o a través del canal indicado por Sara.\n\nTe indicaremos los pasos a seguir según el tipo de plan contratado y la forma de pago utilizada.",
       category: "Cuenta"
     },
     {
-      question: "¿Los datos están seguros?",
-      answer: "Sí, utilizamos encriptación de extremo a extremo y cumplimos con todas las normativas de protección de datos. Tu información está completamente segura.",
+      question: "¿Están seguros mis datos?",
+      answer: "Sí. Toda tu información se almacena de forma segura y protegida siguiendo las normativas de protección de datos correspondientes.\n\nTu privacidad y confianza son una prioridad dentro del sistema.",
       category: "Seguridad"
     }
   ]
@@ -150,7 +150,7 @@ export default function FAQPage() {
                       )}
                     </CardHeader>
                     <CardContent>
-                      <p className="text-muted-foreground">{faq.answer}</p>
+                      <FAQAnswer answer={faq.answer} />
                     </CardContent>
                   </Card>
                 ))}
@@ -180,6 +180,34 @@ function parseFAQContent(content: string): Array<{question: string, answer: stri
   return []
 }
 
+function FAQAnswer({ answer }: { answer: string }) {
+  const blocks = answer.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean)
+
+  return (
+    <div className="space-y-3 text-muted-foreground leading-relaxed">
+      {blocks.map((block, index) => {
+        const lines = block.split('\n').map((line) => line.trim()).filter(Boolean)
+        const isList = lines.length > 0 && lines.every((line) => line.startsWith('- '))
+
+        if (isList) {
+          return (
+            <ul key={index} className="list-disc space-y-1 pl-5">
+              {lines.map((line, itemIndex) => (
+                <li key={itemIndex}>{line.replace(/^- /, '')}</li>
+              ))}
+            </ul>
+          )
+        }
+
+        return (
+          <p key={index}>
+            {block}
+          </p>
+        )
+      })}
+    </div>
+  )
+}
 
 
 

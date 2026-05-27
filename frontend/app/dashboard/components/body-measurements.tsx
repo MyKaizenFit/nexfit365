@@ -14,6 +14,9 @@ import { toast } from "@/hooks/use-toast"
 import { authenticatedFetch } from "@/lib/api"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
+import { WeightDialog } from "@/components/dashboard/weight-dialog"
+import { WeightHistory } from "@/components/dashboard/weight-history"
+import { useWeightHistory } from "@/hooks/use-weight-history"
 
 interface BodyMeasurement {
   id: number
@@ -56,11 +59,13 @@ const emptyForm = (): FormState => ({
 })
 
 export function BodyMeasurements() {
+  const { addEntry: addWeightEntry } = useWeightHistory()
   const [measurements, setMeasurements] = useState<BodyMeasurement[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<number | null>(null)
   const [showForm, setShowForm] = useState(false)
+  const [showWeightForm, setShowWeightForm] = useState(false)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [selectedField, setSelectedField] = useState<keyof BodyMeasurement>("waist")
   const [form, setForm] = useState<FormState>(emptyForm())
@@ -193,7 +198,22 @@ export function BodyMeasurements() {
     }
   }, [chartData])
 
+  const handleSaveWeight = async (weight: number, date: string, notes: string) => {
+    await addWeightEntry(weight, date, notes || undefined)
+    window.dispatchEvent(new CustomEvent('weightUpdated', { detail: { weight } }))
+    toast({ title: "✅ Peso registrado", description: `Tu peso de ${weight} kg ha sido registrado correctamente.` })
+  }
+
   return (
+    <div className="space-y-4 sm:space-y-6">
+      <WeightHistory onAddWeight={() => setShowWeightForm(true)} />
+
+      <WeightDialog
+        open={showWeightForm}
+        onOpenChange={setShowWeightForm}
+        onSave={handleSaveWeight}
+      />
+
     <Card>
       <CardHeader className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
@@ -202,7 +222,7 @@ export function BodyMeasurements() {
               <Ruler className="h-4 w-4" />
               Medidas Corporales
             </CardTitle>
-            <CardDescription className="text-sm">Seguimiento de tus medidas</CardDescription>
+            <CardDescription className="text-sm">Registra tus contornos junto al seguimiento de peso</CardDescription>
           </div>
           <Button size="sm" onClick={() => setShowForm(true)}>
             <Plus className="h-4 w-4 mr-1" />
@@ -439,5 +459,6 @@ export function BodyMeasurements() {
         </DialogContent>
       </Dialog>
     </Card>
+    </div>
   )
 }

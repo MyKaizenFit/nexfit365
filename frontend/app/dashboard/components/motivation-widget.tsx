@@ -20,6 +20,19 @@ function hoursToSleepScore(h: number): number {
 
 const ENERGY_STORAGE_KEY = () => `nexfit_energy_score_${format(new Date(), "yyyy-MM-dd")}`
 
+const readJsonIfAvailable = async <T,>(response: Response): Promise<T | null> => {
+  const contentType = response.headers.get("content-type") || ""
+  if (!contentType.toLowerCase().includes("application/json")) {
+    return null
+  }
+
+  try {
+    return await response.json()
+  } catch {
+    return null
+  }
+}
+
 export function MotivationWidget() {
   const [motivation, setMotivation] = useState(3)
   const [energy, setEnergy] = useState(3)
@@ -35,10 +48,12 @@ export function MotivationWidget() {
       try {
         const res = await authenticatedFetch("daily-wellness/today/")
         if (res.ok) {
-          const data = await res.json()
-          if (data.motivation_score) setMotivation(data.motivation_score)
-          if (data.sleep_hours != null) setSleep(hoursToSleepScore(Number(data.sleep_hours)))
-          if (data.id) setEntryId(String(data.id))
+          const data = await readJsonIfAvailable<any>(res)
+          if (data) {
+            if (data.motivation_score) setMotivation(data.motivation_score)
+            if (data.sleep_hours != null) setSleep(hoursToSleepScore(Number(data.sleep_hours)))
+            if (data.id) setEntryId(String(data.id))
+          }
         }
       } catch {
         // Si falla la carga, usamos los valores por defecto
@@ -79,8 +94,8 @@ export function MotivationWidget() {
       }
 
       if (res.ok) {
-        const data = await res.json()
-        if (data.id) setEntryId(String(data.id))
+        const data = await readJsonIfAvailable<any>(res)
+        if (data?.id) setEntryId(String(data.id))
         // Guardar energía en localStorage (ephemeral por día)
         if (typeof window !== "undefined") {
           localStorage.setItem(ENERGY_STORAGE_KEY(), String(energy))
