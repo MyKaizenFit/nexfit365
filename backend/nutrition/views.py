@@ -190,10 +190,34 @@ def is_liquid_equivalence_food(food: Food) -> bool:
 
 
 def preferred_equivalence_unit(food: Food) -> str:
+    unit = RecipeIngredient._normalize_unit(getattr(food, 'serving_unit', 'g')) or 'g'
     if is_liquid_equivalence_food(food):
         return 'ml'
+    if unit in RecipeIngredient.UNIT_BASED_UNITS:
+        return unit
 
     return 'g'
+
+
+def calculate_equivalence_quantity(target_calories: float, food: Food, unit: str) -> float:
+    calories = float(food.calories or 0)
+    if calories <= 0:
+        return 0
+
+    normalized_unit = RecipeIngredient._normalize_unit(unit) or 'g'
+    food_unit = RecipeIngredient._normalize_unit(getattr(food, 'serving_unit', 'g')) or 'g'
+    try:
+        serving_size = float(getattr(food, 'serving_size', 0) or 0)
+    except (TypeError, ValueError):
+        serving_size = 0
+
+    if normalized_unit in RecipeIngredient.UNIT_BASED_UNITS and food_unit in RecipeIngredient.UNIT_BASED_UNITS:
+        base_amount = serving_size if serving_size > 0 else 1.0
+        if base_amount <= 10:
+            return (target_calories * base_amount) / calories
+        return (target_calories * 100.0) / (calories * base_amount)
+
+    return (target_calories / calories) * 100.0
 
 
 def _safe_recipe_payload(recipe: Recipe):
@@ -2512,18 +2536,17 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 if group.id in {original_group.id for original_group in original_groups}
             ]
 
-            calories_per_100 = float(food.calories or 0)
-            quantity = (target_calories / calories_per_100) * 100 if calories_per_100 > 0 else 0
+            unit = preferred_equivalence_unit(food)
+            quantity = calculate_equivalence_quantity(target_calories, food, unit)
             if quantity <= 0:
                 continue
 
-            unit = preferred_equivalence_unit(food)
             ratio = RecipeIngredient.compute_nutrition_ratio(quantity, unit, food)
             candidates.append({
                 'food_id': food.id,
                 'food_name': food.name,
                 'category': food_category,
-                'quantity': round(quantity, 1),
+                'quantity': round(quantity, 2) if unit in RecipeIngredient.UNIT_BASED_UNITS else round(quantity, 1),
                 'unit': unit,
                 'target_calories': round(target_calories, 1),
                 'calories': round(float(food.calories or 0) * ratio, 1),

@@ -35,6 +35,18 @@ const resolveRecipeImageSrc = (src?: string | null) => {
   return value
 }
 
+const formatFoodQuantity = (quantity: number, unit?: string | null) => {
+  const normalizedUnit = (unit || 'g').toLowerCase()
+  const unitLabel: Record<string, string> = {
+    ud: Math.abs(quantity - 1) < 0.01 ? 'unidad' : 'unidades',
+    uds: Math.abs(quantity - 1) < 0.01 ? 'unidad' : 'unidades',
+    u: Math.abs(quantity - 1) < 0.01 ? 'unidad' : 'unidades',
+    unit: Math.abs(quantity - 1) < 0.01 ? 'unidad' : 'unidades',
+    units: Math.abs(quantity - 1) < 0.01 ? 'unidad' : 'unidades',
+  }
+  return `${formatMacro(quantity)} ${unitLabel[normalizedUnit] || unit || 'g'}`
+}
+
 export function MealSelectionModal({
   isOpen,
   onClose,
@@ -1568,7 +1580,7 @@ function AllRecipesModal({
                         >
                           <div className="text-sm font-black">{foodName}</div>
                           <div className="text-xs font-medium text-gray-500">
-                            {ingredient.quantity}{ingredient.unit ? ` ${ingredient.unit}` : ''}
+                            {formatFoodQuantity(Number(ingredient.quantity || 0), ingredient.unit)}
                           </div>
                         </button>
                       )
@@ -1612,7 +1624,7 @@ function AllRecipesModal({
                       <div className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <span>
-                            Equivalencia para {substitutions.ingredient.quantity}{substitutions.ingredient.unit} de {substitutions.ingredient.food_name}: {substitutions.ingredient.target_calories} kcal
+                            Equivalencia para {formatFoodQuantity(substitutions.ingredient.quantity, substitutions.ingredient.unit)} de {substitutions.ingredient.food_name}: {substitutions.ingredient.target_calories} kcal
                           </span>
                           <span className="rounded-lg border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-black text-emerald-700">
                             {substitutions.ingredient.unit}
@@ -1625,7 +1637,7 @@ function AllRecipesModal({
                             <div>
                               <div className="font-black text-gray-900">{item.food_name}</div>
                               <div className="mt-1 text-sm font-semibold text-emerald-700">
-                                {item.quantity}{item.unit} para mantener unas {item.calories} kcal
+                                {formatFoodQuantity(item.quantity, item.unit)} para mantener unas {item.calories} kcal
                               </div>
                             </div>
                             <span className="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-bold text-gray-600">
