@@ -1540,8 +1540,8 @@ function AllRecipesModal({
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[280px_1fr]">
-              <div className="border-b border-gray-100 p-4 md:border-b-0 md:border-r">
+            <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto md:overflow-hidden md:grid-cols-[280px_1fr]">
+              <div className="border-b border-gray-100 p-4 md:border-b-0 md:border-r md:overflow-y-auto">
                 <p className="mb-3 text-xs font-black uppercase text-gray-400">Ingrediente original</p>
                 {linkedIngredients.length === 0 ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
