@@ -20,6 +20,7 @@ const EQUIVALENCE_CATEGORIES = [
   { value: "marisco", label: "Marisco" },
   { value: "huevos", label: "Huevos" },
   { value: "arroz_cereales", label: "Arroz / cereales / pasta" },
+  { value: "panes", label: "Panes" },
   { value: "legumbres", label: "Legumbres" },
   { value: "fruta", label: "Fruta" },
   { value: "verduras", label: "Verduras" },

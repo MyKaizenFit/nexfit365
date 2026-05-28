@@ -28,10 +28,40 @@ interface MobileNavigationProps {
 
 export function MobileNavigation({ selectedSection, onSectionChange }: MobileNavigationProps) {
   const [showMore, setShowMore] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
   const menuRef = useRef<HTMLDivElement | null>(null)
+  const lastScrollY = useRef(0)
+  const ticking = useRef(false)
 
   const isMoreSectionActive = moreMenuItems.some((item) => item.url === selectedSection)
   const activeMoreItem = moreMenuItems.find((item) => item.url === selectedSection)
+
+  // Auto-hide on scroll down, show on scroll up
+  useEffect(() => {
+    const scrollEl = document.getElementById("mobile-scroll-content")
+    if (!scrollEl) return
+
+    const handleScroll = () => {
+      if (ticking.current) return
+      ticking.current = true
+      requestAnimationFrame(() => {
+        const currentY = scrollEl.scrollTop
+        if (currentY > lastScrollY.current + 8 && currentY > 60) {
+          // Scrolling down: hide nav
+          setIsVisible(false)
+          setShowMore(false)
+        } else if (currentY < lastScrollY.current - 8) {
+          // Scrolling up: show nav
+          setIsVisible(true)
+        }
+        lastScrollY.current = currentY
+        ticking.current = false
+      })
+    }
+
+    scrollEl.addEventListener("scroll", handleScroll, { passive: true })
+    return () => scrollEl.removeEventListener("scroll", handleScroll)
+  }, [])
 
   useEffect(() => {
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
@@ -55,8 +85,12 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
   }, [selectedSection])
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 md:hidden safe-area-pb">
-      {showMore && (
+    <div
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-50 md:hidden safe-area-pb transition-transform duration-300 ease-in-out",
+        isVisible ? "translate-y-0" : "translate-y-full"
+      )}
+    >      {showMore && (
         <button
           type="button"
           aria-label="Cerrar menú de navegación"

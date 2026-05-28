@@ -24,8 +24,15 @@ EQUIVALENCE_CATEGORIES = {
     "huevos": ["huevo", "huevos", "clara", "claras", "egg", "eggs", "omelette", "tortilla"],
     "arroz_cereales": [
         "arroz", "pasta", "macarron", "macarrones", "espagueti", "espaguetis",
-        "avena", "quinoa", "cuscus", "couscous", "pan", "tostada", "cereal",
-        "cereales", "harina", "tortilla de trigo", "noodle", "noodles", "rice",
+        "avena", "quinoa", "cuscus", "couscous", "cereal",
+        "cereales", "tortilla de trigo", "noodle", "noodles", "rice",
+    ],
+    "panes": [
+        "pan", "panes", "tostada", "tostadas", "baguette", "hogaza",
+        "chapata", "ciabatta", "brioche", "bollo", "bollos", "croissant",
+        "panecillo", "panecillos", "integral", "centeno", "bread", "toast",
+        "pita", "naan", "focaccia", "tortita", "cracker", "galleta salada",
+        "regana", "palito", "grissini", "harina",
     ],
     "legumbres": [
         "lenteja", "lentejas", "garbanzo", "garbanzos", "alubia", "alubias",
@@ -136,6 +143,9 @@ def classify_equivalence(food):
         "cereals": "arroz_cereales",
         "grain": "arroz_cereales",
         "grains": "arroz_cereales",
+        "bread": "panes",
+        "breads": "panes",
+        "bakery": "panes",
         "legumes": "legumbres",
         "fruit": "fruta",
         "fruits": "fruta",

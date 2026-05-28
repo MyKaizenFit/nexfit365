@@ -682,7 +682,7 @@ function DashboardContent() {
         </Suspense>
 
         {/* Mobile Main Content */}
-        <main className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
+        <main id="mobile-scroll-content" className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
           <Suspense fallback={
             <div className="flex items-center justify-center h-full">
               <div className="text-center space-y-4">

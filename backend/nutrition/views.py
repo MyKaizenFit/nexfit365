@@ -2232,6 +2232,116 @@ class RecipeViewSet(viewsets.ModelViewSet):
             ingredient.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
     
+    @action(detail=True, methods=['get'])
+    def ingredient_substitutions(self, request, pk=None):
+        """
+        Devuelve alimentos equivalentes para un ingrediente de la receta.
+        GET /api/nutrition/recipes/{id}/ingredient-substitutions/?ingredient_id=<uuid>
+        """
+        recipe = get_object_or_404(Recipe, pk=pk, is_active=True)
+        ingredient_id = request.query_params.get('ingredient_id', '').strip()
+        food_id = request.query_params.get('food_id', '').strip()
+        search = request.query_params.get('search', '').strip()
+
+        ingredient = None
+        target_food = None
+        target_quantity = 100.0
+        target_unit = 'g'
+
+        # 1. Buscar por ingredient_id
+        if ingredient_id:
+            try:
+                ingredient = recipe.recipe_ingredients.select_related('food').get(id=ingredient_id)
+                if ingredient.food:
+                    target_food = ingredient.food
+                    target_quantity = float(ingredient.quantity or 100)
+                    target_unit = ingredient.unit or 'g'
+            except (RecipeIngredient.DoesNotExist, Exception):
+                pass
+
+        # 2. Buscar por food_id
+        if not target_food and food_id:
+            try:
+                target_food = Food.objects.get(id=food_id)
+            except (Food.DoesNotExist, Exception):
+                pass
+
+        # 3. Primer ingrediente de la receta como fallback
+        if not target_food:
+            first_ingredient = recipe.recipe_ingredients.select_related('food').filter(food__isnull=False).first()
+            if first_ingredient and first_ingredient.food:
+                ingredient = first_ingredient
+                target_food = first_ingredient.food
+                target_quantity = float(first_ingredient.quantity or 100)
+                target_unit = first_ingredient.unit or 'g'
+
+        if not target_food:
+            return Response({
+                'recipe_id': str(recipe.id),
+                'ingredient': None,
+                'results': [],
+            })
+
+        # Calorías objetivo para la cantidad del ingrediente
+        cal_per_100 = float(target_food.calories or 0)
+        target_calories = (cal_per_100 * target_quantity) / 100.0
+
+        eq_category = target_food.equivalence_category or ''
+
+        # Buscar alternativas verificadas en la misma categoría de equivalencia
+        alternatives = Food.objects.exclude(id=target_food.id)
+
+        if eq_category:
+            alternatives = alternatives.filter(equivalence_category=eq_category, calories__gt=0)
+        else:
+            # Sin categoría: rango calórico ±40% por cada 100 g
+            min_cal = max(1, int(cal_per_100 * 0.60))
+            max_cal = int(cal_per_100 * 1.40) + 1
+            alternatives = alternatives.filter(calories__gte=min_cal, calories__lte=max_cal)
+
+        if search:
+            alternatives = alternatives.filter(name__icontains=search)
+
+        alternatives = alternatives.order_by('name')[:30]
+
+        results = []
+        for food in alternatives:
+            food_cal = float(food.calories or 0)
+            if food_cal > 0 and target_calories > 0:
+                equiv_qty = (target_calories / food_cal) * 100.0
+            else:
+                equiv_qty = target_quantity
+
+            results.append({
+                'food_id': str(food.id),
+                'food_name': food.name,
+                'category': food.equivalence_category or food.category or '',
+                'quantity': round(equiv_qty, 1),
+                'unit': food.serving_unit or 'g',
+                'target_calories': round(target_calories, 1),
+                'calories': round((food_cal * equiv_qty) / 100.0, 1),
+                'protein': round(float(food.protein or 0) * equiv_qty / 100.0, 1),
+                'carbs': round(float(food.carbs or 0) * equiv_qty / 100.0, 1),
+                'fat': round(float(food.fat or 0) * equiv_qty / 100.0, 1),
+            })
+
+        ingredient_data = {
+            'id': str(ingredient.id) if ingredient else None,
+            'food_id': str(target_food.id),
+            'food_name': target_food.name,
+            'quantity': target_quantity,
+            'unit': target_unit,
+            'category': eq_category or target_food.category or '',
+            'supports_volume': target_unit in ('ml', 'l', 'cl'),
+            'target_calories': round(target_calories, 1),
+        }
+
+        return Response({
+            'recipe_id': str(recipe.id),
+            'ingredient': ingredient_data,
+            'results': results,
+        })
+
     @action(detail=True, methods=['post'])
     def recalculate_macros(self, request, pk=None):
         """Recalcula los macros de la receta basándose en los ingredientes"""

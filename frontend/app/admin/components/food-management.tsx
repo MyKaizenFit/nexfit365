@@ -74,6 +74,7 @@ const EQUIVALENCE_OPTIONS = [
   { value: 'marisco', label: 'Marisco' },
   { value: 'huevos', label: 'Huevos' },
   { value: 'arroz_cereales', label: 'Arroz / cereales / pasta' },
+  { value: 'panes', label: 'Panes' },
   { value: 'legumbres', label: 'Legumbres' },
   { value: 'fruta', label: 'Fruta' },
   { value: 'verduras', label: 'Verduras' },
@@ -1526,7 +1527,7 @@ export function FoodManagement() {
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800 space-y-1">
               <p className="font-semibold">Columnas reconocidas (en inglés o español):</p>
               <p><strong>name</strong> / nombre · brand / marca · category / categoria · store / supermercado</p>
-              <p><strong>equivalence_category</strong> / equivalencia: carnes,pescados,marisco,huevos,arroz_cereales,legumbres,fruta,verduras,lacteos,frutos_secos,grasas,otros</p>
+              <p><strong>equivalence_category</strong> / equivalencia: carnes,pescados,marisco,huevos,arroz_cereales,panes,legumbres,fruta,verduras,lacteos,frutos_secos,grasas,otros</p>
               <p><strong>calories</strong> / calorias · protein / proteina · carbs / carbohidratos · fat / grasa</p>
               <p>fiber / fibra · sugar / azucar · sodium / sodio · serving_size · serving_unit / unidad</p>
               <p><strong>allergens</strong> / alergenos: gluten,dairy,eggs,nuts,soy,fish,shellfish,sesame</p>
