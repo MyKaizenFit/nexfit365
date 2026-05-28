@@ -22,6 +22,7 @@ export interface CommunityRecipePost {
   comments_count: number
   liked_by_me: boolean
   can_delete: boolean
+  can_edit: boolean
   comments: CommunityRecipeComment[]
   created_at: string
 }
@@ -91,6 +92,38 @@ export const communityRecipeService = {
       method: "DELETE",
     })
     if (!response.ok) throw new Error(`Error ${response.status}`)
+  },
+
+  async update(postId: string, payload: {
+    title?: string
+    description?: string
+    ingredients?: string
+    instructions?: string
+  }): Promise<CommunityRecipePost> {
+    const response = await authenticatedFetch(`nutrition/community-recipes/${postId}/`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Error ${response.status}`)
+    }
+    return response.json()
+  },
+
+  async uploadPhoto(postId: string, photo: File): Promise<CommunityRecipePost> {
+    const formData = new FormData()
+    formData.append("photo", photo)
+    const response = await authenticatedFetch(`nutrition/community-recipes/${postId}/upload-photo/`, {
+      method: "POST",
+      body: formData,
+    })
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(errorData.detail || `Error ${response.status}`)
+    }
+    return response.json()
   },
 
   async deleteComment(postId: string, commentId: string): Promise<void> {

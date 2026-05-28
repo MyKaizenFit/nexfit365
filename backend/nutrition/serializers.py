@@ -143,6 +143,7 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(read_only=True)
     liked_by_me = serializers.BooleanField(read_only=True)
     can_delete = serializers.SerializerMethodField()
+    can_edit = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -150,11 +151,11 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
         fields = [
             "id", "author", "author_name", "title", "description", "ingredients", "instructions",
             "photo", "photo_url", "expires_at", "is_expired", "likes_count", "comments_count",
-            "liked_by_me", "can_delete", "comments", "created_at", "updated_at",
+            "liked_by_me", "can_delete", "can_edit", "comments", "created_at", "updated_at",
         ]
         read_only_fields = [
             "id", "author", "author_name", "photo_url", "expires_at", "is_expired",
-            "likes_count", "comments_count", "liked_by_me", "can_delete",
+            "likes_count", "comments_count", "liked_by_me", "can_delete", "can_edit",
             "comments", "created_at", "updated_at",
         ]
 
@@ -167,6 +168,13 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
         return obj.photo.url
 
     def get_can_delete(self, obj) -> bool:
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
+
+    def get_can_edit(self, obj) -> bool:
         request = self.context.get('request')
         user = getattr(request, 'user', None)
         if not user or not user.is_authenticated:

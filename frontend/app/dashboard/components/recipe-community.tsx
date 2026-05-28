@@ -1,8 +1,8 @@
 "use client"
 
-import { FormEvent, useEffect, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react"
 import Image from "next/image"
-import { Camera, Heart, Loader2, MessageCircle, Send, Trash2, Upload } from "lucide-react"
+import { Camera, Check, Heart, Loader2, MessageCircle, Pencil, Send, Trash2, Upload, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,6 +30,69 @@ export function RecipeCommunity() {
     instructions: "",
     photo: null as File | null,
   })
+
+  // Estado edición
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    ingredients: "",
+    instructions: "",
+    photo: null as File | null,
+  })
+  const [editSaving, setEditSaving] = useState(false)
+  const editPhotoInput = useRef<HTMLInputElement>(null)
+
+  const editPhotoPreview = useMemo(() => {
+    if (!editForm.photo) return ""
+    return URL.createObjectURL(editForm.photo)
+  }, [editForm.photo])
+
+  const startEdit = (post: CommunityRecipePost) => {
+    setEditingId(post.id)
+    setEditForm({
+      title: post.title,
+      description: post.description,
+      ingredients: post.ingredients,
+      instructions: post.instructions,
+      photo: null,
+    })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEditForm({ title: "", description: "", ingredients: "", instructions: "", photo: null })
+  }
+
+  const saveEdit = async (post: CommunityRecipePost) => {
+    if (!editForm.title.trim()) {
+      toast({ title: "El título es obligatorio", variant: "destructive" })
+      return
+    }
+    try {
+      setEditSaving(true)
+      let updated = await communityRecipeService.update(post.id, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim(),
+        ingredients: editForm.ingredients.trim(),
+        instructions: editForm.instructions.trim(),
+      })
+      if (editForm.photo) {
+        updated = await communityRecipeService.uploadPhoto(post.id, editForm.photo)
+      }
+      setPosts((current) => current.map((item) => item.id === post.id ? updated : item))
+      cancelEdit()
+      toast({ title: "Receta actualizada" })
+    } catch (error) {
+      toast({
+        title: "No se pudo guardar",
+        description: error instanceof Error ? error.message : "Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setEditSaving(false)
+    }
+  }
 
   const photoPreview = useMemo(() => {
     if (!form.photo) return ""
@@ -231,7 +294,7 @@ export function RecipeCommunity() {
                   </div>
                 ) : null}
 
-                <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
                   <Button variant="outline" size="sm" onClick={() => toggleLike(post)}>
                     <Heart className={`mr-2 h-4 w-4 ${post.liked_by_me ? "fill-rose-500 text-rose-500" : ""}`} />
                     {post.likes_count}
@@ -240,12 +303,76 @@ export function RecipeCommunity() {
                     <MessageCircle className="h-3.5 w-3.5" />
                     {post.comments_count}
                   </Badge>
-                  {post.can_delete ? (
-                    <Button variant="ghost" size="sm" className="ml-auto text-red-600" onClick={() => deletePost(post)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  ) : null}
+                  <div className="ml-auto flex gap-1">
+                    {post.can_edit ? (
+                      <Button variant="ghost" size="sm" className="text-teal-600" onClick={() => startEdit(post)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                    {post.can_delete ? (
+                      <Button variant="ghost" size="sm" className="text-red-600" onClick={() => deletePost(post)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
                 </div>
+
+                {/* Panel de edición inline */}
+                {editingId === post.id ? (
+                  <div className="rounded-lg border border-teal-200 bg-teal-50/50 p-4 space-y-3">
+                    <p className="text-sm font-medium text-teal-700">Editar receta</p>
+                    <Input
+                      value={editForm.title}
+                      onChange={(e) => setEditForm((c) => ({ ...c, title: e.target.value }))}
+                      placeholder="Nombre del plato"
+                      maxLength={160}
+                    />
+                    <Textarea
+                      value={editForm.description}
+                      onChange={(e) => setEditForm((c) => ({ ...c, description: e.target.value }))}
+                      placeholder="Descripción"
+                      rows={2}
+                    />
+                    <Textarea
+                      value={editForm.ingredients}
+                      onChange={(e) => setEditForm((c) => ({ ...c, ingredients: e.target.value }))}
+                      placeholder="Ingredientes"
+                      rows={2}
+                    />
+                    <Textarea
+                      value={editForm.instructions}
+                      onChange={(e) => setEditForm((c) => ({ ...c, instructions: e.target.value }))}
+                      placeholder="Preparación"
+                      rows={2}
+                    />
+                    <div className="flex items-center gap-3">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50">
+                        {editPhotoPreview ? (
+                          <Image src={editPhotoPreview} alt="Nueva foto" width={40} height={40} className="rounded object-cover" unoptimized />
+                        ) : (
+                          <Camera className="h-4 w-4" />
+                        )}
+                        Cambiar foto
+                        <input
+                          ref={editPhotoInput}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => setEditForm((c) => ({ ...c, photo: e.target.files?.[0] || null }))}
+                        />
+                      </label>
+                      <div className="ml-auto flex gap-2">
+                        <Button variant="ghost" size="sm" onClick={cancelEdit} disabled={editSaving}>
+                          <X className="mr-1 h-4 w-4" /> Cancelar
+                        </Button>
+                        <Button size="sm" className="bg-teal-600 hover:bg-teal-700" onClick={() => saveEdit(post)} disabled={editSaving}>
+                          {editSaving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+                          Guardar
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div className="space-y-2">
                   {post.comments.map((comment) => (

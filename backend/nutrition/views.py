@@ -9,191 +9,31 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
 from django.db import DatabaseError
-from django.db.models import Q, Count, Exists, OuterRef
+from django.db.models import Q
 from django.utils import timezone
 
-from .models import (
-    Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
-    RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion,
-    MealIngredientExclusion, CommunityRecipePost, CommunityRecipeComment,
-    CommunityRecipeLike
-)
+from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion, CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
     PlanMealSerializer, MealLogSerializer, FoodSerializer,
     NutritionPlanHistorySerializer, RecipeIngredientSerializer,
     CommunityRecipePostSerializer, CommunityRecipeCommentSerializer,
-    IngredientSubstitutionSerializer
 )
 from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
 import re
-import unicodedata
-import json
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from notifications.utils import notify_admins_user_change
 from collections import defaultdict
 from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
 from rest_framework import serializers
-from datetime import timedelta
 
 logger = logging.getLogger(__name__)
 
 RECIPE_EXCLUSION_TOKEN_PATTERN = re.compile(r'\[recipe:([0-9a-fA-F-]{36})\]')
-
-EQUIVALENCE_CATEGORY_ALIASES = {
-    'carne': 'carnes',
-    'carnes': 'carnes',
-    'pollo': 'carnes',
-    'pavo': 'carnes',
-    'ternera': 'carnes',
-    'cerdo': 'carnes',
-    'pescado': 'pescados',
-    'pescados': 'pescados',
-    'salmon': 'pescados',
-    'salmón': 'pescados',
-    'atun': 'pescados',
-    'atún': 'pescados',
-    'merluza': 'pescados',
-    'marisco': 'marisco',
-    'mariscos': 'marisco',
-    'huevo': 'huevos',
-    'huevos': 'huevos',
-    'arroz': 'arroz_cereales',
-    'cereal': 'arroz_cereales',
-    'cereales': 'arroz_cereales',
-    'pasta': 'arroz_cereales',
-    'pastas': 'arroz_cereales',
-    'macarron': 'arroz_cereales',
-    'macarrones': 'arroz_cereales',
-    'espagueti': 'arroz_cereales',
-    'espaguetis': 'arroz_cereales',
-    'avena': 'arroz_cereales',
-    'quinoa': 'arroz_cereales',
-    'legumbre': 'legumbres',
-    'legumbres': 'legumbres',
-    'lenteja': 'legumbres',
-    'lentejas': 'legumbres',
-    'garbanzo': 'legumbres',
-    'garbanzos': 'legumbres',
-    'fruta': 'fruta',
-    'frutas': 'fruta',
-    'verdura': 'verduras',
-    'verduras': 'verduras',
-    'hortaliza': 'verduras',
-    'hortalizas': 'verduras',
-    'lacteo': 'lacteos',
-    'lácteo': 'lacteos',
-    'lacteos': 'lacteos',
-    'lácteos': 'lacteos',
-    'frutos secos': 'frutos_secos',
-    'grasas': 'grasas',
-    'aceite': 'grasas',
-}
-
-EQUIVALENCE_CATEGORY_VALUES = set(EQUIVALENCE_CATEGORY_ALIASES.values())
-
-
-def normalize_equivalence_category(value: str) -> str:
-    normalized = unicodedata.normalize('NFKD', str(value or '')).encode('ascii', 'ignore').decode('ascii').lower().strip()
-    normalized = re.sub(r'[^a-z0-9\s_-]', ' ', normalized)
-    normalized = ' '.join(normalized.split())
-    if normalized in EQUIVALENCE_CATEGORY_ALIASES.values():
-        return normalized
-    if normalized in EQUIVALENCE_CATEGORY_ALIASES:
-        return EQUIVALENCE_CATEGORY_ALIASES[normalized]
-    for alias, category in EQUIVALENCE_CATEGORY_ALIASES.items():
-        if alias in normalized:
-            return category
-    return normalized.replace(' ', '_')
-
-
-def infer_food_equivalence_category(food: Food) -> str:
-    configured_category = normalize_equivalence_category(getattr(food, 'equivalence_category', ''))
-    if configured_category:
-        return configured_category
-
-    candidates = [food.category, food.name]
-    name = unicodedata.normalize('NFKD', food.name or '').encode('ascii', 'ignore').decode('ascii').lower()
-    for raw in candidates:
-        category = normalize_equivalence_category(raw)
-        if category in EQUIVALENCE_CATEGORY_VALUES:
-            if category not in {'otros', 'otro'}:
-                return category
-
-    keyword_map = {
-        'carnes': ['pollo', 'pavo', 'ternera', 'cerdo', 'lomo', 'carne'],
-        'pescados': ['salmon', 'atun', 'merluza', 'bacalao', 'sardina', 'pescado'],
-        'marisco': ['gamba', 'langostino', 'marisco', 'mejillon', 'almeja'],
-        'arroz_cereales': ['arroz', 'pasta', 'avena', 'quinoa', 'cereal', 'pan'],
-        'legumbres': ['lenteja', 'garbanzo', 'alubia', 'judia', 'legumbre'],
-        'fruta': ['manzana', 'platano', 'banana', 'fresa', 'kiwi', 'naranja', 'fruta'],
-        'verduras': ['brocoli', 'calabacin', 'lechuga', 'tomate', 'verdura', 'espinaca'],
-        'lacteos': ['yogur', 'queso', 'leche', 'lacteo'],
-        'huevos': ['huevo', 'clara'],
-        'frutos_secos': ['almendra', 'nuez', 'cacahuete', 'pistacho'],
-        'grasas': ['aceite', 'aguacate', 'mantequilla'],
-    }
-    for category, keywords in keyword_map.items():
-        if any(keyword in name for keyword in keywords):
-            return category
-    return normalize_equivalence_category(food.category) or 'otros'
-
-
-def _normalized_food_text(food: Food) -> str:
-    text = " ".join([getattr(food, 'name', '') or '', getattr(food, 'brand', '') or '', getattr(food, 'category', '') or ''])
-    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('ascii').lower()
-    return re.sub(r'[^a-z0-9\s_-]', ' ', text)
-
-
-def _contains_any_word(source: str, words: list[str]) -> bool:
-    return any(re.search(rf"(^|\s){re.escape(word)}(\s|$)", source) for word in words)
-
-
-def are_foods_reasonable_equivalents(original_food: Food, candidate_food: Food) -> bool:
-    """Evita recomendaciones absurdas dentro de categorías demasiado amplias."""
-    original_text = _normalized_food_text(original_food)
-    candidate_text = _normalized_food_text(candidate_food)
-
-    bread_words = [
-        'pan', 'molde', 'bikini', 'sandwich', 'sandwiches', 'tostada', 'tostadas',
-        'toast', 'bagel', 'pita', 'bocadillo', 'bocata', 'chapata', 'barra',
-    ]
-    wrap_words = ['wrap', 'tortilla trigo', 'tortilla maiz', 'tortilla integral', 'fajita', 'taco']
-    rice_words = ['arroz', 'rice', 'basmati']
-    pasta_words = ['pasta', 'macarron', 'macarrones', 'espagueti', 'espaguetis', 'noodle', 'noodles']
-
-    constrained_groups = [bread_words, wrap_words, rice_words, pasta_words]
-    for group in constrained_groups:
-        if _contains_any_word(original_text, group):
-            return _contains_any_word(candidate_text, group)
-
-    return True
-
-
-def is_liquid_equivalence_food(food: Food) -> bool:
-    unit = RecipeIngredient._normalize_unit(getattr(food, 'serving_unit', 'g')) or 'g'
-    if unit in RecipeIngredient.VOLUME_UNITS:
-        return True
-
-    name = unicodedata.normalize('NFKD', food.name or '').encode('ascii', 'ignore').decode('ascii').lower()
-    category = unicodedata.normalize('NFKD', food.category or '').encode('ascii', 'ignore').decode('ascii').lower()
-    liquid_keywords = [
-        'agua', 'leche', 'bebida', 'zumo', 'jugo', 'caldo', 'sopa',
-        'aceite', 'vinagre', 'salsa', 'yogur liquido', 'smoothie',
-    ]
-    source = f"{name} {category}"
-    return any(re.search(rf"(^|\s){re.escape(keyword)}(\s|$)", source) for keyword in liquid_keywords)
-
-
-def preferred_equivalence_unit(food: Food) -> str:
-    if is_liquid_equivalence_food(food):
-        return 'ml'
-
-    return 'g'
 
 
 def _safe_recipe_payload(recipe: Recipe):
@@ -274,59 +114,6 @@ def get_active_plan_for_user(user):
     if assignment:
         return assignment.plan
     return NutritionPlan.objects.filter(user=user, is_active=True).order_by('-created_at').first()
-
-
-def normalize_substitution_details(raw):
-    if not raw:
-        return []
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except (TypeError, ValueError):
-            return []
-    if not isinstance(raw, list):
-        return []
-
-    cleaned = []
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        cleaned.append({
-            'ingredient_id': str(item.get('ingredient_id') or ''),
-            'original_food_id': str(item.get('original_food_id') or ''),
-            'original_food_name': str(item.get('original_food_name') or ''),
-            'original_quantity': item.get('original_quantity') or 0,
-            'original_unit': str(item.get('original_unit') or 'g'),
-            'replacement_food_id': str(item.get('replacement_food_id') or ''),
-            'replacement_food_name': str(item.get('replacement_food_name') or ''),
-            'replacement_quantity': item.get('replacement_quantity') or 0,
-            'replacement_unit': str(item.get('replacement_unit') or 'g'),
-            'target_calories': item.get('target_calories') or 0,
-        })
-    return cleaned
-
-
-def purge_expired_community_recipes():
-    deleted = 0
-    for post in CommunityRecipePost.objects.filter(expires_at__lte=timezone.now()).only('id', 'photo'):
-        post.delete()
-        deleted += 1
-    return deleted
-
-
-def community_recipe_queryset_for(user):
-    liked_subquery = CommunityRecipeLike.objects.filter(post=OuterRef('pk'), user=user)
-    return (
-        CommunityRecipePost.objects.filter(expires_at__gt=timezone.now())
-        .select_related('author')
-        .prefetch_related('comments__author')
-        .annotate(
-            likes_count=Count('likes', distinct=True),
-            comments_count=Count('comments', distinct=True),
-            liked_by_me=Exists(liked_subquery),
-        )
-        .order_by('-created_at')
-    )
 
 
 @extend_schema(
@@ -654,7 +441,7 @@ def plan_meals_for_selection(request):
         'morning_snack': 0.10,  # 10% del día
         'lunch': 0.35,          # 35% del día
         'afternoon_snack': 0.10, # 10% del día
-        'dinner': 0.20,          # 20% del día
+        'dinner': 0.25,          # 25% del día
         'evening_snack': 0.10,   # 10% del día
         'snack': 0.15            # 15% del día (genérico)
     }
@@ -675,7 +462,12 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        # calculate_daily_calories() ya incluye déficit/superávit según objetivo.
+        # Si el admin fija kcal manualmente, ese número tiene prioridad absoluta.
+        if not has_admin_calorie_override:
+            if user.main_goal == 'lose_weight':
+                scale_factor *= 0.9  # Reducir un 10% para déficit
+            elif user.main_goal == 'gain_muscle':
+                scale_factor *= 1.1  # Aumentar un 10% para superávit
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -696,11 +488,12 @@ def plan_meals_for_selection(request):
         personalized_protein = float(recipe_protein * scale_factor) if recipe_protein else (float(meal_base.protein * scale_factor) if meal_base and meal_base.protein else float(daily_macros['protein'] * meal_percentage))
         personalized_carbs = float(recipe_carbs * scale_factor) if recipe_carbs else (float(meal_base.carbs * scale_factor) if meal_base and meal_base.carbs else float(daily_macros['carbs'] * meal_percentage))
         personalized_fat = float(recipe_fat * scale_factor) if recipe_fat else (float(meal_base.fat * scale_factor) if meal_base and meal_base.fat else float(daily_macros['fat'] * meal_percentage))
+        
         return {
             'calories': personalized_calories,
-            'protein': personalized_protein,
-            'carbs': personalized_carbs,
-            'fat': personalized_fat,
+            'protein': round(personalized_protein, 1),
+            'carbs': round(personalized_carbs, 1),
+            'fat': round(personalized_fat, 1),
             'scale_factor': round(scale_factor, 2)
         }
     
@@ -717,7 +510,11 @@ def plan_meals_for_selection(request):
         else:
             scale_factor = 1.0
         
-        # calculate_daily_calories() ya incluye déficit/superávit según objetivo.
+        if not has_admin_calorie_override:
+            if user.main_goal == 'lose_weight':
+                scale_factor *= 0.9
+            elif user.main_goal == 'gain_muscle':
+                scale_factor *= 1.1
         
         scale_factor = max(0.5, min(2.0, scale_factor))
         
@@ -1268,7 +1065,6 @@ def daily_meal_selections(request):
         skip_meal = data.get('skip_meal', False)
         skip_reason = str(data.get('skip_reason', '') or '').strip()
         exclude_from_recommendations = data.get('exclude_from_recommendations', False)
-        substitution_details = normalize_substitution_details(data.get('substitution_details', []))
         
         # Resolver plan_meal (slot) si se proporciona, y permitir inferir meal_type desde el slot
         plan_meal = None
@@ -1400,7 +1196,6 @@ def daily_meal_selections(request):
             'carbs': float(carbs) if carbs else 0,
             'fat': float(fat) if fat else 0,
             'custom_description': custom_description,
-            'substitution_details': substitution_details,
         }
         if photo_file:
             defaults['photo'] = photo_file
@@ -1999,7 +1794,6 @@ def monthly_meal_selections(request):
                         'carbs': selection_data.get('carbs', 0) if is_completed else 0,
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
-                        'substitution_details': normalize_substitution_details(selection_data.get('substitution_details', [])),
                     }
                 )
                 
@@ -2157,7 +1951,6 @@ def weekly_meal_selections(request):
                         'carbs': selection_data.get('carbs', 0) if is_completed else 0,
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
-                        'substitution_details': normalize_substitution_details(selection_data.get('substitution_details', [])),
                     }
                 )
                 
@@ -2178,76 +1971,6 @@ def weekly_meal_selections(request):
             'updated': updated_count,
             'errors': errors if errors else None
         }, status=status.HTTP_200_OK)
-
-
-class CommunityRecipePostViewSet(viewsets.ModelViewSet):
-    serializer_class = CommunityRecipePostSerializer
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser, JSONParser]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['title', 'description', 'ingredients', 'instructions', 'author__email']
-    ordering_fields = ['created_at', 'expires_at']
-    ordering = ['-created_at']
-
-    def get_queryset(self):
-        purge_expired_community_recipes()
-        return community_recipe_queryset_for(self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(
-            author=self.request.user,
-            expires_at=timezone.now() + timedelta(days=7),
-        )
-
-    def destroy(self, request, *args, **kwargs):
-        post = self.get_object()
-        can_delete = (
-            post.author_id == request.user.id
-            or request.user.is_staff
-            or request.user.is_superuser
-            or getattr(request.user, 'role', '') == 'admin'
-        )
-        if not can_delete:
-            return Response({'detail': 'No tienes permiso para eliminar esta publicación.'}, status=status.HTTP_403_FORBIDDEN)
-        return super().destroy(request, *args, **kwargs)
-
-    @action(detail=True, methods=['post'])
-    def like(self, request, pk=None):
-        post = self.get_object()
-        like, created = CommunityRecipeLike.objects.get_or_create(post=post, user=request.user)
-        if not created:
-            like.delete()
-        refreshed = community_recipe_queryset_for(request.user).get(pk=post.pk)
-        return Response({
-            'liked_by_me': created,
-            'likes_count': refreshed.likes_count,
-        })
-
-    @action(detail=True, methods=['post'])
-    def comments(self, request, pk=None):
-        post = self.get_object()
-        serializer = CommunityRecipeCommentSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        comment = serializer.save(post=post, author=request.user)
-        return Response(
-            CommunityRecipeCommentSerializer(comment, context={'request': request}).data,
-            status=status.HTTP_201_CREATED,
-        )
-
-    @action(detail=True, methods=['delete'], url_path=r'comments/(?P<comment_id>[^/.]+)')
-    def delete_comment(self, request, pk=None, comment_id=None):
-        post = self.get_object()
-        comment = get_object_or_404(CommunityRecipeComment, pk=comment_id, post=post)
-        can_delete = (
-            comment.author_id == request.user.id
-            or request.user.is_staff
-            or request.user.is_superuser
-            or getattr(request.user, 'role', '') == 'admin'
-        )
-        if not can_delete:
-            return Response({'detail': 'No tienes permiso para eliminar este comentario.'}, status=status.HTTP_403_FORBIDDEN)
-        comment.delete()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class RecipeViewSet(viewsets.ModelViewSet):
@@ -2444,101 +2167,6 @@ class RecipeViewSet(viewsets.ModelViewSet):
                 'activity_level': user.activity_level,
                 'daily_calories_target': daily_calories
             }
-        })
-
-    @action(detail=True, methods=['get'], url_path='ingredient-substitutions')
-    def ingredient_substitutions(self, request, pk=None):
-        recipe = get_object_or_404(Recipe, pk=pk, is_active=True)
-        ingredient_id = request.query_params.get('ingredient_id')
-        food_id = request.query_params.get('food_id')
-        search = request.query_params.get('search', '').strip()
-        category_param = request.query_params.get('category', '').strip()
-        requested_unit = RecipeIngredient._normalize_unit(request.query_params.get('unit', ''))
-
-        ingredient = None
-        original_food = None
-        original_quantity = 100.0
-        original_unit = 'g'
-
-        if ingredient_id:
-            ingredient = get_object_or_404(recipe.recipe_ingredients.select_related('food'), pk=ingredient_id)
-            original_food = ingredient.food
-            original_quantity = float(ingredient.quantity or 0)
-            original_unit = ingredient.unit or preferred_equivalence_unit(original_food)
-        elif food_id:
-            original_food = get_object_or_404(Food, pk=food_id)
-            try:
-                original_quantity = float(request.query_params.get('quantity', 100))
-            except (TypeError, ValueError):
-                original_quantity = 100.0
-            original_unit = request.query_params.get('unit', 'g')
-        else:
-            return Response({'detail': 'ingredient_id o food_id es requerido'}, status=status.HTTP_400_BAD_REQUEST)
-
-        original_is_liquid = is_liquid_equivalence_food(original_food)
-        if requested_unit == 'ml' and original_is_liquid:
-            original_unit = requested_unit
-        elif requested_unit == 'g' and not original_is_liquid:
-            original_unit = requested_unit
-        elif original_is_liquid:
-            original_unit = 'ml'
-        elif original_unit in {'g', 'gr', 'gramo', 'gramos'} and preferred_equivalence_unit(original_food) == 'ml':
-            original_unit = 'ml'
-
-        target_ratio = RecipeIngredient.compute_nutrition_ratio(original_quantity, original_unit, original_food)
-        target_calories = float(original_food.calories or 0) * target_ratio
-        if target_calories <= 0:
-            return Response({'detail': 'El ingrediente original no tiene calorías suficientes para calcular equivalencia.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        category = normalize_equivalence_category(category_param) if category_param else infer_food_equivalence_category(original_food)
-        foods = Food.objects.exclude(pk=original_food.pk).filter(calories__gt=0, is_verified=True)
-        if search:
-            foods = foods.filter(Q(name__icontains=search) | Q(brand__icontains=search))
-
-        candidates = []
-        for food in foods.order_by('name')[:500]:
-            food_category = infer_food_equivalence_category(food)
-            if category and food_category != category:
-                continue
-            if not are_foods_reasonable_equivalents(original_food, food):
-                continue
-
-            calories_per_100 = float(food.calories or 0)
-            quantity = (target_calories / calories_per_100) * 100 if calories_per_100 > 0 else 0
-            if quantity <= 0:
-                continue
-
-            unit = preferred_equivalence_unit(food)
-            ratio = RecipeIngredient.compute_nutrition_ratio(quantity, unit, food)
-            candidates.append({
-                'food_id': food.id,
-                'food_name': food.name,
-                'category': food_category,
-                'quantity': round(quantity, 1),
-                'unit': unit,
-                'target_calories': round(target_calories, 1),
-                'calories': round(float(food.calories or 0) * ratio, 1),
-                'protein': round(float(food.protein or 0) * ratio, 1),
-                'carbs': round(float(food.carbs or 0) * ratio, 1),
-                'fat': round(float(food.fat or 0) * ratio, 1),
-            })
-            if len(candidates) >= 30:
-                break
-
-        serializer = IngredientSubstitutionSerializer(candidates, many=True)
-        return Response({
-            'recipe_id': str(recipe.id),
-            'ingredient': {
-                'id': str(ingredient.id) if ingredient else None,
-                'food_id': str(original_food.id),
-                'food_name': original_food.name,
-                'quantity': original_quantity,
-                'unit': original_unit,
-                'category': category,
-                'supports_volume': original_is_liquid,
-                'target_calories': round(target_calories, 1),
-            },
-            'results': serializer.data,
         })
     
     @action(detail=True, methods=['get', 'post'])
@@ -2930,10 +2558,8 @@ class FoodViewSet(viewsets.ModelViewSet):
         'calories': ['gte', 'lte', 'exact'],
         'carbs': ['gte', 'lte', 'exact'],
         'fat': ['gte', 'lte', 'exact'],
-        'category': ['exact'],
-        'equivalence_category': ['exact'],
     }
-    search_fields = ['name', 'brand', 'category', 'equivalence_category']
+    search_fields = ['name', 'brand', 'category']
 
     def get_permissions(self):
         if getattr(self, 'swagger_fake_view', False):
@@ -3399,3 +3025,133 @@ def default_nutrition_plans(request):
         'page_size': page_size,
         'total_pages': (total + page_size - 1) // page_size if total > 0 else 0,
     })
+
+
+# =============================================================================
+# COMMUNITY RECIPE POSTS
+# =============================================================================
+
+class CommunityRecipePostViewSet(viewsets.ModelViewSet):
+    """ViewSet para publicaciones de recetas de la comunidad."""
+
+    serializer_class = CommunityRecipePostSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        from django.db.models import Count, Exists, OuterRef
+        user = self.request.user
+        now = timezone.now()
+        liked_subquery = CommunityRecipeLike.objects.filter(
+            post=OuterRef('pk'), user=user
+        )
+        return (
+            CommunityRecipePost.objects
+            .filter(expires_at__gt=now)
+            .annotate(
+                likes_count=Count('likes', distinct=True),
+                comments_count=Count('comments', distinct=True),
+                liked_by_me=Exists(liked_subquery),
+            )
+            .select_related('author')
+            .prefetch_related('comments__author')
+            .order_by('-created_at')
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+    def update(self, request, *args, **kwargs):
+        """Solo el autor puede editar su propia publicación."""
+        post = self.get_object()
+        if post.author_id != request.user.id and not request.user.is_staff:
+            return Response(
+                {'detail': 'Solo puedes editar tus propias publicaciones.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """Solo el autor o admin puede eliminar."""
+        post = self.get_object()
+        if post.author_id != request.user.id and not request.user.is_staff:
+            return Response(
+                {'detail': 'Solo puedes eliminar tus propias publicaciones.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='upload-photo',
+            parser_classes=[MultiPartParser, FormParser])
+    def upload_photo(self, request, pk=None):
+        """Subir / reemplazar la foto de una publicación (solo el autor)."""
+        post = self.get_object()
+        if post.author_id != request.user.id and not request.user.is_staff:
+            return Response(
+                {'detail': 'Solo puedes modificar tus propias publicaciones.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        photo = request.FILES.get('photo')
+        if not photo:
+            return Response({'detail': 'El campo photo es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
+        allowed = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'}
+        if getattr(photo, 'content_type', '') not in allowed:
+            return Response(
+                {'detail': 'Formato no soportado. Usa JPG, PNG, WEBP o HEIC.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if photo.size > 6 * 1024 * 1024:
+            return Response({'detail': 'La imagen no puede superar 6 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+        # Eliminar foto anterior
+        if post.photo:
+            post.photo.delete(save=False)
+        post.photo = photo
+        post.save(update_fields=['photo', 'updated_at'])
+        serializer = self.get_serializer(post)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        """Toggle like en una publicación."""
+        post = self.get_object()
+        like_obj, created = CommunityRecipeLike.objects.get_or_create(
+            post=post, user=request.user
+        )
+        if not created:
+            like_obj.delete()
+            liked = False
+        else:
+            liked = True
+        return Response({
+            'liked_by_me': liked,
+            'likes_count': post.likes.count(),
+        })
+
+    @action(detail=True, methods=['get', 'post'], url_path='comments')
+    def comments(self, request, pk=None):
+        """Listar o crear comentarios en una publicación."""
+        post = self.get_object()
+        if request.method == 'GET':
+            qs = post.comments.select_related('author').order_by('created_at')
+            return Response(CommunityRecipeCommentSerializer(qs, many=True, context={'request': request}).data)
+        serializer = CommunityRecipeCommentSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save(post=post, author=request.user)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['delete'], url_path=r'comments/(?P<comment_id>[^/.]+)')
+    def delete_comment(self, request, pk=None, comment_id=None):
+        """Eliminar un comentario (autor del comentario o admin)."""
+        post = self.get_object()
+        try:
+            comment = post.comments.get(id=comment_id)
+        except CommunityRecipeComment.DoesNotExist:
+            return Response({'detail': 'Comentario no encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+        if comment.author_id != request.user.id and not request.user.is_staff:
+            return Response(
+                {'detail': 'Solo puedes eliminar tus propios comentarios.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
