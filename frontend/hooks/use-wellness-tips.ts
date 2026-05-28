@@ -48,6 +48,7 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
       const params = new URLSearchParams()
       if (options.limit) params.append('limit', options.limit.toString())
       if (options.category) params.append('category', options.category)
+      if (options.highlighted) params.append('highlighted', 'true')
       
       const url = params.toString() 
         ? `tips/?${params.toString()}`
@@ -66,16 +67,6 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
       // Si la respuesta es paginada, extraer results
       if (data.results) {
         data = data.results
-      }
-      
-      // Filtrar por highlighted si se especificó
-      if (options.highlighted && Array.isArray(data)) {
-        data = data.filter((tip: WellnessTip) => tip.is_highlighted)
-      }
-      
-      // Limitar en frontend si es necesario
-      if (options.limit && Array.isArray(data) && data.length > options.limit) {
-        data = data.slice(0, options.limit)
       }
       
       setTips(data)

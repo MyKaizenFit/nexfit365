@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Camera, ChefHat, Dumbbell, Home, Medal, Moon, Settings, Target, TrendingUp, User } from "lucide-react"
+import { Camera, ChefHat, Dumbbell, Heart, Home, Medal, Moon, Settings, Target, TrendingUp, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -15,6 +15,7 @@ const mainMenuItems = [
 const moreMenuItems = [
   { title: "Día 1", icon: Target, url: "day-one", badge: null },
   { title: "Recetas Team", icon: Camera, url: "recipe-community", badge: null },
+  { title: "Consejos", icon: Heart, url: "tips", badge: null },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null },
   { title: "Logros", icon: Medal, url: "achievements", badge: null },
