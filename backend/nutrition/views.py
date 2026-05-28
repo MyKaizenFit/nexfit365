@@ -2232,6 +2232,95 @@ class RecipeViewSet(viewsets.ModelViewSet):
             ingredient.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
     
+    @action(detail=True, methods=['get'])
+    def ingredient_substitutions(self, request, pk=None):
+        """
+        Devuelve alimentos equivalentes para sustituir un ingrediente de la receta.
+        GET /api/nutrition/recipes/{id}/ingredient-substitutions/?ingredient_id=<uuid>&search=<text>
+        """
+        recipe = get_object_or_404(Recipe, pk=pk, is_active=True)
+        ingredient_id = request.query_params.get('ingredient_id', '').strip()
+        search = request.query_params.get('search', '').strip()
+
+        if not ingredient_id:
+            return Response({'error': 'ingredient_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            ingredient = recipe.recipe_ingredients.select_related('food').get(id=ingredient_id)
+        except RecipeIngredient.DoesNotExist:
+            return Response({'error': 'Ingredient not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        food = ingredient.food
+        quantity = float(ingredient.quantity or 0)
+        unit = ingredient.unit or 'g'
+
+        # Calcular las kcal objetivo usando la lógica de ratio del modelo
+        ratio = RecipeIngredient.compute_nutrition_ratio(quantity, unit, food)
+        target_calories = float(food.calories or 0) * ratio
+
+        # Categorías de equivalencia del alimento original
+        equiv_cats = food.get_equivalence_categories()
+
+        base_ingredient = {
+            'id': str(ingredient.id),
+            'food_id': str(food.id),
+            'food_name': food.name,
+            'quantity': quantity,
+            'unit': unit,
+            'category': ', '.join(equiv_cats),
+            'target_calories': round(target_calories, 1),
+        }
+
+        if not equiv_cats:
+            return Response({
+                'recipe_id': str(recipe.id),
+                'ingredient': base_ingredient,
+                'results': [],
+            })
+
+        # Buscar candidatos que comparten alguna categoría de equivalencia
+        q = models.Q()
+        for cat in equiv_cats:
+            q |= models.Q(equivalence_categories__contains=[cat]) | models.Q(equivalence_category=cat)
+
+        candidates = Food.objects.filter(q).exclude(id=food.id)
+        if search:
+            candidates = candidates.filter(name__icontains=search)
+
+        # Limitar a 60 para no sobrecargar, excluyendo alimentos sin calorías
+        candidates = candidates.exclude(calories=0).order_by('name')[:60]
+
+        results = []
+        for candidate in candidates:
+            cals_per_100 = float(candidate.calories or 0)
+            if cals_per_100 <= 0:
+                continue
+
+            needed_qty = (target_calories / cals_per_100) * 100
+            ratio_c = needed_qty / 100
+
+            results.append({
+                'food_id': str(candidate.id),
+                'food_name': candidate.name,
+                'category': ', '.join(candidate.get_equivalence_categories()),
+                'quantity': round(needed_qty, 1),
+                'unit': 'g',
+                'target_calories': round(target_calories, 1),
+                'calories': round(cals_per_100 * ratio_c, 1),
+                'protein': round(float(candidate.protein or 0) * ratio_c, 1),
+                'carbs': round(float(candidate.carbs or 0) * ratio_c, 1),
+                'fat': round(float(candidate.fat or 0) * ratio_c, 1),
+            })
+
+        # Ordenar: primero los que coinciden en kcal más exacto (por si hay variación)
+        results.sort(key=lambda x: abs(x['calories'] - target_calories))
+
+        return Response({
+            'recipe_id': str(recipe.id),
+            'ingredient': base_ingredient,
+            'results': results,
+        })
+
     @action(detail=True, methods=['post'])
     def recalculate_macros(self, request, pk=None):
         """Recalcula los macros de la receta basándose en los ingredientes"""
@@ -2874,6 +2963,14 @@ class FoodViewSet(viewsets.ModelViewSet):
         category = self.request.query_params.get('category')
         if category:
             queryset = queryset.filter(category__iexact=category)
+        
+        # Filtro por categoría de equivalencia (multi-categoría)
+        equivalence_category = self.request.query_params.get('equivalence_category')
+        if equivalence_category:
+            queryset = queryset.filter(
+                models.Q(equivalence_categories__contains=[equivalence_category]) |
+                models.Q(equivalence_category=equivalence_category)
+            )
         
         is_verified = self.request.query_params.get('is_verified')
         if is_verified is not None:

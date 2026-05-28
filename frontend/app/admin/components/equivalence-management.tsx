@@ -260,6 +260,7 @@ export function EquivalenceManagement() {
   const [saving, setSaving] = useState<string | null>(null)
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
+  const [verifiedFilter, setVerifiedFilter] = useState("all")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkCategories, setBulkCategories] = useState<string[]>([])
   const [bulkMode, setBulkMode] = useState<"add" | "replace">("add")
@@ -296,6 +297,7 @@ export function EquivalenceManagement() {
       const params = new URLSearchParams({ page_size: String(pageSize), page: String(currentPage) })
       if (search.trim()) params.set("search", search.trim())
       if (categoryFilter !== "all") params.set("equivalence_category", categoryFilter)
+      if (verifiedFilter !== "all") params.set("is_verified", verifiedFilter)
       const headers = await getAuthHeaders()
       const res = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params.toString()}`, { headers })
       if (!res.ok) throw new Error()
@@ -308,7 +310,7 @@ export function EquivalenceManagement() {
     } finally {
       setLoading(false)
     }
-  }, [categoryFilter, currentPage, getAuthHeaders, pageSize, search])
+  }, [categoryFilter, verifiedFilter, currentPage, getAuthHeaders, pageSize, search])
 
   useEffect(() => { fetchFoods() }, [fetchFoods])
 
@@ -489,7 +491,7 @@ export function EquivalenceManagement() {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Filters */}
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_220px_auto]">
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-[1fr_200px_160px_auto]">
                 <div className="relative">
                   <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -510,6 +512,16 @@ export function EquivalenceManagement() {
                         {cat.name}
                       </SelectItem>
                     ))}
+                  </SelectContent>
+                </Select>
+                <Select value={verifiedFilter} onValueChange={(v) => { setVerifiedFilter(v); setCurrentPage(1) }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Verificación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="true">Verificados</SelectItem>
+                    <SelectItem value="false">Sin verificar</SelectItem>
                   </SelectContent>
                 </Select>
                 <Button onClick={() => { setCurrentPage(1); fetchFoods() }} disabled={loading}>
@@ -604,10 +616,13 @@ export function EquivalenceManagement() {
                         </div>
                         <div className="min-w-0">
                           <div className="truncate font-semibold">{food.name}</div>
-                          {(food.brand || food.category) && (
+                          {(food.brand || food.category || food.is_verified !== undefined) && (
                             <div className="mt-1 flex flex-wrap gap-1 text-xs text-muted-foreground">
                               {food.brand && <span>{food.brand}</span>}
                               {food.category && <Badge variant="outline">{food.category}</Badge>}
+                              {food.is_verified && (
+                                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">✓ Verificado</Badge>
+                              )}
                             </div>
                           )}
                         </div>
