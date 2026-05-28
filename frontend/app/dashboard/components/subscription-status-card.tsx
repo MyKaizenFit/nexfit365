@@ -49,6 +49,12 @@ export function SubscriptionStatusCard() {
             const headers = await getAuthHeaders()
             const response = await fetch(buildApiUrl("subscription-status/"), { headers })
 
+            // Silently ignore auth errors — token may be expired
+            if (response.status === 401 || response.status === 403) {
+                setLoading(false)
+                return
+            }
+
             if (!response.ok) {
                 throw new Error("No se pudo cargar el estado de la membresía")
             }
@@ -56,11 +62,7 @@ export function SubscriptionStatusCard() {
             const data = await response.json()
             setStatus(data)
         } catch (error) {
-            toast({
-                title: "⚠️ Membresía",
-                description: error instanceof Error ? error.message : "No se pudo comprobar tu estado",
-                variant: "destructive",
-            })
+            // Don't show destructive toast for this non-critical widget
         } finally {
             setLoading(false)
         }

@@ -34,6 +34,10 @@ export function QuinzenalReview() {
       setLoading(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/"), { headers })
+      if (response.status === 401 || response.status === 403) {
+        setLoading(false)
+        return
+      }
       if (!response.ok) throw new Error("No se pudo cargar la revisión")
       const data = await response.json()
       setStatus(data)
