@@ -86,7 +86,6 @@ function CategoryDialog({ open, initial, onClose, onSave, saving }: CategoryDial
   const [slug, setSlug] = useState(initial?.slug ?? "")
   const [description, setDescription] = useState(initial?.description ?? "")
   const [color, setColor] = useState(initial?.color || "#6366f1")
-  const [icon, setIcon] = useState(initial?.icon ?? "")
   const [order, setOrder] = useState(initial?.order ?? 99)
   const isEdit = !!initial?.id
 
@@ -96,7 +95,6 @@ function CategoryDialog({ open, initial, onClose, onSave, saving }: CategoryDial
       setSlug(initial?.slug ?? "")
       setDescription(initial?.description ?? "")
       setColor(initial?.color || "#6366f1")
-      setIcon(initial?.icon ?? "")
       setOrder(initial?.order ?? 99)
     }
   }, [open, initial])
@@ -118,7 +116,7 @@ function CategoryDialog({ open, initial, onClose, onSave, saving }: CategoryDial
       toast({ title: "Error", description: "Nombre e identificador son obligatorios.", variant: "destructive" })
       return
     }
-    onSave({ name: name.trim(), slug: slug.trim(), description, color, icon, order })
+    onSave({ name: name.trim(), slug: slug.trim(), description, color, order })
   }
 
   return (
@@ -145,15 +143,9 @@ function CategoryDialog({ open, initial, onClose, onSave, saving }: CategoryDial
             <Label>Descripción</Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} placeholder="Descripción opcional..." />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label>Icono (emoji)</Label>
-              <Input value={icon} onChange={(e) => setIcon(e.target.value)} placeholder="🥩" maxLength={4} />
-            </div>
-            <div className="space-y-1">
-              <Label>Orden</Label>
-              <Input type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} min={0} />
-            </div>
+          <div className="space-y-1">
+            <Label>Orden</Label>
+            <Input type="number" value={order} onChange={(e) => setOrder(Number(e.target.value))} min={0} />
           </div>
           <div className="space-y-2">
             <Label>Color</Label>
@@ -176,10 +168,10 @@ function CategoryDialog({ open, initial, onClose, onSave, saving }: CategoryDial
           </div>
           <div className="flex items-center gap-3 rounded-lg border p-3">
             <span
-              className="flex h-9 w-9 items-center justify-center rounded-full text-white text-base"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-white text-sm font-bold"
               style={{ background: color }}
             >
-              {icon || "?"}
+              {name ? name[0].toUpperCase() : "?"}
             </span>
             <div>
               <p className="font-semibold text-sm">{name || "Vista previa"}</p>
@@ -231,7 +223,7 @@ function MultiCategoryPicker({ categories, selected, disabled, onChange }: Multi
             onClick={() => toggle(cat.slug)}
             disabled={disabled}
             title={cat.name}
-            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-all
+            className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-all
               ${active
                 ? "text-white shadow-sm"
                 : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"
@@ -240,7 +232,6 @@ function MultiCategoryPicker({ categories, selected, disabled, onChange }: Multi
             `}
             style={active ? { background: getCategoryColor(cat) } : {}}
           >
-            {cat.icon && <span>{cat.icon}</span>}
             {cat.name}
           </button>
         )
@@ -516,7 +507,7 @@ export function EquivalenceManagement() {
                     <SelectItem value="all">Todos los grupos</SelectItem>
                     {categories.map((cat) => (
                       <SelectItem key={cat.slug} value={cat.slug}>
-                        {cat.icon && <span className="mr-1">{cat.icon}</span>}{cat.name}
+                        {cat.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -574,11 +565,10 @@ export function EquivalenceManagement() {
                         onClick={() => setBulkCategories((prev) =>
                           active ? prev.filter((s) => s !== cat.slug) : [...prev, cat.slug]
                         )}
-                        className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium transition-all
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium transition-all
                           ${active ? "text-white shadow-sm" : "border border-border bg-background text-muted-foreground hover:bg-muted"}`}
                         style={active ? { background: getCategoryColor(cat) } : {}}
                       >
-                        {cat.icon && <span>{cat.icon}</span>}
                         {cat.name}
                       </button>
                     )
@@ -683,10 +673,10 @@ export function EquivalenceManagement() {
                   {categories.map((cat) => (
                     <div key={cat.slug} className="flex items-start gap-3 rounded-lg border bg-card p-3 shadow-sm">
                       <span
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white text-base"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white text-sm font-bold"
                         style={{ background: getCategoryColor(cat) }}
                       >
-                        {cat.icon || cat.name[0]}
+                        {cat.name[0].toUpperCase()}
                       </span>
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm truncate">{cat.name}</p>
