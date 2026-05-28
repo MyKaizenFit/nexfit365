@@ -2288,11 +2288,27 @@ class RecipeViewSet(viewsets.ModelViewSet):
 
         eq_category = target_food.equivalence_category or ''
 
+        # Resolver categorías múltiples
+        eq_categories = []
+        if isinstance(target_food.equivalence_categories, list) and target_food.equivalence_categories:
+            eq_categories = target_food.equivalence_categories
+        elif eq_category:
+            eq_categories = [eq_category]
+
         # Buscar alternativas verificadas en la misma categoría de equivalencia
         alternatives = Food.objects.exclude(id=target_food.id)
 
-        if eq_category:
-            alternatives = alternatives.filter(equivalence_category=eq_category, calories__gt=0)
+        if eq_categories:
+            # Buscar alimentos que tengan al menos una categoría en común
+            # PostgreSQL JSONField: no hay __overlap nativo en Django para JSONField list
+            # Usamos una consulta combinando __contains para cada categoría
+            from django.db.models import Q as _Q
+            cat_q = _Q()
+            for cat in eq_categories:
+                # Matches foods where equivalence_categories contains the slug
+                cat_q |= _Q(equivalence_categories__contains=[cat])
+                cat_q |= _Q(equivalence_category=cat)
+            alternatives = alternatives.filter(cat_q, calories__gt=0)
         else:
             # Sin categoría: rango calórico ±40% por cada 100 g
             min_cal = max(1, int(cal_per_100 * 0.60))
@@ -2332,6 +2348,7 @@ class RecipeViewSet(viewsets.ModelViewSet):
             'quantity': target_quantity,
             'unit': target_unit,
             'category': eq_category or target_food.category or '',
+            'categories': eq_categories,
             'supports_volume': target_unit in ('ml', 'l', 'cl'),
             'target_calories': round(target_calories, 1),
         }

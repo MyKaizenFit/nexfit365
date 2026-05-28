@@ -1541,6 +1541,46 @@ class MealIngredientExclusion(TimeStampedModel):
 # ALIMENTOS (para tracking detallado - opcional)
 # =============================================================================
 
+# =============================================================================
+# CATEGORÍAS DE EQUIVALENCIA PERSONALIZABLES
+# =============================================================================
+
+class EquivalenceCategory(TimeStampedModel):
+    """
+    Categoría de equivalencia personalizable para intercambio de alimentos.
+    Las categorías del sistema (is_system=True) no pueden eliminarse.
+    """
+    slug = models.SlugField(
+        max_length=60, unique=True,
+        help_text="Identificador único (ej: 'arroz_cereales')"
+    )
+    name = models.CharField(max_length=100, help_text="Nombre legible (ej: 'Arroz / cereales / pasta')")
+    description = models.TextField(blank=True)
+    color = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text="Color hex o nombre CSS (ej: '#4CAF50', 'emerald')"
+    )
+    icon = models.CharField(max_length=10, blank=True, default="", help_text="Emoji o código de icono")
+    is_system = models.BooleanField(
+        default=False,
+        help_text="True = categoría del sistema, no se puede eliminar"
+    )
+    order = models.PositiveSmallIntegerField(default=0, help_text="Orden de aparición en listas")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='equivalence_categories_created'
+    )
+
+    class Meta:
+        ordering = ['order', 'name']
+        verbose_name = "Categoría de equivalencia"
+        verbose_name_plural = "Categorías de equivalencia"
+
+    def __str__(self):
+        return self.name
+
+
 class Food(TimeStampedModel):
     """
     Alimento base para tracking detallado
@@ -1595,7 +1635,12 @@ class Food(TimeStampedModel):
         max_length=50,
         blank=True,
         db_index=True,
-        help_text="Grupo usado para intercambios equivalentes: carnes, pescados, legumbres, fruta, verduras, etc."
+        help_text="Grupo principal de equivalencia (legacy, se mantiene para compatibilidad)"
+    )
+    equivalence_categories = models.JSONField(
+        default=list,
+        blank=True,
+        help_text="Grupos de equivalencia múltiples: ['arroz_cereales', 'panes']. Si está vacío se usa equivalence_category."
     )
     allergens = models.JSONField(
         default=list,
@@ -1620,6 +1665,13 @@ class Food(TimeStampedModel):
         if self.brand:
             return f"{self.name} ({self.brand})"
         return self.name
+
+    def get_equivalence_categories(self):
+        """Devuelve la lista de categorías de equivalencia activas para este alimento."""
+        cats = self.equivalence_categories if isinstance(self.equivalence_categories, list) else []
+        if not cats and self.equivalence_category:
+            return [self.equivalence_category]
+        return cats
 
     def save(self, *args, **kwargs):
         self.serving_unit = RecipeIngredient._normalize_unit(self.serving_unit) or 'g'

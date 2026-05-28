@@ -1,7 +1,7 @@
 # nutrition/admin_serializers.py
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, RecipeIngredient
+from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, RecipeIngredient, EquivalenceCategory
 from .serializers import RecipeIngredientSerializer, FoodMinimalSerializer
 
 User = get_user_model()
@@ -11,6 +11,13 @@ class AdminUserLiteSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email']
+
+
+class EquivalenceCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EquivalenceCategory
+        fields = ['id', 'slug', 'name', 'description', 'color', 'icon', 'is_system', 'order', 'created_at']
+        read_only_fields = ['id', 'created_at', 'is_system']
 
 
 class AdminRecipeIngredientSerializer(serializers.ModelSerializer):

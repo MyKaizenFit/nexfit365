@@ -10,6 +10,7 @@ router.register(r'meals', admin_views.AdminPlanMealViewSet, basename='admin-plan
 router.register(r'meal-recipes', admin_views.AdminPlanMealRecipeViewSet, basename='admin-plan-meal-recipes')
 router.register(r'foods', admin_views.AdminFoodViewSet, basename='admin-foods')
 router.register(r'community-recipes', admin_views.AdminCommunityRecipePostViewSet, basename='admin-community-recipes')
+router.register(r'equivalence-categories', admin_views.AdminEquivalenceCategoryViewSet, basename='admin-equivalence-categories')
 
 urlpatterns = [
     path('', include(router.urls)),

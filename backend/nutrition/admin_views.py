@@ -21,12 +21,12 @@ from urllib.parse import urlparse
 from .models import (
     Recipe, NutritionPlan, PlanMeal, Food, MealLog, NutritionPlanHistory,
     PlanMealRecipe, NutritionPlanAssignment, CommunityRecipePost,
-    CommunityRecipeLike
+    CommunityRecipeLike, EquivalenceCategory
 )
 from .admin_serializers import (
     AdminRecipeSerializer, AdminNutritionPlanSerializer,
     AdminPlanMealSerializer, AdminFoodSerializer, PlanMealRecipeSerializer,
-    AdminNutritionPlanMinimalSerializer
+    AdminNutritionPlanMinimalSerializer, EquivalenceCategorySerializer
 )
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 from .serializers import AdminCommunityRecipePostSerializer
@@ -4440,3 +4440,32 @@ def admin_user_plans_history(request):
         'count': len(serializer.data),
         'history': serializer.data,
     })
+
+
+# =============================================================================
+# CATEGORÍAS DE EQUIVALENCIA (admin CRUD)
+# =============================================================================
+
+class AdminEquivalenceCategoryViewSet(viewsets.ModelViewSet):
+    """
+    CRUD de categorías de equivalencia de alimentos.
+    Las categorías del sistema (is_system=True) solo pueden editarse (no eliminarse).
+    """
+    queryset = EquivalenceCategory.objects.all()
+    serializer_class = EquivalenceCategorySerializer
+    permission_classes = [IsAdminUser]
+    lookup_field = 'slug'
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if instance.is_system:
+            return Response(
+                {'error': 'No se pueden eliminar las categorías del sistema.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        self.perform_destroy(instance)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
