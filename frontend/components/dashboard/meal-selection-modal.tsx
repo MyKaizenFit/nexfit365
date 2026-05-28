@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { API_CONFIG } from '@/lib/api'
-import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle } from 'lucide-react'
+import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 
@@ -1134,6 +1134,7 @@ function AllRecipesModal({
   const [substitutionSearch, setSubstitutionSearch] = useState("")
   const [substitutions, setSubstitutions] = useState<IngredientSubstitutionResponse | null>(null)
   const [loadingSubstitutions, setLoadingSubstitutions] = useState(false)
+  const [mobileStep, setMobileStep] = useState<"ingredients" | "results">("ingredients")
   const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
@@ -1203,6 +1204,7 @@ function AllRecipesModal({
     setLoadingSubstitutions(true)
     setSubstitutionSearch("")
     setSubstitutions(null)
+    setMobileStep("ingredients")
     try {
       const detailedRecipe = await nutritionService.getRecipe(recipe.id)
       const resolvedRecipe = detailedRecipe || recipe
@@ -1521,18 +1523,47 @@ function AllRecipesModal({
       {substitutionRecipe && (
         <div className={`${equivalenceOnlyMode ? 'relative z-[9999] w-full' : 'absolute inset-0 z-[10000]'} flex items-start justify-center ${equivalenceOnlyMode ? '' : 'bg-black/55'} p-4 sm:items-center`}>
           <div className="flex max-h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="border-b border-gray-100 p-5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-xl font-black text-gray-900">Equivalencias de ingredientes</h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    {substitutionRecipe.name}
-                  </p>
+
+            {/* Header */}
+            <div className="flex-shrink-0 border-b border-gray-100 p-4">
+              <div className="flex items-center justify-between gap-3">
+                {/* Mobile back button (only on results step) */}
+                <button
+                  type="button"
+                  onClick={() => setMobileStep("ingredients")}
+                  className={`md:hidden flex items-center gap-1.5 rounded-full px-2 py-1.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 ${
+                    mobileStep === "results" ? "flex" : "hidden"
+                  }`}
+                  aria-label="Volver a ingredientes"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver
+                </button>
+
+                {/* Title: hidden on mobile results step */}
+                <div className={`flex-1 min-w-0 ${
+                  mobileStep === "results" ? "hidden md:block" : "block"
+                }`}>
+                  <h3 className="text-lg font-black text-gray-900">Equivalencias de ingredientes</h3>
+                  <p className="mt-0.5 text-xs text-gray-500 truncate">{substitutionRecipe.name}</p>
                 </div>
+
+                {/* Mobile results step: show selected ingredient name */}
+                {mobileStep === "results" && (
+                  <div className="md:hidden flex-1 min-w-0">
+                    <p className="text-[10px] font-black uppercase text-gray-400">Equivalencias de</p>
+                    <p className="text-sm font-black text-gray-900 truncate">
+                      {linkedIngredients.find(i => i.id === selectedIngredientId)?.food_detail?.name ||
+                        linkedIngredients.find(i => i.id === selectedIngredientId)?.food ||
+                        'Ingrediente'}
+                    </p>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={closeSubstitutions}
-                  className="rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
+                  className="flex-shrink-0 rounded-full p-2 text-gray-400 transition hover:bg-gray-100 hover:text-gray-700"
                   aria-label="Cerrar equivalencias"
                 >
                   <X className="h-5 w-5" />
@@ -1540,9 +1571,14 @@ function AllRecipesModal({
               </div>
             </div>
 
-            <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto md:overflow-hidden md:grid-cols-[280px_1fr]">
-              <div className="border-b border-gray-100 p-4 md:border-b-0 md:border-r md:overflow-y-auto">
-                <p className="mb-3 text-xs font-black uppercase text-gray-400">Ingrediente original</p>
+            {/* Body: step-based on mobile, 2-col on desktop */}
+            <div className="min-h-0 flex-1 overflow-hidden flex flex-col md:grid md:grid-cols-[280px_1fr]">
+
+              {/* LEFT: ingredient list */}
+              <div className={`${
+                mobileStep === "ingredients" ? "flex" : "hidden"
+              } md:flex flex-col overflow-y-auto border-b border-gray-100 p-4 md:border-b-0 md:border-r`}>
+                <p className="mb-3 text-xs font-black uppercase text-gray-400">Selecciona el ingrediente a reemplazar</p>
                 {linkedIngredients.length === 0 ? (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800">
                     Esta receta todavía no tiene ingredientes vinculados a alimentos. Cuando el admin los estructure, se podrán calcular cambios automáticos.
@@ -1559,17 +1595,21 @@ function AllRecipesModal({
                           onClick={() => {
                             setSelectedIngredientId(ingredient.id)
                             loadSubstitutions(substitutionRecipe, ingredient.id)
+                            setMobileStep("results")
                           }}
-                          className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                          className={`w-full rounded-xl border px-3 py-3 text-left transition flex items-center justify-between gap-2 ${
                             isSelected
                               ? 'border-emerald-400 bg-emerald-50 text-emerald-900'
                               : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-200 hover:bg-emerald-50/50'
                           }`}
                         >
-                          <div className="text-sm font-black">{foodName}</div>
-                          <div className="text-xs font-medium text-gray-500">
-                            {ingredient.quantity}{ingredient.unit ? ` ${ingredient.unit}` : ''}
+                          <div className="min-w-0">
+                            <div className="text-sm font-black truncate">{foodName}</div>
+                            <div className="text-xs font-medium text-gray-500">
+                              {ingredient.quantity}{ingredient.unit ? ` ${ingredient.unit}` : ''}
+                            </div>
                           </div>
+                          <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-400 md:hidden" />
                         </button>
                       )
                     })}
@@ -1577,7 +1617,10 @@ function AllRecipesModal({
                 )}
               </div>
 
-              <div className="flex min-h-0 flex-col p-4">
+              {/* RIGHT: substitution results */}
+              <div className={`${
+                mobileStep === "results" ? "flex" : "hidden"
+              } md:flex flex-col min-h-0 p-4`}>
                 <div className="mb-3 flex gap-2">
                   <input
                     type="text"
@@ -1650,11 +1693,14 @@ function AllRecipesModal({
                     </div>
                   ) : (
                     <div className="rounded-xl border border-dashed border-gray-300 p-6 text-center text-sm font-medium text-gray-500">
-                      Selecciona un ingrediente para ver alternativas con los gramos ajustados a sus kcal.
+                      {selectedIngredientId
+                        ? 'No se encontraron equivalencias para este ingrediente.'
+                        : 'Selecciona un ingrediente para ver alternativas con los gramos ajustados a sus kcal.'}
                     </div>
                   )}
                 </div>
               </div>
+
             </div>
           </div>
         </div>
