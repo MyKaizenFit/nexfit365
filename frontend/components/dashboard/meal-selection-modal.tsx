@@ -21,6 +21,7 @@ interface MealSelectionModalProps {
   }
   onSelectOption: (option: MealOption) => void
   onDeselectOption?: () => void
+  initialView?: 'recipe' | 'equivalencias'
 }
 
 const resolveRecipeImageSrc = (src?: string | null) => {
@@ -44,7 +45,8 @@ export function MealSelectionModal({
   options,
   currentSelection,
   onSelectOption,
-  onDeselectOption
+  onDeselectOption,
+  initialView
 }: MealSelectionModalProps) {
   const [selectedOption, setSelectedOption] = useState<MealOption | null>(null)
   const [showRecipe, setShowRecipe] = useState(false)
@@ -383,6 +385,29 @@ export function MealSelectionModal({
       setExcludingAllVisible(false)
     }
   }
+
+  const autoViewTriggeredRef = useRef(false)
+
+  useEffect(() => {
+    if (!isOpen) { autoViewTriggeredRef.current = false }
+  }, [isOpen])
+
+  useEffect(() => {
+    if (!isOpen || !mounted || !initialView || options.length === 0) return
+    if (autoViewTriggeredRef.current) return
+    autoViewTriggeredRef.current = true
+    const currentOption = options.find(opt =>
+      (currentSelection?.recipeId && opt.recipeId && String(currentSelection.recipeId) === String(opt.recipeId)) ||
+      (currentSelection?.optionId && String(currentSelection.optionId) === String(opt.id))
+    ) || options[0]
+    if (!currentOption) return
+    if (initialView === 'recipe') {
+      handleViewRecipe(currentOption)
+    } else if (initialView === 'equivalencias') {
+      handleViewAllRecipes(currentOption.recipeId || currentOption.id)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, mounted, initialView, options, currentSelection])
 
   useEffect(() => {
     setMounted(true)

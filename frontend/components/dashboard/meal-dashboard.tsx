@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, SkipForward, Pencil } from 'lucide-react'
+import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, SkipForward, Pencil, BookOpen, Shuffle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -32,8 +32,9 @@ export function MealDashboard() {
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [initialView, setInitialView] = useState<'recipe' | 'equivalencias' | undefined>(undefined)
 
-  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }) => {
+  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }, view?: 'recipe' | 'equivalencias') => {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
@@ -42,6 +43,7 @@ export function MealDashboard() {
         recipeId: fullMeal?.selectedOption?.recipeId ? String(fullMeal.selectedOption.recipeId) : null,
       },
     })
+    setInitialView(view)
     setIsModalOpen(true)
   }
 
@@ -326,18 +328,37 @@ export function MealDashboard() {
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
-                      {!meal.isSkipped && (
+                      <button
+                        onClick={() => handleOpenMealOptions(meal, 'recipe')}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>Receta</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenMealOptions(meal, 'equivalencias')}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                      >
+                        <Shuffle className="h-3.5 w-3.5" />
+                        <span>Equivalencias</span>
+                      </button>
+                      {!meal.isSkipped ? (
                         <button
-                          onClick={async () => {
-                            await handleSkipMeal(meal.id)
-                          }}
+                          onClick={async () => { await handleSkipMeal(meal.id) }}
                           className="flex items-center justify-center gap-1 rounded-xl bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
                         >
                           <SkipForward className="h-3.5 w-3.5" />
                           <span>No como</span>
                         </button>
+                      ) : (
+                        <button
+                          onClick={async () => { await handleSkipMeal(meal.id) }}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
+                        >
+                          <SkipForward className="h-3.5 w-3.5" />
+                          <span>Reactivar</span>
+                        </button>
                       )}
-
                       <button
                         onClick={() => handleOpenMealOptions(meal)}
                         className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
@@ -412,6 +433,7 @@ export function MealDashboard() {
               currentSelection={selectedMeal.currentSelection}
               onSelectOption={handleSelectOption}
               onDeselectOption={handleDeselectOption}
+              initialView={initialView}
             />
           )}
         </TabsContent>
