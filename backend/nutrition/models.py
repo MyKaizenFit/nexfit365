@@ -1550,6 +1550,10 @@ class EquivalenceCategory(TimeStampedModel):
     Categoría de equivalencia personalizable para intercambio de alimentos.
     Las categorías del sistema (is_system=True) no pueden eliminarse.
     """
+    # La tabla fue creada con bigint antes de que TimeStampedModel usara UUID.
+    # Sobrescribimos id para mantener compatibilidad con los datos existentes.
+    id = models.BigAutoField(primary_key=True)
+
     slug = models.SlugField(
         max_length=60, unique=True,
         help_text="Identificador único (ej: 'arroz_cereales')"
