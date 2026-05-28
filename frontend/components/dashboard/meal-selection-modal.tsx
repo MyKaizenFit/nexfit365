@@ -137,57 +137,13 @@ export function MealSelectionModal({
           recipeId = option.recipeId
         }
       } else {
-        // Si no hay recipeId, buscar la primera receta recomendada de otras opciones
-        
-        // Buscar la primera opción que tenga recipeId
-        const optionWithRecipe = options.find(opt => opt.recipeId !== undefined && opt.recipeId !== null)
-        
-        if (optionWithRecipe && optionWithRecipe.recipeId) {
-          // Usar el recipeId de esa opción
-          if (typeof optionWithRecipe.recipeId === 'string') {
-            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-            if (uuidRegex.test(optionWithRecipe.recipeId)) {
-              recipeId = optionWithRecipe.recipeId
-            } else {
-              const parsed = parseInt(optionWithRecipe.recipeId, 10)
-              if (!isNaN(parsed) && parsed > 0) {
-                recipeId = parsed
-              }
-            }
-          } else {
-            recipeId = optionWithRecipe.recipeId
-          }
-        } else {
-          // Si ninguna opción tiene recipeId, buscar la primera receta disponible para este tipo de comida
-          try {
-            const allRecipes = await nutritionService.listRecipes()
-            // Filtrar recetas por tipo de comida si es posible
-            const filteredRecipes = allRecipes.filter(r => {
-              if (r.meal_types && Array.isArray(r.meal_types)) {
-                return r.meal_types.includes(mealType || '') || r.meal_types.length === 0
-              }
-              return true
-            })
-            
-            if (filteredRecipes.length > 0) {
-              const firstRecipe = filteredRecipes[0]
-              recipeId = firstRecipe.id
-            } else if (allRecipes.length > 0) {
-              const firstRecipe = allRecipes[0]
-              recipeId = firstRecipe.id
-            } else {
-              setLoadingRecipe(false)
-              alert('No hay recetas disponibles para esta comida. Por favor, intenta más tarde.')
-              return
-            }
-          } catch (error) {
-            setLoadingRecipe(false)
-            alert('Error al buscar recetas. Por favor, intenta de nuevo.')
-            return
-          }
-        }
-        
-        // Continuar con el flujo normal usando el recipeId encontrado
+        // Esta opción no tiene receta asociada — no cargar una receta aleatoria
+        setLoadingRecipe(false)
+        toast({
+          title: "Sin receta",
+          description: "Esta opción no tiene una receta específica asociada.",
+        })
+        return
       }
       const recipeInfo = {
         recipeId, 
@@ -216,9 +172,34 @@ export function MealSelectionModal({
       }
 
       if (data && data.recipe) {
+        // Rescale ingredients to match the option's pre-computed macros (avoid plan vs personalized discrepancy)
+        let personalized = data.personalized_quantities
+        const optionCalories = option.calories ?? 0
+        const originalCalories = personalized?.original_calories ?? 0
+        if (optionCalories > 0 && originalCalories > 0 && personalized) {
+          const correctScale = optionCalories / originalCalories
+          const existingScale = personalized.scale_factor > 0 ? personalized.scale_factor : 1
+          const rescaledIngredients = personalized.ingredients.map(ing => {
+            const amount = ing.amount != null ? Number(ing.amount) : 0
+            const originalAmount = amount / existingScale
+            return { ...ing, amount: Math.round(originalAmount * correctScale * 10) / 10 }
+          })
+          personalized = {
+            ...personalized,
+            scale_factor: correctScale,
+            macros: {
+              calories: optionCalories,
+              protein: option.protein ?? personalized.macros.protein,
+              carbs: option.carbs ?? personalized.macros.carbs,
+              fat: option.fat ?? personalized.macros.fat,
+              fiber: personalized.macros.fiber,
+            },
+            ingredients: rescaledIngredients,
+          }
+        }
         setRecipeData({
           recipe: data.recipe,
-          personalized: data.personalized_quantities,
+          personalized,
           userProfile: data.user_profile
         })
         setShowRecipe(true)

@@ -18,7 +18,7 @@ import { formatMacro } from '@/lib/utils'
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions } = useDailyMeals()
+  const { meals, macros, loading, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -160,7 +160,7 @@ export function MealDashboard() {
       </Card>
 
       {/* Tabs para vista diaria y semanal */}
-      <Tabs defaultValue="daily" className="w-full">
+      <Tabs defaultValue="daily" className="w-full" onValueChange={(v) => { if (v === 'daily') refreshData() }}>
         <TabsList className="grid w-full grid-cols-3 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />

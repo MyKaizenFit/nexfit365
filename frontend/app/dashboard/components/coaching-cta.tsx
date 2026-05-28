@@ -161,6 +161,11 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
           fetch(buildApiUrl("coaching/inquiries/mine/"), { headers }),
         ])
 
+        // Silently fail on auth errors — token may be expired, don't show error toast
+        if (plansResponse.status === 401 || plansResponse.status === 403) {
+          return
+        }
+
         if (!plansResponse.ok) throw new Error("No se pudieron cargar los planes")
 
         const plansData = await plansResponse.json()

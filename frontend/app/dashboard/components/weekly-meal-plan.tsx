@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Calendar, ChefHat, Check, Clock, Loader2, Copy, ArrowRight, BookOpen, RefreshCw } from "lucide-react"
+import { Calendar, ChefHat, Check, Clock, Loader2, Copy, ArrowRight, BookOpen, RefreshCw, ChevronLeft } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -414,12 +414,18 @@ export function WeeklyMealPlan() {
   // Obtener selección para un día y tipo de comida
   const getSelectionForMeal = (dateStr: string, mealType: string, planMealId?: string): WeeklyMealSelection | null => {
     const daySelections = weeklySelections[dateStr] || []
-    const selection = daySelections.find((s: any) => {
-      if (typeof s !== 'object') return false
-      if (planMealId && s.plan_meal_id) return String(s.plan_meal_id) === String(planMealId)
-      return s.meal_type === mealType
-    })
-    return selection || null
+    // Primero: buscar por plan_meal_id exacto si tenemos un slot específico
+    if (planMealId) {
+      const byId = daySelections.find((s: any) => typeof s === 'object' && s.plan_meal_id && String(s.plan_meal_id) === String(planMealId))
+      if (byId) return byId
+    }
+    // Fallback: buscar por meal_type SÓLO si no hay ninguna selección con plan_meal_id para este tipo
+    // (evita mostrar la misma selección en múltiples slots con mismo meal_type)
+    const sameMealTypeWithId = daySelections.find((s: any) => typeof s === 'object' && s.meal_type === mealType && s.plan_meal_id)
+    if (!sameMealTypeWithId) {
+      return daySelections.find((s: any) => typeof s === 'object' && s.meal_type === mealType) || null
+    }
+    return null
   }
 
   const weekDays = getWeekDays()
@@ -492,214 +498,191 @@ export function WeeklyMealPlan() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      {/* Header sin navegación - solo información */}
+      {/* Header */}
       <Card>
         <CardHeader className="pb-3 md:pb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2 md:gap-0">
+          <div className="flex items-center gap-2">
+            {selectedDay && (
+              <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedDay(null)} className="h-8 w-8">
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
             <div>
               <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
                 <Calendar className="h-4 w-4 md:h-5 md:w-5" />
-                Planificación Semanal
+                {selectedDay
+                  ? format(new Date(selectedDay), "EEEE, d 'de' MMMM", { locale: es }).replace(/^./, c => c.toUpperCase())
+                  : 'Planificación Semanal'}
               </CardTitle>
               <CardDescription className="text-xs md:text-sm">
-                Planifica tus comidas para toda la semana
+                {selectedDay
+                  ? 'Toca una comida para seleccionar la receta'
+                  : `${format(weekDays[0], "d 'de' MMMM", { locale: es })} - ${format(weekDays[6], "d 'de' MMMM, yyyy", { locale: es })}`}
               </CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-0">
-          <div className="text-center">
-            <p className="text-xs md:text-sm text-muted-foreground">
-              {format(weekDays[0], "d 'de' MMMM", { locale: es })} - {format(weekDays[6], "d 'de' MMMM, yyyy", { locale: es })}
-            </p>
-          </div>
-        </CardContent>
       </Card>
 
-      {/* Vista semanal */}
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-          {weekDays.map((day, dayIndex) => {
+      ) : !selectedDay ? (
+        /* PASO 1: Selección de día */
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3">
+          {weekDays.map((day) => {
             const dateStr = format(day, 'yyyy-MM-dd')
-            const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd')
+            const isToday = dateStr === format(new Date(), 'yyyy-MM-dd')
             const dayName = format(day, 'EEEE', { locale: es })
             const dayNumber = format(day, 'd')
             const daySelections = weeklySelections[dateStr] || []
-            const hasSelections = daySelections.length > 0
-
+            const completedCount = daySelections.filter((s: any) => s.completed).length
+            const totalSlots = slotsForDay(dateStr).length
+            const selectedCount = daySelections.length
             return (
-              <Card key={dateStr} className={isToday ? "ring-2 ring-teal-500" : ""}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-sm font-medium">
-                        {dayName.charAt(0).toUpperCase() + dayName.slice(1)}
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        {dayNumber} {format(day, 'MMM', { locale: es })}
-                      </CardDescription>
+              <Card
+                key={dateStr}
+                className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-teal-300 ${isToday ? 'ring-2 ring-teal-500' : ''}`}
+                onClick={() => setSelectedDay(dateStr)}
+              >
+                <CardContent className="p-3 md:p-4 text-center">
+                  <div className="font-semibold text-sm capitalize">{dayName.slice(0, 3)}</div>
+                  <div className={`text-2xl font-black my-1 ${isToday ? 'text-teal-600' : ''}`}>{dayNumber}</div>
+                  <div className="text-[10px] text-muted-foreground">{format(day, 'MMM', { locale: es })}</div>
+                  {selectedCount > 0 ? (
+                    <div className="mt-2">
+                      <div className="text-[10px] font-semibold text-teal-600">{completedCount}/{totalSlots} ✓</div>
+                      <div className="mt-1 h-1.5 w-full rounded-full bg-gray-100">
+                        <div
+                          className="h-1.5 rounded-full bg-teal-500 transition-all"
+                          style={{ width: `${totalSlots > 0 ? (completedCount / totalSlots) * 100 : 0}%` }}
+                        />
+                      </div>
                     </div>
-                    {hasSelections && (
-                      <div className="flex gap-1">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => handleApplyToWeek(dateStr)}
-                          disabled={saving}
-                          title="Aplicar a toda la semana"
-                        >
-                          <ArrowRight className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardHeader>
-                <CardContent className="p-2 md:p-6 space-y-1.5 md:space-y-2">
-                  {slotsForDay(dateStr).map((slot: any) => {
-                    const selection = getSelectionForMeal(dateStr, slot.meal_type, slot.id)
-                    // Verificar si está completada (por defecto false si no se especifica)
-                    const isCompleted = selection?.completed === true
-                    const hasSelection = !!selection
-                    const mealLabel = slot.name || slot.meal_type
-                    const mealTime = (slot.time || "").slice(0, 5) || ""
-                    const selectedName = selection ? getMealName(selection) : ""
-                    const imageSrc = resolveRecipeImageSrc(selection?.recipe?.image_url)
-                    const calories = selection?.recipe?.calories || selection?.calories || 0
-                    const protein = selection?.recipe?.protein || selection?.protein || 0
-                    const carbs = selection?.recipe?.carbs || selection?.carbs || 0
-                    
-                    return (
-                      <div
-                        key={String(slot.id || slot.meal_type) + '-' + String(slot.order_index || '')}
-                        className="relative group"
-                      >
-                        <Button
-                          type="button"
-                          variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
-                          className={`w-full justify-start h-auto text-[10px] md:text-xs touch-manipulation ${
-                            hasSelection
-                              ? `overflow-hidden rounded-2xl border p-0 shadow-sm hover:shadow-md ${isCompleted ? 'border-teal-200' : 'border-orange-100'}`
-                              : 'min-h-[40px] md:min-h-[45px] p-1.5 md:p-2'
-                          }`}
-                          onClick={() => handleSelectMeal(dateStr, slot)}
-                          disabled={saving}
-                        >
-                          {hasSelection ? (
-                            <div className="w-full text-left bg-white">
-                              <div className="relative h-44 md:h-36 overflow-hidden">
-                                <img
-                                  src={imageSrc}
-                                  alt={selectedName}
-                                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                  onError={(e) => {
-                                    ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
-                                  }}
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
-                                <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
-                                <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">
-                                    {mealLabel}
-                                  </span>
-                                  <span className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${
-                                    isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-700'
-                                  }`}>
-                                    {isCompleted ? 'Completada' : 'Planificada'}
-                                  </span>
-                                  {selection?.substitution_details?.length ? (
-                                    <span className="rounded-full bg-emerald-500 px-2 py-1 text-[10px] font-bold text-white shadow">
-                                      Cambio
-                                    </span>
-                                  ) : null}
-                                </div>
-                                <div className="absolute bottom-3 left-3 right-3">
-                                  <h4 className="line-clamp-2 text-base md:text-sm font-black leading-tight text-white drop-shadow">
-                                    {selectedName}
-                                  </h4>
-                                  <div className="mt-1.5 flex items-center gap-2 text-[10px] font-semibold text-white/90">
-                                    <span>{slot.icon || getSlotIcon(slot.meal_type)}</span>
-                                    {mealTime && <span>{mealTime}</span>}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-1.5 p-2">
-                                <span className="rounded-xl border border-orange-100/80 bg-orange-50/60 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-orange-600">{calories}</span>
-                                  <span className="block text-[8px] font-semibold text-orange-400">kcal</span>
-                                </span>
-                                <span className="rounded-xl border border-blue-100 bg-blue-50 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-blue-700">{formatMacro(protein)}g</span>
-                                  <span className="block text-[8px] font-semibold text-blue-500">prot</span>
-                                </span>
-                                <span className="rounded-xl border border-emerald-100/80 bg-emerald-50/60 px-1.5 py-1.5 text-center">
-                                  <span className="block text-[11px] font-black text-emerald-600">{formatMacro(carbs)}g</span>
-                                  <span className="block text-[8px] font-semibold text-emerald-400">carb</span>
-                                </span>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-1.5 px-2 pb-2 text-[10px] font-bold">
-                                <span className="flex items-center justify-center gap-1 rounded-xl bg-orange-50/60 px-2 py-2 text-orange-600">
-                                  <BookOpen className="h-3 w-3" />
-                                  Receta
-                                </span>
-                                <span className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-gray-600">
-                                  <RefreshCw className="h-3 w-3" />
-                                  Cambiar
-                                </span>
-                                <span className="flex items-center justify-center rounded-xl bg-gray-50 px-2 py-2 text-gray-600">
-                                  No me gusta
-                                </span>
-                              </div>
-
-                              <button
-                                type="button"
-                                className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow transition-colors ${
-                                  isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-600'
-                                }`}
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  handleToggleCompleted(dateStr, slot)
-                                }}
-                                disabled={saving}
-                                title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
-                              >
-                                <Check className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="flex flex-col gap-1.5 w-full text-left">
-                              <div className="flex items-center gap-2">
-                                <span className="text-base flex-shrink-0">{slot.icon || getSlotIcon(slot.meal_type)}</span>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium text-xs leading-tight">{mealLabel}</div>
-                                  <div className="text-[10px] text-muted-foreground">{mealTime}</div>
-                                </div>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 flex-shrink-0"
-                                  tabIndex={-1}
-                                >
-                                  <ChefHat className="h-3.5 w-3.5 text-muted-foreground" />
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                        </Button>
-                      </div>
-                    )
-                  })}
+                  ) : (
+                    <div className="mt-2 text-[10px] text-gray-400">Sin plan</div>
+                  )}
                 </CardContent>
               </Card>
             )
           })}
+        </div>
+      ) : (
+        /* PASO 2: Comidas del día seleccionado */
+        <div className="space-y-2">
+          {slotsForDay(selectedDay).map((slot: any) => {
+            const selection = getSelectionForMeal(selectedDay, slot.meal_type, slot.id)
+            const isCompleted = selection?.completed === true
+            const hasSelection = !!selection
+            const mealLabel = slot.name || slot.meal_type
+            const mealTime = (slot.time || "").slice(0, 5) || ""
+            const selectedName = selection ? getMealName(selection) : ""
+            const imageSrc = resolveRecipeImageSrc(selection?.recipe?.image_url)
+            const calories = selection?.recipe?.calories || selection?.calories || 0
+            const protein = selection?.recipe?.protein || selection?.protein || 0
+            const carbs = selection?.recipe?.carbs || selection?.carbs || 0
+            return (
+              <div
+                key={String(slot.id || slot.meal_type) + '-' + String(slot.order_index || '')}
+                className="relative group"
+              >
+                <Button
+                  type="button"
+                  variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
+                  className={`w-full justify-start h-auto text-[10px] md:text-xs touch-manipulation ${
+                    hasSelection
+                      ? `overflow-hidden rounded-2xl border p-0 shadow-sm hover:shadow-md ${isCompleted ? 'border-teal-200' : 'border-orange-100'}`
+                      : 'min-h-[56px] p-3'
+                  }`}
+                  onClick={() => handleSelectMeal(selectedDay, slot)}
+                  disabled={saving}
+                >
+                  {hasSelection ? (
+                    <div className="w-full text-left bg-white">
+                      <div className="relative h-36 overflow-hidden">
+                        <img
+                          src={imageSrc}
+                          alt={selectedName}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                          onError={(e) => { ;(e.target as HTMLImageElement).src = '/placeholder.jpg' }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/25 to-transparent" />
+                        <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+                          <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-1 text-[10px] font-black text-emerald-700 shadow-sm">{mealLabel}</span>
+                          <span className={`rounded-full px-2 py-1 text-[10px] font-bold shadow ${isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-700'}`}>
+                            {isCompleted ? 'Completada' : 'Planificada'}
+                          </span>
+                        </div>
+                        <div className="absolute bottom-3 left-3 right-3">
+                          <h4 className="line-clamp-2 text-base font-black leading-tight text-white drop-shadow">{selectedName}</h4>
+                          <div className="mt-1.5 flex items-center gap-2 text-[10px] font-semibold text-white/90">
+                            <span>{slot.icon || getSlotIcon(slot.meal_type)}</span>
+                            {mealTime && <span>{mealTime}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5 p-2">
+                        <span className="rounded-xl border border-orange-100/80 bg-orange-50/60 px-1.5 py-1.5 text-center">
+                          <span className="block text-[11px] font-black text-orange-600">{calories}</span>
+                          <span className="block text-[8px] font-semibold text-orange-400">kcal</span>
+                        </span>
+                        <span className="rounded-xl border border-blue-100 bg-blue-50 px-1.5 py-1.5 text-center">
+                          <span className="block text-[11px] font-black text-blue-700">{formatMacro(protein)}g</span>
+                          <span className="block text-[8px] font-semibold text-blue-500">prot</span>
+                        </span>
+                        <span className="rounded-xl border border-emerald-100/80 bg-emerald-50/60 px-1.5 py-1.5 text-center">
+                          <span className="block text-[11px] font-black text-emerald-600">{formatMacro(carbs)}g</span>
+                          <span className="block text-[8px] font-semibold text-emerald-400">carb</span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 px-2 pb-2 text-[10px] font-bold">
+                        <span className="flex items-center justify-center gap-1 rounded-xl bg-orange-50/60 px-2 py-2 text-orange-600">
+                          <BookOpen className="h-3 w-3" />Receta
+                        </span>
+                        <span className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-gray-600">
+                          <RefreshCw className="h-3 w-3" />Cambiar
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        className={`absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full shadow transition-colors ${
+                          isCompleted ? 'bg-teal-500 text-white' : 'bg-white/90 text-gray-600'
+                        }`}
+                        onClick={(e) => { e.stopPropagation(); handleToggleCompleted(selectedDay, slot) }}
+                        disabled={saving}
+                        title={isCompleted ? "Marcar como no completada" : "Marcar como completada"}
+                      >
+                        <Check className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 w-full text-left">
+                      <span className="text-xl flex-shrink-0">{slot.icon || getSlotIcon(slot.meal_type)}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm">{mealLabel}</div>
+                        {mealTime && <div className="text-xs text-muted-foreground">{mealTime}</div>}
+                      </div>
+                      <ChefHat className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    </div>
+                  )}
+                </Button>
+              </div>
+            )
+          })}
+          {/* Botón aplicar a toda la semana */}
+          {(weeklySelections[selectedDay] || []).length > 0 && (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => handleApplyToWeek(selectedDay)}
+              disabled={saving}
+            >
+              <ArrowRight className="h-4 w-4 mr-2" />
+              Aplicar este día a toda la semana
+            </Button>
+          )}
         </div>
       )}
 

@@ -1178,10 +1178,15 @@ def daily_meal_selections(request):
             custom_description = recipe.name
         
         # Si hay slot, se guarda por (user, date, plan_meal) para permitir múltiples del mismo tipo
+        # IMPORTANTE: cuando plan_meal está disponible, no incluir meal_type en el lookup
+        # para que cada slot sea independiente aunque compartan meal_type (ej: Desayuno + Bebida)
         lookup = {'user': user, 'date': date}
         if plan_meal:
             lookup['plan_meal'] = plan_meal
-            lookup['meal_type'] = meal_type
+        elif plan_meal_id:
+            # plan_meal_id fue enviado pero el slot no se encontró en el plan activo
+            # Usar plan_meal_id como filtro directo para evitar colisiones entre slots del mismo tipo
+            lookup['plan_meal_id'] = plan_meal_id
         else:
             lookup['meal_type'] = meal_type
 
@@ -1935,9 +1940,15 @@ def weekly_meal_selections(request):
                 if isinstance(is_completed, str):
                     is_completed = is_completed.lower() in ('true', '1', 'yes')
                 
-                lookup = {'user': user, 'date': selection_date, 'meal_type': meal_type}
+                # IMPORTANTE: cuando plan_meal está disponible, no incluir meal_type en el lookup
+                # para que cada slot sea independiente aunque compartan meal_type
+                lookup = {'user': user, 'date': selection_date}
                 if plan_meal:
                     lookup['plan_meal'] = plan_meal
+                elif plan_meal_id:
+                    lookup['plan_meal_id'] = plan_meal_id
+                else:
+                    lookup['meal_type'] = meal_type
 
                 meal_log, created = MealLog.objects.update_or_create(
                     **lookup,
