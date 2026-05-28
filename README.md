@@ -159,26 +159,6 @@ npm install
 npm run dev
 ```
 
-## Estado del Proyecto
-
-### Completado
-- [x] Sistema de autenticación JWT
-- [x] API REST para nutrición y entrenamientos
-- [x] Dashboard de usuario funcional
-- [x] Sistema de recetas y ejercicios
-- [x] Interfaz moderna y responsiva
-- [x] Dockerización completa
-- [x] Sistema de equivalencias multi-categoría con CRUD de categorías personalizadas
-- [x] Navegación móvil con auto-ocultado al hacer scroll
-- [x] Categoría `panes` separada de `arroz_cereales`
-
-### En Desarrollo
-- [ ] Tests automatizados
-- [ ] CI/CD pipeline
-- [ ] Optimizaciones de rendimiento
-
-## Documentación Adicional
-
 - **`docker-compose.prod.yml`**: stack Docker de producción
 - **`docker-compose.dev.yml`**: stack Docker de desarrollo
 - **`scripts/deployment/`**: utilidades operativas de despliegue y mantenimiento
