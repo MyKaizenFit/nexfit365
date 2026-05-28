@@ -563,7 +563,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const getAuthHeaders = async (): Promise<HeadersInit> => {
     try {
       const authService = getAuthService()
-      const accessToken = authService.getAccessToken()
+      let accessToken = authService.getAccessToken()
       if (!accessToken) {
         // Si no hay token, no dejar al usuario en un estado inconsistente (pantallas protegidas sin sesión real)
         setState({
@@ -575,6 +575,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         })
         router.push('/auth')
         throw new Error('No hay token de acceso disponible')
+      }
+
+      // Si el token está expirado o próximo a expirar, refrescarlo antes de usarlo
+      if (authService.isTokenExpiringSoon()) {
+        const result = await authService.refreshAccessToken()
+        if (result.success && result.newToken) {
+          accessToken = result.newToken
+        }
       }
 
       return {
