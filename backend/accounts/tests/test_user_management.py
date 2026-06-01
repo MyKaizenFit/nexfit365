@@ -215,6 +215,33 @@ class TestProfileEndpoints:
         assert member_user.onboarding_completed is True
         assert member_user.onboarding_step >= 1
 
+    def test_complete_initial_registration_accepts_allergen_list_and_medical_text(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("complete_initial_registration")
+
+        payload = {
+            "first_name": "Nuevo",
+            "last_name": "Usuario",
+            "birth_date": "1995-05-10",
+            "gender": "male",
+            "height": 175,
+            "weight": 78,
+            "activity_level": "moderate",
+            "training_days_per_week": 3,
+            "training_days": [1, 3, 5],
+            "training_location": "gym",
+            "main_goal": "gain_muscle",
+            "allergies": ["gluten", "dairy"],
+            "medical_conditions": "Celiaquía",
+        }
+
+        response = api_client.post(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.allergies == ["gluten", "dairy"]
+        assert member_user.medical_conditions == ["Celiaquía"]
+
 
 @pytest.mark.django_db
 class TestAdminUsersEndpoints:

@@ -16,7 +16,7 @@ interface InitialRegistrationData {
   training_days_per_week?: number; // Calculado automáticamente desde training_days
   training_days: number[]; // Array de números 1-7 (1=Lunes, 7=Domingo)
   training_location: 'home' | 'gym';
-  allergies?: string;
+  allergies?: string[];
   medical_conditions?: string;
   disliked_foods?: string;
   main_goal: 'lose_weight' | 'gain_muscle' | 'body_recomposition';
@@ -316,4 +316,3 @@ export function useInitialRegistration() {
     profile: status?.profile,
   };
 }
-

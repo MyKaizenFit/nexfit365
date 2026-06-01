@@ -231,6 +231,10 @@ def complete_initial_registration(request):
                 user.age = user.calculated_age
                 if user.age:
                     user.save()
+
+            user.onboarding_completed = True
+            user.onboarding_step = max(user.onboarding_step or 0, 1)
+            user.save(update_fields=['onboarding_completed', 'onboarding_step'])
             
             # Asignar planes automáticamente usando el nuevo servicio de configuraciones
             from accounts.services import DefaultPlanAssignmentService

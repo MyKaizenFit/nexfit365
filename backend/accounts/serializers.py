@@ -17,6 +17,37 @@ IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
 DEFAULT_TRAINING_DAY_ORDER = [1, 2, 3, 4, 5, 6, 7]
 
 
+class FlexibleStringListField(serializers.Field):
+    """Accept a list of strings or free text and store a clean string list."""
+
+    def to_internal_value(self, data):
+        if data in (None, ""):
+            return []
+
+        if isinstance(data, str):
+            values = data.split(",")
+        elif isinstance(data, (list, tuple)):
+            values = data
+        else:
+            raise serializers.ValidationError("Debe ser una lista o texto separado por comas")
+
+        normalized = []
+        for value in values:
+            text = str(value).strip()
+            if text:
+                normalized.append(text)
+        return normalized
+
+    def to_representation(self, value):
+        if value in (None, ""):
+            return []
+        if isinstance(value, str):
+            return [item.strip() for item in value.split(",") if item.strip()]
+        if isinstance(value, (list, tuple)):
+            return [str(item).strip() for item in value if str(item).strip()]
+        return []
+
+
 def _normalize_training_days(training_days) -> list[int]:
     if not training_days:
         return []
@@ -442,6 +473,9 @@ class UserGoalsSerializer(serializers.ModelSerializer):
 
 class InitialRegistrationSerializer(serializers.ModelSerializer):
     """Serializer para el formulario de registro inicial completo"""
+
+    allergies = FlexibleStringListField(required=False)
+    medical_conditions = FlexibleStringListField(required=False)
     
     class Meta:
         model = CustomUser
