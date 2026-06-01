@@ -69,8 +69,10 @@ class PersonalizedNutritionServiceTest(TestCase):
     def test_calculate_daily_calories_with_complete_profile(self):
         service = PersonalizedNutritionService(self.user)
         calories = service.calculate_daily_calories()
-        self.assertGreaterEqual(calories, 1700)
-        self.assertLessEqual(calories, 2600)
+        bmr = 88.362 + (13.397 * self.user.weight) + (4.799 * self.user.height) - (5.677 * self.user.age)
+        tdee = bmr * 1.55  # moderate
+        expected = round(tdee - 500)
+        self.assertEqual(calories, expected)
 
     def test_calculate_daily_calories_uses_admin_override(self):
         self.user.admin_calories_override = 2300
@@ -94,6 +96,16 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertEqual(macros["protein_percentage"], 30)
         self.assertEqual(macros["carbs_percentage"], 40)
         self.assertEqual(macros["fat_percentage"], 30)
+
+    def test_calculate_macros_for_performance_goal_is_explicit(self):
+        self.user.main_goal = "performance"
+        self.user.save(update_fields=["main_goal"])
+
+        macros = PersonalizedNutritionService(self.user).calculate_macros(2400)
+
+        self.assertEqual(macros["protein_percentage"], 30)
+        self.assertEqual(macros["carbs_percentage"], 45)
+        self.assertEqual(macros["fat_percentage"], 25)
 
     def test_calculate_macros_keto_restriction(self):
         keto_user = User.objects.create_user(
@@ -142,6 +154,31 @@ class PersonalizedNutritionServiceTest(TestCase):
 
         self.assertEqual(personalized["ingredients"][0]["name"], "Pollo test relacional")
         self.assertGreater(personalized["ingredients"][0]["amount"], 0)
+
+    def test_personalized_recipe_does_not_apply_goal_adjustment_twice(self):
+        recipe = Recipe.objects.create(
+            name="Receta escala limpia",
+            calories=500,
+            protein=30,
+            carbs=45,
+            fat=15,
+        )
+
+        service = PersonalizedNutritionService(self.user)
+        daily = service.calculate_daily_calories()
+        expected_scale = (daily * 0.25) / recipe.calories
+        expected_scale = max(0.5, min(2.0, expected_scale))
+
+        personalized = service.calculate_personalized_recipe_quantities(recipe, "breakfast")
+
+        self.assertAlmostEqual(personalized["scale_factor"], round(expected_scale, 2), places=2)
+
+    def test_create_personalized_plan_meals_sum_matches_daily_calories(self):
+        service = PersonalizedNutritionService(self.user)
+        plan = service.create_personalized_plan()
+
+        meals_total = sum(meal.calories for meal in plan.meals.all())
+        self.assertEqual(meals_total, plan.daily_calories)
 
     def test_personalized_recipe_caps_oil_and_adjusts_fat(self):
         recipe = Recipe.objects.create(

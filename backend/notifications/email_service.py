@@ -3,6 +3,8 @@ Servicio para enviar notificaciones por email
 """
 
 import logging
+import smtplib
+import socket
 from typing import Dict, Optional, List
 from django.conf import settings
 from django.core.mail import send_mail, EmailMultiAlternatives
@@ -24,6 +26,14 @@ class EmailNotificationService:
             logger.warning(
                 "⚠️ Email no configurado. Las notificaciones por email no funcionarán. "
                 "Configura SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD en settings."
+            )
+        else:
+            logger.info(
+                "✅ Email configurado: host=%s port=%s user=%s tls=%s",
+                getattr(settings, 'EMAIL_HOST', ''),
+                getattr(settings, 'EMAIL_PORT', ''),
+                getattr(settings, 'EMAIL_HOST_USER', ''),
+                getattr(settings, 'EMAIL_USE_TLS', ''),
             )
     
     def _check_email_config(self) -> bool:
@@ -94,11 +104,34 @@ class EmailNotificationService:
             # Enviar email
             email.send()
             
-            logger.info(f"Email enviado a {notification.user.email} para notificación {notification.id}")
+            logger.info(
+                "✅ Email enviado a %s para notificación %s",
+                notification.user.email,
+                notification.id,
+            )
             return True
             
+        except (smtplib.SMTPException, socket.gaierror, OSError) as e:
+            # Errores de red/SMTP: propagar para que Celery pueda reintentar
+            logger.error(
+                "❌ Error SMTP/red enviando email para notificación %s a %s: %s — "
+                "host=%s port=%s tls=%s",
+                notification.id,
+                notification.user.email,
+                e,
+                getattr(settings, 'EMAIL_HOST', ''),
+                getattr(settings, 'EMAIL_PORT', ''),
+                getattr(settings, 'EMAIL_USE_TLS', ''),
+            )
+            raise
         except Exception as e:
-            logger.error(f"Error enviando email para notificación {notification.id}: {e}")
+            # Errores de template u otros: log y retornar False (no reintentar)
+            logger.error(
+                "❌ Error inesperado enviando email para notificación %s a %s: %s",
+                notification.id,
+                notification.user.email,
+                e,
+            )
             return False
     
     def send_bulk_notification_emails(
@@ -167,11 +200,24 @@ class EmailNotificationService:
             
             email.send()
             
-            logger.info(f"Email personalizado enviado a {to_email}")
+            logger.info("✅ Email personalizado enviado a %s (asunto: %s)", to_email, subject)
             return True
             
+        except (smtplib.SMTPException, socket.gaierror, OSError) as e:
+            logger.error(
+                "❌ Error SMTP/red enviando email personalizado a %s: %s — host=%s port=%s",
+                to_email,
+                e,
+                getattr(settings, 'EMAIL_HOST', ''),
+                getattr(settings, 'EMAIL_PORT', ''),
+            )
+            raise
         except Exception as e:
-            logger.error(f"Error enviando email personalizado a {to_email}: {e}")
+            logger.error(
+                "❌ Error inesperado enviando email personalizado a %s: %s",
+                to_email,
+                e,
+            )
             return False
 
 

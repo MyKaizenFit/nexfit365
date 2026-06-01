@@ -1,4 +1,5 @@
 # api/auth_views.py
+import logging
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
@@ -8,6 +9,8 @@ from rest_framework.renderers import JSONRenderer
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.utils.crypto import get_random_string
@@ -267,8 +270,13 @@ class RegisterView(APIView):
                         recipient_list=[user.email],
                         fail_silently=True,
                     )
-                except Exception:
-                    pass
+                    logger.info("✅ Email de bienvenida enviado a %s", user.email)
+                except Exception as e:
+                    logger.warning(
+                        "⚠️ No se pudo enviar email de bienvenida a %s: %s",
+                        user.email,
+                        e,
+                    )
 
                 
                 requested_role = str(request.data.get("role", "")).lower()
@@ -369,9 +377,16 @@ Equipo NexFit365
                     recipient_list=[user.email],
                     fail_silently=False,
                 )
+                logger.info("✅ Email de reset de contraseña enviado a %s", user.email)
             except Exception as e:
-                # Log del error pero no fallar la request
-                pass
+                # Log del error pero no fallar la request (el usuario no debe saber si el email existe)
+                logger.error(
+                    "❌ Error enviando email de reset a %s: %s — host=%s port=%s",
+                    user.email,
+                    e,
+                    getattr(settings, 'EMAIL_HOST', ''),
+                    getattr(settings, 'EMAIL_PORT', ''),
+                )
             
             return Response({
                 "detail": "Si el email existe, se ha enviado un link de reset"

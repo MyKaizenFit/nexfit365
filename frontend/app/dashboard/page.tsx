@@ -699,7 +699,7 @@ function DashboardContent() {
 
         {/* Mobile Bottom Navigation */}
         <Suspense fallback={<div className="h-20 bg-card border-t"></div>}>
-          <MobileNavigation selectedSection={selectedSection} onSectionChange={handleMenuClick} />
+          <MobileNavigation selectedSection={selectedSection} onSectionChange={handleMenuClick} isPremiumUser={isPremiumUser} />
         </Suspense>
       </div>
     </div>

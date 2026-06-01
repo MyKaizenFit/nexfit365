@@ -5,7 +5,14 @@ from django.db import DatabaseError
 from django.utils import timezone
 from decimal import Decimal, ROUND_HALF_UP
 from accounts.models import CustomUser
-from .models import NutritionPlan, PlanMeal, NutritionPlanHistory, Recipe, MealIngredientExclusion
+from .models import (
+    NutritionPlan,
+    PlanMeal,
+    NutritionPlanHistory,
+    Recipe,
+    RecipeIngredient,
+    MealIngredientExclusion,
+)
 import math
 import logging
 import random
@@ -193,6 +200,32 @@ def select_compatible_recipes_for_meal(user: CustomUser, meal_template: PlanMeal
 
 class PersonalizedNutritionService:
     """Servicio para generar planes nutricionales personalizados basados en el perfil del usuario"""
+
+    GOAL_CALORIE_ADJUSTMENTS = {
+        'lose_weight': -500,
+        'gain_muscle': 300,
+        'maintain': 0,
+        'body_recomposition': 0,
+        'performance': 0,
+    }
+
+    MEAL_CALORIE_DISTRIBUTION = {
+        'breakfast': 0.25,
+        'lunch': 0.35,
+        'snack': 0.15,
+        'dinner': 0.25,
+    }
+
+    MEAL_TYPE_ALIASES = {
+        'desayuno': 'breakfast',
+        'comida': 'lunch',
+        'almuerzo': 'lunch',
+        'merienda': 'snack',
+        'cena': 'dinner',
+        'morning_snack': 'snack',
+        'afternoon_snack': 'snack',
+        'evening_snack': 'snack',
+    }
     
     def __init__(self, user: CustomUser):
         self.user = user
@@ -262,20 +295,15 @@ class PersonalizedNutritionService:
         tdee = bmr * activity_factor
         logger.info(f"   TDEE (con actividad {self.user.activity_level}): {tdee:.0f} kcal")
         
-        # Ajustar según objetivo - SIEMPRE respetar el objetivo del usuario
-        if self.user.main_goal == 'lose_weight':
-            # Déficit del 20% para pérdida de peso (mantener déficit incluso con nuevo peso)
-            result = int(tdee * 0.8)
-            logger.info(f"   Objetivo: perder peso → {result} kcal (déficit 20% del TDEE)")
-        elif self.user.main_goal == 'gain_muscle':
-            result = int(tdee * 1.1)  # Superávit del 10%
-            logger.info(f"   Objetivo: ganar músculo → {result} kcal (superávit 10%)")
-        elif self.user.main_goal == 'maintain':
-            result = int(tdee)  # Mantenimiento exacto
-            logger.info(f"   Objetivo: mantener → {result} kcal (mantenimiento)")
-        else:  # body_recomposition o performance
-            result = int(tdee)  # Mantenimiento
-            logger.info(f"   Objetivo: {self.user.main_goal} → {result} kcal (mantenimiento)")
+        # Ajustar según objetivo usando el mismo criterio que daily_calories_target
+        goal_adjustment = self.GOAL_CALORIE_ADJUSTMENTS.get(self.user.main_goal, 0)
+        result = int(round(tdee + goal_adjustment))
+        logger.info(
+            "   Objetivo: %s → %s kcal (ajuste fijo %+d kcal)",
+            self.user.main_goal,
+            result,
+            goal_adjustment,
+        )
         
         # Si hay calorías anteriores, hacer transición gradual (máximo ±300 kcal por ajuste)
         if previous_calories:
@@ -293,20 +321,18 @@ class PersonalizedNutritionService:
     
     def calculate_macros(self, daily_calories: int) -> Dict[str, float]:
         """Calcula la distribución de macronutrientes basada en el perfil del usuario"""
-        
-        # Ajustar porcentajes según objetivo y perfil
-        if self.user.main_goal == 'lose_weight':
-            protein_pct = 30
-            carbs_pct = 40
-            fat_pct = 30
-        elif self.user.main_goal == 'gain_muscle':
-            protein_pct = 25
-            carbs_pct = 50
-            fat_pct = 25
-        else:  # body_recomposition
-            protein_pct = 30
-            carbs_pct = 45
-            fat_pct = 25
+
+        goal_macro_distribution = {
+            'lose_weight': (30, 40, 30),
+            'gain_muscle': (25, 50, 25),
+            'maintain': (30, 45, 25),
+            'body_recomposition': (30, 45, 25),
+            'performance': (30, 45, 25),
+        }
+        protein_pct, carbs_pct, fat_pct = goal_macro_distribution.get(
+            self.user.main_goal,
+            goal_macro_distribution['body_recomposition'],
+        )
         
         # Ajustar según restricciones dietéticas
         if 'keto' in (self.user.dietary_restrictions or []):
@@ -429,7 +455,13 @@ class PersonalizedNutritionService:
             name=f"Plan Personalizado - {self.user.get_full_name()}",
             description=f"Plan nutricional personalizado basado en tu perfil: {self.user.main_goal}",
             daily_calories=daily_calories,
-            target_macros=macros,
+            protein_grams=int(macros['protein']),
+            carbs_grams=int(macros['carbs']),
+            fat_grams=int(macros['fat']),
+            protein_percentage=macros['protein_percentage'],
+            carbs_percentage=macros['carbs_percentage'],
+            fat_percentage=macros['fat_percentage'],
+            goal=self.user.main_goal or 'maintain',
             start_date=timezone.now().date(),
             is_active=True
         )
@@ -442,7 +474,7 @@ class PersonalizedNutritionService:
     def _create_plan_meals(self, plan: NutritionPlan, daily_calories: int, macros: Dict[str, float]):
         """Crea las comidas del plan nutricional"""
         from datetime import time
-        
+
         # Distribución de calorías por comida (4 comidas)
         meal_distribution = {
             'Desayuno': 0.25,
@@ -459,8 +491,17 @@ class PersonalizedNutritionService:
             'Cena': time(21, 0)
         }
         
-        for meal_name, percentage in meal_distribution.items():
-            meal_calories = int(daily_calories * percentage)
+        created_calories = 0
+        meal_names = list(meal_distribution.keys())
+        for index, meal_name in enumerate(meal_names):
+            percentage = meal_distribution[meal_name]
+            if index < len(meal_names) - 1:
+                meal_calories = int(round(daily_calories * percentage))
+                created_calories += meal_calories
+            else:
+                # La ultima comida absorbe el remanente para evitar descuadres por truncado.
+                meal_calories = max(0, daily_calories - created_calories)
+
             meal_protein = macros['protein'] * percentage
             meal_carbs = macros['carbs'] * percentage
             meal_fat = macros['fat'] * percentage
@@ -534,19 +575,9 @@ class PersonalizedNutritionService:
         # Calcular calorías objetivo para esta comida específica
         daily_calories = self.calculate_daily_calories()
         
-        # Distribución de calorías por comida (porcentajes del total diario)
-        meal_calorie_distribution = {
-            'breakfast': 0.25,      # 25% del día
-            'morning_snack': 0.10,  # 10% del día
-            'lunch': 0.35,          # 35% del día
-            'afternoon_snack': 0.10, # 10% del día
-            'dinner': 0.25,          # 25% del día
-            'evening_snack': 0.10,   # 10% del día
-            'snack': 0.15            # 15% del día (genérico)
-        }
-        
-        # Obtener porcentaje para este tipo de comida
-        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        # Usar la misma distribución base utilizada al crear el plan diario.
+        normalized_meal_type = self.MEAL_TYPE_ALIASES.get((meal_type or '').lower(), (meal_type or '').lower())
+        meal_percentage = self.MEAL_CALORIE_DISTRIBUTION.get(normalized_meal_type, 0.25)
         target_calories = daily_calories * meal_percentage
         
         # Calcular factor de escala basado en calorías objetivo vs receta base
@@ -556,12 +587,6 @@ class PersonalizedNutritionService:
             # Si la receta no tiene calorías, usar un factor por defecto
             scale_factor = 1.0
         
-        # Ajustar según objetivo del usuario
-        if self.user.main_goal == 'lose_weight':
-            scale_factor *= 0.9  # Reducir un 10% para déficit
-        elif self.user.main_goal == 'gain_muscle':
-            scale_factor *= 1.1  # Aumentar un 10% para superávit
-        
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
         
@@ -569,13 +594,42 @@ class PersonalizedNutritionService:
         logger.info(f"   Target calorías ({meal_type}): {target_calories:.0f} kcal ({meal_percentage*100:.0f}% del día)")
         logger.info(f"   Factor de escala: {scale_factor:.2f}x")
         
+        def _is_oil_like(food_name: str, food_category: str) -> bool:
+            normalized_name = (food_name or '').strip().lower()
+            normalized_category = (food_category or '').strip().lower()
+            oil_terms = ('aceite', 'oil')
+            return any(term in normalized_name for term in oil_terms) or any(term in normalized_category for term in oil_terms)
+
         # Calcular ingredientes escalados
         scaled_ingredients = []
+        ingredient_based_macros = {
+            'calories': 0.0,
+            'protein': 0.0,
+            'carbs': 0.0,
+            'fat': 0.0,
+            'fiber': 0.0,
+        }
         recipe_ingredients = list(recipe.recipe_ingredients.select_related('food').all())
         if recipe_ingredients:
             for ingredient in recipe_ingredients:
                 original_amount = float(ingredient.quantity or 0)
                 scaled_amount = original_amount * scale_factor
+
+                # Límite defensivo para aceites: evita que una receta escalada dispare grasas de forma irreal.
+                if _is_oil_like(getattr(ingredient.food, 'name', ''), getattr(ingredient.food, 'category', '')):
+                    scaled_amount = min(scaled_amount, 15.0)
+
+                ratio = RecipeIngredient.compute_nutrition_ratio(
+                    quantity=scaled_amount,
+                    unit=ingredient.unit,
+                    food=ingredient.food,
+                )
+                ingredient_based_macros['calories'] += float(ingredient.food.calories) * ratio
+                ingredient_based_macros['protein'] += float(ingredient.food.protein) * ratio
+                ingredient_based_macros['carbs'] += float(ingredient.food.carbs) * ratio
+                ingredient_based_macros['fat'] += float(ingredient.food.fat) * ratio
+                ingredient_based_macros['fiber'] += float(ingredient.food.fiber) * ratio
+
                 scaled_ingredients.append({
                     'name': ingredient.food.name,
                     'amount': round(scaled_amount, 1),
@@ -606,14 +660,22 @@ class PersonalizedNutritionService:
                         'note': 'Cantidad a ajustar según tu perfil'
                     })
         
-        # Calcular macros escalados
-        scaled_macros = {
-            'calories': round(recipe.calories * scale_factor) if recipe.calories else 0,
-            'protein': round(float(recipe.protein) * scale_factor, 1) if recipe.protein else 0,
-            'carbs': round(float(recipe.carbs) * scale_factor, 1) if recipe.carbs else 0,
-            'fat': round(float(recipe.fat) * scale_factor, 1) if recipe.fat else 0,
-            'fiber': round(float(recipe.fiber) * scale_factor, 1) if recipe.fiber else 0
-        }
+        if recipe_ingredients:
+            scaled_macros = {
+                'calories': round(ingredient_based_macros['calories']),
+                'protein': round(ingredient_based_macros['protein'], 1),
+                'carbs': round(ingredient_based_macros['carbs'], 1),
+                'fat': round(ingredient_based_macros['fat'], 1),
+                'fiber': round(ingredient_based_macros['fiber'], 1),
+            }
+        else:
+            scaled_macros = {
+                'calories': round(recipe.calories * scale_factor) if recipe.calories else 0,
+                'protein': round(float(recipe.protein) * scale_factor, 1) if recipe.protein else 0,
+                'carbs': round(float(recipe.carbs) * scale_factor, 1) if recipe.carbs else 0,
+                'fat': round(float(recipe.fat) * scale_factor, 1) if recipe.fat else 0,
+                'fiber': round(float(recipe.fiber) * scale_factor, 1) if recipe.fiber else 0,
+            }
         
         # Calcular porciones ajustadas
         servings = max(1, round(recipe.servings * scale_factor)) if recipe.servings else 1

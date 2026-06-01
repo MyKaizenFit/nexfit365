@@ -8,6 +8,8 @@ Sustituyen al threading manual en signals.py, ofreciendo:
 """
 
 import logging
+import smtplib
+import socket
 from celery import shared_task
 from django.db import connection
 
@@ -131,15 +133,17 @@ def send_email_notification_task(self, notification_id: int):
     """
     Envía email notification para la notificación indicada.
     Reintenta hasta 3 veces con 60s de espera entre intentos.
+    Los errores SMTP/red activan reintento; otros errores marcan como fallido.
     """
-    try:
-        from .delivery_tracking import update_delivery_log
-        from .models import Notification, NotificationDeliveryLog
-        from .email_service import email_service
-        from .delivery_options import should_send_email
+    from .delivery_tracking import update_delivery_log
+    from .models import Notification, NotificationDeliveryLog
+    from .email_service import email_service
+    from .delivery_options import should_send_email
 
+    attempt = int(getattr(self.request, "retries", 0)) + 1
+
+    try:
         notification = Notification.objects.get(id=notification_id)
-        attempt = int(getattr(self.request, "retries", 0)) + 1
         update_delivery_log(
             notification_id=notification.id,
             channel=NotificationDeliveryLog.CHANNEL_EMAIL,
@@ -179,9 +183,11 @@ def send_email_notification_task(self, notification_id: int):
             return
 
         logger.info(
-            "Enviando email notification %s a %s",
+            "📧 Enviando email notification %s a %s (intento %s/%s)",
             notification.id,
             notification.user.email,
+            attempt,
+            self.max_retries + 1,
         )
         sent = email_service.send_notification_email(notification)
         if sent:
@@ -193,18 +199,17 @@ def send_email_notification_task(self, notification_id: int):
                 mark_delivered=True,
             )
         else:
+            # send_notification_email devolvió False sin excepción (ej: template error)
             update_delivery_log(
                 notification_id=notification.id,
                 channel=NotificationDeliveryLog.CHANNEL_EMAIL,
-                status=NotificationDeliveryLog.STATUS_SKIPPED,
+                status=NotificationDeliveryLog.STATUS_FAILED,
                 attempts=attempt,
-                metadata={"reason": "email_service_disabled_or_rejected"},
+                metadata={"reason": "email_service_rejected"},
             )
-    except Exception as exc:
-        from .delivery_tracking import update_delivery_log
-        from .models import NotificationDeliveryLog
 
-        attempt = int(getattr(self.request, "retries", 0)) + 1
+    except (smtplib.SMTPException, socket.gaierror, OSError) as exc:
+        # Error de red o SMTP: registrar y reintentar
         update_delivery_log(
             notification_id=notification_id,
             channel=NotificationDeliveryLog.CHANNEL_EMAIL,
@@ -212,9 +217,32 @@ def send_email_notification_task(self, notification_id: int):
             attempts=attempt,
             task_id=getattr(self.request, "id", "") or "",
             error_message=str(exc),
+            metadata={"error_type": type(exc).__name__, "will_retry": self.request.retries < self.max_retries},
         )
-        logger.error("Error en send_email_notification_task(%s): %s", notification_id, exc)
+        logger.error(
+            "❌ Error SMTP/red en send_email_notification_task(%s) intento %s/%s: %s",
+            notification_id,
+            attempt,
+            self.max_retries + 1,
+            exc,
+        )
         raise self.retry(exc=exc, countdown=60 * (self.request.retries + 1))
+    except Exception as exc:
+        # Error inesperado: registrar como fallido, no reintentar
+        update_delivery_log(
+            notification_id=notification_id,
+            channel=NotificationDeliveryLog.CHANNEL_EMAIL,
+            status=NotificationDeliveryLog.STATUS_FAILED,
+            attempts=attempt,
+            task_id=getattr(self.request, "id", "") or "",
+            error_message=str(exc),
+            metadata={"error_type": type(exc).__name__, "will_retry": False},
+        )
+        logger.error(
+            "❌ Error inesperado en send_email_notification_task(%s): %s",
+            notification_id,
+            exc,
+        )
 
 
 @shared_task(

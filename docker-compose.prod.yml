@@ -262,6 +262,7 @@ services:
         condition: service_healthy
     networks:
       - internal
+      - web  # Necesario para acceso SMTP (smtp.gmail.com, Brevo, etc.)
 
 # ============================================
 # VOLÚMENES

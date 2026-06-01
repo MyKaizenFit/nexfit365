@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Camera, ChefHat, Dumbbell, Heart, Home, Medal, Moon, Settings, Target, TrendingUp, User } from "lucide-react"
+import { Camera, ChefHat, Crown, Dumbbell, Heart, Home, Medal, Moon, Settings, Sparkles, Target, TrendingUp, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -13,29 +13,35 @@ const mainMenuItems = [
 ]
 
 const moreMenuItems = [
-  { title: "Día 1", icon: Target, url: "day-one", badge: null },
-  { title: "Recetas Team", icon: Camera, url: "recipe-community", badge: null },
-  { title: "Consejos", icon: Heart, url: "tips", badge: null },
-  { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null },
-  { title: "Bienestar", icon: Moon, url: "wellness", badge: null },
-  { title: "Logros", icon: Medal, url: "achievements", badge: null },
-  { title: "Configuración", icon: Settings, url: "settings", badge: null },
+  { title: "Día 1", icon: Target, url: "day-one", badge: null, premiumBlocked: false },
+  { title: "Recomendaciones", icon: Sparkles, url: "recommendations", badge: null, premiumBlocked: true },
+  { title: "Ayuda 1:1", icon: Crown, url: "coaching", badge: null, premiumBlocked: true },
+  { title: "Recetas Team", icon: Camera, url: "recipe-community", badge: null, premiumBlocked: false },
+  { title: "Consejos", icon: Heart, url: "tips", badge: null, premiumBlocked: false },
+  { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null, premiumBlocked: false },
+  { title: "Bienestar", icon: Moon, url: "wellness", badge: null, premiumBlocked: false },
+  { title: "Logros", icon: Medal, url: "achievements", badge: null, premiumBlocked: false },
+  { title: "Configuración", icon: Settings, url: "settings", badge: null, premiumBlocked: false },
 ]
 
 interface MobileNavigationProps {
   selectedSection: string
   onSectionChange: (section: string, title: string) => void
+  isPremiumUser?: boolean
 }
 
-export function MobileNavigation({ selectedSection, onSectionChange }: MobileNavigationProps) {
+export function MobileNavigation({ selectedSection, onSectionChange, isPremiumUser = false }: MobileNavigationProps) {
+  const visibleMoreItems = isPremiumUser
+    ? moreMenuItems.filter((item) => !item.premiumBlocked)
+    : moreMenuItems
   const [showMore, setShowMore] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const menuRef = useRef<HTMLDivElement | null>(null)
   const lastScrollY = useRef(0)
   const ticking = useRef(false)
 
-  const isMoreSectionActive = moreMenuItems.some((item) => item.url === selectedSection)
-  const activeMoreItem = moreMenuItems.find((item) => item.url === selectedSection)
+  const isMoreSectionActive = visibleMoreItems.some((item) => item.url === selectedSection)
+  const activeMoreItem = visibleMoreItems.find((item) => item.url === selectedSection)
 
   // Auto-hide on scroll down, show on scroll up
   useEffect(() => {
@@ -188,7 +194,7 @@ export function MobileNavigation({ selectedSection, onSectionChange }: MobileNav
             {showMore && (
               <div className="absolute bottom-[calc(100%+0.5rem)] right-0 z-[60] w-44 max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-border bg-card/95 shadow-2xl backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
                 <div className="py-1">
-                  {moreMenuItems.map((item) => {
+                  {visibleMoreItems.map((item) => {
                     const IconComponent = item.icon
                     const isActive = selectedSection === item.url
 

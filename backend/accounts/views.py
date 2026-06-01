@@ -467,8 +467,11 @@ def gdpr_request_deletion(request):
             recipient_list=admin_emails,
             fail_silently=True,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "⚠️ No se pudo enviar email RGPD al admin para usuario %s: %s", user.email, e
+        )
 
     try:
         send_mail(
@@ -485,8 +488,11 @@ def gdpr_request_deletion(request):
             recipient_list=[user.email],
             fail_silently=True,
         )
-    except Exception:
-        pass
+    except Exception as e:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "⚠️ No se pudo enviar confirmación RGPD al usuario %s: %s", user.email, e
+        )
 
     return Response(
         {
