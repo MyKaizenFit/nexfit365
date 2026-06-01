@@ -151,50 +151,64 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
   }, [fullPage, storageKey])
 
   useEffect(() => {
+    const showLoadError = fullPage || placement === "coaching-page"
+
     const loadPlansAndHistory = async () => {
       try {
         setLoading(true)
         const headers = await getAuthHeaders()
 
-        const [plansResponse, historyResponse] = await Promise.all([
+        const [plansResult, historyResult] = await Promise.allSettled([
           fetch(buildApiUrl("coaching/plans/"), { headers }),
           fetch(buildApiUrl("coaching/inquiries/mine/"), { headers }),
         ])
 
-        // Silently fail on auth errors — token may be expired, don't show error toast
-        if (plansResponse.status === 401 || plansResponse.status === 403) {
-          return
+        if (plansResult.status === "fulfilled") {
+          const plansResponse = plansResult.value
+
+          // Silently fail on auth errors — token may be expired, don't show error toast
+          if (plansResponse.status !== 401 && plansResponse.status !== 403) {
+            if (plansResponse.ok) {
+              const plansData = await plansResponse.json()
+              const normalizedPlans = Array.isArray(plansData) ? plansData : []
+              setPlans(normalizedPlans)
+              if (normalizedPlans.length > 0) {
+                setSelectedPlanId((current) => current || normalizedPlans[0].id)
+              }
+            } else if (showLoadError) {
+              throw new Error("No se pudieron cargar los planes")
+            }
+          }
+        } else if (showLoadError) {
+          throw plansResult.reason
         }
 
-        if (!plansResponse.ok) throw new Error("No se pudieron cargar los planes")
-
-        const plansData = await plansResponse.json()
-        setPlans(plansData)
-        if (plansData.length > 0) {
-          setSelectedPlanId((current) => current || plansData[0].id)
-        }
-
-        if (historyResponse.ok) {
-          const historyData = await historyResponse.json()
-          const latestInquiry = Array.isArray(historyData) ? historyData[0] : null
-          setExistingInquiry(latestInquiry || null)
-          if (latestInquiry?.plan?.id) {
-            setSelectedPlanId((current) => current || latestInquiry.plan.id)
+        if (historyResult.status === "fulfilled") {
+          const historyResponse = historyResult.value
+          if (historyResponse.ok) {
+            const historyData = await historyResponse.json()
+            const latestInquiry = Array.isArray(historyData) ? historyData[0] : null
+            setExistingInquiry(latestInquiry || null)
+            if (latestInquiry?.plan?.id) {
+              setSelectedPlanId((current) => current || latestInquiry.plan.id)
+            }
           }
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description: "No se pudo cargar la ayuda personalizada ahora mismo.",
-          variant: "destructive",
-        })
+        if (showLoadError) {
+          toast({
+            title: "Error",
+            description: "No se pudo cargar la ayuda personalizada ahora mismo.",
+            variant: "destructive",
+          })
+        }
       } finally {
         setLoading(false)
       }
     }
 
     loadPlansAndHistory()
-  }, [getAuthHeaders])
+  }, [fullPage, getAuthHeaders, placement])
 
   const selectedPlan = useMemo(
     () => plans.find((plan) => plan.id === selectedPlanId) || plans[0],

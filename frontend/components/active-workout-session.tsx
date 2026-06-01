@@ -633,16 +633,22 @@ export function ActiveWorkoutSession({
     return () => clearTimeout(timeoutId)
   }, [rating, notes]) // Solo cuando cambian rating o notes
 
-  const syncElapsedFromClock = useCallback(() => {
+  const getCurrentElapsedSeconds = useCallback(() => {
+    const savedElapsed = Math.max(elapsedSeconds, elapsedAtRunningStartRef.current || 0)
+
     if (!isStarted || isPaused || !runningStartedAtRef.current) {
-      return elapsedSeconds
+      return savedElapsed
     }
 
     const delta = Math.max(0, Math.floor((Date.now() - runningStartedAtRef.current) / 1000))
-    const nextElapsed = elapsedAtRunningStartRef.current + delta
+    return elapsedAtRunningStartRef.current + delta
+  }, [elapsedSeconds, isPaused, isStarted])
+
+  const syncElapsedFromClock = useCallback(() => {
+    const nextElapsed = getCurrentElapsedSeconds()
     setElapsedSeconds(nextElapsed)
     return nextElapsed
-  }, [elapsedSeconds, isPaused, isStarted])
+  }, [getCurrentElapsedSeconds])
 
   // Temporizador de entrenamiento basado en hora real.
   // En móviles el navegador pausa JS al bloquear pantalla, así que no podemos fiarnos de +1s por tick.
@@ -680,29 +686,31 @@ export function ActiveWorkoutSession({
   }, [isStarted, isPaused])
 
   useEffect(() => {
-    if (!isStarted || isPaused || typeof document === 'undefined') return
+    if (!isStarted || typeof document === 'undefined') return
 
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        const nextElapsed = syncElapsedFromClock()
-        saveWorkoutState({
-          isStarted,
-          isPaused,
-          elapsedSeconds: nextElapsed,
-          workoutStartTime,
-          completedExercises: Array.from(completedExercises),
-          exerciseSets,
-          rating,
-          notes
-        })
-      }
+    const persistCurrentElapsed = () => {
+      const nextElapsed = syncElapsedFromClock()
+      saveWorkoutState({
+        isStarted,
+        isPaused,
+        elapsedSeconds: nextElapsed,
+        workoutStartTime,
+        completedExercises: Array.from(completedExercises),
+        exerciseSets,
+        rating,
+        notes
+      })
     }
 
-    window.addEventListener('focus', handleVisibilityChange)
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', persistCurrentElapsed)
+    window.addEventListener('blur', persistCurrentElapsed)
+    window.addEventListener('pagehide', persistCurrentElapsed)
+    document.addEventListener('visibilitychange', persistCurrentElapsed)
     return () => {
-      window.removeEventListener('focus', handleVisibilityChange)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', persistCurrentElapsed)
+      window.removeEventListener('blur', persistCurrentElapsed)
+      window.removeEventListener('pagehide', persistCurrentElapsed)
+      document.removeEventListener('visibilitychange', persistCurrentElapsed)
     }
   }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
 
@@ -1069,6 +1077,7 @@ export function ActiveWorkoutSession({
       return
     }
     setIsSaving(true)
+    const finalElapsedSeconds = syncElapsedFromClock()
 
     try {
       const exercisesData = exercises.map((ex: any) => {
@@ -1113,7 +1122,7 @@ export function ActiveWorkoutSession({
       // Log para depuración
 
       await onComplete({
-        duration_minutes: Math.ceil(elapsedSeconds / 60),
+        duration_minutes: Math.ceil(finalElapsedSeconds / 60),
         rating: rating,
         notes: notes,
         exercises_data: exercisesData
@@ -1121,7 +1130,7 @@ export function ActiveWorkoutSession({
 
       toast({
         title: "¡Entrenamiento completado! 🎉",
-        description: `Duración: ${formatTime(elapsedSeconds)}`
+        description: `Duración: ${formatTime(finalElapsedSeconds)}`
       })
 
       // Limpiar estado guardado

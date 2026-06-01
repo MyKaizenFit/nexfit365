@@ -1,9 +1,10 @@
 from rest_framework import serializers
+from django.conf import settings
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 
 
 def _build_public_media_url(request, media_path: str | None) -> str | None:
-    """Build absolute media URLs and honor HTTPS behind reverse proxies."""
+    """Build absolute media URLs and keep production media HTTPS-safe."""
     if not media_path:
         return None
 
@@ -11,8 +12,17 @@ def _build_public_media_url(request, media_path: str | None) -> str | None:
         return media_path
 
     url = request.build_absolute_uri(media_path)
-    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip()
-    if forwarded_proto == "https" and url.startswith("http://"):
+    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
+    host = (request.get_host() or "").split(":")[0].lower()
+    is_local_host = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local")
+
+    should_force_https = (
+        forwarded_proto == "https"
+        or request.is_secure()
+        or (not settings.DEBUG and not is_local_host)
+    )
+
+    if should_force_https and url.startswith("http://"):
         return "https://" + url[len("http://"):]
     return url
 
