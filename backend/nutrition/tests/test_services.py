@@ -74,6 +74,13 @@ class PersonalizedNutritionServiceTest(TestCase):
         expected = round(tdee - 500)
         self.assertEqual(calories, expected)
 
+    def test_calculate_daily_calories_performance_matches_user_property(self):
+        self.user.main_goal = "performance"
+        self.user.save(update_fields=["main_goal"])
+
+        service_value = PersonalizedNutritionService(self.user).calculate_daily_calories()
+        self.assertEqual(service_value, int(self.user.daily_calories_target))
+
     def test_calculate_daily_calories_uses_admin_override(self):
         self.user.admin_calories_override = 2300
         self.user.save(update_fields=["admin_calories_override"])
@@ -179,6 +186,18 @@ class PersonalizedNutritionServiceTest(TestCase):
 
         meals_total = sum(meal.calories for meal in plan.meals.all())
         self.assertEqual(meals_total, plan.daily_calories)
+
+    def test_create_personalized_plan_stores_percentages_from_persisted_grams(self):
+        service = PersonalizedNutritionService(self.user)
+        plan = service.create_personalized_plan()
+
+        protein_pct = round((plan.protein_grams * 4 / plan.daily_calories) * 100)
+        carbs_pct = round((plan.carbs_grams * 4 / plan.daily_calories) * 100)
+        fat_pct = round((plan.fat_grams * 9 / plan.daily_calories) * 100)
+
+        self.assertEqual(plan.protein_percentage, protein_pct)
+        self.assertEqual(plan.carbs_percentage, carbs_pct)
+        self.assertEqual(plan.fat_percentage, fat_pct)
 
     def test_personalized_recipe_caps_oil_and_adjusts_fat(self):
         recipe = Recipe.objects.create(

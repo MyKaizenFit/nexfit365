@@ -25,6 +25,17 @@ export interface NutritionPlan {
   name: string
   description?: string
   daily_calories: number | null
+  protein_grams?: number
+  carbs_grams?: number
+  fat_grams?: number
+  protein_percentage?: number
+  carbs_percentage?: number
+  fat_percentage?: number
+  macro_percentages?: {
+    protein: number
+    carbs: number
+    fat: number
+  }
   target_macros: {
     protein: number
     carbs: number
@@ -206,6 +217,48 @@ class NutritionService {
     this.baseUrl = API_CONFIG.BASE_URL
   }
 
+  private normalizeNutritionPlan(rawPlan: any): NutritionPlan {
+    const dailyCalories = rawPlan?.daily_calories != null ? Number(rawPlan.daily_calories) : null
+    const proteinGrams = Number(rawPlan?.protein_grams ?? rawPlan?.target_macros?.protein ?? 0)
+    const carbsGrams = Number(rawPlan?.carbs_grams ?? rawPlan?.target_macros?.carbs ?? 0)
+    const fatGrams = Number(rawPlan?.fat_grams ?? rawPlan?.target_macros?.fat ?? 0)
+
+    const computedFromMacros = dailyCalories && dailyCalories > 0
+      ? {
+          protein: Number(((proteinGrams * 4) / dailyCalories * 100).toFixed(1)),
+          carbs: Number(((carbsGrams * 4) / dailyCalories * 100).toFixed(1)),
+          fat: Number(((fatGrams * 9) / dailyCalories * 100).toFixed(1)),
+        }
+      : { protein: 0, carbs: 0, fat: 0 }
+
+    const macroPercentages = {
+      protein: Number(rawPlan?.protein_percentage ?? rawPlan?.macro_percentages?.protein ?? rawPlan?.target_macros?.protein_percentage ?? computedFromMacros.protein),
+      carbs: Number(rawPlan?.carbs_percentage ?? rawPlan?.macro_percentages?.carbs ?? rawPlan?.target_macros?.carbs_percentage ?? computedFromMacros.carbs),
+      fat: Number(rawPlan?.fat_percentage ?? rawPlan?.macro_percentages?.fat ?? rawPlan?.target_macros?.fat_percentage ?? computedFromMacros.fat),
+    }
+
+    return {
+      ...rawPlan,
+      daily_calories: dailyCalories,
+      protein_grams: proteinGrams,
+      carbs_grams: carbsGrams,
+      fat_grams: fatGrams,
+      protein_percentage: macroPercentages.protein,
+      carbs_percentage: macroPercentages.carbs,
+      fat_percentage: macroPercentages.fat,
+      macro_percentages: macroPercentages,
+      target_macros: {
+        protein: proteinGrams,
+        carbs: carbsGrams,
+        fat: fatGrams,
+        protein_percentage: macroPercentages.protein,
+        carbs_percentage: macroPercentages.carbs,
+        fat_percentage: macroPercentages.fat,
+      },
+      is_active: Boolean(rawPlan?.is_active),
+    }
+  }
+
   // Obtener el plan de nutrición activo del usuario
   async getCurrentPlan(): Promise<NutritionPlan | null> {
     // Verificar si hay token de acceso disponible
@@ -240,7 +293,7 @@ class NutritionService {
             // Si no hay plan, intentar obtener planes por defecto
             const data = await response.json()
             if (data.plan) {
-              return data.plan
+              return this.normalizeNutritionPlan(data.plan)
             }
             return null
           }
@@ -248,7 +301,7 @@ class NutritionService {
         }
 
         const data = await response.json()
-        return data.plan || null
+        return data.plan ? this.normalizeNutritionPlan(data.plan) : null
       })
 
       // Almacenar en caché por 5 minutos si hay resultado
@@ -332,7 +385,7 @@ class NutritionService {
       const cacheKey = generateCacheKey(NUTRITION_ENDPOINTS.CURRENT_PLAN)
       apiCache.delete(cacheKey)
 
-      return data.plan || null
+      return data.plan ? this.normalizeNutritionPlan(data.plan) : null
     } catch (error) {
       throw error
     }
@@ -533,7 +586,7 @@ class NutritionService {
               order_index: defaultMeal.order_index
             })) || []
 
-            return {
+            return this.normalizeNutritionPlan({
               id: defaultPlan.id,
               name: defaultPlan.name,
               description: defaultPlan.description,
@@ -543,7 +596,7 @@ class NutritionService {
               end_date: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
               is_active: true,
               meals: meals
-            }
+            })
           }
         }
 
@@ -552,7 +605,7 @@ class NutritionService {
         const endDate = new Date()
         endDate.setDate(today.getDate() + 30)
 
-        return {
+        return this.normalizeNutritionPlan({
           id: "default-plan",
           name: "Plan de Nutrición Básico",
           description: "Plan de nutrición equilibrado para comenzar tu viaje de salud",
@@ -566,7 +619,7 @@ class NutritionService {
           end_date: endDate.toISOString().split('T')[0],
           is_active: true,
           meals: []
-        }
+        })
       })
 
       // Almacenar en caché por 10 minutos (planes por defecto cambian menos)
@@ -580,7 +633,7 @@ class NutritionService {
       const endDate = new Date()
       endDate.setDate(today.getDate() + 30)
 
-      return {
+      return this.normalizeNutritionPlan({
         id: "default-plan",
         name: "Plan de Nutrición Básico",
         description: "Plan de nutrición equilibrado para comenzar tu viaje de salud",
@@ -594,7 +647,7 @@ class NutritionService {
         end_date: endDate.toISOString().split('T')[0],
         is_active: true,
         meals: []
-      }
+      })
     }
   }
 
@@ -612,7 +665,8 @@ class NutritionService {
       }
 
       const data = await response.json()
-      return data.results || []
+      const plans = data.results || []
+      return plans.map((plan: any) => this.normalizeNutritionPlan(plan))
     } catch (error) {
       return []
     }
@@ -638,7 +692,8 @@ class NutritionService {
         body: JSON.stringify(data),
       })
       if (!response.ok) return null
-      return await response.json()
+      const plan = await response.json()
+      return this.normalizeNutritionPlan(plan)
     } catch {
       return null
     }
@@ -664,7 +719,8 @@ class NutritionService {
         body: JSON.stringify(data),
       })
       if (!response.ok) return null
-      return await response.json()
+      const plan = await response.json()
+      return this.normalizeNutritionPlan(plan)
     } catch {
       return null
     }

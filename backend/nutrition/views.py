@@ -438,11 +438,11 @@ def plan_meals_for_selection(request):
     # Distribución de calorías por comida (porcentajes del total diario)
     meal_calorie_distribution = {
         'breakfast': 0.25,      # 25% del día
-        'morning_snack': 0.10,  # 10% del día
+        'morning_snack': 0.075,  # 7.5% del día (snack dividido en dos)
         'lunch': 0.35,          # 35% del día
-        'afternoon_snack': 0.10, # 10% del día
+        'afternoon_snack': 0.075, # 7.5% del día (snack dividido en dos)
         'dinner': 0.25,          # 25% del día
-        'evening_snack': 0.10,   # 10% del día
+        'evening_snack': 0.075,   # 7.5% del día
         'snack': 0.15            # 15% del día (genérico)
     }
     
@@ -461,13 +461,6 @@ def plan_meals_for_selection(request):
             scale_factor = target_calories / float(meal_base.calories)
         else:
             scale_factor = 1.0
-        
-        # Si el admin fija kcal manualmente, ese número tiene prioridad absoluta.
-        if not has_admin_calorie_override:
-            if user.main_goal == 'lose_weight':
-                scale_factor *= 0.9  # Reducir un 10% para déficit
-            elif user.main_goal == 'gain_muscle':
-                scale_factor *= 1.1  # Aumentar un 10% para superávit
         
         # Limitar el factor de escala a un rango razonable (0.5x a 2x)
         scale_factor = max(0.5, min(2.0, scale_factor))
@@ -509,12 +502,6 @@ def plan_meals_for_selection(request):
             scale_factor = target_calories / meal_calories_float
         else:
             scale_factor = 1.0
-        
-        if not has_admin_calorie_override:
-            if user.main_goal == 'lose_weight':
-                scale_factor *= 0.9
-            elif user.main_goal == 'gain_muscle':
-                scale_factor *= 1.1
         
         scale_factor = max(0.5, min(2.0, scale_factor))
         

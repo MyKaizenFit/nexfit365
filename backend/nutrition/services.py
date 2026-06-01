@@ -206,7 +206,7 @@ class PersonalizedNutritionService:
         'gain_muscle': 300,
         'maintain': 0,
         'body_recomposition': 0,
-        'performance': 0,
+        'performance': 200,
     }
 
     MEAL_CALORIE_DISTRIBUTION = {
@@ -229,6 +229,80 @@ class PersonalizedNutritionService:
     
     def __init__(self, user: CustomUser):
         self.user = user
+
+    @staticmethod
+    def _calculate_macro_percentages_from_grams(
+        daily_calories: int,
+        protein_grams: int,
+        carbs_grams: int,
+        fat_grams: int,
+    ) -> Tuple[int, int, int]:
+        """Deriva porcentajes efectivos desde gramos para mantener coherencia visual."""
+        if not daily_calories or daily_calories <= 0:
+            return 0, 0, 0
+
+        protein_pct = int(round((protein_grams * 4 / daily_calories) * 100))
+        carbs_pct = int(round((carbs_grams * 4 / daily_calories) * 100))
+        fat_pct = int(round((fat_grams * 9 / daily_calories) * 100))
+        return protein_pct, carbs_pct, fat_pct
+
+    def _rebalance_plan_meal_calories(self, plan: NutritionPlan) -> None:
+        """Rebalancea comidas para que su suma coincida con plan.daily_calories."""
+        meals = list(plan.meals.all().order_by('order_index', 'id'))
+        if not meals:
+            return
+
+        target_total = int(plan.daily_calories or 0)
+        if target_total <= 0:
+            return
+
+        current_total = sum(int(meal.calories or 0) for meal in meals)
+        if current_total == target_total:
+            return
+
+        if current_total <= 0:
+            created = 0
+            for index, meal in enumerate(meals):
+                if index < len(meals) - 1:
+                    new_calories = int(round(target_total / len(meals)))
+                    created += new_calories
+                else:
+                    new_calories = max(0, target_total - created)
+
+                if meal.calories != new_calories:
+                    meal.calories = new_calories
+                    meal.save(update_fields=['calories'])
+            return
+
+        ratio = Decimal(str(target_total)) / Decimal(str(current_total))
+        created = 0
+        for index, meal in enumerate(meals):
+            old_calories = int(meal.calories or 0)
+            if index < len(meals) - 1:
+                new_calories = max(0, int((Decimal(str(old_calories)) * ratio).quantize(Decimal('1'), rounding=ROUND_HALF_UP)))
+                created += new_calories
+            else:
+                new_calories = max(0, target_total - created)
+
+            if old_calories == new_calories:
+                continue
+
+            update_fields = ['calories']
+            meal.calories = new_calories
+
+            if old_calories > 0:
+                macro_ratio = Decimal(str(new_calories)) / Decimal(str(old_calories))
+                if meal.protein is not None:
+                    meal.protein = (Decimal(meal.protein) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+                    update_fields.append('protein')
+                if meal.carbs is not None:
+                    meal.carbs = (Decimal(meal.carbs) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+                    update_fields.append('carbs')
+                if meal.fat is not None:
+                    meal.fat = (Decimal(meal.fat) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
+                    update_fields.append('fat')
+
+            meal.save(update_fields=update_fields)
     
     def calculate_daily_calories(self, previous_calories: Optional[int] = None) -> int:
         """
@@ -334,12 +408,13 @@ class PersonalizedNutritionService:
             goal_macro_distribution['body_recomposition'],
         )
         
-        # Ajustar según restricciones dietéticas
-        if 'keto' in (self.user.dietary_restrictions or []):
+        # Ajustar según restricciones dietéticas (normalizando alias comunes)
+        normalized_restrictions = set(_normalize_preference_terms(self.user.dietary_restrictions))
+        if 'keto' in normalized_restrictions:
             protein_pct = 20
             carbs_pct = 5
             fat_pct = 75
-        elif 'low_carb' in (self.user.dietary_restrictions or []):
+        elif 'low carb' in normalized_restrictions or 'low_carb' in (self.user.dietary_restrictions or []):
             protein_pct = 30
             carbs_pct = 20
             fat_pct = 50
@@ -448,6 +523,15 @@ class PersonalizedNutritionService:
         """Crea un plan nutricional personalizado para el usuario"""
         daily_calories = self.calculate_daily_calories()
         macros = self.calculate_macros(daily_calories)
+        protein_grams = int(round(macros['protein']))
+        carbs_grams = int(round(macros['carbs']))
+        fat_grams = int(round(macros['fat']))
+        protein_pct, carbs_pct, fat_pct = self._calculate_macro_percentages_from_grams(
+            daily_calories,
+            protein_grams,
+            carbs_grams,
+            fat_grams,
+        )
         
         # Crear el plan
         plan = NutritionPlan.objects.create(
@@ -455,12 +539,12 @@ class PersonalizedNutritionService:
             name=f"Plan Personalizado - {self.user.get_full_name()}",
             description=f"Plan nutricional personalizado basado en tu perfil: {self.user.main_goal}",
             daily_calories=daily_calories,
-            protein_grams=int(macros['protein']),
-            carbs_grams=int(macros['carbs']),
-            fat_grams=int(macros['fat']),
-            protein_percentage=macros['protein_percentage'],
-            carbs_percentage=macros['carbs_percentage'],
-            fat_percentage=macros['fat_percentage'],
+            protein_grams=protein_grams,
+            carbs_grams=carbs_grams,
+            fat_grams=fat_grams,
+            protein_percentage=protein_pct,
+            carbs_percentage=carbs_pct,
+            fat_percentage=fat_pct,
             goal=self.user.main_goal or 'maintain',
             start_date=timezone.now().date(),
             is_active=True
@@ -840,20 +924,32 @@ class PersonalizedNutritionService:
             existing_active_plan.save()
 
         daily_calories = self.calculate_daily_calories()
-        macros = self.calculate_macros(daily_calories)
-
         plan_calories = best_plan.daily_calories
         if abs(plan_calories - daily_calories) > 300:
             plan_calories = daily_calories
+
+        macros = self.calculate_macros(plan_calories)
+        protein_grams = int(round(macros['protein']))
+        carbs_grams = int(round(macros['carbs']))
+        fat_grams = int(round(macros['fat']))
+        protein_pct, carbs_pct, fat_pct = self._calculate_macro_percentages_from_grams(
+            plan_calories,
+            protein_grams,
+            carbs_grams,
+            fat_grams,
+        )
 
         user_plan = NutritionPlan.objects.create(
             user=self.user,
             name=f"{best_plan.name} - {self.user.get_full_name()}",
             description=f"Plan nutricional asignado automáticamente basado en: {best_plan.description}",
             daily_calories=plan_calories,
-            protein_grams=int(macros['protein']),
-            carbs_grams=int(macros['carbs']),
-            fat_grams=int(macros['fat']),
+            protein_grams=protein_grams,
+            carbs_grams=carbs_grams,
+            fat_grams=fat_grams,
+            protein_percentage=protein_pct,
+            carbs_percentage=carbs_pct,
+            fat_percentage=fat_pct,
             goal=best_plan.goal,
             diet_type=best_plan.diet_type,
             meals_per_day=best_plan.meals_per_day,
@@ -863,6 +959,7 @@ class PersonalizedNutritionService:
         )
 
         self._copy_meals_from_default_plan(user_plan, best_plan)
+        self._rebalance_plan_meal_calories(user_plan)
 
         self.record_plan_change(
             user=self.user,
@@ -914,9 +1011,18 @@ class PersonalizedNutritionService:
         
         # Actualizar valores del plan
         plan.daily_calories = new_daily_calories
-        plan.protein_grams = int(new_macros['protein'])
-        plan.carbs_grams = int(new_macros['carbs'])
-        plan.fat_grams = int(new_macros['fat'])
+        plan.protein_grams = int(round(new_macros['protein']))
+        plan.carbs_grams = int(round(new_macros['carbs']))
+        plan.fat_grams = int(round(new_macros['fat']))
+        protein_pct, carbs_pct, fat_pct = self._calculate_macro_percentages_from_grams(
+            new_daily_calories,
+            plan.protein_grams,
+            plan.carbs_grams,
+            plan.fat_grams,
+        )
+        plan.protein_percentage = protein_pct
+        plan.carbs_percentage = carbs_pct
+        plan.fat_percentage = fat_pct
         plan.updated_at = timezone.now()
         plan.save()
         
@@ -936,6 +1042,8 @@ class PersonalizedNutritionService:
                         if meal.fat is not None:
                             meal.fat = (Decimal(meal.fat) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
                         meal.save()
+
+        self._rebalance_plan_meal_calories(plan)
         
         # Crear nota descriptiva
         weight_note = ""
@@ -1014,6 +1122,15 @@ class PersonalizedNutritionService:
         plan.protein_grams = new_protein
         plan.carbs_grams = new_carbs
         plan.fat_grams = new_fat
+        protein_pct, carbs_pct, fat_pct = self._calculate_macro_percentages_from_grams(
+            new_daily_calories,
+            new_protein,
+            new_carbs,
+            new_fat,
+        )
+        plan.protein_percentage = protein_pct
+        plan.carbs_percentage = carbs_pct
+        plan.fat_percentage = fat_pct
         plan.updated_at = timezone.now()
         plan.save()
         
@@ -1065,6 +1182,8 @@ class PersonalizedNutritionService:
                     meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
 
                     meal.save()
+
+                self._rebalance_plan_meal_calories(plan)
         
         # Registrar cambio en historial
         adjustment_text = f"{calorie_adjustment:+d}" if calorie_adjustment != 0 else "0"

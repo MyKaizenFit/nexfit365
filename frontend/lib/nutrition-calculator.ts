@@ -86,13 +86,13 @@ export function calculateMacros(
   // Distribuciones por objetivo (porcentajes)
   const macroDistributions: Record<string, { protein: number; carbs: number; fat: number }> = {
     lose_weight: { protein: 30, carbs: 40, fat: 30 },
-    gain_muscle: { protein: 35, carbs: 40, fat: 25 },
-    body_recomposition: { protein: 30, carbs: 35, fat: 35 },
-    maintain: { protein: 25, carbs: 45, fat: 30 },
-    performance: { protein: 25, carbs: 50, fat: 25 },
+    gain_muscle: { protein: 25, carbs: 50, fat: 25 },
+    body_recomposition: { protein: 30, carbs: 45, fat: 25 },
+    maintain: { protein: 30, carbs: 45, fat: 25 },
+    performance: { protein: 30, carbs: 45, fat: 25 },
   }
 
-  const defaultDistribution = { protein: 25, carbs: 45, fat: 30 }
+  const defaultDistribution = { protein: 30, carbs: 45, fat: 25 }
   const distribution = mainGoal
     ? macroDistributions[mainGoal] || defaultDistribution
     : defaultDistribution

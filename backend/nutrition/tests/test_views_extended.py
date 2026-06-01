@@ -248,6 +248,55 @@ class TestPlanMealsForSelection:
         assert 'tostada con tomate' not in option_names
         assert 'avena con yogur' in option_names
 
+    def test_suggested_recipe_calories_do_not_apply_goal_twice(self, auth_client, user):
+        user.birth_date = '1994-01-01'
+        user.gender = 'male'
+        user.height = 180
+        user.weight = 85
+        user.activity_level = 'moderate'
+        user.main_goal = 'lose_weight'
+        user.save(update_fields=['birth_date', 'gender', 'height', 'weight', 'activity_level', 'main_goal'])
+
+        recipe = Recipe.objects.create(
+            name='Tortitas de avena',
+            category='Desayuno',
+            difficulty='Fácil',
+            servings=1,
+            calories=400,
+            protein=Decimal('20.0'),
+            carbs=Decimal('45.0'),
+            fat=Decimal('10.0'),
+            is_active=True,
+            meal_types=['breakfast'],
+        )
+        plan = NutritionPlan.objects.create(
+            name='Plan usuario test',
+            user=user,
+            daily_calories=2000,
+            protein_grams=150,
+            carbs_grams=225,
+            fat_grams=56,
+            is_active=True,
+        )
+        meal = PlanMeal.objects.create(
+            plan=plan,
+            name='Desayuno test',
+            meal_type='breakfast',
+            order_index=1,
+        )
+        meal.suggested_recipes.add(recipe)
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+
+        breakfast_options = response.data.get('meals_by_type', {}).get('breakfast', [])
+        recipe_option = next((opt for opt in breakfast_options if str(opt.get('recipeId')) == str(recipe.id)), None)
+        assert recipe_option is not None
+
+        daily_target = float(response.data['daily_calories_target'])
+        expected_breakfast = int(daily_target * 0.25)
+        assert abs(int(recipe_option['calories']) - expected_breakfast) <= 1
+
 
 # ---------------------------------------------------------------------------
 # daily_meal_selections endpoints
