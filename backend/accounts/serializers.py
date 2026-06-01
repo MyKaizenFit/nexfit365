@@ -6,13 +6,43 @@ from django.db import models
 from django.utils import timezone
 
 from notifications.models import Notification
-from workouts.models import WorkoutLog
+from workouts.models import WorkoutLog, WorkoutProgram
 from nutrition.models import MealRecipeExclusion, MealIngredientExclusion
 
 from .models import CustomUser, ProfileAuditLog
 
 
 IMPORTANT_NOTIFICATION_TYPES = {"progress", "nutrition", "workout", "system"}
+DEFAULT_TRAINING_DAY_ORDER = [1, 2, 3, 4, 5, 6, 7]
+
+
+def _normalize_training_days(training_days) -> list[int]:
+    if not training_days:
+        return []
+
+    normalized = []
+    for day in training_days:
+        try:
+            day_number = int(day)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= day_number <= 7:
+            normalized.append(day_number)
+
+    return sorted(set(normalized))
+
+
+def _training_days_for_count(current_days, desired_count: int) -> list[int]:
+    desired_count = max(1, min(int(desired_count), 7))
+    days = _normalize_training_days(current_days)
+
+    for day in DEFAULT_TRAINING_DAY_ORDER:
+        if len(days) >= desired_count:
+            break
+        if day not in days:
+            days.append(day)
+
+    return sorted(days[:desired_count])
 
 
 def _build_public_media_url(request, media_path: str | None) -> str | None:
@@ -124,9 +154,33 @@ class AdminUserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age', 'calculated_daily_calories']
     
     def update(self, instance, validated_data):
-        """Sobrescribir update para manejar el mapeo de roles"""
+        """Mantener coherentes los días del perfil cuando lo edita administración."""
+        training_days_changed = 'training_days' in validated_data
+        days_per_week_changed = 'training_days_per_week' in validated_data
+
+        if training_days_changed:
+            training_days = _normalize_training_days(validated_data.get('training_days'))
+            validated_data['training_days'] = training_days
+            validated_data['training_days_per_week'] = len(training_days) or validated_data.get('training_days_per_week')
+            days_per_week_changed = True
+        elif days_per_week_changed:
+            training_days = _training_days_for_count(
+                getattr(instance, 'training_days', None),
+                validated_data['training_days_per_week'],
+            )
+            validated_data['training_days'] = training_days
+            validated_data['training_days_per_week'] = len(training_days)
+            training_days_changed = True
+
         # El mapeo de roles ya se hace en admin_views.py antes de llegar aquí
-        return super().update(instance, validated_data)
+        updated_instance = super().update(instance, validated_data)
+
+        if training_days_changed or days_per_week_changed:
+            WorkoutProgram.objects.filter(user=updated_instance, is_active=True).update(
+                days_per_week=updated_instance.training_days_per_week or len(updated_instance.training_days or []) or 3,
+            )
+
+        return updated_instance
     
     def get_is_staff_display(self, obj) -> str:
         return 'Sí' if obj.is_staff else 'No'

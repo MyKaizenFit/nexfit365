@@ -7,6 +7,7 @@ from model_bakery import baker
 from nutrition.models import NutritionPlan, PlanMeal
 from notifications.models import Notification
 from accounts.views import profile as profile_view
+from workouts.models import WorkoutProgram
 
 User = get_user_model()
 
@@ -274,6 +275,40 @@ class TestAdminUsersEndpoints:
         assert response.status_code == status.HTTP_200_OK
         member_user.refresh_from_db()
         assert member_user.role == "pro"
+
+    def test_admin_users_update_training_days_aligns_count(self, api_client, admin_user, member_user):
+        member_user.training_days_per_week = 3
+        member_user.training_days = [1, 3, 5]
+        member_user.save(update_fields=["training_days_per_week", "training_days"])
+        program = baker.make(
+            WorkoutProgram,
+            user=member_user,
+            is_active=True,
+            days_per_week=3,
+        )
+
+        api_client.force_authenticate(user=admin_user)
+        url = reverse("admin-users-detail", kwargs={"pk": member_user.pk})
+
+        response = api_client.patch(url, {"training_days_per_week": 4}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        program.refresh_from_db()
+        assert member_user.training_days_per_week == 4
+        assert len(member_user.training_days) == 4
+        assert program.days_per_week == 4
+
+    def test_admin_users_update_training_days_sets_count_from_selected_days(self, api_client, admin_user, member_user):
+        api_client.force_authenticate(user=admin_user)
+        url = reverse("admin-users-detail", kwargs={"pk": member_user.pk})
+
+        response = api_client.patch(url, {"training_days": [1, "2", 2, 5]}, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.training_days == [1, 2, 5]
+        assert member_user.training_days_per_week == 3
 
     def test_admin_users_stats(self, api_client, admin_user):
         api_client.force_authenticate(user=admin_user)
