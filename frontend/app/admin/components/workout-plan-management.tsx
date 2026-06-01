@@ -212,6 +212,21 @@ function normalizeWorkoutDaysOrder(days: any[]) {
     }))
 }
 
+function normalizeWorkoutExercisesOrder(exercises: any[]) {
+  return (Array.isArray(exercises) ? exercises : [])
+    .filter(Boolean)
+    .map((exercise, index) => ({
+      ...exercise,
+      order: index,
+    }))
+}
+
+function getWorkoutExerciseOrder(exercise: any, fallback: number) {
+  const rawOrder = exercise?.order_index ?? exercise?.order ?? fallback
+  const order = Number(rawOrder)
+  return Number.isFinite(order) ? order : fallback
+}
+
 export function WorkoutPlanManagement() {
   const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
   const {
@@ -879,7 +894,7 @@ export function WorkoutPlanManagement() {
         if (!day) return day
         if (day.id === dayId) {
           const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
-          return { ...day, exercises: [...exercisesArray, newExercise] }
+          return { ...day, exercises: normalizeWorkoutExercisesOrder([...exercisesArray, newExercise]) }
         }
         return day
       })
@@ -913,9 +928,37 @@ export function WorkoutPlanManagement() {
   const addSelectedExercisesToDay = (dayId: string) => {
     if (isViewMode) return
     const selectedIds = Array.isArray(selectedExercisesForDay[dayId]) ? selectedExercisesForDay[dayId] : []
+    if (selectedIds.length === 0) return
 
-    selectedIds.forEach(exerciseId => {
-      addExerciseToDay(dayId, exerciseId)
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      const exercisesArray = Array.isArray(exercises) ? exercises : []
+
+      return prevArray.map(day => {
+        if (!day || day.id !== dayId) return day
+
+        const dayExercises = Array.isArray(day.exercises) ? day.exercises : []
+        const newExercises = selectedIds
+          .map((exerciseId, selectedIndex) => {
+            const exercise = exercisesArray.find(e => String(e.id) === String(exerciseId))
+            if (!exercise) return null
+
+            return {
+              exercise_id: String(exerciseId),
+              exercise_name: exercise.name,
+              sets: 3,
+              reps: '10',
+              weight: 0,
+              duration: 0,
+              rest_time: 60,
+              notes: '',
+              order: dayExercises.length + selectedIndex
+            }
+          })
+          .filter(Boolean)
+
+        return { ...day, exercises: normalizeWorkoutExercisesOrder([...dayExercises, ...newExercises]) }
+      })
     })
 
     // Limpiar selección y cerrar selector
@@ -1079,9 +1122,29 @@ export function WorkoutPlanManagement() {
         if (!day) return day
         if (day.id === dayId) {
           const exercisesArray = Array.isArray(day.exercises) ? day.exercises : []
-          return { ...day, exercises: exercisesArray.filter((_, index) => index !== exerciseIndex) }
+          return { ...day, exercises: normalizeWorkoutExercisesOrder(exercisesArray.filter((_, index) => index !== exerciseIndex)) }
         }
         return day
+      })
+    })
+  }
+
+  const moveExerciseInDay = (dayId: string, exerciseIndex: number, direction: -1 | 1) => {
+    if (isViewMode) return
+    setWorkoutDays(prev => {
+      const prevArray = Array.isArray(prev) ? prev : []
+      return prevArray.map(day => {
+        if (!day || day.id !== dayId) return day
+
+        const exercisesArray = Array.isArray(day.exercises) ? [...day.exercises] : []
+        const targetIndex = exerciseIndex + direction
+        if (targetIndex < 0 || targetIndex >= exercisesArray.length) return day
+
+        const current = exercisesArray[exerciseIndex]
+        exercisesArray[exerciseIndex] = exercisesArray[targetIndex]
+        exercisesArray[targetIndex] = current
+
+        return { ...day, exercises: normalizeWorkoutExercisesOrder(exercisesArray) }
       })
     })
   }
@@ -1414,7 +1477,10 @@ export function WorkoutPlanManagement() {
             day_number: day.day_number || day.order_index || 1,
             is_rest_day: day.is_rest_day || false,
             notes: day.notes || '',
-            exercises: (day.exercises || []).map((ex: any) => {
+            exercises: (day.exercises || [])
+              .slice()
+              .sort((a: any, b: any) => getWorkoutExerciseOrder(a, 0) - getWorkoutExerciseOrder(b, 0))
+              .map((ex: any, exerciseIndex: number) => {
               // Extraer datos del ejercicio (puede venir como objeto o ID)
               const exerciseObj = typeof ex.exercise === 'object' ? ex.exercise : null
               return {
@@ -1426,7 +1492,7 @@ export function WorkoutPlanManagement() {
                 duration: ex.duration_seconds || 0,
                 rest_time: ex.rest_seconds || 60,
                 notes: ex.notes || '',
-                order: ex.order_index || 0,
+                order: exerciseIndex,
                 substitutes: ex.substitutes || (exerciseObj?.substitutes || [])  // Preservar substitutes del ejercicio
               }
             })
@@ -3527,13 +3593,43 @@ export function WorkoutPlanManagement() {
                                             <p className="text-sm text-muted-foreground">{displayCategory}</p>
                                           </div>
                                           {!isViewMode && (
-                                            <Button
-                                              size="sm"
-                                              variant="destructive"
-                                              onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
-                                            >
-                                              <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            <div className="flex items-center gap-1">
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => moveExerciseInDay(day.id, exerciseIndex, -1)}
+                                                disabled={exerciseIndex === 0}
+                                                className="h-8 w-8 p-0"
+                                                title="Subir ejercicio"
+                                                aria-label="Subir ejercicio"
+                                              >
+                                                <ArrowUp className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => moveExerciseInDay(day.id, exerciseIndex, 1)}
+                                                disabled={exerciseIndex === day.exercises.length - 1}
+                                                className="h-8 w-8 p-0"
+                                                title="Bajar ejercicio"
+                                                aria-label="Bajar ejercicio"
+                                              >
+                                                <ArrowDown className="h-4 w-4" />
+                                              </Button>
+                                              <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
+                                                className="h-8 w-8 p-0"
+                                                title="Eliminar ejercicio"
+                                                aria-label="Eliminar ejercicio"
+                                              >
+                                                <Trash2 className="h-4 w-4" />
+                                              </Button>
+                                            </div>
                                           )}
                                         </div>
 
