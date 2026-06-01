@@ -2,6 +2,8 @@
 Tests para endpoints de autenticación
 """
 import pytest
+from django.core import mail
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -238,6 +240,21 @@ class TestForgotPassword:
         regular_user.refresh_from_db()
         assert regular_user.password_reset_token is not None
         assert regular_user.password_reset_expires is not None
+
+    @override_settings(
+        FRONTEND_URL="https://nexfit365.dpdns.org",
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    )
+    def test_forgot_password_email_uses_frontend_url(self, api_client, regular_user):
+        url = reverse("auth-forgot-password")
+
+        response = api_client.post(url, {"email": "user@example.com"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(mail.outbox) == 1
+        regular_user.refresh_from_db()
+        expected_url = f"https://nexfit365.dpdns.org/auth/reset-password?token={regular_user.password_reset_token}"
+        assert expected_url in mail.outbox[0].body
 
     def test_forgot_password_nonexistent_email(self, api_client):
         """Test de solicitud con email inexistente"""
