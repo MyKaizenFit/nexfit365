@@ -105,7 +105,7 @@ class CustomUser(AbstractUser):
     target_weight = models.FloatField(
         null=True, 
         blank=True,
-        validators=[MinValueValidator(50), MaxValueValidator(100)],
+        validators=[MinValueValidator(50), MaxValueValidator(200)],
         help_text="Peso objetivo en kg"
     )
     

@@ -246,8 +246,8 @@ function InitialRegistrationFormComponent({
       if (!formState.weight || isNaN(weight) || weight < 30 || weight > 300) {
         newErrors.weight = 'Peso inválido (30-300 kg)';
       }
-      if (targetWeight !== null && (isNaN(targetWeight) || targetWeight < 50 || targetWeight > 100)) {
-        newErrors.target_weight = 'Peso objetivo inválido (50-100 kg)';
+      if (targetWeight !== null && (isNaN(targetWeight) || targetWeight < 50 || targetWeight > 200)) {
+        newErrors.target_weight = 'Peso objetivo inválido (50-200 kg)';
       }
       if (!formState.activity_level) newErrors.activity_level = 'Selecciona tu nivel de actividad';
       if (formState.training_days.length === 0) newErrors.training_days = 'Selecciona al menos un día';
