@@ -9,12 +9,37 @@ from django.db import DatabaseError
 from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
+from django.core.exceptions import ValidationError
+from django.core.validators import FileExtensionValidator
 from datetime import timedelta
 from django.db import IntegrityError
 
 from .models import Exercise, ExerciseSubstitution
 from .serializers import ExerciseSerializer
 from accounts.permissions import IsAdminOrStaff
+
+
+MAX_EXERCISE_VIDEO_SIZE = 300 * 1024 * 1024
+MAX_EXERCISE_THUMBNAIL_SIZE = 10 * 1024 * 1024
+ALLOWED_EXERCISE_VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov']
+ALLOWED_EXERCISE_THUMBNAIL_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']
+
+
+def validate_uploaded_file(uploaded_file, *, max_size, allowed_extensions, label):
+    if not uploaded_file:
+        return f"{label} no proporcionado"
+
+    if uploaded_file.size > max_size:
+        max_mb = max_size // (1024 * 1024)
+        return f"{label} demasiado grande. Tamaño máximo: {max_mb}MB"
+
+    validator = FileExtensionValidator(allowed_extensions=allowed_extensions)
+    try:
+        validator(uploaded_file)
+    except ValidationError:
+        return f"Formato de {label.lower()} no permitido. Usa: {', '.join(allowed_extensions)}"
+
+    return None
 
 
 class LargeResultsSetPagination(PageNumberPagination):
@@ -730,6 +755,44 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 serializer.save(created_by=existing.created_by or self.request.user)
                 return Response(serializer.data, status=status.HTTP_200_OK)
         return super().create(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='upload-video')
+    def upload_video(self, request, pk=None):
+        exercise = self.get_object()
+        video_file = request.FILES.get('video_file')
+        error = validate_uploaded_file(
+            video_file,
+            max_size=MAX_EXERCISE_VIDEO_SIZE,
+            allowed_extensions=ALLOWED_EXERCISE_VIDEO_EXTENSIONS,
+            label='Video',
+        )
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        exercise.video_file = video_file
+        exercise.video_url = ''
+        exercise.google_drive_file_id = ''
+        exercise.save(update_fields=['video_file', 'video_url', 'google_drive_file_id', 'updated_at'])
+        serializer = self.get_serializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='upload-thumbnail')
+    def upload_thumbnail(self, request, pk=None):
+        exercise = self.get_object()
+        thumbnail = request.FILES.get('thumbnail')
+        error = validate_uploaded_file(
+            thumbnail,
+            max_size=MAX_EXERCISE_THUMBNAIL_SIZE,
+            allowed_extensions=ALLOWED_EXERCISE_THUMBNAIL_EXTENSIONS,
+            label='Miniatura',
+        )
+        if error:
+            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+
+        exercise.thumbnail = thumbnail
+        exercise.save(update_fields=['thumbnail', 'updated_at'])
+        serializer = self.get_serializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['get'])
     def stats(self, request):
@@ -1027,8 +1090,6 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             'priority': s.priority,
             'notes': s.notes
         } for s in subs])
-
-
 
 
 

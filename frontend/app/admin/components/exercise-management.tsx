@@ -1784,7 +1784,7 @@ export function ExerciseManagement() {
               {editingExercise && (
                 <>
                   <div className="border-t pt-4">
-                    <FormLabel className="font-semibold">📹 Subir Video (MP4, WebM - máx. 50MB)</FormLabel>
+                    <FormLabel className="font-semibold">📹 Subir Video (MP4, WebM, MOV - máx. 300MB)</FormLabel>
                     <Input
                       type="file"
                       accept="video/mp4,video/webm,video/ogg,video/quicktime"

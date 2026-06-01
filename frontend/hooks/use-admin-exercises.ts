@@ -53,6 +53,33 @@ export interface CategoryOption {
   label: string
 }
 
+const MAX_VIDEO_UPLOAD_BYTES = 300 * 1024 * 1024
+const MAX_THUMBNAIL_UPLOAD_BYTES = 10 * 1024 * 1024
+
+const getMultipartHeaders = (headers: HeadersInit): HeadersInit => {
+  const nextHeaders = new Headers(headers)
+  nextHeaders.delete('Content-Type')
+  return nextHeaders
+}
+
+const readUploadError = async (response: Response) => {
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    const errorData = await response.json().catch(() => ({}))
+    return errorData.detail || errorData.error || errorData.message || `Error ${response.status}`
+  }
+
+  const text = await response.text().catch(() => '')
+  if (response.status === 413) {
+    return 'El archivo es demasiado grande para el servidor. Reduce el tamaño o súbelo por Drive.'
+  }
+  if (text.toLowerCase().includes('<!doctype') || text.toLowerCase().includes('<html')) {
+    return `El servidor devolvió una página de error (${response.status}). Revisa tamaño/formato del archivo.`
+  }
+  return text || `Error ${response.status}`
+}
+
 export const useAdminExercises = () => {
   const { getAuthHeaders } = useAuth()
   const [exercises, setExercises] = useState<Exercise[]>([])
@@ -494,16 +521,17 @@ export const useAdminExercises = () => {
 
   const uploadExerciseVideo = async (exerciseId: number | string, videoFile: File): Promise<Exercise> => {
     try {
+      if (videoFile.size > MAX_VIDEO_UPLOAD_BYTES) {
+        throw new Error('El video supera 300MB. Súbelo comprimido o usa Google Drive.')
+      }
+
       let headers = await getAuthHeaders()
       const formData = new FormData()
       formData.append('video_file', videoFile)
 
-      let response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-video/`), {
+      let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
         method: 'POST',
-        headers: {
-          ...headers,
-          // No incluir Content-Type, el navegador lo establecerá automáticamente con el boundary
-        },
+        headers: getMultipartHeaders(headers),
         body: formData
       })
 
@@ -511,18 +539,15 @@ export const useAdminExercises = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-video/`), {
+        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
           method: 'POST',
-          headers: {
-            ...headers,
-          },
+          headers: getMultipartHeaders(headers),
           body: formData
         })
       }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `Error ${response.status}`)
+        throw new Error(await readUploadError(response))
       }
 
       const updatedExercise = await response.json()
@@ -539,15 +564,17 @@ export const useAdminExercises = () => {
 
   const uploadExerciseThumbnail = async (exerciseId: number | string, thumbnailFile: File): Promise<Exercise> => {
     try {
+      if (thumbnailFile.size > MAX_THUMBNAIL_UPLOAD_BYTES) {
+        throw new Error('La miniatura supera 10MB. Reduce el tamaño de la imagen.')
+      }
+
       let headers = await getAuthHeaders()
       const formData = new FormData()
       formData.append('thumbnail', thumbnailFile)
 
-      let response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-thumbnail/`), {
+      let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
         method: 'POST',
-        headers: {
-          ...headers,
-        },
+        headers: getMultipartHeaders(headers),
         body: formData
       })
 
@@ -555,18 +582,15 @@ export const useAdminExercises = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`exercises/${exerciseId}/upload-thumbnail/`), {
+        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
           method: 'POST',
-          headers: {
-            ...headers,
-          },
+          headers: getMultipartHeaders(headers),
           body: formData
         })
       }
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `Error ${response.status}`)
+        throw new Error(await readUploadError(response))
       }
 
       const updatedExercise = await response.json()
@@ -716,4 +740,3 @@ export const useAdminExercises = () => {
     refetch: () => { fetchExercises(); fetchStats(); fetchCategories() }
   }
 }
-

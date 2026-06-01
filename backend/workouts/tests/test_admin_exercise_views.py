@@ -5,6 +5,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from workouts.models import Exercise, ExerciseSubstitution
 from unittest.mock import patch, MagicMock
 
@@ -130,6 +131,55 @@ class TestAdminExerciseEndpoint:
         assert response.status_code == status.HTTP_200_OK
         exercise.refresh_from_db()
         assert exercise.name == 'Ejercicio Modificado'
+
+    def test_upload_video(self, admin_client, exercise):
+        video = SimpleUploadedFile(
+            'ejercicio-horizontal.mp4',
+            b'fake-video-content',
+            content_type='video/mp4',
+        )
+        response = admin_client.post(
+            f'/api/admin/exercises/{exercise.id}/upload-video/',
+            {'video_file': video},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        exercise.refresh_from_db()
+        assert exercise.video_file.name.startswith('exercises/videos/')
+        assert response.data['video_file_url']
+
+    def test_upload_video_rejects_invalid_extension(self, admin_client, exercise):
+        video = SimpleUploadedFile(
+            'ejercicio.txt',
+            b'not-a-video',
+            content_type='text/plain',
+        )
+        response = admin_client.post(
+            f'/api/admin/exercises/{exercise.id}/upload-video/',
+            {'video_file': video},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert 'Formato' in response.data['detail']
+
+    def test_upload_thumbnail(self, admin_client, exercise):
+        thumbnail = SimpleUploadedFile(
+            'ejercicio.webp',
+            b'fake-image-content',
+            content_type='image/webp',
+        )
+        response = admin_client.post(
+            f'/api/admin/exercises/{exercise.id}/upload-thumbnail/',
+            {'thumbnail': thumbnail},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        exercise.refresh_from_db()
+        assert exercise.thumbnail.name.startswith('exercises/thumbnails/')
+        assert response.data['thumbnail_url']
 
     def test_delete_exercise(self, admin_client, exercise):
         exercise_id = str(exercise.id)
