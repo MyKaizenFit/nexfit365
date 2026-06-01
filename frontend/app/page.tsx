@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuth } from "@/contexts/auth-context"
 import { getAuthService } from "@/lib/auth-service"
+import { isAdminJwtPayload, parseJwtPayload } from "@/lib/jwt"
 import {
   Target,
   Users,
@@ -50,11 +51,8 @@ export default function HomePage() {
     try {
       const authService = getAuthService()
       const accessToken = authService.getAccessToken()
-      if (accessToken && accessToken.includes('.') && !accessToken.startsWith('offline_token_')) {
-        const payload = JSON.parse(atob(accessToken.split('.')[1]))
-        const userRole = (payload.role || '').toLowerCase()
-        isAdmin = !!(payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer')
-      }
+      const payload = parseJwtPayload(accessToken)
+      isAdmin = isAdminJwtPayload(payload)
     } catch {
       // Ignorar: si falla token, caemos al chequeo por user
     }

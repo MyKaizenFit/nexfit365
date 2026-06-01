@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
 import { useAuth } from '@/contexts/auth-context';
+import { getAuthService } from '@/lib/auth-service';
 import { buildApiUrl, getAuthHeaders, USER_ENDPOINTS } from '@/lib/api';
+import { parseJwtPayload } from '@/lib/jwt';
 
 interface InitialRegistrationData {
   first_name: string;
@@ -89,12 +91,9 @@ export function useInitialRegistration() {
           // Obtener userId del token para validar
           let currentUserId = null;
           try {
-            const token = localStorage.getItem('accessToken') || 
-                         document.cookie.split('; ').find(row => row.startsWith('accessToken='))?.split('=')[1];
-            if (token && !token.startsWith('offline_token_')) {
-              const payload = JSON.parse(atob(token.split('.')[1]));
-              currentUserId = payload.user_id || payload.id;
-            }
+            const token = getAuthService().getAccessToken();
+            const payload = parseJwtPayload(token);
+            currentUserId = payload?.user_id || payload?.id || null;
           } catch (e) {
           }
           

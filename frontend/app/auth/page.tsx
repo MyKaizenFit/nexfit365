@@ -5,6 +5,7 @@ import Image from "next/image"
 import { Eye, EyeOff, Sparkles, Heart, Target } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
@@ -27,6 +28,7 @@ function AuthPageContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({})
+  const [rememberSession, setRememberSession] = useState(true)
 
   const [formData, setFormData] = useState({
     email: "",
@@ -38,6 +40,19 @@ function AuthPageContent() {
 
   const { login, register, forgotPassword, isLoading, error, clearError } = useAuth()
   const router = useRouter()
+
+  useEffect(() => {
+    const savedRememberSession = localStorage.getItem('remember_session')
+    const savedEmail = localStorage.getItem('remembered_email')
+
+    if (savedRememberSession === 'false') {
+      setRememberSession(false)
+    }
+
+    if (savedEmail) {
+      setFormData(prev => ({ ...prev, email: savedEmail, resetEmail: savedEmail }))
+    }
+  }, [])
 
   // Actualizar el modo (login/register) cuando cambie el parámetro de la URL
   useEffect(() => {
@@ -87,8 +102,9 @@ function AuthPageContent() {
 
           try {
         await login({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           password: formData.password,
+          rememberMe: rememberSession,
         })
         // El contexto ya maneja las notificaciones y redirección
       } catch (error: any) {
@@ -102,7 +118,7 @@ function AuthPageContent() {
           try {
         // Registrar usuario
         await register({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           password: formData.password,
           password_confirm: formData.confirmPassword,
           first_name: formData.name.split(' ')[0] || formData.name,
@@ -192,10 +208,12 @@ function AuthPageContent() {
               </Label>
               <Input
                 id="reset-email"
+                name="email"
                 type="email"
                 inputMode="email"
                 autoCapitalize="none"
                 autoCorrect="off"
+                autoComplete="email"
                 spellCheck={false}
                 placeholder="tu@correo.com"
                 value={formData.resetEmail}
@@ -272,7 +290,9 @@ function AuthPageContent() {
               </Label>
               <Input
                 id="name"
+                name="name"
                 type="text"
+                autoComplete="name"
                 placeholder="Tu nombre completo"
                 value={formData.name}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("name", e.target.value)}
@@ -294,10 +314,12 @@ function AuthPageContent() {
             </Label>
             <Input
               id="email"
+              name="email"
               type="email"
               inputMode="email"
               autoCapitalize="none"
               autoCorrect="off"
+              autoComplete="email"
               spellCheck={false}
               placeholder="tu@correo.com"
               value={formData.email}
@@ -320,7 +342,9 @@ function AuthPageContent() {
             <div className="relative">
               <Input
                 id="password"
+                name="password"
                 type={showPassword ? "text" : "password"}
+                autoComplete={isLogin ? "current-password" : "new-password"}
                 placeholder="Tu contraseña segura"
                 value={formData.password}
                 onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("password", e.target.value)}
@@ -352,7 +376,9 @@ function AuthPageContent() {
               <div className="relative">
                 <Input
                   id="confirm-password"
+                  name="confirm-password"
                   type={showConfirmPassword ? "text" : "password"}
+                  autoComplete="new-password"
                   placeholder="Confirma tu contraseña"
                   value={formData.confirmPassword}
                   onChange={(e: ChangeEvent<HTMLInputElement>) => handleInputChange("confirmPassword", e.target.value)}
@@ -379,6 +405,21 @@ function AuthPageContent() {
                   {validationErrors.confirmPassword}
                 </p>
               )}
+            </div>
+          )}
+
+          {isLogin && (
+            <div className="flex items-center justify-between gap-3 animate-in fade-in-0 duration-500 delay-300">
+              <div className="flex items-center gap-3">
+                <Checkbox
+                  id="remember-session"
+                  checked={rememberSession}
+                  onCheckedChange={(checked) => setRememberSession(Boolean(checked))}
+                />
+                <Label htmlFor="remember-session" className="text-sm text-muted-foreground cursor-pointer">
+                  Recordar sesión
+                </Label>
+              </div>
             </div>
           )}
 

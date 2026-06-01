@@ -10,6 +10,7 @@ import {
 } from './api'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
+import { isJwtExpired, parseJwtPayload } from './jwt'
 import type { User } from '@/types/user'
 
 // Re-exportar el tipo User
@@ -19,6 +20,7 @@ export type { User } from '@/types/user'
 export interface LoginCredentials {
   email: string
   password: string
+  rememberMe?: boolean
 }
 
 export interface RegisterCredentials {
@@ -42,18 +44,19 @@ export interface AuthResponse {
 }
 
 // Utilidades para cookies
-const setCookie = (name: string, value: string, days: number = 7) => {
+const setCookie = (name: string, value: string, days?: number) => {
   if (typeof window === 'undefined') return
-
-  const expires = new Date()
-  expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000))
 
   // Construir la cookie con todos los atributos necesarios
   const isSecure = window.location.protocol === 'https:'
 
   // Construir el string de la cookie
   let cookieString = `${name}=${encodeURIComponent(value)}`
-  cookieString += `;expires=${expires.toUTCString()}`
+  if (days) {
+    const expires = new Date()
+    expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000))
+    cookieString += `;expires=${expires.toUTCString()}`
+  }
   cookieString += `;path=/`
   cookieString += `;SameSite=Lax`
 
@@ -67,6 +70,23 @@ const setCookie = (name: string, value: string, days: number = 7) => {
   // Verificar que se guardó correctamente
   const saved = getCookie(name)
   if (!saved && process.env.NODE_ENV === 'development') {
+  }
+}
+
+const getRememberSessionPreference = (): boolean => {
+  if (typeof window === 'undefined') return true
+  return localStorage.getItem('remember_session') !== 'false'
+}
+
+const setRememberedEmail = (email: string, rememberSession: boolean) => {
+  if (typeof window === 'undefined') return
+
+  if (rememberSession) {
+    localStorage.setItem('remember_session', 'true')
+    localStorage.setItem('remembered_email', email)
+  } else {
+    localStorage.setItem('remember_session', 'false')
+    localStorage.removeItem('remembered_email')
   }
 }
 
@@ -190,6 +210,10 @@ export class AuthService {
     return true
   }
 
+  hasRefreshToken(): boolean {
+    return Boolean(this.getRefreshToken())
+  }
+
   // Verificar si el usuario está autenticado
   isAuthenticated(): boolean {
     return this.hasValidTokens()
@@ -203,7 +227,10 @@ export class AuthService {
 
     try {
       // Decodificar el token JWT para obtener la fecha de expiración
-      const payload = JSON.parse(atob(this.accessToken.split('.')[1]))
+      const payload = parseJwtPayload(this.accessToken)
+      if (!payload?.exp) {
+        return false
+      }
       const expirationTime = payload.exp * 1000 // Convertir a milisegundos
       const currentTime = Date.now()
       const timeUntilExpiration = expirationTime - currentTime
@@ -351,13 +378,18 @@ export class AuthService {
         throw new Error('No se recibieron tokens de autenticación')
       }
 
+      const rememberSession = credentials.rememberMe !== false
+      const accessCookieDays = rememberSession ? 1 : undefined
+      const refreshCookieDays = rememberSession ? 30 : undefined
+
       // Guardar tokens
       this.accessToken = responseData.access
       this.refreshToken = responseData.refresh
 
       // Guardar en cookies
-      setCookie('accessToken', responseData.access, 1) // 1 día
-      setCookie('refreshToken', responseData.refresh, 7) // 7 días
+      setCookie('accessToken', responseData.access, accessCookieDays)
+      setCookie('refreshToken', responseData.refresh, refreshCookieDays)
+      setRememberedEmail(credentials.email.trim().toLowerCase(), rememberSession)
 
       // Obtener información del usuario
       // Intentar usar el usuario de la respuesta del login si está disponible
@@ -540,8 +572,8 @@ export class AuthService {
       this.refreshToken = tokens.refresh
 
       // Guardar en cookies
-      setCookie('accessToken', tokens.access, 1) // 1 día
-      setCookie('refreshToken', tokens.refresh, 7) // 7 días
+      setCookie('accessToken', tokens.access, 1)
+      setCookie('refreshToken', tokens.refresh, 30)
 
       // Usar el usuario de la respuesta o obtenerlo
       let user = userData
@@ -687,9 +719,15 @@ export class AuthService {
   async refreshAccessToken(): Promise<{ success: boolean; newToken?: string; error?: string }> {
     // Evitar múltiples renovaciones simultáneas
     if (this.isRefreshing) {
-      // Esperar un poco y retornar el token actual si está disponible
-      await new Promise(resolve => setTimeout(resolve, 500))
-      if (this.accessToken) {
+      for (let attempt = 0; attempt < 20; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 250))
+        if (!this.isRefreshing) {
+          break
+        }
+      }
+
+      const payload = parseJwtPayload(this.accessToken)
+      if (this.accessToken && !isJwtExpired(payload)) {
         return { success: true, newToken: this.accessToken }
       }
       return { success: false, error: 'Renovación en progreso' }
@@ -707,7 +745,8 @@ export class AuthService {
         return { success: true, newToken }
       }
 
-      if (!this.refreshToken) {
+      const refreshToken = this.getRefreshToken()
+      if (!refreshToken) {
         this.isRefreshing = false
         return { success: false, error: 'No hay token de renovación' }
       }
@@ -720,7 +759,7 @@ export class AuthService {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
           },
-          body: JSON.stringify({ refresh: this.refreshToken }),
+          body: JSON.stringify({ refresh: refreshToken }),
         })
       } catch (fetchError) {
         // Manejar errores de red/CORS
@@ -773,14 +812,14 @@ export class AuthService {
       // Si el backend devuelve un nuevo refresh token (ROTATE_REFRESH_TOKENS), actualizarlo también
       if (result.data.refresh) {
         this.refreshToken = result.data.refresh
-        setCookie('refreshToken', result.data.refresh, 7) // 7 días
+        setCookie('refreshToken', result.data.refresh, getRememberSessionPreference() ? 30 : undefined)
         // No loguear información sensible
         if (process.env.NODE_ENV === 'development') {
         }
       }
 
       // Guardar en cookies
-      setCookie('accessToken', result.data.access, 1) // 1 día
+      setCookie('accessToken', result.data.access, getRememberSessionPreference() ? 1 : undefined)
 
       this.isRefreshing = false
       return { success: true, newToken: result.data.access }

@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
+import { isAdminJwtPayload, isJwtExpired, parseJwtPayload } from '@/lib/jwt'
 
 // Rutas que requieren autenticación
 const protectedRoutes = [
@@ -14,6 +15,7 @@ const protectedRoutes = [
   '/progress',
   '/achievements',
   '/recommendations',
+  '/initial-registration',
 ]
 
 // Rutas que solo pueden acceder usuarios no autenticados
@@ -34,19 +36,14 @@ export function middleware(request: NextRequest) {
   // Obtener token de autenticación desde cookies
   const accessToken = request.cookies.get('accessToken')?.value
   const refreshToken = request.cookies.get('refreshToken')?.value
+  const accessPayload = parseJwtPayload(accessToken)
+  const hasUsableAccessToken = Boolean(accessToken && accessPayload && !isJwtExpired(accessPayload))
 
   // Si el usuario ya está autenticado, no permitir acceso a la home (/)
   // y redirigir según su rol (admin -> /admin, usuario -> /dashboard o /initial-registration).
-  if (pathname === '/' && accessToken) {
+  if (pathname === '/' && hasUsableAccessToken) {
     try {
-      // Tokens "offline_token_*" no son JWT; redirigir de forma segura
-      if (!accessToken.includes('.')) {
-        return NextResponse.redirect(new URL('/dashboard', request.url))
-      }
-
-      const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      const userRole = (payload.role || '').toLowerCase()
-      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
+      const isAdmin = isAdminJwtPayload(accessPayload)
 
       if (isAdmin) {
         return NextResponse.redirect(new URL('/admin', request.url))
@@ -80,19 +77,20 @@ export function middleware(request: NextRequest) {
   )
 
   // Si no hay tokens y es una ruta protegida, redirigir al login
-  if (isProtectedRoute && !accessToken) {
+  if (isProtectedRoute && !hasUsableAccessToken) {
+    if (refreshToken) {
+      return NextResponse.next()
+    }
+
     const loginUrl = new URL('/auth', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
   }
 
   // Si hay tokens y es una ruta protegida (excepto el formulario inicial), verificar si el formulario está completo
-  if (isProtectedRoute && accessToken && pathname !== '/initial-registration') {
+  if (isProtectedRoute && hasUsableAccessToken && pathname !== '/initial-registration') {
     try {
-      // Decodificar el token JWT para verificar el rol
-      const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      const userRole = (payload.role || '').toLowerCase()
-      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
+      const isAdmin = isAdminJwtPayload(accessPayload)
       
       // Los administradores no necesitan completar el formulario
       if (!isAdmin) {
@@ -109,14 +107,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Si hay tokens y es una ruta pública (como login), redirigir según el rol
-  if (isPublicOnlyRoute && accessToken) {
+  if (isPublicOnlyRoute && hasUsableAccessToken) {
     try {
-      // Decodificar el token JWT para verificar el rol
-      const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      // NO loguear payload del token por seguridad
-      // Verificar roles de admin: superuser, staff, admin, trainer
-      const userRole = (payload.role || '').toLowerCase()
-      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
+      const isAdmin = isAdminJwtPayload(accessPayload)
       
       if (isAdmin) {
         // Si es admin, redirigir al panel de administrador
@@ -139,14 +132,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Para rutas de administrador, verificar si el usuario es admin
-  if (isAdminOnlyRoute && accessToken) {
+  if (isAdminOnlyRoute && hasUsableAccessToken) {
     try {
-      // Decodificar el token JWT para verificar el rol
-      const payload = JSON.parse(atob(accessToken.split('.')[1]))
-      // NO loguear payload del token por seguridad
-      // Verificar roles de admin: superuser, staff, admin, trainer
-      const userRole = (payload.role || '').toLowerCase()
-      const isAdmin = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
+      const isAdmin = isAdminJwtPayload(accessPayload)
       
       if (!isAdmin) {
         // Si no es admin, redirigir al dashboard

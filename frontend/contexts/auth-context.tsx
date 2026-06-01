@@ -13,6 +13,7 @@ import {
   AuthResponse
 } from '@/lib/auth-service'
 import { buildApiUrl, USER_ENDPOINTS } from '@/lib/api'
+import { isAdminJwtPayload, parseJwtPayload } from '@/lib/jwt'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
 
 // Estado de autenticación
@@ -121,9 +122,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.removeItem('auth_logout_in_progress')
         }
 
-        // Verificar si hay tokens válidos
+        // Verificar si hay tokens válidos. En móvil es frecuente volver a la app
+        // con el access caducado/perdido pero con refresh todavía vigente.
         const authService = getAuthService()
-        const hasValidTokens = await authService.hasValidTokens()
+        let hasValidTokens = authService.hasValidTokens()
+
+        if (!hasValidTokens && authService.hasRefreshToken()) {
+          const refreshResult = await authService.refreshAccessToken()
+          hasValidTokens = Boolean(refreshResult.success && refreshResult.newToken)
+        }
 
         if (hasValidTokens) {
           try {
@@ -242,12 +249,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const authService = getAuthService()
         const accessToken = authService.getAccessToken()
-        if (accessToken && !accessToken.startsWith('offline_token_')) {
-          const payload = JSON.parse(atob(accessToken.split('.')[1]))
-          // NO loguear payload del token por seguridad
-          const userRole = (payload.role || '').toLowerCase()
-          isAdminFromToken = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
-        }
+        const payload = parseJwtPayload(accessToken)
+        isAdminFromToken = isAdminJwtPayload(payload)
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
         }
@@ -338,12 +341,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       try {
         const authService = getAuthService()
         const accessToken = authService.getAccessToken()
-        if (accessToken && !accessToken.startsWith('offline_token_')) {
-          const payload = JSON.parse(atob(accessToken.split('.')[1]))
-          // NO loguear payload del token por seguridad
-          const userRole = (payload.role || '').toLowerCase()
-          isAdminFromToken = payload.is_superuser || payload.is_staff || userRole === 'admin' || userRole === 'trainer'
-        }
+        const payload = parseJwtPayload(accessToken)
+        isAdminFromToken = isAdminJwtPayload(payload)
       } catch (tokenError) {
         if (process.env.NODE_ENV === 'development') {
         }
@@ -565,16 +564,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const authService = getAuthService()
       let accessToken = authService.getAccessToken()
       if (!accessToken) {
-        // Si no hay token, no dejar al usuario en un estado inconsistente (pantallas protegidas sin sesión real)
-        setState({
-          user: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-          mustChangePassword: false,
-        })
-        router.push('/auth')
-        throw new Error('No hay token de acceso disponible')
+        const refreshResult = authService.hasRefreshToken()
+          ? await authService.refreshAccessToken()
+          : { success: false }
+
+        if (refreshResult.success && refreshResult.newToken) {
+          accessToken = refreshResult.newToken
+        } else {
+          // Si no hay token, no dejar al usuario en un estado inconsistente (pantallas protegidas sin sesión real)
+          setState({
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: null,
+            mustChangePassword: false,
+          })
+          router.push('/auth')
+          throw new Error('No hay token de acceso disponible')
+        }
       }
 
       // Si el token está expirado o próximo a expirar, refrescarlo antes de usarlo
