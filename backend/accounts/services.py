@@ -248,6 +248,7 @@ def assign_default_plans_to_user(user):
         for meal_template in template.meals.all():
             new_meal = PlanMeal.objects.create(
                 plan=plan,
+                day_of_week=meal_template.day_of_week,
                 name=meal_template.name,
                 meal_type=meal_template.meal_type,
                 time=meal_template.time,
@@ -499,6 +500,7 @@ class DefaultPlanAssignmentService:
             for meal_template in template.meals.all():
                 meal = PlanMeal.objects.create(
                     plan=nutrition_plan,
+                    day_of_week=meal_template.day_of_week,
                     name=meal_template.name,
                     meal_type=meal_template.meal_type,
                     time=meal_template.time,

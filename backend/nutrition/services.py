@@ -807,6 +807,7 @@ class PersonalizedNutritionService:
         for default_meal in default_meals:
             new_meal = PlanMeal.objects.create(
                 plan=user_plan,
+                day_of_week=default_meal.day_of_week,
                 name=default_meal.name,
                 meal_type=default_meal.meal_type,
                 time=default_meal.time,

@@ -132,6 +132,7 @@ class TestProfilePlanIntegration:
             plan=nutrition_template,
             name="Desayuno",
             meal_type="breakfast",
+            day_of_week=1,
             order_index=1,
             calories=450,
             protein=Decimal("30.0"),
@@ -179,7 +180,48 @@ class TestProfilePlanIntegration:
             is_active=True,
         ).exists()
         assert result.nutrition_plan.meals.count() == 1
+        assert result.nutrition_plan.meals.first().day_of_week == 1
         assert result.workout_program.days.first().exercises.count() == 1
+
+    def test_default_assignment_preserves_weekly_nutrition_meal_days(self, user):
+        nutrition_template = NutritionPlan.objects.create(
+            name="Menú semanal",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            meals_per_day=4,
+            daily_calories=1800,
+            protein_grams=120,
+            carbs_grams=180,
+            fat_grams=50,
+        )
+        for day_number in range(1, 8):
+            for order_index, meal_type in enumerate(["breakfast", "lunch", "snack", "dinner"], start=1):
+                PlanMeal.objects.create(
+                    plan=nutrition_template,
+                    day_of_week=day_number,
+                    name=meal_type,
+                    meal_type=meal_type,
+                    order_index=order_index,
+                    calories=400,
+                    protein=Decimal("25.0"),
+                    carbs=Decimal("45.0"),
+                    fat=Decimal("10.0"),
+                )
+        DefaultPlanConfiguration.objects.create(
+            name="Config pérdida",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=nutrition_template,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assert result.nutrition_plan.meals.count() == 28
+        assert result.nutrition_plan.meals.filter(day_of_week=1).count() == 4
+        assert result.nutrition_plan.meals.filter(day_of_week=7).count() == 4
+        assert result.nutrition_plan.meals.filter(day_of_week__isnull=True).count() == 0
 
     def test_default_assignment_prefers_admin_profile_training_days(self, user):
         user.training_days_per_week = 4
