@@ -227,6 +227,56 @@ class TestProfilePlanIntegration:
             (5, "friday"),
         ]
         assert all(not day.is_rest_day for day in assigned_days)
+        assert all(day.exercises.count() > 0 for day in assigned_days)
+
+    def test_default_assignment_skips_empty_template_days_when_mapping_user_days(self, user):
+        user.training_days_per_week = 3
+        user.training_days = [1, 3, 5]
+        user.save(update_fields=["training_days_per_week", "training_days"])
+
+        workout_template = WorkoutProgram.objects.create(
+            name="Rutina pérdida",
+            goal="weight_loss",
+            is_template=True,
+            is_active=True,
+            days_per_week=3,
+        )
+        for day_number, name in [(1, "Pierna"), (2, "Vacío"), (3, "Hombro")]:
+            template_day = WorkoutDay.objects.create(
+                program=workout_template,
+                name=name,
+                day_number=day_number,
+                order_index=day_number,
+            )
+            if name != "Vacío":
+                exercise = Exercise.objects.create(name=f"Ejercicio {name}", is_system=True)
+                WorkoutDayExercise.objects.create(
+                    workout_day=template_day,
+                    exercise=exercise,
+                    sets=3,
+                    reps="10",
+                )
+        DefaultPlanConfiguration.objects.create(
+            name="Config pérdida",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_workout_program=workout_template,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assigned_days = list(result.workout_program.days.order_by("order_index"))
+        assert [(day.day_number, day.exercises.count()) for day in assigned_days] == [
+            (1, 1),
+            (3, 1),
+            (5, 1),
+        ]
+        assert [day.name for day in assigned_days] == [
+            "Lunes - Pierna",
+            "Miércoles - Hombro",
+            "Viernes - Pierna",
+        ]
 
     def test_default_assignment_preserves_active_custom_workout_plan(self, user):
         custom_workout = WorkoutProgram.objects.create(
