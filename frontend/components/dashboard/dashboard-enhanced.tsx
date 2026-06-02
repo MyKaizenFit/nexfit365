@@ -8,7 +8,6 @@ import {
   Target, 
   Calendar, 
   Trophy, 
-  BarChart3, 
   Camera, 
   Plus,
   RefreshCw,
@@ -30,7 +29,7 @@ import {
   ArrowRight,
   Utensils
 } from "lucide-react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
@@ -42,14 +41,12 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
-import { formatMacro } from "@/lib/utils"
 import { useWorkouts } from "@/hooks/use-workouts"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { useWeightHistory } from "@/hooks/use-weight-history"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
-import { navigateToDashboardSection } from "@/lib/dashboard-navigation"
 
 interface DashboardEnhancedProps {
   className?: string
@@ -60,7 +57,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const { user, isAuthenticated } = useAuth()
   const { userStats, loading: statsLoading, refreshStats } = useUserData()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats: refreshProgressStats } = useProgressStats()
-  const { meals: dailyMeals, macros, loading: mealsLoading } = useDailyMeals()
+  const { macros, loading: mealsLoading } = useDailyMeals()
   const { workoutLogs, loading: workoutLoading } = useWorkouts()
   const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
   const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
@@ -118,7 +115,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   
   const { transformationProgress, hasTrackedWeightProgress, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
 
-  // Calcular calorías y macros con useMemo
+  // Calcular calorías con useMemo
   const nutritionData = useMemo(() => {
     const caloriesConsumed = macros.caloriesConsumed || 0
     const caloriesGoal = macros.caloriesGoal || 2000
@@ -128,19 +125,10 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       caloriesConsumed,
       caloriesGoal,
       caloriesProgress,
-      proteinConsumed: macros.proteinConsumed || 0,
-      proteinGoal: macros.proteinGoal || 150,
-      carbsConsumed: macros.carbsConsumed || 0,
-      carbsGoal: macros.carbsGoal || 200,
-      fatConsumed: macros.fatConsumed || 0,
-      fatGoal: macros.fatGoal || 70,
     }
   }, [macros])
   
-  const { caloriesConsumed, caloriesGoal, caloriesProgress, proteinConsumed, proteinGoal, carbsConsumed, carbsGoal, fatConsumed, fatGoal } = nutritionData
-  const proteinProgress = proteinGoal > 0 ? Math.min(Math.max((proteinConsumed / proteinGoal) * 100, 0), 100) : 0
-  const carbsProgress = carbsGoal > 0 ? Math.min(Math.max((carbsConsumed / carbsGoal) * 100, 0), 100) : 0
-  const fatProgress = fatGoal > 0 ? Math.min(Math.max((fatConsumed / fatGoal) * 100, 0), 100) : 0
+  const { caloriesConsumed, caloriesGoal, caloriesProgress } = nutritionData
 
   // Estadísticas de entrenamientos con useMemo
   const workoutStats = useMemo(() => {
@@ -427,75 +415,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         </Card>
       </div>
 
-      {/* Resumen de Macros */}
-      <Card className="border shadow-lg dark:bg-card">
-        <CardHeader className="pb-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-lg sm:text-xl">Macros del Día</CardTitle>
-                <CardDescription className="text-xs sm:text-sm">Tu balance nutricional de hoy</CardDescription>
-              </div>
-            </div>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="text-violet-600 hover:text-violet-700 hover:bg-violet-500/10"
-              onClick={() => navigateToDashboardSection(router, 'meals')}
-            >
-              Ver más <ArrowRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-4 sm:gap-6">
-            {/* Proteína */}
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-red-500/10 rounded-2xl flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">🥩</span>
-              </div>
-              <div>
-                <p className="text-lg sm:text-xl font-bold text-red-600">{formatMacro(proteinConsumed)}g</p>
-                <p className="text-xs text-muted-foreground">de {formatMacro(proteinGoal)}g</p>
-                <Progress value={proteinProgress} className="h-1.5 mt-2 bg-red-500/20" />
-              </div>
-              <p className="text-xs font-medium text-muted-foreground">Proteína</p>
-            </div>
-
-            {/* Carbohidratos */}
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-amber-500/10 rounded-2xl flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">🍞</span>
-              </div>
-              <div>
-                <p className="text-lg sm:text-xl font-bold text-amber-600">{formatMacro(carbsConsumed)}g</p>
-                <p className="text-xs text-muted-foreground">de {formatMacro(carbsGoal)}g</p>
-                <Progress value={carbsProgress} className="h-1.5 mt-2 bg-amber-500/20" />
-              </div>
-              <p className="text-xs font-medium text-muted-foreground">Carbos</p>
-            </div>
-
-            {/* Grasas */}
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 mx-auto bg-green-500/10 rounded-2xl flex items-center justify-center">
-                <span className="text-xl sm:text-2xl">🥑</span>
-              </div>
-              <div>
-                <p className="text-lg sm:text-xl font-bold text-green-600">{formatMacro(fatConsumed)}g</p>
-                <p className="text-xs text-muted-foreground">de {formatMacro(fatGoal)}g</p>
-                <Progress value={fatProgress} className="h-1.5 mt-2 bg-green-500/20" />
-              </div>
-              <p className="text-xs font-medium text-muted-foreground">Grasas</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Resumen de Actividad */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Accesos rápidos */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Próximo Entrenamiento */}
         <Card className="border-0 bg-gradient-to-br from-purple-500 to-pink-500 text-white overflow-hidden">
           <CardContent className="p-5 sm:p-6">
@@ -555,6 +476,64 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               </div>
               <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
                 <Heart className="w-10 h-10 text-white/80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Menús */}
+        <Card className="border-0 bg-gradient-to-br from-orange-500 to-amber-500 text-white overflow-hidden">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Utensils className="h-5 w-5" />
+                  <span className="font-medium text-sm">Menús</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold">Plan semanal</h3>
+                <p className="text-white/80 text-sm">
+                  Consulta tus comidas y opciones asignadas
+                </p>
+                <Button
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  onClick={() => router.push('/dashboard?section=meals')}
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Ir a menús
+                </Button>
+              </div>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <Utensils className="w-10 h-10 text-white/80" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Recetas */}
+        <Card className="border-0 bg-gradient-to-br from-sky-500 to-cyan-500 text-white overflow-hidden">
+          <CardContent className="p-5 sm:p-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ChefHat className="h-5 w-5" />
+                  <span className="font-medium text-sm">Recetas</span>
+                </div>
+                <h3 className="text-xl sm:text-2xl font-bold">Ideas rápidas</h3>
+                <p className="text-white/80 text-sm">
+                  Accede a recetas y preparaciones guardadas
+                </p>
+                <Button
+                  size="sm"
+                  className="bg-white/20 hover:bg-white/30 text-white border-0"
+                  onClick={() => router.push('/dashboard?section=recipe-community')}
+                >
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                  Ir a recetas
+                </Button>
+              </div>
+              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                <ChefHat className="w-10 h-10 text-white/80" />
               </div>
             </div>
           </CardContent>
