@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import {
   Dumbbell, Play, Check, Clock, Target, Calendar,
-  TrendingUp, Award, Timer, Users, BarChart3,
+  TrendingUp, Award, Timer, BarChart3,
   Video, CheckCircle2, Circle, Repeat, RefreshCw, Flame
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -1131,105 +1131,71 @@ export function WorkoutDashboardEnhanced() {
         </Card>
       ) : null}
 
-      {/* Plan Actual y Calendario Semanal */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Plan Actual */}
-        {userPlan && (
-          <Card className="bg-card/95 border-2 border-purple-100/50 rounded-2xl shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-purple-700">
-                <Dumbbell className="h-5 w-5" />
-                Plan Actual
-              </CardTitle>
-              <CardDescription className="text-purple-600">{userPlan.name || 'Plan de entrenamiento'}</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Badge className="bg-gradient-to-r from-purple-500 to-pink-500 text-white border-0">
-                  Activo
-                </Badge>
-              </div>
+      {/* Calendario Semanal con Días de Entrenamiento y Descanso */}
+      <Card className="bg-card/95 border-2 border-blue-100/50 rounded-2xl shadow-lg">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-blue-700">
+            <Calendar className="h-5 w-5" />
+            Calendario Semanal
+          </CardTitle>
+          <CardDescription className="text-blue-600">
+            Días de entrenamiento y descanso
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-2 md:px-6">
+          <div className="grid grid-cols-7 gap-0.5 md:gap-2">
+            {getWeeklyCalendar().map((day) => {
+              // Determinar el color y estilo según si es día de entrenamiento según el perfil
+              const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
 
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-purple-700">Inicio: {new Date(userPlan.start_date).toLocaleDateString()}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4" />
-                  <span className="text-purple-700">{userPlan.days?.length || 0} días</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Calendario Semanal con Días de Entrenamiento y Descanso */}
-        <Card className="bg-card/95 border-2 border-blue-100/50 rounded-2xl shadow-lg">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-700">
-              <Calendar className="h-5 w-5" />
-              Calendario Semanal
-            </CardTitle>
-            <CardDescription className="text-blue-600">
-              Días de entrenamiento y descanso
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="px-2 md:px-6">
-            <div className="grid grid-cols-7 gap-0.5 md:gap-2">
-              {getWeeklyCalendar().map((day) => {
-                // Determinar el color y estilo según si es día de entrenamiento según el perfil
-                const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
-
-                return (
-                  <div
-                    key={day.number}
-                    className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
-                      ? isTrainingByProfile
-                        ? 'bg-gradient-to-br from-blue-200 to-cyan-200 text-blue-900 border-blue-300 shadow-md md:scale-105'
-                        : 'bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 border-slate-300 shadow-md md:scale-105'
-                      : isTrainingByProfile
-                        ? 'bg-blue-50 border-blue-200 text-blue-700'
-                        : 'bg-muted border-border text-muted-foreground'
-                      }`}
-                  >
-                    <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
-                    <div className="flex items-center justify-center">
-                      {isTrainingByProfile ? (
-                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-blue-800' : ''}`} />
-                      ) : (
-                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
-                      )}
-                    </div>
-                    {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
-                    {day.hasPlanWorkout && day.workoutDay && (
-                      <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? (isTrainingByProfile ? 'text-blue-900' : 'text-slate-700') : isTrainingByProfile ? 'text-blue-700' : 'text-orange-600'
-                        }`}>
-                        {day.workoutDay.exercises?.length || 0} ej.
-                      </div>
-                    )}
-                    {day.isToday && (
-                      <div className="text-[9px] md:text-xs mt-0.5 md:mt-1 font-bold leading-tight">HOY</div>
+              return (
+                <div
+                  key={day.number}
+                  className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
+                    ? isTrainingByProfile
+                      ? 'bg-gradient-to-br from-blue-200 to-cyan-200 text-blue-900 border-blue-300 shadow-md md:scale-105'
+                      : 'bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 border-slate-300 shadow-md md:scale-105'
+                    : isTrainingByProfile
+                      ? 'bg-blue-50 border-blue-200 text-blue-700'
+                      : 'bg-muted border-border text-muted-foreground'
+                    }`}
+                >
+                  <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
+                  <div className="flex items-center justify-center">
+                    {isTrainingByProfile ? (
+                      <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-blue-800' : ''}`} />
+                    ) : (
+                      <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
                     )}
                   </div>
-                )
-              })}
-            </div>
+                  {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
+                  {day.hasPlanWorkout && day.workoutDay && (
+                    <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? (isTrainingByProfile ? 'text-blue-900' : 'text-slate-700') : isTrainingByProfile ? 'text-blue-700' : 'text-orange-600'
+                      }`}>
+                      {day.workoutDay.exercises?.length || 0} ej.
+                    </div>
+                  )}
+                  {day.isToday && (
+                    <div className="text-[9px] md:text-xs mt-0.5 md:mt-1 font-bold leading-tight">HOY</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
 
-            {/* Leyenda */}
-            <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-border flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
-                <span className="text-foreground whitespace-nowrap">Entrenamiento</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500 flex-shrink-0"></div>
-                <span className="text-foreground whitespace-nowrap">Descanso</span>
-              </div>
+          {/* Leyenda */}
+          <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-border flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
+              <span className="text-foreground whitespace-nowrap">Entrenamiento</span>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+            <div className="flex items-center gap-1">
+              <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500 flex-shrink-0"></div>
+              <span className="text-foreground whitespace-nowrap">Descanso</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tabs con detalles del plan */}
       <Tabs defaultValue="schedule" className="space-y-4 md:space-y-6">
