@@ -25,7 +25,6 @@ import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
-import { WorkoutProgramManager } from "./workout-program-manager"
 import { RestTimer } from "@/components/rest-timer"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -871,6 +870,46 @@ export function WorkoutDashboardEnhanced() {
               </div>
             </div>
           )}
+
+          <div className="mt-5 rounded-xl border border-emerald-200/70 bg-white/75 p-2.5 shadow-sm backdrop-blur dark:bg-card/80">
+            <div className="grid grid-cols-7 gap-0.5 md:gap-2">
+              {getWeeklyCalendar().map((day) => {
+                const isTrainingByProfile = day.isTraining
+
+                return (
+                  <div
+                    key={day.number}
+                    className={`min-h-[58px] rounded-lg border-2 p-1.5 text-center transition-all md:min-h-[76px] md:p-3 ${day.isToday
+                      ? isTrainingByProfile
+                        ? 'border-emerald-300 bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-900 shadow-md md:scale-105'
+                        : 'border-slate-300 bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 shadow-md md:scale-105'
+                      : isTrainingByProfile
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border-border bg-muted text-muted-foreground'
+                      }`}
+                  >
+                    <div className="mb-0.5 text-[10px] font-semibold leading-tight md:mb-1 md:text-xs">{day.name.substring(0, 3)}</div>
+                    <div className="flex items-center justify-center">
+                      {isTrainingByProfile ? (
+                        <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-emerald-800' : ''}`} />
+                      ) : (
+                        <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
+                      )}
+                    </div>
+                    {day.hasPlanWorkout && day.workoutDay && (
+                      <div className={`mt-0.5 text-[9px] font-semibold leading-tight md:mt-1 md:text-xs ${day.isToday ? (isTrainingByProfile ? 'text-emerald-900' : 'text-slate-700') : isTrainingByProfile ? 'text-emerald-700' : 'text-orange-600'
+                        }`}>
+                        {day.workoutDay.exercises?.length || 0} ej.
+                      </div>
+                    )}
+                    {day.isToday && (
+                      <div className="mt-0.5 text-[9px] font-bold leading-tight md:mt-1 md:text-xs">HOY</div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </CardHeader>
       </Card>
 
@@ -1131,79 +1170,12 @@ export function WorkoutDashboardEnhanced() {
         </Card>
       ) : null}
 
-      {/* Calendario Semanal con Días de Entrenamiento y Descanso */}
-      <Card className="bg-card/95 border-2 border-blue-100/50 rounded-2xl shadow-lg">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-blue-700">
-            <Calendar className="h-5 w-5" />
-            Calendario Semanal
-          </CardTitle>
-          <CardDescription className="text-blue-600">
-            Días de entrenamiento y descanso
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="px-2 md:px-6">
-          <div className="grid grid-cols-7 gap-0.5 md:gap-2">
-            {getWeeklyCalendar().map((day) => {
-              // Determinar el color y estilo según si es día de entrenamiento según el perfil
-              const isTrainingByProfile = day.isTraining // Basado en training_days del perfil
-
-              return (
-                <div
-                  key={day.number}
-                  className={`p-1.5 md:p-3 rounded-lg text-center border-2 transition-all ${day.isToday
-                    ? isTrainingByProfile
-                      ? 'bg-gradient-to-br from-blue-200 to-cyan-200 text-blue-900 border-blue-300 shadow-md md:scale-105'
-                      : 'bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 border-slate-300 shadow-md md:scale-105'
-                    : isTrainingByProfile
-                      ? 'bg-blue-50 border-blue-200 text-blue-700'
-                      : 'bg-muted border-border text-muted-foreground'
-                    }`}
-                >
-                  <div className="text-[10px] md:text-xs font-medium mb-0.5 md:mb-1 leading-tight">{day.name.substring(0, 3)}</div>
-                  <div className="flex items-center justify-center">
-                    {isTrainingByProfile ? (
-                      <Dumbbell className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-blue-800' : ''}`} />
-                    ) : (
-                      <Clock className={`h-3.5 w-3.5 md:h-5 md:w-5 ${day.isToday ? 'text-slate-700' : ''}`} />
-                    )}
-                  </div>
-                  {/* Mostrar ejercicios si hay plan para este día (aunque no coincida con perfil) */}
-                  {day.hasPlanWorkout && day.workoutDay && (
-                    <div className={`text-[9px] md:text-xs mt-0.5 md:mt-1 font-semibold leading-tight ${day.isToday ? (isTrainingByProfile ? 'text-blue-900' : 'text-slate-700') : isTrainingByProfile ? 'text-blue-700' : 'text-orange-600'
-                      }`}>
-                      {day.workoutDay.exercises?.length || 0} ej.
-                    </div>
-                  )}
-                  {day.isToday && (
-                    <div className="text-[9px] md:text-xs mt-0.5 md:mt-1 font-bold leading-tight">HOY</div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* Leyenda */}
-          <div className="mt-1.5 md:mt-4 pt-1.5 md:pt-4 border-t border-border flex items-center justify-center gap-1.5 md:gap-4 text-[10px] md:text-xs flex-wrap">
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-blue-400 to-cyan-500 flex-shrink-0"></div>
-              <span className="text-foreground whitespace-nowrap">Entrenamiento</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <div className="w-3 h-3 md:w-4 md:h-4 rounded bg-gradient-to-br from-gray-400 to-slate-500 flex-shrink-0"></div>
-              <span className="text-foreground whitespace-nowrap">Descanso</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
       {/* Tabs con detalles del plan */}
       <Tabs defaultValue="schedule" className="space-y-4 md:space-y-6">
-        <TabsList className="grid w-full grid-cols-5 gap-0.5 md:gap-1 h-auto md:h-10">
+        <TabsList className="grid w-full grid-cols-4 gap-0.5 md:gap-1 h-auto md:h-10">
           <TabsTrigger value="schedule" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Programa</TabsTrigger>
           <TabsTrigger value="history" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
           <TabsTrigger value="progress" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
-          <TabsTrigger value="programs" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Mis prog.</TabsTrigger>
           <TabsTrigger value="timer" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">⏱️ Timer</TabsTrigger>
         </TabsList>
 
@@ -1663,11 +1635,6 @@ export function WorkoutDashboardEnhanced() {
               </CardContent>
             </Card>
           )}
-        </TabsContent>
-
-        {/* Tab gestión de programas */}
-        <TabsContent value="programs" className="space-y-4">
-          <WorkoutProgramManager />
         </TabsContent>
 
         {/* Tab timer de descanso */}
