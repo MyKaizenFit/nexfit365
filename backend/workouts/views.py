@@ -324,11 +324,21 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
     filterset_fields = ['date', 'completed']
     ordering_fields = ['date', 'created_at']
     ordering = ['-date']
+
+    def _parse_bool(self, value):
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        return str(value).strip().lower() in {'1', 'true', 'yes', 'y', 'si', 'sí'}
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutLog.objects.none()
-        return WorkoutLog.objects.filter(user=self.request.user)
+        qs = WorkoutLog.objects.filter(user=self.request.user)
+        if self.request.query_params.get('include_drafts') not in {'1', 'true', 'True', 'yes'}:
+            qs = qs.filter(completed=True)
+        return qs
     
     def perform_create(self, serializer):
         """Crear log de entrenamiento para el usuario autenticado"""
@@ -358,6 +368,56 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['get'], url_path='today_draft')
+    def today_draft(self, request):
+        """Borrador del entrenamiento de hoy para un día concreto"""
+        from django.utils import timezone
+
+        workout_day_id = request.query_params.get('workout_day')
+        if not workout_day_id:
+            return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        log = WorkoutLog.objects.filter(
+            user=request.user,
+            workout_day_id=workout_day_id,
+            date=timezone.localdate(),
+            completed=False,
+        ).first()
+
+        return Response({'log': WorkoutLogSerializer(log).data if log else None})
+
+    @action(detail=False, methods=['post'], url_path='upsert_today')
+    def upsert_today(self, request):
+        """Crea o actualiza el log de hoy, usado como autoguardado y cierre final."""
+        from django.utils import timezone
+
+        workout_day_id = request.data.get('workout_day')
+        if not workout_day_id:
+            return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            workout_day = WorkoutDay.objects.get(id=workout_day_id)
+        except WorkoutDay.DoesNotExist:
+            return Response({'error': 'Día de entrenamiento no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        log_date = request.data.get('date') or timezone.localdate()
+        log, _created = WorkoutLog.objects.get_or_create(
+            user=request.user,
+            workout_day=workout_day,
+            date=log_date,
+            defaults={'completed': False},
+        )
+
+        for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
+            if field in request.data:
+                setattr(log, field, request.data.get(field))
+
+        if 'completed' in request.data:
+            log.completed = self._parse_bool(request.data.get('completed'))
+
+        log.save()
+        return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='check_today')
     def check_today(self, request):
@@ -461,8 +521,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         # Calcular inicio de semana (lunes)
         week_start = today - timedelta(days=today.weekday())
         
-        # Todos los logs del usuario
-        all_logs = WorkoutLog.objects.filter(user=user)
+        # Todos los logs completados del usuario; los borradores no cuentan en estadísticas.
+        all_logs = WorkoutLog.objects.filter(user=user, completed=True)
         
         # Logs de esta semana
         week_logs = all_logs.filter(

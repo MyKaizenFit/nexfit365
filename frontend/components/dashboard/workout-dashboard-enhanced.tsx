@@ -300,6 +300,8 @@ export function WorkoutDashboardEnhanced() {
     loading,
     error,
     logWorkout,
+    saveWorkoutProgress,
+    getWorkoutDraft,
     fetchWorkoutLogs,
     fetchWorkoutStatistics,
     getTodaysWorkout,
@@ -316,6 +318,7 @@ export function WorkoutDashboardEnhanced() {
 
   const [isWorkoutDialogOpen, setIsWorkoutDialogOpen] = useState(false)
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null)
+  const [selectedDraftLog, setSelectedDraftLog] = useState<any | null>(null)
   const [workoutForm, setWorkoutForm] = useState({
     duration: 45,
     notes: "",
@@ -645,7 +648,7 @@ export function WorkoutDashboardEnhanced() {
 
 
   // Iniciar entrenamiento
-  const handleStartWorkout = (day: any) => {
+  const handleStartWorkout = async (day: any) => {
     const dayId = day.id || day.day_number || 'unknown'
 
     // Verificar si ya está completado antes de permitir iniciar
@@ -659,6 +662,16 @@ export function WorkoutDashboardEnhanced() {
     }
 
     setSelectedDay(day)
+    setSelectedDraftLog(null)
+
+    try {
+      if (day?.id) {
+        const draft = await getWorkoutDraft(String(day.id))
+        setSelectedDraftLog(draft)
+      }
+    } catch {
+      setSelectedDraftLog(null)
+    }
 
     // Cargar ejercicios completados guardados desde localStorage
     const savedKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
@@ -1656,6 +1669,13 @@ export function WorkoutDashboardEnhanced() {
           onClose={() => {
             setIsWorkoutDialogOpen(false)
             setSelectedDay(null)
+            setSelectedDraftLog(null)
+          }}
+          initialDraftLog={selectedDraftLog}
+          workoutLogs={workoutLogs}
+          onSaveProgress={async (data) => {
+            if (!selectedDay?.id) return
+            await saveWorkoutProgress(String(selectedDay.id), data)
           }}
           onComplete={async (data) => {
             if (!selectedDay) return
@@ -1754,6 +1774,7 @@ export function WorkoutDashboardEnhanced() {
                 title: "¡Entrenamiento completado! 🎉",
                 description: `Duración: ${data.duration_minutes} min | Calificación: ${data.rating}/5 estrellas`,
               })
+              setSelectedDraftLog(null)
             } catch (error: any) {
               // Extraer el mensaje de error de forma segura
               let errorMessage = 'Error al guardar el entrenamiento'

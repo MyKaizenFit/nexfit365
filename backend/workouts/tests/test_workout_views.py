@@ -318,6 +318,84 @@ class TestWorkoutLogViewSet:
         response = auth_client.post('/api/workout-logs/', data, format='json')
         assert response.status_code == status.HTTP_201_CREATED
 
+    def test_upsert_today_creates_draft_and_completes_same_log(self, auth_client, user, workout_day, exercise):
+        draft_data = {
+            'workout_day': str(workout_day.id),
+            'completed': False,
+            'duration_minutes': 12,
+            'rating': 3,
+            'notes': 'Progreso parcial',
+            'exercises_data': [
+                {
+                    'exercise_id': str(exercise.id),
+                    'exercise_name': exercise.name,
+                    'sets': [
+                        {'set_number': 1, 'reps': 10, 'weight': 40, 'effort': 7},
+                    ],
+                    'completed': True,
+                }
+            ],
+        }
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', draft_data, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert WorkoutLog.objects.filter(user=user, workout_day=workout_day, date=timezone.localdate()).count() == 1
+
+        log = WorkoutLog.objects.get(user=user, workout_day=workout_day, date=timezone.localdate())
+        assert log.completed is False
+        assert log.exercises_data[0]['sets'][0]['weight'] == 40
+
+        finish_data = {
+            **draft_data,
+            'completed': True,
+            'duration_minutes': 35,
+            'rating': 5,
+            'notes': 'Completado',
+        }
+        response = auth_client.post('/api/workout-logs/upsert_today/', finish_data, format='json')
+        assert response.status_code == status.HTTP_200_OK
+        assert WorkoutLog.objects.filter(user=user, workout_day=workout_day, date=timezone.localdate()).count() == 1
+
+        log.refresh_from_db()
+        assert log.completed is True
+        assert log.duration_minutes == 35
+        assert log.rating == 5
+        assert log.notes == 'Completado'
+
+    def test_today_draft_returns_incomplete_log(self, auth_client, user, workout_day):
+        draft = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=8,
+            completed=False,
+            exercises_data=[{'exercise_id': 'demo', 'sets': [{'set_number': 1, 'reps': 12}]}],
+        )
+
+        response = auth_client.get(f'/api/workout-logs/today_draft/?workout_day={workout_day.id}')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['log']['id'] == str(draft.id)
+        assert response.data['log']['completed'] is False
+
+    def test_list_logs_hides_drafts_unless_requested(self, auth_client, user, workout_day):
+        draft = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            completed=False,
+        )
+
+        response = auth_client.get('/api/workout-logs/')
+        assert response.status_code == status.HTTP_200_OK
+        items = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        assert str(draft.id) not in [item['id'] for item in items]
+
+        response = auth_client.get('/api/workout-logs/?include_drafts=true')
+        assert response.status_code == status.HTTP_200_OK
+        items = response.data.get('results', response.data) if isinstance(response.data, dict) else response.data
+        assert str(draft.id) in [item['id'] for item in items]
+
     def test_today_action_no_log(self, auth_client):
         response = auth_client.get('/api/workout-logs/today/')
         assert response.status_code == status.HTTP_200_OK

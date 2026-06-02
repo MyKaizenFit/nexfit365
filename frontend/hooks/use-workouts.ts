@@ -375,7 +375,7 @@ export function useWorkouts() {
     }
 
     try {
-      const response = await authenticatedFetch('workout-logs/', {
+      const response = await authenticatedFetch('workout-logs/upsert_today/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -602,6 +602,56 @@ export function useWorkouts() {
     }
   }
 
+  const saveWorkoutProgress = async (
+    workoutDayId: string,
+    payload: {
+      notes?: string
+      duration_minutes?: number | null
+      rating?: number | null
+      exercises_data?: any[]
+      completed?: boolean
+    }
+  ) => {
+    if (!isAuthenticated) {
+      throw new Error('Usuario no autenticado')
+    }
+
+    const response = await authenticatedFetch('workout-logs/upsert_today/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        workout_day: workoutDayId,
+        notes: payload.notes || '',
+        completed: payload.completed ?? false,
+        date: new Date().toISOString().split('T')[0],
+        duration_minutes: payload.duration_minutes ?? null,
+        rating: payload.rating || null,
+        exercises_data: payload.exercises_data || []
+      })
+    })
+
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      throw new Error(data.detail || data.error || 'No se pudo guardar el progreso')
+    }
+    return data.log || data
+  }
+
+  const getWorkoutDraft = async (workoutDayId: string) => {
+    if (!isAuthenticated) {
+      return null
+    }
+
+    const response = await authenticatedFetch(`workout-logs/today_draft/?workout_day=${encodeURIComponent(workoutDayId)}`)
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      return null
+    }
+    return data.log || null
+  }
+
   // Obtener ejercicios por categoría
   const getExercisesByCategory = (category: string) => {
     return exercises.filter(exercise => exercise.category === category)
@@ -721,6 +771,8 @@ export function useWorkouts() {
     createProgramFromTemplate,
     activateProgram,
     createWorkoutLog,
+    saveWorkoutProgress,
+    getWorkoutDraft,
     logWorkout,  // Alias
     refreshData,
 

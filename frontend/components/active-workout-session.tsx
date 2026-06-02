@@ -268,8 +268,17 @@ function RestTimer({ defaultSeconds, onComplete, isActive, setIsActive }: RestTi
 interface ActiveWorkoutSessionProps {
   workoutDay: any
   initialSubstituteSelections?: Record<string, any>
+  initialDraftLog?: any | null
+  workoutLogs?: any[]
   isOpen: boolean
   onClose: () => void
+  onSaveProgress?: (data: {
+    duration_minutes: number
+    rating: number
+    notes: string
+    exercises_data: any[]
+    completed?: boolean
+  }) => Promise<void>
   onComplete: (data: {
     duration_minutes: number
     rating: number
@@ -318,8 +327,11 @@ function formatPlanTarget(exerciseItem: any, exercise: any): string {
 export function ActiveWorkoutSession({
   workoutDay,
   initialSubstituteSelections = {},
+  initialDraftLog = null,
+  workoutLogs = [],
   isOpen,
   onClose,
+  onSaveProgress,
   onComplete
 }: ActiveWorkoutSessionProps) {
   // Clave para localStorage basada en el día de entrenamiento
@@ -381,6 +393,7 @@ export function ActiveWorkoutSession({
   const [notes, setNotes] = useState('')
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [confirmMissingExercises, setConfirmMissingExercises] = useState(false)
   const [substituteSelections, setSubstituteSelections] = useState<Record<string, any>>(initialSubstituteSelections || {})
 
@@ -562,6 +575,129 @@ export function ActiveWorkoutSession({
     return normalized
   }
 
+  const hydrateExerciseSetsFromLog = useCallback((exercisesData: any[] = []) => {
+    const normalized: Record<string, ExerciseSetState> = {}
+    const restoredCompleted = new Set<string>()
+
+    exercises.forEach((exerciseItem: any) => {
+      const exerciseId = getExerciseStateKey(exerciseItem)
+      const baseExercise = exerciseItem?.exercise || exerciseItem
+      const baseExerciseId = String(baseExercise?.id || '')
+      const plannedSeries = normalizeSeriesCount(exerciseItem?.sets || exerciseItem?.series || baseExercise?.sets, 1)
+      const draftExercise = exercisesData.find((entry: any) => {
+        const ids = [
+          entry?.exercise_id,
+          entry?.original_exercise_id,
+          entry?.id,
+        ].filter((value) => value !== undefined && value !== null).map((value) => String(value))
+        return ids.includes(exerciseId) || ids.includes(baseExerciseId)
+      })
+
+      const draftSets = Array.isArray(draftExercise?.sets) ? draftExercise.sets : []
+      const seriesCount = normalizeSeriesCount(draftSets.length || plannedSeries, plannedSeries)
+
+      normalized[exerciseId] = {
+        seriesCount,
+        base: {},
+        overrides: draftSets.reduce((acc: Record<string, ExerciseSetEntry>, set: any, index: number) => {
+          const setNumber = normalizeSeriesCount(set?.set_number || index + 1, index + 1)
+          acc[String(setNumber)] = {
+            reps: set?.reps !== null && set?.reps !== undefined ? Number(set.reps) : undefined,
+            weight: set?.weight !== null && set?.weight !== undefined ? Number(set.weight) : undefined,
+            effort: set?.effort !== null && set?.effort !== undefined ? Number(set.effort) : undefined,
+          }
+          return acc
+        }, {}),
+      }
+
+      if (draftExercise?.completed || exerciseHasAnyData(normalized[exerciseId])) {
+        restoredCompleted.add(exerciseId)
+      }
+    })
+
+    return { sets: normalized, completed: restoredCompleted }
+  }, [exercises, getExerciseStateKey])
+
+  const buildExercisesData = useCallback(() => {
+    return exercises.map((ex: any) => {
+      const exerciseId = getExerciseStateKey(ex)
+      const baseExercise = ex.exercise || ex
+      const selectedSubstitute = substituteSelections[String(baseExercise.id)]
+      const mainExercise = selectedSubstitute || baseExercise
+      const setData = exerciseSets[exerciseId] || {
+        seriesCount: normalizeSeriesCount(ex?.sets || ex?.series || 1, 1),
+        base: {},
+        overrides: {},
+      }
+      const totalSeries = normalizeSeriesCount(setData.seriesCount, 1)
+
+      const validSets = Array.from({ length: totalSeries }, (_, index) => {
+        const setNumber = index + 1
+        const resolvedSet = getEffectiveSetData(setData, setNumber)
+
+        return {
+          set_number: setNumber,
+          completed: completedExercises.has(String(exerciseId)),
+          reps: resolvedSet.reps !== undefined ? Number(resolvedSet.reps) : null,
+          weight: resolvedSet.weight !== undefined ? Number(resolvedSet.weight) : null,
+          duration: null,
+          rest_seconds: ex.rest_seconds || ex.rest_time || null,
+          effort: resolvedSet.effort !== undefined ? Number(resolvedSet.effort) : null
+        }
+      })
+
+      const firstSet = getEffectiveSetData(setData, 1)
+
+      return {
+        exercise_id: mainExercise.id,
+        exercise_name: mainExercise.name,
+        original_exercise_id: baseExercise.id,
+        sets: validSets,
+        completed: completedExercises.has(String(exerciseId)),
+        effort: firstSet.effort !== undefined ? Number(firstSet.effort) : null
+      }
+    })
+  }, [completedExercises, exerciseSets, exercises, getExerciseStateKey, substituteSelections])
+
+  const getLastExercisePerformance = useCallback((exercise: any) => {
+    const exerciseId = String(exercise?.id || '')
+    if (!exerciseId) return null
+
+    const today = new Date().toISOString().split('T')[0]
+    for (const log of workoutLogs || []) {
+      if (!log?.completed || log?.date === today || !Array.isArray(log?.exercises_data)) continue
+      const match = log.exercises_data.find((entry: any) => {
+        const ids = [entry?.exercise_id, entry?.original_exercise_id, entry?.id]
+          .filter((value) => value !== undefined && value !== null)
+          .map((value) => String(value))
+        return ids.includes(exerciseId)
+      })
+      if (match) {
+        return { ...match, date: log.date }
+      }
+    }
+    return null
+  }, [workoutLogs])
+
+  const formatLastPerformance = (performance: any) => {
+    if (!performance || !Array.isArray(performance.sets)) return ''
+    const sets = performance.sets
+      .filter((set: any) => set?.reps || set?.weight || set?.effort)
+      .slice(0, 3)
+      .map((set: any) => {
+        const parts = []
+        if (set.reps) parts.push(`${set.reps} rep`)
+        if (set.weight) parts.push(`${set.weight} kg`)
+        if (set.effort) parts.push(`RPE ${set.effort}`)
+        return parts.join(' · ')
+      })
+      .filter(Boolean)
+
+    if (sets.length === 0) return ''
+    const extra = performance.sets.length > sets.length ? ` +${performance.sets.length - sets.length}` : ''
+    return `${performance.date}: ${sets.join(' | ')}${extra}`
+  }
+
   // Cargar estado guardado al montar el componente
   useEffect(() => {
     if (isOpen && workoutDay) {
@@ -589,9 +725,24 @@ export function ActiveWorkoutSession({
           elapsedAtRunningStartRef.current = restoredElapsed
           runningStartedAtRef.current = null
         }
+      } else if (initialDraftLog?.exercises_data?.length) {
+        const restored = hydrateExerciseSetsFromLog(initialDraftLog.exercises_data)
+        const restoredElapsed = Math.max(0, Number(initialDraftLog.duration_minutes || 0) * 60)
+        const startTime = Date.now()
+
+        setIsStarted(true)
+        setIsPaused(false)
+        setWorkoutStartTime(startTime)
+        setCompletedExercises(restored.completed)
+        setExerciseSets(restored.sets)
+        setRating(initialDraftLog.rating || 0)
+        setNotes(initialDraftLog.notes || '')
+        setElapsedSeconds(restoredElapsed)
+        elapsedAtRunningStartRef.current = restoredElapsed
+        runningStartedAtRef.current = startTime
       }
     }
-  }, [isOpen, workoutDay, loadWorkoutState, normalizeCompletedExercises])
+  }, [isOpen, workoutDay, loadWorkoutState, normalizeCompletedExercises, initialDraftLog, hydrateExerciseSetsFromLog])
 
   // Inicializar sets de ejercicios
   useEffect(() => {
@@ -713,6 +864,45 @@ export function ActiveWorkoutSession({
       document.removeEventListener('visibilitychange', persistCurrentElapsed)
     }
   }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
+
+  useEffect(() => {
+    if (!isStarted || !onSaveProgress) return
+
+    const hasProgress =
+      completedExercises.size > 0 ||
+      Object.values(exerciseSets).some((setData) => exerciseHasAnyData(setData)) ||
+      notes.trim().length > 0 ||
+      rating > 0
+
+    if (!hasProgress) return
+
+    const timeoutId = setTimeout(async () => {
+      setAutosaveState('saving')
+      try {
+        await onSaveProgress({
+          duration_minutes: Math.ceil(getCurrentElapsedSeconds() / 60),
+          rating,
+          notes,
+          exercises_data: buildExercisesData(),
+          completed: false,
+        })
+        setAutosaveState('saved')
+      } catch {
+        setAutosaveState('error')
+      }
+    }, 900)
+
+    return () => clearTimeout(timeoutId)
+  }, [
+    buildExercisesData,
+    completedExercises,
+    exerciseSets,
+    getCurrentElapsedSeconds,
+    isStarted,
+    notes,
+    onSaveProgress,
+    rating,
+  ])
 
   // Formatear tiempo
   const formatTime = useCallback((seconds: number) => {
@@ -1080,44 +1270,7 @@ export function ActiveWorkoutSession({
     const finalElapsedSeconds = syncElapsedFromClock()
 
     try {
-      const exercisesData = exercises.map((ex: any) => {
-        const exerciseId = ex.id || ex.exercise?.id
-        const baseExercise = ex.exercise || ex
-        const selectedSubstitute = substituteSelections[String(baseExercise.id)]
-        const mainExercise = selectedSubstitute || baseExercise
-        const setData = exerciseSets[exerciseId] || {
-          seriesCount: normalizeSeriesCount(ex?.sets || ex?.series || 1, 1),
-          base: {},
-          overrides: {},
-        }
-        const totalSeries = normalizeSeriesCount(setData.seriesCount, 1)
-
-        const validSets = Array.from({ length: totalSeries }, (_, index) => {
-          const setNumber = index + 1
-          const resolvedSet = getEffectiveSetData(setData, setNumber)
-
-          return {
-            set_number: setNumber,
-            completed: completedExercises.has(String(exerciseId)),
-            reps: resolvedSet.reps !== undefined ? Number(resolvedSet.reps) : null,
-            weight: resolvedSet.weight !== undefined ? Number(resolvedSet.weight) : null,
-            duration: null,
-            rest_seconds: ex.rest_seconds || ex.rest_time || null,
-            effort: resolvedSet.effort !== undefined ? Number(resolvedSet.effort) : null
-          }
-        })
-
-        const firstSet = getEffectiveSetData(setData, 1)
-
-        return {
-          exercise_id: mainExercise.id,
-          exercise_name: mainExercise.name,
-          original_exercise_id: baseExercise.id,
-          sets: validSets,
-          completed: completedExercises.has(String(exerciseId)),
-          effort: firstSet.effort !== undefined ? Number(firstSet.effort) : null
-        }
-      })
+      const exercisesData = buildExercisesData()
 
       // Log para depuración
 
@@ -1233,6 +1386,13 @@ export function ActiveWorkoutSession({
               <span>{completedExercises.size}/{exercises.length} ejercicios</span>
             </div>
             <Progress value={progressPercent} className="h-2 bg-white/30" />
+            {isStarted && autosaveState !== 'idle' && (
+              <p className="mt-1 text-xs text-purple-100">
+                {autosaveState === 'saving' && 'Guardando progreso...'}
+                {autosaveState === 'saved' && 'Progreso guardado'}
+                {autosaveState === 'error' && 'Guardado local activo. Se sincronizará al volver a conectar.'}
+              </p>
+            )}
           </div>
         </div>
 
@@ -1268,6 +1428,8 @@ export function ActiveWorkoutSession({
               const isCompleted = completedExercises.has(String(exerciseId))
               const targetRpe = getTargetRpe(exerciseItem, exercise)
               const targetLabel = formatPlanTarget(exerciseItem, exercise)
+              const lastPerformance = getLastExercisePerformance(exercise)
+              const lastPerformanceLabel = formatLastPerformance(lastPerformance)
               const exerciseSetData = exerciseSets[exerciseId] || {
                 seriesCount: normalizeSeriesCount(exerciseItem?.sets || exercise?.sets || 1, 1),
                 base: {},
@@ -1405,6 +1567,11 @@ export function ActiveWorkoutSession({
                               <span className="text-[10px] text-muted-foreground">/6</span>
                             </div>
                           </div>
+                          {lastPerformanceLabel && (
+                            <p className="mb-2 text-[11px] text-muted-foreground">
+                              Última vez: <span className="font-medium text-foreground">{lastPerformanceLabel}</span>
+                            </p>
+                          )}
 
                           {/* Filas de series */}
                           <div className="space-y-1.5">
