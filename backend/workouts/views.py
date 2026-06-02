@@ -371,19 +371,26 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], url_path='today_draft')
     def today_draft(self, request):
-        """Borrador del entrenamiento de hoy para un día concreto"""
+        """Log de hoy para un día concreto.
+
+        Por defecto devuelve solo borradores; con include_completed=true permite
+        recuperar una sesión ya completada para editarla.
+        """
         from django.utils import timezone
 
         workout_day_id = request.query_params.get('workout_day')
         if not workout_day_id:
             return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
-        log = WorkoutLog.objects.filter(
+        queryset = WorkoutLog.objects.filter(
             user=request.user,
             workout_day_id=workout_day_id,
             date=timezone.localdate(),
-            completed=False,
-        ).first()
+        )
+        if self.request.query_params.get('include_completed') not in {'1', 'true', 'True', 'yes'}:
+            queryset = queryset.filter(completed=False)
+
+        log = queryset.order_by('-completed', '-updated_at').first()
 
         return Response({'log': WorkoutLogSerializer(log).data if log else None})
 

@@ -399,6 +399,7 @@ export function ActiveWorkoutSession({
 
   const exercises = workoutDay?.exercises || []
   const hasMissingExercises = completedExercises.size < exercises.length
+  const isEditingCompletedWorkout = initialDraftLog?.completed === true
 
   const getExerciseStateKey = useCallback((exerciseItem: any) => {
     return String(exerciseItem?.id || exerciseItem?.exercise?.id || '')
@@ -726,7 +727,7 @@ export function ActiveWorkoutSession({
           runningStartedAtRef.current = null
         }
       } else if (initialDraftLog) {
-        const restored = hydrateExerciseSetsFromLog(initialDraftLog.exercises_data)
+        const restored = hydrateExerciseSetsFromLog(initialDraftLog.exercises_data || [])
         const restoredElapsed = Math.max(0, Number(initialDraftLog.duration_minutes || 0) * 60)
         const startTime = Date.now()
 
@@ -884,7 +885,7 @@ export function ActiveWorkoutSession({
           rating,
           notes,
           exercises_data: buildExercisesData(),
-          completed: false,
+          completed: isEditingCompletedWorkout,
         })
         setAutosaveState('saved')
       } catch {
@@ -898,6 +899,7 @@ export function ActiveWorkoutSession({
     completedExercises,
     exerciseSets,
     getCurrentElapsedSeconds,
+    isEditingCompletedWorkout,
     isStarted,
     notes,
     onSaveProgress,

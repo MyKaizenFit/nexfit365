@@ -650,23 +650,14 @@ export function WorkoutDashboardEnhanced() {
   // Iniciar entrenamiento
   const handleStartWorkout = async (day: any) => {
     const dayId = day.id || day.day_number || 'unknown'
-
-    // Verificar si ya está completado antes de permitir iniciar
-    if (todayWorkoutCompleted[dayId]) {
-      toast({
-        title: "Entrenamiento ya completado",
-        description: "Ya has completado este entrenamiento hoy. No puedes realizarlo de nuevo el mismo día.",
-        variant: "destructive"
-      })
-      return
-    }
+    const isCompletedToday = todayWorkoutCompleted[dayId] === true
 
     setSelectedDay(day)
     setSelectedDraftLog(null)
 
     try {
       if (day?.id) {
-        const draft = await getWorkoutDraft(String(day.id))
+        const draft = await getWorkoutDraft(String(day.id), isCompletedToday)
         setSelectedDraftLog(draft)
       }
     } catch {
@@ -1128,10 +1119,14 @@ export function WorkoutDashboardEnhanced() {
                 {/* Botón para iniciar */}
                 <div className="relative">
                   {isTodayCompleted ? (
-                    <div className="w-full bg-gradient-to-r from-green-500 to-emerald-500 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg rounded-lg flex items-center justify-center sticky bottom-0 z-20">
+                    <Button
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20"
+                      style={{ position: 'sticky', bottom: 0, left: 0, right: 0 }}
+                      onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+                    >
                       <CheckCircle2 className="h-5 w-5 mr-2" />
-                      Entrenamiento Completado Hoy
-                    </div>
+                      Editar Entrenamiento de Hoy
+                    </Button>
                   ) : (
                     <Button
                       className={`w-full ${todayTheme.button} border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20`}
@@ -1331,10 +1326,15 @@ export function WorkoutDashboardEnhanced() {
                               </div>
 
                               {todayWorkoutCompleted[planDay.id] ? (
-                                <div className="w-full bg-green-100 border border-green-300 text-green-700 text-sm py-2 rounded-md flex items-center justify-center">
+                                <Button
+                                  size="sm"
+                                  className="w-full bg-green-100 border border-green-300 text-green-700 hover:bg-green-200 text-sm"
+                                  onClick={() => handleStartWorkout(planDay)}
+                                  variant="outline"
+                                >
                                   <CheckCircle2 className="h-3 w-3 mr-1" />
-                                  Completado Hoy
-                                </div>
+                                  Editar completado
+                                </Button>
                               ) : (
                                 <Button
                                   size="sm"
@@ -1485,10 +1485,15 @@ export function WorkoutDashboardEnhanced() {
                             </div>
 
                             {todayWorkoutCompleted[day.id] ? (
-                              <div className="w-full bg-green-100 border border-green-300 text-green-700 text-sm py-2 rounded-md flex items-center justify-center">
+                              <Button
+                                size="sm"
+                                className="w-full bg-green-100 border border-green-300 text-green-700 hover:bg-green-200 text-sm"
+                                onClick={() => handleStartWorkout(day)}
+                                variant="outline"
+                              >
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Completado Hoy
-                              </div>
+                                Editar completado
+                              </Button>
                             ) : (
                               <Button
                                 size="sm"

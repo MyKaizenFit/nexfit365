@@ -639,12 +639,19 @@ export function useWorkouts() {
     return data.log || data
   }
 
-  const getWorkoutDraft = async (workoutDayId: string) => {
+  const getWorkoutDraft = async (workoutDayId: string, includeCompleted = false) => {
     if (!isAuthenticated) {
       return null
     }
 
-    const response = await authenticatedFetch(`workout-logs/today_draft/?workout_day=${encodeURIComponent(workoutDayId)}`)
+    const params = new URLSearchParams({
+      workout_day: workoutDayId,
+    })
+    if (includeCompleted) {
+      params.set('include_completed', 'true')
+    }
+
+    const response = await authenticatedFetch(`workout-logs/today_draft/?${params.toString()}`)
     const data = await response.json().catch(() => ({}))
     if (!response.ok) {
       return null

@@ -378,6 +378,30 @@ class TestWorkoutLogViewSet:
         assert response.data['log']['id'] == str(draft.id)
         assert response.data['log']['completed'] is False
 
+    def test_today_draft_can_return_completed_log_for_editing(self, auth_client, user, workout_day, exercise):
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=35,
+            completed=True,
+            exercises_data=[{
+                'exercise_id': str(exercise.id),
+                'sets': [{'set_number': 1, 'reps': 10, 'weight': 50, 'effort': 8}],
+                'completed': True,
+            }],
+        )
+
+        response = auth_client.get(f'/api/workout-logs/today_draft/?workout_day={workout_day.id}')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['log'] is None
+
+        response = auth_client.get(f'/api/workout-logs/today_draft/?workout_day={workout_day.id}&include_completed=true')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['log']['id'] == str(completed_log.id)
+        assert response.data['log']['completed'] is True
+        assert response.data['log']['exercises_data'][0]['sets'][0]['weight'] == 50
+
     def test_list_logs_hides_drafts_unless_requested(self, auth_client, user, workout_day):
         draft = WorkoutLog.objects.create(
             user=user,
