@@ -26,7 +26,7 @@ interface TodaysWorkoutCardProps {
 }
 
 export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
-  const { activeProgram, workoutLogs, createWorkoutLog, refreshData } = useWorkouts()
+  const { activeProgram, workoutLogs, createWorkoutLog, saveWorkoutProgress, refreshData } = useWorkouts()
   const { profile } = useUserProfile()
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set())
   const [workoutStarted, setWorkoutStarted] = useState(false)
@@ -113,6 +113,8 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   const isWorkoutCompletedToday = todayLogs.some(log =>
     log.completed && log.workout_day === todaysWorkout?.id
   )
+
+  const todaysWorkoutLog = todayLogs.find(log => log.workout_day === todaysWorkout?.id) || null
 
   // Calcular progreso
   const totalExercises = todaysWorkout?.exercises?.length || 0
@@ -453,15 +455,13 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
         {/* Acciones */}
         <div className="pt-4 space-y-2">
-          {!isWorkoutCompletedToday && (
-            <Button
-              onClick={() => setShowActiveWorkout(true)}
-              className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600"
-            >
-              <Play className="h-4 w-4 mr-2" />
-              Iniciar Entrenamiento Completo
-            </Button>
-          )}
+          <Button
+            onClick={() => setShowActiveWorkout(true)}
+            className="w-full bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600"
+          >
+            <Play className="h-4 w-4 mr-2" />
+            {isWorkoutCompletedToday ? 'Editar Entrenamiento de Hoy' : 'Iniciar Entrenamiento Completo'}
+          </Button>
         </div>
       </CardContent>
 
@@ -470,11 +470,28 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
         <ActiveWorkoutSession
           workoutDay={todaysWorkout}
           initialSubstituteSelections={selectedSubstitutes}
+          initialDraftLog={todaysWorkoutLog}
+          workoutLogs={workoutLogs}
           isOpen={showActiveWorkout}
           onClose={() => setShowActiveWorkout(false)}
+          onSaveProgress={async (data) => {
+            await saveWorkoutProgress(todaysWorkout.id, {
+              notes: data.notes,
+              duration_minutes: data.duration_minutes,
+              rating: data.rating,
+              exercises_data: data.exercises_data,
+              completed: data.completed ?? false,
+            })
+          }}
           onComplete={async (data) => {
             try {
-              await createWorkoutLog(todaysWorkout.id, data.notes)
+              await createWorkoutLog(
+                todaysWorkout.id,
+                data.notes,
+                data.duration_minutes,
+                data.rating,
+                data.exercises_data,
+              )
               await refreshData()
               setShowActiveWorkout(false)
             } catch (error) {

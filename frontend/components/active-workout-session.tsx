@@ -725,7 +725,7 @@ export function ActiveWorkoutSession({
           elapsedAtRunningStartRef.current = restoredElapsed
           runningStartedAtRef.current = null
         }
-      } else if (initialDraftLog?.exercises_data?.length) {
+      } else if (initialDraftLog) {
         const restored = hydrateExerciseSetsFromLog(initialDraftLog.exercises_data)
         const restoredElapsed = Math.max(0, Number(initialDraftLog.duration_minutes || 0) * 60)
         const startTime = Date.now()
