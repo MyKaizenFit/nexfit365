@@ -911,6 +911,7 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 'substitutes': {'created': 0, 'updated': 0, 'skipped': 0},
             }
             errors = []
+            warnings = []
             imported_day_ids_by_plan = {}
             imported_exercise_ids_by_day = {}
             
@@ -918,6 +919,14 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                 if value is None or str(value).strip() == '':
                     return default
                 return str(value).strip().lower() in ['sí', 'si', 'true', '1', 'yes', 'y']
+
+            allow_user_plan_updates = parse_bool(
+                request.query_params.get(
+                    'allow_user_plan_updates',
+                    request.data.get('allow_user_plan_updates'),
+                ),
+                default=False,
+            )
 
             def parse_list(value):
                 if value is None:
@@ -1055,6 +1064,18 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             def is_user_category(category, user_email=None):
                 return normalize_text(category) == 'usuario' or bool(str(user_email or '').strip())
 
+            def skip_user_plan_import(category, user_email, section, row_num, plan_name, stats_key):
+                if allow_user_plan_updates or not is_user_category(category, user_email):
+                    return False
+
+                stats[stats_key]['skipped'] += 1
+                warnings.append(
+                    f"{section} - Fila {row_num}: plan de usuario '{plan_name}' omitido "
+                    "para preservar la progresión actual. Usa allow_user_plan_updates=true "
+                    "solo si quieres modificar planes ya asignados."
+                )
+                return True
+
             def deactivate_other_active_user_plans(plan):
                 if not getattr(plan, 'user_id', None) or not getattr(plan, 'is_active', False):
                     return
@@ -1170,6 +1191,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             category = str(get_cell(row, plans_headers, ['Categoría', 'Categoria', 'categoria_plan'], fallback_index=0, default='') or '').strip()
                             user_ref = str(get_cell(row, plans_headers, ['Usuario Referencia', 'usuario_referencia'], fallback_index=1, default='') or '').strip()
                             created_by_ref = str(get_cell(row, plans_headers, ['Creado Por', 'creado_por'], fallback_index=2, default='') or '').strip()
+                            if skip_user_plan_import(category, user_ref, 'Planes', row_num, name, 'plans'):
+                                continue
 
                             plan = resolve_plan(name, category=category, user_email=user_ref)
                             category_key = normalize_text(category)
@@ -1232,6 +1255,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             name = str(get_cell(row, days_headers, ['Nombre Día', 'Nombre Dia', 'day_name'], fallback_index=4, default=f'Día {day_number}') or f'Día {day_number}').strip()
                             category = str(get_cell(row, days_headers, ['Categoría Plan', 'Categoria Plan', 'categoria_plan'], fallback_index=0, default='') or '').strip()
                             user_ref = str(get_cell(row, days_headers, ['Usuario Referencia', 'usuario_referencia'], fallback_index=1, default='') or '').strip()
+                            if skip_user_plan_import(category, user_ref, 'Días', row_num, plan_name, 'days'):
+                                continue
 
                             plan, created_from_reference = get_or_create_referenced_plan(plan_name, category=category, user_email=user_ref)
                             if created_from_reference:
@@ -1291,6 +1316,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
 
                             category = str(get_cell(row, exercises_headers, ['Categoría Plan', 'Categoria Plan', 'categoria_plan'], fallback_index=0, default='') or '').strip()
                             user_ref = str(get_cell(row, exercises_headers, ['Usuario Referencia', 'usuario_referencia'], fallback_index=1, default='') or '').strip()
+                            if skip_user_plan_import(category, user_ref, 'Ejercicios', row_num, plan_name, 'exercises'):
+                                continue
 
                             plan, created_from_reference = get_or_create_referenced_plan(plan_name, category=category, user_email=user_ref)
                             if created_from_reference:
@@ -1368,6 +1395,9 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
                             category = str(get_cell(row, summary_headers, ['Categoría Plan', 'Categoria Plan', 'Categoría', 'Categoria', 'categoria_plan'], fallback_index=0, default='') or '').strip()
                             user_ref = str(get_cell(row, summary_headers, ['Usuario Referencia', 'usuario_referencia'], fallback_index=1, default='') or '').strip()
                             created_by_ref = str(get_cell(row, summary_headers, ['Creado Por', 'creado_por'], fallback_index=2, default='') or '').strip()
+                            if skip_user_plan_import(category, user_ref, 'Resumen completo', row_num, plan_name, 'plans'):
+                                continue
+
                             user = resolve_user(user_ref)
                             if is_user_category(category, user_ref) and not user:
                                 errors.append(f"Resumen completo - Fila {row_num}: Usuario '{user_ref}' no encontrado")
@@ -1539,7 +1569,8 @@ class AdminWorkoutPlanExportImportViewSet(viewsets.GenericViewSet):
             return Response({
                 'message': 'Importación completada exitosamente',
                 'stats': stats,
-                'errors': errors if errors else None
+                'errors': errors if errors else None,
+                'warnings': warnings if warnings else None,
             })
             
         except Exception as e:

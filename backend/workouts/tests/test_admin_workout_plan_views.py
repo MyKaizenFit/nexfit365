@@ -447,7 +447,7 @@ class TestImportExcel:
         buffer.name = 'user_plan.xlsx'
 
         response = admin_client.post(
-            f'{BASE_URL}import_excel/',
+            f'{BASE_URL}import_excel/?allow_user_plan_updates=true',
             {'file': buffer},
             format='multipart',
         )
@@ -466,6 +466,85 @@ class TestImportExcel:
 
         old_plan.refresh_from_db()
         assert old_plan.is_active is False
+
+    @override_settings(SECURE_SSL_REDIRECT=False)
+    def test_import_excel_summary_preserves_user_plan_by_default(
+        self,
+        admin_client,
+        regular_user,
+        exercise,
+    ):
+        """El Excel no debe modificar planes ya asignados sin permiso explícito."""
+        import openpyxl
+
+        active_plan = WorkoutProgram.objects.create(
+            user=regular_user,
+            name='Vamos Miriam!!!',
+            is_active=True,
+            is_template=False,
+            start_date=datetime.date(2026, 5, 20),
+            days_per_week=4,
+        )
+        day = WorkoutDay.objects.create(
+            program=active_plan,
+            name='Pierna Original',
+            day_number=1,
+            day_of_week='monday',
+            order_index=1,
+        )
+        workout_exercise = WorkoutDayExercise.objects.create(
+            workout_day=day,
+            exercise=exercise,
+            sets=2,
+            reps='10',
+            rest_seconds=60,
+            order_index=1,
+        )
+
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = 'Resumen completo'
+        ws.append([
+            'Categoría Plan', 'Usuario Referencia', 'Creado Por', 'Nombre Plan',
+            'Descripción Plan', 'Dificultad', 'Objetivo', 'Ubicación',
+            'Semanas', 'Días/Semana', 'Duración Plan (min)', 'Número Día',
+            'Nombre Día', 'Día Semana', 'Descanso', 'Orden Ejercicio',
+            'Nombre Ejercicio', 'Series', 'Reps', 'Peso', 'Duración (seg)',
+            'Descanso (seg)', 'Grupo Superset', 'Sustitutos (separados por |)',
+        ])
+        ws.append([
+            'Usuario', regular_user.email, '', 'Vamos Miriam!!!',
+            'Nueva descripción', 'Principiante', 'Fitness general', 'Gimnasio',
+            8, 3, 60, 1, 'Pierna Importada', 'Lunes', 'No', 1,
+            exercise.name, 5, '8-12', '', '', 90, '', '',
+        ])
+
+        buffer = io.BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+        buffer.name = 'summary.xlsx'
+
+        response = admin_client.post(
+            f'{BASE_URL}import_excel/',
+            {'file': buffer},
+            format='multipart',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['stats']['plans']['skipped'] == 1
+        assert response.data['warnings']
+
+        active_plan.refresh_from_db()
+        day.refresh_from_db()
+        workout_exercise.refresh_from_db()
+
+        assert active_plan.is_active is True
+        assert active_plan.start_date == datetime.date(2026, 5, 20)
+        assert active_plan.days_per_week == 4
+        assert active_plan.days.count() == 1
+        assert day.name == 'Pierna Original'
+        assert workout_exercise.sets == 2
+        assert workout_exercise.reps == '10'
 
     @override_settings(SECURE_SSL_REDIRECT=False)
     def test_import_excel_summary_sheet_assigns_user_plan(
@@ -513,7 +592,7 @@ class TestImportExcel:
         buffer.name = 'summary.xlsx'
 
         response = admin_client.post(
-            f'{BASE_URL}import_excel/',
+            f'{BASE_URL}import_excel/?allow_user_plan_updates=true',
             {'file': buffer},
             format='multipart',
         )

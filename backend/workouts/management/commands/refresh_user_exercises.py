@@ -24,10 +24,16 @@ class Command(BaseCommand):
             action='store_true',
             help='Simular sin hacer cambios reales',
         )
+        parser.add_argument(
+            '--force-reset-progress',
+            action='store_true',
+            help='Permite borrar y recrear días de planes activos de usuarios. Reinicia referencias de progreso.',
+        )
 
     def handle(self, *args, **options):
         user_email = options.get('user_email')
         dry_run = options.get('dry_run', False)
+        force_reset_progress = options.get('force_reset_progress', False)
         
         self.stdout.write('=' * 70)
         self.stdout.write('🔄 REFRESCANDO EJERCICIOS DE USUARIOS')
@@ -84,6 +90,13 @@ class Command(BaseCommand):
                 
                 self.stdout.write(f'     Días existentes: {existing_days.count()}')
                 self.stdout.write(f'     Ejercicios existentes: {existing_exercises_count}')
+
+                if not force_reset_progress:
+                    self.stdout.write(self.style.WARNING(
+                        '  ⏭️  Plan activo protegido: no se borran días/ejercicios para no cortar la progresión. '
+                        'Usa --force-reset-progress si realmente necesitas regenerarlo.'
+                    ))
+                    continue
                 
                 if dry_run:
                     self.stdout.write('  🔍 DRY-RUN: Se eliminarían los días y ejercicios existentes')
@@ -150,4 +163,3 @@ class Command(BaseCommand):
         if error_count > 0:
             self.stdout.write(self.style.ERROR(f'❌ Errores: {error_count}'))
         self.stdout.write('=' * 70 + '\n')
-
