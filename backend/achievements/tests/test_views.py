@@ -1,10 +1,14 @@
 import pytest
+from datetime import timedelta
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from achievements.models import Achievement, UserAchievement
+from nutrition.models import MealLog, NutritionPlan, PlanMeal
+from workouts.models import WorkoutLog
 
 User = get_user_model()
 
@@ -226,3 +230,159 @@ class TestUserAchievementEndpoints:
 
         assert recent.status_code == status.HTTP_200_OK
         assert isinstance(recent.data, list)
+
+
+@pytest.mark.django_db
+class TestCompleteDayStreak:
+    def _create_daily_plan(self, user, target_date):
+        plan = NutritionPlan.objects.create(
+            user=user,
+            name="Plan diario",
+            description="Plan de test",
+            is_active=True,
+        )
+        meal = PlanMeal.objects.create(
+            plan=plan,
+            day_of_week=target_date.isoweekday(),
+            name="Desayuno",
+            meal_type="breakfast",
+            calories=400,
+            protein=30,
+            carbs=40,
+            fat=10,
+        )
+        return plan, meal
+
+    def _complete_meal(self, user, target_date, plan_meal):
+        return MealLog.objects.create(
+            user=user,
+            date=target_date,
+            meal_type=plan_meal.meal_type,
+            plan_meal=plan_meal,
+            completed=True,
+            calories=400,
+            protein=30,
+            carbs=40,
+            fat=10,
+            custom_description="Comida completada",
+        )
+
+    def _complete_workout(self, user, target_date):
+        return WorkoutLog.objects.create(
+            user=user,
+            date=target_date,
+            completed=True,
+            duration_minutes=45,
+        )
+
+    def test_complete_day_requires_auth(self, api_client):
+        response = api_client.post("/api/achievements/complete-day/")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_complete_day_does_not_increment_when_day_is_incomplete(self, auth_client, member_user):
+        today = timezone.localdate()
+        member_user.training_days = [today.isoweekday()]
+        member_user.save(update_fields=["training_days"])
+        self._create_daily_plan(member_user, today)
+
+        response = auth_client.post("/api/achievements/complete-day/")
+
+        member_user.refresh_from_db()
+        assert response.status_code == status.HTTP_409_CONFLICT
+        assert response.data["completed"] is False
+        assert response.data["status"]["is_complete"] is False
+        assert member_user.daily_streak == 0
+        assert member_user.last_completed_day is None
+
+    def test_complete_day_increments_streak_and_is_idempotent(self, auth_client, member_user):
+        today = timezone.localdate()
+        member_user.training_days = [today.isoweekday()]
+        member_user.save(update_fields=["training_days"])
+        _, meal = self._create_daily_plan(member_user, today)
+        self._complete_meal(member_user, today, meal)
+        self._complete_workout(member_user, today)
+
+        first_response = auth_client.post("/api/achievements/complete-day/")
+        second_response = auth_client.post("/api/achievements/complete-day/")
+
+        member_user.refresh_from_db()
+        assert first_response.status_code == status.HTTP_200_OK
+        assert first_response.data["daily_streak"] == 1
+        assert second_response.status_code == status.HTTP_200_OK
+        assert second_response.data["already_completed"] is True
+        assert member_user.daily_streak == 1
+        assert member_user.longest_streak == 1
+        assert member_user.last_completed_day == today
+
+    def test_complete_day_continues_consecutive_streak(self, auth_client, member_user):
+        today = timezone.localdate()
+        member_user.training_days = [today.isoweekday()]
+        member_user.daily_streak = 2
+        member_user.longest_streak = 2
+        member_user.last_completed_day = today - timedelta(days=1)
+        member_user.save(update_fields=["training_days", "daily_streak", "longest_streak", "last_completed_day"])
+        _, meal = self._create_daily_plan(member_user, today)
+        self._complete_meal(member_user, today, meal)
+        self._complete_workout(member_user, today)
+
+        response = auth_client.post("/api/achievements/complete-day/")
+
+        member_user.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert member_user.daily_streak == 3
+        assert member_user.longest_streak == 3
+
+    def test_complete_day_resets_current_streak_after_gap_but_preserves_longest(self, auth_client, member_user):
+        today = timezone.localdate()
+        member_user.training_days = [today.isoweekday()]
+        member_user.daily_streak = 5
+        member_user.longest_streak = 5
+        member_user.last_completed_day = today - timedelta(days=2)
+        member_user.save(update_fields=["training_days", "daily_streak", "longest_streak", "last_completed_day"])
+        _, meal = self._create_daily_plan(member_user, today)
+        self._complete_meal(member_user, today, meal)
+        self._complete_workout(member_user, today)
+
+        response = auth_client.post("/api/achievements/complete-day/")
+
+        member_user.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert member_user.daily_streak == 1
+        assert member_user.longest_streak == 5
+
+    def test_complete_day_on_rest_day_requires_only_nutrition(self, auth_client, member_user):
+        today = timezone.localdate()
+        rest_day = 7 if today.isoweekday() != 7 else 6
+        member_user.training_days = [rest_day]
+        member_user.save(update_fields=["training_days"])
+        _, meal = self._create_daily_plan(member_user, today)
+        self._complete_meal(member_user, today, meal)
+
+        response = auth_client.post("/api/achievements/complete-day/")
+
+        member_user.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["status"]["workout_required"] is False
+        assert member_user.daily_streak == 1
+
+    def test_complete_day_unlocks_existing_streak_achievement(self, auth_client, member_user):
+        today = timezone.localdate()
+        Achievement.objects.create(
+            key="racha_1",
+            name="Racha 1",
+            description="Completa una racha",
+            category="streak",
+            points=10,
+            criteria={"type": "streak", "days": 1},
+            is_active=True,
+        )
+        member_user.training_days = [today.isoweekday()]
+        member_user.save(update_fields=["training_days"])
+        _, meal = self._create_daily_plan(member_user, today)
+        self._complete_meal(member_user, today, meal)
+        self._complete_workout(member_user, today)
+
+        response = auth_client.post("/api/achievements/complete-day/")
+
+        assert response.status_code == status.HTTP_200_OK
+        assert UserAchievement.objects.filter(user=member_user, achievement__key="racha_1").exists()

@@ -4,10 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from django_filters.rest_framework import DjangoFilterBackend
-from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count, Sum
-from django.utils import timezone
-from datetime import date, timedelta
+from django.db.models import Count, Sum
 
 from .models import Achievement, UserAchievement
 from .serializers import (
@@ -15,9 +12,8 @@ from .serializers import (
     UserAchievementCreateSerializer, AchievementProgressSerializer,
     AchievementSummarySerializer
 )
-from .permissions import (
-    AchievementPermission, UserAchievementPermission, AchievementProgressPermission
-)
+from .permissions import AchievementPermission, UserAchievementPermission
+from .services import calculate_streak_progress, complete_user_day
 from accounts.models import CustomUser
 
 
@@ -146,19 +142,19 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
             is_unlocked = achievement.id in unlocked_achievement_ids
             user_achievement = user_achievements.filter(achievement=achievement).first()
             
-            # Calcular progreso (esto dependería de la lógica específica de cada logro)
-            # Por ahora, un ejemplo simple
             current_value = 0
             target_value = 1
             
             if is_unlocked:
                 current_value = target_value
                 progress_percentage = 100.0
+            elif achievement.category == "streak":
+                user = CustomUser.objects.filter(id=user_id).first()
+                if user:
+                    current_value, target_value, progress_percentage = calculate_streak_progress(user, achievement)
+                else:
+                    progress_percentage = 0.0
             else:
-                # Aquí implementarías la lógica para calcular el progreso real
-                # Por ejemplo, para un logro de "7 días seguidos":
-                # current_value = days_streak
-                # target_value = 7
                 progress_percentage = min((current_value / target_value) * 100, 99.9)
             
             progress_data.append({
@@ -225,41 +221,10 @@ def complete_day(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    today = date.today()
-    
-    # Verificar si ya se completó hoy
-    if user.last_completed_day == today:
-        return Response({
-            "daily_streak": user.daily_streak,
-            "longest_streak": user.longest_streak,
-            "message": "El día ya fue marcado como completo"
-        })
-    
-    # Actualizar la racha
-    if user.last_completed_day:
-        days_diff = (today - user.last_completed_day).days
-        
-        if days_diff == 1:
-            # Día consecutivo: incrementar racha
-            user.daily_streak += 1
-        elif days_diff > 1:
-            # Se rompió la racha: reiniciar
-            user.daily_streak = 1
-        # Si days_diff == 0, ya fue marcado hoy (verificado arriba)
-    else:
-        # Primera vez: iniciar racha
-        user.daily_streak = 1
-    
-    # Actualizar racha más larga
-    if user.daily_streak > user.longest_streak:
-        user.longest_streak = user.daily_streak
-    
-    # Actualizar última fecha completada
-    user.last_completed_day = today
-    user.save(update_fields=['daily_streak', 'longest_streak', 'last_completed_day'])
-    
-    return Response({
-        "daily_streak": user.daily_streak,
-        "longest_streak": user.longest_streak,
-        "message": f"Día completo registrado. Racha actual: {user.daily_streak} días"
-    }) 
+    try:
+        result = complete_user_day(user)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+    response_status = status.HTTP_200_OK if result.get("completed") else status.HTTP_409_CONFLICT
+    return Response(result, status=response_status)
