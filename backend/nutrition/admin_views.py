@@ -11,6 +11,7 @@ from django.contrib.auth import get_user_model
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 import requests
@@ -1230,6 +1231,27 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         except (TypeError, ValueError):
             return None
 
+    def _to_decimal(self, value, default='0'):
+        try:
+            if value is None or value == '':
+                value = default
+            return Decimal(str(value))
+        except Exception:
+            return Decimal(str(default))
+
+    def _to_bool(self, value, default=False):
+        if value is None or value == '':
+            return default
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() in {'1', 'true', 'yes', 'y', 'si', 'sí'}
+
+    def _scale_decimal(self, value, multiplier):
+        return (Decimal(str(value or 0)) * multiplier).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+
+    def _scale_int(self, value, multiplier):
+        return int((Decimal(str(value or 0)) * multiplier).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
         Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
@@ -1322,6 +1344,132 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 carbs=round(computed['carbs'], 2),
                 fat=round(computed['fat'], 2),
             )
+
+    @transaction.atomic
+    @action(detail=True, methods=['post'], url_path='generate-weekly-progression')
+    def generate_weekly_progression(self, request, pk=None):
+        """
+        Genera una semana completa a partir de un día base del plan.
+        Escala comidas y opciones de receta por día para crear progresión semanal.
+        """
+        plan = self.get_object()
+        base_day = self._to_int(request.data.get('base_day')) or 1
+        if base_day < 1 or base_day > 7:
+            return Response({'detail': 'base_day debe estar entre 1 y 7.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_days = request.data.get('target_days') or [1, 2, 3, 4, 5, 6, 7]
+        if not isinstance(target_days, list):
+            target_days = [target_days]
+        normalized_target_days = []
+        for day in target_days:
+            day_int = self._to_int(day)
+            if day_int and 1 <= day_int <= 7:
+                normalized_target_days.append(day_int)
+        target_days = sorted(set(normalized_target_days))
+        if not target_days:
+            return Response({'detail': 'target_days debe incluir al menos un día entre 1 y 7.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        step_percent = self._to_decimal(request.data.get('step_percent'), default='0')
+        mode = str(request.data.get('mode') or 'increase').strip().lower()
+        overwrite = self._to_bool(request.data.get('overwrite'), default=False)
+        preserve_base_day = self._to_bool(request.data.get('preserve_base_day'), default=True)
+
+        if mode not in {'increase', 'decrease'}:
+            return Response({'detail': 'mode debe ser increase o decrease.'}, status=status.HTTP_400_BAD_REQUEST)
+        if step_percent < Decimal('0') or step_percent > Decimal('25'):
+            return Response({'detail': 'step_percent debe estar entre 0 y 25.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        base_meals = list(
+            plan.meals.filter(day_of_week=base_day)
+            .prefetch_related('suggested_recipes', 'meal_recipes__recipe')
+            .order_by('order_index', 'created_at')
+        )
+        if not base_meals:
+            base_meals = list(
+                plan.meals.filter(day_of_week__isnull=True)
+                .prefetch_related('suggested_recipes', 'meal_recipes__recipe')
+                .order_by('order_index', 'created_at')
+            )
+
+        if not base_meals:
+            return Response(
+                {'detail': 'El plan no tiene comidas en el día base ni comidas generales para copiar.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        created_meals = 0
+        updated_days = []
+
+        for day in target_days:
+            if day == base_day and preserve_base_day:
+                continue
+            if plan.meals.filter(day_of_week=day).exists():
+                if not overwrite:
+                    continue
+                plan.meals.filter(day_of_week=day).delete()
+
+            distance = day - base_day
+            direction = Decimal('-1') if mode == 'decrease' else Decimal('1')
+            multiplier = Decimal('1') + (direction * step_percent * Decimal(distance) / Decimal('100'))
+            if multiplier < Decimal('0.10'):
+                multiplier = Decimal('0.10')
+
+            for base_meal in base_meals:
+                meal = PlanMeal.objects.create(
+                    plan=plan,
+                    day_of_week=day,
+                    name=base_meal.name,
+                    meal_type=base_meal.meal_type,
+                    time=base_meal.time,
+                    calories=self._scale_int(base_meal.calories, multiplier),
+                    protein=self._scale_decimal(base_meal.protein, multiplier),
+                    carbs=self._scale_decimal(base_meal.carbs, multiplier),
+                    fat=self._scale_decimal(base_meal.fat, multiplier),
+                    description=base_meal.description,
+                    order_index=base_meal.order_index,
+                )
+                meal.suggested_recipes.set(base_meal.suggested_recipes.all())
+
+                for meal_recipe in base_meal.meal_recipes.all():
+                    custom_calories = (
+                        self._scale_int(meal_recipe.custom_calories, multiplier)
+                        if meal_recipe.custom_calories is not None
+                        else None
+                    )
+                    PlanMealRecipe.objects.create(
+                        meal=meal,
+                        recipe=meal_recipe.recipe,
+                        servings=self._scale_decimal(meal_recipe.servings, multiplier),
+                        custom_calories=custom_calories,
+                        custom_protein=(
+                            self._scale_decimal(meal_recipe.custom_protein, multiplier)
+                            if meal_recipe.custom_protein is not None
+                            else None
+                        ),
+                        custom_carbs=(
+                            self._scale_decimal(meal_recipe.custom_carbs, multiplier)
+                            if meal_recipe.custom_carbs is not None
+                            else None
+                        ),
+                        custom_fat=(
+                            self._scale_decimal(meal_recipe.custom_fat, multiplier)
+                            if meal_recipe.custom_fat is not None
+                            else None
+                        ),
+                        display_order=meal_recipe.display_order,
+                    )
+                created_meals += 1
+            updated_days.append(day)
+
+        self._recompute_plan_macros(plan)
+        plan.refresh_from_db()
+
+        return Response({
+            'message': 'Progresión semanal generada',
+            'created_meals': created_meals,
+            'updated_days': updated_days,
+            'daily_calories': plan.daily_calories,
+        }, status=status.HTTP_200_OK)
 
     @transaction.atomic
     def create(self, request, *args, **kwargs):
@@ -4468,4 +4616,3 @@ class AdminEquivalenceCategoryViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
-

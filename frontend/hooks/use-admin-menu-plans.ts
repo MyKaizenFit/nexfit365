@@ -46,6 +46,15 @@ export interface MenuPlanFilters {
   ordering?: string
 }
 
+export interface WeeklyProgressionPayload {
+  base_day: number
+  step_percent: number
+  mode: "increase" | "decrease"
+  overwrite: boolean
+  preserve_base_day?: boolean
+  target_days?: number[]
+}
+
 function percentsToGrams(dailyCalories: number, percents: { protein: number; carbs: number; fat: number }) {
   const cals = Number(dailyCalories) || 0
   return {
@@ -252,6 +261,30 @@ export function useAdminMenuPlans() {
     return await updatePlan(planId, { is_active })
   }, [updatePlan])
 
+  const generateWeeklyProgression = useCallback(async (planId: string, payload: WeeklyProgressionPayload) => {
+    let headers = await getAuthHeaders()
+    let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/generate-weekly-progression/`), {
+      method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+    if (res.status === 401) {
+      const newHeaders = await handle401AndRefresh(getAuthHeaders)
+      if (!newHeaders) throw new Error("Sesión expirada")
+      headers = newHeaders
+      res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/generate-weekly-progression/`), {
+        method: "POST",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    }
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      throw new Error(data.detail || data.error || `Error ${res.status}`)
+    }
+    return data
+  }, [getAuthHeaders])
+
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
@@ -274,6 +307,6 @@ export function useAdminMenuPlans() {
     updatePlan,
     deletePlan,
     toggleActive,
+    generateWeeklyProgression,
   }
 }
-

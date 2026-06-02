@@ -388,6 +388,87 @@ class TestAdminNutritionPlanViewSet:
         meals = list(nutrition_plan.meals.order_by('day_of_week', 'order_index').values_list('name', 'order_index'))
         assert meals == [('Comida mañana', 1), ('Comida tarde', 2)]
 
+    def test_generate_weekly_progression_from_base_day(self, admin_client, nutrition_plan, recipe):
+        base_meal = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            day_of_week=1,
+            name='Comida principal',
+            meal_type='lunch',
+            order_index=1,
+            calories=500,
+            protein=Decimal('30.0'),
+            carbs=Decimal('45.0'),
+            fat=Decimal('15.0'),
+        )
+        base_meal.suggested_recipes.add(recipe)
+        PlanMealRecipe.objects.create(
+            meal=base_meal,
+            recipe=recipe,
+            servings=Decimal('1.00'),
+            custom_calories=500,
+            custom_protein=Decimal('30.0'),
+            custom_carbs=Decimal('45.0'),
+            custom_fat=Decimal('15.0'),
+        )
+
+        response = admin_client.post(
+            f'{PLANS_URL}{nutrition_plan.id}/generate-weekly-progression/',
+            {
+                'base_day': 1,
+                'step_percent': 2,
+                'mode': 'increase',
+                'overwrite': False,
+                'preserve_base_day': True,
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['created_meals'] == 6
+        assert PlanMeal.objects.filter(plan=nutrition_plan).count() == 7
+
+        friday_meal = PlanMeal.objects.get(plan=nutrition_plan, day_of_week=5)
+        friday_recipe = friday_meal.meal_recipes.get(recipe=recipe)
+
+        assert friday_meal.calories == 540
+        assert friday_meal.protein == Decimal('32.40')
+        assert friday_recipe.custom_calories == 540
+        assert friday_recipe.servings == Decimal('1.08')
+
+    def test_generate_weekly_progression_does_not_overwrite_without_flag(self, admin_client, nutrition_plan):
+        PlanMeal.objects.create(
+            plan=nutrition_plan,
+            day_of_week=1,
+            name='Base',
+            meal_type='breakfast',
+            order_index=1,
+            calories=400,
+        )
+        existing = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            day_of_week=2,
+            name='Martes existente',
+            meal_type='lunch',
+            order_index=1,
+            calories=900,
+        )
+
+        response = admin_client.post(
+            f'{PLANS_URL}{nutrition_plan.id}/generate-weekly-progression/',
+            {
+                'base_day': 1,
+                'step_percent': 5,
+                'mode': 'decrease',
+                'overwrite': False,
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        existing.refresh_from_db()
+        assert existing.name == 'Martes existente'
+        assert existing.calories == 900
+
     def test_delete_plan(self, admin_client, nutrition_plan):
         response = admin_client.delete(f'{PLANS_URL}{nutrition_plan.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT

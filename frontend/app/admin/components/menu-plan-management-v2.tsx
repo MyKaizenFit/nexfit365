@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Activity, AlertTriangle, ArrowDown, ArrowUp, CheckCircle, Copy, Download, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, Upload, User, XCircle } from "lucide-react"
+import { Activity, AlertTriangle, ArrowDown, ArrowUp, CalendarDays, CheckCircle, Copy, Download, Flame, Loader2, MoreHorizontal, Pencil, Plus, Search, Trash2, TrendingUp, Upload, User, XCircle } from "lucide-react"
 import { NutritionTemplatePlanEditor } from "./nutrition-template-plan-editor"
 import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-plans"
 import { useAuth } from "@/contexts/auth-context"
@@ -216,7 +216,7 @@ function getNextCopyName(baseName: string, existingNames: string[]) {
 }
 
 export function MenuPlanManagementV2() {
-  const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, updatePlan, deletePlan, toggleActive } = useAdminMenuPlans()
+  const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, updatePlan, deletePlan, toggleActive, generateWeeklyProgression } = useAdminMenuPlans()
   const { getAuthHeaders } = useAuth()
 
   // Filtros (similar a Planes de Entrenamiento)
@@ -258,6 +258,17 @@ export function MenuPlanManagementV2() {
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null)
   const [duplicateSourceId, setDuplicateSourceId] = useState<string | null>(null)
   const [duplicateUserId, setDuplicateUserId] = useState<string>("none")
+
+  // Progresión semanal
+  const [progressionDialogOpen, setProgressionDialogOpen] = useState(false)
+  const [progressionPlanId, setProgressionPlanId] = useState<string | null>(null)
+  const [progressionGenerating, setProgressionGenerating] = useState(false)
+  const [progressionForm, setProgressionForm] = useState({
+    base_day: "1",
+    step_percent: "2",
+    mode: "increase" as "increase" | "decrease",
+    overwrite: false,
+  })
 
     // Export / Import
     const [importDialogOpen, setImportDialogOpen] = useState(false)
@@ -568,6 +579,48 @@ export function MenuPlanManagementV2() {
     setDuplicateSourceId(planId)
     setDuplicateUserId("none")
     setShowDuplicateDialog(true)
+  }
+
+  const openProgressionDialog = (planId: string) => {
+    setProgressionPlanId(planId)
+    setProgressionForm({
+      base_day: "1",
+      step_percent: "2",
+      mode: "increase",
+      overwrite: false,
+    })
+    setProgressionDialogOpen(true)
+  }
+
+  const handleGenerateWeeklyProgression = async () => {
+    if (!progressionPlanId) return
+    const step = Number(progressionForm.step_percent)
+    if (!Number.isFinite(step) || step < 0 || step > 25) {
+      toast({ title: "Valor no válido", description: "Usa una progresión entre 0 y 25%.", variant: "destructive" })
+      return
+    }
+
+    try {
+      setProgressionGenerating(true)
+      const result = await generateWeeklyProgression(progressionPlanId, {
+        base_day: Number(progressionForm.base_day),
+        step_percent: step,
+        mode: progressionForm.mode,
+        overwrite: progressionForm.overwrite,
+        preserve_base_day: true,
+        target_days: [1, 2, 3, 4, 5, 6, 7],
+      })
+      toast({
+        title: "Progresión generada",
+        description: `${result.created_meals ?? 0} comidas creadas en ${Array.isArray(result.updated_days) ? result.updated_days.length : 0} días.`,
+      })
+      setProgressionDialogOpen(false)
+      await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
+    } catch (e) {
+      toast({ title: "No se pudo generar", description: e instanceof Error ? e.message : "Error generando progresión", variant: "destructive" })
+    } finally {
+      setProgressionGenerating(false)
+    }
   }
 
   const handleDuplicateToUser = async () => {
@@ -1264,6 +1317,9 @@ export function MenuPlanManagementV2() {
                               <DropdownMenuItem onClick={() => handleCopyPlan(p.id)} disabled={copyingPlanId !== null}>
                                 {copyingPlanId === p.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />} Copiar plan
                               </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openProgressionDialog(p.id)}>
+                                <TrendingUp className="h-4 w-4 mr-2" /> Generar progresión semanal
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
                               </DropdownMenuItem>
@@ -1383,6 +1439,9 @@ export function MenuPlanManagementV2() {
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleCopyPlan(p.id)} disabled={copyingPlanId !== null}>
                                 {copyingPlanId === p.id ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />} Copiar plan
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openProgressionDialog(p.id)}>
+                                <TrendingUp className="h-4 w-4 mr-2" /> Generar progresión semanal
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openDuplicateDialog(p.id)}>
                                 <Copy className="h-4 w-4 mr-2" /> Duplicar a usuario…
@@ -2017,6 +2076,79 @@ export function MenuPlanManagementV2() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRecipeSelector(false)}>Cerrar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generar progresión semanal */}
+      <Dialog open={progressionDialogOpen} onOpenChange={setProgressionDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Generar progresión semanal</DialogTitle>
+            <DialogDescription>Completa los días de la semana copiando un día base y ajustando porciones.</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <FormLabel>Día base</FormLabel>
+                <Select value={progressionForm.base_day} onValueChange={(v) => setProgressionForm((prev) => ({ ...prev, base_day: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => (
+                      <SelectItem key={day} value={day}>{DAY_LABELS[day]}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <FormLabel>Modo</FormLabel>
+                <Select value={progressionForm.mode} onValueChange={(v) => setProgressionForm((prev) => ({ ...prev, mode: v as "increase" | "decrease" }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="increase">Subir</SelectItem>
+                    <SelectItem value="decrease">Bajar</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <FormLabel>Progresión por día (%)</FormLabel>
+              <Input
+                type="number"
+                min={0}
+                max={25}
+                step={0.5}
+                value={progressionForm.step_percent}
+                onChange={(e) => setProgressionForm((prev) => ({ ...prev, step_percent: e.target.value }))}
+              />
+            </div>
+
+            <label className="flex items-start gap-2 rounded-md border p-3 text-sm">
+              <Checkbox
+                checked={progressionForm.overwrite}
+                onCheckedChange={(v) => setProgressionForm((prev) => ({ ...prev, overwrite: Boolean(v) }))}
+              />
+              <span>Sobrescribir días que ya tienen comidas</span>
+            </label>
+
+            <div className="rounded-md bg-muted/50 p-3 text-xs text-muted-foreground">
+              <CalendarDays className="mb-2 h-4 w-4" />
+              Con 2% y modo subir, cada día posterior al base tendrá porciones un 2% mayores que el anterior.
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProgressionDialogOpen(false)} disabled={progressionGenerating}>Cancelar</Button>
+            <Button onClick={handleGenerateWeeklyProgression} disabled={progressionGenerating}>
+              {progressionGenerating ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Generando...</> : "Generar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
