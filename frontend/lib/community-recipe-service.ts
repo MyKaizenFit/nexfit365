@@ -20,7 +20,7 @@ export interface CommunityRecipePost {
   post_type: CommunityPostType
   template_data: Record<string, string>
   tags: string[]
-  expires_at: string
+  expires_at: string | null
   likes_count: number
   comments_count: number
   liked_by_me: boolean

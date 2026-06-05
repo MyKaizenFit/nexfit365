@@ -50,8 +50,8 @@ class CommunityRecipeCommentInline(admin.TabularInline):
 
 @admin.register(CommunityRecipePost)
 class CommunityRecipePostAdmin(admin.ModelAdmin):
-    list_display = ['title', 'post_type', 'author', 'created_at', 'expires_at']
-    list_filter = ['post_type', 'created_at', 'expires_at']
+    list_display = ['title', 'post_type', 'author', 'created_at']
+    list_filter = ['post_type', 'created_at']
     search_fields = ['title', 'description', 'author__email']
     readonly_fields = ['created_at', 'updated_at']
     inlines = [CommunityRecipeCommentInline]

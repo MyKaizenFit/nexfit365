@@ -44,7 +44,7 @@ class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'description', 'ingredients', 'instructions', 'author__email']
     filterset_fields = ['post_type']
-    ordering_fields = ['created_at', 'expires_at']
+    ordering_fields = ['created_at']
     ordering = ['-created_at']
 
     def get_queryset(self):
@@ -60,11 +60,6 @@ class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
             )
             .order_by('-created_at')
         )
-        status_filter = self.request.query_params.get('status')
-        if status_filter == 'active':
-            queryset = queryset.filter(expires_at__gt=timezone.now())
-        elif status_filter == 'expired':
-            queryset = queryset.filter(expires_at__lte=timezone.now())
         return queryset
 
     @action(detail=True, methods=['post'], url_path='delete-with-reason')

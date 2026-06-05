@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
 import { communityRecipeService, CommunityRecipePost } from "@/lib/community-recipe-service"
@@ -24,7 +23,6 @@ const formatDate = (value: string) => new Date(value).toLocaleString("es-ES", {
 export function CommunityRecipesManagement() {
   const [posts, setPosts] = useState<CommunityRecipePost[]>([])
   const [loading, setLoading] = useState(true)
-  const [status, setStatus] = useState("active")
   const [search, setSearch] = useState("")
   const [selectedPost, setSelectedPost] = useState<CommunityRecipePost | null>(null)
   const [postToDelete, setPostToDelete] = useState<CommunityRecipePost | null>(null)
@@ -35,7 +33,7 @@ export function CommunityRecipesManagement() {
   const loadPosts = async () => {
     try {
       setLoading(true)
-      setPosts(await communityRecipeService.adminList(status))
+      setPosts(await communityRecipeService.adminList())
     } catch (error) {
       toast({
         title: "Error al cargar publicaciones",
@@ -49,7 +47,7 @@ export function CommunityRecipesManagement() {
 
   useEffect(() => {
     loadPosts()
-  }, [status])
+  }, [])
 
   const filteredPosts = posts.filter((post) => {
     const haystack = `${post.title} ${post.description} ${post.author_name} ${post.author_email || ""}`.toLowerCase()
@@ -120,16 +118,6 @@ export function CommunityRecipesManagement() {
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por publicación o usuario" className="pl-9" />
             </div>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Activas</SelectItem>
-                <SelectItem value="expired">Expiradas</SelectItem>
-                <SelectItem value="all">Todas</SelectItem>
-              </SelectContent>
-            </Select>
             <Button variant="outline" onClick={loadPosts}>Actualizar</Button>
           </div>
 
@@ -151,7 +139,7 @@ export function CommunityRecipesManagement() {
                       <h3 className="font-semibold">{post.title}</h3>
                       <Badge variant="outline" className="mt-1">{post.post_type}</Badge>
                       <p className="text-xs text-muted-foreground">{post.author_name} · {post.author_email}</p>
-                      <p className="text-xs text-muted-foreground">Publicada {formatDate(post.created_at)} · Expira {formatDate(post.expires_at)}</p>
+                      <p className="text-xs text-muted-foreground">Publicada {formatDate(post.created_at)}</p>
                     </div>
                     <p className="line-clamp-2 text-sm text-muted-foreground">{post.description || "Sin descripción"}</p>
                     <div className="flex flex-wrap items-center gap-2">

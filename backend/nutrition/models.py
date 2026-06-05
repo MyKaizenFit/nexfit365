@@ -1752,7 +1752,7 @@ class NutritionPlanHistory(TimeStampedModel):
 # =============================================================================
 
 class CommunityRecipePost(TimeStampedModel):
-    """Publicación temporal de Team SK.
+    """Publicación de Team SK.
 
     El nombre del modelo se mantiene por compatibilidad con los endpoints y
     datos existentes; las recetas son ahora uno de varios tipos de publicación.
@@ -1786,7 +1786,7 @@ class CommunityRecipePost(TimeStampedModel):
     template_data = models.JSONField(default=dict, blank=True)
     tags = models.JSONField(default=list, blank=True)
     photo = models.ImageField(upload_to=community_recipe_image_path, null=True, blank=True)
-    expires_at = models.DateTimeField(db_index=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     class Meta:
         ordering = ['-created_at']
@@ -1801,11 +1801,6 @@ class CommunityRecipePost(TimeStampedModel):
     def __str__(self):
         return f"{self.title} - {self.author.email}"
 
-    def save(self, *args, **kwargs):
-        if not self.expires_at:
-            self.expires_at = timezone.now() + timedelta(days=7)
-        super().save(*args, **kwargs)
-
     def delete(self, *args, **kwargs):
         photo = self.photo
         super().delete(*args, **kwargs)
@@ -1814,7 +1809,7 @@ class CommunityRecipePost(TimeStampedModel):
 
     @property
     def is_expired(self):
-        return timezone.now() >= self.expires_at
+        return False
 
 
 class CommunityRecipeComment(TimeStampedModel):

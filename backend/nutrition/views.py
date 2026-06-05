@@ -3136,13 +3136,11 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         from django.db.models import Count, Exists, OuterRef
         user = self.request.user
-        now = timezone.now()
         liked_subquery = CommunityRecipeLike.objects.filter(
             post=OuterRef('pk'), user=user
         )
         queryset = (
             CommunityRecipePost.objects
-            .filter(expires_at__gt=now)
             .annotate(
                 likes_count=Count('likes', distinct=True),
                 comments_count=Count('comments', distinct=True),
