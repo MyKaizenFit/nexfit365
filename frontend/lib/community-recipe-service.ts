@@ -17,6 +17,9 @@ export interface CommunityRecipePost {
   ingredients: string
   instructions: string
   photo_url: string
+  post_type: CommunityPostType
+  template_data: Record<string, string>
+  tags: string[]
   expires_at: string
   likes_count: number
   comments_count: number
@@ -25,6 +28,19 @@ export interface CommunityRecipePost {
   can_edit: boolean
   comments: CommunityRecipeComment[]
   created_at: string
+}
+
+export type CommunityPostType = "general" | "recipe" | "exercise" | "workout" | "progress" | "tip" | "question"
+
+export interface CommunityPostPayload {
+  title: string
+  description: string
+  post_type: CommunityPostType
+  ingredients?: string
+  instructions?: string
+  template_data?: Record<string, string>
+  tags?: string[]
+  photo?: File | null
 }
 
 const normalizeList = async (response: Response): Promise<CommunityRecipePost[]> => {
@@ -37,23 +53,21 @@ const normalizeList = async (response: Response): Promise<CommunityRecipePost[]>
 }
 
 export const communityRecipeService = {
-  async list(): Promise<CommunityRecipePost[]> {
-    return normalizeList(await authenticatedFetch("nutrition/community-recipes/"))
+  async list(postType?: CommunityPostType): Promise<CommunityRecipePost[]> {
+    const suffix = postType ? `?post_type=${postType}` : ""
+    return normalizeList(await authenticatedFetch(`nutrition/community-recipes/${suffix}`))
   },
 
-  async create(payload: {
-    title: string
-    description: string
-    ingredients: string
-    instructions: string
-    photo: File
-  }): Promise<CommunityRecipePost> {
+  async create(payload: CommunityPostPayload): Promise<CommunityRecipePost> {
     const formData = new FormData()
     formData.append("title", payload.title)
     formData.append("description", payload.description)
-    formData.append("ingredients", payload.ingredients)
-    formData.append("instructions", payload.instructions)
-    formData.append("photo", payload.photo)
+    formData.append("post_type", payload.post_type)
+    formData.append("ingredients", payload.ingredients || "")
+    formData.append("instructions", payload.instructions || "")
+    formData.append("template_data", JSON.stringify(payload.template_data || {}))
+    formData.append("tags", JSON.stringify(payload.tags || []))
+    if (payload.photo) formData.append("photo", payload.photo)
 
     const response = await authenticatedFetch("nutrition/community-recipes/", {
       method: "POST",
@@ -94,12 +108,7 @@ export const communityRecipeService = {
     if (!response.ok) throw new Error(`Error ${response.status}`)
   },
 
-  async update(postId: string, payload: {
-    title?: string
-    description?: string
-    ingredients?: string
-    instructions?: string
-  }): Promise<CommunityRecipePost> {
+  async update(postId: string, payload: Partial<Omit<CommunityPostPayload, "photo">>): Promise<CommunityRecipePost> {
     const response = await authenticatedFetch(`nutrition/community-recipes/${postId}/`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },

@@ -43,6 +43,7 @@ class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminUser]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'description', 'ingredients', 'instructions', 'author__email']
+    filterset_fields = ['post_type']
     ordering_fields = ['created_at', 'expires_at']
     ordering = ['-created_at']
 
@@ -78,7 +79,7 @@ class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
         Notification.objects.create(
             user=author,
             type='nutrition',
-            title='Publicación de receta eliminada',
+            title='Publicación de Team SK eliminada',
             message=f'Tu publicación "{title}" ha sido eliminada por el equipo. Motivo: {reason}',
             data={
                 'priority': 'high',

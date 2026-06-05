@@ -3140,7 +3140,7 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
         liked_subquery = CommunityRecipeLike.objects.filter(
             post=OuterRef('pk'), user=user
         )
-        return (
+        queryset = (
             CommunityRecipePost.objects
             .filter(expires_at__gt=now)
             .annotate(
@@ -3152,6 +3152,10 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
             .prefetch_related('comments__author')
             .order_by('-created_at')
         )
+        post_type = self.request.query_params.get('post_type')
+        if post_type:
+            queryset = queryset.filter(post_type=post_type)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

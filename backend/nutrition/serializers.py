@@ -1,6 +1,8 @@
 # nutrition/serializers.py
 # Serializers para la nueva estructura simplificada
 
+import json
+
 from rest_framework import serializers
 from .models import (
     Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
@@ -150,7 +152,7 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
         model = CommunityRecipePost
         fields = [
             "id", "author", "author_name", "title", "description", "ingredients", "instructions",
-            "photo", "photo_url", "expires_at", "is_expired", "likes_count", "comments_count",
+            "post_type", "template_data", "tags", "photo", "photo_url", "expires_at", "is_expired", "likes_count", "comments_count",
             "liked_by_me", "can_delete", "can_edit", "comments", "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -197,6 +199,27 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
         if value.size and value.size > max_size:
             raise serializers.ValidationError('La foto no puede superar 6MB.')
         return value
+
+    def validate_template_data(self, value):
+        if isinstance(value, str):
+            try:
+                value = json.loads(value)
+            except json.JSONDecodeError as exc:
+                raise serializers.ValidationError('Los datos de la plantilla no son válidos.') from exc
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Los datos de la plantilla deben ser un objeto.')
+        return value
+
+    def validate_tags(self, value):
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                value = parsed if isinstance(parsed, list) else value.split(',')
+            except json.JSONDecodeError:
+                value = value.split(',')
+        if not isinstance(value, list):
+            raise serializers.ValidationError('Las etiquetas deben ser una lista.')
+        return [str(tag).strip()[:40] for tag in value if str(tag).strip()][:10]
 
 
 class AdminCommunityRecipePostSerializer(CommunityRecipePostSerializer):

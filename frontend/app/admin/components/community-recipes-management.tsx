@@ -112,13 +112,13 @@ export function CommunityRecipesManagement() {
     <div className="space-y-5">
       <Card className="border border-border bg-card">
         <CardHeader>
-          <CardTitle>Comunidad de recetas</CardTitle>
+          <CardTitle>Moderación de Team SK</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-col gap-3 md:flex-row">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por receta o usuaria" className="pl-9" />
+              <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por publicación o usuario" className="pl-9" />
             </div>
             <Select value={status} onValueChange={setStatus}>
               <SelectTrigger className="w-full md:w-48">
@@ -143,12 +143,13 @@ export function CommunityRecipesManagement() {
             <div className="grid gap-4 lg:grid-cols-2">
               {filteredPosts.map((post) => (
                 <div key={post.id} className="grid gap-4 rounded-lg border p-3 md:grid-cols-[140px_1fr]">
-                  <div className="relative aspect-square overflow-hidden rounded-md bg-muted">
-                    <Image src={post.photo_url} alt={post.title} fill className="object-cover" unoptimized />
+                  <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-md bg-muted">
+                    {post.photo_url ? <Image src={post.photo_url} alt={post.title} fill className="object-cover" unoptimized /> : <MessageCircle className="h-10 w-10 text-muted-foreground" />}
                   </div>
                   <div className="space-y-3">
                     <div>
                       <h3 className="font-semibold">{post.title}</h3>
+                      <Badge variant="outline" className="mt-1">{post.post_type}</Badge>
                       <p className="text-xs text-muted-foreground">{post.author_name} · {post.author_email}</p>
                       <p className="text-xs text-muted-foreground">Publicada {formatDate(post.created_at)} · Expira {formatDate(post.expires_at)}</p>
                     </div>
@@ -181,8 +182,8 @@ export function CommunityRecipesManagement() {
                 <DialogTitle>{selectedPost.title}</DialogTitle>
               </DialogHeader>
               <div className="grid gap-4 md:grid-cols-[260px_1fr]">
-                <div className="relative aspect-square overflow-hidden rounded-lg bg-muted">
-                  <Image src={selectedPost.photo_url} alt={selectedPost.title} fill className="object-cover" unoptimized />
+                <div className="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-muted">
+                  {selectedPost.photo_url ? <Image src={selectedPost.photo_url} alt={selectedPost.title} fill className="object-cover" unoptimized /> : <MessageCircle className="h-12 w-12 text-muted-foreground" />}
                 </div>
                 <div className="space-y-3 text-sm">
                   <p className="text-muted-foreground">{selectedPost.author_name} · {selectedPost.author_email}</p>

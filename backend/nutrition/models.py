@@ -1752,7 +1752,21 @@ class NutritionPlanHistory(TimeStampedModel):
 # =============================================================================
 
 class CommunityRecipePost(TimeStampedModel):
-    """Publicación temporal de receta subida por una usuaria del Team."""
+    """Publicación temporal de Team SK.
+
+    El nombre del modelo se mantiene por compatibilidad con los endpoints y
+    datos existentes; las recetas son ahora uno de varios tipos de publicación.
+    """
+
+    POST_TYPE_CHOICES = [
+        ('general', 'Publicación libre'),
+        ('recipe', 'Receta'),
+        ('exercise', 'Ejercicio'),
+        ('workout', 'Entrenamiento'),
+        ('progress', 'Progreso'),
+        ('tip', 'Consejo'),
+        ('question', 'Pregunta'),
+    ]
 
     author = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -1763,7 +1777,15 @@ class CommunityRecipePost(TimeStampedModel):
     description = models.TextField(blank=True)
     ingredients = models.TextField(blank=True)
     instructions = models.TextField(blank=True)
-    photo = models.ImageField(upload_to=community_recipe_image_path)
+    post_type = models.CharField(
+        max_length=20,
+        choices=POST_TYPE_CHOICES,
+        default='recipe',
+        db_index=True,
+    )
+    template_data = models.JSONField(default=dict, blank=True)
+    tags = models.JSONField(default=list, blank=True)
+    photo = models.ImageField(upload_to=community_recipe_image_path, null=True, blank=True)
     expires_at = models.DateTimeField(db_index=True)
 
     class Meta:
@@ -1771,9 +1793,10 @@ class CommunityRecipePost(TimeStampedModel):
         indexes = [
             models.Index(fields=['expires_at', 'created_at']),
             models.Index(fields=['author', 'created_at']),
+            models.Index(fields=['post_type', 'created_at']),
         ]
-        verbose_name = "Publicación de receta de comunidad"
-        verbose_name_plural = "Publicaciones de recetas de comunidad"
+        verbose_name = "Publicación de Team SK"
+        verbose_name_plural = "Publicaciones de Team SK"
 
     def __str__(self):
         return f"{self.title} - {self.author.email}"
