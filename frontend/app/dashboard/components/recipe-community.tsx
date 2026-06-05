@@ -36,6 +36,10 @@ const POST_TYPES: Array<{
   { value: "question", label: "Pregunta", description: "Pregunta al Team", icon: HelpCircle, color: "text-rose-600 bg-rose-50" },
 ]
 
+const AVAILABLE_POST_TYPES = POST_TYPES.filter(({ value }) =>
+  ["recipe", "exercise", "progress", "question"].includes(value),
+)
+
 const TEMPLATE_FIELDS: Partial<Record<CommunityPostType, Array<{ key: string; label: string; placeholder: string }>>> = {
   exercise: [
     { key: "muscle_groups", label: "Músculos trabajados", placeholder: "Ej: glúteos, cuádriceps" },
@@ -60,7 +64,7 @@ const TEMPLATE_FIELDS: Partial<Record<CommunityPostType, Array<{ key: string; la
   ],
 }
 
-const emptyForm = (postType: CommunityPostType = "general"): CommunityPostPayload => ({
+const emptyForm = (postType: CommunityPostType = "recipe"): CommunityPostPayload => ({
   title: "",
   description: "",
   post_type: postType,
@@ -242,7 +246,7 @@ export function RecipeCommunity() {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4 lg:grid-cols-7">
-              {POST_TYPES.map((type) => {
+              {AVAILABLE_POST_TYPES.map((type) => {
                 const Icon = type.icon
                 const selected = form.post_type === type.value
                 return (
@@ -304,7 +308,7 @@ export function RecipeCommunity() {
 
       <div className="flex gap-2 overflow-x-auto pb-1">
         <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>Todo</Button>
-        {POST_TYPES.map((type) => <Button key={type.value} size="sm" variant={filter === type.value ? "default" : "outline"} onClick={() => setFilter(type.value)}>{type.label}</Button>)}
+        {AVAILABLE_POST_TYPES.map((type) => <Button key={type.value} size="sm" variant={filter === type.value ? "default" : "outline"} onClick={() => setFilter(type.value)}>{type.label}</Button>)}
       </div>
 
       {loading ? (
