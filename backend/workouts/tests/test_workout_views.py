@@ -362,6 +362,29 @@ class TestWorkoutLogViewSet:
         assert log.rating == 5
         assert log.notes == 'Completado'
 
+    def test_stale_autosave_cannot_reopen_completed_log(self, auth_client, user, workout_day):
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=35,
+            completed=True,
+            notes='Completado',
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'completed': False,
+            'duration_minutes': 30,
+            'notes': 'Autoguardado tardío',
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.completed is True
+        assert completed_log.duration_minutes == 35
+        assert completed_log.notes == 'Completado'
+
     def test_today_draft_returns_incomplete_log(self, auth_client, user, workout_day):
         draft = WorkoutLog.objects.create(
             user=user,

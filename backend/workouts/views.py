@@ -416,12 +416,22 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             defaults={'completed': False},
         )
 
+        requested_completed = (
+            self._parse_bool(request.data.get('completed'))
+            if 'completed' in request.data
+            else None
+        )
+        if log.completed and requested_completed is False:
+            # Ignore a delayed draft autosave in full so it cannot replace the
+            # final duration, notes or exercise data either.
+            return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
+
         for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
             if field in request.data:
                 setattr(log, field, request.data.get(field))
 
-        if 'completed' in request.data:
-            log.completed = self._parse_bool(request.data.get('completed'))
+        if requested_completed is not None:
+            log.completed = log.completed or requested_completed
 
         log.save()
         return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)

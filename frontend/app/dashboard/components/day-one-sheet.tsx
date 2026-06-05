@@ -45,6 +45,7 @@ export function DayOneSheet() {
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [photoWeight, setPhotoWeight] = useState("")
   const [photoNotes, setPhotoNotes] = useState("")
+  const [photoDate, setPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [uploading, setUploading] = useState(false)
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -198,7 +199,8 @@ export function DayOneSheet() {
         selectedFile,
         weight,
         photoNotes || undefined,
-        selectedPhotoType
+        selectedPhotoType,
+        photoDate
       )
       
       toast({
@@ -212,6 +214,7 @@ export function DayOneSheet() {
       setPhotoWeight("")
       setPhotoNotes("")
       setSelectedPhotoType('front')
+      setPhotoDate(new Date().toLocaleDateString('en-CA'))
       
       // Refrescar fotos
       await refreshPhotos()
@@ -401,6 +404,17 @@ export function DayOneSheet() {
                           </div>
                         )}
                       </div>
+                      <div>
+                        <Label htmlFor="photo-date">Fecha de la foto</Label>
+                        <Input
+                          id="photo-date"
+                          type="date"
+                          max={new Date().toLocaleDateString('en-CA')}
+                          value={photoDate}
+                          onChange={(e) => setPhotoDate(e.target.value)}
+                        />
+                      </div>
+
                       <div>
                         <Label htmlFor="photo-weight">Peso (opcional)</Label>
                         <Input

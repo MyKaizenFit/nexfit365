@@ -16,7 +16,7 @@ const moreMenuItems = [
   { title: "Día 1", icon: Target, url: "day-one", badge: null, premiumBlocked: false },
   { title: "Recomendaciones", icon: Sparkles, url: "recommendations", badge: null, premiumBlocked: true },
   { title: "Ayuda 1:1", icon: Crown, url: "coaching", badge: null, premiumBlocked: true },
-  { title: "Recetas Team", icon: Camera, url: "recipe-community", badge: null, premiumBlocked: false },
+  { title: "Team SK", icon: Camera, url: "recipe-community", badge: null, premiumBlocked: false },
   { title: "Consejos", icon: Heart, url: "tips", badge: null, premiumBlocked: false },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null, premiumBlocked: false },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null, premiumBlocked: false },

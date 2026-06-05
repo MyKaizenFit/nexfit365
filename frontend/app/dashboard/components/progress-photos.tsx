@@ -19,6 +19,7 @@ export function ProgressPhotos() {
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
+  const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -63,7 +64,7 @@ export function ProgressPhotos() {
     try {
       const weight = parseFloat(newPhotoWeight)
 
-      await uploadPhoto(selectedFile, weight, `Peso: ${newPhotoWeight} kg`, 'front')
+      await uploadPhoto(selectedFile, weight, `Peso: ${newPhotoWeight} kg`, 'front', newPhotoDate)
 
       // Reset form
       setSelectedFile(null)
@@ -99,6 +100,7 @@ export function ProgressPhotos() {
       setPreviewUrl(null)
     }
     setNewPhotoWeight("")
+    setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
   }
 
   const handlePhotoClick = (index: number) => {
@@ -334,6 +336,19 @@ export function ProgressPhotos() {
                       </div>
                     </div>
                   )}
+
+                  {/* Fecha de la foto */}
+                  <div>
+                    <Label htmlFor="photo-date">Fecha de la foto</Label>
+                    <Input
+                      id="photo-date"
+                      type="date"
+                      max={new Date().toLocaleDateString('en-CA')}
+                      value={newPhotoDate}
+                      onChange={(e) => setNewPhotoDate(e.target.value)}
+                      className="mt-2"
+                    />
+                  </div>
 
                   {/* Campo de peso */}
                   <div>

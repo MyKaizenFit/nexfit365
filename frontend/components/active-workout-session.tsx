@@ -393,6 +393,7 @@ export function ActiveWorkoutSession({
   const [notes, setNotes] = useState('')
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const isFinishingRef = useRef(false)
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [confirmMissingExercises, setConfirmMissingExercises] = useState(false)
   const [substituteSelections, setSubstituteSelections] = useState<Record<string, any>>(initialSubstituteSelections || {})
@@ -867,7 +868,7 @@ export function ActiveWorkoutSession({
   }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
 
   useEffect(() => {
-    if (!isStarted || !onSaveProgress) return
+    if (!isStarted || !onSaveProgress || isFinishingRef.current) return
 
     const hasProgress =
       completedExercises.size > 0 ||
@@ -1269,6 +1270,7 @@ export function ActiveWorkoutSession({
       return
     }
     setIsSaving(true)
+    isFinishingRef.current = true
     const finalElapsedSeconds = syncElapsedFromClock()
 
     try {
@@ -1307,6 +1309,7 @@ export function ActiveWorkoutSession({
       setShowFinishDialog(false)
       onClose()
     } catch (error) {
+      isFinishingRef.current = false
       toast({
         title: "Error",
         description: "No se pudo guardar el entrenamiento",

@@ -357,7 +357,8 @@ export class UserService {
     file: File,
     weight?: number,
     notes?: string,
-    photoType: 'front' | 'back' | 'side' | 'other' = 'front'
+    photoType: 'front' | 'back' | 'side' | 'other' = 'front',
+    date?: string
   ): Promise<ProgressPhoto> {
     try {
       const authService = getAuthService()
@@ -380,7 +381,7 @@ export class UserService {
       const formData = new FormData()
       formData.append('photo', normalizedFile, normalizedFile.name)
       formData.append('photo_type', photoType)
-      formData.append('date', new Date().toISOString().split('T')[0])
+      formData.append('date', date || new Date().toLocaleDateString('en-CA'))
       
       // Asegurar que el peso se envíe como número
       if (weight !== undefined && weight !== null) {

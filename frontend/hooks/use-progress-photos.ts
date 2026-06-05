@@ -43,7 +43,8 @@ export function useProgressPhotos() {
     file: File, 
     weight?: number, 
     notes?: string, 
-    photoType: 'front' | 'side' | 'back' | 'other' = 'front'
+    photoType: 'front' | 'side' | 'back' | 'other' = 'front',
+    date?: string
   ) => {
     try {
       setError(null)
@@ -59,7 +60,7 @@ export function useProgressPhotos() {
         throw new Error('No se pudo obtener información del usuario')
       }
       
-      const newPhoto = await userService.uploadProgressPhoto(file, weight, notes, photoType)
+      const newPhoto = await userService.uploadProgressPhoto(file, weight, notes, photoType, date)
       
       // Agregar la nueva foto al estado inmediatamente
       setPhotos(prev => {

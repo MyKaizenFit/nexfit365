@@ -94,6 +94,7 @@ export function ProgressDashboard() {
   const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
+  const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
 
   // Nuevos estados para métricas
   const [editingWeightEntry, setEditingWeightEntry] = useState<WeightEntry | null>(null)
@@ -278,11 +279,11 @@ export function ProgressDashboard() {
         return
       }
 
-      await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType)
+      await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType, newPhotoDate)
 
       // Agregar automáticamente el peso al historial
       try {
-        await addWeightEntry(weight, new Date().toISOString().split('T')[0], `Peso registrado al subir foto de progreso${newPhotoNotes ? `: ${newPhotoNotes}` : ''}`)
+        await addWeightEntry(weight, newPhotoDate, `Peso registrado al subir foto de progreso${newPhotoNotes ? `: ${newPhotoNotes}` : ''}`)
         // Refrescar estadísticas de progreso
         refreshStats()
         toast({
@@ -301,6 +302,7 @@ export function ProgressDashboard() {
       setNewPhotoWeight("")
       setNewPhotoNotes("")
       setSelectedPhotoType('front')
+      setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
       setIsUploadDialogOpen(false)
       setPreviewUrl(null)
     } catch (error) {
@@ -323,6 +325,7 @@ export function ProgressDashboard() {
     setNewPhotoWeight("")
     setNewPhotoNotes("")
     setSelectedPhotoType('front')
+    setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
   }
 
   // Calcular días en transformación
@@ -753,6 +756,19 @@ export function ProgressDashboard() {
                 </div>
               </div>
             )}
+
+            {/* Fecha de la foto */}
+            <div>
+              <Label htmlFor="photo-date">Fecha de la foto</Label>
+              <Input
+                id="photo-date"
+                type="date"
+                max={new Date().toLocaleDateString('en-CA')}
+                value={newPhotoDate}
+                onChange={(e) => setNewPhotoDate(e.target.value)}
+                className="mt-2"
+              />
+            </div>
 
             {/* Campo de peso */}
             <div>

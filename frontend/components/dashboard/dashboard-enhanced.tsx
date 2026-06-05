@@ -74,6 +74,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
+  const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
 
   // Refrescar datos cuando se actualiza el peso
   useEffect(() => {
@@ -232,11 +233,12 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
     try {
       const weight = parseFloat(newPhotoWeight)
-      await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType)
+      await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType, newPhotoDate)
       toast({ title: "✅ ¡Foto añadida!", description: "Tu foto de progreso ha sido guardada." })
       setSelectedFile(null)
       setNewPhotoWeight("")
       setNewPhotoNotes("")
+      setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
       setIsPhotoDialogOpen(false)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
@@ -592,6 +594,18 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="photo-date" className="text-sm font-medium">Fecha de la foto</Label>
+              <Input
+                id="photo-date"
+                type="date"
+                max={new Date().toLocaleDateString('en-CA')}
+                value={newPhotoDate}
+                onChange={(e) => setNewPhotoDate(e.target.value)}
+                className="text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="photo-weight" className="text-sm font-medium">Peso Actual (kg) *</Label>
               <Input
                 id="photo-weight"
@@ -626,6 +640,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 setPreviewUrl(null)
                 setNewPhotoWeight("")
                 setNewPhotoNotes("")
+                setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
               }}
               className="flex-1 sm:flex-none"
             >

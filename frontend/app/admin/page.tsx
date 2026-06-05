@@ -756,7 +756,7 @@ function AdminPageContent() {
                 { id: 'foods', label: 'Alimentos', icon: Utensils, gradient: 'from-amber-500 to-orange-500' },
                 { id: 'equivalences', label: 'Equivalencias', icon: Shuffle, gradient: 'from-emerald-500 to-teal-500' },
                 { id: 'nutrition', label: 'Recetas', icon: Apple, gradient: 'from-green-500 to-emerald-500' },
-                { id: 'community-recipes', label: 'Recetas Team', icon: Camera, gradient: 'from-teal-500 to-emerald-500' },
+                { id: 'community-recipes', label: 'Team SK', icon: Camera, gradient: 'from-teal-500 to-emerald-500' },
                 { id: 'nutrition-plans', label: 'Planes de Menús', icon: Apple, gradient: 'from-orange-500 to-amber-500' },
                 { id: 'user-nutrition-plans', label: 'Planes de Usuarios', icon: Users, gradient: 'from-blue-500 to-purple-500' },
                 { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
@@ -931,7 +931,7 @@ function AdminPageContent() {
                         }`}
                     >
                       <Camera className="h-4 w-4" />
-                      Recetas Team
+                      Team SK
                     </Button>
                     <Button
                       variant={activeSection === 'nutrition-plans' ? 'default' : 'ghost'}

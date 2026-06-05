@@ -89,7 +89,7 @@ const menuItems = [
   { title: "Ayuda 1:1", icon: Crown, url: "coaching" },
   { title: "Consejos", icon: Heart, url: "tips" },
   { title: "Menús / Recetas", icon: ChefHat, url: "meals" },
-  { title: "Recetas Team", icon: Camera, url: "recipe-community" },
+  { title: "Team SK", icon: Camera, url: "recipe-community" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements" },
