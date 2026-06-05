@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Camera, Plus, ChevronLeft, ChevronRight, RefreshCw, Calendar, Weight, X } from "lucide-react"
 import Image from "next/image"
 import { ProgressPhoto } from "@/lib/user-service"
+import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 
 interface PhotoCarouselProps {
   photos: ProgressPhoto[]
@@ -483,6 +484,11 @@ export function PhotoCarousel({
                 </div>
               </div>
             )}
+
+            <ProgressPhotoPackages
+              photos={photos}
+              onPhotoClick={(photo) => goToPhoto(photos.findIndex((item) => String(item.id) === String(photo.id)))}
+            />
           </div>
         )}
       </CardContent>

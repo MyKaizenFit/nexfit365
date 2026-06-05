@@ -10,6 +10,7 @@ import { useAdminUserProgress } from "@/hooks/use-admin-user-progress"
 import { buildApiUrl } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 
 interface ProgressPhoto {
   id: string
@@ -162,6 +163,8 @@ export function UserProgressOverview({ userId, currentWeight, targetWeight }: Pr
           </CardContent>
         </Card>
       </div>
+
+      <ProgressPhotoPackages photos={sortedPhotos} />
     </section>
   )
 }
