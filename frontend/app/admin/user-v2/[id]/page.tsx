@@ -44,6 +44,7 @@ import { WorkoutProgramEditor } from "../../components/workout-program-editor"
 import { NutritionPlanEditor } from "../../components/nutrition-plan-editor"
 // Importar componentes de progreso e historial
 import { UserProgressPanel } from "../../components/user-progress-panel"
+import { UserProgressOverview } from "../../components/user-progress-overview"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
 import { UserNotifications } from "../../components/user-notifications"
@@ -147,7 +148,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   const [isEditing, setIsEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [localData, setLocalData] = useState<Partial<UserData>>({})
-  const [activeTab, setActiveTab] = useState("profile")
+  const [activeTab, setActiveTab] = useState("progress")
   const [alertExpanded, setAlertExpanded] = useState(false)
 
   // Estado para override de calorías admin
@@ -1324,120 +1325,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
           {/* TAB: PROGRESO */}
           {/* ================================================================ */}
           <TabsContent value="progress" className="space-y-6">
-            {/* Resumen rápido de progreso */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <Card className="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-emerald-600 font-medium mb-1">Peso Actual</p>
-                      <p className="text-2xl font-bold text-emerald-900">{user.weight ? `${user.weight} kg` : "-"}</p>
-                    </div>
-                    <Weight className="h-8 w-8 text-emerald-400" />
-                  </div>
-                </CardContent>
-              </Card>
-              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-blue-600 font-medium mb-1">Peso Objetivo</p>
-                      <p className="text-2xl font-bold text-blue-900">{user.target_weight ? `${user.target_weight} kg` : "-"}</p>
-                    </div>
-                    <Target className="h-8 w-8 text-blue-400" />
-                  </div>
-                </CardContent>
-              </Card>
-              {user.weight && user.target_weight && (
-                <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-purple-600 font-medium mb-1">Diferencia</p>
-                        <p className="text-2xl font-bold text-purple-900">
-                          {Math.abs(user.weight - user.target_weight).toFixed(1)} kg
-                        </p>
-                      </div>
-                      <TrendingUp className="h-8 w-8 text-purple-400" />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-              {user.bmi && (
-                <Card className="bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-xs text-indigo-600 font-medium mb-1">IMC</p>
-                        <p className="text-2xl font-bold text-indigo-900">{user.bmi.toFixed(1)}</p>
-                      </div>
-                      <Activity className="h-8 w-8 text-indigo-400" />
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Información detallada de progreso */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-emerald-600" />
-                  Resumen de Progreso
-                </CardTitle>
-                <CardDescription>Información completa sobre el progreso físico del usuario</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="p-4 bg-emerald-50 rounded-lg">
-                    <p className="text-xs text-emerald-600 font-medium mb-1">Peso Actual</p>
-                    <p className="text-xl font-bold text-emerald-900">{user.weight ? `${user.weight} kg` : "No especificado"}</p>
-                  </div>
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <p className="text-xs text-blue-600 font-medium mb-1">Peso Objetivo</p>
-                    <p className="text-xl font-bold text-blue-900">{user.target_weight ? `${user.target_weight} kg` : "No especificado"}</p>
-                  </div>
-                  {user.height && (
-                    <div className="p-4 bg-purple-50 rounded-lg">
-                      <p className="text-xs text-purple-600 font-medium mb-1">Altura</p>
-                      <p className="text-xl font-bold text-purple-900">{user.height} cm</p>
-                    </div>
-                  )}
-                  {user.bmi && (
-                    <div className="p-4 bg-indigo-50 rounded-lg">
-                      <p className="text-xs text-indigo-600 font-medium mb-1">Índice de Masa Corporal</p>
-                      <p className="text-xl font-bold text-indigo-900">{user.bmi.toFixed(1)}</p>
-                    </div>
-                  )}
-                </div>
-                {user.weight && user.target_weight && (
-                  <div className="mt-4 p-4 bg-gradient-to-r from-emerald-50 to-blue-50 rounded-lg border border-emerald-200">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-600 mb-1">Progreso hacia el objetivo</p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          {user.weight > user.target_weight
-                            ? `Faltan ${(user.weight - user.target_weight).toFixed(1)} kg para alcanzar el objetivo`
-                            : user.weight < user.target_weight
-                            ? `Faltan ${(user.target_weight - user.weight).toFixed(1)} kg para alcanzar el objetivo`
-                            : "¡Objetivo alcanzado!"}
-                        </p>
-                      </div>
-                      {user.weight !== user.target_weight && (
-                        <div className="text-right">
-                          <p className="text-2xl font-bold text-emerald-600">
-                            {user.weight > user.target_weight
-                              ? `${((1 - (user.weight - user.target_weight) / user.weight) * 100).toFixed(0)}%`
-                              : `${((user.weight / user.target_weight) * 100).toFixed(0)}%`}
-                          </p>
-                          <p className="text-xs text-slate-500">del objetivo</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <UserProgressOverview userId={userId} currentWeight={user.weight} targetWeight={user.target_weight} />
 
             {/* Panel completo de progreso con historial y gráficos */}
             {userId ? (
