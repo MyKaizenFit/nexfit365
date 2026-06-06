@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -81,6 +81,7 @@ const DAY_LABELS: Record<DayKey, string> = {
   "6": "Sábado",
   "7": "Domingo",
 }
+const UNSAVED_NUTRITION_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
 const MEAL_TYPES: Array<{ value: string; label: string }> = [
   { value: "breakfast", label: "Desayuno" },
@@ -216,6 +217,7 @@ function getNextCopyName(baseName: string, existingNames: string[]) {
 }
 
 export function MenuPlanManagementV2() {
+  const nutritionEditorRef = useRef<{ hasUnsavedChanges: () => boolean; confirmDiscardChanges: () => boolean }>(null)
   const { plans, users, stats, loading, error, fetchPlans, fetchPlanDetail, createPlan, updatePlan, deletePlan, toggleActive, generateWeeklyProgression } = useAdminMenuPlans()
   const { getAuthHeaders } = useAuth()
 
@@ -240,6 +242,7 @@ export function MenuPlanManagementV2() {
   const [loadingDetail, setLoadingDetail] = useState(false)
   const [saving, setSaving] = useState(false)
   const [createStep, setCreateStep] = useState<"basic" | "week">("basic")
+  const [hasUnsavedNutritionEditorChanges, setHasUnsavedNutritionEditorChanges] = useState(false)
 
   // Editor semanal embebido en el dialog de edición (no necesita estado propio)
   const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
@@ -354,7 +357,15 @@ export function MenuPlanManagementV2() {
     setTargetMealIndex(null)
     setEditSummary(null)
     setAllergenWarnings([])
+    setHasUnsavedNutritionEditorChanges(false)
   }, [])
+
+  const confirmNutritionEditorClose = () => {
+    if (nutritionEditorRef.current?.confirmDiscardChanges) {
+      return nutritionEditorRef.current.confirmDiscardChanges()
+    }
+    return !hasUnsavedNutritionEditorChanges || window.confirm(UNSAVED_NUTRITION_CHANGES_MESSAGE)
+  }
 
   const openCreate = () => {
     setEditingPlanId(null)
@@ -806,6 +817,8 @@ export function MenuPlanManagementV2() {
 
   const openEdit = async (planId: string) => {
     try {
+      if (hasUnsavedNutritionEditorChanges && !confirmNutritionEditorClose()) return
+      setHasUnsavedNutritionEditorChanges(false)
       setLoadingDetail(true)
       setCreateStep("basic")
       setEditingPlanId(planId)
@@ -848,6 +861,7 @@ export function MenuPlanManagementV2() {
       })
       toast({ title: "✅ Plan actualizado" })
       setShowCreateDialog(false)
+      setHasUnsavedNutritionEditorChanges(false)
       await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo guardar", variant: "destructive" })
@@ -1575,6 +1589,7 @@ export function MenuPlanManagementV2() {
         open={showCreateDialog}
         onOpenChange={(open) => {
           if (!open) {
+            if (createStep === "week" && !confirmNutritionEditorClose()) return
             setEditingPlanId(null)
             resetForm()
           }
@@ -1587,7 +1602,14 @@ export function MenuPlanManagementV2() {
             <DialogDescription>{editingPlanId ? "Modifica el plan y, si quieres, abre el editor semanal." : "Crea una plantilla o un plan asignado a usuario."}</DialogDescription>
           </DialogHeader>
           {!editingPlanId ? (
-            <Tabs value={createStep} onValueChange={(v) => setCreateStep(v as any)}>
+            <Tabs
+              value={createStep}
+              onValueChange={(v) => {
+                if (createStep === "week" && v !== "week" && !confirmNutritionEditorClose()) return
+                if (v !== "week") setHasUnsavedNutritionEditorChanges(false)
+                setCreateStep(v as any)
+              }}
+            >
               <TabsList className="grid grid-cols-2">
                 <TabsTrigger value="basic">Datos</TabsTrigger>
                 <TabsTrigger value="week">Semana</TabsTrigger>
@@ -1873,7 +1895,14 @@ export function MenuPlanManagementV2() {
             </Tabs>
           ) : (
             // Edición: tabs Datos / Comidas con editor semanal embebido
-            <Tabs value={createStep} onValueChange={(v) => setCreateStep(v as any)}>
+            <Tabs
+              value={createStep}
+              onValueChange={(v) => {
+                if (createStep === "week" && v !== "week" && !confirmNutritionEditorClose()) return
+                if (v !== "week") setHasUnsavedNutritionEditorChanges(false)
+                setCreateStep(v as any)
+              }}
+            >
               <TabsList className="grid grid-cols-2">
                 <TabsTrigger value="basic">Datos</TabsTrigger>
                 <TabsTrigger value="week">Comidas</TabsTrigger>
@@ -1980,18 +2009,36 @@ export function MenuPlanManagementV2() {
 
               <TabsContent value="week">
                 <NutritionTemplatePlanEditor
+                  ref={nutritionEditorRef}
                   planId={editingPlanId!}
                   availableRecipes={availableRecipes}
                   onSaved={async () => {
+                    setHasUnsavedNutritionEditorChanges(false)
                     await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
                   }}
-                  onClose={() => setShowCreateDialog(false)}
+                  onClose={() => {
+                    setEditingPlanId(null)
+                    resetForm()
+                    setShowCreateDialog(false)
+                  }}
+                  onDirtyChange={setHasUnsavedNutritionEditorChanges}
                 />
               </TabsContent>
             </Tabs>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowCreateDialog(false)} disabled={saving}>Cerrar</Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (createStep === "week" && !confirmNutritionEditorClose()) return
+                setEditingPlanId(null)
+                resetForm()
+                setShowCreateDialog(false)
+              }}
+              disabled={saving}
+            >
+              Cerrar
+            </Button>
             {editingPlanId ? (
               createStep === "basic" ? (
                 <>

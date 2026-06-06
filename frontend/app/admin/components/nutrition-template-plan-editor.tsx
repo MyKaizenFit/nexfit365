@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -140,23 +140,86 @@ function dayKeyFromMeal(meal: PlanMealDraft): DayKey {
   return meal.day_of_week ? (String(meal.day_of_week) as DayKey) : "1"
 }
 
-export function NutritionTemplatePlanEditor({
+const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
+
+function getRecipeId(value: any) {
+  return String(value?.recipe?.id || value?.recipe_id || value?.id || "").trim()
+}
+
+function mapMealRecipeOption(value: any, index: number): MealRecipeOption | null {
+  const recipeId = getRecipeId(value)
+  if (!recipeId) return null
+
+  return {
+    recipe_id: recipeId,
+    display_order: toNumber(value?.display_order, index),
+    servings: value?.servings != null ? toNumber(value.servings, 1) : 1,
+    custom_calories: value?.custom_calories != null ? toNumber(value.custom_calories) : undefined,
+    custom_protein: value?.custom_protein != null ? toNumber(value.custom_protein) : undefined,
+    custom_carbs: value?.custom_carbs != null ? toNumber(value.custom_carbs) : undefined,
+    custom_fat: value?.custom_fat != null ? toNumber(value.custom_fat) : undefined,
+  }
+}
+
+function mapMealRecipeOptions(meal: any): MealRecipeOption[] {
+  const detailedOptions = Array.isArray(meal?.meal_recipes) ? meal.meal_recipes : []
+  const fallbackOptions = Array.isArray(meal?.suggested_recipes)
+    ? meal.suggested_recipes
+    : Array.isArray(meal?.suggested_recipes_ids)
+      ? meal.suggested_recipes_ids.map((id: string | number) => ({ recipe_id: id }))
+      : []
+
+  const source = detailedOptions.length > 0 ? detailedOptions : fallbackOptions
+  const seen = new Set<string>()
+
+  return source
+    .map((option: any, index: number) => mapMealRecipeOption(option, index))
+    .filter((option: MealRecipeOption | null): option is MealRecipeOption => {
+      if (!option || seen.has(option.recipe_id)) return false
+      seen.add(option.recipe_id)
+      return true
+    })
+    .map((option: MealRecipeOption, index: number) => ({ ...option, display_order: toNumber(option.display_order, index) }))
+}
+
+export const NutritionTemplatePlanEditor = forwardRef<
+  { hasUnsavedChanges: () => boolean; confirmDiscardChanges: () => boolean },
+  {
+    planId: string
+    availableRecipes: AdminRecipe[]
+    onSaved: () => void | Promise<void>
+    onClose: () => void
+    onDirtyChange?: (hasUnsavedChanges: boolean) => void
+  }
+>(function NutritionTemplatePlanEditor({
   planId,
   availableRecipes,
   onSaved,
   onClose,
-}: {
-  planId: string
-  availableRecipes: AdminRecipe[]
-  onSaved: () => void | Promise<void>
-  onClose: () => void
-}) {
+  onDirtyChange,
+}, ref) {
   const { getAuthHeaders } = useAuth()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [loadedMealsCount, setLoadedMealsCount] = useState(0)
 
   const [meals, setMeals] = useState<PlanMealDraft[]>([])
+
+  const updateUnsavedChanges = useCallback((value: boolean) => {
+    setHasUnsavedChanges(value)
+    onDirtyChange?.(value)
+  }, [onDirtyChange])
+
+  const confirmDiscardChanges = useCallback(() => {
+    return !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE)
+  }, [hasUnsavedChanges])
+
+  useImperativeHandle(ref, () => ({
+    hasUnsavedChanges: () => hasUnsavedChanges,
+    confirmDiscardChanges,
+  }), [confirmDiscardChanges, hasUnsavedChanges])
 
   // selector recetas
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
@@ -287,7 +350,6 @@ export function NutritionTemplatePlanEditor({
 
       const incomingMeals = Array.isArray(data.meals) ? data.meals : []
       const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => {
-        const mealRecipes = Array.isArray(m.meal_recipes) ? m.meal_recipes : []
         return {
           id: m.id ? String(m.id) : undefined,
           day_of_week: m.day_of_week ?? 1,
@@ -300,19 +362,13 @@ export function NutritionTemplatePlanEditor({
           fat: toNumber(m.fat),
           description: fixEncoding(m.description || ""),
           order_index: toNumber(m.order_index, idx + 1),
-          meal_recipes: mealRecipes.map((mr: any, rIdx: number) => ({
-            recipe_id: String(mr.recipe?.id || mr.recipe_id || ""),
-            display_order: toNumber(mr.display_order, rIdx),
-            servings: mr.servings != null ? toNumber(mr.servings, 1) : 1,
-            custom_calories: mr.custom_calories != null ? toNumber(mr.custom_calories) : undefined,
-            custom_protein: mr.custom_protein != null ? toNumber(mr.custom_protein) : undefined,
-            custom_carbs: mr.custom_carbs != null ? toNumber(mr.custom_carbs) : undefined,
-            custom_fat: mr.custom_fat != null ? toNumber(mr.custom_fat) : undefined,
-          })).filter((x: any) => x.recipe_id),
+          meal_recipes: mapMealRecipeOptions(m),
         }
       })
 
       setMeals(mapped)
+      setLoadedMealsCount(mapped.length)
+      updateUnsavedChanges(false)
     } catch (e) {
       toast({
         title: "❌ Error",
@@ -328,6 +384,16 @@ export function NutritionTemplatePlanEditor({
     loadPlan()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const addMealForActiveDay = () => {
     const dayNum = Number(activeDay)
@@ -351,9 +417,11 @@ export function NutritionTemplatePlanEditor({
       meal_recipes: [],
     }
     setMeals((prev) => [...prev, newMeal])
+    updateUnsavedChanges(true)
   }
 
   const updateMeal = (mealIdOrIndex: { id?: string; indexInMeals?: number }, patch: Partial<PlanMealDraft>) => {
+    updateUnsavedChanges(true)
     setMeals((prev) => {
       const next = [...prev]
       let idx = -1
@@ -381,6 +449,7 @@ export function NutritionTemplatePlanEditor({
   }
 
   const moveMeal = (meal: PlanMealDraft, direction: "up" | "down") => {
+    updateUnsavedChanges(true)
     setMeals((prev) => {
       const dayMeals = prev
         .filter((m) => m.day_of_week === meal.day_of_week)
@@ -404,6 +473,7 @@ export function NutritionTemplatePlanEditor({
 
   const removeMeal = (meal: PlanMealDraft) => {
     setMeals((prev) => normalizeMealOrder(prev.filter((m) => m !== meal), meal.day_of_week))
+    updateUnsavedChanges(true)
   }
 
   const openRecipePicker = (meal: PlanMealDraft) => {
@@ -418,39 +488,51 @@ export function NutritionTemplatePlanEditor({
 
   const addRecipeToMeal = (recipe: AdminRecipe) => {
     if (targetMealIndex == null) return
+    updateUnsavedChanges(true)
     setMeals((prev) => {
-      const next = [...prev]
-      const meal = next[targetMealIndex]
+      const meal = prev[targetMealIndex]
       if (!meal) return prev
       const already = meal.meal_recipes.some((r) => String(r.recipe_id) === String(recipe.id))
       if (already) return prev
       const displayOrder = meal.meal_recipes.length
-      meal.meal_recipes = [
-        ...meal.meal_recipes,
-        { recipe_id: String(recipe.id), display_order: displayOrder, servings: 1 },
-      ]
-      next[targetMealIndex] = { ...meal }
-      return next
+      return prev.map((item, index) => index === targetMealIndex
+        ? {
+            ...item,
+            meal_recipes: [
+              ...item.meal_recipes,
+              { recipe_id: String(recipe.id), display_order: displayOrder, servings: 1 },
+            ],
+          }
+        : item
+      )
     })
   }
 
   const removeRecipeFromMeal = (meal: PlanMealDraft, recipeId: string) => {
     const idx = meals.findIndex((m) => m === meal)
     if (idx < 0) return
+    updateUnsavedChanges(true)
     setMeals((prev) => {
-      const next = [...prev]
-      const m = next[idx]
+      const m = prev[idx]
       if (!m) return prev
       const filtered = m.meal_recipes.filter((r) => String(r.recipe_id) !== String(recipeId))
-      m.meal_recipes = filtered.map((r, i) => ({ ...r, display_order: i }))
-      next[idx] = { ...m }
-      return next
+      return prev.map((item, index) => index === idx
+        ? { ...item, meal_recipes: filtered.map((r, i) => ({ ...r, display_order: i })) }
+        : item
+      )
     })
   }
 
   const handleSave = async () => {
     try {
       setSaving(true)
+
+      if (loadedMealsCount > 0 && meals.length === 0) {
+        throw new Error("No se puede guardar un menú vacío sobre un plan que ya tenía comidas.")
+      }
+      if (loadedMealsCount > 0 && meals.length < loadedMealsCount && !window.confirm("Este guardado tiene menos comidas que el plan cargado. Si continúas, se reemplazará el menú semanal con menos comidas. ¿Quieres continuar?")) {
+        return
+      }
 
       const mealsPayload = meals.map((m) => ({
         day_of_week: m.day_of_week,
@@ -477,6 +559,7 @@ export function NutritionTemplatePlanEditor({
 
       toast({ title: "✅ Menú semanal guardado", description: "Se actualizaron los días/comidas y sus opciones." })
       await loadPlan()
+      updateUnsavedChanges(false)
       await onSaved()
     } catch (e) {
       toast({
@@ -660,7 +743,15 @@ export function NutritionTemplatePlanEditor({
       </Tabs>
 
       <div className="flex justify-end gap-2 pt-2">
-        <Button variant="outline" onClick={onClose} disabled={saving}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (!confirmDiscardChanges()) return
+            updateUnsavedChanges(false)
+            onClose()
+          }}
+          disabled={saving}
+        >
           Cerrar
         </Button>
         <Button onClick={handleSave} disabled={saving}>
@@ -769,4 +860,4 @@ export function NutritionTemplatePlanEditor({
       </Dialog>
     </div>
   )
-}
+})
