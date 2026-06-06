@@ -1576,10 +1576,12 @@ export function WorkoutPlanManagement() {
         plansArray.map((p) => fixEncoding(p.name || ""))
       )
       const copiedDays = Array.isArray(planDetail.days)
-        ? planDetail.days.map((day: any) => ({
+        ? planDetail.days.map((day: any, dayIndex: number) => ({
             day_name: day.name || day.day_name || `Día ${day.day_number || 1}`,
-            day_number: day.day_number || day.order_index || 1,
+            day_number: dayIndex + 1,
+            day_of_week: day.day_of_week || undefined,
             is_rest_day: Boolean(day.is_rest_day),
+            duration_minutes: day.duration_minutes || undefined,
             notes: day.notes || "",
             exercises: Array.isArray(day.exercises)
               ? day.exercises.map((ex: any, index: number) => ({
@@ -1602,26 +1604,28 @@ export function WorkoutPlanManagement() {
               : [],
           }))
         : []
+      const sourceUserId = planDetail.user_id || planDetail.user || undefined
+      const isUserRoutine = Boolean(sourceUserId)
 
       const created = await createPlan({
         name: copiedName,
         description: fixEncoding(planDetail.description || ""),
         difficulty: planDetail.difficulty || "beginner",
         goal: (planDetail as any).goal || undefined,
+        location: (planDetail as any).location || undefined,
         duration_weeks: planDetail.duration_weeks || 4,
-        min_role_required: planDetail.min_role_required || "basic",
+        days_per_week: (planDetail as any).days_per_week || undefined,
         estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
-        user: planDetail.user_id || planDetail.user || undefined,
-        days: [],
+        user: sourceUserId,
+        is_active: isUserRoutine ? false : (planDetail.is_active ?? true),
+        days: copiedDays,
       })
-
-      if (created?.id && copiedDays.length > 0) {
-        await updatePlan(String(created.id), { days: copiedDays })
-      }
 
       toast({
         title: "✅ Copia creada",
-        description: "La rutina se duplicó correctamente.",
+        description: isUserRoutine
+          ? "La rutina se duplicó como copia inactiva del mismo usuario."
+          : "La rutina se duplicó correctamente.",
       })
 
       if (created?.id) {

@@ -123,6 +123,26 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
   const [filters, setFilters] = useState<WorkoutPlanFilters>(initialFilters)
   const lastFetchIdRef = useRef(0)
 
+  const getResponseErrorMessage = async (response: Response, fallback: string) => {
+    const errorData = await response.json().catch(() => null)
+    if (!errorData || typeof errorData !== 'object') return fallback
+
+    if (typeof (errorData as any).detail === 'string') return (errorData as any).detail
+    if (typeof (errorData as any).message === 'string') return (errorData as any).message
+    if (typeof (errorData as any).error === 'string') return (errorData as any).error
+
+    const firstFieldError = Object.entries(errorData as Record<string, unknown>).find(([, value]) => {
+      return Array.isArray(value) ? value.length > 0 : Boolean(value)
+    })
+    if (firstFieldError) {
+      const [field, value] = firstFieldError
+      const message = Array.isArray(value) ? value.join(', ') : String(value)
+      return `${field}: ${message}`
+    }
+
+    return fallback
+  }
+
   // Construir URL con parámetros
   const buildFetchUrl = useCallback((page: number, filters: WorkoutPlanFilters) => {
     const params = new URLSearchParams({
@@ -385,8 +405,7 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       body: JSON.stringify(planData),
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || errorData.message || `Error ${response.status}`)
+      throw new Error(await getResponseErrorMessage(response, `Error ${response.status}`))
     }
     const newPlan = await response.json()
 
@@ -407,7 +426,9 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(planData),
     })
-    if (!response.ok) throw new Error(`Error ${response.status}`)
+    if (!response.ok) {
+      throw new Error(await getResponseErrorMessage(response, `Error ${response.status}`))
+    }
     const updatedPlan = await response.json()
 
     // Actualizar lista y estadísticas
@@ -486,4 +507,3 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
     refetch: () => { fetchPlans(currentPage, filters); fetchExercises(); fetchStats() }
   }
 }
-

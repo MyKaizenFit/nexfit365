@@ -3,7 +3,7 @@ import pytest
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
-from workouts.models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
+from workouts.models import Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise, WorkoutLog, ExerciseSubstitution
 import uuid
 
 User = get_user_model()
@@ -295,6 +295,73 @@ class TestAdminWorkoutProgramViewSet:
         assert response.status_code == status.HTTP_201_CREATED
         program = WorkoutProgram.objects.get(name='Plan Con Días')
         assert program.days.count() == 1
+
+    def test_create_inactive_user_program_copy_with_days_keeps_original_active(self, admin_client, regular_user, exercise):
+        original = WorkoutProgram.objects.create(
+            name='Rutina Usuario Original',
+            user=regular_user,
+            difficulty='intermediate',
+            goal='muscle_gain',
+            days_per_week=3,
+            duration_weeks=6,
+            is_active=True,
+        )
+        original_day = WorkoutDay.objects.create(
+            program=original,
+            name='Día 1 - Fuerza',
+            day_number=1,
+            day_of_week='monday',
+            order_index=1,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=original_day,
+            exercise=exercise,
+            sets=4,
+            reps='8-10',
+            weight='RPE 8',
+            rest_seconds=90,
+            order_index=1,
+        )
+
+        response = admin_client.post(
+            '/api/admin/workouts/programs/',
+            {
+                'name': 'Rutina Usuario Original (Copia)',
+                'difficulty': original.difficulty,
+                'goal': original.goal,
+                'days_per_week': original.days_per_week,
+                'duration_weeks': original.duration_weeks,
+                'estimated_duration_minutes': 60,
+                'user': regular_user.id,
+                'is_active': False,
+                'days': [
+                    {
+                        'day_number': 1,
+                        'day_of_week': 'monday',
+                        'day_name': 'Día 1 - Fuerza',
+                        'exercises': [
+                            {
+                                'exercise_id': str(exercise.id),
+                                'sets': 4,
+                                'reps': '8-10',
+                                'weight': 'RPE 8',
+                                'rest_time': 90,
+                            }
+                        ],
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        original.refresh_from_db()
+        copy = WorkoutProgram.objects.get(name='Rutina Usuario Original (Copia)')
+        assert original.is_active is True
+        assert copy.user == regular_user
+        assert copy.is_active is False
+        assert copy.days.count() == 1
+        assert copy.days.get().exercises.count() == 1
 
     def test_create_template_and_assign_to_multiple_users(self, admin_client, regular_user):
         other_user = User.objects.create_user(
