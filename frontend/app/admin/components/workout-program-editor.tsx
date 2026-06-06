@@ -49,6 +49,7 @@ interface WorkoutProgram {
 }
 
 const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
 function createLocalId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
@@ -64,16 +65,49 @@ function normalizeDateLikeWorkoutText(value: string) {
   return `${Number(match[2])}-${Number(match[1])}`
 }
 
-export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSave: () => void }) {
+export function WorkoutProgramEditor({
+  userId,
+  onSave,
+  onDirtyChange,
+}: {
+  userId: string
+  onSave: () => void
+  onDirtyChange?: (hasUnsavedChanges: boolean) => void
+}) {
   const [program, setProgram] = useState<WorkoutProgram | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  const updateUnsavedChanges = (value: boolean) => {
+    setHasUnsavedChanges(value)
+    onDirtyChange?.(value)
+  }
+
+  const setProgramDraft = (nextProgram: WorkoutProgram) => {
+    setProgram(nextProgram)
+    updateUnsavedChanges(true)
+  }
+
+  const confirmDiscardChanges = () => {
+    return !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE)
+  }
 
   useEffect(() => {
     void loadUserProgram()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
 
   const loadUserProgram = async () => {
     try {
@@ -108,6 +142,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
           durationWeeks: 4,
           isActive: true,
         })
+        updateUnsavedChanges(false)
         return
       }
 
@@ -161,6 +196,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         durationWeeks: detail.duration_weeks,
         isActive: detail.is_active,
       })
+      updateUnsavedChanges(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")
       toast({
@@ -180,6 +216,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         durationWeeks: 4,
         isActive: true,
       })
+      updateUnsavedChanges(false)
     } finally {
       setLoading(false)
     }
@@ -199,13 +236,13 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
       dayNumber: (program.weeklySchedule.length || 0) + 1,
     }
     const weeklySchedule = [...program.weeklySchedule, newDay]
-    setProgram({ ...program, daysPerWeek: weeklySchedule.length, weeklySchedule })
+    setProgramDraft({ ...program, daysPerWeek: weeklySchedule.length, weeklySchedule })
   }
 
   const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
     if (!program) return
 
-    setProgram({
+    setProgramDraft({
       ...program,
       weeklySchedule: program.weeklySchedule.map((day) =>
         (day.id ?? day.localId) === dayKey ? { ...day, ...updates } : day,
@@ -216,7 +253,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
   const deleteWorkoutDay = (dayKey: string) => {
     if (!program) return
 
-    setProgram({
+    setProgramDraft({
       ...program,
       daysPerWeek: Math.max(1, program.weeklySchedule.length - 1),
       weeklySchedule: program.weeklySchedule
@@ -248,7 +285,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
       nextDays = nextDays.slice(0, normalizedTarget)
     }
 
-    setProgram({
+    setProgramDraft({
       ...program,
       daysPerWeek: normalizedTarget,
       weeklySchedule: nextDays.map((day, index) => ({ ...day, dayNumber: index + 1 })),
@@ -388,6 +425,8 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
         setProgram({ ...program, id: saved.id })
       }
 
+      updateUnsavedChanges(false)
+
       toast({
         title: "✅ Programa de entrenamientos guardado",
         description: "Los cambios han sido aplicados al usuario",
@@ -436,7 +475,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
               <Input
                 id="program-name"
                 value={program.name}
-                onChange={(e) => setProgram({ ...program, name: e.target.value })}
+                onChange={(e) => setProgramDraft({ ...program, name: e.target.value })}
                 className="border-2 border-gray-200 focus:border-purple-400"
               />
             </div>
@@ -448,7 +487,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
                 min="1"
                 max="7"
                 value={program.daysPerWeek}
-                onChange={(e) => setProgram({ ...program, daysPerWeek: Math.min(7, Math.max(1, Number(e.target.value) || 1)) })}
+                onChange={(e) => setProgramDraft({ ...program, daysPerWeek: Math.min(7, Math.max(1, Number(e.target.value) || 1)) })}
                 className="border-2 border-gray-200 focus:border-purple-400"
               />
               <Button type="button" variant="outline" size="sm" onClick={() => syncDaysPerWeek(program.daysPerWeek)}>
@@ -461,7 +500,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="level">Nivel</Label>
-              <Select value={program.level} onValueChange={(value) => setProgram({ ...program, level: value })}>
+              <Select value={program.level} onValueChange={(value) => setProgramDraft({ ...program, level: value })}>
                 <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
                   <SelectValue />
                 </SelectTrigger>
@@ -474,7 +513,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
             </div>
             <div className="space-y-2">
               <Label htmlFor="goal">Objetivo</Label>
-              <Select value={program.goal} onValueChange={(value) => setProgram({ ...program, goal: value })}>
+              <Select value={program.goal} onValueChange={(value) => setProgramDraft({ ...program, goal: value })}>
                 <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
                   <SelectValue />
                 </SelectTrigger>
@@ -494,7 +533,7 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
             <Textarea
               id="program-description"
               value={program.description}
-              onChange={(e) => setProgram({ ...program, description: e.target.value })}
+              onChange={(e) => setProgramDraft({ ...program, description: e.target.value })}
               className="border-2 border-gray-200 focus:border-purple-400"
               rows={2}
             />
@@ -745,7 +784,15 @@ export function WorkoutProgramEditor({ userId, onSave }: { userId: string; onSav
             </>
           )}
         </Button>
-        <Button variant="outline" onClick={onSave} disabled={saving}>
+        <Button
+          variant="outline"
+          onClick={() => {
+            if (!confirmDiscardChanges()) return
+            updateUnsavedChanges(false)
+            void loadUserProgram()
+          }}
+          disabled={saving}
+        >
           Cancelar
         </Button>
       </div>

@@ -67,6 +67,7 @@ const DAY_FULL_NAMES: Record<DayKey, string> = {
 }
 
 const WEEK_DAY_KEYS: DayKey[] = ["1", "2", "3", "4", "5", "6", "7"]
+const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
 function createDefaultWeekDays(): WorkoutDayDraft[] {
   return WEEK_DAY_KEYS.map((key) => {
@@ -87,13 +88,14 @@ function toNumber(value: unknown, fallback = 0) {
 }
 
 export const WorkoutTemplatePlanEditor = forwardRef<
-  { handleSave: () => Promise<void> },
+  { handleSave: () => Promise<void>; hasUnsavedChanges: () => boolean; confirmDiscardChanges: () => boolean },
   {
     planId: string
     availableExercises: Exercise[]
     onSaved: () => void | Promise<void>
     onClose: () => void
     isEmbedded?: boolean
+    onDirtyChange?: (hasUnsavedChanges: boolean) => void
   }
 >(function WorkoutTemplatePlanEditor(
   {
@@ -102,6 +104,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     onSaved,
     onClose,
     isEmbedded = false,
+    onDirtyChange,
   },
   ref
 ) {
@@ -109,8 +112,18 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const [days, setDays] = useState<WorkoutDayDraft[]>(createDefaultWeekDays())
+
+  const updateUnsavedChanges = useCallback((value: boolean) => {
+    setHasUnsavedChanges(value)
+    onDirtyChange?.(value)
+  }, [onDirtyChange])
+
+  const confirmDiscardChanges = useCallback(() => {
+    return !hasUnsavedChanges || window.confirm(UNSAVED_CHANGES_MESSAGE)
+  }, [hasUnsavedChanges])
 
   // Expose handleSave via ref
   useImperativeHandle(ref, () => ({
@@ -118,6 +131,8 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       // handleSave defined below
       await handleSaveImpl()
     },
+    hasUnsavedChanges: () => hasUnsavedChanges,
+    confirmDiscardChanges,
   }))
 
   // selector ejercicios
@@ -278,6 +293,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       })
 
       setDays(normalizedDays)
+      updateUnsavedChanges(false)
     } catch (e) {
       toast({
         title: "❌ Error",
@@ -294,6 +310,16 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId])
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
   const updateDay = (dayNumber: number, patch: Partial<WorkoutDayDraft>) => {
     setDays((prev) => {
       const next = [...prev]
@@ -302,6 +328,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       next[idx] = { ...next[idx], ...patch }
       return next
     })
+    updateUnsavedChanges(true)
   }
 
   const openExercisePicker = (dayNum: number) => {
@@ -316,76 +343,88 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     if (targetDayIndex == null) return
     const dayNum = targetDayIndex
 
+    updateUnsavedChanges(true)
     setDays((prev) => {
-      const next = [...prev]
-      const day = next.find((d) => d.day_number === dayNum)
-      if (!day) return prev
+      const next = prev.map((day) => {
+        if (day.day_number !== dayNum) return day
 
-      const already = day.exercises.some((e) => String(e.exercise_id) === String(exercise.id))
-      if (already) return prev
+        const already = day.exercises.some((e) => String(e.exercise_id) === String(exercise.id))
+        if (already) return day
 
-      day.exercises = [
-        ...day.exercises,
-        { exercise_id: String(exercise.id), series: 3, reps: "8-12", rest_seconds: 60, notes: "" },
-      ]
-      day.is_rest_day = false
+        return {
+          ...day,
+          exercises: [
+            ...day.exercises,
+            { exercise_id: String(exercise.id), series: 3, reps: "8-12", rest_seconds: 60, notes: "" },
+          ],
+          is_rest_day: false,
+        }
+      })
       return next
     })
   }
 
   const moveExerciseUp = (dayNum: number, exerciseIndex: number) => {
     if (exerciseIndex === 0) return
+    updateUnsavedChanges(true)
     setDays((prev) => {
-      const next = [...prev]
-      const day = next.find((d) => d.day_number === dayNum)
-      if (!day) return prev
-      const currentExercises = [...day.exercises]
-      const temp = currentExercises[exerciseIndex]
-      currentExercises[exerciseIndex] = currentExercises[exerciseIndex - 1]
-      currentExercises[exerciseIndex - 1] = temp
-      day.exercises = currentExercises
+      const next = prev.map((day) => {
+        if (day.day_number !== dayNum) return day
+        const currentExercises = [...day.exercises]
+        const temp = currentExercises[exerciseIndex]
+        currentExercises[exerciseIndex] = currentExercises[exerciseIndex - 1]
+        currentExercises[exerciseIndex - 1] = temp
+        return { ...day, exercises: currentExercises }
+      })
       return next
     })
   }
 
   const moveExerciseDown = (dayNum: number, exerciseIndex: number) => {
+    updateUnsavedChanges(true)
     setDays((prev) => {
-      const next = [...prev]
-      const day = next.find((d) => d.day_number === dayNum)
-      if (!day || exerciseIndex >= day.exercises.length - 1) return prev
-      const currentExercises = [...day.exercises]
-      const temp = currentExercises[exerciseIndex]
-      currentExercises[exerciseIndex] = currentExercises[exerciseIndex + 1]
-      currentExercises[exerciseIndex + 1] = temp
-      day.exercises = currentExercises
-      return next
+      let didChange = false
+      const next = prev.map((day) => {
+        if (day.day_number !== dayNum || exerciseIndex >= day.exercises.length - 1) return day
+        const currentExercises = [...day.exercises]
+        const temp = currentExercises[exerciseIndex]
+        currentExercises[exerciseIndex] = currentExercises[exerciseIndex + 1]
+        currentExercises[exerciseIndex + 1] = temp
+        didChange = true
+        return { ...day, exercises: currentExercises }
+      })
+      return didChange ? next : prev
     })
   }
 
   const removeExerciseFromDay = (dayNum: number, exerciseId: string | number) => {
+    updateUnsavedChanges(true)
     setDays((prev: WorkoutDayDraft[]) => {
-      const next = [...prev]
-      const day = next.find((d) => d.day_number === dayNum)
-      if (!day) return prev
-      day.exercises = day.exercises.filter((e) => String(e.exercise_id) !== String(exerciseId))
-      return next
+      let didChange = false
+      const next = prev.map((day) => {
+        if (day.day_number !== dayNum) return day
+        const exercises = day.exercises.filter((e) => String(e.exercise_id) !== String(exerciseId))
+        didChange = exercises.length !== day.exercises.length
+        return didChange ? { ...day, exercises } : day
+      })
+      return didChange ? next : prev
     })
   }
 
   const updateExerciseInDay = (dayNum: number, exerciseId: string | number, field: string, value: any) => {
+    updateUnsavedChanges(true)
     setDays((prev) => {
-      const workoutDays = prev as WorkoutDayDraft[]
-      const next = [...workoutDays]
-      const targetDay = next.find((d) => d.day_number === dayNum)
-      if (targetDay === undefined) {
-        return workoutDays
-      }
-      const targetExercise = targetDay.exercises.find((e) => String(e.exercise_id) === String(exerciseId))
-      if (targetExercise === undefined) {
-        return workoutDays
-      }
-      (targetExercise as any)[field] = value
-      return next
+      let didChange = false
+      const next = prev.map((day) => {
+        if (day.day_number !== dayNum) return day
+        const exercises = day.exercises.map((exercise) => {
+          if (String(exercise.exercise_id) !== String(exerciseId)) return exercise
+          didChange = true
+          return { ...exercise, [field]: value }
+        })
+        return didChange ? { ...day, exercises } : day
+      })
+      return didChange ? next : prev
     })
   }
 
@@ -578,6 +617,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
       toast({ title: "✅ Plan de entrenamiento guardado", description: "Todos los cambios se han actualizado." })
       await loadPlan()
+      updateUnsavedChanges(false)
       await onSaved()
     } catch (e) {
       toast({

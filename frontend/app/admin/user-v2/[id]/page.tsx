@@ -49,6 +49,8 @@ import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-e
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
 import { UserNotifications } from "../../components/user-notifications"
 
+const UNSAVED_WORKOUT_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
+
 // ============================================================================
 // TIPOS
 // ============================================================================
@@ -164,6 +166,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   const [saving, setSaving] = useState(false)
   const [localData, setLocalData] = useState<Partial<UserData>>({})
   const [activeTab, setActiveTab] = useState("progress")
+  const [hasUnsavedWorkoutChanges, setHasUnsavedWorkoutChanges] = useState(false)
   const [alertExpanded, setAlertExpanded] = useState(false)
 
   // Estado para override de calorías admin
@@ -172,6 +175,17 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
+
+  const handleTabChange = (nextTab: string) => {
+    if (activeTab === nextTab) return
+    if (activeTab === "fitness" && hasUnsavedWorkoutChanges && !window.confirm(UNSAVED_WORKOUT_CHANGES_MESSAGE)) {
+      return
+    }
+    setActiveTab(nextTab)
+    if (activeTab === "fitness") {
+      setHasUnsavedWorkoutChanges(false)
+    }
+  }
 
   // Debug: Log de datos de workouts
   useEffect(() => {
@@ -606,15 +620,15 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                   </button>
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
-                  <Button size="sm" variant="outline" onClick={() => setActiveTab("notifications")}>Ver notificaciones</Button>
-                  <Button size="sm" variant="outline" onClick={() => setActiveTab("activity")}>Ver actividad</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleTabChange("notifications")}>Ver notificaciones</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleTabChange("activity")}>Ver actividad</Button>
                 </div>
               </div>
             </CardContent>
           </Card>
         ) : null}
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 md:space-y-6">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4 md:space-y-6">
           {/* Mobile: Scroll horizontal */}
           <div className="md:hidden overflow-x-auto scrollbar-hide -mx-3 px-3">
             <TabsList className="inline-flex w-max h-auto p-1 bg-white rounded-lg shadow-sm gap-1">
@@ -1140,7 +1154,9 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             {/* Editor de plan de entrenamiento */}
             <WorkoutProgramEditor
               userId={user.id.toString()}
+              onDirtyChange={setHasUnsavedWorkoutChanges}
               onSave={() => {
+                setHasUnsavedWorkoutChanges(false)
                 toast({
                   title: "✅ Programa guardado",
                   description: "El programa de entrenamientos ha sido actualizado",

@@ -183,6 +183,8 @@ function normalizeDateLikeWorkoutText(value: unknown) {
   return text
 }
 
+const UNSAVED_WORKOUT_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
+
 function cloneWorkoutDay(day: any, suffix: string) {
   return {
     ...day,
@@ -228,7 +230,11 @@ function getWorkoutExerciseOrder(exercise: any, fallback: number) {
 }
 
 export function WorkoutPlanManagement() {
-  const editorRef = useRef<{ handleSave: () => Promise<void> }>(null)
+  const editorRef = useRef<{
+    handleSave: () => Promise<void>
+    hasUnsavedChanges: () => boolean
+    confirmDiscardChanges: () => boolean
+  }>(null)
   const {
     plans,
     exercises,
@@ -280,6 +286,7 @@ export function WorkoutPlanManagement() {
   const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
   const [showWorkoutEditor, setShowWorkoutEditor] = useState(false)
   const [workoutEditorPlanId, setWorkoutEditorPlanId] = useState<string | null>(null)
+  const [hasUnsavedWorkoutEditorChanges, setHasUnsavedWorkoutEditorChanges] = useState(false)
 
   const [usersList, setUsersList] = useState<Array<{ id: string; email: string }>>([])
 
@@ -1415,8 +1422,19 @@ export function WorkoutPlanManagement() {
   }
 
   const handleEditWorkout = async (planId: string) => {
+    if (hasUnsavedWorkoutEditorChanges && !window.confirm(UNSAVED_WORKOUT_CHANGES_MESSAGE)) {
+      return
+    }
+    setHasUnsavedWorkoutEditorChanges(false)
     setWorkoutEditorPlanId(planId)
     setShowWorkoutEditor(true)
+  }
+
+  const confirmWorkoutEditorClose = () => {
+    if (editorRef.current?.confirmDiscardChanges) {
+      return editorRef.current.confirmDiscardChanges()
+    }
+    return !hasUnsavedWorkoutEditorChanges || window.confirm(UNSAVED_WORKOUT_CHANGES_MESSAGE)
   }
 
   const resetForm = () => {
@@ -1444,6 +1462,7 @@ export function WorkoutPlanManagement() {
     setCreateStep("basic")
     setShowWorkoutEditor(false)
     setWorkoutEditorPlanId(null)
+    setHasUnsavedWorkoutEditorChanges(false)
   }
 
   // Función para cargar los detalles completos de un plan y abrir el editor
@@ -2786,6 +2805,7 @@ export function WorkoutPlanManagement() {
       {/* Unified Create Dialog - Flujo unificado con ambos pasos */}
       <Dialog open={showCreateDialog && !editingPlan} onOpenChange={(open) => {
         if (!open) {
+          if (createStep === "exercises" && !confirmWorkoutEditorClose()) return
           resetForm()
         }
       }}>
@@ -3025,15 +3045,23 @@ export function WorkoutPlanManagement() {
                 }}
                 onClose={() => {
                   // Go back to step 1
+                  if (!confirmWorkoutEditorClose()) return
                   setCreateStep("basic")
                 }}
                 isEmbedded={true}
+                onDirtyChange={setHasUnsavedWorkoutEditorChanges}
               />
             </div>
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={resetForm}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (createStep === "exercises" && !confirmWorkoutEditorClose()) return
+                resetForm()
+              }}
+            >
               Cancelar
             </Button>
             {createStep === "basic" ? (
@@ -3077,7 +3105,11 @@ export function WorkoutPlanManagement() {
               <>
                 <Button
                   variant="outline"
-                  onClick={() => setCreateStep("basic")}
+                  onClick={() => {
+                    if (!confirmWorkoutEditorClose()) return
+                    setCreateStep("basic")
+                    setHasUnsavedWorkoutEditorChanges(false)
+                  }}
                 >
                   <>
                     <ArrowLeft className="h-4 w-4 mr-2" />
