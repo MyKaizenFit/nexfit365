@@ -22,6 +22,7 @@ from .serializers import (
     WorkoutDaySerializer, WorkoutDayExerciseSerializer,
     WorkoutLogSerializer, WorkoutLogExerciseSerializer, WorkoutLogSetSerializer
 )
+from accounts.streaks import get_user_activity_streak
 
 
 logger = logging.getLogger(__name__)
@@ -573,38 +574,7 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         )['avg']
         avg_duration = round(avg_duration) if avg_duration else 0
         
-        # Calcular racha actual (días consecutivos con entrenamientos completados)
-        current_streak = 0
-        check_date = today
-        while True:
-            day_logs = all_logs.filter(date=check_date, completed=True)
-            if day_logs.exists():
-                current_streak += 1
-                check_date -= timedelta(days=1)
-            else:
-                break
-        
-        # Calcular mejor racha (simplificado - busca la racha más larga en los últimos 90 días)
-        longest_streak = 0
-        streak_start = today - timedelta(days=90)
-        recent_logs = all_logs.filter(
-            date__gte=streak_start,
-            completed=True
-        ).order_by('date').values_list('date', flat=True).distinct()
-        
-        if recent_logs:
-            current_streak_count = 0
-            prev_date = None
-            for log_date in recent_logs:
-                if prev_date is None:
-                    current_streak_count = 1
-                elif (log_date - prev_date).days == 1:
-                    current_streak_count += 1
-                else:
-                    longest_streak = max(longest_streak, current_streak_count)
-                    current_streak_count = 1
-                prev_date = log_date
-            longest_streak = max(longest_streak, current_streak_count)
+        streak = get_user_activity_streak(user, reference_date=today)
         
         # Objetivo semanal basado en los días de entrenamiento del usuario
         # Obtener los días de entrenamiento directamente del usuario (CustomUser)
@@ -689,8 +659,8 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'total_minutes_week': total_minutes_week,
             'total_minutes_all': total_minutes_all,
             'average_duration': avg_duration,
-            'current_streak': current_streak,
-            'longest_streak': longest_streak,
+            'current_streak': streak.current,
+            'longest_streak': streak.longest,
             'progress_percentage': progress_percentage,
             'estimated_1rm_prs': estimated_1rm_prs,
             'recommended_rest_seconds': recommended_rest_seconds,

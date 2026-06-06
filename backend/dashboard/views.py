@@ -32,6 +32,7 @@ from .serializers import (
 )
 from .permissions import DashboardPermission, DashboardDataPermission
 from accounts.models import CustomUser
+from accounts.streaks import get_user_activity_streak
 
 
 class DashboardViewSet(viewsets.ModelViewSet):
@@ -418,56 +419,13 @@ class DashboardViewSet(viewsets.ModelViewSet):
         user = get_object_or_404(CustomUser, id=user_id)
         
         # Verificar cache
-        cache_key = f"dashboard_stats_{user_id}"
+        cache_key = f"dashboard_stats_v2_{user_id}"
         cached_data = cache.get(cache_key)
         
         if cached_data:
             return Response(cached_data)
         
-        # Días activos (días con al menos un log)
-        from workouts.models import WorkoutLog
-        from nutrition.models import MealLog
-        from progress.models import WeightEntry
-        
-        active_dates = set()
-        
-        # Fechas con entrenamientos
-        workout_dates = WorkoutLog.objects.filter(user=user).values_list("date", flat=True)
-        active_dates.update(workout_dates)
-        
-        # Fechas con comidas
-        meal_dates = MealLog.objects.filter(user=user).values_list("date", flat=True)
-        active_dates.update(meal_dates)
-        
-        # Fechas con peso
-        weight_dates = WeightEntry.objects.filter(user=user).values_list("date", flat=True)
-        active_dates.update(weight_dates)
-        
-        total_days_active = len(active_dates)
-        
-        # Racha actual (días consecutivos)
-        current_streak = 0
-        longest_streak = 0
-        current_streak_temp = 0
-        
-        if active_dates:
-            sorted_dates = sorted(active_dates, reverse=True)
-            today = timezone.now().date()
-            
-            for i, date in enumerate(sorted_dates):
-                if i == 0 and date == today:
-                    current_streak_temp = 1
-                elif i > 0 and (sorted_dates[i-1] - date).days == 1:
-                    current_streak_temp += 1
-                else:
-                    if current_streak_temp > longest_streak:
-                        longest_streak = current_streak_temp
-                    current_streak_temp = 1
-            
-            if current_streak_temp > longest_streak:
-                longest_streak = current_streak_temp
-            
-            current_streak = current_streak_temp
+        streak = get_user_activity_streak(user)
         
         # Puntos totales
         from achievements.models import UserAchievement
@@ -482,17 +440,17 @@ class DashboardViewSet(viewsets.ModelViewSet):
         
         data = {
             "user_id": user_id,
-            "total_days_active": total_days_active,
-            "current_streak": current_streak,
-            "longest_streak": longest_streak,
+            "total_days_active": streak.total_active_days,
+            "current_streak": streak.current,
+            "longest_streak": streak.longest,
             "total_points": total_points,
             "level": level,
             "next_level_points": next_level_points,
             "progress_to_next_level": round(progress_to_next_level, 2),
         }
         
-        # Cache por 2 horas
-        cache.set(cache_key, data, 7200)
+        # Cache corto: las rachas cambian con actividad diaria y deben reflejarse rápido.
+        cache.set(cache_key, data, 300)
         
         serializer = DashboardStatsSerializer(data)
         return Response(serializer.data)

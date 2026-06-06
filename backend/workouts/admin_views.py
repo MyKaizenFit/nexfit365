@@ -11,10 +11,12 @@ from datetime import datetime, timedelta, date
 import re
 from django.db.models import Sum, Count, Avg, Q
 from django.db import transaction
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
 from .services import DefaultWorkoutAssignmentService
+from accounts.streaks import get_user_activity_streak
 from .admin_serializers import (
     AdminExerciseSerializer,
     AdminExerciseListSerializer,
@@ -604,7 +606,7 @@ def admin_user_workout_stats(request, user_id: int):
 
     # Volumen semanal (últimas 8 semanas)
     weekly_volume = []
-    today = date.today()
+    today = timezone.localdate()
     for i in range(8):
         start = today - timedelta(days=today.weekday()) - timedelta(weeks=i)
         end = start + timedelta(days=6)
@@ -624,27 +626,8 @@ def admin_user_workout_stats(request, user_id: int):
         })
     weekly_volume = list(reversed(weekly_volume))
 
-    # Rachas con logs completados
-    def compute_streaks():
-        completed_dates = sorted({log.date for log in logs_qs.filter(completed=True)})
-        longest = 0
-        current = 0
-        prev_day = None
-        today = date.today()
-        for d in completed_dates:
-            if prev_day and (d - prev_day).days == 1:
-                current += 1
-            else:
-                current = 1
-            longest = max(longest, current)
-            prev_day = d
-        if completed_dates:
-            last_day = completed_dates[-1]
-            if (today - last_day).days > 1:
-                current = 0
-        return {"current": current, "longest": longest}
-
-    streaks = compute_streaks()
+    activity_streak = get_user_activity_streak(user, reference_date=today)
+    streaks = {"current": activity_streak.current, "longest": activity_streak.longest}
 
     return Response({
         "user_id": user.id,
