@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Bell, Check, Trash2, Filter, MoreVertical, Mail, MessageSquare, Award, Calendar, Settings, User, RefreshCw, ArrowRight, RotateCcw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,10 +25,17 @@ export function NotificationsPanel() {
     markAsUnread,
     trackClick,
     markAllAsRead,
+    markAllAsReadSilently,
     deleteNotification,
     updateSettings,
     refresh,
   } = useNotificationsEnhanced()
+
+  useEffect(() => {
+    if (!loading && unreadCount > 0) {
+      markAllAsReadSilently()
+    }
+  }, [loading, markAllAsReadSilently, unreadCount])
 
   const getNotificationIcon = (type: string) => {
     switch (type) {

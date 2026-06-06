@@ -142,16 +142,26 @@ export function UserProgressPanel({ userId }: Props) {
             ) : wellnessSummary ? (
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Último estado</span>
-                  <span className="font-semibold">{wellnessSummary.last_mood ?? "—"}</span>
+                  <span className="text-muted-foreground">Última motivación</span>
+                  <span className="font-semibold">
+                    {wellnessSummary.last?.motivation_score != null ? `${wellnessSummary.last.motivation_score}/10` : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Promedio de energía</span>
-                  <span className="font-semibold">{wellnessSummary.avg_energy ?? "—"}</span>
+                  <span className="text-muted-foreground">Sueño medio</span>
+                  <span className="font-semibold">
+                    {wellnessSummary.avg_sleep != null ? `${Number(wellnessSummary.avg_sleep).toFixed(1)} h` : "—"}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Motivación media</span>
+                  <span className="font-semibold">
+                    {wellnessSummary.avg_motivation != null ? `${Number(wellnessSummary.avg_motivation).toFixed(1)}/10` : "—"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Entradas</span>
-                  <span className="font-semibold">{wellness.entries?.length ?? 0}</span>
+                  <span className="font-semibold">{wellnessSummary.count ?? wellness.entries?.length ?? 0}</span>
                 </div>
               </div>
             ) : (
@@ -183,4 +193,3 @@ export function UserProgressPanel({ userId }: Props) {
     </div>
   )
 }
-

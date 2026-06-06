@@ -244,9 +244,10 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       const incomingDays = Array.isArray(data.days) ? data.days : []
       const mapped: WorkoutDayDraft[] = incomingDays.map((d: any) => {
         const exercises = Array.isArray(d.exercises) ? d.exercises : []
+        const dayName = d.day_name || d.name || `Día ${d.day_number || 1}`
         return {
           day_number: d.day_number || 1,
-          day_name: fixEncoding(d.day_name || `Día ${d.day_number || 1}`),
+          day_name: fixEncoding(dayName),
           is_rest_day: d.is_rest_day || false,
           notes: fixEncoding(d.notes || ""),
           exercises: exercises.map((ex: any) => ({
@@ -1140,4 +1141,3 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     </div>
   )
 })
-

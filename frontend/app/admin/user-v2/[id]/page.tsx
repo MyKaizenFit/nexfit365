@@ -129,6 +129,21 @@ function safeNumber(val: unknown, fallback = 0): number {
   return fallback
 }
 
+function getVisibleRoleLabel(role?: string, fallback?: string): string {
+  switch ((role || "").toLowerCase()) {
+    case "pro":
+      return "Plan de Prueba"
+    case "basic":
+      return "Básico"
+    case "premium":
+      return "Premium"
+    case "admin":
+      return "Admin"
+    default:
+      return fallback || role || "—"
+  }
+}
+
 // ============================================================================
 // COMPONENTE PRINCIPAL
 // ============================================================================
@@ -505,7 +520,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
               <Badge variant={user.is_active ? "default" : "destructive"} className="text-xs">
                 {user.is_active ? "Activo" : "Inactivo"}
               </Badge>
-              <Badge variant="outline" className="text-xs hidden sm:inline-flex">{user.role_display || user.role}</Badge>
+              <Badge variant="outline" className="text-xs hidden sm:inline-flex">{getVisibleRoleLabel(user.role, user.role_display)}</Badge>
               <Badge className="bg-indigo-100 text-indigo-700 border-0 text-xs hidden md:inline-flex">
                 v2 ✨
               </Badge>

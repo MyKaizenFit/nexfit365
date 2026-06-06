@@ -457,8 +457,8 @@ export function UserNutritionPlanManagement() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-xs md:text-sm">Todos</SelectItem>
-                      <SelectItem value="basic" className="text-xs md:text-sm">Basic</SelectItem>
-                      <SelectItem value="pro" className="text-xs md:text-sm">Pro</SelectItem>
+                      <SelectItem value="basic" className="text-xs md:text-sm">Básico</SelectItem>
+                      <SelectItem value="pro" className="text-xs md:text-sm">Plan de Prueba</SelectItem>
                       <SelectItem value="premium" className="text-xs md:text-sm">Premium</SelectItem>
                     </SelectContent>
                   </Select>

@@ -529,11 +529,11 @@ function AdminPageContent() {
   const getRoleBadge = (role: string) => {
     switch (role) {
       case "admin":
-        return <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-0">Administrador</Badge>
+        return <Badge className="bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 border-0">Admin</Badge>
       case "premium":
         return <Badge className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400 border-0">Premium</Badge>
       case "pro":
-        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-0">Pro</Badge>
+        return <Badge className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 border-0">Plan de Prueba</Badge>
       case "basic":
         return <Badge variant="outline">Básico</Badge>
       default:
@@ -1082,7 +1082,7 @@ function AdminPageContent() {
                 </Card>
                 <Card className="backdrop-blur-sm bg-white/80 dark:bg-slate-800/80 border-0 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Administradores</CardTitle>
+                    <CardTitle className="text-sm font-medium">Admin</CardTitle>
                     <UserX className="h-4 w-4 text-purple-600" />
                   </CardHeader>
                   <CardContent>
@@ -1138,9 +1138,9 @@ function AdminPageContent() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">Todos los roles</SelectItem>
-                        <SelectItem value="admin">Administradores</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                         <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="pro">Pro</SelectItem>
+                        <SelectItem value="pro">Plan de Prueba</SelectItem>
                         <SelectItem value="basic">Básico</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1244,7 +1244,7 @@ function AdminPageContent() {
                         disabled={isLoading}
                       >
                         <Star className="h-3 w-3 mr-1" />
-                        Pro
+                        Plan de Prueba
                       </Button>
                       <Button
                         size="sm"
@@ -1777,7 +1777,7 @@ function AdminPageContent() {
                           <SelectContent>
                             <SelectItem value="user">Usuario</SelectItem>
                             <SelectItem value="trainer">Entrenador</SelectItem>
-                            <SelectItem value="admin">Administrador</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -1832,10 +1832,10 @@ function AdminPageContent() {
                           <SelectValue placeholder="Selecciona un rol" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="basic">Usuario Básico</SelectItem>
-                          <SelectItem value="pro">Usuario Pro</SelectItem>
-                          <SelectItem value="premium">Usuario Premium</SelectItem>
-                          <SelectItem value="admin">Administrador</SelectItem>
+                          <SelectItem value="basic">Básico</SelectItem>
+                          <SelectItem value="pro">Plan de Prueba</SelectItem>
+                          <SelectItem value="premium">Premium</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1843,9 +1843,9 @@ function AdminPageContent() {
                       <h4 className="font-medium text-sm mb-2">Descripción del rol:</h4>
                       <p className="text-sm text-muted-foreground">
                         {roleChangeModal.newRole === 'basic' && 'Acceso básico a entrenamientos y nutrición'}
-                        {roleChangeModal.newRole === 'pro' && 'Acceso avanzado con entrenamientos ilimitados'}
+                        {roleChangeModal.newRole === 'pro' && 'Plan de prueba para validar acceso antes de pasar a Básico o Premium'}
                         {roleChangeModal.newRole === 'premium' && 'Acceso completo con entrenador personal y análisis avanzado'}
-                        {roleChangeModal.newRole === 'admin' && 'Acceso total al sistema y panel de administración'}
+                        {roleChangeModal.newRole === 'admin' && 'Acceso total al sistema y panel de admin'}
                       </p>
                     </div>
                   </div>

@@ -2029,9 +2029,9 @@ export function WorkoutPlanManagement() {
                 <SelectContent>
                   <SelectItem value="all">Todos</SelectItem>
                   <SelectItem value="basic">Básico</SelectItem>
-                  <SelectItem value="pro">Pro</SelectItem>
+                  <SelectItem value="pro">Plan de Prueba</SelectItem>
                   <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="admin">Administrador</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2278,7 +2278,7 @@ export function WorkoutPlanManagement() {
                                     'endurance': 'Resistencia',
                                     'general_fitness': 'Fitness general',
                                     'basic': 'Básico',
-                                    'pro': 'Pro',
+                                    'pro': 'Plan de Prueba',
                                     'premium': 'Premium'
                                   }
                                   return `${keyNames[key] || key}: ${valueNames[value] || value}`
@@ -2515,7 +2515,7 @@ export function WorkoutPlanManagement() {
                                       'endurance': 'Resistencia',
                                       'general_fitness': 'Fitness general',
                                       'basic': 'Básico',
-                                      'pro': 'Pro',
+                                      'pro': 'Plan de Prueba',
                                       'premium': 'Premium'
                                     }
                                     return `${keyNames[key] || key}: ${valueNames[value] || value}`
@@ -2902,9 +2902,9 @@ export function WorkoutPlanManagement() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="basic">Básico</SelectItem>
-                        <SelectItem value="pro">Pro</SelectItem>
+                        <SelectItem value="pro">Plan de Prueba</SelectItem>
                         <SelectItem value="premium">Premium</SelectItem>
-                        <SelectItem value="admin">Administrador</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -3206,9 +3206,9 @@ export function WorkoutPlanManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="basic">Básico</SelectItem>
-                    <SelectItem value="pro">Pro</SelectItem>
+                    <SelectItem value="pro">Plan de Prueba</SelectItem>
                     <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="admin">Administrador</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

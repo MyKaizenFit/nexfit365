@@ -698,9 +698,9 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="basic">Básico - Gratis</SelectItem>
-                      <SelectItem value="premium">Premium - €19.99/mes</SelectItem>
-                      <SelectItem value="pro">Pro - €39.99/mes</SelectItem>
+                      <SelectItem value="basic">Básico</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="pro">Plan de Prueba</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

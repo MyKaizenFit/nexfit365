@@ -170,6 +170,20 @@ export function useNotificationsEnhanced() {
     }
   }, [getAuthHeaders])
 
+  const markAllAsReadSilently = useCallback(async () => {
+    if (unreadCount <= 0) return
+
+    try {
+      const headers = normalizeHeaders(await getAuthHeaders())
+      await notificationService.markAllAsRead(headers)
+
+      setNotifications(prev => prev.map(n => ({ ...n, read: true, is_read: true })))
+      setUnreadCount(0)
+    } catch {
+      // No interrumpimos la apertura del panel si falla el marcado automático.
+    }
+  }, [getAuthHeaders, unreadCount])
+
   const trackClick = useCallback(async (notificationId: string) => {
     try {
       const headers = normalizeHeaders(await getAuthHeaders())
@@ -283,6 +297,7 @@ export function useNotificationsEnhanced() {
     markAsUnread,
     trackClick,
     markAllAsRead,
+    markAllAsReadSilently,
     deleteNotification,
     clearAll,
     updateSettings,

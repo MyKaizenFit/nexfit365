@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Bell, Check, Trash2, Mail, MessageSquare, Award, Calendar, X, ArrowRight, RotateCcw } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -25,8 +25,15 @@ export function NotificationsDropdown() {
     trackClick,
     deleteNotification,
     markAllAsRead,
+    markAllAsReadSilently,
     clearAll,
   } = useNotificationsEnhanced()
+
+  useEffect(() => {
+    if (open && unreadCount > 0) {
+      markAllAsReadSilently()
+    }
+  }, [markAllAsReadSilently, open, unreadCount])
 
   const closeOnMobile = () => {
     if (typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches) {
