@@ -1,13 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
+import { useEffect, useMemo, useState } from "react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Badge } from "@/components/ui/badge"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
@@ -46,6 +48,13 @@ interface WorkoutProgram {
   weeklySchedule: WorkoutDay[]
   durationWeeks?: number
   isActive?: boolean
+}
+
+interface ExerciseOption {
+  id: string | number
+  name: string
+  category?: string
+  muscle_groups?: string[]
 }
 
 const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
@@ -102,6 +111,21 @@ export function WorkoutProgramEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
+  const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([])
+  const [loadingExercises, setLoadingExercises] = useState(false)
+  const [showReplaceDialog, setShowReplaceDialog] = useState(false)
+  const [exerciseSearch, setExerciseSearch] = useState("")
+  const [replaceTarget, setReplaceTarget] = useState<{
+    dayKey: string
+    exerciseKey: string
+    oldExerciseId?: string
+    oldExerciseName: string
+  } | null>(null)
+
+  const filteredReplacementExercises = useMemo(() => {
+    const query = exerciseSearch.trim().toLowerCase()
+    return availableExercises.filter((exercise) => !query || (exercise.name || "").toLowerCase().includes(query))
+  }, [availableExercises, exerciseSearch])
 
   const updateUnsavedChanges = (value: boolean) => {
     setHasUnsavedChanges(value)
@@ -245,6 +269,36 @@ export function WorkoutProgramEditor({
     }
   }
 
+  const loadAvailableExercises = async () => {
+    if (availableExercises.length > 0 || loadingExercises) return
+
+    try {
+      setLoadingExercises(true)
+      let nextUrl: string | null = buildApiUrl("admin/exercises/?page_size=1000")
+      const headers = await getAuthHeaders()
+      const allExercises: ExerciseOption[] = []
+
+      while (nextUrl) {
+        const response: Response = await fetch(nextUrl, { headers })
+        if (!response.ok) throw new Error("Error al cargar ejercicios")
+        const data: any = await response.json()
+        const results = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        allExercises.push(...results)
+        nextUrl = typeof data.next === "string" ? data.next : null
+      }
+
+      setAvailableExercises(allExercises)
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: err instanceof Error ? err.message : "No se pudieron cargar los ejercicios",
+        variant: "destructive",
+      })
+    } finally {
+      setLoadingExercises(false)
+    }
+  }
+
   const addWorkoutDay = (preferredDay?: string) => {
     if (!program) return
 
@@ -356,6 +410,74 @@ export function WorkoutProgramEditor({
       const updatedExercises = day.exercises.filter((exercise) => (exercise.id ?? exercise.localId) !== exerciseKey)
       updateWorkoutDay(dayKey, { exercises: updatedExercises })
     }
+  }
+
+  const moveExercise = (dayKey: string, exerciseKey: string, direction: "up" | "down") => {
+    if (!program) return
+    const day = program.weeklySchedule.find((d) => (d.id ?? d.localId) === dayKey)
+    if (!day) return
+
+    const currentIndex = day.exercises.findIndex((exercise) => (exercise.id ?? exercise.localId) === exerciseKey)
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+    if (currentIndex < 0 || targetIndex < 0 || targetIndex >= day.exercises.length) return
+
+    const updatedExercises = [...day.exercises]
+    const currentExercise = updatedExercises[currentIndex]
+    updatedExercises[currentIndex] = updatedExercises[targetIndex]
+    updatedExercises[targetIndex] = currentExercise
+    updateWorkoutDay(dayKey, { exercises: updatedExercises })
+  }
+
+  const openReplaceExerciseDialog = (dayKey: string, exerciseKey: string, exercise: Exercise) => {
+    setReplaceTarget({
+      dayKey,
+      exerciseKey,
+      oldExerciseId: exercise.exerciseId ? String(exercise.exerciseId) : undefined,
+      oldExerciseName: exercise.name,
+    })
+    setExerciseSearch("")
+    setShowReplaceDialog(true)
+    void loadAvailableExercises()
+  }
+
+  const replaceExerciseInFutureSequence = (replacement: ExerciseOption) => {
+    if (!program || !replaceTarget) return
+
+    const targetDayIndex = program.weeklySchedule.findIndex((day) => (day.id ?? day.localId) === replaceTarget.dayKey)
+    const targetDay = targetDayIndex >= 0 ? program.weeklySchedule[targetDayIndex] : null
+    const targetExerciseIndex = targetDay
+      ? targetDay.exercises.findIndex((exercise) => (exercise.id ?? exercise.localId) === replaceTarget.exerciseKey)
+      : -1
+
+    if (!targetDay || targetExerciseIndex < 0) return
+
+    let replacedCount = 0
+    const replacementId = String(replacement.id)
+    const replacementName = fixEncoding(replacement.name)
+
+    const weeklySchedule = program.weeklySchedule.map((day, dayIndex) => ({
+      ...day,
+      exercises: day.exercises.map((exercise, exerciseIndex) => {
+        const isFuturePosition = dayIndex > targetDayIndex || (dayIndex === targetDayIndex && exerciseIndex >= targetExerciseIndex)
+        if (!isFuturePosition) return exercise
+
+        const isSameExercise = replaceTarget.oldExerciseId
+          ? String(exercise.exerciseId || "") === replaceTarget.oldExerciseId
+          : exercise.name === replaceTarget.oldExerciseName
+
+        if (!isSameExercise) return exercise
+        replacedCount += 1
+        return { ...exercise, exerciseId: replacementId, name: replacementName }
+      }),
+    }))
+
+    setProgramDraft({ ...program, weeklySchedule })
+    setShowReplaceDialog(false)
+    setReplaceTarget(null)
+    toast({
+      title: "✅ Ejercicio sustituido",
+      description: `Se actualizó en ${replacedCount} aparición${replacedCount === 1 ? "" : "es"} desde esta posición en adelante.`,
+    })
   }
 
   const handleSave = async () => {
@@ -779,16 +901,46 @@ export function WorkoutProgramEditor({
                         key={exercise.id ?? exercise.localId ?? exerciseIndex}
                         className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200"
                       >
-                        <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center justify-between gap-3 mb-3">
                           <h5 className="font-medium text-purple-800">Ejercicio #{exerciseIndex + 1}</h5>
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => deleteExercise(dayKey, exerciseKey)}
-                            className="h-6 w-6 text-red-600 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openReplaceExerciseDialog(dayKey, exerciseKey, exercise)}
+                              className="h-7 px-2 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                            >
+                              Sustituir
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => moveExercise(dayKey, exerciseKey, "up")}
+                              disabled={exerciseIndex === 0}
+                              className="h-7 w-7"
+                              title="Subir ejercicio"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => moveExercise(dayKey, exerciseKey, "down")}
+                              disabled={exerciseIndex === day.exercises.length - 1}
+                              className="h-7 w-7"
+                              title="Bajar ejercicio"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => deleteExercise(dayKey, exerciseKey)}
+                              className="h-7 w-7 text-red-600 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -911,6 +1063,69 @@ export function WorkoutProgramEditor({
           Cancelar
         </Button>
       </div>
+
+      <Dialog open={showReplaceDialog} onOpenChange={setShowReplaceDialog}>
+        <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Sustituir ejercicio</DialogTitle>
+            <DialogDescription>
+              Cambia “{replaceTarget?.oldExerciseName || "este ejercicio"}” por otro ejercicio. Se aplicará desde esta posición y en sus futuras apariciones.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                className="pl-8"
+                placeholder="Buscar ejercicio..."
+                value={exerciseSearch}
+                onChange={(event) => setExerciseSearch(event.target.value)}
+              />
+            </div>
+
+            {loadingExercises ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando ejercicios...
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-96 overflow-y-auto">
+                {filteredReplacementExercises.map((exercise) => (
+                  <Button
+                    key={exercise.id}
+                    variant="outline"
+                    className="justify-start h-auto whitespace-normal py-3"
+                    onClick={() => replaceExerciseInFutureSequence(exercise)}
+                  >
+                    <div className="text-left">
+                      <div className="font-medium text-sm">{fixEncoding(exercise.name)}</div>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {exercise.category && (
+                          <Badge variant="outline" className="text-[10px]">
+                            {fixEncoding(exercise.category)}
+                          </Badge>
+                        )}
+                        {exercise.muscle_groups?.map((muscle) => (
+                          <Badge variant="secondary" className="text-[10px]" key={muscle}>
+                            {fixEncoding(muscle)}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowReplaceDialog(false)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

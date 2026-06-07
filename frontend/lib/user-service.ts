@@ -452,6 +452,44 @@ export class UserService {
     }
   }
 
+  async uploadProgressPhotos(
+    files: File[],
+    weight?: number,
+    notes?: string,
+    photoType: 'front' | 'back' | 'side' | 'other' = 'front',
+    date?: string
+  ): Promise<ProgressPhoto[]> {
+    const uploaded: ProgressPhoto[] = []
+    for (const file of files) {
+      uploaded.push(await this.uploadProgressPhoto(file, weight, notes, photoType, date))
+    }
+    return uploaded
+  }
+
+  async deleteProgressPhoto(photoId: string | number): Promise<void> {
+    const authService = getAuthService()
+    if (!authService.isAuthenticated()) {
+      throw new Error('Usuario no autenticado')
+    }
+
+    const token = authService.getAccessToken()
+    if (!token) {
+      throw new Error('No hay token de acceso disponible')
+    }
+
+    const response = await fetch(buildApiUrl(`progress-photos/${photoId}/`), {
+      method: 'DELETE',
+      headers: {
+        ...getAuthHeaders(),
+        'Authorization': `Bearer ${token}`,
+      },
+    })
+
+    if (!response.ok && response.status !== 204) {
+      throw new Error(`Error ${response.status}: ${response.statusText}`)
+    }
+  }
+
   // Obtener historial de peso
   async getWeightHistory(): Promise<WeightEntry[]> {
     try {

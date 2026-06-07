@@ -190,14 +190,31 @@ def motivational_tip(request):
         })
 
 
-@api_view(['POST'])
+@api_view(['GET', 'POST'])
 @permission_classes([IsAuthenticated])
 def submit_feedback(request):
     """
-    Enviar mensaje de feedback a los administradores
+    Enviar feedback a los administradores o listar el histórico completo del usuario.
     """
     from notifications.models import FeedbackMessage
-    
+
+    if request.method == 'GET':
+        feedbacks = FeedbackMessage.objects.filter(user=request.user).order_by('-created_at')
+        return Response([
+            {
+                "id": str(feedback.id),
+                "subject": feedback.subject,
+                "message": feedback.message,
+                "category": feedback.category,
+                "priority": feedback.priority,
+                "status": feedback.status,
+                "admin_response": feedback.admin_response,
+                "created_at": feedback.created_at.isoformat(),
+                "resolved_at": feedback.resolved_at.isoformat() if feedback.resolved_at else None,
+            }
+            for feedback in feedbacks
+        ])
+
     subject = request.data.get('subject', '')
     message = request.data.get('message', '')
     category = request.data.get('category', 'other')

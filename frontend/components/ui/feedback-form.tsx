@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +11,7 @@ import { MessageSquare, Send } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 
 export function FeedbackForm() {
-  const { submitFeedback, loading, error, success, clearMessages } = useFeedback()
+  const { submitFeedback, fetchFeedbackHistory, history, loading, error, clearMessages } = useFeedback()
   const { toast } = useToast()
   const [formData, setFormData] = useState<FeedbackData>({
     subject: '',
@@ -62,15 +62,20 @@ export function FeedbackForm() {
     }))
   }
 
+  useEffect(() => {
+    void fetchFeedbackHistory()
+  }, [fetchFeedbackHistory])
+
   return (
-    <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5" />
-          Enviar Feedback
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
+    <div className="space-y-4">
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageSquare className="h-5 w-5" />
+            Enviar Feedback
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="subject">Asunto</Label>
@@ -149,7 +154,46 @@ export function FeedbackForm() {
             )}
           </Button>
         </form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MessageSquare className="h-4 w-4" />
+            Histórico de feedbacks
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {history.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aún no has enviado feedbacks.</p>
+          ) : (
+            <div className="space-y-3">
+              {history.map((item) => (
+                <div key={item.id} className="rounded-lg border bg-muted/20 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{item.subject}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(item.created_at).toLocaleDateString('es-ES')} · {item.category} · {item.priority}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-background px-2 py-1 text-xs font-medium capitalize">
+                      {item.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <p className="mt-2 whitespace-pre-wrap text-sm">{item.message}</p>
+                  {item.admin_response ? (
+                    <div className="mt-3 rounded-md bg-emerald-50 p-2 text-sm text-emerald-900">
+                      <strong>Respuesta:</strong> {item.admin_response}
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   )
 }

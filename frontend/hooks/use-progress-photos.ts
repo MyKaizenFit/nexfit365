@@ -85,10 +85,44 @@ export function useProgressPhotos() {
 
   const deletePhoto = async (photoId: number | string) => {
     try {
-      // TODO: Implementar endpoint de eliminación en el backend
+      setError(null)
+      await userService.deleteProgressPhoto(photoId)
       setPhotos(prev => prev.filter(photo => photo.id.toString() !== photoId.toString()))
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Error al eliminar foto'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
+  const uploadPhotos = async (
+    files: File[],
+    weight?: number,
+    notes?: string,
+    photoType: 'front' | 'side' | 'back' | 'other' = 'front',
+    date?: string
+  ) => {
+    try {
+      setError(null)
+
+      if (!isAuthenticated) {
+        throw new Error('Usuario no autenticado')
+      }
+
+      if (!user) {
+        throw new Error('No se pudo obtener información del usuario')
+      }
+
+      const newPhotos = await userService.uploadProgressPhotos(files, weight, notes, photoType, date)
+      setPhotos(prev => [...newPhotos, ...prev])
+
+      if (weight !== undefined && weight !== null && !isNaN(weight)) {
+        window.dispatchEvent(new CustomEvent('weightUpdated', { detail: { weight } }))
+      }
+
+      return newPhotos
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error al subir fotos'
       setError(errorMessage)
       throw new Error(errorMessage)
     }
@@ -103,6 +137,7 @@ export function useProgressPhotos() {
     loading,
     error,
     uploadPhoto,
+    uploadPhotos,
     deletePhoto,
     refreshPhotos,
   }

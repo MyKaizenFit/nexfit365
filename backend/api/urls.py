@@ -3,7 +3,8 @@
 # Las URLs de Plan, Subscription, etc. fueron eliminadas.
 
 from django.urls import path
+from .views import submit_feedback
 
 urlpatterns = [
-    # No hay URLs en esta app
+    path("feedback/", submit_feedback, name="submit-feedback"),
 ]

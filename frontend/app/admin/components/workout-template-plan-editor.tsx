@@ -164,6 +164,12 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [exerciseCategoryFilter, setExerciseCategoryFilter] = useState("all")
   const [exerciseMuscleFilter, setExerciseMuscleFilter] = useState("all")
   const [targetDayIndex, setTargetDayIndex] = useState<number | null>(null)
+  const [exercisePickerMode, setExercisePickerMode] = useState<"add" | "replace">("add")
+  const [replaceExerciseTarget, setReplaceExerciseTarget] = useState<{
+    dayNum: number
+    exerciseId: string | number
+    exerciseIndex: number
+  } | null>(null)
 
   const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
   const [substitutesExerciseId, setSubstitutesExerciseId] = useState<string | null>(null)
@@ -357,6 +363,18 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const openExercisePicker = (dayNum: number) => {
     setTargetDayIndex(dayNum)
+    setExercisePickerMode("add")
+    setReplaceExerciseTarget(null)
+    setExerciseSearch("")
+    setExerciseCategoryFilter("all")
+    setExerciseMuscleFilter("all")
+    setShowExerciseSelector(true)
+  }
+
+  const openReplaceExercisePicker = (dayNum: number, exerciseId: string | number, exerciseIndex: number) => {
+    setTargetDayIndex(dayNum)
+    setExercisePickerMode("replace")
+    setReplaceExerciseTarget({ dayNum, exerciseId, exerciseIndex })
     setExerciseSearch("")
     setExerciseCategoryFilter("all")
     setExerciseMuscleFilter("all")
@@ -385,6 +403,38 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         }
       })
       return next
+    })
+  }
+
+  const replaceExerciseInFutureOccurrences = (replacement: Exercise) => {
+    if (!replaceExerciseTarget) return
+
+    updateUnsavedChanges(true)
+    let replacedCount = 0
+    setDays((prev) => prev.map((day) => {
+      const isFutureDay = day.day_number > replaceExerciseTarget.dayNum
+      const isTargetDay = day.day_number === replaceExerciseTarget.dayNum
+
+      if (!isFutureDay && !isTargetDay) return day
+
+      const exercises = day.exercises.map((exercise, index) => {
+        const isFuturePosition = isFutureDay || (isTargetDay && index >= replaceExerciseTarget.exerciseIndex)
+        if (!isFuturePosition) return exercise
+        if (String(exercise.exercise_id) !== String(replaceExerciseTarget.exerciseId)) return exercise
+
+        replacedCount += 1
+        return { ...exercise, exercise_id: String(replacement.id) }
+      })
+
+      return { ...day, exercises }
+    }))
+
+    setShowExerciseSelector(false)
+    setReplaceExerciseTarget(null)
+    setExercisePickerMode("add")
+    toast({
+      title: "✅ Ejercicio sustituido",
+      description: `Se actualizó en ${replacedCount} aparición${replacedCount === 1 ? "" : "es"} desde esta posición en adelante.`,
     })
   }
 
@@ -883,6 +933,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                   </div>
                                   <div className="flex items-center gap-1">
                                     <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => openReplaceExercisePicker(dayNum, exercise.exercise_id, idx)}
+                                      className="h-8 px-2 text-xs"
+                                      title="Sustituir este ejercicio desde esta posición en adelante"
+                                    >
+                                      Sustituir
+                                    </Button>
+                                    <Button
                                       variant={hasSubstitutes ? "default" : "outline"}
                                       size="sm"
                                       onClick={() => openSubstitutesDialog(exercise.exercise_id)}
@@ -1031,8 +1090,12 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       <Dialog open={showExerciseSelector} onOpenChange={setShowExerciseSelector}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Seleccionar ejercicio</DialogTitle>
-            <DialogDescription>Elige un ejercicio para agregarlo a este día.</DialogDescription>
+            <DialogTitle>{exercisePickerMode === "replace" ? "Sustituir ejercicio" : "Seleccionar ejercicio"}</DialogTitle>
+            <DialogDescription>
+              {exercisePickerMode === "replace"
+                ? "Elige el nuevo ejercicio. Se aplicará desde esta posición y en sus futuras apariciones."
+                : "Elige un ejercicio para agregarlo a este día."}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3">
@@ -1107,6 +1170,10 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                   variant="outline"
                   className="justify-start h-auto whitespace-normal"
                   onClick={() => {
+                    if (exercisePickerMode === "replace") {
+                      replaceExerciseInFutureOccurrences(e)
+                      return
+                    }
                     addExerciseToDay(e)
                     setShowExerciseSelector(false)
                   }}

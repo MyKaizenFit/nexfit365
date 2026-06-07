@@ -23,6 +23,7 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useWeightHistory } from "@/hooks/use-weight-history"
+import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 import { userService } from "@/lib/user-service"
 import { format, differenceInDays, differenceInMonths, startOfMonth, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
@@ -30,7 +31,7 @@ import { es } from "date-fns/locale"
 export function DayOneSheet() {
   const { profile, loading: profileLoading, updateProfile } = useUserProfile()
   const { stats: progressStats, loading: statsLoading, refreshStats } = useProgressStats()
-  const { photos, loading: photosLoading, uploadPhoto, refreshPhotos } = useProgressPhotos()
+  const { photos, loading: photosLoading, uploadPhotos, deletePhoto, refreshPhotos } = useProgressPhotos()
   const { entries: weightEntries, loading: weightLoading, addEntry: addWeightEntry, refresh: refreshWeight } = useWeightHistory()
   
   // Estados para modales
@@ -41,8 +42,8 @@ export function DayOneSheet() {
   const [weightValue, setWeightValue] = useState("")
   const [weightNotes, setWeightNotes] = useState("")
   const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoWeight, setPhotoWeight] = useState("")
   const [photoNotes, setPhotoNotes] = useState("")
   const [photoDate, setPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
@@ -160,9 +161,10 @@ export function DayOneSheet() {
 
   // Manejar selección de archivo
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      if (file.size > 10 * 1024 * 1024) {
+    const files = Array.from(e.target.files || [])
+    if (files.length > 0) {
+      const oversized = files.find((file) => file.size > 10 * 1024 * 1024)
+      if (oversized) {
         toast({
           title: "❌ Error",
           description: "La imagen es demasiado grande. Máximo 10MB",
@@ -170,19 +172,16 @@ export function DayOneSheet() {
         })
         return
       }
-      
-      setSelectedFile(file)
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+
+      photoPreviews.forEach((preview) => URL.revokeObjectURL(preview))
+      setSelectedFiles(files)
+      setPhotoPreviews(files.map((file) => URL.createObjectURL(file)))
     }
   }
 
   // Manejar subida de foto
   const handleSubmitPhoto = async () => {
-    if (!selectedFile) {
+    if (selectedFiles.length === 0) {
       toast({
         title: "❌ Error",
         description: "Por favor, selecciona una imagen",
@@ -194,23 +193,15 @@ export function DayOneSheet() {
     try {
       setUploading(true)
       const weight = photoWeight ? parseFloat(photoWeight) : undefined
-      
-      await uploadPhoto(
-        selectedFile,
-        weight,
-        photoNotes || undefined,
-        selectedPhotoType,
-        photoDate
-      )
+      await uploadPhotos(selectedFiles, weight, photoNotes || undefined, selectedPhotoType, photoDate)
       
       toast({
-        title: "✅ Foto subida",
-        description: "Tu foto de progreso ha sido guardada correctamente",
+        title: "✅ Fotos subidas",
+        description: `${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"} de progreso guardada${selectedFiles.length === 1 ? "" : "s"} correctamente`,
       })
       
       setIsPhotoDialogOpen(false)
-      setSelectedFile(null)
-      setPhotoPreview(null)
+      resetUploadForm()
       setPhotoWeight("")
       setPhotoNotes("")
       setSelectedPhotoType('front')
@@ -244,10 +235,29 @@ export function DayOneSheet() {
 
   // Reset form de upload
   const resetUploadForm = () => {
-    setSelectedFile(null)
-    setPhotoPreview(null)
+    photoPreviews.forEach((preview) => URL.revokeObjectURL(preview))
+    setSelectedFiles([])
+    setPhotoPreviews([])
     setPhotoWeight("")
     setPhotoNotes("")
+  }
+
+  const handleDeletePhoto = async (photoId: string | number) => {
+    if (!window.confirm("¿Quieres borrar esta foto? Esta acción no se puede deshacer.")) return
+    try {
+      await deletePhoto(photoId)
+      await refreshPhotos()
+      toast({
+        title: "✅ Foto eliminada",
+        description: "La foto se ha borrado correctamente",
+      })
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "No se pudo borrar la foto",
+        variant: "destructive"
+      })
+    }
   }
 
   if (loading) {
@@ -377,6 +387,7 @@ export function DayOneSheet() {
                           id="photo-file"
                           type="file"
                           accept="image/*"
+                          multiple
                           onChange={handleFileSelect}
                           className="hidden"
                         />
@@ -387,17 +398,23 @@ export function DayOneSheet() {
                           className="w-full mt-2"
                         >
                           <Upload className="h-4 w-4 mr-2" />
-                          {selectedFile ? selectedFile.name : "Seleccionar archivo"}
+                          {selectedFiles.length > 0
+                            ? `${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"} seleccionada${selectedFiles.length === 1 ? "" : "s"}`
+                            : "Seleccionar una o varias fotos"}
                         </Button>
-                        {photoPreview && (
-                          <div className="mt-2 relative h-32 sm:h-48">
-                            <Image fill src={photoPreview} alt="Preview" className="object-cover rounded-lg" />
+                        {photoPreviews.length > 0 && (
+                          <div className="relative mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {photoPreviews.map((preview, index) => (
+                              <div key={preview} className="relative aspect-[3/4] overflow-hidden rounded-lg border">
+                                <Image fill src={preview} alt={`Preview ${index + 1}`} className="object-cover" />
+                              </div>
+                            ))}
                             <Button
                               type="button"
                               variant="ghost"
                               size="icon"
                               onClick={resetUploadForm}
-                              className="absolute top-1 right-1 sm:top-2 sm:right-2 h-6 w-6 rounded-full bg-red-500 text-white hover:bg-red-600"
+                              className="absolute right-2 top-2 h-7 w-7 rounded-full bg-red-500 text-white hover:bg-red-600"
                             >
                               <X className="h-3 w-3" />
                             </Button>
@@ -437,10 +454,10 @@ export function DayOneSheet() {
                       </div>
                       <Button 
                         onClick={handleSubmitPhoto} 
-                        disabled={uploading || !selectedFile}
+                        disabled={uploading || selectedFiles.length === 0}
                         className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
                       >
-                        {uploading ? "Subiendo..." : "Subir Foto"}
+                        {uploading ? "Subiendo..." : selectedFiles.length > 1 ? "Subir fotos" : "Subir foto"}
                       </Button>
                     </div>
                   </DialogContent>
@@ -587,6 +604,13 @@ export function DayOneSheet() {
                 </div>
               </CardContent>
             </Card>
+          )}
+
+          {sortedPhotos.length > 0 && (
+            <ProgressPhotoPackages
+              photos={sortedPhotos}
+              onDeletePhoto={(photo) => handleDeletePhoto(photo.id)}
+            />
           )}
         </TabsContent>
 

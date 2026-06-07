@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, getAuthHeaders } from '@/lib/api'
 
@@ -14,11 +14,55 @@ export interface FeedbackResponse {
   id: string
 }
 
+export interface FeedbackHistoryItem extends FeedbackData {
+  id: string
+  status: 'new' | 'in_progress' | 'resolved' | 'closed'
+  admin_response?: string
+  created_at: string
+  resolved_at?: string | null
+}
+
 export function useFeedback() {
   const { isAuthenticated } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [history, setHistory] = useState<FeedbackHistoryItem[]>([])
+
+  const fetchFeedbackHistory = useCallback(async (): Promise<FeedbackHistoryItem[]> => {
+    if (!isAuthenticated) {
+      setHistory([])
+      return []
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch(buildApiUrl('/feedback/'), {
+        method: 'GET',
+        headers: {
+          ...getAuthHeaders(),
+        },
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Error al cargar el histórico')
+      }
+
+      const data = await response.json()
+      const items = Array.isArray(data) ? data : []
+      setHistory(items)
+      return items
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error desconocido')
+      setHistory([])
+      return []
+    } finally {
+      setLoading(false)
+    }
+  }, [isAuthenticated])
 
   const submitFeedback = async (feedbackData: FeedbackData): Promise<boolean> => {
     if (!isAuthenticated) {
@@ -47,6 +91,7 @@ export function useFeedback() {
 
       const data: FeedbackResponse = await response.json()
       setSuccess(data.message)
+      await fetchFeedbackHistory()
       return true
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error desconocido')
@@ -63,6 +108,8 @@ export function useFeedback() {
 
   return {
     submitFeedback,
+    fetchFeedbackHistory,
+    history,
     loading,
     error,
     success,

@@ -11,17 +11,18 @@ import Image from "next/image"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 export function ProgressPhotos() {
   const [currentPhoto, setCurrentPhoto] = useState(0)
-  const { photos, loading, error, uploadPhoto, deletePhoto } = useProgressPhotos()
+  const { photos, loading, error, uploadPhotos, deletePhoto, refreshPhotos } = useProgressPhotos()
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const nextPhoto = () => {
@@ -37,12 +38,12 @@ export function ProgressPhotos() {
   }
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setSelectedFile(file)
-        const url = URL.createObjectURL(file)
-        setPreviewUrl(url)
+    const files = Array.from(event.target.files || [])
+    if (files.length > 0) {
+      if (files.every((file) => file.type.startsWith('image/'))) {
+        previewUrls.forEach((url) => URL.revokeObjectURL(url))
+        setSelectedFiles(files)
+        setPreviewUrls(files.map((file) => URL.createObjectURL(file)))
       } else {
         toast({
           title: "❌ Error",
@@ -53,7 +54,7 @@ export function ProgressPhotos() {
   }
 
   const handleUploadPhoto = async () => {
-    if (!selectedFile || !newPhotoWeight.trim()) {
+    if (selectedFiles.length === 0 || !newPhotoWeight.trim()) {
       toast({
         title: "❌ Error",
         description: "Por favor selecciona una foto y especifica el peso actual.",
@@ -64,13 +65,14 @@ export function ProgressPhotos() {
     try {
       const weight = parseFloat(newPhotoWeight)
 
-      await uploadPhoto(selectedFile, weight, `Peso: ${newPhotoWeight} kg`, 'front', newPhotoDate)
+      await uploadPhotos(selectedFiles, weight, `Peso: ${newPhotoWeight} kg`, 'front', newPhotoDate)
 
       // Reset form
-      setSelectedFile(null)
+      setSelectedFiles([])
       setNewPhotoWeight("")
       setIsUploadDialogOpen(false)
-      setPreviewUrl(null)
+      previewUrls.forEach((url) => URL.revokeObjectURL(url))
+      setPreviewUrls([])
 
       // Forzar re-render para actualizar la evolución del peso
       setTimeout(() => {
@@ -81,7 +83,7 @@ export function ProgressPhotos() {
 
       toast({
         title: "✅ ¡Foto añadida!",
-        description: "Tu nueva foto de progreso ha sido guardada correctamente.",
+        description: `${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"} de progreso guardada${selectedFiles.length === 1 ? "" : "s"} correctamente.`,
       })
     } catch (error) {
       toast({
@@ -93,14 +95,30 @@ export function ProgressPhotos() {
   }
 
   const resetUploadForm = () => {
-    setSelectedFile(null)
+    setSelectedFiles([])
     // Solo revocar la URL de preview si existe
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl)
-      setPreviewUrl(null)
-    }
+    previewUrls.forEach((url) => URL.revokeObjectURL(url))
+    setPreviewUrls([])
     setNewPhotoWeight("")
     setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
+  }
+
+  const handleDeletePhoto = async (photoId: string | number) => {
+    if (!window.confirm("¿Quieres borrar esta foto? Esta acción no se puede deshacer.")) return
+    try {
+      await deletePhoto(photoId)
+      await refreshPhotos()
+      toast({
+        title: "✅ Foto eliminada",
+        description: "La foto se ha borrado correctamente.",
+      })
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "No se pudo borrar la foto.",
+        variant: "destructive",
+      })
+    }
   }
 
   const handlePhotoClick = (index: number) => {
@@ -294,6 +312,7 @@ export function ProgressPhotos() {
                         id="photo-upload"
                         type="file"
                         accept="image/*"
+                        multiple
                         onChange={handleFileSelect}
                         className="hidden"
                         aria-label="Seleccionar foto de progreso"
@@ -305,23 +324,28 @@ export function ProgressPhotos() {
                         className="w-full"
                       >
                         <Upload className="h-4 w-4 mr-2" />
-                        {selectedFile ? selectedFile.name : "Seleccionar archivo"}
+                        {selectedFiles.length > 0
+                          ? `${selectedFiles.length} foto${selectedFiles.length === 1 ? "" : "s"} seleccionada${selectedFiles.length === 1 ? "" : "s"}`
+                          : "Seleccionar una o varias fotos"}
                       </Button>
                     </div>
                   </div>
 
                   {/* Preview de la imagen */}
-                  {previewUrl && (
+                  {previewUrls.length > 0 && (
                     <div className="relative">
                       <Label>Vista previa:</Label>
-                      <div className="mt-2 relative inline-block">
-                        <Image
-                          src={previewUrl}
-                          alt="Preview"
-                          width={120}
-                          height={160}
-                          className="rounded-lg object-cover border"
-                        />
+                      <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                        {previewUrls.map((url, index) => (
+                          <div key={url} className="relative aspect-[3/4] overflow-hidden rounded-lg border">
+                            <Image
+                              src={url}
+                              alt={`Preview ${index + 1}`}
+                              fill
+                              className="object-cover"
+                            />
+                          </div>
+                        ))}
                         <Button
                           type="button"
                           variant="ghost"
@@ -380,10 +404,10 @@ export function ProgressPhotos() {
                     <Button
                       type="button"
                       onClick={handleUploadPhoto}
-                      disabled={!selectedFile || !newPhotoWeight.trim()}
+                      disabled={selectedFiles.length === 0 || !newPhotoWeight.trim()}
                       className="flex-1"
                     >
-                      Subir Foto
+                      {selectedFiles.length > 1 ? "Subir fotos" : "Subir foto"}
                     </Button>
                   </div>
                 </div>
@@ -416,6 +440,15 @@ export function ProgressPhotos() {
                 </div>
               </button>
             )}
+
+            <ProgressPhotoPackages
+              photos={photos}
+              onPhotoClick={(photo) => {
+                const index = photos.findIndex((item) => String(item.id) === String(photo.id))
+                if (index >= 0) setCurrentPhoto(index)
+              }}
+              onDeletePhoto={(photo) => handleDeletePhoto(photo.id)}
+            />
           </div>
         )}
       </CardContent>
