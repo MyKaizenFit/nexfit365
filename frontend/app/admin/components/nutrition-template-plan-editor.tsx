@@ -59,6 +59,12 @@ interface PlanMealDraft {
   meal_recipes: MealRecipeOption[]
 }
 
+type RecipeSelectorMode = "add" | "replace"
+type CopySource =
+  | { type: "meal"; meal: PlanMealDraft }
+  | { type: "day"; day: DayKey }
+  | null
+
 const DAY_LABELS: Record<DayKey, string> = {
   "1": "Lun",
   "2": "Mar",
@@ -246,10 +252,15 @@ export const NutritionTemplatePlanEditor = forwardRef<
 
   // selector recetas
   const [showRecipeSelector, setShowRecipeSelector] = useState(false)
+  const [recipeSelectorMode, setRecipeSelectorMode] = useState<RecipeSelectorMode>("add")
   const [recipeSearch, setRecipeSearch] = useState("")
   const [recipeCategoryFilter, setRecipeCategoryFilter] = useState("all")
   const [recipeFreeFromFilters, setRecipeFreeFromFilters] = useState<string[]>([])
   const [targetMealIndex, setTargetMealIndex] = useState<number | null>(null)
+  const [targetRecipeId, setTargetRecipeId] = useState<string | null>(null)
+  const [copySource, setCopySource] = useState<CopySource>(null)
+  const [copyTargetDays, setCopyTargetDays] = useState<DayKey[]>([])
+  const [copyMode, setCopyMode] = useState<"append" | "replace">("append")
 
   const recipesById = useMemo(() => {
     const map = new Map<string, AdminRecipe>()
@@ -505,6 +516,20 @@ export const NutritionTemplatePlanEditor = forwardRef<
     const idx = meals.findIndex((m) => m === meal)
     if (idx < 0) return
     setTargetMealIndex(idx)
+    setTargetRecipeId(null)
+    setRecipeSelectorMode("add")
+    setRecipeSearch("")
+    setRecipeCategoryFilter("all")
+    setRecipeFreeFromFilters([])
+    setShowRecipeSelector(true)
+  }
+
+  const openRecipeReplacePicker = (meal: PlanMealDraft, recipeId: string) => {
+    const idx = meals.findIndex((m) => m === meal)
+    if (idx < 0) return
+    setTargetMealIndex(idx)
+    setTargetRecipeId(recipeId)
+    setRecipeSelectorMode("replace")
     setRecipeSearch("")
     setRecipeCategoryFilter("all")
     setRecipeFreeFromFilters([])
@@ -533,6 +558,33 @@ export const NutritionTemplatePlanEditor = forwardRef<
     })
   }
 
+  const replaceRecipeInMeal = (recipe: AdminRecipe) => {
+    if (targetMealIndex == null || !targetRecipeId) return
+    updateUnsavedChanges(true)
+    setMeals((prev) => {
+      const meal = prev[targetMealIndex]
+      if (!meal) return prev
+      const replacementId = String(recipe.id)
+      const already = meal.meal_recipes.some((r) => String(r.recipe_id) === replacementId)
+      if (already && replacementId !== targetRecipeId) return prev
+
+      return prev.map((item, index) => index === targetMealIndex
+        ? {
+            ...item,
+            meal_recipes: item.meal_recipes.map((option) => String(option.recipe_id) === targetRecipeId
+              ? {
+                  recipe_id: replacementId,
+                  display_order: option.display_order,
+                  servings: option.servings ?? 1,
+                }
+              : option
+            ),
+          }
+        : item
+      )
+    })
+  }
+
   const removeRecipeFromMeal = (meal: PlanMealDraft, recipeId: string) => {
     const idx = meals.findIndex((m) => m === meal)
     if (idx < 0) return
@@ -546,6 +598,97 @@ export const NutritionTemplatePlanEditor = forwardRef<
         : item
       )
     })
+  }
+
+  const moveRecipeInMeal = (meal: PlanMealDraft, recipeId: string, direction: "up" | "down") => {
+    const idx = meals.findIndex((m) => m === meal)
+    if (idx < 0) return
+    updateUnsavedChanges(true)
+    setMeals((prev) => {
+      const currentMeal = prev[idx]
+      if (!currentMeal) return prev
+      const sorted = currentMeal.meal_recipes.slice().sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+      const recipeIndex = sorted.findIndex((option) => String(option.recipe_id) === recipeId)
+      const targetIndex = direction === "up" ? recipeIndex - 1 : recipeIndex + 1
+      if (recipeIndex < 0 || targetIndex < 0 || targetIndex >= sorted.length) return prev
+
+      const nextOptions = [...sorted]
+      const temp = nextOptions[recipeIndex]
+      nextOptions[recipeIndex] = nextOptions[targetIndex]
+      nextOptions[targetIndex] = temp
+
+      return prev.map((item, index) => index === idx
+        ? { ...item, meal_recipes: nextOptions.map((option, order) => ({ ...option, display_order: order })) }
+        : item
+      )
+    })
+  }
+
+  const openCopyMealDialog = (meal: PlanMealDraft) => {
+    setCopySource({ type: "meal", meal })
+    setCopyTargetDays([])
+    setCopyMode("append")
+  }
+
+  const openCopyDayDialog = (day: DayKey) => {
+    setCopySource({ type: "day", day })
+    setCopyTargetDays([])
+    setCopyMode("append")
+  }
+
+  const closeCopyDialog = () => {
+    setCopySource(null)
+    setCopyTargetDays([])
+    setCopyMode("append")
+  }
+
+  const getNextMealOrder = (items: PlanMealDraft[], dayOfWeek: number) => (
+    Math.max(0, ...items.filter((meal) => meal.day_of_week === dayOfWeek).map((meal) => meal.order_index || 0)) + 1
+  )
+
+  const cloneMealForDay = (meal: PlanMealDraft, dayOfWeek: number, orderIndex: number): PlanMealDraft => ({
+    ...meal,
+    id: undefined,
+    day_of_week: dayOfWeek,
+    order_index: orderIndex,
+    meal_recipes: meal.meal_recipes.map((option, index) => ({ ...option, display_order: index })),
+  })
+
+  const applyCopy = () => {
+    if (!copySource || copyTargetDays.length === 0) return
+    updateUnsavedChanges(true)
+    setMeals((prev) => {
+      let next = [...prev]
+      const targetNumbers = copyTargetDays.map((day) => Number(day))
+
+      if (copySource.type === "meal") {
+        for (const dayNumber of targetNumbers) {
+          const orderIndex = getNextMealOrder(next, dayNumber)
+          next.push(cloneMealForDay(copySource.meal, dayNumber, orderIndex))
+        }
+        return next
+      }
+
+      const sourceDayNumber = Number(copySource.day)
+      const sourceMeals = prev
+        .filter((meal) => meal.day_of_week === sourceDayNumber)
+        .slice()
+        .sort((a, b) => a.order_index - b.order_index)
+
+      for (const dayNumber of targetNumbers) {
+        if (copyMode === "replace") {
+          next = next.filter((meal) => meal.day_of_week !== dayNumber)
+        }
+        let orderIndex = getNextMealOrder(next, dayNumber)
+        for (const meal of sourceMeals) {
+          next.push(cloneMealForDay(meal, dayNumber, orderIndex))
+          orderIndex += 1
+        }
+      }
+      return next
+    })
+    toast({ title: "✅ Copiado", description: "Las comidas/recetas se han duplicado en los días seleccionados." })
+    closeCopyDialog()
   }
 
   const handleSave = async () => {
@@ -611,10 +754,15 @@ export const NutritionTemplatePlanEditor = forwardRef<
         <div className="text-sm text-muted-foreground">
           Configura comidas por día y añade varias recetas como opciones (ej: 3 desayunos).
         </div>
-        <Button onClick={addMealForActiveDay} size="sm" variant="outline">
-          <Plus className="h-4 w-4 mr-1" />
-          Añadir comida
-        </Button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button onClick={() => openCopyDayDialog(activeDay)} size="sm" variant="outline" disabled={mealsForDay.length === 0}>
+            Copiar día
+          </Button>
+          <Button onClick={addMealForActiveDay} size="sm" variant="outline">
+            <Plus className="h-4 w-4 mr-1" />
+            Añadir comida
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -721,11 +869,6 @@ export const NutritionTemplatePlanEditor = forwardRef<
                 const range = computeMealRange(meal)
                 const canMoveUp = mealPosition > 0
                 const canMoveDown = mealPosition < mealsForDay.length - 1
-                const recipeOptions = meal.meal_recipes
-                  .slice()
-                  .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
-                  .map((r) => recipesById.get(String(r.recipe_id)))
-                  .filter(Boolean) as AdminRecipe[]
 
                 return (
                   <Card key={`${meal.id || "new"}-${meal.name}-${meal.order_index}`} className="border">
@@ -733,6 +876,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
                       <div className="flex items-start justify-between gap-3">
                         <CardTitle className="text-sm">Comida #{meal.order_index}</CardTitle>
                         <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => openCopyMealDialog(meal)} title="Copiar comida a otros días">
+                            Copiar
+                          </Button>
                           <Button variant="ghost" size="icon" onClick={() => moveMeal(meal, "up")} disabled={!canMoveUp} title="Subir comida">
                             <ArrowUp className="h-4 w-4" />
                           </Button>
@@ -811,11 +957,20 @@ export const NutritionTemplatePlanEditor = forwardRef<
                           <div className="text-sm text-muted-foreground">Sin recetas seleccionadas.</div>
                         ) : (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {recipeOptions.map((r) => (
-                              <div key={r.id} className="border rounded-md p-2 flex items-center justify-between gap-2">
+                            {meal.meal_recipes
+                              .slice()
+                              .sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0))
+                              .map((option, recipePosition) => {
+                                const r = recipesById.get(String(option.recipe_id))
+                                const recipeName = r ? fixEncoding(r.name) : `Receta ${option.recipe_id}`
+                                const canMoveRecipeUp = recipePosition > 0
+                                const canMoveRecipeDown = recipePosition < meal.meal_recipes.length - 1
+
+                                return (
+                              <div key={`${option.recipe_id}-${recipePosition}`} className="border rounded-md p-2 flex items-center justify-between gap-2">
                                 <div className="min-w-0">
-                                  <div className="text-sm font-medium truncate">{fixEncoding(r.name)}</div>
-                                  {r.category && (
+                                  <div className="text-sm font-medium truncate">{recipeName}</div>
+                                  {r?.category && (
                                     <div className="mt-1">
                                       <Badge variant="secondary" className="text-[10px]">
                                         {RECIPE_CATEGORY_OPTIONS.find(option => option.value === r.category)?.label || r.category}
@@ -823,19 +978,35 @@ export const NutritionTemplatePlanEditor = forwardRef<
                                     </div>
                                   )}
                                   <div className="text-xs text-muted-foreground">
-                                    {toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}
+                                    {r ? (
+                                      <>{toNumber(r.calories)} kcal · P {toNumber(r.protein)} · C {toNumber(r.carbs)} · G {toNumber(r.fat)}</>
+                                    ) : (
+                                      <>Receta no cargada en el catálogo actual</>
+                                    )}
                                   </div>
                                 </div>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeRecipeFromMeal(meal, String(r.id))}
-                                  title="Quitar receta"
-                                >
-                                  <Trash2 className="h-4 w-4 text-red-600" />
-                                </Button>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => moveRecipeInMeal(meal, String(option.recipe_id), "up")} disabled={!canMoveRecipeUp} title="Subir receta">
+                                    <ArrowUp className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => moveRecipeInMeal(meal, String(option.recipe_id), "down")} disabled={!canMoveRecipeDown} title="Bajar receta">
+                                    <ArrowDown className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="sm" onClick={() => openRecipeReplacePicker(meal, String(option.recipe_id))} title="Sustituir receta">
+                                    Sustituir
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeRecipeFromMeal(meal, String(option.recipe_id))}
+                                    title="Quitar receta"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
                               </div>
-                            ))}
+                                )
+                              })}
                           </div>
                         )}
                       </div>
@@ -875,8 +1046,12 @@ export const NutritionTemplatePlanEditor = forwardRef<
       <Dialog open={showRecipeSelector} onOpenChange={setShowRecipeSelector}>
         <DialogContent className="max-w-[95vw] sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Seleccionar receta</DialogTitle>
-            <DialogDescription>Elige una receta ya creada para añadirla como opción.</DialogDescription>
+            <DialogTitle>{recipeSelectorMode === "replace" ? "Sustituir receta" : "Seleccionar receta"}</DialogTitle>
+            <DialogDescription>
+              {recipeSelectorMode === "replace"
+                ? "Busca una receta y reemplaza la opción seleccionada sin reconstruir la comida."
+                : "Busca una receta ya creada para añadirla como opción."}
+            </DialogDescription>
           </DialogHeader>
 
           <div className="relative">
@@ -936,7 +1111,11 @@ export const NutritionTemplatePlanEditor = forwardRef<
                 variant="outline"
                 className="justify-start h-auto whitespace-normal"
                 onClick={() => {
-                  addRecipeToMeal(r)
+                  if (recipeSelectorMode === "replace") {
+                    replaceRecipeInMeal(r)
+                  } else {
+                    addRecipeToMeal(r)
+                  }
                   setShowRecipeSelector(false)
                 }}
               >
@@ -961,6 +1140,84 @@ export const NutritionTemplatePlanEditor = forwardRef<
             <Button variant="outline" onClick={() => setShowRecipeSelector(false)}>
               Cerrar
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={copySource !== null} onOpenChange={(open) => {
+        if (!open) closeCopyDialog()
+      }}>
+        <DialogContent className="max-w-[95vw] sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {copySource?.type === "day" ? "Copiar bloque de comidas" : "Copiar comida"}
+            </DialogTitle>
+            <DialogDescription>
+              Duplica {copySource?.type === "day" ? "todas las comidas y recetas del día" : "esta comida con sus recetas"} a otros días de la semana.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label className="text-sm font-semibold">Días destino</Label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => {
+                  const disabled = copySource?.type === "day" && copySource.day === day
+                  return (
+                    <label key={day} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${disabled ? "opacity-50" : ""}`}>
+                      <input
+                        type="checkbox"
+                        checked={copyTargetDays.includes(day)}
+                        disabled={disabled}
+                        onChange={(event) => {
+                          setCopyTargetDays((prev) => {
+                            if (event.target.checked) {
+                              return prev.includes(day) ? prev : [...prev, day]
+                            }
+                            return prev.filter((value) => value !== day)
+                          })
+                        }}
+                        className="h-4 w-4"
+                      />
+                      <span>{DAY_LABELS[day]}</span>
+                    </label>
+                  )
+                })}
+              </div>
+              <div className="flex flex-wrap gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCopyTargetDays((["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).filter((day) => !(copySource?.type === "day" && copySource.day === day)))}
+                >
+                  Toda la semana
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setCopyTargetDays([])}>
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+
+            {copySource?.type === "day" ? (
+              <div>
+                <Label className="text-sm font-semibold">Modo de copia</Label>
+                <Select value={copyMode} onValueChange={(value) => setCopyMode(value as "append" | "replace")}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="append">Añadir a lo existente</SelectItem>
+                    <SelectItem value="replace">Reemplazar comidas del día destino</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeCopyDialog}>Cancelar</Button>
+            <Button onClick={applyCopy} disabled={copyTargetDays.length === 0}>Copiar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
