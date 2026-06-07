@@ -616,18 +616,19 @@ export function WorkoutDashboardEnhanced() {
       ?.filter((d: any) => !d.is_rest_day)
       ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
 
-    // Días del usuario ordenados
-    const userTrainingDays = trainingDays.length > 0 ? [...trainingDays].sort((a, b) => a - b) : []
+    // Días del usuario ordenados, limitados al número real de días del plan
+    // para evitar mostrar días extra cuando el perfil tiene más días que el plan activo
+    const userTrainingDays = trainingDays.length > 0
+      ? [...trainingDays].sort((a, b) => a - b).slice(0, planWorkoutDays.length)
+      : []
 
     return days.map(day => {
-      // El calendario siempre muestra los días según el perfil del usuario
-      const isTraining = trainingDays.length > 0
-        ? isTrainingDay(day.number) // Usar días del perfil siempre
-        : false
+      // El calendario usa los días del perfil limitados al plan activo
+      const isTraining = userTrainingDays.includes(day.number)
 
       // Si hay días del usuario configurados, buscar el entrenamiento mapeado
       let mappedWorkoutDay = null
-      if (trainingDays.length > 0 && isTraining) {
+      if (isTraining) {
         const userDayIndex = userTrainingDays.indexOf(day.number)
         if (userDayIndex >= 0 && userDayIndex < planWorkoutDays.length) {
           mappedWorkoutDay = planWorkoutDays[userDayIndex]
@@ -778,19 +779,20 @@ export function WorkoutDashboardEnhanced() {
     const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
     const todayNumber = today === 0 ? 7 : today // Convertir a nuestro formato (1-7)
 
-    // Verificar si hoy es un día de entrenamiento según el perfil
-    if (!trainingDays.includes(todayNumber)) {
-      // Si hoy no es un día de entrenamiento según el perfil, devolver null
-      return null
-    }
-
     // Obtener días de entrenamiento del plan (sin descanso), ordenados
     const planWorkoutDays = userPlan.days
       ?.filter((d: any) => !d.is_rest_day)
       ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
 
-    // Días del usuario ordenados
-    const userTrainingDays = [...trainingDays].sort((a, b) => a - b)
+    // Días del usuario ordenados, limitados al número real de días del plan
+    const userTrainingDays = [...trainingDays]
+      .sort((a, b) => a - b)
+      .slice(0, planWorkoutDays.length)
+
+    // Verificar si hoy está dentro de los días efectivos (limitados al plan)
+    if (!userTrainingDays.includes(todayNumber)) {
+      return null
+    }
 
     // Encontrar el índice del día de hoy en los días del usuario
     const todayIndex = userTrainingDays.indexOf(todayNumber)
@@ -1196,8 +1198,11 @@ export function WorkoutDashboardEnhanced() {
               ?.filter((d: any) => !d.is_rest_day)
               ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
 
-            // Días del usuario ordenados
-            const userTrainingDays = [...trainingDays].sort((a, b) => a - b)
+            // Días del usuario ordenados, limitados al número real de días del plan
+            // para evitar mostrar días extra cuando el perfil tiene más días que el plan activo
+            const userTrainingDays = [...trainingDays]
+              .sort((a, b) => a - b)
+              .slice(0, planWorkoutDays.length)
 
             // Mapear entrenamientos del plan a los días del usuario
             // Primer entrenamiento del plan → primer día del usuario
