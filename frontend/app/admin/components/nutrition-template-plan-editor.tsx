@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search } from "lucide-react"
+import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 
@@ -140,6 +140,27 @@ function dayKeyFromMeal(meal: PlanMealDraft): DayKey {
   return meal.day_of_week ? (String(meal.day_of_week) as DayKey) : "1"
 }
 
+function getMonthCalendarDays(monthDate: Date) {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  const startDate = new Date(firstDay)
+  startDate.setDate(firstDay.getDate() - mondayOffset)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + index)
+    return date
+  })
+}
+
+function dayKeyFromDate(date: Date): DayKey {
+  return String(((date.getDay() + 6) % 7) + 1) as DayKey
+}
+
+function isSameCalendarDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
 function getRecipeId(value: any) {
@@ -204,6 +225,8 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const [activeDay, setActiveDay] = useState<DayKey>("1")
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loadedMealsCount, setLoadedMealsCount] = useState(0)
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
 
   const [meals, setMeals] = useState<PlanMealDraft[]>([])
 
@@ -305,6 +328,8 @@ export const NutritionTemplatePlanEditor = forwardRef<
       .filter((m) => dayKeyFromMeal(m) === activeDay)
       .sort((a, b) => a.order_index - b.order_index)
   }, [meals, activeDay])
+
+  const calendarDays = getMonthCalendarDays(calendarMonth)
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
     let headers = await getAuthHeaders()
@@ -591,6 +616,87 @@ export const NutritionTemplatePlanEditor = forwardRef<
           Añadir comida
         </Button>
       </div>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Calendario mensual de nutrición</CardTitle>
+              <div className="text-sm text-muted-foreground">
+                Navega por el mes y selecciona un día para editar sus comidas y recetas.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-[180px] text-center text-sm font-semibold capitalize">
+                {calendarMonth.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground mb-2">
+            {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => <div key={day}>{DAY_LABELS[day]}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((date) => {
+              const key = dayKeyFromDate(date)
+              const dayMeals = meals.filter((meal) => dayKeyFromMeal(meal) === key)
+              const recipeCount = dayMeals.reduce((total, meal) => total + meal.meal_recipes.length, 0)
+              const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
+              const isSelected = isSameCalendarDay(date, selectedCalendarDate)
+
+              return (
+                <button
+                  key={date.toISOString()}
+                  type="button"
+                  onClick={() => {
+                    setSelectedCalendarDate(date)
+                    setActiveDay(key)
+                  }}
+                  className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
+                    isSelected ? "border-blue-500 bg-blue-50 shadow-sm" : "hover:border-blue-300 hover:bg-blue-50/40"
+                  } ${isCurrentMonth ? "bg-white" : "bg-slate-50 text-muted-foreground"}`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-semibold">{date.getDate()}</span>
+                    <span className="rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800">{dayMeals.length}</span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {dayMeals.length > 0 ? (
+                      <>
+                        <div className="truncate rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-800">
+                          {dayMeals.length} comidas
+                        </div>
+                        <div className="truncate rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-800">
+                          {recipeCount} recetas
+                        </div>
+                      </>
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground">Sin comidas</div>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
         <TabsList className="grid grid-cols-7">

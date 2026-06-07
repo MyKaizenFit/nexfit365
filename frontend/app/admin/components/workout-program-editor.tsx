@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw } from "lucide-react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -51,6 +51,27 @@ interface WorkoutProgram {
 const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
+function getMonthCalendarDays(monthDate: Date) {
+  const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
+  const mondayOffset = (firstDay.getDay() + 6) % 7
+  const startDate = new Date(firstDay)
+  startDate.setDate(firstDay.getDate() - mondayOffset)
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(startDate)
+    date.setDate(startDate.getDate() + index)
+    return date
+  })
+}
+
+function getSpanishDayName(date: Date) {
+  return DAY_OPTIONS[(date.getDay() + 6) % 7]
+}
+
+function isSameCalendarDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
 function createLocalId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`
@@ -79,6 +100,8 @@ export function WorkoutProgramEditor({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date())
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
 
   const updateUnsavedChanges = (value: boolean) => {
     setHasUnsavedChanges(value)
@@ -222,13 +245,13 @@ export function WorkoutProgramEditor({
     }
   }
 
-  const addWorkoutDay = () => {
+  const addWorkoutDay = (preferredDay?: string) => {
     if (!program) return
 
     const newDay: WorkoutDay = {
       id: undefined,
       localId: createLocalId("day"),
-      day: DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length],
+      day: preferredDay || DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length],
       name: "Nuevo entrenamiento",
       duration: 60,
       isRestDay: false,
@@ -457,6 +480,12 @@ export function WorkoutProgramEditor({
     )
   }
 
+  const calendarDays = getMonthCalendarDays(calendarMonth)
+  const selectedDayName = getSpanishDayName(selectedCalendarDate)
+  const selectedWorkoutDays = program.weeklySchedule
+    .map((workoutDay, index) => ({ workoutDay, index }))
+    .filter((item) => item.workoutDay.day === selectedDayName)
+
   return (
     <div className="space-y-6">
       {/* Header del programa */}
@@ -541,20 +570,106 @@ export function WorkoutProgramEditor({
         </CardContent>
       </Card>
 
+      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+        <CardHeader>
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <CardTitle>Calendario mensual de entrenamientos</CardTitle>
+              <CardDescription>Selecciona un día del mes para editar los entrenamientos asociados a ese día semanal.</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-[180px] text-center text-sm font-semibold capitalize">
+                {calendarMonth.toLocaleDateString("es-ES", { month: "long", year: "numeric" })}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground mb-2">
+            {DAY_OPTIONS.map((day) => <div key={day}>{day.slice(0, 3)}</div>)}
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {calendarDays.map((date) => {
+              const dayName = getSpanishDayName(date)
+              const dayWorkouts = program.weeklySchedule.filter((day) => day.day === dayName)
+              const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
+              const isSelected = isSameCalendarDay(date, selectedCalendarDate)
+              const hasTraining = dayWorkouts.some((day) => !day.isRestDay && day.exercises.length > 0)
+
+              return (
+                <button
+                  key={date.toISOString()}
+                  type="button"
+                  onClick={() => setSelectedCalendarDate(date)}
+                  className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
+                    isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
+                  } ${isCurrentMonth ? "bg-white" : "bg-slate-50 text-muted-foreground"}`}
+                >
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-sm font-semibold">{date.getDate()}</span>
+                    {hasTraining ? <Dumbbell className="h-3.5 w-3.5 text-purple-600" /> : <Clock className="h-3.5 w-3.5 text-slate-400" />}
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {dayWorkouts.length > 0 ? (
+                      dayWorkouts.slice(0, 2).map((item, index) => (
+                        <div key={`${item.id || item.localId || index}-${date.toISOString()}`} className="truncate rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">
+                          {item.isRestDay ? "Descanso" : item.name}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-[10px] text-muted-foreground">Sin rutina</div>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Programa semanal */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Programa Semanal</h3>
+          <div>
+            <h3 className="text-lg font-semibold">Editar {selectedDayName}</h3>
+            <p className="text-sm text-muted-foreground">
+              {selectedCalendarDate.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}
+            </p>
+          </div>
           <Button
-            onClick={addWorkoutDay}
+            onClick={() => addWorkoutDay(selectedDayName)}
             className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Añadir día
+            Añadir entrenamiento
           </Button>
         </div>
 
-        {program.weeklySchedule.map((day, index) => (
+        {selectedWorkoutDays.length === 0 && (
+          <Card className="border-dashed">
+            <CardContent className="p-6 text-center text-sm text-muted-foreground">
+              No hay entrenamientos para este día. Usa “Añadir entrenamiento” para crearlo desde el calendario.
+            </CardContent>
+          </Card>
+        )}
+
+        {selectedWorkoutDays.map(({ workoutDay: day, index }) => (
           <Card key={day.id ?? day.localId ?? index} className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
             {(() => {
               const dayKey = day.id ?? day.localId ?? String(index)
