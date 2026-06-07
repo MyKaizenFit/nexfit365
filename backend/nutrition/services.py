@@ -92,13 +92,15 @@ def _recipe_supports_user_restrictions(recipe: Recipe, restrictions: List[str]) 
         'vegetarian': {'vegetarian', 'vegetariano'},
         'vegan': {'vegan', 'vegano'},
         'gluten free': {'gluten free', 'gluten-free', 'sin gluten'},
-        'dairy free': {'dairy free', 'dairy-free', 'sin lactosa', 'lactose free'},
+        'dairy free': {'dairy free', 'dairy-free', 'sin lactosa', 'lactose free', 'lactosa', 'lactose', 'sin lacteos', 'lacteos', 'leche'},
         'keto': {'keto', 'ketogenic', 'cetogenica', 'cetogenico'},
         'low carb': {'low carb', 'bajo en carbohidratos'},
     }
 
     for restriction in restrictions:
         aliases = restriction_aliases.get(restriction)
+        if not aliases:
+            aliases = next((values for values in restriction_aliases.values() if restriction in values), None)
         if not aliases:
             continue
         if recipe_diet_types.isdisjoint(aliases):

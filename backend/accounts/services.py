@@ -390,29 +390,41 @@ class DefaultPlanAssignmentService:
         from dashboard.models import DefaultPlanConfiguration
         
         # Buscar configuraciones activas ordenadas por prioridad
-        configurations = DefaultPlanConfiguration.objects.filter(
+        configurations = list(DefaultPlanConfiguration.objects.filter(
             is_active=True
-        ).order_by('priority')
+        ).order_by('priority'))
+        user_has_dietary_restrictions = bool(DefaultPlanConfiguration.user_dietary_restriction_terms(self.user))
         
-        # Buscar la primera que coincida con el perfil del usuario
+        # Si el usuario tiene restricciones, priorizar configuraciones específicas compatibles.
+        if user_has_dietary_restrictions:
+            for config in configurations:
+                if config.dietary_restriction_terms() and config.matches_user_profile(self.user):
+                    return config
+
+        # Buscar la primera que coincida con el perfil del usuario.
         for config in configurations:
             if config.matches_user_profile(self.user):
                 return config
         
         # Si no hay coincidencia exacta, buscar solo por objetivo
         if self.user.main_goal:
-            config = DefaultPlanConfiguration.objects.filter(
+            fallback_configurations = DefaultPlanConfiguration.objects.filter(
                 is_active=True,
                 main_goal=self.user.main_goal,
                 gender__isnull=True,  # Configuración genérica
                 age_min__isnull=True,  # Sin restricción de edad
-            ).order_by('priority').first()
+            ).order_by('priority')
             
-            if config:
-                return config
+            for config in fallback_configurations:
+                if config.matches_user_profile(self.user):
+                    return config
         
         # Como último recurso, devolver la configuración de mayor prioridad (menor número)
-        return DefaultPlanConfiguration.objects.filter(is_active=True).order_by('priority').first()
+        for config in configurations:
+            if config.matches_user_profile(self.user):
+                return config
+
+        return None
     
     def assign(self):
         """Asignar planes al usuario basado en configuración"""

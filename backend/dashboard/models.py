@@ -1,5 +1,6 @@
 import os
 import uuid
+import unicodedata
 from datetime import timedelta
 from urllib.parse import quote
 from django.conf import settings
@@ -15,6 +16,71 @@ class TimeStampedModel(models.Model):
     
     class Meta:
         abstract = True
+
+
+def _normalize_profile_terms(value):
+    if not value:
+        return []
+
+    if isinstance(value, str):
+        raw_items = value.replace(';', ',').replace('\n', ',').split(',')
+    elif isinstance(value, (list, tuple, set)):
+        raw_items = []
+        for item in value:
+            if item is None:
+                continue
+            if isinstance(item, str):
+                raw_items.extend(item.replace(';', ',').replace('\n', ',').split(','))
+            else:
+                raw_items.append(str(item))
+    else:
+        raw_items = [str(value)]
+
+    normalized = []
+    seen = set()
+    for item in raw_items:
+        text = unicodedata.normalize('NFKD', str(item)).encode('ascii', 'ignore').decode('ascii')
+        text = text.lower().replace('-', ' ')
+        text = ' '.join(text.split())
+        if text and text not in seen:
+            seen.add(text)
+            normalized.append(text)
+    return normalized
+
+
+_DIETARY_RESTRICTION_ALIASES = {
+    'vegetarian': {'vegetarian', 'vegetariano', 'vegetariana'},
+    'vegan': {'vegan', 'vegano', 'vegana'},
+    'gluten_free': {'gluten free', 'sin gluten', 'celiaco', 'celiaca', 'celiaquia'},
+    'dairy_free': {
+        'dairy free', 'lactose free', 'sin lactosa', 'lactosa', 'lactose',
+        'sin lacteos', 'lacteos', 'dairy', 'leche',
+    },
+    'egg_free': {'egg free', 'sin huevo', 'huevo'},
+    'nut_free': {'nut free', 'sin frutos secos', 'frutos secos', 'nuts'},
+    'soy_free': {'soy free', 'sin soja', 'soja', 'soy'},
+    'fish_free': {'fish free', 'sin pescado', 'pescado'},
+    'shellfish_free': {'shellfish free', 'sin marisco', 'marisco', 'crustaceos'},
+    'keto': {'keto', 'ketogenic', 'cetogenica', 'cetogenico'},
+    'low_carb': {'low carb', 'bajo en carbohidratos'},
+}
+
+
+def canonical_dietary_restrictions(value):
+    canonical_terms = []
+    seen = set()
+    for term in _normalize_profile_terms(value):
+        canonical = None
+        for key, aliases in _DIETARY_RESTRICTION_ALIASES.items():
+            if term in aliases:
+                canonical = key
+                break
+        if canonical is None:
+            canonical = term
+        if canonical not in seen:
+            seen.add(canonical)
+            canonical_terms.append(canonical)
+    return canonical_terms
 
 
 class DashboardData(TimeStampedModel):
@@ -289,6 +355,16 @@ class DefaultPlanConfiguration(TimeStampedModel):
     
     def __str__(self):
         return f"{self.name} (Prioridad: {self.priority})"
+
+    @staticmethod
+    def user_dietary_restriction_terms(user):
+        terms = []
+        terms.extend(canonical_dietary_restrictions(getattr(user, 'dietary_restrictions', None)))
+        terms.extend(canonical_dietary_restrictions(getattr(user, 'allergies', None)))
+        return set(terms)
+
+    def dietary_restriction_terms(self):
+        return set(canonical_dietary_restrictions(self.dietary_restrictions))
     
     def matches_user_profile(self, user):
         """
@@ -324,6 +400,14 @@ class DefaultPlanConfiguration(TimeStampedModel):
             if self.age_min and age < self.age_min:
                 return False
             if self.age_max and age > self.age_max:
+                return False
+
+        # Verificar restricciones alimentarias configuradas.
+        # Ejemplo: config "sin lactosa" debe coincidir con usuario que marca "lactosa".
+        config_restrictions = self.dietary_restriction_terms()
+        if config_restrictions:
+            user_restrictions = self.user_dietary_restriction_terms(user)
+            if not config_restrictions.issubset(user_restrictions):
                 return False
         
         return True

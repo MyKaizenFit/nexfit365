@@ -223,6 +223,80 @@ class TestProfilePlanIntegration:
         assert result.nutrition_plan.meals.filter(day_of_week=7).count() == 4
         assert result.nutrition_plan.meals.filter(day_of_week__isnull=True).count() == 0
 
+    def test_default_assignment_prefers_matching_dietary_restriction_configuration(self, user):
+        user.dietary_restrictions = ["lactosa"]
+        user.save(update_fields=["dietary_restrictions"])
+
+        generic_plan = NutritionPlan.objects.create(
+            name="Plan estándar",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1800,
+        )
+        lactose_free_plan = NutritionPlan.objects.create(
+            name="Plan SIN LACTOSA",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1800,
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config genérica",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=generic_plan,
+        )
+        lactose_config = DefaultPlanConfiguration.objects.create(
+            name="Config sin lactosa",
+            priority=2,
+            is_active=True,
+            main_goal="lose_weight",
+            dietary_restrictions=["sin lactosa"],
+            default_nutrition_plan=lactose_free_plan,
+        )
+
+        result = DefaultPlanAssignmentService(user).find_best_configuration()
+
+        assert result == lactose_config
+
+    def test_default_assignment_does_not_match_restricted_configuration_without_user_restriction(self, user):
+        generic_plan = NutritionPlan.objects.create(
+            name="Plan estándar",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1800,
+        )
+        lactose_free_plan = NutritionPlan.objects.create(
+            name="Plan SIN LACTOSA",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1800,
+        )
+        lactose_config = DefaultPlanConfiguration.objects.create(
+            name="Config sin lactosa",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            dietary_restrictions=["sin lactosa"],
+            default_nutrition_plan=lactose_free_plan,
+        )
+        generic_config = DefaultPlanConfiguration.objects.create(
+            name="Config genérica",
+            priority=2,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=generic_plan,
+        )
+
+        result = DefaultPlanAssignmentService(user).find_best_configuration()
+
+        assert result == generic_config
+        assert not lactose_config.matches_user_profile(user)
+
     def test_default_assignment_prefers_admin_profile_training_days(self, user):
         user.training_days_per_week = 4
         user.training_days = [1, 2, 4, 5]
