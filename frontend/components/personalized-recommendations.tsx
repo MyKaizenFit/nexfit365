@@ -44,7 +44,7 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
       case 'lose_weight': return 'Pérdida de Peso'
       case 'gain_muscle': return 'Ganancia Muscular'
       case 'body_recomposition': return 'Recomposición'
-      default: return 'Fitness'
+      default: return 'Entrenamiento'
     }
   }
 

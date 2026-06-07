@@ -37,7 +37,7 @@ export function WorkoutPlansDashboard({ userProfile, onComplete }: WorkoutPlansD
       'muscle_gain': 'Ganancia Muscular',
       'strength_building': 'Construcción de Fuerza',
       'endurance': 'Resistencia',
-      'general_fitness': 'Fitness General'
+      'general_fitness': 'Entrenamiento general'
     }
     return goalNames[goal as keyof typeof goalNames] || goal
   }

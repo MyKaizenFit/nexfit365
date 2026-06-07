@@ -20,10 +20,10 @@ const pwaEnabled = (process.env.NEXT_PUBLIC_ENABLE_PWA || '').toLowerCase() === 
 
 export const metadata: Metadata = {
   metadataBase: new URL(frontendBaseUrl),
-  title: 'NEXFIT - Tu Compañero de Fitness',
-  description: 'Aplicación completa de fitness y bienestar para gestionar entrenamientos, nutrición y progreso',
+  title: 'NEXFIT - Tu Compañero de Entrenamiento',
+  description: 'Aplicación completa de entrenamiento y bienestar para gestionar entrenamientos, nutrición y progreso',
   generator: 'NEXFIT v1.0',
-  keywords: 'fitness, entrenamiento, nutrición, progreso, bienestar',
+  keywords: 'entrenamiento, nutrición, progreso, bienestar',
   authors: [{ name: 'NEXFIT Team' }],
   icons: {
     icon: [

@@ -53,6 +53,7 @@ const CommunityRecipesManagement = lazy(() => import("./components/community-rec
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { useAuth } from "@/contexts/auth-context"
+import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 
 export default function AdminPage() {
   return (
@@ -126,6 +127,20 @@ function AdminPageContent() {
       })
     }
   }
+
+  useEffect(() => {
+    const checkBirthdayAlerts = async () => {
+      try {
+        await fetch(buildApiUrl("notifications/send_birthday_alerts/"), {
+          method: "POST",
+          headers: getAuthHeaders(),
+        })
+      } catch {
+      }
+    }
+
+    checkBirthdayAlerts()
+  }, [])
 
   const [selectedUsers, setSelectedUsers] = useState<number[]>([])
   const [searchTerm, setSearchTerm] = useState("")

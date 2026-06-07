@@ -734,12 +734,12 @@ export default function UserDetailPage({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
 
-            {/* Objetivos y Preferencias de Fitness */}
+            {/* Objetivos y Preferencias de Entrenamiento */}
             <Card className="border shadow-xl">
               <CardHeader>
                 <CardTitle className="bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent flex items-center gap-2">
                   <Target className="h-5 w-5" />
-                  Objetivos y Preferencias de Fitness
+                  Objetivos y Preferencias de Entrenamiento
                   {user.recent_change_sections?.fitness_preferences && (
                     <Badge className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-0">Cambios recientes</Badge>
                   )}

@@ -638,7 +638,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
               </TabsTrigger>
               <TabsTrigger value="fitness" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
                 <Dumbbell className="h-3 w-3" />
-                <span>Fitness</span>
+                <span>Entrenamiento</span>
               </TabsTrigger>
               <TabsTrigger value="nutrition" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
                 <ChefHat className="h-3 w-3" />
@@ -672,7 +672,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             </TabsTrigger>
             <TabsTrigger value="fitness" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <Dumbbell className="h-3 w-3 md:h-4 md:w-4" />
-              <span>Fitness</span>
+              <span>Entrenamiento</span>
             </TabsTrigger>
             <TabsTrigger value="nutrition" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <ChefHat className="h-3 w-3 md:h-4 md:w-4" />
@@ -921,12 +921,12 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
               </CardContent>
             </Card>
 
-            {/* Objetivos y Preferencias de Fitness */}
+            {/* Objetivos y Preferencias de Entrenamiento */}
             <Card>
               <CardHeader className="p-4 md:p-6">
                 <CardTitle className="flex items-center gap-2 text-base md:text-lg">
                   <Target className="h-4 w-4 md:h-5 md:w-5 text-purple-600" />
-                  Objetivos y Preferencias de Fitness
+                  Objetivos y Preferencias de Entrenamiento
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 p-4 md:p-6">
@@ -1042,7 +1042,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
           {/* TAB: FITNESS */}
           {/* ================================================================ */}
           <TabsContent value="fitness" className="space-y-6">
-            {/* Resumen rápido de fitness */}
+            {/* Resumen rápido de entrenamiento */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
                 <CardContent className="p-4">
@@ -1090,12 +1090,12 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
               </Card>
             </div>
 
-            {/* Información detallada de fitness */}
+            {/* Información detallada de entrenamiento */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Target className="h-5 w-5 text-purple-600" />
-                  Objetivos y Preferencias de Fitness
+                  Objetivos y Preferencias de Entrenamiento
                 </CardTitle>
                 <CardDescription>Información completa sobre los objetivos y preferencias de entrenamiento</CardDescription>
               </CardHeader>

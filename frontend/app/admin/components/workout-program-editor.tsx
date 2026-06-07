@@ -44,6 +44,7 @@ interface WorkoutProgram {
   description: string
   level: string
   goal: string
+  targetRpe: string
   daysPerWeek: number
   weeklySchedule: WorkoutDay[]
   durationWeeks?: number
@@ -59,6 +60,29 @@ interface ExerciseOption {
 
 const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
+const RPE_LINE_REGEX = /^RPE objetivo:\s*([1-9](?:[.,][0-9])?|10)\s*$/im
+
+function extractTargetRpe(description?: string) {
+  const match = (description || "").match(RPE_LINE_REGEX)
+  return match?.[1]?.replace(",", ".") || ""
+}
+
+function stripTargetRpe(description?: string) {
+  return (description || "")
+    .replace(RPE_LINE_REGEX, "")
+    .split("\n")
+    .map(line => line.trimEnd())
+    .join("\n")
+    .trim()
+}
+
+function buildDescriptionWithRpe(description: string, targetRpe: string) {
+  const cleanDescription = stripTargetRpe(description)
+  const cleanRpe = targetRpe.trim().replace(",", ".")
+  const parts = cleanRpe ? [`RPE objetivo: ${cleanRpe}`] : []
+  if (cleanDescription) parts.push(cleanDescription)
+  return parts.join("\n")
+}
 
 function getMonthCalendarDays(monthDate: Date) {
   const firstDay = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1)
@@ -184,6 +208,7 @@ export function WorkoutProgramEditor({
           description: "Programa personalizado para el usuario",
           level: "beginner",
           goal: "general_fitness",
+          targetRpe: "",
           daysPerWeek: 3,
           weeklySchedule: [],
           durationWeeks: 4,
@@ -235,9 +260,10 @@ export function WorkoutProgramEditor({
       setProgram({
         id: detail.id,
         name: fixEncoding(detail.name || "Programa de Entrenamiento"),
-        description: detail.description || "",
+        description: stripTargetRpe(detail.description),
         level: detail.difficulty || "intermediate", // El backend usa 'difficulty', no 'level'
         goal: detail.goal || "general_fitness",
+        targetRpe: extractTargetRpe(detail.description),
         daysPerWeek: detail.days_per_week || weeklySchedule.length || 3,
         weeklySchedule,
         durationWeeks: detail.duration_weeks,
@@ -258,6 +284,7 @@ export function WorkoutProgramEditor({
         description: "Programa personalizado para el usuario",
         level: "beginner",
         goal: "general_fitness",
+        targetRpe: "",
         daysPerWeek: 3,
         weeklySchedule: [],
         durationWeeks: 4,
@@ -527,7 +554,7 @@ export function WorkoutProgramEditor({
       const payload: any = {
         user_id: userId,
         name: program.name,
-        description: program.description,
+      description: buildDescriptionWithRpe(program.description, program.targetRpe),
         difficulty: program.level, // El backend usa 'difficulty', no 'level'
         goal: program.goal,
         days_per_week: program.daysPerWeek || program.weeklySchedule.length || 3,
@@ -673,7 +700,7 @@ export function WorkoutProgramEditor({
                   <SelectItem value="muscle_gain">Ganancia muscular</SelectItem>
                   <SelectItem value="strength">Fuerza</SelectItem>
                   <SelectItem value="endurance">Resistencia</SelectItem>
-                  <SelectItem value="general_fitness">Fitness general</SelectItem>
+                  <SelectItem value="general_fitness">Entrenamiento general</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -688,6 +715,24 @@ export function WorkoutProgramEditor({
               className="border-2 border-gray-200 focus:border-purple-400"
               rows={2}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="program-target-rpe">RPE objetivo</Label>
+            <Input
+              id="program-target-rpe"
+              type="number"
+              min="1"
+              max="10"
+              step="0.5"
+              placeholder="Ej: 8"
+              value={program.targetRpe}
+              onChange={(e) => setProgramDraft({ ...program, targetRpe: e.target.value })}
+              className="border-2 border-gray-200 focus:border-purple-400"
+            />
+            <p className="text-xs text-muted-foreground">
+              Se guardará como referencia dentro de la descripción del programa.
+            </p>
           </div>
         </CardContent>
       </Card>

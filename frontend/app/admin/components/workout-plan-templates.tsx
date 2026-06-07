@@ -326,7 +326,7 @@ export function WorkoutPlanTemplates() {
                   <SelectItem value="muscle_gain">Ganancia muscular</SelectItem>
                   <SelectItem value="strength_building">Fuerza</SelectItem>
                   <SelectItem value="endurance">Resistencia</SelectItem>
-                  <SelectItem value="general_fitness">Fitness general</SelectItem>
+                  <SelectItem value="general_fitness">Entrenamiento general</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -373,7 +373,7 @@ export function WorkoutPlanTemplates() {
                   {template.goal === 'weight_loss' ? 'Pérdida de peso' :
                    template.goal === 'muscle_gain' ? 'Ganancia muscular' :
                    template.goal === 'strength_building' ? 'Fuerza' :
-                   template.goal === 'endurance' ? 'Resistencia' : 'Fitness general'}
+                   template.goal === 'endurance' ? 'Resistencia' : 'Entrenamiento general'}
                 </Badge>
               </div>
 
@@ -541,7 +541,7 @@ function CreateTemplateForm({
               <SelectItem value="muscle_gain">Ganancia muscular</SelectItem>
               <SelectItem value="strength_building">Fuerza</SelectItem>
               <SelectItem value="endurance">Resistencia</SelectItem>
-              <SelectItem value="general_fitness">Fitness general</SelectItem>
+              <SelectItem value="general_fitness">Entrenamiento general</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -642,7 +642,7 @@ function TemplateDetails({ template }: { template: WorkoutPlanTemplate }) {
               {template.goal === 'weight_loss' ? 'Pérdida de peso' :
                template.goal === 'muscle_gain' ? 'Ganancia muscular' :
                template.goal === 'strength_building' ? 'Fuerza' :
-               template.goal === 'endurance' ? 'Resistencia' : 'Fitness general'}
+               template.goal === 'endurance' ? 'Resistencia' : 'Entrenamiento general'}
             </p>
           </div>
           <div>

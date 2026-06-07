@@ -22,6 +22,7 @@ interface ProgramFormData {
   duration_weeks: number | ""
   days_per_week: number | ""
   estimated_duration_minutes: number | ""
+  target_rpe: string
 }
 
 const EMPTY_FORM: ProgramFormData = {
@@ -33,6 +34,17 @@ const EMPTY_FORM: ProgramFormData = {
   duration_weeks: "",
   days_per_week: 4,
   estimated_duration_minutes: 60,
+  target_rpe: "",
+}
+
+const FREE_TEMPLATE_FORM: ProgramFormData = {
+  ...EMPTY_FORM,
+  name: "Plantilla libre",
+  description: "Rutina vacía para construir desde cero.",
+  goal: "general_fitness",
+  duration_weeks: "",
+  days_per_week: "",
+  estimated_duration_minutes: "",
 }
 
 const DIFFICULTY_OPTIONS = [
@@ -48,7 +60,32 @@ const GOAL_OPTIONS = [
   { value: "endurance", label: "Resistencia" },
   { value: "maintenance", label: "Mantenimiento" },
   { value: "toning", label: "Tonificación" },
+  { value: "general_fitness", label: "Entrenamiento general" },
 ]
+
+const RPE_LINE_REGEX = /^RPE objetivo:\s*([1-9](?:[.,][0-9])?|10)\s*$/im
+
+const extractTargetRpe = (description?: string) => {
+  const match = (description || "").match(RPE_LINE_REGEX)
+  return match?.[1]?.replace(",", ".") || ""
+}
+
+const stripTargetRpe = (description?: string) => {
+  return (description || "")
+    .replace(RPE_LINE_REGEX, "")
+    .split("\n")
+    .map(line => line.trimEnd())
+    .join("\n")
+    .trim()
+}
+
+const buildDescriptionWithRpe = (description: string, targetRpe: string) => {
+  const cleanDescription = stripTargetRpe(description)
+  const cleanRpe = targetRpe.trim().replace(",", ".")
+  const parts = cleanRpe ? [`RPE objetivo: ${cleanRpe}`] : []
+  if (cleanDescription) parts.push(cleanDescription)
+  return parts.join("\n")
+}
 
 const LOCATION_OPTIONS = [
   { value: "gym", label: "Gimnasio" },
@@ -86,17 +123,24 @@ export function WorkoutProgramManager() {
     setShowForm(true)
   }
 
+  const openFreeTemplate = () => {
+    setEditingProgram(null)
+    setFormData(FREE_TEMPLATE_FORM)
+    setShowForm(true)
+  }
+
   const openEdit = (prog: WorkoutProgram) => {
     setEditingProgram(prog)
     setFormData({
       name: prog.name,
-      description: prog.description || "",
+      description: stripTargetRpe(prog.description),
       difficulty: prog.difficulty || "intermediate",
       goal: prog.goal || "muscle_gain",
       location: prog.location || "gym",
       duration_weeks: prog.duration_weeks ?? "",
       days_per_week: prog.days_per_week ?? 4,
       estimated_duration_minutes: prog.estimated_duration_minutes ?? 60,
+      target_rpe: extractTargetRpe(prog.description),
     })
     setShowForm(true)
   }
@@ -110,7 +154,7 @@ export function WorkoutProgramManager() {
     try {
       const payload = {
         name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
+        description: buildDescriptionWithRpe(formData.description, formData.target_rpe) || undefined,
         difficulty: formData.difficulty,
         goal: formData.goal,
         location: formData.location,
@@ -197,6 +241,9 @@ export function WorkoutProgramManager() {
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={loadPrograms} disabled={loading}>
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          </Button>
+          <Button variant="outline" size="sm" onClick={openFreeTemplate}>
+            Plantilla libre
           </Button>
           <Button size="sm" onClick={openCreate} className="bg-blue-600 hover:bg-blue-700 text-white">
             <Plus className="h-3.5 w-3.5 mr-1" />
@@ -332,6 +379,21 @@ export function WorkoutProgramManager() {
             <div className="space-y-1.5">
               <Label>Descripción</Label>
               <Textarea placeholder="Describe el programa..." {...field("description")} rows={2} />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>RPE objetivo</Label>
+              <Input
+                type="number"
+                placeholder="Ej: 8"
+                min={1}
+                max={10}
+                step={0.5}
+                {...field("target_rpe")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Se guardará como línea de referencia dentro de la descripción de la rutina.
+              </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

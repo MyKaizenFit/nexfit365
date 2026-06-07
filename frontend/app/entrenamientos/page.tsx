@@ -43,14 +43,14 @@ export default function EntrenamientosPage() {
   const [selectedGoal, setSelectedGoal] = useState<string>('')
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null)
 
-  // Objetivos de fitness disponibles
+  // Objetivos de entrenamiento disponibles
   const fitnessGoals = [
     { id: 'weight_loss', name: 'Pérdida de Peso', icon: '🔥', color: 'bg-red-500' },
     { id: 'muscle_gain', name: 'Ganancia de Músculo', icon: '💪', color: 'bg-blue-500' },
     { id: 'strength', name: 'Fuerza', icon: '🏋️', color: 'bg-purple-500' },
     { id: 'endurance', name: 'Resistencia', icon: '🏃', color: 'bg-green-500' },
     { id: 'flexibility', name: 'Flexibilidad', icon: '🧘', color: 'bg-yellow-500' },
-    { id: 'general', name: 'Fitness General', icon: '⭐', color: 'bg-gray-500' }
+    { id: 'general', name: 'Entrenamiento general', icon: '⭐', color: 'bg-gray-500' }
   ]
 
   // Filtrar plantillas por objetivo seleccionado
@@ -437,6 +437,5 @@ export default function EntrenamientosPage() {
     </div>
   )
 }
-
 
 

@@ -23,6 +23,7 @@ from .serializers import (
 from .permissions import (
     NotificationPermission, NotificationCreatePermission, NotificationBulkPermission
 )
+from .birthdays import ensure_birthday_notifications_for_user, ensure_today_birthday_notifications
 
 
 IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
@@ -325,6 +326,23 @@ class NotificationViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"])
+    def birthday_status(self, request, user_id=None):
+        """Comprobar cumpleaños del usuario actual y crear avisos idempotentes."""
+        result = ensure_birthday_notifications_for_user(request.user)
+        return Response(result)
+
+    @action(detail=False, methods=["post"])
+    def send_birthday_alerts(self, request, user_id=None):
+        """Crear avisos de cumpleaños del día para administradores."""
+        role = str(getattr(request.user, "role", "") or "").lower()
+        is_admin = request.user.is_staff or request.user.is_superuser or role == "admin"
+        if not is_admin:
+            return Response({"detail": "No autorizado."}, status=status.HTTP_403_FORBIDDEN)
+
+        result = ensure_today_birthday_notifications()
+        return Response(result)
 
 
 class PushSubscriptionViewSet(viewsets.ModelViewSet):

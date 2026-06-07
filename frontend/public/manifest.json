@@ -1,7 +1,7 @@
 {
-  "name": "NexFit365 - Tu Compañero de Fitness",
+  "name": "NexFit365 - Tu Compañero de Entrenamiento",
   "short_name": "NexFit365",
-  "description": "Aplicación completa de fitness y bienestar para gestionar entrenamientos, nutrición y progreso",
+  "description": "Aplicación completa de entrenamiento y bienestar para gestionar entrenamientos, nutrición y progreso",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -47,7 +47,6 @@
     }
   ]
 }
-
 
 
 

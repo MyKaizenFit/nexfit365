@@ -119,7 +119,7 @@ export function AdminProfile() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {user.fitness_goals && (
                 <div className="space-y-2">
-                  <span className="text-sm font-medium">Objetivo de fitness</span>
+                  <span className="text-sm font-medium">Objetivo de entrenamiento</span>
                   <p className="text-sm text-muted-foreground capitalize">
                     {typeof user.fitness_goals === 'string' 
                       ? user.fitness_goals.replace('_', ' ') 
@@ -197,7 +197,6 @@ export function AdminProfile() {
     </Card>
   )
 }
-
 
 
 

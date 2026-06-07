@@ -253,7 +253,7 @@ export default function HomePage() {
                 <div>
                   <h3 className="text-2xl font-bold text-foreground mb-3">Enfoque en Salud Integral</h3>
                   <p className="text-muted-foreground text-lg leading-relaxed">
-                    No solo fitness: trabajamos en tu bienestar físico, mental y nutricional de forma holística
+                    No solo entrenamiento: trabajamos en tu bienestar físico, mental y nutricional de forma holística
                   </p>
                 </div>
               </div>

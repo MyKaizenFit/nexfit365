@@ -569,7 +569,7 @@ export function NewUserForm({ onSave, onCancel }: { onSave: (userData: any) => v
                       { id: "muscle_gain", label: "Ganancia muscular" },
                       { id: "strength_building", label: "Aumento de fuerza" },
                       { id: "endurance", label: "Mejorar resistencia" },
-                      { id: "general_fitness", label: "Fitness general" },
+                      { id: "general_fitness", label: "Entrenamiento general" },
                       { id: "body_recomposition", label: "Recomposición corporal" },
                     ].map((goal) => (
                       <div key={goal.id} className="flex items-center space-x-2">

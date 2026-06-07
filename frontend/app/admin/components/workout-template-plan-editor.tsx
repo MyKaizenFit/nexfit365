@@ -1175,7 +1175,6 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                       return
                     }
                     addExerciseToDay(e)
-                    setShowExerciseSelector(false)
                   }}
                 >
                   <div className="text-left">

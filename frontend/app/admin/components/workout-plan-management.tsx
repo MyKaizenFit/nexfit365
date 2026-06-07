@@ -2080,7 +2080,7 @@ export function WorkoutPlanManagement() {
                   <SelectItem value="muscle_gain">Ganar músculo</SelectItem>
                   <SelectItem value="strength_building">Fuerza</SelectItem>
                   <SelectItem value="endurance">Resistencia</SelectItem>
-                  <SelectItem value="general_fitness">Fitness general</SelectItem>
+                  <SelectItem value="general_fitness">Entrenamiento general</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2295,7 +2295,7 @@ export function WorkoutPlanManagement() {
                                     'muscle_gain': 'Ganancia muscular',
                                     'strength_building': 'Fuerza',
                                     'endurance': 'Resistencia',
-                                    'general_fitness': 'Fitness general',
+                                    'general_fitness': 'Entrenamiento general',
                                     'basic': 'Básico',
                                     'pro': 'Plan de Prueba',
                                     'premium': 'Premium'
@@ -2532,7 +2532,7 @@ export function WorkoutPlanManagement() {
                                       'muscle_gain': 'Ganancia muscular',
                                       'strength_building': 'Fuerza',
                                       'endurance': 'Resistencia',
-                                      'general_fitness': 'Fitness general',
+                                      'general_fitness': 'Entrenamiento general',
                                       'basic': 'Básico',
                                       'pro': 'Plan de Prueba',
                                       'premium': 'Premium'

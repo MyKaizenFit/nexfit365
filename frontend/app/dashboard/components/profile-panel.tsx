@@ -626,7 +626,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
             <Target className="h-5 w-5" />
             Preferencias y Objetivos
           </CardTitle>
-          <CardDescription>Tu nivel de actividad y objetivos de fitness</CardDescription>
+          <CardDescription>Tu nivel de actividad y objetivos de entrenamiento</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

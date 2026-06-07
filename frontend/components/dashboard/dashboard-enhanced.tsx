@@ -47,6 +47,7 @@ import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { useWeightHistory } from "@/hooks/use-weight-history"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
+import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 
 interface DashboardEnhancedProps {
   className?: string
@@ -67,6 +68,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [birthdayMessage, setBirthdayMessage] = useState<string | null>(null)
   
   // Estados para subida de fotos
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
@@ -87,6 +89,39 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     window.addEventListener('weightUpdated', handleWeightUpdate)
     return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
   }, [refreshWeight, refreshStats])
+
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return
+
+    let cancelled = false
+    const checkBirthday = async () => {
+      try {
+        const response = await fetch(buildApiUrl("notifications/birthday_status/"), {
+          headers: getAuthHeaders(),
+        })
+        if (!response.ok) return
+
+        const data = await response.json()
+        if (!cancelled && data?.is_birthday) {
+          const message = data.message || "¡Feliz cumpleaños! Todo el equipo te desea un día genial."
+          setBirthdayMessage(message)
+
+          const todayKey = new Date().toLocaleDateString("en-CA")
+          const storageKey = `birthday-toast-${user.id}-${todayKey}`
+          if (typeof window !== "undefined" && sessionStorage.getItem(storageKey) !== "shown") {
+            toast({ title: "¡Feliz cumpleaños!", description: message })
+            sessionStorage.setItem(storageKey, "shown")
+          }
+        }
+      } catch {
+      }
+    }
+
+    checkBirthday()
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, user?.id])
 
   // Calcular métricas con useMemo para evitar recálculos innecesarios
   const metrics = useMemo(() => {
@@ -270,7 +305,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   }
 
   return (
-    <div className={`space-y-6 sm:space-y-8 ${className}`}>
+    <div className={`flex flex-col space-y-6 sm:space-y-8 ${className}`}>
       {/* Hero Section - Saludo personalizado */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 p-6 sm:p-8 text-white shadow-2xl">
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
@@ -330,8 +365,24 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         </div>
       </div>
 
+      {birthdayMessage && (
+        <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
+          <CardContent className="p-4 sm:p-5">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 flex items-center justify-center">
+                <Sparkles className="h-5 w-5 text-amber-600" />
+              </div>
+              <div>
+                <p className="font-semibold text-amber-900">¡Feliz cumpleaños!</p>
+                <p className="text-sm text-amber-800">{birthdayMessage}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Stats Grid - Métricas principales */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="order-last grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Progreso General */}
         <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
           <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
