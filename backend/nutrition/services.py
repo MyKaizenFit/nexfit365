@@ -1139,10 +1139,12 @@ class PersonalizedNutritionService:
         # Actualizar calorías de las comidas y recetas proporcionalmente
         if plan.meals.exists():
             calorie_ratio = new_daily_calories / old_calories if old_calories > 0 else 1
+            has_recipe_backed_meals = False
             
             for meal in plan.meals.all():
                 # Escalar primero cantidades/macros a nivel de receta para mantener coherencia visual
                 meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
+                has_recipe_backed_meals = has_recipe_backed_meals or bool(meal_recipes)
                 for meal_recipe in meal_recipes:
                     update_fields = []
 
@@ -1184,7 +1186,10 @@ class PersonalizedNutritionService:
                     meal.fat = round(sum(display_fat) / len(display_fat), 1) if display_fat else meal.fat
 
                     meal.save()
+                else:
+                    meal.save()
 
+            if not has_recipe_backed_meals:
                 self._rebalance_plan_meal_calories(plan)
         
         # Registrar cambio en historial

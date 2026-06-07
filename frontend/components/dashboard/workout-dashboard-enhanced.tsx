@@ -1184,7 +1184,7 @@ export function WorkoutDashboardEnhanced() {
           <TabsTrigger value="schedule" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Programa</TabsTrigger>
           <TabsTrigger value="history" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Historial</TabsTrigger>
           <TabsTrigger value="progress" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Progreso</TabsTrigger>
-          <TabsTrigger value="timer" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">⏱️ Timer</TabsTrigger>
+          <TabsTrigger value="timer" className="text-[9px] md:text-sm px-1 md:px-3 py-1 md:py-1.5 whitespace-nowrap">Timer</TabsTrigger>
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
