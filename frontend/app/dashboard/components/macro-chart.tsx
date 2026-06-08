@@ -57,7 +57,7 @@ export function MacroChart() {
                       strokeDasharray={strokeDasharray}
                       strokeDashoffset={strokeDashoffset}
                       strokeLinecap="round"
-                      className={`transition-all duration-2000 ease-out animate-in delay-[${index * 300}ms] duration-[2500ms]`}
+                      className={`transition-all [transition-duration:2500ms] ease-out animate-in delay-[${index * 300}ms]`}
                     />
                     {/* Gradientes */}
                     <defs>
