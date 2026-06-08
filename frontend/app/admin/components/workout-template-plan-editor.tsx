@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState, forwardRef, useImperativeHandle } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -34,7 +34,7 @@ interface WorkoutDayDraft {
   day_name: string
   is_rest_day: boolean
   notes: string
-  exercises: Array<{ exercise_id: string | number; series?: number; reps?: string; rest_seconds?: number; notes?: string }>
+  exercises: Array<{ exercise_id: string | number; series?: number; reps?: string; weight?: string; rest_seconds?: number; notes?: string }>
 }
 
 interface ExerciseSubstituteItem {
@@ -134,8 +134,11 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isAutosavingRef = useRef(false)
 
   const [days, setDays] = useState<WorkoutDayDraft[]>(createDefaultWeekDays())
 
@@ -299,6 +302,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
             exercise_id: String(ex.exercise_id || ex.exercise || ex.id || ""),
             series: ex.series != null ? toNumber(ex.series) : (ex.sets != null ? toNumber(ex.sets) : undefined),
             reps: ex.reps ? String(ex.reps) : undefined,
+            weight: ex.weight ? String(ex.weight) : "",
             rest_seconds: ex.rest_seconds != null ? toNumber(ex.rest_seconds) : undefined,
             notes: ex.notes ? fixEncoding(String(ex.notes)) : undefined,
           })),
@@ -397,7 +401,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           ...day,
           exercises: [
             ...day.exercises,
-            { exercise_id: String(exercise.id), series: 3, reps: "8-12", rest_seconds: 60, notes: "" },
+            { exercise_id: String(exercise.id), series: 3, reps: "8-12", weight: "", rest_seconds: 60, notes: "" },
           ],
           is_rest_day: false,
         }
@@ -658,9 +662,14 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     })
   }, [availableExercises, substitutesExerciseId, substituteSearch, substitutes])
 
-  const handleSaveImpl = async () => {
+  const handleSaveImpl = async (options: { silent?: boolean } = {}) => {
+    const silent = options.silent === true
     try {
-      setSaving(true)
+      if (silent) {
+        setAutosaveState("saving")
+      } else {
+        setSaving(true)
+      }
 
       const daysPayload = WEEK_DAY_KEYS.map((key) => {
         const dayNumber = Number(key)
@@ -681,6 +690,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
               exercise_id: e.exercise_id,
               sets: e.series != null ? toNumber(e.series) : 3,
               reps: (e.reps || "10-12").toString(),
+              weight: e.weight || "",
               rest_seconds: e.rest_seconds != null ? toNumber(e.rest_seconds) : 60,
               notes: e.notes || "",
             })),
@@ -689,20 +699,55 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
       await patchJsonWithAuth(`admin/workouts/programs/${planId}/`, { days: daysPayload })
 
-      toast({ title: "✅ Plan de entrenamiento guardado", description: "Todos los cambios se han actualizado." })
-      await loadPlan()
       updateUnsavedChanges(false)
-      await onSaved()
+      if (silent) {
+        setAutosaveState("saved")
+      } else {
+        toast({ title: "✅ Plan de entrenamiento guardado", description: "Todos los cambios se han actualizado." })
+        await loadPlan()
+        await onSaved()
+      }
     } catch (e) {
-      toast({
-        title: "❌ Error",
-        description: e instanceof Error ? e.message : "No se pudo guardar",
-        variant: "destructive",
-      })
+      if (silent) {
+        setAutosaveState("error")
+      } else {
+        toast({
+          title: "❌ Error",
+          description: e instanceof Error ? e.message : "No se pudo guardar",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setSaving(false)
+      if (silent) {
+        isAutosavingRef.current = false
+      } else {
+        setSaving(false)
+      }
     }
   }
+
+  useEffect(() => {
+    if (loading || saving || !hasUnsavedChanges || isAutosavingRef.current) {
+      return
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current)
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      if (!hasUnsavedChanges || isAutosavingRef.current) return
+      isAutosavingRef.current = true
+      void handleSaveImpl({ silent: true })
+    }, 1800)
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days, hasUnsavedChanges, loading, saving])
 
   if (loading) {
     return (
@@ -714,6 +759,12 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   return (
     <div className="space-y-4">
+      <div className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+        {autosaveState === "saving" ? "Guardando automáticamente..." : null}
+        {autosaveState === "saved" ? "Guardado automático aplicado" : null}
+        {autosaveState === "error" ? "No se pudo guardar automáticamente. Usa Guardar para reintentar." : null}
+        {autosaveState === "idle" ? "Guardado automático activo." : null}
+      </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-3 text-center">
@@ -980,7 +1031,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                   </div>
                                 </div>
 
-                                <div className="grid gap-3 md:grid-cols-3">
+                                <div className="grid gap-3 md:grid-cols-4">
                                   <div>
                                     <Label className="text-xs">Series</Label>
                                     <Input
@@ -999,6 +1050,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                                       value={exercise.reps || ""}
                                       onChange={(e) => updateExerciseInDay(dayNum, exercise.exercise_id, "reps", e.target.value)}
                                       placeholder="8-12"
+                                      className="h-8 mt-1"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs">Peso/RPE</Label>
+                                    <Input
+                                      value={exercise.weight || ""}
+                                      onChange={(e) => updateExerciseInDay(dayNum, exercise.exercise_id, "weight", e.target.value)}
+                                      placeholder="ej: 50 kg o RPE 8"
                                       className="h-8 mt-1"
                                     />
                                   </div>
@@ -1073,7 +1133,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
             <Button variant="outline" onClick={onClose} disabled={saving}>
               Cerrar
             </Button>
-            <Button onClick={handleSaveImpl} disabled={saving}>
+            <Button onClick={() => handleSaveImpl()} disabled={saving}>
               {saving ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

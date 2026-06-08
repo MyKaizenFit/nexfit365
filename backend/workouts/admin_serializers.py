@@ -4,7 +4,7 @@
 from rest_framework import serializers
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise
 from backend.utils.encoding_fix import fix_mojibake
-from .serializers import build_absolute_file_url
+from .serializers import build_absolute_file_url, build_exercise_video_display_url
 
 
 class EncodingFixMixin:
@@ -31,7 +31,7 @@ class AdminExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         return AdminExerciseSubstituteSerializer(substitutes, many=True).data
 
     def get_video_display_url(self, obj) -> str | None:
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)
@@ -68,7 +68,7 @@ class AdminExerciseListSerializer(EncodingFixMixin, serializers.ModelSerializer)
         ]
 
     def get_video_display_url(self, obj) -> str | None:
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)
@@ -107,7 +107,7 @@ class AdminExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSeria
         ]
 
     def get_video_display_url(self, obj) -> str | None:
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)

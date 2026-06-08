@@ -36,7 +36,12 @@ export interface RecentActivity {
   recent_workout_logs: Array<{
     user_email: string
     program_name: string
+    workout_day_name?: string
     date: string
+    workout_date?: string
+    completed?: boolean
+    rating?: number | null
+    notes?: string
   }>
   recent_meal_logs: Array<{
     user_email: string

@@ -678,6 +678,11 @@ export function AdminDashboard() {
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{log.user_email}</p>
                           <p className="text-xs text-muted-foreground truncate">{log.program_name}</p>
+                          {log.notes ? (
+                            <p className="mt-1 text-xs text-foreground line-clamp-2" title={log.notes}>
+                              Comentario: {log.notes}
+                            </p>
+                          ) : null}
                         </div>
                       </div>
                       <Badge variant="outline" className="text-xs flex-shrink-0 ml-2">

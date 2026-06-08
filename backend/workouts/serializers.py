@@ -33,6 +33,12 @@ def build_absolute_file_url(serializer, file_field) -> str | None:
     return url
 
 
+def build_exercise_video_display_url(serializer, exercise) -> str | None:
+    if getattr(exercise, "video_file", None):
+        return build_absolute_file_url(serializer, exercise.video_file)
+    return exercise.get_video_url()
+
+
 class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios"""
     has_video = serializers.BooleanField(read_only=True)
@@ -56,7 +62,7 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)
@@ -90,7 +96,7 @@ class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer
 
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)
@@ -119,7 +125,7 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
-        return obj.get_video_url()
+        return build_exercise_video_display_url(self, obj)
 
     def get_video_file_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.video_file)
@@ -237,11 +243,14 @@ class WorkoutLogExerciseSerializer(serializers.ModelSerializer):
 class WorkoutLogSerializer(serializers.ModelSerializer):
     """Serializer para logs de entrenamiento"""
     log_exercises = WorkoutLogExerciseSerializer(many=True, read_only=True)
+    workout_day_name = serializers.CharField(source="workout_day.name", read_only=True)
+    workout_day_day = serializers.CharField(source="workout_day.day_of_week", read_only=True)
     
     class Meta:
         model = WorkoutLog
         fields = [
             "id", "user", "workout_day", "date",
+            "workout_day_name", "workout_day_day",
             "duration_minutes", "completed", "rating",
             "exercises_data", "notes",
             "calories_burned", "average_heart_rate",

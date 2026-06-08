@@ -148,6 +148,7 @@ class TestAdminExerciseEndpoint:
         exercise.refresh_from_db()
         assert exercise.video_file.name.startswith('exercises/videos/')
         assert response.data['video_file_url']
+        assert response.data['video_display_url'].startswith('http://testserver/media/')
 
     def test_upload_video_rejects_invalid_extension(self, admin_client, exercise):
         video = SimpleUploadedFile(

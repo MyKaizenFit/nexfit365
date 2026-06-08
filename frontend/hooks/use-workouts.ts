@@ -185,7 +185,9 @@ export function useWorkouts() {
     }
 
     try {
-      const response = await authenticatedFetch('workout-programs/')
+      const response = await authenticatedFetch('workout-programs/', {
+        cache: 'no-store',
+      })
       const data = await response.json()
 
       if (response.ok) {
@@ -205,7 +207,9 @@ export function useWorkouts() {
     }
 
     try {
-      const response = await authenticatedFetch('workout-programs/my_active_program/')
+      const response = await authenticatedFetch('workout-programs/my_active_program/', {
+        cache: 'no-store',
+      })
 
       if (response.ok) {
         const data = await response.json()

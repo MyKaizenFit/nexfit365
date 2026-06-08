@@ -79,6 +79,7 @@ interface WorkoutImportSummary {
   rejected: number
   error_count: number
   errors: string[]
+  warnings: string[]
   stats?: WorkoutImportStats
 }
 
@@ -281,6 +282,7 @@ export function WorkoutPlanManagement() {
   const [importFile, setImportFile] = useState<File | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [importResult, setImportResult] = useState<WorkoutImportSummary | null>(null)
+  const [updateAssignedUserPlans, setUpdateAssignedUserPlans] = useState(true)
 
   // Estados para flujo de dos pasos (similar a menu-plan-management-v2)
   const [createStep, setCreateStep] = useState<"basic" | "exercises">("basic")
@@ -771,9 +773,11 @@ export function WorkoutPlanManagement() {
       formData.append('file', file);
 
       // No enviar Content-Type manualmente: el navegador añade el boundary multipart
-      const response = await authenticatedFetch(endpoint, {
+      const importEndpoint = `${endpoint}?allow_user_plan_updates=${updateAssignedUserPlans ? 'true' : 'false'}`
+      const response = await authenticatedFetch(importEndpoint, {
         method: 'POST',
         body: formData,
+        cache: 'no-store',
       });
 
       if (!response.ok) {
@@ -789,6 +793,7 @@ export function WorkoutPlanManagement() {
       const totals = totalizeImportStats(stats)
       const planStats = stats?.plans
       const formattedErrors = Array.isArray(data?.errors) ? data.errors.map((e: unknown) => formatImportError(e)) : []
+      const formattedWarnings = Array.isArray(data?.warnings) ? data.warnings.map((e: unknown) => formatImportError(e)) : []
 
       setImportResult({
         message: data?.message || 'Importación completada',
@@ -798,6 +803,7 @@ export function WorkoutPlanManagement() {
         rejected: formattedErrors.length,
         error_count: formattedErrors.length,
         errors: formattedErrors,
+        warnings: formattedWarnings,
         stats,
       })
 
@@ -1954,6 +1960,22 @@ export function WorkoutPlanManagement() {
                 <strong>💡 Tip:</strong> El formato esperado incluye campos como: nombre, descripción, dificultad, duración en semanas y rol mínimo requerido.
               </p>
             </div>
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <label className="flex items-start gap-3 text-sm text-amber-900">
+                <Checkbox
+                  checked={updateAssignedUserPlans}
+                  onCheckedChange={(checked) => setUpdateAssignedUserPlans(checked === true)}
+                  disabled={importing}
+                  className="mt-0.5"
+                />
+                <span>
+                  <strong>Actualizar planes ya asignados a usuarios.</strong>
+                  <span className="block text-xs text-amber-800">
+                    Actívalo para que el Excel sea la nueva planificación visible del cliente. Desactívalo si solo quieres actualizar plantillas y evitar pisar ediciones manuales.
+                  </span>
+                </span>
+              </label>
+            </div>
 
             {importResult && (
               <div className="border rounded-lg p-4 space-y-3 text-sm">
@@ -1990,11 +2012,22 @@ export function WorkoutPlanManagement() {
                     </ul>
                   </div>
                 )}
+
+                {importResult.warnings.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-amber-700 font-medium">Avisos ({importResult.warnings.length}):</p>
+                    <ul className="list-disc list-inside text-amber-700 space-y-0.5 max-h-40 overflow-y-auto overflow-x-hidden pr-2 border border-amber-100 rounded-md p-2 bg-amber-50/70 text-xs">
+                      {importResult.warnings.map((warning, idx) => (
+                        <li key={idx} className="break-words whitespace-normal">{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null) }} disabled={importing}>Cerrar</Button>
+            <Button variant="outline" onClick={() => { setShowImportDialog(false); setImportFile(null); setImportResult(null); setUpdateAssignedUserPlans(true) }} disabled={importing}>Cerrar</Button>
             <Button onClick={handleImport} disabled={!importFile || importing} className="bg-blue-600 hover:bg-blue-700">
               {importing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {importing ? 'Importando...' : 'Importar'}

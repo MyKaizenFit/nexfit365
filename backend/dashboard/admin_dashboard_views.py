@@ -154,9 +154,18 @@ def admin_dashboard_activity(request):
     # Obtener actividad reciente de diferentes fuentes
     activities = []
     
+    recent_users_data = []
+    recent_workout_logs_data = []
+    recent_meal_logs_data = []
+
     # Nuevos usuarios (últimos 10)
     new_users = CustomUser.objects.order_by('-date_joined')[:10]
     for user in new_users:
+        recent_users_data.append({
+            "id": str(user.id),
+            "email": user.email,
+            "joined": user.date_joined.isoformat(),
+        })
         activities.append({
             "type": "new_user",
             "icon": "user-plus",
@@ -168,15 +177,43 @@ def admin_dashboard_activity(request):
         })
     
     # Entrenamientos recientes (últimos 10)
-    recent_workouts = WorkoutLog.objects.select_related('user').order_by('-created_at')[:10]
+    recent_workouts = WorkoutLog.objects.select_related(
+        'user',
+        'workout_day',
+        'workout_day__program',
+    ).order_by('-created_at')[:10]
     for workout in recent_workouts:
         status = "completado" if workout.completed else "registrado"
+        program_name = ""
+        workout_day_name = ""
+        if workout.workout_day:
+            workout_day_name = workout.workout_day.name or ""
+            if workout.workout_day.program:
+                program_name = workout.workout_day.program.name or ""
+
+        workout_data = {
+            "id": str(workout.id),
+            "user_id": str(workout.user.id),
+            "user_email": workout.user.email,
+            "program_name": program_name or workout_day_name or "Entrenamiento",
+            "workout_day_name": workout_day_name,
+            "date": workout.created_at.isoformat(),
+            "workout_date": workout.date.isoformat() if workout.date else None,
+            "completed": workout.completed,
+            "rating": workout.rating,
+            "notes": (workout.notes or "").strip(),
+        }
+        recent_workout_logs_data.append(workout_data)
         activities.append({
             "type": "workout",
             "icon": "dumbbell",
             "message": f"{workout.user.email} ha {status} un entrenamiento",
             "user_id": str(workout.user.id),
             "user_email": workout.user.email,
+            "program_name": workout_data["program_name"],
+            "workout_day_name": workout_day_name,
+            "notes": workout_data["notes"],
+            "rating": workout.rating,
             "timestamp": workout.created_at.isoformat(),
             "time_ago": get_time_ago(workout.created_at),
         })
@@ -184,6 +221,13 @@ def admin_dashboard_activity(request):
     # Comidas registradas recientes (últimos 10)
     recent_meals = MealLog.objects.select_related('user').order_by('-created_at')[:10]
     for meal in recent_meals:
+        recent_meal_logs_data.append({
+            "id": str(meal.id),
+            "user_id": str(meal.user.id),
+            "user_email": meal.user.email,
+            "meal_name": getattr(meal, "meal_name", "") or getattr(meal, "meal_type", "") or "Comida",
+            "date": meal.created_at.isoformat(),
+        })
         activities.append({
             "type": "meal",
             "icon": "utensils",
@@ -231,6 +275,9 @@ def admin_dashboard_activity(request):
     
     return Response({
         "activities": activities,
+        "recent_users": recent_users_data,
+        "recent_workout_logs": recent_workout_logs_data,
+        "recent_meal_logs": recent_meal_logs_data,
         "total": len(activities),
     })
 
@@ -261,6 +308,5 @@ def get_time_ago(dt):
     else:
         weeks = int(seconds // 604800)
         return f"Hace {weeks} semana{'s' if weeks != 1 else ''}"
-
 
 

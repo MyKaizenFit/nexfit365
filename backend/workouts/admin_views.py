@@ -257,6 +257,9 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     order_index=ex_index
                 )
 
+        if hasattr(program, '_prefetched_objects_cache'):
+            program._prefetched_objects_cache = {}
+
     @staticmethod
     def _normalize_date_like_workout_text(value):
         raw_value = str(value or '').strip()

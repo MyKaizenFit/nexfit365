@@ -423,6 +423,54 @@ class TestAdminWorkoutProgramViewSet:
         workout_program.refresh_from_db()
         assert workout_program.days.count() == 1
 
+    def test_update_program_response_returns_fresh_days(self, admin_client, workout_program, exercise):
+        old_day = WorkoutDay.objects.create(
+            program=workout_program,
+            name='Día antiguo',
+            day_number=1,
+            day_of_week='monday',
+            order_index=1,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=old_day,
+            exercise=exercise,
+            sets=2,
+            reps='10',
+            rest_seconds=60,
+            order_index=1,
+        )
+
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{workout_program.id}/',
+            {
+                'days': [
+                    {
+                        'day_number': 1,
+                        'day_of_week': 'monday',
+                        'name': 'Día actualizado',
+                        'exercises': [
+                            {
+                                'exercise_id': str(exercise.id),
+                                'sets': 4,
+                                'reps': '8-12',
+                                'rest_seconds': 90,
+                            }
+                        ],
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['days'][0]['name'] == 'Día actualizado'
+        assert response.data['days'][0]['exercises'][0]['sets'] == 4
+
+        workout_program.refresh_from_db()
+        fresh_day = workout_program.days.get()
+        assert fresh_day.name == 'Día actualizado'
+        assert fresh_day.exercises.get().sets == 4
+
     def test_update_program_accepts_manual_day_and_exercise_names(self, admin_client, workout_program):
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{workout_program.id}/',

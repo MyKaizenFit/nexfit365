@@ -16,11 +16,16 @@ export interface AdminWorkoutProgramSummary {
 export interface AdminWorkoutLog {
   id: string
   date: string
+  workout_day?: string | number | null
+  workout_day_name?: string
+  workout_day_day?: string
   duration_minutes?: number
   completed?: boolean
   rating?: number
   calories_burned?: number
   notes?: string
+  exercises_data?: any[]
+  log_exercises?: any[]
 }
 
 interface HookState {
@@ -148,4 +153,3 @@ export function useAdminUserWorkouts(userId: string | number) {
     },
   }
 }
-

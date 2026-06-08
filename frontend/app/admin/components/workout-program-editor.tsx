@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -50,6 +50,17 @@ interface WorkoutProgram {
   durationWeeks?: number
   isActive?: boolean
 }
+
+interface CalendarWorkoutLog {
+  id: string
+  date: string
+  completed?: boolean
+}
+
+type WorkoutClipboard =
+  | { type: "day"; day: WorkoutDay }
+  | { type: "week"; days: WorkoutDay[]; weekNumber: number }
+  | null
 
 interface ExerciseOption {
   id: string | number
@@ -105,6 +116,13 @@ function isSameCalendarDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
+function formatCalendarDateKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
 function createLocalId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`
@@ -117,6 +135,41 @@ function normalizeDateLikeWorkoutText(value: string) {
   const match = raw.match(/^20\d{2}-(0?[1-9]|1[0-2])-(0?[1-9]|[12]\d|3[01])(?: 00:00:00)?$/)
   if (!match) return value
   return `${Number(match[2])}-${Number(match[1])}`
+}
+
+function getWorkoutDayKey(day: WorkoutDay, fallbackIndex: number) {
+  return day.id ?? day.localId ?? String(fallbackIndex)
+}
+
+function getWorkoutWeekNumber(day: WorkoutDay, fallbackIndex: number) {
+  return Math.max(1, Math.ceil((day.dayNumber ?? fallbackIndex + 1) / 7))
+}
+
+function getWorkoutDayIndexInWeek(day: WorkoutDay, fallbackIndex: number) {
+  return ((day.dayNumber ?? fallbackIndex + 1) - 1) % 7
+}
+
+function normalizeWorkoutSchedule(days: WorkoutDay[]) {
+  return [...days]
+    .sort((a, b) => (a.dayNumber ?? 9999) - (b.dayNumber ?? 9999))
+}
+
+function cloneExerciseForWorkoutCopy(exercise: Exercise): Exercise {
+  return {
+    ...exercise,
+    id: undefined,
+    localId: createLocalId("exercise"),
+  }
+}
+
+function cloneWorkoutDayForCopy(day: WorkoutDay, updates: Partial<WorkoutDay> = {}): WorkoutDay {
+  return {
+    ...day,
+    ...updates,
+    id: undefined,
+    localId: createLocalId("day"),
+    exercises: (day.exercises || []).map(cloneExerciseForWorkoutCopy),
+  }
 }
 
 export function WorkoutProgramEditor({
@@ -135,16 +188,24 @@ export function WorkoutProgramEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
+  const [calendarWorkoutLogs, setCalendarWorkoutLogs] = useState<CalendarWorkoutLog[]>([])
+  const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([])
   const [loadingExercises, setLoadingExercises] = useState(false)
   const [showReplaceDialog, setShowReplaceDialog] = useState(false)
   const [exerciseSearch, setExerciseSearch] = useState("")
+  const [workoutClipboard, setWorkoutClipboard] = useState<WorkoutClipboard>(null)
+  const [weekCopySource, setWeekCopySource] = useState("1")
+  const [weekCopyTarget, setWeekCopyTarget] = useState("2")
+  const [clipboardTargetWeek, setClipboardTargetWeek] = useState("1")
   const [replaceTarget, setReplaceTarget] = useState<{
     dayKey: string
     exerciseKey: string
     oldExerciseId?: string
     oldExerciseName: string
   } | null>(null)
+  const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isAutosavingRef = useRef(false)
 
   const filteredReplacementExercises = useMemo(() => {
     const query = exerciseSearch.trim().toLowerCase()
@@ -167,6 +228,7 @@ export function WorkoutProgramEditor({
 
   useEffect(() => {
     void loadUserProgram()
+    void loadCalendarWorkoutLogs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
@@ -190,6 +252,7 @@ export function WorkoutProgramEditor({
       // Usar el endpoint de admin que devuelve el programa activo del usuario
       const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/program/`), {
         headers,
+        cache: "no-store",
       })
 
       if (!response.ok) {
@@ -326,6 +389,21 @@ export function WorkoutProgramEditor({
     }
   }
 
+  const loadCalendarWorkoutLogs = async () => {
+    try {
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/workout-logs/?limit=500`), {
+        headers,
+        cache: "no-store",
+      })
+      if (!response.ok) return
+      const data = await response.json()
+      setCalendarWorkoutLogs(Array.isArray(data.logs) ? data.logs : [])
+    } catch {
+      setCalendarWorkoutLogs([])
+    }
+  }
+
   const addWorkoutDay = (preferredDay?: string) => {
     if (!program) return
 
@@ -340,7 +418,7 @@ export function WorkoutProgramEditor({
       dayNumber: (program.weeklySchedule.length || 0) + 1,
     }
     const weeklySchedule = [...program.weeklySchedule, newDay]
-    setProgramDraft({ ...program, daysPerWeek: weeklySchedule.length, weeklySchedule })
+    setProgramDraft({ ...program, daysPerWeek: Math.min(7, weeklySchedule.length), weeklySchedule })
   }
 
   const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
@@ -359,10 +437,154 @@ export function WorkoutProgramEditor({
 
     setProgramDraft({
       ...program,
-      daysPerWeek: Math.max(1, program.weeklySchedule.length - 1),
+      daysPerWeek: Math.min(7, Math.max(1, program.weeklySchedule.length - 1)),
       weeklySchedule: program.weeklySchedule
         .filter((day) => (day.id ?? day.localId) !== dayKey)
         .map((day, index) => ({ ...day, dayNumber: index + 1 })),
+    })
+  }
+
+  const moveWorkoutDayToDay = (dayKey: string, targetDay: string) => {
+    if (!program) return
+
+    setProgramDraft({
+      ...program,
+      weeklySchedule: program.weeklySchedule.map((day, index) =>
+        getWorkoutDayKey(day, index) === dayKey ? { ...day, day: targetDay } : day,
+      ),
+    })
+    toast({
+      title: "✅ Entrenamiento movido",
+      description: `Se ha movido a ${targetDay}. Guarda el programa para aplicarlo al usuario.`,
+    })
+  }
+
+  const copyWorkoutDayToClipboard = (day: WorkoutDay) => {
+    setWorkoutClipboard({ type: "day", day })
+    toast({
+      title: "📋 Día copiado",
+      description: `${day.name || "Entrenamiento"} está listo para pegar.`,
+    })
+  }
+
+  const copyWorkoutWeekToClipboard = (weekNumber: number) => {
+    if (!program) return
+    const days = program.weeklySchedule.filter((day, index) => getWorkoutWeekNumber(day, index) === weekNumber)
+    if (days.length === 0) {
+      toast({
+        title: "Semana vacía",
+        description: "No hay entrenamientos para copiar en esa semana.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setWorkoutClipboard({ type: "week", weekNumber, days })
+    toast({
+      title: "📋 Semana copiada",
+      description: `Semana ${weekNumber} lista para pegar.`,
+    })
+  }
+
+  const pasteWorkoutDay = (sourceDay: WorkoutDay, targetWeek: number, targetDayName: string) => {
+    if (!program) return
+    const targetDayIndex = DAY_OPTIONS.indexOf(targetDayName)
+    if (targetDayIndex < 0) return
+
+    const targetDayNumber = (targetWeek - 1) * 7 + targetDayIndex + 1
+    const clonedDay = cloneWorkoutDayForCopy(sourceDay, {
+      day: targetDayName,
+      dayNumber: targetDayNumber,
+    })
+
+    const withoutTarget = program.weeklySchedule.filter((day, index) => (day.dayNumber ?? index + 1) !== targetDayNumber)
+    const weeklySchedule = normalizeWorkoutSchedule([...withoutTarget, clonedDay])
+    setProgramDraft({
+      ...program,
+      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, targetDayIndex + 1)),
+      durationWeeks: Math.max(program.durationWeeks || 1, targetWeek),
+      weeklySchedule,
+    })
+  }
+
+  const pasteWorkoutWeek = (sourceDays: WorkoutDay[], targetWeek: number) => {
+    if (!program) return
+    const targetNumbers = new Set(Array.from({ length: 7 }, (_, index) => (targetWeek - 1) * 7 + index + 1))
+    const copiedDays = sourceDays.map((day, index) => {
+      const sourceDayIndex = getWorkoutDayIndexInWeek(day, index)
+      const targetDayName = DAY_OPTIONS[sourceDayIndex] || day.day
+      return cloneWorkoutDayForCopy(day, {
+        day: targetDayName,
+        dayNumber: (targetWeek - 1) * 7 + sourceDayIndex + 1,
+      })
+    })
+
+    const weeklySchedule = normalizeWorkoutSchedule([
+      ...program.weeklySchedule.filter((day, index) => !targetNumbers.has(day.dayNumber ?? index + 1)),
+      ...copiedDays,
+    ])
+    setProgramDraft({
+      ...program,
+      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, copiedDays.length)),
+      durationWeeks: Math.max(program.durationWeeks || 1, targetWeek),
+      weeklySchedule,
+    })
+  }
+
+  const pasteClipboardToSelectedDate = () => {
+    if (!workoutClipboard) {
+      toast({
+        title: "No hay nada copiado",
+        description: "Copia primero un día o una semana.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const targetWeek = Math.max(1, Number(clipboardTargetWeek) || 1)
+    if (workoutClipboard.type === "day") {
+      pasteWorkoutDay(workoutClipboard.day, targetWeek, selectedDayName)
+      toast({
+        title: "✅ Día pegado",
+        description: `Se pegó en Semana ${targetWeek} · ${selectedDayName}.`,
+      })
+      return
+    }
+
+    pasteWorkoutWeek(workoutClipboard.days, targetWeek)
+    toast({
+      title: "✅ Semana pegada",
+      description: `Semana ${workoutClipboard.weekNumber} copiada sobre Semana ${targetWeek}.`,
+    })
+  }
+
+  const copyWeekDirectly = () => {
+    if (!program) return
+    const sourceWeek = Math.max(1, Number(weekCopySource) || 1)
+    const targetWeek = Math.max(1, Number(weekCopyTarget) || 1)
+    if (sourceWeek === targetWeek) {
+      toast({
+        title: "Elige otra semana",
+        description: "La semana origen y destino deben ser diferentes.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const sourceDays = program.weeklySchedule.filter((day, index) => getWorkoutWeekNumber(day, index) === sourceWeek)
+    if (sourceDays.length === 0) {
+      toast({
+        title: "Semana vacía",
+        description: `La Semana ${sourceWeek} no tiene entrenamientos para copiar.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    pasteWorkoutWeek(sourceDays, targetWeek)
+    toast({
+      title: "✅ Semana copiada",
+      description: `Semana ${sourceWeek} copiada sobre Semana ${targetWeek}.`,
     })
   }
 
@@ -507,11 +729,16 @@ export function WorkoutProgramEditor({
     })
   }
 
-  const handleSave = async () => {
+  const handleSave = async (options: { silent?: boolean } = {}) => {
     if (!program) return
+    const silent = options.silent === true
 
     try {
-      setSaving(true)
+      if (silent) {
+        setAutosaveState("saving")
+      } else {
+        setSaving(true)
+      }
       setError(null)
 
       const headers = await getAuthHeaders()
@@ -554,7 +781,7 @@ export function WorkoutProgramEditor({
       const payload: any = {
         user_id: userId,
         name: program.name,
-      description: buildDescriptionWithRpe(program.description, program.targetRpe),
+        description: buildDescriptionWithRpe(program.description, program.targetRpe),
         difficulty: program.level, // El backend usa 'difficulty', no 'level'
         goal: program.goal,
         days_per_week: program.daysPerWeek || program.weeklySchedule.length || 3,
@@ -591,31 +818,62 @@ export function WorkoutProgramEditor({
         throw new Error(errorData.detail || errorData.error || "Error al guardar el programa de entrenamientos")
       }
 
-      const saved = await response.json()
-
-      if (!program.id && saved.id) {
-        setProgram({ ...program, id: saved.id })
-      }
-
+      await response.json().catch(() => null)
       updateUnsavedChanges(false)
+      if (silent) {
+        setAutosaveState("saved")
+      } else {
+        await loadUserProgram()
 
-      toast({
-        title: "✅ Programa de entrenamientos guardado",
-        description: "Los cambios han sido aplicados al usuario",
-      })
+        toast({
+          title: "✅ Programa de entrenamientos guardado",
+          description: "Los cambios han sido aplicados al usuario",
+        })
 
-      onSave()
+        onSave()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")
-      toast({
-        title: "❌ Error",
-        description: err instanceof Error ? err.message : "No se pudo guardar el programa de entrenamientos",
-        variant: "destructive",
-      })
+      if (silent) {
+        setAutosaveState("error")
+      } else {
+        toast({
+          title: "❌ Error",
+          description: err instanceof Error ? err.message : "No se pudo guardar el programa de entrenamientos",
+          variant: "destructive",
+        })
+      }
     } finally {
-      setSaving(false)
+      if (silent) {
+        isAutosavingRef.current = false
+      } else {
+        setSaving(false)
+      }
     }
   }
+
+  useEffect(() => {
+    if (!program || loading || saving || !hasUnsavedChanges || isAutosavingRef.current) {
+      return
+    }
+
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current)
+    }
+
+    autosaveTimerRef.current = setTimeout(() => {
+      if (!hasUnsavedChanges || isAutosavingRef.current) return
+      isAutosavingRef.current = true
+      void handleSave({ silent: true })
+    }, 1800)
+
+    return () => {
+      if (autosaveTimerRef.current) {
+        clearTimeout(autosaveTimerRef.current)
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [program, hasUnsavedChanges, loading, saving])
 
   if (loading || !program) {
     return (
@@ -634,6 +892,12 @@ export function WorkoutProgramEditor({
   const selectedWorkoutDays = program.weeklySchedule
     .map((workoutDay, index) => ({ workoutDay, index }))
     .filter((item) => item.workoutDay.day === selectedDayName)
+  const totalWeeks = Math.max(
+    1,
+    program.durationWeeks || 1,
+    ...program.weeklySchedule.map((day, index) => getWorkoutWeekNumber(day, index)),
+  )
+  const weekOptions = Array.from({ length: Math.max(totalWeeks + 1, 2) }, (_, index) => String(index + 1))
 
   return (
     <div className="space-y-6">
@@ -645,6 +909,11 @@ export function WorkoutProgramEditor({
             Editor de Programa de Entrenamientos
           </CardTitle>
           <CardDescription>Personaliza el programa de ejercicios del usuario</CardDescription>
+          <div className="text-xs text-muted-foreground">
+            {autosaveState === "saving" ? "Guardando automáticamente..." : null}
+            {autosaveState === "saved" ? "Guardado automático aplicado" : null}
+            {autosaveState === "error" ? "No se pudo guardar automáticamente. Usa Guardar para reintentar." : null}
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -743,6 +1012,11 @@ export function WorkoutProgramEditor({
             <div>
               <CardTitle>Calendario mensual de entrenamientos</CardTitle>
               <CardDescription>Selecciona un día del mes para editar los entrenamientos asociados a ese día semanal.</CardDescription>
+              <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Completado</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Parcial</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-white border" /> Sin actividad</span>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -767,7 +1041,78 @@ export function WorkoutProgramEditor({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border bg-slate-50 p-3 space-y-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <p className="text-sm font-semibold">Copiar/Pegar desde calendario</p>
+                <p className="text-xs text-muted-foreground">
+                  Usa el calendario como Excel: copia días o semanas y pega sobre la fecha seleccionada.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs">Semana destino</Label>
+                  <Select value={clipboardTargetWeek} onValueChange={setClipboardTargetWeek}>
+                    <SelectTrigger className="h-8 w-full sm:w-[130px] bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weekOptions.map((week) => (
+                        <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={pasteClipboardToSelectedDate}>
+                  <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
+                  Pegar en {selectedDayName}
+                </Button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
+              <div className="space-y-1">
+                <Label className="text-xs">Copiar semana origen</Label>
+                <Select value={weekCopySource} onValueChange={setWeekCopySource}>
+                  <SelectTrigger className="h-8 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekOptions.map((week) => (
+                      <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">A semana destino</Label>
+                <Select value={weekCopyTarget} onValueChange={setWeekCopyTarget}>
+                  <SelectTrigger className="h-8 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {weekOptions.map((week) => (
+                      <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button type="button" size="sm" variant="secondary" onClick={copyWeekDirectly}>
+                <Copy className="h-3.5 w-3.5 mr-2" />
+                Copiar semana
+              </Button>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Portapapeles: {workoutClipboard ? (
+                workoutClipboard.type === "day"
+                  ? `Día “${workoutClipboard.day.name || "Entrenamiento"}”`
+                  : `Semana ${workoutClipboard.weekNumber}`
+              ) : "vacío"}
+            </div>
+          </div>
+
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground mb-2">
             {DAY_OPTIONS.map((day) => <div key={day}>{day.slice(0, 3)}</div>)}
           </div>
@@ -778,6 +1123,17 @@ export function WorkoutProgramEditor({
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
               const isSelected = isSameCalendarDay(date, selectedCalendarDate)
               const hasTraining = dayWorkouts.some((day) => !day.isRestDay && day.exercises.length > 0)
+              const dateKey = formatCalendarDateKey(date)
+              const dateLogs = calendarWorkoutLogs.filter((log) => log.date === dateKey)
+              const hasCompletedLog = dateLogs.some((log) => log.completed)
+              const hasPartialLog = dateLogs.length > 0 && !hasCompletedLog
+              const progressClass = hasCompletedLog
+                ? "bg-emerald-50 border-emerald-300"
+                : hasPartialLog
+                  ? "bg-amber-50 border-amber-300"
+                  : isCurrentMonth
+                    ? "bg-white"
+                    : "bg-slate-50 text-muted-foreground"
 
               return (
                 <button
@@ -786,11 +1142,19 @@ export function WorkoutProgramEditor({
                   onClick={() => setSelectedCalendarDate(date)}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
-                  } ${isCurrentMonth ? "bg-white" : "bg-slate-50 text-muted-foreground"}`}
+                  } ${progressClass}`}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <span className="text-sm font-semibold">{date.getDate()}</span>
-                    {hasTraining ? <Dumbbell className="h-3.5 w-3.5 text-purple-600" /> : <Clock className="h-3.5 w-3.5 text-slate-400" />}
+                    {hasCompletedLog ? (
+                      <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" title="Día completado" />
+                    ) : hasPartialLog ? (
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-400" title="Día parcial" />
+                    ) : hasTraining ? (
+                      <Dumbbell className="h-3.5 w-3.5 text-purple-600" />
+                    ) : (
+                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                    )}
                   </div>
                   <div className="mt-2 space-y-1">
                     {dayWorkouts.length > 0 ? (
@@ -830,8 +1194,12 @@ export function WorkoutProgramEditor({
 
         {selectedWorkoutDays.length === 0 && (
           <Card className="border-dashed">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground">
-              No hay entrenamientos para este día. Usa “Añadir entrenamiento” para crearlo desde el calendario.
+            <CardContent className="p-6 text-center text-sm text-muted-foreground space-y-3">
+              <p>No hay entrenamientos para este día. Usa “Añadir entrenamiento” para crearlo desde el calendario.</p>
+              <Button type="button" variant="outline" size="sm" onClick={pasteClipboardToSelectedDate} disabled={!workoutClipboard}>
+                <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
+                Pegar aquí
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -840,10 +1208,11 @@ export function WorkoutProgramEditor({
           <Card key={day.id ?? day.localId ?? index} className="backdrop-blur-sm bg-white/80 border-0 shadow-lg">
             {(() => {
               const dayKey = day.id ?? day.localId ?? String(index)
+              const weekNumber = getWorkoutWeekNumber(day, index)
               return (
                 <>
             <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <CardTitle className="text-base flex items-center gap-2">
                   {day.isRestDay ? (
                     <div className="p-2 bg-gray-200 rounded-full">
@@ -854,16 +1223,46 @@ export function WorkoutProgramEditor({
                       <Dumbbell className="h-4 w-4 text-white" />
                     </div>
                   )}
-                  Día #{index + 1}
+                  Semana {weekNumber} · Día #{index + 1}
                 </CardTitle>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => deleteWorkoutDay(dayKey)}
-                  className="h-8 w-8 text-red-600 hover:bg-red-50"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Select value={day.day} onValueChange={(value) => moveWorkoutDayToDay(dayKey, value)}>
+                    <SelectTrigger className="h-8 w-[150px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DAY_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>Mover a {option}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyWorkoutDayToClipboard(day)}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-2" />
+                    Copiar día
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyWorkoutWeekToClipboard(weekNumber)}
+                  >
+                    <Copy className="h-3.5 w-3.5 mr-2" />
+                    Copiar semana
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => deleteWorkoutDay(dayKey)}
+                    className="h-8 w-8 text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1080,7 +1479,7 @@ export function WorkoutProgramEditor({
       {/* Botones de acción */}
       <div className="flex gap-4 pt-6">
         <Button
-          onClick={handleSave}
+          onClick={() => handleSave()}
           disabled={saving}
           className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
         >

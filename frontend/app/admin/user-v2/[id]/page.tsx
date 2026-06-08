@@ -1532,7 +1532,9 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                       workoutLogs={workouts.logs.map(log => ({
                         id: log.id,
                         user: userId || "",
-                        workout_day: "",
+                        workout_day: String(log.workout_day || ""),
+                        workout_day_name: log.workout_day_name,
+                        workout_day_day: log.workout_day_day,
                         date: log.date,
                         completed: log.completed || false,
                         notes: log.notes,
@@ -1540,7 +1542,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                         total_sets: 0,
                         duration_minutes: log.duration_minutes,
                         rating: log.rating,
-                        exercises_data: [],
+                        exercises_data: Array.isArray(log.exercises_data) ? log.exercises_data : [],
                       }))} 
                     />
                   </div>

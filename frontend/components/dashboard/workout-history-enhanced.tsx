@@ -449,45 +449,49 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                         </div>
                       </div>
 
-                      {isExpanded && exerciseDetails.length > 0 && (
+                      {isExpanded && (exerciseDetails.length > 0 || log.notes) && (
                         <div className="mt-4 pt-4 border-t space-y-3">
-                          <h4 className="font-semibold text-sm mb-2">Ejercicios realizados:</h4>
-                          {exerciseDetails.map((exercise: any, idx: number) => (
-                            <div key={idx} className="p-3 bg-muted rounded-lg">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
-                                <div className="flex items-center gap-3 text-xs">
-                                  {exercise.pr > 0 && (
-                                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                                      Peso máx: {exercise.pr} kg
-                                    </Badge>
-                                  )}
-                                  {exercise.rem > 0 && (
-                                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                                      Reps máx: {exercise.rem}
-                                    </Badge>
-                                  )}
-                                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                    {exercise.tonnage} kg
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div className="text-xs text-muted-foreground space-y-1">
-                                {exercise.setsData.map((set: any, setIdx: number) => (
-                                  <div key={setIdx} className="flex items-center gap-2">
-                                    <span>Serie {setIdx + 1}:</span>
-                                    {set.weight && <span>{set.weight} kg</span>}
-                                    {set.reps && <span>× {set.reps} reps</span>}
-                                    {set.weight && set.reps && (
-                                      <span className="text-muted-foreground/70">
-                                        = {Math.round(parseFloat(set.weight) * parseInt(set.reps))} kg
-                                      </span>
-                                    )}
+                          {exerciseDetails.length > 0 && (
+                            <>
+                              <h4 className="font-semibold text-sm mb-2">Ejercicios realizados:</h4>
+                              {exerciseDetails.map((exercise: any, idx: number) => (
+                                <div key={idx} className="p-3 bg-muted rounded-lg">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
+                                    <div className="flex items-center gap-3 text-xs">
+                                      {exercise.pr > 0 && (
+                                        <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                                          Peso máx: {exercise.pr} kg
+                                        </Badge>
+                                      )}
+                                      {exercise.rem > 0 && (
+                                        <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                                          Reps máx: {exercise.rem}
+                                        </Badge>
+                                      )}
+                                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                        {exercise.tonnage} kg
+                                      </Badge>
+                                    </div>
                                   </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+                                  <div className="text-xs text-muted-foreground space-y-1">
+                                    {exercise.setsData.map((set: any, setIdx: number) => (
+                                      <div key={setIdx} className="flex items-center gap-2">
+                                        <span>Serie {setIdx + 1}:</span>
+                                        {set.weight && <span>{set.weight} kg</span>}
+                                        {set.reps && <span>× {set.reps} reps</span>}
+                                        {set.weight && set.reps && (
+                                          <span className="text-muted-foreground/70">
+                                            = {Math.round(parseFloat(set.weight) * parseInt(set.reps))} kg
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                            </>
+                          )}
                           {log.notes && (
                             <div className="mt-2 p-2 bg-blue-50 rounded text-sm text-foreground">
                               <strong>Notas:</strong> {log.notes}
@@ -765,5 +769,4 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
     </div>
   )
 }
-
 
