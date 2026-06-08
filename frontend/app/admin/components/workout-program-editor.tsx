@@ -123,6 +123,13 @@ function formatCalendarDateKey(date: Date) {
   return `${year}-${month}-${day}`
 }
 
+function getCalendarWeekNumber(date: Date, calendarStartDate: Date) {
+  const start = Date.UTC(calendarStartDate.getFullYear(), calendarStartDate.getMonth(), calendarStartDate.getDate())
+  const target = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
+  const diffDays = Math.floor((target - start) / (24 * 60 * 60 * 1000))
+  return Math.max(1, Math.floor(diffDays / 7) + 1)
+}
+
 function createLocalId(prefix: string) {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `${prefix}-${crypto.randomUUID()}`
@@ -404,20 +411,36 @@ export function WorkoutProgramEditor({
     }
   }
 
-  const addWorkoutDay = (preferredDay?: string) => {
+  const addWorkoutDay = (preferredDay?: string, preferredWeek?: number) => {
     if (!program) return
+    const targetDay = preferredDay || DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length]
+    const targetDayIndex = DAY_OPTIONS.indexOf(targetDay)
+    const targetWeek = Math.max(1, preferredWeek || Math.ceil((program.weeklySchedule.length + 1) / 7))
+    const targetDayNumber = targetDayIndex >= 0
+      ? (targetWeek - 1) * 7 + targetDayIndex + 1
+      : (program.weeklySchedule.length || 0) + 1
+
+    const alreadyExists = program.weeklySchedule.some((day, index) => (day.dayNumber ?? index + 1) === targetDayNumber)
+    if (alreadyExists) {
+      toast({
+        title: "Ya existe entrenamiento",
+        description: `Semana ${targetWeek} · ${targetDay} ya tiene una rutina. Edita esa tarjeta o muévela antes de crear otra.`,
+        variant: "destructive",
+      })
+      return
+    }
 
     const newDay: WorkoutDay = {
       id: undefined,
       localId: createLocalId("day"),
-      day: preferredDay || DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length],
+      day: targetDay,
       name: "Nuevo entrenamiento",
       duration: 60,
       isRestDay: false,
       exercises: [],
-      dayNumber: (program.weeklySchedule.length || 0) + 1,
+      dayNumber: targetDayNumber,
     }
-    const weeklySchedule = [...program.weeklySchedule, newDay]
+    const weeklySchedule = normalizeWorkoutSchedule([...program.weeklySchedule, newDay])
     setProgramDraft({ ...program, daysPerWeek: Math.min(7, weeklySchedule.length), weeklySchedule })
   }
 
@@ -446,16 +469,39 @@ export function WorkoutProgramEditor({
 
   const moveWorkoutDayToDay = (dayKey: string, targetDay: string) => {
     if (!program) return
+    const targetDayIndex = DAY_OPTIONS.indexOf(targetDay)
+    if (targetDayIndex < 0) return
+
+    const sourceItem = program.weeklySchedule
+      .map((day, index) => ({ day, index }))
+      .find((item) => getWorkoutDayKey(item.day, item.index) === dayKey)
+    if (!sourceItem) return
+
+    const sourceWeek = getWorkoutWeekNumber(sourceItem.day, sourceItem.index)
+    const targetDayNumber = (sourceWeek - 1) * 7 + targetDayIndex + 1
+    const targetOccupied = program.weeklySchedule.some((day, index) => {
+      if (getWorkoutDayKey(day, index) === dayKey) return false
+      return (day.dayNumber ?? index + 1) === targetDayNumber
+    })
+
+    if (targetOccupied) {
+      toast({
+        title: "Ese día ya tiene rutina",
+        description: `Semana ${sourceWeek} · ${targetDay} ya está ocupado. Muévelo o elimínalo antes.`,
+        variant: "destructive",
+      })
+      return
+    }
 
     setProgramDraft({
       ...program,
-      weeklySchedule: program.weeklySchedule.map((day, index) =>
-        getWorkoutDayKey(day, index) === dayKey ? { ...day, day: targetDay } : day,
-      ),
+      weeklySchedule: normalizeWorkoutSchedule(program.weeklySchedule.map((day, index) =>
+        getWorkoutDayKey(day, index) === dayKey ? { ...day, day: targetDay, dayNumber: targetDayNumber } : day,
+      )),
     })
     toast({
       title: "✅ Entrenamiento movido",
-      description: `Se ha movido a ${targetDay}. Guarda el programa para aplicarlo al usuario.`,
+      description: `Se ha movido a Semana ${sourceWeek} · ${targetDay}. Guarda el programa para aplicarlo al usuario.`,
     })
   }
 
@@ -531,7 +577,7 @@ export function WorkoutProgramEditor({
     })
   }
 
-  const pasteClipboardToSelectedDate = () => {
+  const pasteClipboardToSelectedDate = (targetWeekOverride?: number) => {
     if (!workoutClipboard) {
       toast({
         title: "No hay nada copiado",
@@ -541,7 +587,7 @@ export function WorkoutProgramEditor({
       return
     }
 
-    const targetWeek = Math.max(1, Number(clipboardTargetWeek) || 1)
+    const targetWeek = Math.max(1, targetWeekOverride || Number(clipboardTargetWeek) || 1)
     if (workoutClipboard.type === "day") {
       pasteWorkoutDay(workoutClipboard.day, targetWeek, selectedDayName)
       toast({
@@ -888,10 +934,12 @@ export function WorkoutProgramEditor({
   }
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
+  const calendarStartDate = calendarDays[0] || calendarMonth
   const selectedDayName = getSpanishDayName(selectedCalendarDate)
+  const selectedCalendarWeek = getCalendarWeekNumber(selectedCalendarDate, calendarStartDate)
   const selectedWorkoutDays = program.weeklySchedule
     .map((workoutDay, index) => ({ workoutDay, index }))
-    .filter((item) => item.workoutDay.day === selectedDayName)
+    .filter((item) => item.workoutDay.day === selectedDayName && getWorkoutWeekNumber(item.workoutDay, item.index) === selectedCalendarWeek)
   const totalWeeks = Math.max(
     1,
     program.durationWeeks || 1,
@@ -1064,9 +1112,9 @@ export function WorkoutProgramEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={pasteClipboardToSelectedDate}>
+                <Button type="button" variant="outline" size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)}>
                   <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
-                  Pegar en {selectedDayName}
+                  Pegar en Semana {selectedCalendarWeek} · {selectedDayName}
                 </Button>
               </div>
             </div>
@@ -1119,7 +1167,11 @@ export function WorkoutProgramEditor({
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const dayName = getSpanishDayName(date)
-              const dayWorkouts = program.weeklySchedule.filter((day) => day.day === dayName)
+              const calendarWeek = getCalendarWeekNumber(date, calendarStartDate)
+              const dayWorkouts = program.weeklySchedule
+                .map((workoutDay, index) => ({ workoutDay, index }))
+                .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === calendarWeek)
+                .map((item) => item.workoutDay)
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
               const isSelected = isSameCalendarDay(date, selectedCalendarDate)
               const hasTraining = dayWorkouts.some((day) => !day.isRestDay && day.exercises.length > 0)
@@ -1139,7 +1191,10 @@ export function WorkoutProgramEditor({
                 <button
                   key={date.toISOString()}
                   type="button"
-                  onClick={() => setSelectedCalendarDate(date)}
+                  onClick={() => {
+                    setSelectedCalendarDate(date)
+                    setClipboardTargetWeek(String(calendarWeek))
+                  }}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
                   } ${progressClass}`}
@@ -1160,7 +1215,7 @@ export function WorkoutProgramEditor({
                     {dayWorkouts.length > 0 ? (
                       dayWorkouts.slice(0, 2).map((item, index) => (
                         <div key={`${item.id || item.localId || index}-${date.toISOString()}`} className="truncate rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">
-                          {item.isRestDay ? "Descanso" : item.name}
+                          {item.isRestDay ? "Descanso" : `S${calendarWeek} · ${item.name}`}
                         </div>
                       ))
                     ) : (
@@ -1178,25 +1233,26 @@ export function WorkoutProgramEditor({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Editar {selectedDayName}</h3>
+            <h3 className="text-lg font-semibold">Editar Semana {selectedCalendarWeek} · {selectedDayName}</h3>
             <p className="text-sm text-muted-foreground">
               {selectedCalendarDate.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}
             </p>
           </div>
           <Button
-            onClick={() => addWorkoutDay(selectedDayName)}
+            onClick={() => addWorkoutDay(selectedDayName, selectedCalendarWeek)}
+            disabled={selectedWorkoutDays.length > 0}
             className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
           >
             <Plus className="h-4 w-4 mr-2" />
-            Añadir entrenamiento
+            {selectedWorkoutDays.length > 0 ? "Ya hay entrenamiento" : "Añadir entrenamiento"}
           </Button>
         </div>
 
         {selectedWorkoutDays.length === 0 && (
           <Card className="border-dashed">
             <CardContent className="p-6 text-center text-sm text-muted-foreground space-y-3">
-              <p>No hay entrenamientos para este día. Usa “Añadir entrenamiento” para crearlo desde el calendario.</p>
-              <Button type="button" variant="outline" size="sm" onClick={pasteClipboardToSelectedDate} disabled={!workoutClipboard}>
+              <p>No hay entrenamientos para Semana {selectedCalendarWeek} · {selectedDayName}. Usa “Añadir entrenamiento” para crearlo desde el calendario.</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)} disabled={!workoutClipboard}>
                 <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
                 Pegar aquí
               </Button>
