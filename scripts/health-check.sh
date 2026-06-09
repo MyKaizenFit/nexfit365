@@ -145,7 +145,7 @@ fi
 # ============================================================================
 echo -n "Checking Latest Backup... "
 BACKUP_DIR="/srv/mykaizenfit/pro/backups"
-LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/pg_data_backup_*.tar.gz 2>/dev/null | head -1)
+LATEST_BACKUP=$(ls -t "$BACKUP_DIR"/mykaizenfit_*.dump 2>/dev/null | head -1)
 
 if [ -f "$LATEST_BACKUP" ]; then
     BACKUP_AGE=$(($(date +%s) - $(stat -c %Y "$LATEST_BACKUP" 2>/dev/null || date +%s)))
