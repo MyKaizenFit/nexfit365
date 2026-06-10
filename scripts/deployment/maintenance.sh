@@ -6,7 +6,6 @@ MAINTENANCE_DIR="${MAINTENANCE_DIR:-$ROOT_DIR/data/maintenance}"
 NGINX_CONF="${NGINX_CONF:-/etc/nginx/sites-enabled/nexfit365.conf}"
 NGINX_SERVER_SNIPPET="${NGINX_SERVER_SNIPPET:-/etc/nginx/snippets/nexfit-maintenance-server.conf}"
 NGINX_LOCATION_SNIPPET="${NGINX_LOCATION_SNIPPET:-/etc/nginx/snippets/nexfit-maintenance-location.conf}"
-DEFAULT_ETA="${DEFAULT_ETA:-12:15}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PAGE_TEMPLATE="$SCRIPT_DIR/maintenance-page.html"
@@ -17,7 +16,7 @@ usage() {
   cat <<EOF
 Uso:
   $0 install
-  $0 on [hora_estimada]
+  $0 on
   $0 off
   $0 status
   $0 patch-nginx
@@ -25,7 +24,7 @@ Uso:
 Ejemplos:
   $0 install
   $0 patch-nginx
-  $0 on "12:15"
+  $0 on
   $0 off
 
 Notas:
@@ -36,9 +35,8 @@ EOF
 }
 
 render_page() {
-  local eta="${1:-$DEFAULT_ETA}"
   mkdir -p "$MAINTENANCE_DIR"
-  sed "s/{{ETA}}/$eta/g" "$PAGE_TEMPLATE" > "$MAINTENANCE_DIR/index.html"
+  install -m 0644 "$PAGE_TEMPLATE" "$MAINTENANCE_DIR/index.html"
 }
 
 reload_nginx() {
@@ -50,7 +48,7 @@ install_files() {
   mkdir -p "$MAINTENANCE_DIR"
   install -m 0644 "$SERVER_SNIPPET_TEMPLATE" "$NGINX_SERVER_SNIPPET"
   install -m 0644 "$LOCATION_SNIPPET_TEMPLATE" "$NGINX_LOCATION_SNIPPET"
-  render_page "$DEFAULT_ETA"
+  render_page
   echo "Archivos de mantenimiento instalados."
 }
 
@@ -88,11 +86,10 @@ PY
 }
 
 turn_on() {
-  local eta="${1:-$DEFAULT_ETA}"
-  render_page "$eta"
+  render_page
   touch "$MAINTENANCE_DIR/maintenance.on"
   reload_nginx
-  echo "Mantenimiento activado. ETA: $eta"
+  echo "Mantenimiento activado."
 }
 
 turn_off() {
@@ -119,7 +116,7 @@ case "${1:-}" in
     patch_nginx
     ;;
   on)
-    turn_on "${2:-$DEFAULT_ETA}"
+    turn_on
     ;;
   off)
     turn_off

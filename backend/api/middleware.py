@@ -3,6 +3,8 @@
 
 from django.utils.deprecation import MiddlewareMixin
 
+from .error_reporting import capture_error_report
+
 
 class UTF8ResponseMiddleware(MiddlewareMixin):
     """
@@ -20,6 +22,23 @@ class UTF8ResponseMiddleware(MiddlewareMixin):
         
         return response
 
+
+class ErrorReportMiddleware(MiddlewareMixin):
+    """
+    Captura excepciones no gestionadas fuera de DRF y las guarda/notifica.
+    """
+
+    def process_exception(self, request, exception):
+        if getattr(request, "_nexfit_error_report_logged", False):
+            return None
+        capture_error_report(
+            request=request,
+            exc=exception,
+            response_status=500,
+            source="django_middleware",
+        )
+        setattr(request, "_nexfit_error_report_logged", True)
+        return None
 
 
 

@@ -265,6 +265,16 @@ const isRetryableNetworkError = (error: unknown): boolean => {
 
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 
+const getClientContextHeaders = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {}
+
+  const path = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  return {
+    'X-Client-Path': path,
+    'X-Client-Url': window.location.href,
+  }
+}
+
 // Función para hacer requests con manejo automático de renovación de tokens
 export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
   const authService = getAuthService()
@@ -281,6 +291,7 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   // Agregar el token de autorización
   const buildHeaders = (authToken: string): HeadersInit => ({
     ...options.headers,
+    ...getClientContextHeaders(),
     'Authorization': `Bearer ${authToken}`
   })
 

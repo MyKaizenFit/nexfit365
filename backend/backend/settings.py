@@ -109,6 +109,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "api.middleware.ErrorReportMiddleware",
     "api.middleware.UTF8ResponseMiddleware",  # Asegurar UTF-8 en respuestas JSON
 ]
 
@@ -395,6 +396,13 @@ else:
     EMAIL_TIMEOUT = int(_get_env("SMTP_TIMEOUT", "EMAIL_TIMEOUT", default="10"))
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "NexFit365 <no-reply@nex-fit.local>")
+
+ERROR_REPORT_EMAILS = [
+    email.strip()
+    for email in os.getenv("ERROR_REPORT_EMAILS", "maintainer@example.invalid").split(",")
+    if email.strip()
+]
+ERROR_REPORT_LOG_DIR = os.getenv("ERROR_REPORT_LOG_DIR", str(BASE_DIR / "logs" / "error-reports"))
 
 # ---------------------------------
 # Celery — cola de tareas asíncronas

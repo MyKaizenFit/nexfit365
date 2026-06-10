@@ -27,11 +27,11 @@ Mientras no exista el flag `maintenance.on`, la web funciona normal.
 
 ## Activar
 
-Para una ventana estimada hasta las 12:15:
+Para poner la app en mantenimiento:
 
 ```bash
 cd /srv/mykaizenfit/pro
-sudo scripts/deployment/maintenance.sh on "12:15"
+sudo scripts/deployment/maintenance.sh on
 ```
 
 ## Desactivar

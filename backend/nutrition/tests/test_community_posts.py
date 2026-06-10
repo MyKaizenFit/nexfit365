@@ -1,7 +1,10 @@
 import pytest
+from io import BytesIO
 from datetime import timedelta
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
+from PIL import Image
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -10,6 +13,14 @@ from nutrition.tasks import purge_expired_community_recipe_posts
 
 
 User = get_user_model()
+
+
+def make_test_image(name="comida.jpg", content_type="image/jpeg"):
+    file_obj = BytesIO()
+    image = Image.new("RGB", (2, 2), color=(255, 0, 0))
+    image.save(file_obj, format="JPEG")
+    file_obj.seek(0)
+    return SimpleUploadedFile(name, file_obj.read(), content_type=content_type)
 
 
 @pytest.fixture
@@ -71,6 +82,18 @@ class TestCommunityPosts:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['template_data'] == {'duration': '30 minutos'}
         assert response.data['tags'] == ['cardio', 'casa']
+
+    def test_create_post_accepts_mobile_jpg_content_type(self, community_client):
+        photo = make_test_image(content_type="image/jpg")
+        response = community_client.post(self.url, {
+            'title': 'Tostas de atun',
+            'description': 'Receta rapida',
+            'post_type': 'recipe',
+            'photo': photo,
+        }, format='multipart')
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['photo_url']
 
     def test_filter_feed_by_post_type(self, community_client, community_user):
         CommunityRecipePost.objects.create(

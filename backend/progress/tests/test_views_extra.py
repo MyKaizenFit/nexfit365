@@ -284,3 +284,18 @@ class TestDailyWellnessExtra:
             format="json",
         )
         assert response.status_code in [status.HTTP_201_CREATED, status.HTTP_400_BAD_REQUEST]
+
+    def test_create_daily_wellness_rounds_mobile_decimal_input(self, auth_client):
+        response = auth_client.post(
+            reverse("daily-wellness-list"),
+            {
+                "date": "2026-03-19",
+                "sleep_hours": "7.45",
+                "motivation_score": 4,
+                "notes": "ok",
+            },
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data["sleep_hours"] in ["7.5", "7.50"]

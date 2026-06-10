@@ -191,7 +191,10 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
         return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
 
     def validate_photo(self, value):
-        allowed_types = {'image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'}
+        allowed_types = {
+            'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
+            'image/heic', 'image/heif', 'application/octet-stream',
+        }
         content_type = getattr(value, 'content_type', '')
         if content_type and content_type not in allowed_types:
             raise serializers.ValidationError('Formato no soportado. Usa JPG, PNG, WEBP o HEIC.')

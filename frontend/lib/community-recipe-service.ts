@@ -43,10 +43,27 @@ export interface CommunityPostPayload {
   photo?: File | null
 }
 
+const firstErrorMessage = (value: unknown): string => {
+  if (!value) return ""
+  if (typeof value === "string") return value
+  if (Array.isArray(value)) return firstErrorMessage(value[0])
+  if (typeof value === "object") {
+    for (const [field, detail] of Object.entries(value as Record<string, unknown>)) {
+      const message = firstErrorMessage(detail)
+      if (message) return field === "detail" ? message : `${field}: ${message}`
+    }
+  }
+  return String(value)
+}
+
+const responseErrorMessage = async (response: Response): Promise<string> => {
+  const errorData = await response.json().catch(() => null)
+  return firstErrorMessage(errorData?.detail) || firstErrorMessage(errorData?.errors) || firstErrorMessage(errorData) || `Error ${response.status}`
+}
+
 const normalizeList = async (response: Response): Promise<CommunityRecipePost[]> => {
   if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}))
-    throw new Error(errorData.detail || `Error ${response.status}`)
+    throw new Error(await responseErrorMessage(response))
   }
   const data = await response.json()
   return Array.isArray(data) ? data : data.results || []
@@ -74,8 +91,7 @@ export const communityRecipeService = {
       body: formData,
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || errorData.photo?.[0] || `Error ${response.status}`)
+      throw new Error(await responseErrorMessage(response))
     }
     return response.json()
   },
@@ -95,8 +111,7 @@ export const communityRecipeService = {
       body: JSON.stringify({ text }),
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `Error ${response.status}`)
+      throw new Error(await responseErrorMessage(response))
     }
     return response.json()
   },
@@ -115,8 +130,7 @@ export const communityRecipeService = {
       body: JSON.stringify(payload),
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `Error ${response.status}`)
+      throw new Error(await responseErrorMessage(response))
     }
     return response.json()
   },
@@ -129,8 +143,7 @@ export const communityRecipeService = {
       body: formData,
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `Error ${response.status}`)
+      throw new Error(await responseErrorMessage(response))
     }
     return response.json()
   },
@@ -154,8 +167,7 @@ export const communityRecipeService = {
       body: JSON.stringify({ reason }),
     })
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}))
-      throw new Error(errorData.detail || `Error ${response.status}`)
+      throw new Error(await responseErrorMessage(response))
     }
   },
 }

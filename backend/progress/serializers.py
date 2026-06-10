@@ -1,5 +1,8 @@
-from rest_framework import serializers
 from django.conf import settings
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from rest_framework import serializers
+
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 
 
@@ -238,6 +241,12 @@ class ProgressSummarySerializer(serializers.Serializer):
 class DailyWellnessSerializer(serializers.ModelSerializer):
     """Serializer para registro diario de bienestar (sueño y motivación)"""
     user = serializers.ReadOnlyField(source="user.email")
+    sleep_hours = serializers.DecimalField(
+        max_digits=4,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("24"),
+    )
     
     class Meta:
         model = DailyWellness
@@ -246,6 +255,16 @@ class DailyWellnessSerializer(serializers.ModelSerializer):
             "notes", "created_at", "updated_at"
         ]
         read_only_fields = ["id", "user", "created_at", "updated_at"]
+
+    def validate_sleep_hours(self, value):
+        """Aceptar valores de teclado movil como 7.45 y guardarlos con 1 decimal."""
+        try:
+            rounded = Decimal(value).quantize(Decimal("0.1"), rounding=ROUND_HALF_UP)
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise serializers.ValidationError("Introduce horas de sueno validas.") from exc
+        if rounded < Decimal("0") or rounded > Decimal("24"):
+            raise serializers.ValidationError("Las horas de sueno deben estar entre 0 y 24.")
+        return rounded
     
     def create(self, validated_data):
         """Crear registro de bienestar con usuario del request"""
