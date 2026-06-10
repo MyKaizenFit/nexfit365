@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import { FeedGridSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { format } from "date-fns"
 import { es } from "date-fns/locale/es"
 import { Sparkles, PlusCircle, Star, CheckCircle2, XCircle, Loader2, Pencil, Trash2 } from "lucide-react"
@@ -154,11 +155,7 @@ export function TipsBoard({ showCreateForm = true }: TipsBoardProps) {
 
         <TabsContent value={activeCategory} className="mt-6">
           {loading ? (
-            <div className="grid gap-4 md:grid-cols-2">
-              {[...Array(4)].map((_, index) => (
-                <Card key={index} className="h-40 animate-pulse" />
-              ))}
-            </div>
+            <FeedGridSkeleton count={4} />
           ) : error ? (
             <Card className="border-destructive/30 bg-destructive/5">
               <CardHeader>

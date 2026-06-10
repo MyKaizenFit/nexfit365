@@ -1,5 +1,7 @@
 "use client"
 
+import { ProfileSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
+
 import Image from "next/image"
 import { useState, useEffect, useMemo, memo } from "react"
 import { User, Mail, Phone, MapPin, Calendar, Ruler, Weight, Target, Edit, Save, X, Camera, Plus, Trash2 } from "lucide-react"
@@ -328,21 +330,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
 
   // Mostrar loading mientras se cargan los datos
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Cargando perfil...</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-center p-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-              <span className="ml-2 text-muted-foreground">Cargando datos del perfil...</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return <ProfileSectionSkeleton />
   }
 
   // Mostrar error si no se pudo cargar el perfil

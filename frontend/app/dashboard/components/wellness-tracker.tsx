@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { WellnessSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -145,13 +146,7 @@ export function WellnessTracker() {
   }
 
   if (loading) {
-    return (
-      <Card className="border shadow-xl">
-        <CardContent className="p-8 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-        </CardContent>
-      </Card>
-    )
+    return <WellnessSectionSkeleton />
   }
 
   return (

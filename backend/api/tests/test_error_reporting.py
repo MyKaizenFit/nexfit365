@@ -5,7 +5,11 @@ from django.contrib.auth import get_user_model
 from django.core import mail
 from django.test import RequestFactory, override_settings
 
-from api.error_reporting import capture_error_report
+from api.error_reporting import (
+    capture_error_report,
+    is_expected_auth_failure,
+    should_capture_error_report,
+)
 
 
 User = get_user_model()
@@ -50,3 +54,40 @@ def test_capture_error_report_writes_file_sends_email_and_redacts_sensitive_data
     assert mail.outbox[0].to == ["maintainer@example.invalid"]
     assert "cliente@example.com" in mail.outbox[0].body
     assert "Pantalla frontend: /dashboard?tab=team-sk" in mail.outbox[0].body
+
+
+def test_is_expected_auth_failure_for_expired_token():
+    response_data = {
+        "detail": "Given token not valid for any token type",
+        "code": "token_not_valid",
+        "messages": [{"token_type": "access", "message": "Token is expired"}],
+    }
+
+    assert is_expected_auth_failure(response_status=401, response_data=response_data) is True
+    assert is_expected_auth_failure(response_status=500, response_data=response_data) is False
+
+
+def test_should_capture_error_report_skips_duplicate_auth_failures():
+    request = RequestFactory().get(
+        "/api/me/",
+        HTTP_CF_CONNECTING_IP="1.2.3.4",
+    )
+    response_data = {"code": "token_not_valid", "detail": "Token is expired"}
+
+    assert should_capture_error_report(
+        request=request,
+        response_status=401,
+        response_data=response_data,
+    ) is False
+
+    assert should_capture_error_report(
+        request=request,
+        response_status=500,
+        response_data={"detail": "server error"},
+    ) is True
+
+    assert should_capture_error_report(
+        request=request,
+        response_status=500,
+        response_data={"detail": "server error"},
+    ) is False

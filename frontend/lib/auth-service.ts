@@ -13,6 +13,8 @@ import { apiCache, generateCacheKey } from './api-cache'
 import { isJwtExpired, parseJwtPayload } from './jwt'
 import type { User } from '@/types/user'
 
+let refreshAccessTokenPromise: Promise<{ success: boolean; newToken?: string; error?: string }> | null = null
+
 // Re-exportar el tipo User
 export type { User } from '@/types/user'
 
@@ -243,6 +245,27 @@ export class AuthService {
     } catch (error) {
       return false
     }
+  }
+
+  isAccessTokenExpired(): boolean {
+    const token = this.getAccessToken()
+    if (!token || token.startsWith('offline_token_')) {
+      return true
+    }
+    return isJwtExpired(parseJwtPayload(token))
+  }
+
+  needsTokenRefresh(): boolean {
+    return this.isAccessTokenExpired() || this.isTokenExpiringSoon()
+  }
+
+  refreshAccessTokenDeduped(): Promise<{ success: boolean; newToken?: string; error?: string }> {
+    if (!refreshAccessTokenPromise) {
+      refreshAccessTokenPromise = this.refreshAccessToken().finally(() => {
+        refreshAccessTokenPromise = null
+      })
+    }
+    return refreshAccessTokenPromise
   }
 
   // Login de usuario
@@ -638,10 +661,9 @@ export class AuthService {
   // Obtener usuario actual
   async getCurrentUser(): Promise<User> {
     try {
-      if (!this.accessToken || this.accessToken.startsWith('offline_token_')) {
+      if (!this.hasValidTokens()) {
         throw new Error('No hay token de acceso válido')
       }
-      const accessToken = this.accessToken
 
       // Verificar caché primero
       const cacheKey = generateCacheKey(AUTH_ENDPOINTS.ME)
@@ -650,46 +672,18 @@ export class AuthService {
         return cached
       }
 
-      // Usar throttling para la request
       const user = await requestThrottler.throttle('auth-me', async () => {
-        const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.ME), {
-          method: 'GET',
-          headers: getAuthHeaders(accessToken),
-        })
-
-        // Si recibimos 401, intentar renovar el token
-        if (response.status === 401) {
-          try {
-            const refreshResult = await this.refreshAccessToken()
-            if (refreshResult.success && refreshResult.newToken) {
-              // Reintentar con el nuevo token
-              const retryResponse = await fetch(buildApiUrl(AUTH_ENDPOINTS.ME), {
-                method: 'GET',
-                headers: getAuthHeaders(refreshResult.newToken),
-              })
-
-              if (retryResponse.ok) {
-                const result = await handleApiResponse<User>(retryResponse)
-                // NO loguear datos del usuario por seguridad
-                if (result.data) {
-                  // Datos del usuario obtenidos después de refresh
-                  return result.data
-                }
-              }
-            } else {
-              // Si falla la renovación, limpiar tokens
-              this.clearTokens()
-              throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
-            }
-          } catch (refreshError) {
-            // Si falla la renovación, limpiar tokens
+        if (this.needsTokenRefresh()) {
+          const refreshResult = await this.refreshAccessTokenDeduped()
+          if (!refreshResult.success) {
             this.clearTokens()
-            throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.')
+            throw new Error(refreshResult.error || 'Sesión expirada. Por favor, inicia sesión nuevamente.')
           }
         }
 
+        const { authenticatedFetch } = require('./api') as typeof import('./api')
+        const response = await authenticatedFetch(AUTH_ENDPOINTS.ME, { method: 'GET' })
         const result = await handleApiResponse<User>(response)
-
 
         if (result.error) {
           throw new Error(result.error)
@@ -698,17 +692,14 @@ export class AuthService {
         if (!result.data) {
           throw new Error('No se recibieron datos del usuario')
         }
-        // removed stray object literal
 
         return result.data
       })
 
-      // Guardar en caché por 5 minutos
       apiCache.set(cacheKey, user, 5 * 60 * 1000)
 
       return user
     } catch (error) {
-      // Solo mostrar error en consola si no es un error de autenticación esperado
       if (error instanceof Error && !error.message.includes('No hay token de acceso válido')) {
       }
       throw handleFetchError(error)

@@ -1,6 +1,7 @@
 "use client"
 
 /* eslint-disable @next/next/no-img-element */
+import { FeedGridSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { FormEvent, useEffect, useState } from "react"
 import {
   Activity, BookOpen, Camera, Check, Dumbbell, Heart, HelpCircle,
@@ -470,7 +471,7 @@ export function RecipeCommunity() {
       </div>
 
       {loading ? (
-        <div className="flex h-40 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-teal-600" /></div>
+        <FeedGridSkeleton count={4} />
       ) : posts.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-muted-foreground">Todavía no hay publicaciones de este tipo.</CardContent></Card>
       ) : (

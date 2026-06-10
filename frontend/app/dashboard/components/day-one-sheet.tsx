@@ -1,5 +1,7 @@
 "use client"
 
+import { DayOneSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
+
 import Image from 'next/image'
 import { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -261,21 +263,7 @@ export function DayOneSheet() {
   }
 
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-center gap-2">
-            <Target className="h-6 w-6" />
-            Day 1
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-          </div>
-        </CardContent>
-      </Card>
-    )
+    return <DayOneSectionSkeleton />
   }
 
   return (

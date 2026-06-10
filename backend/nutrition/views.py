@@ -28,6 +28,7 @@ import re
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from notifications.utils import notify_admins_user_change
 from collections import defaultdict
+from .shopping_list_service import build_shopping_list
 from drf_spectacular.utils import extend_schema, OpenApiExample, inline_serializer
 from rest_framework import serializers
 
@@ -241,107 +242,10 @@ def shopping_list(request):
             'message': 'Sin plan activo',
         })
 
-    plan = NutritionPlan.objects.filter(pk=plan.pk).prefetch_related(
-        'meals',
-        'meals__meal_recipes__recipe__recipe_ingredients__food',
-        'meals__suggested_recipes__recipe_ingredients__food',
-    ).first()
-    if not plan:
-        return Response({
-            'plan_name': None,
-            'days': days,
-            'items': [],
-            'total_items': 0,
-            'message': 'Sin plan activo',
-        })
-
-    today = timezone.localdate()
-    day_numbers = [((today.isoweekday() - 1 + idx) % 7) + 1 for idx in range(days)]
-    meals_qs = plan.meals.filter(Q(day_of_week__isnull=True) | Q(day_of_week__in=day_numbers))
-
-    def parse_qty(value, default=0.0):
-        if isinstance(value, (int, float)):
-            return float(value)
-        if value is None:
-            return float(default)
-        text = str(value).strip()
-        if not text:
-            return float(default)
-        match = re.search(r"[-+]?\d*\.?\d+", text)
-        if not match:
-            return float(default)
-        try:
-            return float(match.group(0))
-        except ValueError:
-            return float(default)
-
-    aggregated = defaultdict(lambda: {
-        'name': '',
-        'unit': 'g',
-        'quantity': 0.0,
-        'recipes': set(),
-    })
-
-    def add_item(name: str, unit: str, quantity: float, recipe_name: str):
-        normalized_name = (name or '').strip()
-        if not normalized_name or quantity <= 0:
-            return
-        normalized_unit = (unit or 'g').strip() or 'g'
-        key = f"{normalized_name.lower()}::{normalized_unit.lower()}"
-        entry = aggregated[key]
-        entry['name'] = normalized_name
-        entry['unit'] = normalized_unit
-        entry['quantity'] += quantity
-        if recipe_name:
-            entry['recipes'].add(recipe_name)
-
-    for meal in meals_qs:
-        meal_recipes = [mr.recipe for mr in meal.meal_recipes.all() if mr.recipe_id]
-        if meal_recipes:
-            candidate_recipes = meal_recipes
-        else:
-            candidate_recipes = list(meal.suggested_recipes.all())
-
-        for recipe in candidate_recipes:
-            recipe_name = recipe.name
-            ingredients_qs = recipe.recipe_ingredients.all()
-            if ingredients_qs.exists():
-                for ingredient in ingredients_qs:
-                    add_item(
-                        name=ingredient.food.name,
-                        unit=ingredient.unit or 'g',
-                        quantity=parse_qty(ingredient.quantity, 0),
-                        recipe_name=recipe_name,
-                    )
-                continue
-
-            # Fallback para recetas sin RecipeIngredient vinculados (campo JSON ingredients)
-            if isinstance(recipe.ingredients, list):
-                for raw_item in recipe.ingredients:
-                    if isinstance(raw_item, dict):
-                        item_name = str(raw_item.get('name') or '').strip()
-                        item_unit = str(raw_item.get('unit') or 'g').strip() or 'g'
-                        item_qty = parse_qty(raw_item.get('amount') or raw_item.get('quantity'), 0)
-                        add_item(item_name, item_unit, item_qty, recipe_name)
-
-    items = []
-    for value in aggregated.values():
-        items.append({
-            'name': value['name'],
-            'quantity': round(value['quantity'], 2),
-            'unit': value['unit'],
-            'recipes': sorted(value['recipes']),
-        })
-
-    items.sort(key=lambda item: item['name'].lower())
-
-    return Response({
-        'plan_name': plan.name,
-        'days': days,
-        'items': items,
-        'total_items': len(items),
-        'generated_at': timezone.now().isoformat(),
-    })
+    payload = build_shopping_list(user, plan, days)
+    if payload.get('total_items', 0) == 0 and not payload.get('plan_name'):
+        payload['message'] = 'Sin plan activo'
+    return Response(payload)
 
 
 @api_view(['GET'])

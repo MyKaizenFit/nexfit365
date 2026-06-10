@@ -81,6 +81,7 @@ import { useUserData } from "@/hooks/use-user-data"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { DashboardHomeSkeleton, DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -229,7 +230,7 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-sky-200/20 to-emerald-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <Suspense fallback={null}>
+              <Suspense fallback={<RecommendationsSectionSkeleton />}>
                 <RecommendationsSection />
               </Suspense>
             </div>
@@ -271,7 +272,7 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-rose-200/20 rounded-full blur-3xl animate-pulse delay-900"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <Suspense fallback={null}>
+              <Suspense fallback={<TipsSectionSkeleton />}>
                 <TipsBoard />
               </Suspense>
             </div>
@@ -281,9 +282,11 @@ function DashboardContent() {
       case "recipe-community":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
-            <Suspense fallback={null}>
-              <RecipeCommunity />
-            </Suspense>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <Suspense fallback={<FeedGridSkeleton count={4} />}>
+                <RecipeCommunity />
+              </Suspense>
+            </div>
           </div>
         )
 
@@ -295,8 +298,10 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-yellow-200/20 to-orange-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
-                <MealDashboard />
+              <div className="w-full space-y-4 sm:space-y-6">
+                <Suspense fallback={<DashboardSectionFallback><MealsSectionSkeleton /></DashboardSectionFallback>}>
+                  <MealDashboard />
+                </Suspense>
                 {!isPremiumUser ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="meals" cooldownHours={48} />
@@ -315,8 +320,10 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-indigo-200/20 to-purple-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
-                <WorkoutDashboardEnhanced />
+              <div className="w-full space-y-4 sm:space-y-6">
+                <Suspense fallback={<DashboardSectionFallback><WorkoutsSectionSkeleton /></DashboardSectionFallback>}>
+                  <WorkoutDashboardEnhanced />
+                </Suspense>
                 {!isPremiumUser ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="workouts" cooldownHours={48} />
@@ -335,9 +342,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-pink-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
+              <Suspense fallback={<DashboardSectionFallback><WellnessSectionSkeleton /></DashboardSectionFallback>}>
                 <WellnessTracker />
-              </div>
+              </Suspense>
             </div>
           </div>
         )
@@ -349,15 +356,15 @@ function DashboardContent() {
               <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-teal-200/20 to-cyan-200/20 rounded-full blur-3xl animate-pulse"></div>
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-teal-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
-            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
-                <Suspense fallback={null}><BodyMeasurements /></Suspense>
-                {!isPremiumUser ? (
-                  <Suspense fallback={null}>
-                    <CoachingCTA placement="measurements" cooldownHours={48} />
-                  </Suspense>
-                ) : null}
-              </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10 space-y-4 sm:space-y-6">
+              <Suspense fallback={<MeasurementsSectionSkeleton />}>
+                <BodyMeasurements />
+              </Suspense>
+              {!isPremiumUser ? (
+                <Suspense fallback={null}>
+                  <CoachingCTA placement="measurements" cooldownHours={48} />
+                </Suspense>
+              ) : null}
             </div>
           </div>
         )
@@ -370,18 +377,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-yellow-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <AchievementsDuolingo />
-            </div>
-          </div>
-        )
-        return (
-          <div className="fade-in-stagger scroll-area h-full w-full relative">
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-yellow-200/20 to-amber-200/20 rounded-full blur-3xl animate-pulse"></div>
-              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-yellow-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-            </div>
-            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <AchievementsDuolingo />
+              <Suspense fallback={<AchievementsSectionSkeleton />}>
+                <AchievementsDuolingo />
+              </Suspense>
             </div>
           </div>
         )
@@ -394,7 +392,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-emerald-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <DayOneSheet />
+              <Suspense fallback={<DayOneSectionSkeleton />}>
+                <DayOneSheet />
+              </Suspense>
             </div>
           </div>
         )
@@ -407,7 +407,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-200/20 to-slate-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <SettingsPage />
+              <Suspense fallback={<SettingsSectionSkeleton />}>
+                <SettingsPage />
+              </Suspense>
             </div>
           </div>
         )
@@ -420,7 +422,9 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-200/20 to-indigo-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <ProfilePanel />
+              <Suspense fallback={<ProfileSectionSkeleton />}>
+                <ProfilePanel />
+              </Suspense>
             </div>
           </div>
         )
@@ -653,16 +657,7 @@ function DashboardContent() {
 
             {/* Desktop Main Content */}
             <main className="flex-1 min-h-0 w-full">
-              <Suspense fallback={
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center space-y-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
-                      <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
-                    </div>
-                    <p className="text-muted-foreground">Cargando...</p>
-                  </div>
-                </div>
-              }>
+              <Suspense fallback={<DashboardHomeSkeleton />}>
                 {renderContent()}
               </Suspense>
             </main>
@@ -683,16 +678,7 @@ function DashboardContent() {
 
         {/* Mobile Main Content */}
         <main id="mobile-scroll-content" className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
-          <Suspense fallback={
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto mb-2 animate-pulse">
-                  <Image src="/icono.png" alt="NEXFIT" width={64} height={64} quality={100} />
-                </div>
-                <p className="text-muted-foreground">Cargando...</p>
-              </div>
-            </div>
-          }>
+          <Suspense fallback={<DashboardHomeSkeleton />}>
             {renderContent()}
           </Suspense>
         </main>
@@ -708,13 +694,7 @@ function DashboardContent() {
 
 export default function Dashboard() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
-        </div>
-      }
-    >
+    <Suspense fallback={<DashboardHomeSkeleton />}>
       <DashboardContent />
     </Suspense>
   )

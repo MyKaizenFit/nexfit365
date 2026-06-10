@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste, Check } from "lucide-react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste, Check, CalendarDays, ChevronDown, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -13,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
+import { cn } from "@/lib/utils"
 
 interface Exercise {
   id?: string
@@ -181,6 +183,131 @@ function cloneWorkoutDayForCopy(day: WorkoutDay, updates: Partial<WorkoutDay> = 
   }
 }
 
+function getWorkoutDaysForWeekDay(schedule: WorkoutDay[], week: number, dayName: string) {
+  return schedule
+    .map((workoutDay, index) => ({ workoutDay, index }))
+    .filter(
+      (item) =>
+        item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === week,
+    )
+}
+
+function getWeekDayChipLabel(day?: WorkoutDay) {
+  if (!day) return "Sin rutina"
+  if (day.isRestDay) return "Descanso"
+  if (day.name?.trim()) return day.name.trim()
+  if (day.exercises.length > 0) return `${day.exercises.length} ejercicios`
+  return "Nuevo"
+}
+
+type DayBlueprintSource = "reference" | "program_week1" | "program_pattern" | "empty"
+
+function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
+  const dayOfWeekMap: Record<string, string> = {
+    monday: "Lunes",
+    tuesday: "Martes",
+    wednesday: "Miércoles",
+    thursday: "Jueves",
+    friday: "Viernes",
+    saturday: "Sábado",
+    sunday: "Domingo",
+  }
+
+  const sortedDays = [...(detailDays || [])].sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0))
+
+  return sortedDays.map((day: any, index: number) => ({
+    id: day.id,
+    localId: createLocalId("day"),
+    day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
+    name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
+    duration: day.duration_minutes || 60,
+    isRestDay: !!day.is_rest_day,
+    dayNumber: day.day_number,
+    notes: day.notes || "",
+    exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
+      id: ex.id,
+      localId: createLocalId("exercise"),
+      exerciseId: ex.exercise?.id || ex.exercise_id,
+      name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
+      sets: ex.sets ?? 3,
+      reps: normalizeDateLikeWorkoutText(ex.reps || "10-12"),
+      weight: ex.weight || "",
+      rest: ex.rest_seconds ?? 60,
+      notes: ex.notes || "",
+    })),
+  }))
+}
+
+function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
+  if (schedule.length === 0) return null
+
+  const targetDayIndex = DAY_OPTIONS.indexOf(targetDayName)
+  if (targetDayIndex < 0) return null
+
+  const targetDayNumber = (targetWeek - 1) * 7 + targetDayIndex + 1
+  const exact = schedule.find((day, index) => (day.dayNumber ?? index + 1) === targetDayNumber)
+  if (exact) return exact
+
+  const sameWeekDay = schedule.find(
+    (day, index) => day.day === targetDayName && getWorkoutWeekNumber(day, index) === targetWeek,
+  )
+  if (sameWeekDay) return sameWeekDay
+
+  const templateWeeks = Math.max(...schedule.map((day, index) => getWorkoutWeekNumber(day, index)), 1)
+  const cycledWeek = ((targetWeek - 1) % templateWeeks) + 1
+  const cycledDay = schedule.find(
+    (day, index) => day.day === targetDayName && getWorkoutWeekNumber(day, index) === cycledWeek,
+  )
+  if (cycledDay) return cycledDay
+
+  const weekOneDay = schedule.find(
+    (day, index) => day.day === targetDayName && getWorkoutWeekNumber(day, index) === 1,
+  )
+  if (weekOneDay) return weekOneDay
+
+  return schedule.find((day) => day.day === targetDayName) || null
+}
+
+function getProgramPatternDay(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
+  if (targetWeek > 1) {
+    const weekOne = getWorkoutDaysForWeekDay(schedule, 1, targetDayName)[0]?.workoutDay
+    if (weekOne) return weekOne
+  }
+
+  for (let week = targetWeek - 1; week >= 1; week -= 1) {
+    const match = getWorkoutDaysForWeekDay(schedule, week, targetDayName)[0]?.workoutDay
+    if (match) return match
+  }
+
+  return null
+}
+
+function resolveDayBlueprint(
+  targetWeek: number,
+  targetDayName: string,
+  programSchedule: WorkoutDay[],
+  referenceSchedule: WorkoutDay[],
+): { day: WorkoutDay | null; source: DayBlueprintSource } {
+  const referenceDay = getReferenceDayForSlot(referenceSchedule, targetWeek, targetDayName)
+  if (referenceDay) {
+    return { day: referenceDay, source: "reference" }
+  }
+
+  if (targetWeek > 1) {
+    const weekOneDay = getWorkoutDaysForWeekDay(programSchedule, 1, targetDayName)[0]?.workoutDay
+    if (weekOneDay) {
+      return { day: weekOneDay, source: "program_week1" }
+    }
+  }
+
+  const patternDay = getProgramPatternDay(programSchedule, targetWeek, targetDayName)
+  if (patternDay) {
+    return { day: patternDay, source: "program_pattern" }
+  }
+
+  return { day: null, source: "empty" }
+}
+
 export function WorkoutProgramEditor({
   userId,
   onSave,
@@ -197,6 +324,14 @@ export function WorkoutProgramEditor({
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
+  const [activeWeek, setActiveWeek] = useState(1)
+  const [activeDayName, setActiveDayName] = useState(() => getSpanishDayName(new Date()))
+  const [showProgramSettings, setShowProgramSettings] = useState(false)
+  const [showMonthlyCalendar, setShowMonthlyCalendar] = useState(false)
+  const [showCopyWeekTools, setShowCopyWeekTools] = useState(false)
+  const [referenceSchedule, setReferenceSchedule] = useState<WorkoutDay[]>([])
+  const [referenceProgramName, setReferenceProgramName] = useState<string | null>(null)
+  const [referenceProgramSource, setReferenceProgramSource] = useState<"assigned_template" | "default_config" | null>(null)
   const [calendarWorkoutLogs, setCalendarWorkoutLogs] = useState<CalendarWorkoutLog[]>([])
   const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [availableExercises, setAvailableExercises] = useState<ExerciseOption[]>([])
@@ -275,6 +410,20 @@ export function WorkoutProgramEditor({
 
       const data = await response.json()
 
+      if (data.reference_program?.days?.length) {
+        setReferenceSchedule(mapApiDaysToSchedule(data.reference_program.days))
+        setReferenceProgramName(fixEncoding(data.reference_program.name || "Plantilla admin"))
+        setReferenceProgramSource(
+          data.reference_program_source === "assigned_template" || data.reference_program_source === "default_config"
+            ? data.reference_program_source
+            : null,
+        )
+      } else {
+        setReferenceSchedule([])
+        setReferenceProgramName(null)
+        setReferenceProgramSource(null)
+      }
+
       // El endpoint devuelve { user_id, program, summary }
       const detail = data.program
 
@@ -295,45 +444,7 @@ export function WorkoutProgramEditor({
         return
       }
 
-
-      // Mapear días de la semana: el backend usa day_of_week (monday, tuesday, etc.)
-      // pero el componente espera nombres en español
-      const dayOfWeekMap: Record<string, string> = {
-        monday: "Lunes",
-        tuesday: "Martes",
-        wednesday: "Miércoles",
-        thursday: "Jueves",
-        friday: "Viernes",
-        saturday: "Sábado",
-        sunday: "Domingo",
-      }
-
-      // Ordenar días por day_number
-      const sortedDays = [...(detail.days || [])].sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0))
-
-      const weeklySchedule: WorkoutDay[] = sortedDays.map((day: any, index: number) => ({
-        id: day.id,
-        localId: createLocalId("day"),
-        day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
-        name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
-        duration: day.duration_minutes || 60,
-        isRestDay: !!day.is_rest_day,
-        dayNumber: day.day_number,
-        notes: day.notes || "",
-        exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
-          id: ex.id,
-          localId: createLocalId("exercise"),
-          exerciseId: ex.exercise?.id || ex.exercise_id,
-          name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
-          sets: ex.sets ?? 3,
-          reps: normalizeDateLikeWorkoutText(ex.reps || "10-12"),
-          weight: ex.weight || "",
-          rest: ex.rest_seconds ?? 60,
-          notes: ex.notes || "",
-        })),
-      }))
-
-
+      const weeklySchedule = mapApiDaysToSchedule(detail.days || [])
       setProgram({
         id: detail.id,
         name: fixEncoding(detail.name || "Programa de Entrenamiento"),
@@ -419,7 +530,7 @@ export function WorkoutProgramEditor({
   }
 
   const addWorkoutDay = (preferredDay?: string, preferredWeek?: number) => {
-    if (!program) return
+    if (!program) return false
     const targetDay = preferredDay || DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length]
     const targetDayIndex = DAY_OPTIONS.indexOf(targetDay)
     const targetWeek = Math.max(1, preferredWeek || Math.ceil((program.weeklySchedule.length + 1) / 7))
@@ -434,21 +545,91 @@ export function WorkoutProgramEditor({
         description: `Semana ${targetWeek} · ${targetDay} ya tiene una rutina. Edita esa tarjeta o muévela antes de crear otra.`,
         variant: "destructive",
       })
-      return
+      return false
     }
 
-    const newDay: WorkoutDay = {
-      id: undefined,
-      localId: createLocalId("day"),
-      day: targetDay,
-      name: "Nuevo entrenamiento",
-      duration: 60,
-      isRestDay: false,
-      exercises: [],
-      dayNumber: targetDayNumber,
-    }
+    const { day: blueprint, source } = resolveDayBlueprint(
+      targetWeek,
+      targetDay,
+      program.weeklySchedule,
+      referenceSchedule,
+    )
+
+    const newDay: WorkoutDay = blueprint
+      ? cloneWorkoutDayForCopy(blueprint, {
+          day: targetDay,
+          dayNumber: targetDayNumber,
+        })
+      : {
+          id: undefined,
+          localId: createLocalId("day"),
+          day: targetDay,
+          name: `${targetDay} - Entrenamiento`,
+          duration: program.weeklySchedule.find((day) => !day.isRestDay)?.duration || 60,
+          isRestDay: false,
+          exercises: [],
+          dayNumber: targetDayNumber,
+        }
+
     const weeklySchedule = normalizeWorkoutSchedule([...program.weeklySchedule, newDay])
-    setProgramDraft({ ...program, daysPerWeek: Math.min(7, weeklySchedule.length), weeklySchedule })
+    setProgramDraft({
+      ...program,
+      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, targetDayIndex + 1)),
+      durationWeeks: Math.max(program.durationWeeks || 1, targetWeek),
+      weeklySchedule,
+    })
+
+    const sourceMessages: Record<DayBlueprintSource, string> = {
+      reference: referenceProgramSource === "assigned_template"
+        ? referenceProgramName
+          ? `Contenido tomado de la plantilla asignada “${referenceProgramName}”.`
+          : "Contenido tomado de la plantilla asignada al usuario."
+        : referenceProgramName
+          ? `Contenido tomado del menú por defecto “${referenceProgramName}”.`
+          : "Contenido tomado del menú/plantilla definido por admin.",
+      program_week1: "Copiado desde la Semana 1 del programa actual.",
+      program_pattern: "Copiado desde un día similar ya definido en el programa.",
+      empty: "Rutina vacía creada. Añade ejercicios manualmente.",
+    }
+
+    toast({
+      title: source === "empty" ? "Rutina creada" : "Rutina creada con plantilla",
+      description: `Semana ${targetWeek} · ${targetDay}. ${sourceMessages[source]}`,
+    })
+
+    return true
+  }
+
+  const syncSelectionFromDate = (date: Date, week: number, dayName: string) => {
+    setSelectedCalendarDate(date)
+    setActiveWeek(week)
+    setActiveDayName(dayName)
+    setClipboardTargetWeek(String(week))
+  }
+
+  const handleDayChipClick = (week: number, dayName: string) => {
+    const dayIndex = DAY_OPTIONS.indexOf(dayName)
+    const calendarStartDate = getMonthCalendarDays(calendarMonth)[0] || calendarMonth
+    const targetDate = new Date(calendarStartDate)
+    targetDate.setDate(calendarStartDate.getDate() + (week - 1) * 7 + Math.max(0, dayIndex))
+    syncSelectionFromDate(targetDate, week, dayName)
+
+    if (!program) return
+    const existing = getWorkoutDaysForWeekDay(program.weeklySchedule, week, dayName)
+    if (existing.length === 0) {
+      addWorkoutDay(dayName, week)
+    }
+  }
+
+  const handleWeekChange = (week: number) => {
+    const nextWeek = Math.max(1, week)
+    setActiveWeek(nextWeek)
+    setClipboardTargetWeek(String(nextWeek))
+    const dayIndex = DAY_OPTIONS.indexOf(activeDayName)
+    const calendarStartDate = getMonthCalendarDays(calendarMonth)[0] || calendarMonth
+    const targetDate = new Date(calendarStartDate)
+    targetDate.setDate(calendarStartDate.getDate() + (nextWeek - 1) * 7 + Math.max(0, dayIndex))
+    setSelectedCalendarDate(targetDate)
   }
 
   const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
@@ -1012,11 +1193,9 @@ export function WorkoutProgramEditor({
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
   const calendarStartDate = calendarDays[0] || calendarMonth
-  const selectedDayName = getSpanishDayName(selectedCalendarDate)
   const selectedCalendarWeek = getCalendarWeekNumber(selectedCalendarDate, calendarStartDate)
-  const selectedWorkoutDays = program.weeklySchedule
-    .map((workoutDay, index) => ({ workoutDay, index }))
-    .filter((item) => item.workoutDay.day === selectedDayName && getWorkoutWeekNumber(item.workoutDay, item.index) === selectedCalendarWeek)
+  const selectedDayName = getSpanishDayName(selectedCalendarDate)
+  const selectedWorkoutDays = getWorkoutDaysForWeekDay(program.weeklySchedule, activeWeek, activeDayName)
   const totalWeeks = Math.max(
     1,
     program.durationWeeks || 1,
@@ -1044,9 +1223,28 @@ export function WorkoutProgramEditor({
       onPointerDownCapture={markUserInteraction}
       onTouchMoveCapture={markUserInteraction}
     >
-      {/* Header del programa */}
-      <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
-        <CardHeader>
+      {/* Header del programa — colapsable para no ocupar pantalla en móvil */}
+      <Collapsible open={showProgramSettings} onOpenChange={setShowProgramSettings}>
+        <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-3 px-6 py-4 text-left hover:bg-muted/30 transition-colors rounded-t-lg"
+            >
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 font-semibold text-base">
+                  <Settings2 className="h-5 w-5 text-purple-600 shrink-0" />
+                  <span className="truncate">{program.name || "Configuración del programa"}</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                  {program.level} · {program.daysPerWeek} días/sem · {showProgramSettings ? "Toca para ocultar" : "Toca para editar nombre, nivel y objetivo"}
+                </p>
+              </div>
+              <ChevronDown className={cn("h-5 w-5 shrink-0 text-muted-foreground transition-transform", showProgramSettings && "rotate-180")} />
+            </button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+        <CardHeader className="pt-0">
           <CardTitle className="flex items-center gap-2 bg-gradient-to-r from-purple-600 to-violet-600 bg-clip-text text-transparent">
             <Dumbbell className="h-6 w-6" />
             Editor de Programa de Entrenamientos
@@ -1147,8 +1345,170 @@ export function WorkoutProgramEditor({
             </p>
           </div>
         </CardContent>
+          </CollapsibleContent>
+        </Card>
+      </Collapsible>
+
+      {/* Vista semanal — navegación principal (optimizada para móvil) */}
+      <Card className="sticky top-0 z-20 backdrop-blur-md bg-white/95 border shadow-lg">
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <CardTitle className="text-base sm:text-lg">Vista semanal</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Toca un día para editarlo. Si está vacío, se crea al instante usando el menú admin cuando exista.
+              </CardDescription>
+              {referenceProgramName ? (
+                <Badge variant="secondary" className="mt-2 text-[10px] font-normal">
+                  {referenceProgramSource === "assigned_template"
+                    ? `Plantilla asignada: ${referenceProgramName}`
+                    : referenceProgramSource === "default_config"
+                      ? `Menú por defecto: ${referenceProgramName}`
+                      : `Menú prioritario: ${referenceProgramName}`}
+                </Badge>
+              ) : null}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="shrink-0 h-8 text-xs"
+              onClick={() => setShowMonthlyCalendar((value) => !value)}
+            >
+              <CalendarDays className="h-3.5 w-3.5 mr-1" />
+              {showMonthlyCalendar ? "Ocultar" : "Calendario"}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-3 pt-0">
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              disabled={activeWeek <= 1}
+              onClick={() => handleWeekChange(activeWeek - 1)}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Select value={String(activeWeek)} onValueChange={(value) => handleWeekChange(Number(value))}>
+              <SelectTrigger className="h-9 flex-1 font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {weekOptions.map((week) => (
+                  <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => handleWeekChange(activeWeek + 1)}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="hidden sm:inline-flex shrink-0 h-9"
+              onClick={() => copyWorkoutWeekToClipboard(activeWeek)}
+            >
+              <Copy className="h-3.5 w-3.5 mr-1" />
+              Copiar
+            </Button>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1 snap-x snap-mandatory scrollbar-thin -mx-1 px-1">
+            {DAY_OPTIONS.map((dayName) => {
+              const dayItems = getWorkoutDaysForWeekDay(program.weeklySchedule, activeWeek, dayName)
+              const workoutDay = dayItems[0]?.workoutDay
+              const previewDay = workoutDay ?? getReferenceDayForSlot(referenceSchedule, activeWeek, dayName)
+              const isSelected = activeDayName === dayName
+              const chipLabel = getWeekDayChipLabel(previewDay ?? undefined)
+              const isRest = Boolean(previewDay?.isRestDay)
+              const isEmpty = dayItems.length === 0
+              const isPreview = isEmpty && Boolean(previewDay)
+
+              return (
+                <button
+                  key={dayName}
+                  type="button"
+                  onClick={() => handleDayChipClick(activeWeek, dayName)}
+                  className={cn(
+                    "flex-shrink-0 w-[5.5rem] sm:w-24 snap-start rounded-xl border p-2.5 text-left transition touch-manipulation active:scale-[0.98]",
+                    isSelected
+                      ? "border-purple-500 bg-purple-50 shadow-sm ring-1 ring-purple-200"
+                      : "border-slate-200 bg-white hover:border-purple-300 hover:bg-purple-50/50",
+                    isRest && !isSelected && "bg-slate-50",
+                    isPreview && !isSelected && "border-dashed border-purple-200 bg-purple-50/30",
+                  )}
+                >
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {dayName.slice(0, 3)}
+                  </div>
+                  <div className={cn(
+                    "mt-1 text-xs font-medium leading-tight line-clamp-2 min-h-[2rem]",
+                    isEmpty && !isPreview ? "text-muted-foreground" : isRest ? "text-slate-600" : "text-purple-900",
+                  )}>
+                    {chipLabel}
+                  </div>
+                  {isEmpty && !isPreview ? (
+                    <Plus className="h-3.5 w-3.5 mt-1 text-purple-600" />
+                  ) : isRest ? (
+                    <Clock className="h-3.5 w-3.5 mt-1 text-slate-400" />
+                  ) : (
+                    <Dumbbell className="h-3.5 w-3.5 mt-1 text-purple-500" />
+                  )}
+                  {isPreview ? (
+                    <span className="mt-1 block text-[9px] text-purple-600/80">
+                      {referenceProgramSource === "assigned_template" ? "Plantilla" : "Menú"}
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {workoutClipboard ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                className="h-8"
+                onClick={() => pasteClipboardToSelectedDate(activeWeek)}
+              >
+                <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+                Pegar en {activeDayName.slice(0, 3)}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 sm:hidden"
+              onClick={() => copyWorkoutWeekToClipboard(activeWeek)}
+            >
+              <Copy className="h-3.5 w-3.5 mr-1" />
+              Copiar semana
+            </Button>
+            {workoutClipboard ? (
+              <span className="text-[11px] text-muted-foreground truncate">
+                Portapapeles: {workoutClipboard.type === "day"
+                  ? workoutClipboard.day.name || "Entrenamiento"
+                  : `Semana ${workoutClipboard.weekNumber}`}
+              </span>
+            ) : null}
+          </div>
+        </CardContent>
       </Card>
 
+      {showMonthlyCalendar ? (
       <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
         <CardHeader>
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1185,6 +1545,17 @@ export function WorkoutProgramEditor({
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          <Collapsible open={showCopyWeekTools} onOpenChange={setShowCopyWeekTools}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 text-left text-sm font-medium hover:bg-slate-100 transition-colors"
+              >
+                <span>Copiar semanas entre bloques</span>
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showCopyWeekTools && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
           <div className="rounded-lg border bg-slate-50 p-3 space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
@@ -1207,9 +1578,9 @@ export function WorkoutProgramEditor({
                     </SelectContent>
                   </Select>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)}>
+                <Button type="button" variant="outline" size="sm" onClick={() => pasteClipboardToSelectedDate(activeWeek)}>
                   <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
-                  Pegar en Semana {selectedCalendarWeek} · {selectedDayName}
+                  Pegar en Semana {activeWeek} · {activeDayName}
                 </Button>
               </div>
             </div>
@@ -1270,6 +1641,8 @@ export function WorkoutProgramEditor({
               ) : "vacío"}
             </div>
           </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground mb-2">
             {DAY_OPTIONS.map((day) => <div key={day}>{day.slice(0, 3)}</div>)}
@@ -1302,8 +1675,7 @@ export function WorkoutProgramEditor({
                   key={date.toISOString()}
                   type="button"
                   onClick={() => {
-                    setSelectedCalendarDate(date)
-                    setClipboardTargetWeek(String(calendarWeek))
+                    syncSelectionFromDate(date, calendarWeek, dayName)
                   }}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
@@ -1338,39 +1710,59 @@ export function WorkoutProgramEditor({
           </div>
         </CardContent>
       </Card>
+      ) : null}
 
-      {/* Programa semanal */}
+      {/* Editor del día seleccionado */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Editar Semana {selectedCalendarWeek} · {selectedDayName}</h3>
+            <h3 className="text-lg font-semibold">Semana {activeWeek} · {activeDayName}</h3>
             <p className="text-sm text-muted-foreground">
-              {selectedCalendarDate.toLocaleDateString("es-ES", { day: "numeric", month: "long", year: "numeric" })}
+              {selectedWorkoutDays.length === 0
+                ? "Toca el día arriba o usa el botón para crear la rutina"
+                : selectedWorkoutDays[0]?.workoutDay.isRestDay
+                  ? "Día de descanso"
+                  : `${selectedWorkoutDays[0]?.workoutDay.exercises.length ?? 0} ejercicios`}
             </p>
           </div>
-          <Button
-            onClick={() => addWorkoutDay(selectedDayName, selectedCalendarWeek)}
-            disabled={selectedWorkoutDays.length > 0}
-            className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            {selectedWorkoutDays.length > 0 ? "Ya hay entrenamiento" : "Añadir entrenamiento"}
-          </Button>
+          {selectedWorkoutDays.length === 0 ? (
+            <Button
+              onClick={() => addWorkoutDay(activeDayName, activeWeek)}
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Crear entrenamiento
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
+              onClick={() => {
+                const first = selectedWorkoutDays[0]
+                if (!first) return
+                addExercise(first.workoutDay.id ?? first.workoutDay.localId ?? String(first.index))
+              }}
+              disabled={selectedWorkoutDays[0]?.workoutDay.isRestDay}
+            >
+              <Plus className="h-4 w-4 mr-1" />
+              Añadir ejercicio
+            </Button>
+          )}
         </div>
 
         {selectedWorkoutDays.length === 0 && (
           <Card className="border-dashed">
-            <CardContent className="p-6 text-center text-sm text-muted-foreground space-y-3">
-              <p>No hay entrenamientos para Semana {selectedCalendarWeek} · {selectedDayName}. Usa “Añadir entrenamiento” para crearlo desde el calendario.</p>
+            <CardContent className="p-5 text-center text-sm text-muted-foreground space-y-3">
+              <p>No hay rutina para Semana {activeWeek} · {activeDayName}.</p>
               {workoutClipboard ? (
-                <p className="text-xs">
-                  Copiado: {workoutClipboard.type === "day" ? workoutClipboard.day.name || "Entrenamiento" : `Semana ${workoutClipboard.weekNumber}`}
-                </p>
-              ) : null}
-              <Button type="button" variant={workoutClipboard ? "secondary" : "outline"} size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)}>
-                <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
-                {workoutClipboard ? "Pegar aquí" : "Copiar primero"}
-              </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={() => pasteClipboardToSelectedDate(activeWeek)}>
+                  <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
+                  Pegar copiado aquí
+                </Button>
+              ) : (
+                <p className="text-xs">Toca el día en la franja superior para crearlo al instante.</p>
+              )}
             </CardContent>
           </Card>
         )}
@@ -1383,53 +1775,46 @@ export function WorkoutProgramEditor({
               return (
                 <>
             <CardHeader className="pb-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <CardTitle className="text-base flex items-center gap-2">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <CardTitle className="text-base flex items-center gap-2 min-w-0">
                   {day.isRestDay ? (
-                    <div className="p-2 bg-gray-200 rounded-full">
+                    <div className="p-2 bg-gray-200 rounded-full shrink-0">
                       <Clock className="h-4 w-4 text-gray-600" />
                     </div>
                   ) : (
-                    <div className="p-2 bg-gradient-to-r from-purple-400 to-violet-500 rounded-full">
+                    <div className="p-2 bg-gradient-to-r from-purple-400 to-violet-500 rounded-full shrink-0">
                       <Dumbbell className="h-4 w-4 text-white" />
                     </div>
                   )}
-                  Semana {weekNumber} · Día #{index + 1}
+                  <span className="truncate">{day.name || `Semana ${weekNumber} · ${day.day}`}</span>
                 </CardTitle>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <Select value={day.day} onValueChange={(value) => moveWorkoutDayToDay(dayKey, value)}>
-                    <SelectTrigger className="h-8 w-[150px]">
+                    <SelectTrigger className="h-8 w-[7.5rem] text-xs">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       {DAY_OPTIONS.map((option) => (
-                        <SelectItem key={option} value={option}>Mover a {option}</SelectItem>
+                        <SelectItem key={option} value={option}>{option.slice(0, 3)}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <Button
                     type="button"
                     variant="outline"
-                    size="sm"
+                    size="icon"
                     onClick={() => copyWorkoutDayToClipboard(day)}
+                    className="h-8 w-8"
+                    title="Copiar día"
                   >
-                    <Copy className="h-3.5 w-3.5 mr-2" />
-                    Copiar día
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => copyWorkoutWeekToClipboard(weekNumber)}
-                  >
-                    <Copy className="h-3.5 w-3.5 mr-2" />
-                    Copiar semana
+                    <Copy className="h-3.5 w-3.5" />
                   </Button>
                   <Button
                     variant="outline"
                     size="icon"
                     onClick={() => deleteWorkoutDay(dayKey)}
                     className="h-8 w-8 text-red-600 hover:bg-red-50"
+                    title="Eliminar"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -1437,35 +1822,19 @@ export function WorkoutProgramEditor({
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label>Día de la semana</Label>
-                  <Select value={day.day} onValueChange={(value) => updateWorkoutDay(dayKey, { day: value })}>
-                    <SelectTrigger className="border-2 border-gray-200 focus:border-purple-400">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Lunes">Lunes</SelectItem>
-                      <SelectItem value="Martes">Martes</SelectItem>
-                      <SelectItem value="Miércoles">Miércoles</SelectItem>
-                      <SelectItem value="Jueves">Jueves</SelectItem>
-                      <SelectItem value="Viernes">Viernes</SelectItem>
-                      <SelectItem value="Sábado">Sábado</SelectItem>
-                      <SelectItem value="Domingo">Domingo</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2 sm:col-span-2">
                   <Label>Nombre del entrenamiento</Label>
                   <Input
                     value={day.name}
                     onChange={(e) => updateWorkoutDay(dayKey, { name: e.target.value })}
                     className="border-2 border-gray-200 focus:border-purple-400"
                     disabled={day.isRestDay}
+                    placeholder="Ej: Pierna, Push, Full body..."
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Duración (minutos)</Label>
+                  <Label>Duración (min)</Label>
                   <div className="relative">
                     <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                     <Input
@@ -1477,36 +1846,24 @@ export function WorkoutProgramEditor({
                     />
                   </div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id={`rest-day-${day.id ?? index}`}
-                  checked={day.isRestDay}
-                  onChange={(e) => updateWorkoutDay(dayKey, { isRestDay: e.target.checked })}
-                  className="rounded"
-                  title="Marcar como día de descanso"
-                  aria-label="Marcar como día de descanso"
-                />
-                <Label htmlFor={`rest-day-${day.id ?? index}`}>Día de descanso</Label>
+                <div className="flex items-end pb-1">
+                  <label className="flex items-center gap-2 cursor-pointer touch-manipulation">
+                    <input
+                      type="checkbox"
+                      id={`rest-day-${day.id ?? index}`}
+                      checked={day.isRestDay}
+                      onChange={(e) => updateWorkoutDay(dayKey, { isRestDay: e.target.checked })}
+                      className="rounded h-4 w-4"
+                      title="Marcar como día de descanso"
+                      aria-label="Marcar como día de descanso"
+                    />
+                    <Label htmlFor={`rest-day-${day.id ?? index}`} className="cursor-pointer">Día de descanso</Label>
+                  </label>
+                </div>
               </div>
 
               {!day.isRestDay && (
                 <>
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium">Ejercicios</h4>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addExercise(dayKey)}
-                      className="text-purple-600 border-purple-300 hover:bg-purple-50"
-                    >
-                      <Plus className="h-3 w-3 mr-1" />
-                      Añadir ejercicio
-                    </Button>
-                  </div>
-
                   <div className="space-y-3">
                     {day.exercises.map((exercise, exerciseIndex) => (
                       (() => {
@@ -1514,129 +1871,151 @@ export function WorkoutProgramEditor({
                         return (
                       <div
                         key={exercise.id ?? exercise.localId ?? exerciseIndex}
-                        className="p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200"
+                        className="p-3 sm:p-4 bg-gradient-to-r from-purple-50 to-violet-50 rounded-lg border border-purple-200"
                       >
-                        <div className="flex items-center justify-between gap-3 mb-3">
-                          <h5 className="font-medium text-purple-800">Ejercicio #{exerciseIndex + 1}</h5>
-                          <div className="flex items-center gap-1">
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <h5 className="font-medium text-purple-800 text-sm pt-1 line-clamp-2 flex-1 min-w-0">
+                            {exercise.name?.trim() || `Ejercicio ${exerciseIndex + 1}`}
+                          </h5>
+                          <div className="flex items-center gap-0.5 shrink-0">
                             <Button
                               variant="outline"
-                              size="sm"
+                              size="icon"
                               onClick={() => openReplaceExerciseDialog(dayKey, exerciseKey, exercise)}
-                              className="h-7 px-2 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                              className="h-8 w-8 border-purple-300 text-purple-700 hover:bg-purple-50"
+                              title="Sustituir"
                             >
-                              Sustituir
+                              <RefreshCw className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
                               size="icon"
                               onClick={() => moveExercise(dayKey, exerciseKey, "up")}
                               disabled={exerciseIndex === 0}
-                              className="h-7 w-7"
-                              title="Subir ejercicio"
+                              className="h-8 w-8"
+                              title="Subir"
                             >
-                              <ArrowUp className="h-3 w-3" />
+                              <ArrowUp className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
                               size="icon"
                               onClick={() => moveExercise(dayKey, exerciseKey, "down")}
                               disabled={exerciseIndex === day.exercises.length - 1}
-                              className="h-7 w-7"
-                              title="Bajar ejercicio"
+                              className="h-8 w-8"
+                              title="Bajar"
                             >
-                              <ArrowDown className="h-3 w-3" />
+                              <ArrowDown className="h-3.5 w-3.5" />
                             </Button>
                             <Button
                               variant="outline"
                               size="icon"
                               onClick={() => deleteExercise(dayKey, exerciseKey)}
-                              className="h-7 w-7 text-red-600 hover:bg-red-50"
+                              className="h-8 w-8 text-red-600 hover:bg-red-50"
+                              title="Eliminar"
                             >
-                              <Trash2 className="h-3 w-3" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </Button>
                           </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Nombre del ejercicio</Label>
-                            <Input
-                              value={exercise.name}
-                              onChange={(e) => updateExercise(dayKey, exerciseKey, { name: e.target.value })}
-                              className="h-8 text-sm border-purple-300 focus:border-purple-500"
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <Label className="text-xs">Peso/Resistencia</Label>
-                            <Input
-                              value={exercise.weight}
-                              onChange={(e) => updateExercise(dayKey, exerciseKey, { weight: e.target.value })}
-                              className="h-8 text-sm border-purple-300 focus:border-purple-500"
-                              placeholder="ej: 80kg, peso corporal"
-                            />
-                          </div>
+                        <div className="space-y-1 mb-2">
+                          <Label className="text-xs">Nombre</Label>
+                          <Input
+                            value={exercise.name}
+                            onChange={(e) => updateExercise(dayKey, exerciseKey, { name: e.target.value })}
+                            className="h-9 text-sm border-purple-300 focus:border-purple-500"
+                            placeholder="Nombre del ejercicio"
+                          />
                         </div>
 
-                        <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="grid grid-cols-4 gap-2 mb-2">
                           <div className="space-y-1">
-                            <Label className="text-xs">Series</Label>
+                            <Label className="text-[10px]">Series</Label>
                             <Input
                               type="number"
                               value={exercise.sets}
                               onChange={(e) =>
                                 updateExercise(dayKey, exerciseKey, { sets: Number(e.target.value) })
                               }
-                              className="h-8 text-sm border-purple-300 focus:border-purple-500"
+                              className="h-9 text-sm border-purple-300 focus:border-purple-500 px-2"
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Repeticiones</Label>
+                            <Label className="text-[10px]">Reps</Label>
                             <Input
                               value={exercise.reps}
                               onChange={(e) => updateExercise(dayKey, exerciseKey, { reps: e.target.value })}
                               type="text"
                               inputMode="text"
                               autoComplete="off"
-                              className="h-8 text-sm border-purple-300 focus:border-purple-500"
-                              placeholder="ej: 8-10, 12"
+                              className="h-9 text-sm border-purple-300 focus:border-purple-500 px-2"
+                              placeholder="8-10"
                             />
                           </div>
                           <div className="space-y-1">
-                            <Label className="text-xs">Descanso (seg)</Label>
+                            <Label className="text-[10px]">Desc.</Label>
                             <Input
                               type="number"
                               value={exercise.rest}
                               onChange={(e) =>
                                 updateExercise(dayKey, exerciseKey, { rest: Number(e.target.value) })
                               }
-                              className="h-8 text-sm border-purple-300 focus:border-purple-500"
+                              className="h-9 text-sm border-purple-300 focus:border-purple-500 px-2"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-[10px]">Peso</Label>
+                            <Input
+                              value={exercise.weight}
+                              onChange={(e) => updateExercise(dayKey, exerciseKey, { weight: e.target.value })}
+                              className="h-9 text-sm border-purple-300 focus:border-purple-500 px-2"
+                              placeholder="kg"
                             />
                           </div>
                         </div>
 
-                        <div className="space-y-1">
-                          <Label className="text-xs">Notas técnicas</Label>
-                          <Textarea
-                            value={exercise.notes}
-                            onChange={(e) => updateExercise(dayKey, exerciseKey, { notes: e.target.value })}
-                            className="text-sm border-purple-300 focus:border-purple-500"
-                            rows={2}
-                            placeholder="Técnica, consejos, modificaciones..."
-                          />
-                        </div>
+                        <details className="group">
+                          <summary className="text-xs text-purple-700 cursor-pointer list-none flex items-center gap-1">
+                            <ChevronDown className="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                            Notas técnicas
+                          </summary>
+                          <div className="space-y-1 mt-2">
+                            <Textarea
+                              value={exercise.notes}
+                              onChange={(e) => updateExercise(dayKey, exerciseKey, { notes: e.target.value })}
+                              className="text-sm border-purple-300 focus:border-purple-500"
+                              rows={2}
+                              placeholder="Técnica, consejos..."
+                            />
+                          </div>
+                        </details>
                       </div>
                         )
                       })()
                     ))}
 
                     {day.exercises.length === 0 && (
-                      <div className="text-center py-6 text-gray-500">
-                        <Dumbbell className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p className="text-sm">No hay ejercicios añadidos</p>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => addExercise(dayKey)}
+                        className="w-full rounded-lg border-2 border-dashed border-purple-200 py-8 text-center text-purple-700 hover:bg-purple-50/50 transition-colors touch-manipulation"
+                      >
+                        <Plus className="h-6 w-6 mx-auto mb-2 opacity-70" />
+                        <p className="text-sm font-medium">Añadir primer ejercicio</p>
+                      </button>
                     )}
                   </div>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => addExercise(dayKey)}
+                    className="w-full text-purple-600 border-purple-300 hover:bg-purple-50"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Añadir ejercicio
+                  </Button>
                 </>
               )}
             </CardContent>
@@ -1647,36 +2026,40 @@ export function WorkoutProgramEditor({
         ))}
       </div>
 
-      {/* Botones de acción */}
-      <div className="flex gap-4 pt-6">
-        <Button
-          onClick={() => handleSave()}
-          disabled={saving}
-          className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-        >
-          {saving ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Guardando...
-            </>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-2" />
-              Guardar programa de entrenamientos
-            </>
-          )}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            if (!confirmDiscardChanges()) return
-            updateUnsavedChanges(false)
-            void loadUserProgram()
-          }}
-          disabled={saving}
-        >
-          Cancelar
-        </Button>
+      {/* Botones de acción — fijos en móvil para evitar scroll hasta abajo */}
+      <div className="h-20 md:h-0" aria-hidden="true" />
+      <div className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:static md:border-0 md:bg-transparent md:p-0 md:pt-6">
+        <div className="flex gap-2 max-w-3xl mx-auto md:max-w-none">
+          <Button
+            onClick={() => handleSave()}
+            disabled={saving}
+            className="flex-1 md:flex-none bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 h-11"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Guardar
+              </>
+            )}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              if (!confirmDiscardChanges()) return
+              updateUnsavedChanges(false)
+              void loadUserProgram()
+            }}
+            disabled={saving}
+            className="shrink-0 h-11"
+          >
+            Cancelar
+          </Button>
+        </div>
       </div>
 
       <Dialog open={showReplaceDialog} onOpenChange={setShowReplaceDialog}>

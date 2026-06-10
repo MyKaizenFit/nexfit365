@@ -341,7 +341,7 @@ body {
     hsl(var(--muted)) 100%
   );
   background-size: 200% 100%;
-  animation: skeletonWave 2s ease-in-out infinite;
+  animation: skeletonWave 1.2s ease-in-out infinite;
   border-radius: 0.375rem;
 }
 
@@ -357,27 +357,27 @@ body {
 /* Fade in stagger */
 .fade-in-stagger > * {
   opacity: 0;
-  transform: translateY(1rem);
-  animation: smoothFadeInUp 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  transform: translateY(0.5rem);
+  animation: smoothFadeInUp 0.25s ease-out forwards;
 }
 
 .fade-in-stagger > *:nth-child(1) {
-  animation-delay: 0.1s;
+  animation-delay: 0.03s;
 }
 .fade-in-stagger > *:nth-child(2) {
-  animation-delay: 0.2s;
+  animation-delay: 0.06s;
 }
 .fade-in-stagger > *:nth-child(3) {
-  animation-delay: 0.3s;
+  animation-delay: 0.09s;
 }
 .fade-in-stagger > *:nth-child(4) {
-  animation-delay: 0.4s;
+  animation-delay: 0.12s;
 }
 .fade-in-stagger > *:nth-child(5) {
-  animation-delay: 0.5s;
+  animation-delay: 0.15s;
 }
 .fade-in-stagger > *:nth-child(6) {
-  animation-delay: 0.6s;
+  animation-delay: 0.18s;
 }
 
 @keyframes smoothFadeInUp {

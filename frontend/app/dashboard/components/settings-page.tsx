@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { SettingsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { useRouter, useSearchParams } from "next/navigation"
 import { User, Lock, Bell, HelpCircle, Settings, BookOpen, MessageCircle, FileText, Mail, ExternalLink, Info } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -218,7 +219,7 @@ const SettingsPage = () => {
               <CardContent className="space-y-2 md:space-y-4 px-3 md:px-6 pb-3 md:pb-6 max-w-full overflow-hidden">
                 {/* Acciones Rápidas */}
                 {loadingSettings ? (
-                  <div className="text-center py-8 text-muted-foreground text-sm md:text-base">Cargando configuración...</div>
+                  <SettingsSectionSkeleton />
                 ) : (
                   <div className="space-y-3 md:space-y-4">
                     {helpSettings?.faq_enabled && (
