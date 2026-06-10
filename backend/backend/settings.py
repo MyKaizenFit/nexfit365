@@ -236,6 +236,8 @@ else:
         'dnt',
         'origin',
         'user-agent',
+        'x-client-path',
+        'x-client-url',
         'x-csrftoken',
         'x-requested-with',
         'cache-control',
