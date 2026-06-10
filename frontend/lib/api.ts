@@ -248,8 +248,6 @@ const getAuthService = () => {
   return getAuthService()
 }
 
-let refreshInFlight: Promise<{ success: boolean; newToken?: string; error?: string }> | null = null
-
 const isRetryableStatus = (status: number): boolean => {
   return status === 429 || status === 502 || status === 503 || status === 504
 }
@@ -310,12 +308,7 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
       if (response.status === 401) {
 
         try {
-          if (!refreshInFlight) {
-            refreshInFlight = authService.refreshAccessToken().finally(() => {
-              refreshInFlight = null
-            })
-          }
-          const refreshResult = await refreshInFlight
+          const refreshResult = await authService.refreshAccessTokenDeduped()
 
           if (refreshResult && refreshResult.success && refreshResult.newToken) {
 

@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 import logging
 
-from .error_reporting import capture_error_report
+from .error_reporting import capture_error_report, should_capture_error_report
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +69,16 @@ def custom_exception_handler(exc, context):
 
         try:
             request = context.get("request")
-            if request and not getattr(request, "_nexfit_error_report_logged", False):
+            if (
+                request
+                and not getattr(request, "_nexfit_error_report_logged", False)
+                and should_capture_error_report(
+                    request=request,
+                    response_status=response.status_code,
+                    response_data=response.data,
+                    exc=exc,
+                )
+            ):
                 capture_error_report(
                     request=request,
                     exc=exc,

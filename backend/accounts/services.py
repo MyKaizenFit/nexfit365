@@ -210,6 +210,7 @@ def assign_default_plans_to_user(user):
     - Plan de entrenamiento: ajustado a los días que el usuario marcó
     """
     from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
+    from workouts.services import build_assigned_program_tags
     from nutrition.models import NutritionPlan, PlanMeal, Recipe
     from nutrition.services import select_compatible_recipes_for_meal
     from django.utils import timezone
@@ -295,6 +296,7 @@ def assign_default_plans_to_user(user):
             is_active=True,
             start_date=timezone.localdate(),
             created_by=None,
+            tags=build_assigned_program_tags(template),
         )
         
         # Obtener días del template
@@ -429,6 +431,7 @@ class DefaultPlanAssignmentService:
     def assign(self):
         """Asignar planes al usuario basado en configuración"""
         from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
+    from workouts.services import build_assigned_program_tags
         from nutrition.models import NutritionPlan, NutritionPlanAssignment, PlanMeal
         from nutrition.services import select_compatible_recipes_for_meal
         from django.utils import timezone
@@ -581,7 +584,7 @@ class DefaultPlanAssignmentService:
                 duration_weeks=template_program.duration_weeks,
                 days_per_week=days_per_week,
                 equipment_needed=template_program.equipment_needed,
-                tags=template_program.tags if hasattr(template_program, 'tags') else [],
+                tags=build_assigned_program_tags(template_program),
                 is_template=False,
                 is_active=True,
                 start_date=timezone.now().date(),

@@ -15,7 +15,7 @@ from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import Exercise, WorkoutProgram, WorkoutDay, WorkoutLog, ExerciseSubstitution
-from .services import DefaultWorkoutAssignmentService
+from .services import DefaultWorkoutAssignmentService, resolve_reference_workout_program, prefetch_workout_program_with_days
 from accounts.streaks import get_user_activity_streak
 from .admin_serializers import (
     AdminExerciseSerializer,
@@ -452,16 +452,32 @@ def admin_user_program(request, user_id: int):
     ).order_by('-is_active', '-created_at').first()
 
     if not program:
+        reference_program, reference_source = resolve_reference_workout_program(user)
+        reference_payload = None
+        prefetched_reference = prefetch_workout_program_with_days(reference_program)
+        if prefetched_reference:
+            reference_payload = AdminWorkoutProgramSerializer(prefetched_reference).data
+
         return Response({
             'user_id': user.id,
             'program': None,
+            'reference_program': reference_payload,
+            'reference_program_source': reference_source,
             'message': 'El usuario no tiene programas asignados'
         })
 
     serializer = AdminWorkoutProgramSerializer(program)
+    reference_program, reference_source = resolve_reference_workout_program(user, program)
+    reference_payload = None
+    prefetched_reference = prefetch_workout_program_with_days(reference_program)
+    if prefetched_reference:
+        reference_payload = AdminWorkoutProgramSerializer(prefetched_reference).data
+
     return Response({
         'user_id': user.id,
         'program': serializer.data,
+        'reference_program': reference_payload,
+        'reference_program_source': reference_source,
         'summary': {
             'days_per_week': program.days_per_week,
             'duration_weeks': program.duration_weeks,

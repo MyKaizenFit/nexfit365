@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from 'react'
+import { AchievementsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { 
   Medal, Star, Trophy, Award, Target, Flame, TrendingUp, 
   Calendar, Zap, RefreshCw, Loader2, AlertCircle 
@@ -59,22 +60,7 @@ export function Achievements() {
     : getAchievementsByCategory(selectedCategory)
 
   if (loading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Medal className="h-5 w-5" />
-            Mis Logros
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-center p-8">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="ml-2 text-gray-600">Cargando logros...</span>
-          </div>
-        </CardContent>
-      </Card>
-    )
+    return <AchievementsSectionSkeleton />
   }
 
   if (error) {

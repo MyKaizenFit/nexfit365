@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 import traceback
 import uuid
 from datetime import datetime, timezone
@@ -27,6 +28,87 @@ SENSITIVE_KEYS = {
     "apikey",
     "csrfmiddlewaretoken",
 }
+
+
+_RECENT_REPORTS: dict[str, float] = {}
+_DEDUP_WINDOW_SECONDS = 60
+
+
+def is_expected_auth_failure(
+    *,
+    response_status: int | None,
+    response_data: Any = None,
+    exc: Exception | None = None,
+) -> bool:
+    """401 por token caducado o inválido: flujo normal de JWT, no alertar."""
+    if response_status != 401:
+        return False
+
+    if exc is not None and exc.__class__.__name__ == "InvalidToken":
+        return True
+
+    if not isinstance(response_data, dict):
+        return False
+
+    if response_data.get("code") == "token_not_valid":
+        return True
+
+    detail = str(response_data.get("detail", "")).lower()
+    if "token" in detail and ("expired" in detail or "not valid" in detail):
+        return True
+
+    for message in response_data.get("messages") or []:
+        if isinstance(message, dict):
+            text = str(message.get("message", "")).lower()
+            if "expired" in text or "blacklisted" in text:
+                return True
+
+    return False
+
+
+def _report_dedup_key(request, response_status: int | None, response_data: Any) -> str:
+    meta = getattr(request, "META", {}) or {}
+    ip = meta.get("HTTP_CF_CONNECTING_IP") or meta.get("REMOTE_ADDR", "unknown")
+    path = getattr(request, "path", "")
+    code = ""
+    if isinstance(response_data, dict):
+        code = str(response_data.get("code", ""))
+    return f"{response_status}:{code}:{ip}:{path}"
+
+
+def _is_duplicate_report(key: str) -> bool:
+    now = time.time()
+    expired = [item for item, ts in _RECENT_REPORTS.items() if now - ts >= _DEDUP_WINDOW_SECONDS]
+    for item in expired:
+        _RECENT_REPORTS.pop(item, None)
+
+    last_seen = _RECENT_REPORTS.get(key)
+    if last_seen is not None and now - last_seen < _DEDUP_WINDOW_SECONDS:
+        return True
+
+    _RECENT_REPORTS[key] = now
+    return False
+
+
+def should_capture_error_report(
+    *,
+    request,
+    response_status: int | None,
+    response_data: Any = None,
+    exc: Exception | None = None,
+) -> bool:
+    if is_expected_auth_failure(
+        response_status=response_status,
+        response_data=response_data,
+        exc=exc,
+    ):
+        return False
+
+    dedup_key = _report_dedup_key(request, response_status, response_data)
+    if _is_duplicate_report(dedup_key):
+        return False
+
+    return True
 
 
 def _safe_value(value: Any, depth: int = 0) -> Any:

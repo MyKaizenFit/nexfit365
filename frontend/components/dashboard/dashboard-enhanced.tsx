@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState, useEffect, useMemo, memo } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { 
   TrendingUp, 
@@ -48,6 +48,13 @@ import { useWeightHistory } from "@/hooks/use-weight-history"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
+import {
+  ContentReveal,
+  DashboardHeroShell,
+  QuickAccessCardSkeleton,
+  StatCardSkeleton,
+} from "@/components/dashboard/dashboard-skeletons"
+import { Skeleton } from "@/components/ui/skeleton"
 
 interface DashboardEnhancedProps {
   className?: string
@@ -213,6 +220,9 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     return "¡Buenas noches"
   }
 
+  // Métricas de progreso/peso (varias fuentes)
+  const progressMetricsLoading = statsLoading || progressStatsLoading || weightLoading
+
   // Función para refrescar todos los datos
   const handleRefreshAll = async () => {
     try {
@@ -286,84 +296,56 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     }
   }
 
-  // Loading state
-  if (statsLoading || progressStatsLoading || mealsLoading || workoutLoading || photosLoading) {
-    return (
-      <div className={`space-y-6 ${className}`}>
-        <div className="text-center space-y-4 animate-pulse">
-          <div className="mx-auto w-20 h-20 bg-gradient-to-br from-orange-200 to-gray-200 rounded-3xl"></div>
-          <div className="h-10 bg-muted rounded-lg w-2/3 mx-auto"></div>
-          <div className="h-6 bg-muted/60 rounded w-1/2 mx-auto"></div>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-36 bg-gradient-to-br from-gray-100 to-gray-50 rounded-2xl animate-pulse"></div>
-          ))}
-        </div>
+  const heroActions = (
+    <div className="flex items-center gap-2 sm:gap-3">
+      <Button
+        onClick={handleRefreshAll}
+        disabled={isRefreshing}
+        variant="secondary"
+        size="sm"
+        className="bg-white/20 hover:bg-white/30 border-0 text-white backdrop-blur-sm"
+      >
+        <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
+        <span className="hidden sm:inline">Actualizar</span>
+      </Button>
+      <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5">
+        <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+        <span className="text-xs text-white/90">Online</span>
       </div>
-    )
-  }
+    </div>
+  )
+
+  const motivationalMessage = progressMetricsLoading ? (
+    <Skeleton className="h-5 w-full max-w-lg bg-white/25" />
+  ) : (
+    <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
+      <Zap className="h-5 w-5 text-yellow-300 flex-shrink-0" />
+      <span>
+        {transformationProgress >= 80
+          ? "¡Increíble progreso! Estás cerca de tu objetivo 🎯"
+          : transformationProgress >= 50
+            ? "¡Vas por buen camino! Mantén el ritmo 🔥"
+            : !hasTrackedWeightProgress
+              ? "Registra tu peso para empezar a medir tu progreso real 📈"
+              : "¡Cada día cuenta! Sigue adelante 💪"}
+      </span>
+    </p>
+  )
 
   return (
     <div className={`flex flex-col space-y-6 sm:space-y-8 ${className}`}>
-      {/* Hero Section - Saludo personalizado */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-orange-500 via-orange-400 to-amber-400 p-6 sm:p-8 text-white shadow-2xl">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full translate-y-1/2 -translate-x-1/2 blur-2xl"></div>
-        
-        <div className="relative z-10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 bg-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center">
-                  <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold">
-                    {getGreeting()}, {user?.first_name || 'Campeón'}! 💪
-                  </h1>
-                  <p className="text-white/80 text-sm sm:text-base">
-                    Día {daysInTransformation} de tu transformación
-                  </p>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button 
-                onClick={handleRefreshAll}
-                disabled={isRefreshing}
-                variant="secondary"
-                size="sm"
-                className="bg-white/20 hover:bg-white/30 border-0 text-white backdrop-blur-sm"
-              >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-                <span className="hidden sm:inline">Actualizar</span>
-              </Button>
-              <div className="flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-3 py-1.5">
-                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <span className="text-xs text-white/90">Online</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Mensaje motivacional */}
-          <div className="mt-6 p-4 bg-white/10 backdrop-blur-sm rounded-2xl">
-            <p className="text-white/90 text-sm sm:text-base flex items-center gap-2">
-              <Zap className="h-5 w-5 text-yellow-300 flex-shrink-0" />
-              <span>
-                {transformationProgress >= 80 
-                  ? "¡Increíble progreso! Estás cerca de tu objetivo 🎯"
-                  : transformationProgress >= 50 
-                  ? "¡Vas por buen camino! Mantén el ritmo 🔥"
-                  : !hasTrackedWeightProgress
-                  ? "Registra tu peso para empezar a medir tu progreso real 📈"
-                  : "¡Cada día cuenta! Sigue adelante 💪"}
-              </span>
-            </p>
-          </div>
-        </div>
-      </div>
+      <DashboardHeroShell
+        greeting={getGreeting()}
+        userName={user?.first_name || "Campeón"}
+        daysLoading={statsLoading}
+        daysLabel={
+          <p className="text-white/80 text-sm sm:text-base">
+            Día {daysInTransformation} de tu transformación
+          </p>
+        }
+        motivationalContent={motivationalMessage}
+        actions={heroActions}
+      />
 
       {birthdayMessage && (
         <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50 shadow-sm">
@@ -384,155 +366,191 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       {/* Stats Grid - Métricas principales */}
       <div className="order-last grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Progreso General */}
-        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
-                {hasTrackedWeightProgress && transformationProgress >= 50 ? '👍' : '📈'}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(transformationProgress)}%</p>
-              <p className="text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium">Progreso Total</p>
-              <Progress value={transformationProgress} className="h-2 bg-emerald-500/20" />
-            </div>
-          </CardContent>
-        </Card>
+        {progressMetricsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <ContentReveal>
+            <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-200/30 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-0 text-xs">
+                    {hasTrackedWeightProgress && transformationProgress >= 50 ? "👍" : "📈"}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-2xl sm:text-3xl font-bold text-emerald-600 dark:text-emerald-400">{Math.round(transformationProgress)}%</p>
+                  <p className="text-xs sm:text-sm text-emerald-500 dark:text-emerald-400 font-medium">Progreso Total</p>
+                  <Progress value={transformationProgress} className="h-2 bg-emerald-500/20" />
+                </div>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
 
         {/* Peso Actual */}
-        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              {hasTrackedWeightProgress && weightChange !== 0 && (
-                <Badge className={`border-0 text-xs ${weightChange < 0 ? 'bg-green-500/15 text-green-600 dark:text-green-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}>
-                  {weightChange < 0 ? '↓' : '↑'} {Math.abs(weightChange).toFixed(1)}kg
-                </Badge>
-              )}
-            </div>
-            <div className="space-y-1">
-              <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{currentWeight || '--'}kg</p>
-              <p className="text-xs sm:text-sm text-blue-500 dark:text-blue-400 font-medium">Peso Actual</p>
-              {targetWeight && (
-                <p className="text-xs text-blue-400 dark:text-blue-500">Objetivo: {targetWeight}kg</p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        {progressMetricsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <ContentReveal>
+            <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Scale className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  {hasTrackedWeightProgress && weightChange !== 0 && (
+                    <Badge className={`border-0 text-xs ${weightChange < 0 ? "bg-green-500/15 text-green-600 dark:text-green-400" : "bg-red-500/15 text-red-600 dark:text-red-400"}`}>
+                      {weightChange < 0 ? "↓" : "↑"} {Math.abs(weightChange).toFixed(1)}kg
+                    </Badge>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400">{currentWeight || "--"}kg</p>
+                  <p className="text-xs sm:text-sm text-blue-500 dark:text-blue-400 font-medium">Peso Actual</p>
+                  {targetWeight && (
+                    <p className="text-xs text-blue-400 dark:text-blue-500">Objetivo: {targetWeight}kg</p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
 
         {/* Entrenamientos */}
-        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-0 text-xs">
-                {workoutsThisWeek}/{workoutsGoal}
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{workoutsThisWeek}</p>
-              <p className="text-xs sm:text-sm text-purple-500 dark:text-purple-400 font-medium">Esta Semana</p>
-              <Progress value={workoutProgress} className="h-2 bg-purple-500/20" />
-            </div>
-          </CardContent>
-        </Card>
+        {workoutLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <ContentReveal>
+            <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Dumbbell className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <Badge className="bg-purple-500/15 text-purple-600 dark:text-purple-400 border-0 text-xs">
+                    {workoutsThisWeek}/{workoutsGoal}
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400">{workoutsThisWeek}</p>
+                  <p className="text-xs sm:text-sm text-purple-500 dark:text-purple-400 font-medium">Esta Semana</p>
+                  <Progress value={workoutProgress} className="h-2 bg-purple-500/20" />
+                </div>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
 
         {/* Calorías */}
-        <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
-          <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
-          <CardContent className="p-4 sm:p-5">
-            <div className="flex items-start justify-between mb-3">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-                <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-              </div>
-              <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-400 border-0 text-xs">
-                {Math.round(caloriesProgress)}%
-              </Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">{caloriesConsumed}</p>
-              <p className="text-xs sm:text-sm text-orange-500 dark:text-orange-400 font-medium">Calorías Hoy</p>
-              <Progress value={caloriesProgress} className="h-2 bg-orange-500/20" />
-            </div>
-          </CardContent>
-        </Card>
+        {mealsLoading ? (
+          <StatCardSkeleton />
+        ) : (
+          <ContentReveal>
+            <Card className="group relative overflow-hidden border hover:shadow-xl dark:bg-card transition-all duration-300 hover:-translate-y-1">
+              <div className="absolute top-0 right-0 w-20 h-20 bg-orange-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+              <CardContent className="p-4 sm:p-5">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <Flame className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                  </div>
+                  <Badge className="bg-orange-500/15 text-orange-600 dark:text-orange-400 border-0 text-xs">
+                    {Math.round(caloriesProgress)}%
+                  </Badge>
+                </div>
+                <div className="space-y-2">
+                  <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400">{caloriesConsumed}</p>
+                  <p className="text-xs sm:text-sm text-orange-500 dark:text-orange-400 font-medium">Calorías Hoy</p>
+                  <Progress value={caloriesProgress} className="h-2 bg-orange-500/20" />
+                </div>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
       </div>
 
       {/* Accesos rápidos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Próximo Entrenamiento */}
-        <Card className="border-0 bg-gradient-to-br from-purple-500 to-pink-500 text-white overflow-hidden">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Dumbbell className="h-5 w-5" />
-                  <span className="font-medium text-sm">Entrenamientos</span>
+        {workoutLoading ? (
+          <QuickAccessCardSkeleton className="bg-gradient-to-br from-purple-500/30 to-pink-500/30" />
+        ) : (
+          <ContentReveal>
+            <Card className="border-0 bg-gradient-to-br from-purple-500 to-pink-500 text-white overflow-hidden">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Dumbbell className="h-5 w-5" />
+                      <span className="font-medium text-sm">Entrenamientos</span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold">
+                      {workoutsThisWeek < workoutsGoal ? "¡A entrenar!" : "¡Meta cumplida!"}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      {remainingTrainingSessions > 0
+                        ? `Te ${remainingTrainingSessions === 1 ? "falta" : "faltan"} ${remainingTrainingSessions} ${remainingTrainingSessions === 1 ? "sesión" : "sesiones"} esta semana`
+                        : "Has completado tu objetivo semanal 🎉"}
+                    </p>
+                    <Button
+                      size="sm"
+                      className="bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => router.push("/dashboard?section=workouts-3")}
+                    >
+                      <Play className="h-4 w-4 mr-2" />
+                      Comenzar
+                    </Button>
+                  </div>
+                  <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                    <Trophy className="w-10 h-10 text-white/80" />
+                  </div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold">
-                  {workoutsThisWeek < workoutsGoal ? '¡A entrenar!' : '¡Meta cumplida!'}
-                </h3>
-                <p className="text-white/80 text-sm">
-                  {remainingTrainingSessions > 0 
-                    ? `Te ${remainingTrainingSessions === 1 ? 'falta' : 'faltan'} ${remainingTrainingSessions} ${remainingTrainingSessions === 1 ? 'sesión' : 'sesiones'} esta semana`
-                    : 'Has completado tu objetivo semanal 🎉'}
-                </p>
-                <Button 
-                  size="sm" 
-                  className="bg-white/20 hover:bg-white/30 text-white border-0"
-                  onClick={() => router.push('/dashboard?section=workouts-3')}
-                >
-                  <Play className="h-4 w-4 mr-2" />
-                  Comenzar
-                </Button>
-              </div>
-              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
-                <Trophy className="w-10 h-10 text-white/80" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
 
         {/* Fotos de Progreso */}
-        <Card className="border-0 bg-gradient-to-br from-emerald-500 to-teal-500 text-white overflow-hidden">
-          <CardContent className="p-5 sm:p-6">
-            <div className="flex items-start justify-between">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <Camera className="h-5 w-5" />
-                  <span className="font-medium text-sm">Tu Progreso</span>
+        {photosLoading || progressStatsLoading ? (
+          <QuickAccessCardSkeleton className="bg-gradient-to-br from-emerald-500/30 to-teal-500/30" />
+        ) : (
+          <ContentReveal>
+            <Card className="border-0 bg-gradient-to-br from-emerald-500 to-teal-500 text-white overflow-hidden">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Camera className="h-5 w-5" />
+                      <span className="font-medium text-sm">Tu Progreso</span>
+                    </div>
+                    <h3 className="text-xl sm:text-2xl font-bold">
+                      {totalPhotos} {totalPhotos === 1 ? "foto" : "fotos"}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      Documenta tu transformación visual
+                    </p>
+                    <Button
+                      size="sm"
+                      className="bg-white/20 hover:bg-white/30 text-white border-0"
+                      onClick={() => setIsPhotoDialogOpen(true)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Añadir Foto
+                    </Button>
+                  </div>
+                  <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
+                    <Heart className="w-10 h-10 text-white/80" />
+                  </div>
                 </div>
-                <h3 className="text-xl sm:text-2xl font-bold">
-                  {totalPhotos} {totalPhotos === 1 ? 'foto' : 'fotos'}
-                </h3>
-                <p className="text-white/80 text-sm">
-                  Documenta tu transformación visual
-                </p>
-                <Button 
-                  size="sm" 
-                  className="bg-white/20 hover:bg-white/30 text-white border-0"
-                  onClick={() => setIsPhotoDialogOpen(true)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Añadir Foto
-                </Button>
-              </div>
-              <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center">
-                <Heart className="w-10 h-10 text-white/80" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </ContentReveal>
+        )}
 
         {/* Menús */}
         <Card className="border-0 bg-gradient-to-br from-orange-500 to-amber-500 text-white overflow-hidden">

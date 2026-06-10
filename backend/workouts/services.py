@@ -513,6 +513,7 @@ class DefaultWorkoutAssignmentService:
             start_date=start_date,
             end_date=end_date,
             is_active=True,
+            tags=build_assigned_program_tags(default_program),
         )
 
         if getattr(self.user, "training_days_per_week", None) != assigned_days_per_week:
@@ -556,6 +557,123 @@ class DefaultWorkoutAssignmentService:
         if {"endurance"} & tags:
             return "endurance"
         return default_program.goal or "general_fitness"
+
+
+SOURCE_TEMPLATE_TAG_PREFIX = "source_template:"
+
+
+def source_template_tag(template_id) -> str:
+    return f"{SOURCE_TEMPLATE_TAG_PREFIX}{template_id}"
+
+
+def extract_source_template_id(tags) -> Optional[str]:
+    if not tags:
+        return None
+    for tag in tags:
+        if isinstance(tag, str) and tag.startswith(SOURCE_TEMPLATE_TAG_PREFIX):
+            template_id = tag[len(SOURCE_TEMPLATE_TAG_PREFIX):].strip()
+            if template_id:
+                return template_id
+    return None
+
+
+def build_assigned_program_tags(template_program: WorkoutProgram) -> List[str]:
+    return [source_template_tag(template_program.id)]
+
+
+def prefetch_workout_program_with_days(program: Optional[WorkoutProgram]) -> Optional[WorkoutProgram]:
+    if not program:
+        return None
+    return (
+        WorkoutProgram.objects.filter(pk=program.pk)
+        .prefetch_related(
+            "days__exercises__exercise",
+            "days__exercises__exercise__substitutions__substitute",
+        )
+        .first()
+    )
+
+
+def find_assigned_workout_template(
+    user: CustomUser,
+    active_program: Optional[WorkoutProgram] = None,
+) -> Optional[WorkoutProgram]:
+    """
+    Plantilla asignada directamente al usuario (prioridad sobre config. por defecto).
+    Detecta por tag source_template:* o por convención de nombre "Plantilla - Usuario".
+    """
+    programs_to_check: List[WorkoutProgram] = []
+    seen_ids = set()
+
+    def add_program(candidate: Optional[WorkoutProgram]) -> None:
+        if not candidate or candidate.id in seen_ids:
+            return
+        seen_ids.add(candidate.id)
+        programs_to_check.append(candidate)
+
+    add_program(active_program)
+    for program in WorkoutProgram.objects.filter(user=user).order_by("-is_active", "-created_at")[:12]:
+        add_program(program)
+
+    for program in programs_to_check:
+        template_id = extract_source_template_id(program.tags)
+        if template_id:
+            template = WorkoutProgram.objects.filter(
+                pk=template_id,
+                is_template=True,
+                is_active=True,
+            ).first()
+            if template:
+                return template
+
+    templates = list(
+        WorkoutProgram.objects.filter(is_template=True, is_active=True)
+        .only("id", "name")
+        .order_by("-updated_at")
+    )
+    best_template: Optional[WorkoutProgram] = None
+    best_prefix_len = 0
+
+    for program in programs_to_check:
+        for template in templates:
+            marker = f"{template.name} - "
+            if program.name.startswith(marker) and len(template.name) > best_prefix_len:
+                best_template = template
+                best_prefix_len = len(template.name)
+
+    return best_template
+
+
+def find_default_config_workout_template(user: CustomUser) -> Optional[WorkoutProgram]:
+    from dashboard.models import DefaultPlanConfiguration
+
+    configurations = (
+        DefaultPlanConfiguration.objects.filter(
+            is_active=True,
+            default_workout_program__isnull=False,
+        )
+        .select_related("default_workout_program")
+        .order_by("priority")
+    )
+    for config in configurations:
+        if config.matches_user_profile(user):
+            return config.default_workout_program
+    return None
+
+
+def resolve_reference_workout_program(
+    user: CustomUser,
+    active_program: Optional[WorkoutProgram] = None,
+) -> Tuple[Optional[WorkoutProgram], Optional[str]]:
+    assigned_template = find_assigned_workout_template(user, active_program)
+    if assigned_template:
+        return assigned_template, "assigned_template"
+
+    default_template = find_default_config_workout_template(user)
+    if default_template:
+        return default_template, "default_config"
+
+    return None, None
 
 
 def get_personalized_workout_plan(user: CustomUser) -> Dict[str, any]:

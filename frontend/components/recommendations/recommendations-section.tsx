@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
+import { RecommendationsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -21,12 +22,7 @@ export function RecommendationsSection() {
   const handleGoToDashboard = () => router.push("/dashboard")
 
   if (!userDataLoaded) {
-    return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center gap-4 text-center">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
-        <p className="text-muted-foreground">Cargando tu perfil para generar recomendaciones personalizadas…</p>
-      </div>
-    )
+    return <RecommendationsSectionSkeleton />
   }
 
   if (!profile) {

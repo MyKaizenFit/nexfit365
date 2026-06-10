@@ -14,6 +14,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 import { PlanShoppingList } from '@/app/dashboard/components/plan-shopping-list'
 import { formatMacro } from '@/lib/utils'
+import { SkeletonMealPlan, TabsSkeleton } from '@/components/dashboard/dashboard-skeletons'
+import { Skeleton } from '@/components/ui/skeleton'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
@@ -100,15 +102,24 @@ export function MealDashboard() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-muted rounded w-64 mb-4"></div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className="h-32 bg-muted rounded-lg"></div>
-            ))}
-          </div>
-        </div>
+      <div className="space-y-8 pb-4">
+        <Card className="border shadow-xl dark:bg-card overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20" />
+          <CardHeader className="text-center relative z-10 p-4 md:p-6">
+            <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-orange-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
+              <ChefHat className="h-8 w-8 md:h-12 md:w-12 text-orange-700" />
+            </div>
+            <CardTitle className="text-xl md:text-3xl font-bold text-slate-900">
+              Plan Nutricional
+            </CardTitle>
+            <CardDescription className="text-sm md:text-base mt-2 text-foreground">
+              Tu alimentación equilibrada para alcanzar tus objetivos
+            </CardDescription>
+            <Skeleton className="mx-auto mt-4 h-3 w-full max-w-md rounded-full" />
+          </CardHeader>
+        </Card>
+        <TabsSkeleton />
+        <SkeletonMealPlan />
       </div>
     )
   }
@@ -443,11 +454,7 @@ export function MealDashboard() {
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-6">
-          <Suspense fallback={
-            <div className="flex items-center justify-center p-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div>
-            </div>
-          }>
+          <Suspense fallback={<SkeletonMealPlan />}>
             <WeeklyMealPlan />
           </Suspense>
         </TabsContent>

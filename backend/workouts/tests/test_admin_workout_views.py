@@ -705,6 +705,52 @@ class TestAdminUserProgram:
         response = admin_client.get('/api/admin/workouts/users/99999/program/')
         assert response.status_code == status.HTTP_404_NOT_FOUND
 
+    def test_get_user_program_prefers_assigned_template_over_default_config(
+        self, admin_client, regular_user, exercise
+    ):
+        from dashboard.models import DefaultPlanConfiguration
+        from workouts.services import build_assigned_program_tags
+
+        assigned_template = WorkoutProgram.objects.create(
+            name="Plantilla Asignada Premium",
+            is_template=True,
+            is_active=True,
+            days_per_week=3,
+        )
+        WorkoutDay.objects.create(
+            program=assigned_template,
+            name="Día plantilla asignada",
+            day_number=1,
+            day_of_week="monday",
+        )
+
+        default_template = WorkoutProgram.objects.create(
+            name="Plantilla Config Defecto",
+            is_template=True,
+            is_active=True,
+            days_per_week=3,
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config test",
+            priority=1,
+            is_active=True,
+            default_workout_program=default_template,
+        )
+
+        user_program = WorkoutProgram.objects.create(
+            user=regular_user,
+            name=f"{assigned_template.name} - {regular_user.first_name}",
+            is_template=False,
+            is_active=True,
+            tags=build_assigned_program_tags(assigned_template),
+        )
+
+        response = admin_client.get(f'/api/admin/workouts/users/{regular_user.id}/program/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['program']['id'] == str(user_program.id)
+        assert response.data['reference_program']['id'] == str(assigned_template.id)
+        assert response.data['reference_program_source'] == 'assigned_template'
+
     def test_requires_admin(self, regular_user):
         client = APIClient()
         client.force_authenticate(user=regular_user)

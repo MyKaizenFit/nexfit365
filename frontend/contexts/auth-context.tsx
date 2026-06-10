@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         let hasValidTokens = authService.hasValidTokens()
 
         if (!hasValidTokens && authService.hasRefreshToken()) {
-          const refreshResult = await authService.refreshAccessToken()
+          const refreshResult = await authService.refreshAccessTokenDeduped()
           hasValidTokens = Boolean(refreshResult.success && refreshResult.newToken)
         }
 
@@ -565,7 +565,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       let accessToken = authService.getAccessToken()
       if (!accessToken) {
         const refreshResult = authService.hasRefreshToken()
-          ? await authService.refreshAccessToken()
+          ? await authService.refreshAccessTokenDeduped()
           : { success: false }
 
         if (refreshResult.success && refreshResult.newToken) {
@@ -585,8 +585,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       }
 
       // Si el token está expirado o próximo a expirar, refrescarlo antes de usarlo
-      if (authService.isTokenExpiringSoon()) {
-        const result = await authService.refreshAccessToken()
+      if (authService.needsTokenRefresh()) {
+        const result = await authService.refreshAccessTokenDeduped()
         if (result.success && result.newToken) {
           accessToken = result.newToken
         }
@@ -636,10 +636,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           return
         }
 
-        // Verificar si el token está próximo a expirar
-        if (authService.isTokenExpiringSoon()) {
-          
-          const refreshResult = await authService.refreshAccessToken()
+        // Renovar si el token ya expiró o está a punto de expirar
+        if (authService.needsTokenRefresh()) {
+          const refreshResult = await authService.refreshAccessTokenDeduped()
           
           if (refreshResult.success) {
           } else {
@@ -676,12 +675,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Verificar inmediatamente al montar el componente
     checkAndRefreshToken()
 
-    // Verificar cada 5 minutos si el token está próximo a expirar
-    // Esto es suficiente porque el token dura 2 horas y se refresca cuando quedan menos de 30 minutos
-    const interval = setInterval(checkAndRefreshToken, 5 * 60 * 1000) // 5 minutos
+    const handleResume = () => {
+      if (document.visibilityState === 'visible') {
+        checkAndRefreshToken()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleResume)
+    window.addEventListener('focus', handleResume)
+
+    // Verificar periódicamente si el token necesita renovarse
+    const interval = setInterval(checkAndRefreshToken, 5 * 60 * 1000)
 
     return () => {
       clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleResume)
+      window.removeEventListener('focus', handleResume)
     }
   }, [state.isAuthenticated])
 

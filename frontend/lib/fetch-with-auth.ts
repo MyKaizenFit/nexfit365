@@ -10,7 +10,7 @@ export async function handle401AndRefresh(getAuthHeaders: () => Promise<HeadersI
   try {
     const { getAuthService } = await import('@/lib/auth-service')
     const authService = getAuthService()
-    const refreshResult = await authService.refreshAccessToken()
+    const refreshResult = await authService.refreshAccessTokenDeduped()
     
     if (refreshResult.success && refreshResult.newToken) {
       const newHeaders = await getAuthHeaders()
