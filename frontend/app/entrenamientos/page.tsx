@@ -34,6 +34,7 @@ export default function EntrenamientosPage() {
     workoutLogs,
     loading,
     error,
+    hasAuthError,
     createProgramFromTemplate,
     activateProgram,
     createWorkoutLog,
@@ -109,8 +110,19 @@ export default function EntrenamientosPage() {
   if (error) {
     return (
       <div className="text-center py-8">
-        <p className="text-red-500 mb-4">Error al cargar entrenamientos: {error}</p>
-        <Button onClick={refreshData}>Reintentar</Button>
+        <p className="text-red-500 mb-4">
+          {hasAuthError
+            ? 'Tu sesion ha expirado. Inicia sesion de nuevo para ver tu plan de entrenamiento.'
+            : `Error al cargar entrenamientos: ${error}`}
+        </p>
+        <div className="flex items-center justify-center gap-3">
+          {!hasAuthError && <Button onClick={refreshData}>Reintentar</Button>}
+          {hasAuthError && (
+            <Button onClick={() => { window.location.href = '/auth' }}>
+              Iniciar sesion
+            </Button>
+          )}
+        </div>
       </div>
     )
   }

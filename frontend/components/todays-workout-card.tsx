@@ -26,7 +26,7 @@ interface TodaysWorkoutCardProps {
 }
 
 export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
-  const { activeProgram, workoutLogs, createWorkoutLog, saveWorkoutProgress, refreshData } = useWorkouts()
+  const { activeProgram, workoutLogs, loading, error, hasAuthError, createWorkoutLog, saveWorkoutProgress, refreshData } = useWorkouts()
   const { profile } = useUserProfile()
   const [completedExercises, setCompletedExercises] = useState<Set<string>>(new Set())
   const [workoutStarted, setWorkoutStarted] = useState(false)
@@ -120,6 +120,49 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   const totalExercises = todaysWorkout?.exercises?.length || 0
   const completedCount = completedExercises.size
   const progress = totalExercises > 0 ? (completedCount / totalExercises) * 100 : 0
+
+  if (loading) {
+    return (
+      <Card className={className}>
+        <CardContent className="p-8 text-center">
+          <Clock className="h-8 w-8 mx-auto mb-3 text-muted-foreground animate-spin" />
+          <p className="text-sm text-muted-foreground">Cargando entrenamiento...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (error) {
+    return (
+      <Card className={className}>
+        <CardContent className="p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full flex items-center justify-center">
+            <Shield className="h-8 w-8 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold mb-2">
+            {hasAuthError ? 'Sesion expirada' : 'No se pudo cargar el entrenamiento'}
+          </h3>
+          <p className="text-muted-foreground mb-4">
+            {hasAuthError
+              ? 'Inicia sesion de nuevo para recuperar tu plan de entrenamiento.'
+              : error}
+          </p>
+          <div className="flex items-center justify-center gap-2">
+            {!hasAuthError && (
+              <Button variant="outline" onClick={refreshData}>
+                Reintentar
+              </Button>
+            )}
+            {hasAuthError && (
+              <Button onClick={() => { window.location.href = '/auth' }}>
+                Iniciar sesion
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
 
   // Manejar inicio de entrenamiento
   const handleStartWorkout = () => {

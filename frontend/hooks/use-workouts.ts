@@ -5,6 +5,28 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return ''
+}
+
+const isAuthSessionError = (error: unknown): boolean => {
+  const message = getErrorMessage(error).toLowerCase()
+  if (!message) return false
+  return (
+    message.includes('sesion expirada') ||
+    message.includes('sesión expirada') ||
+    message.includes('token expirado') ||
+    message.includes('token is blacklisted') ||
+    message.includes('blacklisted') ||
+    message.includes('401') ||
+    message.includes('unauthorized') ||
+    message.includes('token_not_valid') ||
+    message.includes('no hay token')
+  )
+}
+
 // Interfaces
 export interface Exercise {
   id: string
@@ -124,6 +146,7 @@ export function useWorkouts() {
   const [workoutLogs, setWorkoutLogs] = useState<WorkoutLog[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasAuthError, setHasAuthError] = useState(false)
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -143,6 +166,7 @@ export function useWorkouts() {
       setWorkoutLogs([])
       setLoading(false)
       setError(null)
+      setHasAuthError(false)
     }
   }, [isAuthenticated])
 
@@ -156,6 +180,7 @@ export function useWorkouts() {
     try {
       setLoading(true)
       setError(null)
+      setHasAuthError(false)
 
       // Cargar de forma secuencial para evitar rate limiting
       await fetchWorkoutPrograms()
@@ -172,7 +197,9 @@ export function useWorkouts() {
 
       await fetchWorkoutLogs()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento')
+      const message = err instanceof Error ? err.message : 'Error al cargar datos de entrenamiento'
+      setError(message)
+      setHasAuthError(isAuthSessionError(message))
     } finally {
       setLoading(false)
     }
@@ -771,6 +798,7 @@ export function useWorkouts() {
     workoutStatistics,
     loading,
     error,
+    hasAuthError,
 
     // Acciones
     fetchWorkoutPrograms,

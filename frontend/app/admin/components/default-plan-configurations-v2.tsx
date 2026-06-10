@@ -91,9 +91,10 @@ const getOrderVariant = (order: number): "default" | "secondary" | "outline" | "
 }
 
 const goalOptions: PlanOption[] = [
-  { id: "weight_loss", name: "Pérdida de peso" },
-  { id: "muscle_gain", name: "Ganancia muscular" },
-  { id: "maintenance", name: "Mantenimiento" },
+  { id: "lose_weight", name: "Pérdida de peso" },
+  { id: "gain_muscle", name: "Ganancia muscular" },
+  { id: "body_recomposition", name: "Recomposición corporal" },
+  { id: "maintain", name: "Mantenimiento" },
   { id: "performance", name: "Rendimiento deportivo" },
 ]
 
@@ -104,9 +105,11 @@ const locationOptions: PlanOption[] = [
 ]
 
 const activityOptions: PlanOption[] = [
-  { id: "beginner", name: "Principiante" },
-  { id: "intermediate", name: "Intermedio" },
-  { id: "advanced", name: "Avanzado" },
+  { id: "sedentary", name: "Sedentario" },
+  { id: "light", name: "Ligero" },
+  { id: "moderate", name: "Moderado" },
+  { id: "active", name: "Activo" },
+  { id: "very_active", name: "Muy activo" },
 ]
 
 const genderOptions: PlanOption[] = [

@@ -112,7 +112,7 @@ const computeGramsFromPercents = (percents: MacroPercents, calories: number) => 
   }
 }
 
-export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave: () => void }) {
+export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId: string; onSave: () => void; reloadKey?: number }) {
   const [plan, setPlan] = useState<NutritionPlan | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -136,7 +136,7 @@ export function NutritionPlanEditor({ userId, onSave }: { userId: string; onSave
     loadUserPlan()
     loadDefaultPlans()
     loadAvailableRecipes()
-  }, [userId])
+  }, [userId, reloadKey])
 
   const loadAvailableRecipes = async () => {
     try {

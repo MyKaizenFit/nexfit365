@@ -40,8 +40,33 @@ render_page() {
 }
 
 reload_nginx() {
-  nginx -t
-  systemctl reload nginx
+  local nginx_bin="${NGINX_BIN:-}"
+
+  if [ -z "$nginx_bin" ]; then
+    nginx_bin="$(command -v nginx || true)"
+  fi
+  if [ -z "$nginx_bin" ] && [ -x /usr/sbin/nginx ]; then
+    nginx_bin="/usr/sbin/nginx"
+  fi
+  if [ -z "$nginx_bin" ] && [ -x /usr/bin/nginx ]; then
+    nginx_bin="/usr/bin/nginx"
+  fi
+
+  if [ -z "$nginx_bin" ]; then
+    echo "No se encontro el binario de nginx. Define NGINX_BIN o agrega nginx al PATH." >&2
+    return 1
+  fi
+
+  if [ "$(id -u)" -eq 0 ]; then
+    "$nginx_bin" -t
+    systemctl reload nginx
+  elif sudo -n true >/dev/null 2>&1; then
+    sudo "$nginx_bin" -t
+    sudo systemctl reload nginx
+  else
+    echo "No hay permisos para validar/recargar nginx sin sudo. Ejecuta con sudo o habilita sudo para nginx -t y systemctl reload nginx." >&2
+    return 1
+  fi
 }
 
 install_files() {
@@ -88,13 +113,17 @@ PY
 turn_on() {
   render_page
   touch "$MAINTENANCE_DIR/maintenance.on"
-  reload_nginx
+  if ! reload_nginx; then
+    echo "Aviso: no se pudo recargar nginx automaticamente. Si no ves el cambio al instante, ejecuta: sudo systemctl reload nginx" >&2
+  fi
   echo "Mantenimiento activado."
 }
 
 turn_off() {
   rm -f "$MAINTENANCE_DIR/maintenance.on"
-  reload_nginx
+  if ! reload_nginx; then
+    echo "Aviso: no se pudo recargar nginx automaticamente. Si no ves el cambio al instante, ejecuta: sudo systemctl reload nginx" >&2
+  fi
   echo "Mantenimiento desactivado."
 }
 

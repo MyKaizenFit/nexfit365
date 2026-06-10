@@ -366,6 +366,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """Serializer para actualizar el perfil del usuario"""
+
+    dietary_restrictions = FlexibleStringListField(required=False)
+    allergies = FlexibleStringListField(required=False)
+    medical_conditions = FlexibleStringListField(required=False)
     
     class Meta:
         model = CustomUser

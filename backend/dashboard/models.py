@@ -365,13 +365,23 @@ class DefaultPlanConfiguration(TimeStampedModel):
 
     def dietary_restriction_terms(self):
         return set(canonical_dietary_restrictions(self.dietary_restrictions))
+
+    @staticmethod
+    def normalize_main_goal(value):
+        aliases = {
+            'weight_loss': 'lose_weight',
+            'fat_loss': 'lose_weight',
+            'muscle_gain': 'gain_muscle',
+            'maintenance': 'maintain',
+        }
+        return aliases.get(value, value)
     
     def matches_user_profile(self, user):
         """
         Verifica si esta configuración coincide con el perfil del usuario
         """
         # Verificar objetivo principal
-        if self.main_goal and user.main_goal != self.main_goal:
+        if self.main_goal and self.normalize_main_goal(user.main_goal) != self.normalize_main_goal(self.main_goal):
             return False
         
         # Verificar ubicación de entrenamiento

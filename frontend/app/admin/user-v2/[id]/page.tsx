@@ -172,6 +172,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   // Estado para override de calorías admin
   const [caloriesOverrideInput, setCaloriesOverrideInput] = useState<string>("")
   const [savingCalories, setSavingCalories] = useState(false)
+  const [nutritionEditorReloadKey, setNutritionEditorReloadKey] = useState(0)
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
@@ -376,6 +377,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
         throw new Error(err.detail || `Error ${response.status}`)
       }
       await fetchUser()
+      setNutritionEditorReloadKey((key) => key + 1)
       toast({ title: clear ? "✅ Override eliminado" : "✅ Calorías guardadas", description: clear ? "Se usará el cálculo automático" : "El override del admin ha sido aplicado" })
     } catch (err) {
       toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al guardar", variant: "destructive" })
@@ -1343,6 +1345,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             {/* Editor de plan nutricional */}
             <NutritionPlanEditor
               userId={user.id.toString()}
+              reloadKey={nutritionEditorReloadKey}
               onSave={() => {
                 toast({
                   title: "✅ Plan nutricional guardado",

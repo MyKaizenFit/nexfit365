@@ -56,6 +56,24 @@ class TestProfileEndpoints:
         assert member_user.first_name == "Nuevo"
         assert member_user.last_name == "Nombre"
 
+    def test_profile_patch_accepts_sensitive_list_fields(self, api_client, member_user):
+        api_client.force_authenticate(user=member_user)
+        url = reverse("profile")
+
+        payload = {
+            "dietary_restrictions": ["gluten_free", "lactose_free"],
+            "allergies": ["nuts", "dairy"],
+            "medical_conditions": ["asma"],
+        }
+
+        response = api_client.patch(url, payload, format="json")
+
+        assert response.status_code == status.HTTP_200_OK
+        member_user.refresh_from_db()
+        assert member_user.dietary_restrictions == ["gluten_free", "lactose_free"]
+        assert member_user.allergies == ["nuts", "dairy"]
+        assert member_user.medical_conditions == ["asma"]
+
     def test_profile_patch_notifies_admins_on_relevant_changes(self, api_client, member_user, admin_user):
         api_client.force_authenticate(user=member_user)
         url = reverse("profile")
@@ -166,7 +184,7 @@ class TestProfileEndpoints:
         assert "is_complete" in response.data
         assert "completion_percentage" in response.data
 
-    def test_initial_registration_status_requires_onboarding_completed_flag(self, api_client, member_user):
+    def test_initial_registration_status_syncs_completed_profile_flag(self, api_client, member_user):
         member_user.first_name = "Nuevo"
         member_user.last_name = "Usuario"
         member_user.birth_date = "1995-05-10"
@@ -187,8 +205,11 @@ class TestProfileEndpoints:
         response = api_client.get(url)
 
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["is_complete"] is False
-        assert "onboarding_completed" in response.data["missing_fields"]
+        assert response.data["is_complete"] is True
+        assert response.data["missing_fields"] == []
+        member_user.refresh_from_db()
+        assert member_user.onboarding_completed is True
+        assert member_user.onboarding_step == 1
 
     def test_complete_initial_registration_marks_onboarding_as_completed(self, api_client, member_user):
         api_client.force_authenticate(user=member_user)

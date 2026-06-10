@@ -14,6 +14,28 @@ import { es } from "date-fns/locale"
 import { API_CONFIG, authenticatedFetch } from "@/lib/api"
 import { formatMacro } from "@/lib/utils"
 
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return ''
+}
+
+const isAuthSessionError = (error: unknown): boolean => {
+  const message = getErrorMessage(error).toLowerCase()
+  if (!message) return false
+  return (
+    message.includes('sesion expirada') ||
+    message.includes('sesión expirada') ||
+    message.includes('token expirado') ||
+    message.includes('token is blacklisted') ||
+    message.includes('blacklisted') ||
+    message.includes('401') ||
+    message.includes('unauthorized') ||
+    message.includes('token_not_valid') ||
+    message.includes('no hay token')
+  )
+}
+
 const FALLBACK_MEAL_TYPES = [
   { name: "Desayuno", type: "breakfast", time: "08:00", icon: "🌅" },
   { name: "Snack Mañana", type: "morning_snack", time: "10:30", icon: "☕" },
@@ -74,6 +96,7 @@ export function WeeklyMealPlan() {
   const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string; plan_meal_id?: string | null; meal_name?: string; meal_time?: string | null; currentSelection?: { optionId?: string | null; recipeId?: string | null } } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
+  const [hasAuthError, setHasAuthError] = useState(false)
   // Cache simple de opciones por fecha + tipo (para evitar refetch al abrir/cerrar)
   const [optionsByDateAndType, setOptionsByDateAndType] = useState<Record<string, Record<string, any[]>>>({})
   const [planMealSlotsPerDay, setPlanMealSlotsPerDay] = useState<Record<string, Array<{ id?: string; name: string; meal_type: string; time?: string | null; order_index?: number }>> | null>(null)
@@ -117,10 +140,15 @@ export function WeeklyMealPlan() {
       const startDateStr = format(currentWeekStart, 'yyyy-MM-dd')
       const selections = await nutritionService.getWeeklyMealSelections(startDateStr)
       setWeeklySelections(selections)
+      setHasAuthError(false)
     } catch (error) {
+      const sessionExpired = isAuthSessionError(error)
+      setHasAuthError(sessionExpired)
       toast({
-        title: "Error",
-        description: "No se pudieron cargar las selecciones de la semana",
+        title: sessionExpired ? "Sesion expirada" : "Error",
+        description: sessionExpired
+          ? "Tu sesion expiro. Inicia sesion de nuevo para ver tu menu semanal."
+          : "No se pudieron cargar las selecciones de la semana",
         variant: "destructive"
       })
     } finally {
@@ -146,7 +174,10 @@ export function WeeklyMealPlan() {
           if (!response.ok) return { dateStr, slots: [] }
           const data = await response.json()
           return { dateStr, slots: (data.meal_slots || []) as Array<{ id?: string; name: string; meal_type: string; time?: string | null; order_index?: number }> }
-        } catch {
+        } catch (error) {
+          if (isAuthSessionError(error)) {
+            setHasAuthError(true)
+          }
           return { dateStr, slots: [] }
         }
       })
@@ -200,10 +231,15 @@ export function WeeklyMealPlan() {
         },
       }))
       setIsModalOpen(true)
+      setHasAuthError(false)
     } catch (error) {
+      const sessionExpired = isAuthSessionError(error)
+      setHasAuthError(sessionExpired)
       toast({
-        title: "Error",
-        description: "No se pudieron cargar las opciones de comida",
+        title: sessionExpired ? "Sesion expirada" : "Error",
+        description: sessionExpired
+          ? "Tu sesion expiro. Inicia sesion de nuevo para seleccionar comidas."
+          : "No se pudieron cargar las opciones de comida",
         variant: "destructive"
       })
     }
@@ -498,6 +534,21 @@ export function WeeklyMealPlan() {
 
   return (
     <div className="space-y-4 md:space-y-6">
+      {hasAuthError && (
+        <Card className="border-red-200">
+          <CardContent className="py-4">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <p className="text-sm text-red-700">
+                Tu sesion ha expirado. Inicia sesion de nuevo para cargar correctamente tu menu semanal.
+              </p>
+              <Button onClick={() => { window.location.href = '/auth' }}>
+                Iniciar sesion
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Header */}
       <Card>
         <CardHeader className="pb-3 md:pb-6">

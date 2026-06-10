@@ -301,6 +301,47 @@ class PersonalizedNutritionServiceTest(TestCase):
         self.assertGreater(float(meal_recipe.servings), 1.0)
         self.assertEqual(meal.calories, meal_recipe.get_display_calories())
 
+    def test_admin_calories_override_scales_simple_suggested_recipes(self):
+        plan = NutritionPlan.objects.create(
+            user=self.user,
+            name="Plan con recetas simples",
+            daily_calories=1800,
+            protein_grams=120,
+            carbs_grams=180,
+            fat_grams=60,
+            is_active=True,
+        )
+        meal = PlanMeal.objects.create(
+            plan=plan,
+            name="Comida",
+            meal_type="lunch",
+            calories=600,
+            protein=Decimal("35.0"),
+            carbs=Decimal("70.0"),
+            fat=Decimal("18.0"),
+        )
+        recipe = Recipe.objects.create(
+            name="Arroz test",
+            calories=500,
+            protein=Decimal("30.0"),
+            carbs=Decimal("60.0"),
+            fat=Decimal("15.0"),
+        )
+        meal.suggested_recipes.add(recipe)
+
+        self.user.admin_calories_override = 2400
+        self.user.save(update_fields=["admin_calories_override"])
+
+        plan.refresh_from_db()
+        meal.refresh_from_db()
+        meal_recipe = meal.meal_recipes.get(recipe=recipe)
+
+        self.assertEqual(plan.daily_calories, 2400)
+        self.assertEqual(meal.suggested_recipes.count(), 0)
+        self.assertEqual(meal_recipe.custom_calories, 667)
+        self.assertGreater(float(meal_recipe.servings), 1.0)
+        self.assertEqual(meal.calories, meal_recipe.get_display_calories())
+
     def test_assign_best_plan_deactivates_existing_user_plan(self):
         existing_plan = NutritionPlan.objects.create(user=self.user, name="Activo previo", is_active=True)
         assigned_plan = PersonalizedNutritionService(self.user).assign_best_plan()

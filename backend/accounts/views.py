@@ -353,6 +353,11 @@ def initial_registration_status(request):
     # Verificar si está completo (sin verificación de versión para simplificar)
     is_complete = len(missing_fields) == 0
     completion_percentage = (len(completed_fields) / len(required_fields)) * 100
+
+    if is_complete and (not user.onboarding_completed or (user.onboarding_step or 0) < 1):
+        user.onboarding_completed = True
+        user.onboarding_step = max(user.onboarding_step or 0, 1)
+        user.save(update_fields=['onboarding_completed', 'onboarding_step', 'updated_at'])
     
     response_data = {
         'is_complete': is_complete,

@@ -343,6 +343,16 @@ class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer
         ]
     
     def validate(self, attrs):
+        main_goal = attrs.get('main_goal')
+        if main_goal:
+            aliases = {
+                'weight_loss': 'lose_weight',
+                'fat_loss': 'lose_weight',
+                'muscle_gain': 'gain_muscle',
+                'maintenance': 'maintain',
+            }
+            attrs['main_goal'] = aliases.get(main_goal, main_goal)
+
         # Validar que el plan nutricional existe
         nutrition_plan_id = attrs.get('default_nutrition_plan_id')
         if nutrition_plan_id:
@@ -376,15 +386,16 @@ class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer
         return config
     
     def update(self, instance, validated_data):
-        nutrition_plan_id = validated_data.pop('default_nutrition_plan_id', None)
-        workout_program_id = validated_data.pop('default_workout_program_id', None)
+        unset = object()
+        nutrition_plan_id = validated_data.pop('default_nutrition_plan_id', unset)
+        workout_program_id = validated_data.pop('default_workout_program_id', unset)
         
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         
-        if nutrition_plan_id is not None:
+        if nutrition_plan_id is not unset:
             instance.default_nutrition_plan_id = nutrition_plan_id
-        if workout_program_id is not None:
+        if workout_program_id is not unset:
             instance.default_workout_program_id = workout_program_id
         
         instance.save()

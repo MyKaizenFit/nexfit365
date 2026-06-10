@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste } from "lucide-react"
+import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -71,6 +71,8 @@ interface ExerciseOption {
 
 const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
+const AUTOSAVE_DELAY_MS = 10000
+const AUTOSAVE_IDLE_GRACE_MS = 3000
 const RPE_LINE_REGEX = /^RPE objetivo:\s*([1-9](?:[.,][0-9])?|10)\s*$/im
 
 function extractTargetRpe(description?: string) {
@@ -203,7 +205,7 @@ export function WorkoutProgramEditor({
   const [exerciseSearch, setExerciseSearch] = useState("")
   const [workoutClipboard, setWorkoutClipboard] = useState<WorkoutClipboard>(null)
   const [weekCopySource, setWeekCopySource] = useState("1")
-  const [weekCopyTarget, setWeekCopyTarget] = useState("2")
+  const [weekCopyTargets, setWeekCopyTargets] = useState<string[]>(["2"])
   const [clipboardTargetWeek, setClipboardTargetWeek] = useState("1")
   const [replaceTarget, setReplaceTarget] = useState<{
     dayKey: string
@@ -213,6 +215,7 @@ export function WorkoutProgramEditor({
   } | null>(null)
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
+  const lastUserInteractionRef = useRef(Date.now())
 
   const filteredReplacementExercises = useMemo(() => {
     const query = exerciseSearch.trim().toLowerCase()
@@ -227,6 +230,10 @@ export function WorkoutProgramEditor({
   const setProgramDraft = (nextProgram: WorkoutProgram) => {
     setProgram(nextProgram)
     updateUnsavedChanges(true)
+  }
+
+  const markUserInteraction = () => {
+    lastUserInteractionRef.current = Date.now()
   }
 
   const confirmDiscardChanges = () => {
@@ -526,6 +533,13 @@ export function WorkoutProgramEditor({
     }
 
     setWorkoutClipboard({ type: "week", weekNumber, days })
+    setWeekCopySource(String(weekNumber))
+    setWeekCopyTargets((currentTargets) => {
+      const validTargets = currentTargets.filter((week) => Number(week) !== weekNumber)
+      if (validTargets.length > 0) return validTargets
+      const fallbackTarget = weekNumber === 1 ? 2 : 1
+      return [String(fallbackTarget)]
+    })
     toast({
       title: "📋 Semana copiada",
       description: `Semana ${weekNumber} lista para pegar.`,
@@ -577,6 +591,57 @@ export function WorkoutProgramEditor({
     })
   }
 
+  const pasteWorkoutWeekToTargets = (sourceDays: WorkoutDay[], targetWeeks: number[]) => {
+    if (!program) return
+    const uniqueTargetWeeks = Array.from(new Set(targetWeeks)).filter((week) => week >= 1)
+    if (uniqueTargetWeeks.length === 0) return
+
+    const targetNumbers = new Set<number>()
+    const copiedDays = uniqueTargetWeeks.flatMap((targetWeek) => {
+      Array.from({ length: 7 }, (_, index) => (targetWeek - 1) * 7 + index + 1).forEach((dayNumber) => {
+        targetNumbers.add(dayNumber)
+      })
+
+      return sourceDays.map((day, index) => {
+        const sourceDayIndex = getWorkoutDayIndexInWeek(day, index)
+        const targetDayName = DAY_OPTIONS[sourceDayIndex] || day.day
+        return cloneWorkoutDayForCopy(day, {
+          day: targetDayName,
+          dayNumber: (targetWeek - 1) * 7 + sourceDayIndex + 1,
+        })
+      })
+    })
+
+    const weeklySchedule = normalizeWorkoutSchedule([
+      ...program.weeklySchedule.filter((day, index) => !targetNumbers.has(day.dayNumber ?? index + 1)),
+      ...copiedDays,
+    ])
+    setProgramDraft({
+      ...program,
+      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, sourceDays.length)),
+      durationWeeks: Math.max(program.durationWeeks || 1, ...uniqueTargetWeeks),
+      weeklySchedule,
+    })
+  }
+
+  const toggleWeekCopyTarget = (week: string) => {
+    if (week === weekCopySource) return
+    setWeekCopyTargets((currentTargets) => (
+      currentTargets.includes(week)
+        ? currentTargets.filter((target) => target !== week)
+        : [...currentTargets, week]
+    ))
+  }
+
+  const handleWeekCopySourceChange = (week: string) => {
+    setWeekCopySource(week)
+    setWeekCopyTargets((currentTargets) => {
+      const nextTargets = currentTargets.filter((target) => target !== week)
+      if (nextTargets.length > 0) return nextTargets
+      return [week === "1" ? "2" : "1"]
+    })
+  }
+
   const pasteClipboardToSelectedDate = (targetWeekOverride?: number) => {
     if (!workoutClipboard) {
       toast({
@@ -607,11 +672,14 @@ export function WorkoutProgramEditor({
   const copyWeekDirectly = () => {
     if (!program) return
     const sourceWeek = Math.max(1, Number(weekCopySource) || 1)
-    const targetWeek = Math.max(1, Number(weekCopyTarget) || 1)
-    if (sourceWeek === targetWeek) {
+    const targetWeeks = Array.from(new Set(weekCopyTargets.map((week) => Number(week))))
+      .filter((week) => Number.isFinite(week) && week >= 1 && week !== sourceWeek)
+      .sort((a, b) => a - b)
+
+    if (targetWeeks.length === 0) {
       toast({
-        title: "Elige otra semana",
-        description: "La semana origen y destino deben ser diferentes.",
+        title: "Elige semanas destino",
+        description: "Selecciona al menos una semana distinta de la semana origen.",
         variant: "destructive",
       })
       return
@@ -627,10 +695,11 @@ export function WorkoutProgramEditor({
       return
     }
 
-    pasteWorkoutWeek(sourceDays, targetWeek)
+    setWorkoutClipboard({ type: "week", weekNumber: sourceWeek, days: sourceDays })
+    pasteWorkoutWeekToTargets(sourceDays, targetWeeks)
     toast({
       title: "✅ Semana copiada",
-      description: `Semana ${sourceWeek} copiada sobre Semana ${targetWeek}.`,
+      description: `Semana ${sourceWeek} copiada sobre ${targetWeeks.map((week) => `S${week}`).join(", ")}.`,
     })
   }
 
@@ -907,11 +976,19 @@ export function WorkoutProgramEditor({
       clearTimeout(autosaveTimerRef.current)
     }
 
-    autosaveTimerRef.current = setTimeout(() => {
+    const runAutosaveWhenIdle = () => {
       if (!hasUnsavedChanges || isAutosavingRef.current) return
+      const idleFor = Date.now() - lastUserInteractionRef.current
+      if (idleFor < AUTOSAVE_IDLE_GRACE_MS) {
+        autosaveTimerRef.current = setTimeout(runAutosaveWhenIdle, AUTOSAVE_IDLE_GRACE_MS - idleFor)
+        return
+      }
+
       isAutosavingRef.current = true
       void handleSave({ silent: true })
-    }, 1800)
+    }
+
+    autosaveTimerRef.current = setTimeout(runAutosaveWhenIdle, AUTOSAVE_DELAY_MS)
 
     return () => {
       if (autosaveTimerRef.current) {
@@ -946,9 +1023,27 @@ export function WorkoutProgramEditor({
     ...program.weeklySchedule.map((day, index) => getWorkoutWeekNumber(day, index)),
   )
   const weekOptions = Array.from({ length: Math.max(totalWeeks + 1, 2) }, (_, index) => String(index + 1))
+  const selectedWeekCopyTargets = Array.from(new Set(weekCopyTargets))
+    .filter((week) => week !== weekCopySource)
+    .sort((a, b) => Number(a) - Number(b))
+  const weekCopySourceNumber = Math.max(1, Number(weekCopySource) || 1)
+  const weekCopySourceDays = program.weeklySchedule
+    .map((workoutDay, index) => ({ workoutDay, index }))
+    .filter((item) => getWorkoutWeekNumber(item.workoutDay, item.index) === weekCopySourceNumber)
+  const weekCopySourceSummary = weekCopySourceDays.length > 0
+    ? weekCopySourceDays
+      .map(({ workoutDay, index }) => DAY_OPTIONS[getWorkoutDayIndexInWeek(workoutDay, index)]?.slice(0, 3) || workoutDay.day.slice(0, 3))
+      .join(" · ")
+    : "sin rutinas"
 
   return (
-    <div className="space-y-6">
+    <div
+      className="space-y-6"
+      onFocusCapture={markUserInteraction}
+      onKeyDownCapture={markUserInteraction}
+      onPointerDownCapture={markUserInteraction}
+      onTouchMoveCapture={markUserInteraction}
+    >
       {/* Header del programa */}
       <Card className="backdrop-blur-sm bg-white/80 border-0 shadow-xl">
         <CardHeader>
@@ -1093,9 +1188,9 @@ export function WorkoutProgramEditor({
           <div className="rounded-lg border bg-slate-50 p-3 space-y-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div>
-                <p className="text-sm font-semibold">Copiar/Pegar desde calendario</p>
+                <p className="text-sm font-semibold">Copiar semanas</p>
                 <p className="text-xs text-muted-foreground">
-                  Usa el calendario como Excel: copia días o semanas y pega sobre la fecha seleccionada.
+                  Elige una semana origen y una o varias semanas destino. Se aplica en una sola accion.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
@@ -1119,10 +1214,10 @@ export function WorkoutProgramEditor({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-[1fr_1fr_auto] md:items-end">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_1fr_auto] lg:items-end">
               <div className="space-y-1">
-                <Label className="text-xs">Copiar semana origen</Label>
-                <Select value={weekCopySource} onValueChange={setWeekCopySource}>
+                <Label className="text-xs">Copiar desde</Label>
+                <Select value={weekCopySource} onValueChange={handleWeekCopySourceChange}>
                   <SelectTrigger className="h-8 bg-white">
                     <SelectValue />
                   </SelectTrigger>
@@ -1132,23 +1227,38 @@ export function WorkoutProgramEditor({
                     ))}
                   </SelectContent>
                 </Select>
+                <div className="flex items-center gap-2 rounded-md border bg-white px-2 py-1 text-xs">
+                  <Check className="h-3.5 w-3.5 text-emerald-600" />
+                  <span className="font-medium">S{weekCopySource}:</span>
+                  <span className="truncate text-muted-foreground">{weekCopySourceSummary}</span>
+                </div>
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">A semana destino</Label>
-                <Select value={weekCopyTarget} onValueChange={setWeekCopyTarget}>
-                  <SelectTrigger className="h-8 bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weekOptions.map((week) => (
-                      <SelectItem key={week} value={week}>Semana {week}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-xs">Pegar en</Label>
+                <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:flex lg:flex-wrap">
+                  {weekOptions.map((week) => {
+                    const isSource = week === weekCopySource
+                    const isSelected = selectedWeekCopyTargets.includes(week)
+                    return (
+                      <Button
+                        key={week}
+                        type="button"
+                        size="sm"
+                        variant={isSelected ? "default" : "outline"}
+                        className={`h-8 justify-center ${isSelected ? "" : "bg-white"}`}
+                        disabled={isSource}
+                        onClick={() => toggleWeekCopyTarget(week)}
+                      >
+                        {isSelected ? <Check className="mr-1 h-3.5 w-3.5" /> : null}
+                        S{week}
+                      </Button>
+                    )
+                  })}
+                </div>
               </div>
               <Button type="button" size="sm" variant="secondary" onClick={copyWeekDirectly}>
                 <Copy className="h-3.5 w-3.5 mr-2" />
-                Copiar semana
+                Copiar en {selectedWeekCopyTargets.length || 0}
               </Button>
             </div>
 
@@ -1252,9 +1362,14 @@ export function WorkoutProgramEditor({
           <Card className="border-dashed">
             <CardContent className="p-6 text-center text-sm text-muted-foreground space-y-3">
               <p>No hay entrenamientos para Semana {selectedCalendarWeek} · {selectedDayName}. Usa “Añadir entrenamiento” para crearlo desde el calendario.</p>
-              <Button type="button" variant="outline" size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)} disabled={!workoutClipboard}>
+              {workoutClipboard ? (
+                <p className="text-xs">
+                  Copiado: {workoutClipboard.type === "day" ? workoutClipboard.day.name || "Entrenamiento" : `Semana ${workoutClipboard.weekNumber}`}
+                </p>
+              ) : null}
+              <Button type="button" variant={workoutClipboard ? "secondary" : "outline"} size="sm" onClick={() => pasteClipboardToSelectedDate(selectedCalendarWeek)}>
                 <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
-                Pegar aquí
+                {workoutClipboard ? "Pegar aquí" : "Copiar primero"}
               </Button>
             </CardContent>
           </Card>
