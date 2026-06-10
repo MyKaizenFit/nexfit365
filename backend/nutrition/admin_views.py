@@ -1120,6 +1120,15 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         if incoming_ids:
             plan.assignments.filter(user_id__in=incoming_ids).update(is_active=plan.is_active)
+            if plan.is_active:
+                NutritionPlanAssignment.objects.filter(
+                    user_id__in=incoming_ids,
+                    is_active=True,
+                ).exclude(plan=plan).update(is_active=False)
+                NutritionPlan.objects.filter(
+                    user_id__in=incoming_ids,
+                    is_active=True,
+                ).exclude(pk=plan.pk).update(is_active=False, end_date=timezone.now().date())
 
         if len(user_ids) == 1:
             if plan.user_id != user_ids[0]:
@@ -1540,10 +1549,15 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         # Si un admin fija calorías manualmente en un plan de usuario,
         # reescalamos comidas/recetas para no perder ese valor al recalcular.
-        if requested_daily_calories and plan.user_id and requested_daily_calories > 0:
+        calorie_owner = plan.user
+        if calorie_owner is None:
+            active_assignment = plan.assignments.filter(is_active=True).select_related('user').order_by('-assigned_at').first()
+            calorie_owner = active_assignment.user if active_assignment else None
+
+        if requested_daily_calories and calorie_owner and requested_daily_calories > 0:
             current_calories = int(plan.daily_calories or 0)
             if current_calories != requested_daily_calories:
-                service = PersonalizedNutritionService(plan.user)
+                service = PersonalizedNutritionService(calorie_owner)
                 plan = service.adjust_plan_calories(
                     plan,
                     requested_daily_calories - current_calories,

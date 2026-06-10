@@ -192,12 +192,23 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
         from .services import reset_weekly_workout_plan_if_needed
 
         try:
+            active_program_ids = list(
+                WorkoutProgram.objects.filter(user=request.user, is_active=True)
+                .order_by('-updated_at', '-created_at')
+                .values_list('id', flat=True)
+            )
+            if len(active_program_ids) > 1:
+                WorkoutProgram.objects.filter(
+                    user=request.user,
+                    is_active=True,
+                ).exclude(pk=active_program_ids[0]).update(is_active=False)
+
             program = WorkoutProgram.objects.filter(
                 user=request.user, is_active=True
             ).prefetch_related(
                 'days__exercises__exercise',
                 'days__exercises__exercise__substitutions__substitute',
-            ).order_by('-created_at').first()
+            ).order_by('-updated_at', '-created_at').first()
 
             if program:
                 # Inicializar start_date si falta, sin reinicios semanales automáticos.

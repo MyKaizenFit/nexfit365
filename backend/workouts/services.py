@@ -490,6 +490,8 @@ class DefaultWorkoutAssignmentService:
 
         start_date = timezone.now().date()
         end_date = start_date + timedelta(weeks=default_program.duration_weeks or 4)
+        training_days_count = default_program.days.filter(is_rest_day=False).count()
+        assigned_days_per_week = training_days_count or default_program.days_per_week or default_program.days.count() or 3
 
         program = WorkoutProgram.objects.create(
             user=self.user,
@@ -497,12 +499,16 @@ class DefaultWorkoutAssignmentService:
             description=(default_program.description or "Programa asignado automáticamente"),
             difficulty=default_program.difficulty or "beginner",
             goal=self._infer_goal(default_program),
-            days_per_week=default_program.days_per_week or default_program.days.count() or None,
+            days_per_week=assigned_days_per_week,
             duration_weeks=default_program.duration_weeks,
             start_date=start_date,
             end_date=end_date,
             is_active=True,
         )
+
+        if getattr(self.user, "training_days_per_week", None) != assigned_days_per_week:
+            self.user.training_days_per_week = assigned_days_per_week
+            self.user.save(update_fields=["training_days_per_week", "updated_at"])
 
         for order, default_day in enumerate(default_program.days.all().order_by("day_number", "order_index"), start=1):
             workout_day = WorkoutDay.objects.create(

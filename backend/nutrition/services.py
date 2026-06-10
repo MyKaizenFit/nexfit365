@@ -8,6 +8,7 @@ from accounts.models import CustomUser
 from .models import (
     NutritionPlan,
     PlanMeal,
+    PlanMealRecipe,
     NutritionPlanHistory,
     Recipe,
     RecipeIngredient,
@@ -886,9 +887,18 @@ class PersonalizedNutritionService:
         # Última opción: retornar el primero
         return plans[0]
     
-    def _copy_meals_from_default_plan(self, user_plan: NutritionPlan, default_plan: NutritionPlan):
+    def _copy_meals_from_default_plan(
+        self,
+        user_plan: NutritionPlan,
+        default_plan: NutritionPlan,
+        multiplier: Decimal | float = Decimal("1.0"),
+    ):
         """Copia las comidas del plan por defecto al plan del usuario"""
-        default_meals = default_plan.meals.all().order_by('order_index')
+        default_meals = default_plan.meals.prefetch_related(
+            'suggested_recipes',
+            'meal_recipes__recipe',
+        ).all().order_by('order_index')
+        multiplier = Decimal(str(multiplier or 1))
         
         for default_meal in default_meals:
             new_meal = PlanMeal.objects.create(
@@ -897,17 +907,50 @@ class PersonalizedNutritionService:
                 name=default_meal.name,
                 meal_type=default_meal.meal_type,
                 time=default_meal.time,
-                calories=default_meal.calories,
-                protein=default_meal.protein,
-                carbs=default_meal.carbs,
-                fat=default_meal.fat,
+                calories=int((Decimal(str(default_meal.calories or 0)) * multiplier).quantize(Decimal('1'), rounding=ROUND_HALF_UP)),
+                protein=(Decimal(default_meal.protein or 0) * multiplier).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP),
+                carbs=(Decimal(default_meal.carbs or 0) * multiplier).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP),
+                fat=(Decimal(default_meal.fat or 0) * multiplier).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP),
                 description=default_meal.description,
                 order_index=default_meal.order_index
             )
 
+            default_meal_recipes = list(default_meal.meal_recipes.all().order_by('display_order', 'created_at'))
+            if default_meal_recipes:
+                for meal_recipe in default_meal_recipes:
+                    PlanMealRecipe.objects.create(
+                        meal=new_meal,
+                        recipe=meal_recipe.recipe,
+                        servings=(Decimal(meal_recipe.servings or 1) * multiplier).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+                        custom_calories=(
+                            int((Decimal(str(meal_recipe.custom_calories)) * multiplier).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
+                            if meal_recipe.custom_calories is not None else None
+                        ),
+                        custom_protein=(
+                            (Decimal(str(meal_recipe.custom_protein)) * multiplier).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                            if meal_recipe.custom_protein is not None else None
+                        ),
+                        custom_carbs=(
+                            (Decimal(str(meal_recipe.custom_carbs)) * multiplier).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                            if meal_recipe.custom_carbs is not None else None
+                        ),
+                        custom_fat=(
+                            (Decimal(str(meal_recipe.custom_fat)) * multiplier).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)
+                            if meal_recipe.custom_fat is not None else None
+                        ),
+                        display_order=meal_recipe.display_order,
+                    )
+                continue
+
             selected_recipes = select_compatible_recipes_for_meal(self.user, default_meal)
             if selected_recipes:
-                new_meal.suggested_recipes.set(selected_recipes)
+                for display_order, recipe in enumerate(selected_recipes, start=1):
+                    PlanMealRecipe.objects.create(
+                        meal=new_meal,
+                        recipe=recipe,
+                        servings=Decimal("1.0"),
+                        display_order=display_order,
+                    )
 
     def _assign_plan_from_default(
         self,
@@ -960,7 +1003,9 @@ class PersonalizedNutritionService:
             is_active=True
         )
 
-        self._copy_meals_from_default_plan(user_plan, best_plan)
+        source_calories = Decimal(str(best_plan.daily_calories or plan_calories or 1))
+        meal_multiplier = Decimal(str(plan_calories)) / source_calories if source_calories > 0 else Decimal("1.0")
+        self._copy_meals_from_default_plan(user_plan, best_plan, multiplier=meal_multiplier)
         self._rebalance_plan_meal_calories(user_plan)
 
         self.record_plan_change(
@@ -1086,7 +1131,11 @@ class PersonalizedNutritionService:
         Returns:
             Plan ajustado
         """
-        if not plan or plan.user != self.user:
+        owns_directly = bool(plan and plan.user_id == self.user.id)
+        owns_by_assignment = bool(
+            plan and plan.assignments.filter(user=self.user, is_active=True).exists()
+        )
+        if not plan or not (owns_directly or owns_by_assignment):
             logger.warning(f"Intento de ajustar plan que no pertenece al usuario {self.user.email}")
             return plan
         
@@ -1144,6 +1193,24 @@ class PersonalizedNutritionService:
             for meal in plan.meals.all():
                 # Escalar primero cantidades/macros a nivel de receta para mantener coherencia visual
                 meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
+                if not meal_recipes:
+                    suggested_recipes = list(meal.suggested_recipes.all())
+                    for display_order, recipe in enumerate(suggested_recipes, start=1):
+                        meal_recipes.append(
+                            PlanMealRecipe.objects.create(
+                                meal=meal,
+                                recipe=recipe,
+                                servings=Decimal("1.0"),
+                                custom_calories=max(1, int(recipe.calories or 0)),
+                                custom_protein=round(float(recipe.protein or 0), 2),
+                                custom_carbs=round(float(recipe.carbs or 0), 2),
+                                custom_fat=round(float(recipe.fat or 0), 2),
+                                display_order=display_order,
+                            )
+                        )
+                    if suggested_recipes:
+                        meal.suggested_recipes.clear()
+
                 has_recipe_backed_meals = has_recipe_backed_meals or bool(meal_recipes)
                 for meal_recipe in meal_recipes:
                     update_fields = []

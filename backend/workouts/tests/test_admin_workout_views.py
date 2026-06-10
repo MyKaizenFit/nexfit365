@@ -390,6 +390,47 @@ class TestAdminWorkoutProgramViewSet:
         assert WorkoutProgram.objects.filter(user=regular_user, is_active=True).exists()
         assert WorkoutProgram.objects.filter(user=other_user, is_active=True).exists()
 
+    def test_assign_template_uses_real_training_days_for_user(self, admin_client, regular_user, exercise):
+        old_plan = WorkoutProgram.objects.create(
+            user=regular_user,
+            name='Plan antiguo 3 dias',
+            days_per_week=3,
+            is_active=True,
+            is_template=False,
+        )
+
+        data = {
+            'name': 'Plantilla 4 dias reales',
+            'difficulty': 'beginner',
+            'goal': 'general_fitness',
+            'days_per_week': 3,
+            'duration_weeks': 4,
+            'assigned_user_ids': [regular_user.id],
+            'days': [
+                {
+                    'day_number': day_number,
+                    'name': f'Dia {day_number}',
+                    'is_rest_day': False,
+                    'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                }
+                for day_number in range(1, 5)
+            ],
+        }
+
+        response = admin_client.post('/api/admin/workouts/programs/', data, format='json')
+        assert response.status_code == status.HTTP_201_CREATED
+
+        assigned_id = response.data['created_user_program_ids'][0]
+        assigned = WorkoutProgram.objects.get(id=assigned_id)
+        assert assigned.days_per_week == 4
+        assert assigned.training_days == 4
+        assert assigned.is_active is True
+
+        old_plan.refresh_from_db()
+        regular_user.refresh_from_db()
+        assert old_plan.is_active is False
+        assert regular_user.training_days_per_week == 4
+
     def test_update_program(self, admin_client, workout_program):
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{workout_program.id}/',

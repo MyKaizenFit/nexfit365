@@ -257,6 +257,16 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     order_index=ex_index
                 )
 
+        training_days_count = program.days.filter(is_rest_day=False).count()
+        if training_days_count and program.days_per_week != training_days_count:
+            program.days_per_week = training_days_count
+            program.save(update_fields=['days_per_week', 'updated_at'])
+
+        if program.user_id and program.is_active and training_days_count:
+            User.objects.filter(pk=program.user_id).exclude(
+                training_days_per_week=training_days_count
+            ).update(training_days_per_week=training_days_count)
+
         if hasattr(program, '_prefetched_objects_cache'):
             program._prefetched_objects_cache = {}
 
@@ -401,6 +411,12 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
             if assigned_user_ids and not same_user_assignment:
                 created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+
+        if program.user_id and program.is_active:
+            WorkoutProgram.objects.filter(
+                user_id=program.user_id,
+                is_active=True,
+            ).exclude(pk=program.pk).update(is_active=False)
 
         response_serializer = AdminWorkoutProgramSerializer(program)
         response_data = dict(response_serializer.data)

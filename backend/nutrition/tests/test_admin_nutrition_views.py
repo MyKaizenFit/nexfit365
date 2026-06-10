@@ -834,6 +834,101 @@ class TestAdminPlanAssignments:
         assert response.data.get('plan') is not None
         assert NutritionPlan.objects.filter(user=regular_user, is_active=True).exists()
 
+    def test_change_user_plan_preserves_and_scales_custom_recipe_portions(
+        self,
+        admin_client,
+        regular_user,
+        template_plan,
+        recipe,
+    ):
+        regular_user.admin_calories_override = 2400
+        regular_user.save(update_fields=['admin_calories_override'])
+        template_plan.daily_calories = 1800
+        template_plan.save(update_fields=['daily_calories'])
+        meal = PlanMeal.objects.create(
+            plan=template_plan,
+            name='Comida base',
+            meal_type='lunch',
+            order_index=1,
+            calories=1800,
+            protein=Decimal('90.0'),
+            carbs=Decimal('180.0'),
+            fat=Decimal('60.0'),
+        )
+        PlanMealRecipe.objects.create(
+            meal=meal,
+            recipe=recipe,
+            servings=Decimal('1.50'),
+            custom_calories=1800,
+            custom_protein=Decimal('90.0'),
+            custom_carbs=Decimal('180.0'),
+            custom_fat=Decimal('60.0'),
+        )
+
+        response = admin_client.post(
+            CHANGE_USER_PLAN_URL,
+            {
+                'user_id': regular_user.id,
+                'default_plan_id': str(template_plan.id),
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        assigned = NutritionPlan.objects.get(user=regular_user, is_active=True)
+        meal_recipe = PlanMealRecipe.objects.get(meal__plan=assigned)
+        assert assigned.daily_calories == 2400
+        assert meal_recipe.custom_calories == 2400
+        assert meal_recipe.servings == Decimal('2.00')
+
+    def test_update_assigned_plan_scales_recipe_portions_when_calories_change(
+        self,
+        admin_client,
+        regular_user,
+        template_plan,
+        recipe,
+    ):
+        assignment = NutritionPlanAssignment.objects.create(
+            plan=template_plan,
+            user=regular_user,
+            is_active=True,
+        )
+        meal = PlanMeal.objects.create(
+            plan=template_plan,
+            name='Comida asignada',
+            meal_type='lunch',
+            order_index=1,
+            calories=1800,
+            protein=Decimal('90.0'),
+            carbs=Decimal('180.0'),
+            fat=Decimal('60.0'),
+        )
+        meal_recipe = PlanMealRecipe.objects.create(
+            meal=meal,
+            recipe=recipe,
+            servings=Decimal('1.00'),
+            custom_calories=1800,
+            custom_protein=Decimal('90.0'),
+            custom_carbs=Decimal('180.0'),
+            custom_fat=Decimal('60.0'),
+        )
+
+        response = admin_client.patch(
+            f'{PLANS_URL}{template_plan.id}/',
+            {'daily_calories': 2400},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        template_plan.refresh_from_db()
+        meal.refresh_from_db()
+        meal_recipe.refresh_from_db()
+        assignment.refresh_from_db()
+        assert assignment.is_active is True
+        assert template_plan.daily_calories == 2400
+        assert meal_recipe.custom_calories == 2400
+        assert meal_recipe.servings == Decimal('1.33')
+
     def test_bulk_change_plans_assigns_multiple_users(self, admin_client, regular_user, template_plan):
         second_user = User.objects.create_user(
             email='bulk_user_nutr@test.com',
