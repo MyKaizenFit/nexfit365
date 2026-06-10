@@ -1,7 +1,7 @@
 "use client"
 
-import { FormEvent, useEffect, useMemo, useState } from "react"
-import Image from "next/image"
+/* eslint-disable @next/next/no-img-element */
+import { FormEvent, useEffect, useState } from "react"
 import {
   Activity, BookOpen, Camera, Check, Dumbbell, Heart, HelpCircle,
   Lightbulb, Loader2, MessageCircle, MessageSquare, Pencil, Plus,
@@ -11,14 +11,28 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Slider } from "@/components/ui/slider"
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "@/hooks/use-toast"
+import { cn } from "@/lib/utils"
 import {
   communityRecipeService,
   CommunityPostPayload,
   CommunityPostType,
   CommunityRecipePost,
 } from "@/lib/community-recipe-service"
+
+type ImageFormat = "original" | "square" | "portrait" | "landscape"
+type ImageFit = "cover" | "contain"
+
+const IMAGE_FORMATS: Array<{ value: ImageFormat; label: string; ratio?: number; className: string }> = [
+  { value: "original", label: "Original", className: "max-h-[420px]" },
+  { value: "square", label: "1:1", ratio: 1, className: "aspect-square" },
+  { value: "portrait", label: "4:5", ratio: 4 / 5, className: "aspect-[4/5]" },
+  { value: "landscape", label: "16:9", ratio: 16 / 9, className: "aspect-video" },
+]
+
+const formatConfig = (format: ImageFormat) => IMAGE_FORMATS.find((item) => item.value === format) || IMAGE_FORMATS[0]
 
 const POST_TYPES: Array<{
   value: CommunityPostType
@@ -84,6 +98,66 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("es-ES"
 
 const postTypeInfo = (type: CommunityPostType) => POST_TYPES.find((item) => item.value === type) || POST_TYPES[0]
 
+const loadBrowserImage = (file: File): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
+  const url = URL.createObjectURL(file)
+  const image = new window.Image()
+  image.onload = () => {
+    URL.revokeObjectURL(url)
+    resolve(image)
+  }
+  image.onerror = () => {
+    URL.revokeObjectURL(url)
+    reject(new Error("No se pudo preparar la imagen"))
+  }
+  image.src = url
+})
+
+const canvasToFile = (canvas: HTMLCanvasElement, originalName: string, format: ImageFormat): Promise<File> => new Promise((resolve, reject) => {
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      reject(new Error("No se pudo generar la imagen"))
+      return
+    }
+    const baseName = originalName.replace(/\.[^.]+$/, "") || "team-sk"
+    resolve(new File([blob], `${baseName}-${format}.jpg`, { type: "image/jpeg" }))
+  }, "image/jpeg", 0.9)
+})
+
+const preparePhotoForUpload = async (
+  file: File,
+  format: ImageFormat,
+  fit: ImageFit,
+  position: { x: number; y: number },
+): Promise<File> => {
+  const config = formatConfig(format)
+  if (format === "original" || !config.ratio) return file
+
+  const image = await loadBrowserImage(file)
+  const maxSide = 1600
+  const targetWidth = config.ratio >= 1 ? maxSide : Math.round(maxSide * config.ratio)
+  const targetHeight = Math.round(targetWidth / config.ratio)
+  const canvas = document.createElement("canvas")
+  canvas.width = targetWidth
+  canvas.height = targetHeight
+
+  const context = canvas.getContext("2d")
+  if (!context) throw new Error("No se pudo preparar la imagen")
+
+  context.fillStyle = "#ffffff"
+  context.fillRect(0, 0, targetWidth, targetHeight)
+
+  const scale = fit === "cover"
+    ? Math.max(targetWidth / image.width, targetHeight / image.height)
+    : Math.min(targetWidth / image.width, targetHeight / image.height)
+  const drawWidth = image.width * scale
+  const drawHeight = image.height * scale
+  const x = fit === "cover" ? (targetWidth - drawWidth) * (position.x / 100) : (targetWidth - drawWidth) / 2
+  const y = fit === "cover" ? (targetHeight - drawHeight) * (position.y / 100) : (targetHeight - drawHeight) / 2
+
+  context.drawImage(image, x, y, drawWidth, drawHeight)
+  return canvasToFile(canvas, file.name, format)
+}
+
 export function RecipeCommunity() {
   const [posts, setPosts] = useState<CommunityRecipePost[]>([])
   const [loading, setLoading] = useState(true)
@@ -97,10 +171,27 @@ export function RecipeCommunity() {
   const [editTitle, setEditTitle] = useState("")
   const [editDescription, setEditDescription] = useState("")
   const [editSaving, setEditSaving] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState("")
+  const [imageFormat, setImageFormat] = useState<ImageFormat>("original")
+  const [imageFit, setImageFit] = useState<ImageFit>("cover")
+  const [imagePosition, setImagePosition] = useState({ x: 50, y: 50 })
 
-  const photoPreview = useMemo(() => form.photo ? URL.createObjectURL(form.photo) : "", [form.photo])
   const selectedType = postTypeInfo(form.post_type)
   const selectedFields = TEMPLATE_FIELDS[form.post_type] || []
+  const selectedImageFormat = formatConfig(imageFormat)
+
+  useEffect(() => {
+    if (!form.photo) {
+      setPhotoPreview("")
+      return
+    }
+    const url = URL.createObjectURL(form.photo)
+    setPhotoPreview(url)
+    setImageFormat("original")
+    setImageFit("cover")
+    setImagePosition({ x: 50, y: 50 })
+    return () => URL.revokeObjectURL(url)
+  }, [form.photo])
 
   const loadPosts = async () => {
     try {
@@ -143,6 +234,9 @@ export function RecipeCommunity() {
 
     try {
       setSaving(true)
+      const preparedPhoto = form.photo
+        ? await preparePhotoForUpload(form.photo, imageFormat, imageFit, imagePosition)
+        : null
       const created = await communityRecipeService.create({
         ...form,
         title: form.title.trim(),
@@ -150,10 +244,14 @@ export function RecipeCommunity() {
         ingredients: form.ingredients?.trim(),
         instructions: form.instructions?.trim(),
         tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean),
+        photo: preparedPhoto,
       })
       setPosts((current) => [created, ...current])
       setForm(emptyForm())
       setTagsText("")
+      setImageFormat("original")
+      setImageFit("cover")
+      setImagePosition({ x: 50, y: 50 })
       setShowComposer(false)
       toast({ title: "Publicación compartida en Team SK" })
     } catch (error) {
@@ -292,10 +390,70 @@ export function RecipeCommunity() {
                 <Input value={tagsText} onChange={(event) => setTagsText(event.target.value)} placeholder="Etiquetas separadas por comas: fuerza, fácil, desayuno..." />
               </div>
               <div className="space-y-3">
-                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-3 overflow-hidden rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground">
-                  {photoPreview ? <Image src={photoPreview} alt="Vista previa" width={240} height={240} className="h-full w-full object-cover" unoptimized /> : <><Camera className="h-8 w-8" />Foto opcional</>}
+                <label className="block cursor-pointer overflow-hidden rounded-lg border border-dashed border-border bg-muted/30 text-sm text-muted-foreground">
+                  {photoPreview ? (
+                    <div className={cn("relative mx-auto w-full overflow-hidden bg-muted", imageFormat === "original" ? "flex items-center justify-center" : selectedImageFormat.className)}>
+                      <img
+                        src={photoPreview}
+                        alt="Vista previa"
+                        className={cn(
+                          imageFormat === "original" ? "max-h-[420px] w-full object-contain" : "h-full w-full",
+                          imageFormat !== "original" && (imageFit === "cover" ? "object-cover" : "object-contain"),
+                        )}
+                        style={imageFormat !== "original" ? { objectPosition: `${imagePosition.x}% ${imagePosition.y}%` } : undefined}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-square flex-col items-center justify-center gap-3">
+                      <Camera className="h-8 w-8" />
+                      Foto opcional
+                    </div>
+                  )}
                   <input type="file" accept="image/*" className="hidden" onChange={(event) => setForm((current) => ({ ...current, photo: event.target.files?.[0] || null }))} />
                 </label>
+
+                {photoPreview ? (
+                  <div className="space-y-3 rounded-lg border bg-background p-3">
+                    <div className="grid grid-cols-2 gap-2">
+                      {IMAGE_FORMATS.map((format) => (
+                        <Button
+                          key={format.value}
+                          type="button"
+                          size="sm"
+                          variant={imageFormat === format.value ? "default" : "outline"}
+                          onClick={() => setImageFormat(format.value)}
+                        >
+                          {format.label}
+                        </Button>
+                      ))}
+                    </div>
+
+                    {imageFormat !== "original" ? (
+                      <>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button type="button" size="sm" variant={imageFit === "cover" ? "default" : "outline"} onClick={() => setImageFit("cover")}>Recortar</Button>
+                          <Button type="button" size="sm" variant={imageFit === "contain" ? "default" : "outline"} onClick={() => setImageFit("contain")}>Encajar</Button>
+                        </div>
+                        {imageFit === "cover" ? (
+                          <div className="space-y-3">
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-foreground">Mover horizontal</p>
+                              <Slider value={[imagePosition.x]} min={0} max={100} step={1} onValueChange={([x]) => setImagePosition((current) => ({ ...current, x }))} />
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-xs font-medium text-foreground">Mover vertical</p>
+                              <Slider value={[imagePosition.y]} min={0} max={100} step={1} onValueChange={([y]) => setImagePosition((current) => ({ ...current, y }))} />
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    ) : null}
+                    <Button type="button" variant="ghost" size="sm" className="w-full" onClick={() => setForm((current) => ({ ...current, photo: null }))}>
+                      <X className="mr-2 h-4 w-4" />Quitar foto
+                    </Button>
+                  </div>
+                ) : null}
+
                 <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={saving}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Publicar
                 </Button>
@@ -316,14 +474,18 @@ export function RecipeCommunity() {
       ) : posts.length === 0 ? (
         <Card><CardContent className="p-8 text-center text-muted-foreground">Todavía no hay publicaciones de este tipo.</CardContent></Card>
       ) : (
-        <div className="mx-auto grid max-w-5xl gap-4 lg:grid-cols-2">
+        <div className="mx-auto max-w-5xl gap-4 space-y-4 lg:columns-2">
           {posts.map((post) => {
             const type = postTypeInfo(post.post_type || "recipe")
             const Icon = type.icon
             const details = Object.entries(post.template_data || {}).filter(([, value]) => value)
             return (
-              <Card key={post.id} className="overflow-hidden border border-border bg-card">
-                {post.photo_url ? <div className="relative aspect-[4/3] bg-muted"><Image src={post.photo_url} alt={post.title} fill className="object-cover" unoptimized /></div> : null}
+              <Card key={post.id} className="mb-4 break-inside-avoid overflow-hidden border border-border bg-card">
+                {post.photo_url ? (
+                  <div className="flex max-h-[70vh] items-center justify-center overflow-hidden bg-muted">
+                    <img src={post.photo_url} alt={post.title} className="h-auto max-h-[70vh] w-full object-contain" loading="lazy" />
+                  </div>
+                ) : null}
                 <CardContent className="space-y-4 p-4">
                   <div className="flex items-start gap-3">
                     <span className={`rounded-lg p-2 ${type.color}`}><Icon className="h-4 w-4" /></span>
