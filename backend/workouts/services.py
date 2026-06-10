@@ -473,6 +473,16 @@ class DefaultWorkoutAssignmentService:
     def __init__(self, user: CustomUser):
         self.user = user
 
+    @staticmethod
+    def infer_weekly_training_days(program: WorkoutProgram) -> int:
+        """Infer weekly frequency without confusing long programs with weekly days."""
+        training_days_count = program.days.filter(is_rest_day=False).count()
+        if 1 <= training_days_count <= 7:
+            return training_days_count
+        if program.days_per_week and 1 <= program.days_per_week <= 7:
+            return program.days_per_week
+        return 3
+
     def assign_from_default(
         self,
         default_program: Optional[WorkoutProgram],
@@ -490,8 +500,7 @@ class DefaultWorkoutAssignmentService:
 
         start_date = timezone.now().date()
         end_date = start_date + timedelta(weeks=default_program.duration_weeks or 4)
-        training_days_count = default_program.days.filter(is_rest_day=False).count()
-        assigned_days_per_week = training_days_count or default_program.days_per_week or default_program.days.count() or 3
+        assigned_days_per_week = self.infer_weekly_training_days(default_program)
 
         program = WorkoutProgram.objects.create(
             user=self.user,

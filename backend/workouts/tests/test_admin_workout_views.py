@@ -431,6 +431,31 @@ class TestAdminWorkoutProgramViewSet:
         assert old_plan.is_active is False
         assert regular_user.training_days_per_week == 4
 
+    def test_update_long_program_keeps_weekly_days_instead_of_total_sessions(self, admin_client, workout_program, exercise):
+        days = [
+            {
+                'day_number': day_number,
+                'name': f'Sesion {day_number}',
+                'is_rest_day': False,
+                'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+            }
+            for day_number in range(1, 13)
+        ]
+
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{workout_program.id}/',
+            {
+                'days_per_week': 4,
+                'days': days,
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        workout_program.refresh_from_db()
+        assert workout_program.days.count() == 12
+        assert workout_program.days_per_week == 4
+
     def test_update_program(self, admin_client, workout_program):
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{workout_program.id}/',

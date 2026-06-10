@@ -1139,6 +1139,91 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 plan.user = None
                 plan.save(update_fields=['user'])
 
+    def _copy_plan_for_user(self, source_plan: NutritionPlan, user) -> NutritionPlan:
+        """Create an individual editable copy so admin changes do not affect shared plans."""
+        NutritionPlanAssignment.objects.filter(user=user, is_active=True).update(is_active=False)
+        NutritionPlan.objects.filter(user=user, is_active=True).update(
+            is_active=False,
+            end_date=timezone.now().date(),
+        )
+
+        copied_plan = NutritionPlan.objects.create(
+            user=user,
+            name=source_plan.name,
+            description=source_plan.description,
+            daily_calories=source_plan.daily_calories,
+            protein_grams=source_plan.protein_grams,
+            carbs_grams=source_plan.carbs_grams,
+            fat_grams=source_plan.fat_grams,
+            fiber_grams=source_plan.fiber_grams,
+            protein_percentage=source_plan.protein_percentage,
+            carbs_percentage=source_plan.carbs_percentage,
+            fat_percentage=source_plan.fat_percentage,
+            goal=source_plan.goal,
+            diet_type=source_plan.diet_type,
+            meals_per_day=source_plan.meals_per_day,
+            duration_weeks=source_plan.duration_weeks,
+            portion_multiplier=source_plan.portion_multiplier,
+            is_template=False,
+            is_system=False,
+            is_active=True,
+            start_date=timezone.now().date(),
+            end_date=source_plan.end_date,
+            tags=source_plan.tags,
+            image_url=source_plan.image_url,
+            created_by=source_plan.created_by,
+        )
+
+        for source_meal in source_plan.meals.prefetch_related(
+            'suggested_recipes',
+            'meal_recipes__recipe',
+        ).order_by('day_of_week', 'order_index', 'created_at'):
+            copied_meal = PlanMeal.objects.create(
+                plan=copied_plan,
+                day_of_week=source_meal.day_of_week,
+                name=source_meal.name,
+                meal_type=source_meal.meal_type,
+                time=source_meal.time,
+                calories=source_meal.calories,
+                protein=source_meal.protein,
+                carbs=source_meal.carbs,
+                fat=source_meal.fat,
+                description=source_meal.description,
+                order_index=source_meal.order_index,
+            )
+            copied_meal.suggested_recipes.set(source_meal.suggested_recipes.all())
+            for meal_recipe in source_meal.meal_recipes.all():
+                PlanMealRecipe.objects.create(
+                    meal=copied_meal,
+                    recipe=meal_recipe.recipe,
+                    servings=meal_recipe.servings,
+                    custom_calories=meal_recipe.custom_calories,
+                    custom_protein=meal_recipe.custom_protein,
+                    custom_carbs=meal_recipe.custom_carbs,
+                    custom_fat=meal_recipe.custom_fat,
+                    display_order=meal_recipe.display_order,
+                )
+
+        NutritionPlanAssignment.objects.create(
+            plan=copied_plan,
+            user=user,
+            is_active=True,
+        )
+        return copied_plan
+
+    def _owner_for_individual_edit(self, plan: NutritionPlan, assigned_user_ids):
+        if assigned_user_ids and len(assigned_user_ids) == 1:
+            try:
+                return User.objects.get(pk=assigned_user_ids[0])
+            except User.DoesNotExist:
+                return None
+        if plan.user_id:
+            return plan.user
+        active_assignments = list(plan.assignments.filter(is_active=True).select_related('user')[:2])
+        if len(active_assignments) == 1:
+            return active_assignments[0].user
+        return None
+
     def _build_recipe_map(self, meals_payload):
         recipe_ids = set()
         for meal_data in meals_payload or []:
@@ -1523,6 +1608,11 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         requested_protein = self._to_int(request.data.get('protein_grams'))
         requested_carbs = self._to_int(request.data.get('carbs_grams'))
         requested_fat = self._to_int(request.data.get('fat_grams'))
+
+        edit_owner = self._owner_for_individual_edit(instance, assigned_user_ids)
+        if edit_owner and instance.user_id != edit_owner.id:
+            instance = self._copy_plan_for_user(instance, edit_owner)
+            prev_is_active = instance.is_active
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)

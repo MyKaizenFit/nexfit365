@@ -257,15 +257,15 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     order_index=ex_index
                 )
 
-        training_days_count = program.days.filter(is_rest_day=False).count()
-        if training_days_count and program.days_per_week != training_days_count:
-            program.days_per_week = training_days_count
+        weekly_training_days = DefaultWorkoutAssignmentService.infer_weekly_training_days(program)
+        if weekly_training_days and program.days_per_week != weekly_training_days:
+            program.days_per_week = weekly_training_days
             program.save(update_fields=['days_per_week', 'updated_at'])
 
-        if program.user_id and program.is_active and training_days_count:
+        if program.user_id and program.is_active and weekly_training_days:
             User.objects.filter(pk=program.user_id).exclude(
-                training_days_per_week=training_days_count
-            ).update(training_days_per_week=training_days_count)
+                training_days_per_week=weekly_training_days
+            ).update(training_days_per_week=weekly_training_days)
 
         if hasattr(program, '_prefetched_objects_cache'):
             program._prefetched_objects_cache = {}

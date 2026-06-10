@@ -881,7 +881,7 @@ class TestAdminPlanAssignments:
         assert meal_recipe.custom_calories == 2400
         assert meal_recipe.servings == Decimal('2.00')
 
-    def test_update_assigned_plan_scales_recipe_portions_when_calories_change(
+    def test_update_shared_assigned_plan_creates_user_copy_before_scaling(
         self,
         admin_client,
         regular_user,
@@ -915,19 +915,49 @@ class TestAdminPlanAssignments:
 
         response = admin_client.patch(
             f'{PLANS_URL}{template_plan.id}/',
-            {'daily_calories': 2400},
+            {'user_id': regular_user.id, 'daily_calories': 2400},
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        copied_plan_id = response.data['id']
+        template_plan.refresh_from_db()
+        assignment.refresh_from_db()
+        copied_plan = NutritionPlan.objects.get(id=copied_plan_id)
+        copied_meal_recipe = PlanMealRecipe.objects.get(meal__plan=copied_plan)
+
+        assert copied_plan.user == regular_user
+        assert copied_plan.daily_calories == 2400
+        assert copied_meal_recipe.custom_calories == 2400
+        assert copied_meal_recipe.servings == Decimal('1.33')
+        assert assignment.is_active is False
+        assert template_plan.daily_calories == 1800
+        assert meal_recipe.custom_calories == 1800
+
+    def test_update_multi_assigned_plan_without_user_context_edits_original(
+        self,
+        admin_client,
+        regular_user,
+        template_plan,
+    ):
+        second_user = User.objects.create_user(
+            email='second_assigned_nutr@test.com',
+            password='testpass123',
+        )
+        NutritionPlanAssignment.objects.create(plan=template_plan, user=regular_user, is_active=True)
+        NutritionPlanAssignment.objects.create(plan=template_plan, user=second_user, is_active=True)
+
+        response = admin_client.patch(
+            f'{PLANS_URL}{template_plan.id}/',
+            {'daily_calories': 2200},
             format='json',
         )
 
         assert response.status_code == status.HTTP_200_OK
         template_plan.refresh_from_db()
-        meal.refresh_from_db()
-        meal_recipe.refresh_from_db()
-        assignment.refresh_from_db()
-        assert assignment.is_active is True
-        assert template_plan.daily_calories == 2400
-        assert meal_recipe.custom_calories == 2400
-        assert meal_recipe.servings == Decimal('1.33')
+        assert response.data['id'] == str(template_plan.id)
+        assert template_plan.daily_calories == 2200
+        assert NutritionPlan.objects.filter(user__in=[regular_user, second_user]).count() == 0
 
     def test_bulk_change_plans_assigns_multiple_users(self, admin_client, regular_user, template_plan):
         second_user = User.objects.create_user(
