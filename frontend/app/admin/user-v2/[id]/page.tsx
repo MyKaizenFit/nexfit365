@@ -449,7 +449,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             <h2 className="text-xl font-semibold mb-2">Error al cargar usuario</h2>
             <p className="text-slate-600 mb-4">{error || "Usuario no encontrado"}</p>
             <div className="flex gap-2 justify-center">
-              <Button onClick={fetchUser} variant="outline">
+              <Button onClick={() => void fetchUser()} variant="outline">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Reintentar
               </Button>
