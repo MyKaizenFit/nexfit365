@@ -476,11 +476,19 @@ class DefaultWorkoutAssignmentService:
     @staticmethod
     def infer_weekly_training_days(program: WorkoutProgram) -> int:
         """Infer weekly frequency without confusing long programs with weekly days."""
+        if program.days_per_week and 1 <= program.days_per_week <= 7:
+            return program.days_per_week
+
+        first_week_training = program.days.filter(
+            day_number__lte=7,
+            is_rest_day=False,
+        ).count()
+        if 1 <= first_week_training <= 7:
+            return first_week_training
+
         training_days_count = program.days.filter(is_rest_day=False).count()
         if 1 <= training_days_count <= 7:
             return training_days_count
-        if program.days_per_week and 1 <= program.days_per_week <= 7:
-            return program.days_per_week
         return 3
 
     def assign_from_default(
@@ -543,6 +551,9 @@ class DefaultWorkoutAssignmentService:
                     notes=default_exercise.notes or "",
                     order_index=index,
                 )
+
+        from dashboard.plan_sync import sync_user_from_active_plans
+        sync_user_from_active_plans(self.user)
 
         return program
 

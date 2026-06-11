@@ -342,6 +342,7 @@ export function WorkoutProgramEditor({
   const [workoutClipboard, setWorkoutClipboard] = useState<WorkoutClipboard>(null)
   const [weekCopySource, setWeekCopySource] = useState("1")
   const [weekCopyTargets, setWeekCopyTargets] = useState<string[]>(["2"])
+  const [copyingWeeks, setCopyingWeeks] = useState(false)
   const [clipboardTargetWeek, setClipboardTargetWeek] = useState("1")
   const [replaceTarget, setReplaceTarget] = useState<{
     dayKey: string
@@ -874,8 +875,26 @@ export function WorkoutProgramEditor({
     })
   }
 
-  const copyWeekDirectly = () => {
+  const copyWeekDirectly = async () => {
     if (!program) return
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) {
+      toast({
+        title: "No se puede copiar",
+        description: formatInvalidIdMessage("ID de usuario"),
+        variant: "destructive",
+      })
+      return
+    }
+    if (!program.id) {
+      toast({
+        title: "Guarda el programa primero",
+        description: "Crea o guarda el programa antes de copiar semanas.",
+        variant: "destructive",
+      })
+      return
+    }
+
     const sourceWeek = Math.max(1, Number(weekCopySource) || 1)
     const targetWeeks = Array.from(new Set(weekCopyTargets.map((week) => Number(week))))
       .filter((week) => Number.isFinite(week) && week >= 1 && week !== sourceWeek)
@@ -890,22 +909,43 @@ export function WorkoutProgramEditor({
       return
     }
 
-    const sourceDays = program.weeklySchedule.filter((day, index) => getWorkoutWeekNumber(day, index) === sourceWeek)
-    if (sourceDays.length === 0) {
+    try {
+      setCopyingWeeks(true)
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/copy-weeks/`), {
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          source_week: sourceWeek,
+          target_weeks: targetWeeks,
+        }),
+      })
+
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        throw new Error(data.detail || data.error || `Error ${response.status}`)
+      }
+
+      await loadUserProgram({ silent: true })
+      updateUnsavedChanges(false)
       toast({
-        title: "Semana vacía",
-        description: `La Semana ${sourceWeek} no tiene entrenamientos para copiar.`,
+        title: "✅ Semana copiada",
+        description: typeof data.detail === "string"
+          ? data.detail
+          : `Semana ${sourceWeek} copiada sobre ${targetWeeks.map((week) => `S${week}`).join(", ")}.`,
+      })
+    } catch (error) {
+      toast({
+        title: "❌ Error al copiar semana",
+        description: error instanceof Error ? error.message : "No se pudo copiar la semana seleccionada",
         variant: "destructive",
       })
-      return
+    } finally {
+      setCopyingWeeks(false)
     }
-
-    setWorkoutClipboard({ type: "week", weekNumber: sourceWeek, days: sourceDays })
-    pasteWorkoutWeekToTargets(sourceDays, targetWeeks)
-    toast({
-      title: "✅ Semana copiada",
-      description: `Semana ${sourceWeek} copiada sobre ${targetWeeks.map((week) => `S${week}`).join(", ")}.`,
-    })
   }
 
   const syncDaysPerWeek = (targetDays: number) => {
@@ -1670,8 +1710,8 @@ export function WorkoutProgramEditor({
                   })}
                 </div>
               </div>
-              <Button type="button" size="sm" variant="secondary" onClick={copyWeekDirectly}>
-                <Copy className="h-3.5 w-3.5 mr-2" />
+              <Button type="button" size="sm" variant="secondary" onClick={() => void copyWeekDirectly()} disabled={copyingWeeks || !program.id}>
+                {copyingWeeks ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-3.5 w-3.5 mr-2" />}
                 Copiar en {selectedWeekCopyTargets.length || 0}
               </Button>
             </div>

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
 import { authenticatedFetch } from "@/lib/api"
+import { groupDaysByWeek, slotInWeekFromDayNumber, weekNumberFromDayNumber } from "@/lib/workout-plan-utils"
 import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
 import {
   Dumbbell,
@@ -203,9 +204,10 @@ function cloneWorkoutDay(day: any, suffix: string) {
 function normalizeWorkoutDaysOrder(days: any[]) {
   return (Array.isArray(days) ? days : [])
     .filter(Boolean)
+    .sort((a, b) => (a.day_number || 0) - (b.day_number || 0))
     .map((day, index) => ({
       ...day,
-      day_number: index + 1,
+      day_number: day.day_number ?? index + 1,
       exercises: Array.isArray(day.exercises)
         ? day.exercises.map((exercise: any, exerciseIndex: number) => ({
             ...exercise,
@@ -382,14 +384,7 @@ export function WorkoutPlanManagement() {
 
   const workoutWeekGroups = useMemo(() => {
     const daysArray = Array.isArray(workoutDays) ? workoutDays.filter(Boolean) : []
-    const groups: Array<{ weekIndex: number; days: typeof workoutDays }> = []
-    for (let index = 0; index < daysArray.length; index += 7) {
-      groups.push({
-        weekIndex: Math.floor(index / 7),
-        days: daysArray.slice(index, index + 7),
-      })
-    }
-    return groups
+    return groupDaysByWeek(daysArray)
   }, [workoutDays])
 
   const groupedImportErrors = useMemo<GroupedImportError[]>(() => {
@@ -1096,17 +1091,39 @@ export function WorkoutPlanManagement() {
     if (isViewMode) return
     setWorkoutDays(prev => {
       const prevArray = Array.isArray(prev) ? prev.filter(Boolean) : []
-      const start = weekIndex * 7
-      const weekDays = prevArray.slice(start, start + 7)
-      if (weekDays.length === 0) return prevArray
-      const copiedDays = weekDays.map((day, index) => cloneWorkoutDay(day, `copy-week-${weekIndex}-${index}`))
-      const nextDays = [
-        ...prevArray.slice(0, start + weekDays.length),
-        ...copiedDays,
-        ...prevArray.slice(start + weekDays.length),
-      ]
-      setFormData(current => ({ ...current, duration_weeks: Math.max(current.duration_weeks || 1, Math.ceil(nextDays.length / 7)) }))
-      return normalizeWorkoutDaysOrder(nextDays)
+      const groups = groupDaysByWeek(prevArray)
+      const sourceGroup = groups.find((group) => group.weekIndex === weekIndex)
+      if (!sourceGroup || sourceGroup.days.length === 0) {
+        toast({
+          title: "Semana vacía",
+          description: `La semana ${weekIndex + 1} no tiene días para copiar.`,
+          variant: "destructive",
+        })
+        return prevArray
+      }
+
+      const targetWeekNumber = weekIndex + 2
+      const occupiedNumbers = new Set(
+        sourceGroup.days.map((day) => (targetWeekNumber - 1) * 7 + slotInWeekFromDayNumber(day.day_number || 1)),
+      )
+      const copiedDays = sourceGroup.days.map((day, index) => {
+        const slot = slotInWeekFromDayNumber(day.day_number || index + 1)
+        return {
+          ...cloneWorkoutDay(day, `copy-week-${weekIndex}-${index}`),
+          day_number: (targetWeekNumber - 1) * 7 + slot,
+        }
+      })
+      const keptDays = prevArray.filter((day) => !occupiedNumbers.has(day.day_number || 0))
+      const nextDays = normalizeWorkoutDaysOrder([...keptDays, ...copiedDays])
+      setFormData(current => ({
+        ...current,
+        duration_weeks: Math.max(current.duration_weeks || 1, weekNumberFromDayNumber(copiedDays[copiedDays.length - 1]?.day_number || 1)),
+      }))
+      toast({
+        title: "✅ Semana duplicada",
+        description: `Semana ${weekIndex + 1} copiada en la semana ${targetWeekNumber}. Guarda el plan para persistir los cambios.`,
+      })
+      return nextDays
     })
   }
 
