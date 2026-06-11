@@ -37,7 +37,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
-import { buildApiUrl } from "@/lib/api"
+import { buildApiUrl, authenticatedFetch } from "@/lib/api"
+import { formatInvalidIdMessage, parsePositiveIntId } from "@/lib/admin-id-utils"
 // Importar componente de edición de entrenamiento
 import { WorkoutProgramEditor } from "../../components/workout-program-editor"
 // Importar componente de edición de nutrición
@@ -197,29 +198,51 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
 
   // Resolver params (Next.js 15+ async params)
   useEffect(() => {
+    let cancelled = false
+
     const resolveParams = async () => {
       try {
         const resolved = await params
-        if (resolved?.id) {
-          setUserId(resolved.id)
+        const parsedId = parsePositiveIntId(resolved?.id)
+        if (!parsedId) {
+          if (!cancelled) {
+            setError(formatInvalidIdMessage("Identificador de usuario"))
+            setLoading(false)
+          }
+          return
+        }
+        if (!cancelled) {
+          setUserId(String(parsedId))
         }
       } catch (err) {
-        setError("Error al cargar la página")
+        if (!cancelled) {
+          setError("Error al cargar la página")
+          setLoading(false)
+        }
       }
     }
     resolveParams()
+
+    return () => {
+      cancelled = true
+    }
   }, [params])
 
   // Función para cargar usuario
-  const fetchUser = useCallback(async () => {
-    if (!userId) return
+  const fetchUser = useCallback(async (options: { silent?: boolean } = {}) => {
+    const parsedId = parsePositiveIntId(userId)
+    if (!parsedId) {
+      setError(formatInvalidIdMessage("Identificador de usuario"))
+      return
+    }
 
     try {
-      setLoading(true)
+      if (!options.silent) {
+        setLoading(true)
+      }
       setError(null)
 
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/users/${userId}/`), { headers })
+      const response = await authenticatedFetch(`admin/users/${parsedId}/`)
 
       if (!response.ok) {
         if (response.status === 404) {
@@ -302,9 +325,11 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       setError(message)
       setUser(null)
     } finally {
-      setLoading(false)
+      if (!options.silent) {
+        setLoading(false)
+      }
     }
-  }, [userId, getAuthHeaders])
+  }, [userId])
 
   // Cargar usuario cuando tenemos el ID
   useEffect(() => {
@@ -1155,7 +1180,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
 
             {/* Editor de plan de entrenamiento */}
             <WorkoutProgramEditor
-              userId={user.id.toString()}
+              userId={String(user.id)}
               onDirtyChange={setHasUnsavedWorkoutChanges}
               onSave={() => {
                 setHasUnsavedWorkoutChanges(false)

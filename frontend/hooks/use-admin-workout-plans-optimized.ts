@@ -1,4 +1,5 @@
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
+import { formatInvalidIdMessage, isValidWorkoutPlanId } from '@/lib/admin-id-utils'
 // hooks/use-admin-workout-plans-optimized.ts - Versión optimizada con paginación del servidor
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
@@ -376,13 +377,16 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
 
   // Función para obtener el detalle completo de un plan
   const fetchPlanDetail = useCallback(async (planId: string): Promise<WorkoutPlan | null> => {
+    if (!isValidWorkoutPlanId(planId)) {
+      return null
+    }
+
     try {
       const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
         cache: 'no-store',
       })
 
       if (!response.ok) {
-        // Si el plan ya no existe (o nunca se guardó), forzar refetch para limpiar la lista
         if (response.status === 404) {
           fetchPlans(currentPage, filters)
           return null
@@ -409,8 +413,6 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
     }
     const newPlan = await response.json()
 
-    // Recargar desde la página 1 para asegurar que el nuevo plan aparezca
-    // y actualizar las estadísticas inmediatamente
     setCurrentPage(1)
     await Promise.all([
       fetchPlans(1, filters),
@@ -421,6 +423,9 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
   }
 
   const updatePlan = async (planId: string, planData: any): Promise<WorkoutPlan> => {
+    if (!isValidWorkoutPlanId(planId)) {
+      throw new Error(formatInvalidIdMessage('Identificador de rutina'))
+    }
     const response = await authenticatedFetch(`admin/workouts/programs/${planId}/`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },

@@ -9,6 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks/use-admin-workout-plans"
 import { authenticatedFetch } from "@/lib/api"
+import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
 import {
   Dumbbell,
   Plus,
@@ -1428,6 +1429,14 @@ export function WorkoutPlanManagement() {
   }
 
   const handleEditWorkout = async (planId: string) => {
+    if (!isValidWorkoutPlanId(planId)) {
+      toast({
+        title: "No se puede editar",
+        description: formatInvalidIdMessage("Identificador de rutina"),
+        variant: "destructive",
+      })
+      return
+    }
     if (hasUnsavedWorkoutEditorChanges && !window.confirm(UNSAVED_WORKOUT_CHANGES_MESSAGE)) {
       return
     }
@@ -1473,6 +1482,15 @@ export function WorkoutPlanManagement() {
 
   // Función para cargar los detalles completos de un plan y abrir el editor
   const handleEditPlan = async (planId: string, viewOnly: boolean = false) => {
+    if (!isValidWorkoutPlanId(planId)) {
+      toast({
+        title: "Rutina no válida",
+        description: formatInvalidIdMessage("Identificador de rutina"),
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setLoadingDetail(true)
       setIsViewMode(viewOnly) // Establecer modo vista
@@ -1589,6 +1607,15 @@ export function WorkoutPlanManagement() {
   }
 
   const handleCopyPlan = async (planId: string) => {
+    if (!isValidWorkoutPlanId(planId)) {
+      toast({
+        title: "No se puede copiar",
+        description: formatInvalidIdMessage("Identificador de rutina"),
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setCopyingPlanId(planId)
       const planDetail = await fetchPlanDetail(planId)
@@ -1653,10 +1680,15 @@ export function WorkoutPlanManagement() {
           : "La rutina se duplicó correctamente.",
       })
 
-      if (created?.id) {
-        await handleEditPlan(String(created.id), false)
+      const createdId = created?.id ? String(created.id) : ""
+      if (isValidWorkoutPlanId(createdId)) {
+        await handleEditPlan(createdId, false)
       } else {
-        refetch()
+        await refetch()
+        toast({
+          title: "Copia guardada",
+          description: "La rutina se creó correctamente. Ábrela desde el listado para editarla.",
+        })
       }
     } catch (error) {
       toast({

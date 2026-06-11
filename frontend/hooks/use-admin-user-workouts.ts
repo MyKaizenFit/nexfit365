@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { useAuth } from "@/contexts/auth-context"
-import { buildApiUrl } from "@/lib/api"
+import { authenticatedFetch } from "@/lib/api"
+import { parsePositiveIntId } from "@/lib/admin-id-utils"
 
 export interface AdminWorkoutProgramSummary {
   program: any | null
@@ -38,7 +39,7 @@ interface HookState {
 }
 
 export function useAdminUserWorkouts(userId: string | number) {
-  const { getAuthHeaders, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [state, setState] = useState<HookState>({
     program: null,
     logs: [],
@@ -48,13 +49,18 @@ export function useAdminUserWorkouts(userId: string | number) {
     error: null,
   })
 
-  const fetchProgram = useCallback(async () => {
+  const fetchProgram = useCallback(async (options: { silent?: boolean } = {}) => {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) {
+      setState((prev) => ({ ...prev, loading: false, error: null, program: null }))
+      return
+    }
+
     try {
-      setState(prev => ({ ...prev, loading: true, error: null }))
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/program/`), {
-        headers,
-      })
+      if (!options.silent) {
+        setState(prev => ({ ...prev, loading: true, error: null }))
+      }
+      const response = await authenticatedFetch(`admin/workouts/users/${parsedUserId}/program/`)
       if (!response.ok) {
         throw new Error(`Error ${response.status}`)
       }
@@ -64,15 +70,14 @@ export function useAdminUserWorkouts(userId: string | number) {
       const message = err instanceof Error ? err.message : "Error desconocido"
       setState(prev => ({ ...prev, loading: false, error: message }))
     }
-  }, [getAuthHeaders, userId])
+  }, [userId])
 
   const fetchLogs = useCallback(async () => {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) return
+
     try {
-      const headers = await getAuthHeaders()
-      const url = buildApiUrl(`admin/workouts/users/${userId}/workout-logs/?limit=25`)
-      const response = await fetch(url, {
-        headers,
-      })
+      const response = await authenticatedFetch(`admin/workouts/users/${parsedUserId}/workout-logs/?limit=25`)
       if (!response.ok) {
         const errorText = await response.text()
         throw new Error(`Error ${response.status}`)
@@ -87,14 +92,14 @@ export function useAdminUserWorkouts(userId: string | number) {
       const message = err instanceof Error ? err.message : "Error desconocido"
       setState(prev => ({ ...prev, error: message }))
     }
-  }, [getAuthHeaders, userId])
+  }, [userId])
 
   const fetchStats = useCallback(async () => {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) return
+
     try {
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/workout-stats/`), {
-        headers,
-      })
+      const response = await authenticatedFetch(`admin/workouts/users/${parsedUserId}/workout-stats/`)
       if (!response.ok) {
         // Si es un error 500 o similar, establecer stats vacío en lugar de error
         if (response.status >= 500) {
@@ -106,21 +111,26 @@ export function useAdminUserWorkouts(userId: string | number) {
       const data = await response.json()
       setState(prev => ({ ...prev, stats: data }))
     } catch (err) {
-      // En caso de error, establecer stats como null para evitar errores
       setState(prev => ({ ...prev, stats: null }))
     }
-  }, [getAuthHeaders, userId])
+  }, [userId])
 
-  const reloadAll = useCallback(async () => {
-    await Promise.allSettled([fetchProgram(), fetchLogs(), fetchStats()])
+  const reloadAll = useCallback(async (options: { silent?: boolean } = {}) => {
+    await Promise.allSettled([
+      fetchProgram(options),
+      fetchLogs(),
+      fetchStats(),
+    ])
   }, [fetchLogs, fetchProgram, fetchStats])
 
   useEffect(() => {
-    // Esperar a que la autenticación esté lista antes de hacer peticiones
-    if (userId && isAuthenticated && !authLoading) {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (parsedUserId && isAuthenticated && !authLoading) {
       void reloadAll()
     } else if (authLoading) {
       setState(prev => ({ ...prev, loading: true }))
+    } else if (!parsedUserId) {
+      setState(prev => ({ ...prev, loading: false, program: null, logs: [], stats: null, error: null }))
     }
   }, [userId, isAuthenticated, authLoading, reloadAll])
 
@@ -128,11 +138,13 @@ export function useAdminUserWorkouts(userId: string | number) {
     ...state,
     refetch: reloadAll,
     updateLog: async (logId: string, payload: Partial<AdminWorkoutLog>) => {
-      const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/workout-logs/${logId}/`), {
+      const parsedUserId = parsePositiveIntId(userId)
+      if (!parsedUserId) {
+        throw new Error("ID de usuario no válido")
+      }
+      const response = await authenticatedFetch(`admin/workouts/users/${parsedUserId}/workout-logs/${logId}/`, {
         method: "PATCH",
         headers: {
-          ...headers,
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
@@ -141,15 +153,17 @@ export function useAdminUserWorkouts(userId: string | number) {
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || "Error al actualizar el log")
       }
-      await reloadAll()
+      await reloadAll({ silent: true })
     },
     deleteLog: async (logId: string) => {
-      const headers = await getAuthHeaders()
-      await fetch(buildApiUrl(`admin/workouts/users/${userId}/workout-logs/${logId}/`), {
+      const parsedUserId = parsePositiveIntId(userId)
+      if (!parsedUserId) {
+        throw new Error("ID de usuario no válido")
+      }
+      await authenticatedFetch(`admin/workouts/users/${parsedUserId}/workout-logs/${logId}/`, {
         method: "DELETE",
-        headers,
       })
-      await reloadAll()
+      await reloadAll({ silent: true })
     },
   }
 }

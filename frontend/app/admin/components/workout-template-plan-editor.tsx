@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
+import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
@@ -285,6 +286,20 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   }, [getAuthHeaders])
 
   const loadPlan = async () => {
+    if (!isValidWorkoutPlanId(planId)) {
+      setLoading(false)
+      setDays(createDefaultWeekDays())
+      updateUnsavedChanges(false)
+      if (planId !== "new") {
+        toast({
+          title: "Rutina no encontrada",
+          description: formatInvalidIdMessage("Identificador de rutina"),
+          variant: "destructive",
+        })
+      }
+      return
+    }
+
     setLoading(true)
     try {
       const data = await fetchJsonWithAuth(`admin/workouts/programs/${planId}/`)
@@ -663,6 +678,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   }, [availableExercises, substitutesExerciseId, substituteSearch, substitutes])
 
   const handleSaveImpl = async (options: { silent?: boolean } = {}) => {
+    if (!isValidWorkoutPlanId(planId)) {
+      toast({
+        title: "No se puede guardar",
+        description: formatInvalidIdMessage("Identificador de rutina"),
+        variant: "destructive",
+      })
+      return
+    }
+
     const silent = options.silent === true
     try {
       if (silent) {
