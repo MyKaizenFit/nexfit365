@@ -6,16 +6,23 @@
 # Este script despliega la aplicación en producción usando Docker Compose
 #
 # Uso:
-#   ./deploy.sh [--no-build] [--skip-migrations] [--no-safe] [--no-cache] [--help]
+#   ./deploy.sh [--no-build] [--skip-migrations] [--no-safe] [--no-cache] [--background] [--status] [--help]
 #
 # Opciones:
 #   --no-build          No reconstruir las imágenes Docker
 #   --skip-migrations   No ejecutar migraciones (útil si ya se ejecutaron)
 #   --no-safe           Desactiva modo seguro (actualización agresiva)
 #   --no-cache          Fuerza build sin caché (MUY costoso en producción)
+#   --background        Ejecuta en segundo plano (recomendado desde Cursor/SSH frágil)
+#   --status            Muestra si hay un deploy en curso y las últimas líneas del log
 #   --help              Mostrar esta ayuda
 
 set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEPLOY_LOG_DIR="$SCRIPT_DIR/data/logs"
+DEPLOY_PID_FILE="$DEPLOY_LOG_DIR/deploy.pid"
+DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/deploy-latest.log"
 
 # Colores para output
 RED='\033[0;31m'
@@ -95,16 +102,105 @@ show_help() {
     echo "  --skip-migrations   No ejecutar migraciones"
     echo "  --no-safe           Desactiva modo seguro (no recomendado en producción)"
     echo "  --no-cache          Build sin caché (más lento y consume más recursos)"
+    echo "  --background        Lanza el deploy en segundo plano y devuelve el control al instante"
+    echo "  --status            Estado del deploy en background + últimas líneas del log"
     echo "  --help              Mostrar esta ayuda"
     echo ""
     echo "Ejemplos:"
     echo "  $0                           # Deployment seguro recomendado"
+    echo "  $0 --background              # Recomendado desde Cursor (no corta el proceso)"
+    echo "  $0 --status                  # Ver progreso del deploy en background"
     echo "  $0 --no-build                # Sin reconstrucción de imágenes"
     echo "  $0 --no-safe                 # Actualización clásica (más agresiva)"
     echo "  $0 --no-cache                # Rebuild total (solo si es imprescindible)"
 }
 
-# Parsear argumentos
+show_deploy_status() {
+    mkdir -p "$DEPLOY_LOG_DIR"
+    if [ -f "$DEPLOY_PID_FILE" ]; then
+        DEPLOY_PID="$(cat "$DEPLOY_PID_FILE" 2>/dev/null || true)"
+        if [ -n "$DEPLOY_PID" ] && kill -0 "$DEPLOY_PID" 2>/dev/null; then
+            echo "Deploy en curso (PID $DEPLOY_PID)"
+        else
+            echo "No hay deploy en curso (PID antiguo: ${DEPLOY_PID:-n/a})"
+        fi
+    else
+        echo "No hay deploy en curso"
+    fi
+    echo ""
+    if [ -f "$DEPLOY_LOG_FILE" ]; then
+        echo "Log: $DEPLOY_LOG_FILE"
+        echo "----------------------------------------"
+        tail -n 40 "$DEPLOY_LOG_FILE"
+    else
+        echo "Sin log de deploy todavía."
+    fi
+}
+
+start_background_deploy() {
+    mkdir -p "$DEPLOY_LOG_DIR"
+    if [ -f "$DEPLOY_PID_FILE" ]; then
+        EXISTING_PID="$(cat "$DEPLOY_PID_FILE" 2>/dev/null || true)"
+        if [ -n "$EXISTING_PID" ] && kill -0 "$EXISTING_PID" 2>/dev/null; then
+            print_error "Ya hay un deploy en curso (PID $EXISTING_PID)"
+            print_info "Consulta el progreso con: $0 --status"
+            exit 1
+        fi
+    fi
+
+    cd "$SCRIPT_DIR"
+
+    print_info "Iniciando deploy en segundo plano..."
+    print_info "Log en vivo: $DEPLOY_LOG_FILE"
+
+    nohup "$SCRIPT_DIR/deploy.sh" "${BACKGROUND_FORWARD_ARGS[@]}" > "$DEPLOY_LOG_FILE" 2>&1 &
+    DEPLOY_PID=$!
+    echo "$DEPLOY_PID" > "$DEPLOY_PID_FILE"
+
+    print_success "Deploy lanzado (PID $DEPLOY_PID)"
+    print_info "Sigue el progreso con:"
+    echo -e "${YELLOW}  tail -f $DEPLOY_LOG_FILE${NC}"
+    echo -e "${YELLOW}  $0 --status${NC}"
+}
+
+# Parsear argumentos (primera pasada: flags especiales)
+BACKGROUND_MODE=false
+SHOW_STATUS=false
+BACKGROUND_FORWARD_ARGS=()
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --background)
+            BACKGROUND_MODE=true
+            shift
+            ;;
+        --status)
+            SHOW_STATUS=true
+            shift
+            ;;
+        --help)
+            show_help
+            exit 0
+            ;;
+        *)
+            BACKGROUND_FORWARD_ARGS+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if [ "$SHOW_STATUS" = true ]; then
+    show_deploy_status
+    exit 0
+fi
+
+if [ "$BACKGROUND_MODE" = true ]; then
+    start_background_deploy
+    exit 0
+fi
+
+set -- "${BACKGROUND_FORWARD_ARGS[@]}"
+
+# Parsear argumentos (segunda pasada: flags de deploy)
 while [[ $# -gt 0 ]]; do
     case $1 in
         --no-build)
@@ -134,6 +230,16 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+cleanup_deploy_pid() {
+    if [ -f "$DEPLOY_PID_FILE" ]; then
+        rm -f "$DEPLOY_PID_FILE"
+    fi
+    if [ -f "$DEPLOY_LOG_FILE" ]; then
+        cp "$DEPLOY_LOG_FILE" "$DEPLOY_LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null || true
+    fi
+}
+trap cleanup_deploy_pid EXIT
 
 echo ""
 echo "========================================="
