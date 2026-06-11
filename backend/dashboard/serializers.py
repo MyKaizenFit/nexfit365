@@ -9,8 +9,7 @@ from .models import (
     HelpSettings,
     ProblemReport,
 )
-from nutrition.models import NutritionPlan
-from workouts.models import WorkoutProgram
+from accounts.services import is_assignable_nutrition_template, is_assignable_workout_template
 
 
 class DashboardDataSerializer(serializers.ModelSerializer):
@@ -353,20 +352,36 @@ class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer
             }
             attrs['main_goal'] = aliases.get(main_goal, main_goal)
 
-        # Validar que el plan nutricional existe
+        # Validar que el plan nutricional es una plantilla asignable
         nutrition_plan_id = attrs.get('default_nutrition_plan_id')
         if nutrition_plan_id:
-            if not NutritionPlan.objects.filter(id=nutrition_plan_id).exists():
+            nutrition_plan = NutritionPlan.objects.filter(id=nutrition_plan_id).first()
+            if not nutrition_plan:
                 raise serializers.ValidationError({
                     'default_nutrition_plan_id': 'Plan nutricional no encontrado'
                 })
+            if not is_assignable_nutrition_template(nutrition_plan):
+                raise serializers.ValidationError({
+                    'default_nutrition_plan_id': (
+                        'Debe ser una plantilla activa sin usuario asignado '
+                        '(no planes de sistema ni planes personales de usuarios).'
+                    )
+                })
         
-        # Validar que el programa de entrenamiento existe
+        # Validar que el programa de entrenamiento es una plantilla asignable
         workout_program_id = attrs.get('default_workout_program_id')
         if workout_program_id:
-            if not WorkoutProgram.objects.filter(id=workout_program_id).exists():
+            workout_program = WorkoutProgram.objects.filter(id=workout_program_id).first()
+            if not workout_program:
                 raise serializers.ValidationError({
                     'default_workout_program_id': 'Programa de entrenamiento no encontrado'
+                })
+            if not is_assignable_workout_template(workout_program):
+                raise serializers.ValidationError({
+                    'default_workout_program_id': (
+                        'Debe ser una plantilla activa sin usuario asignado '
+                        '(no planes de sistema ni planes personales de usuarios).'
+                    )
                 })
         
         return attrs

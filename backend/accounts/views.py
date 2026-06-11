@@ -250,21 +250,14 @@ def complete_initial_registration(request):
                 
                 if result.configuration:
                     configuration_name = result.configuration.name
-                    assigned_nutrition_plan = result.nutrition_plan
-                    assigned_workout_program = result.workout_program
-                    
-                    if assigned_nutrition_plan:
-                        plan_message = f"Plan nutricional '{assigned_nutrition_plan.name.split(' - ')[0]}' asignado automáticamente"
-                    else:
-                        plan_message = "No se asignó plan nutricional (la configuración no incluye uno)"
-                    
-                    if assigned_workout_program:
-                        workout_message = f"Plan de entrenamiento '{assigned_workout_program.name.split(' - ')[0]}' asignado automáticamente"
-                    else:
-                        workout_message = "No se asignó plan de entrenamiento (la configuración no incluye uno)"
-                else:
-                    plan_message = "No se encontró una configuración que coincida con tu perfil"
-                    workout_message = "No se encontró una configuración que coincida con tu perfil"
+                assigned_nutrition_plan = result.nutrition_plan
+                assigned_workout_program = result.workout_program
+                plan_message = result.nutrition_message or (
+                    "No se asignó plan nutricional (la configuración no incluye uno)"
+                )
+                workout_message = result.workout_message or (
+                    "No se asignó plan de entrenamiento (la configuración no incluye uno)"
+                )
             except Exception as e:
                 plan_message = f"Error al asignar planes: {str(e)}"
                 workout_message = f"Error al asignar planes: {str(e)}"

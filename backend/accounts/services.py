@@ -11,6 +11,45 @@ import random
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+NO_COMPATIBLE_NUTRITION_MESSAGE = (
+    "No se encontró un plan nutricional compatible con tu perfil. "
+    "Tu entrenador revisará tu caso y te asignará uno manualmente."
+)
+NO_COMPATIBLE_WORKOUT_MESSAGE = (
+    "No se encontró un plan de entrenamiento compatible con tu perfil. "
+    "Tu entrenador revisará tu caso y te asignará uno manualmente."
+)
+INVALID_TEMPLATE_NUTRITION_MESSAGE = (
+    "La configuración encontrada no tiene una plantilla nutricional válida "
+    "(debe ser una plantilla activa, no un plan de otro usuario ni del sistema)."
+)
+INVALID_TEMPLATE_WORKOUT_MESSAGE = (
+    "La configuración encontrada no tiene una plantilla de entrenamiento válida "
+    "(debe ser una plantilla activa, no un plan de otro usuario ni del sistema)."
+)
+
+
+def is_assignable_nutrition_template(plan) -> bool:
+    """Plantilla nutricional válida como origen de asignación automática."""
+    if plan is None or not plan.is_active:
+        return False
+    if plan.user_id is not None:
+        return False
+    if plan.is_system:
+        return False
+    return bool(plan.is_template)
+
+
+def is_assignable_workout_template(program) -> bool:
+    """Plantilla de entrenamiento válida como origen de asignación automática."""
+    if program is None or not program.is_active:
+        return False
+    if program.user_id is not None:
+        return False
+    if program.is_system:
+        return False
+    return bool(program.is_template)
+
 DAY_NUMBER_TO_WEEKDAY = {
     1: 'monday',
     2: 'tuesday',
@@ -34,14 +73,19 @@ DAY_NUMBER_TO_SPANISH = {
 
 def get_default_workout_program_for_user(user):
     """
-    Obtiene un programa de entrenamiento por defecto para el usuario
-    basado en sus preferencias (goal, days_per_week, location).
+    Obtiene una plantilla de entrenamiento por defecto para el usuario.
+    Solo considera plantillas activas (no planes de sistema ni de otros usuarios).
     """
     from workouts.models import WorkoutProgram
     
-    # Buscar un programa que coincida con las preferencias del usuario
-    filters = {'is_system': True, 'is_active': True}
+    base_qs = WorkoutProgram.objects.filter(
+        is_template=True,
+        is_active=True,
+        user__isnull=True,
+        is_system=False,
+    )
     
+    filters = {}
     if user.main_goal:
         goal_map = {
             'lose_weight': 'weight_loss',
@@ -53,26 +97,33 @@ def get_default_workout_program_for_user(user):
     if user.training_days_per_week:
         filters['days_per_week'] = user.training_days_per_week
     
-    program = WorkoutProgram.objects.filter(**filters).first()
+    program = base_qs.filter(**filters).first()
+    if program:
+        return program
     
-    # Si no hay coincidencia, buscar cualquier programa del sistema
-    if not program:
-        program = WorkoutProgram.objects.filter(
-            is_system=True, is_active=True
-        ).first()
+    if filters:
+        program = base_qs.filter(goal=filters.get('goal')).first()
+        if program:
+            return program
     
-    return program
+    return None
 
 
 def get_default_nutrition_plan_for_user(user):
     """
-    Obtiene un plan de nutrición por defecto para el usuario
-    basado en sus preferencias (goal, diet_type, daily_calories).
+    Obtiene una plantilla nutricional por defecto para el usuario.
+    Solo considera plantillas activas (no planes de sistema ni de otros usuarios).
     """
     from nutrition.models import NutritionPlan
     
-    filters = {'is_system': True, 'is_active': True}
+    base_qs = NutritionPlan.objects.filter(
+        is_template=True,
+        is_active=True,
+        user__isnull=True,
+        is_system=False,
+    )
     
+    filters = {}
     if user.main_goal:
         goal_map = {
             'lose_weight': 'lose_weight',
@@ -82,22 +133,22 @@ def get_default_nutrition_plan_for_user(user):
         }
         filters['goal'] = goal_map.get(user.main_goal, 'maintain')
     
-    # Buscar por restricciones dietéticas
     if user.dietary_restrictions:
         if 'vegetarian' in user.dietary_restrictions:
             filters['diet_type'] = 'vegetarian'
         elif 'vegan' in user.dietary_restrictions:
             filters['diet_type'] = 'vegan'
     
-    plan = NutritionPlan.objects.filter(**filters).first()
+    plan = base_qs.filter(**filters).first() if filters else None
+    if plan:
+        return plan
     
-    # Si no hay coincidencia, buscar cualquier plan del sistema
-    if not plan:
-        plan = NutritionPlan.objects.filter(
-            is_system=True, is_active=True
-        ).first()
+    if filters.get('goal'):
+        plan = base_qs.filter(goal=filters['goal']).first()
+        if plan:
+            return plan
     
-    return plan
+    return None
 
 
 def normalize_training_days(training_days):
@@ -221,7 +272,7 @@ def assign_default_plans_to_user(user):
     # ASIGNAR PLAN NUTRICIONAL
     # =========================================================================
     template = get_default_nutrition_plan_for_user(user)
-    if template:
+    if template and is_assignable_nutrition_template(template):
         NutritionPlan.objects.filter(user=user, is_active=True).update(
             is_active=False,
             end_date=timezone.localdate(),
@@ -270,7 +321,7 @@ def assign_default_plans_to_user(user):
     # ASIGNAR PROGRAMA DE ENTRENAMIENTO
     # =========================================================================
     template = get_default_workout_program_for_user(user)
-    if template:
+    if template and is_assignable_workout_template(template):
         WorkoutProgram.objects.filter(user=user, is_active=True).update(
             is_active=False,
             end_date=timezone.localdate(),
@@ -363,10 +414,19 @@ def assign_default_plans_to_user(user):
 
 class AssignmentResult:
     """Resultado de la asignación automática de planes"""
-    def __init__(self, configuration=None, nutrition_plan=None, workout_program=None):
+    def __init__(
+        self,
+        configuration=None,
+        nutrition_plan=None,
+        workout_program=None,
+        nutrition_message=None,
+        workout_message=None,
+    ):
         self.configuration = configuration
         self.nutrition_plan = nutrition_plan
         self.workout_program = workout_program
+        self.nutrition_message = nutrition_message
+        self.workout_message = workout_message
 
 
 class DefaultPlanAssignmentService:
@@ -387,76 +447,114 @@ class DefaultPlanAssignmentService:
             return True
         return False
     
-    def find_best_configuration(self):
-        """Encontrar la mejor configuración para el usuario"""
+    def _iter_matching_configurations(self):
+        """Generador de configuraciones que coinciden con el perfil, en orden de prioridad."""
         from dashboard.models import DefaultPlanConfiguration
-        
-        # Buscar configuraciones activas ordenadas por prioridad
-        configurations = list(DefaultPlanConfiguration.objects.filter(
-            is_active=True
-        ).order_by('priority'))
-        user_has_dietary_restrictions = bool(DefaultPlanConfiguration.user_dietary_restriction_terms(self.user))
-        
-        # Si el usuario tiene restricciones, priorizar configuraciones específicas compatibles.
+
+        configurations = list(
+            DefaultPlanConfiguration.objects.filter(is_active=True)
+            .select_related('default_nutrition_plan', 'default_workout_program')
+            .order_by('priority')
+        )
+        user_has_dietary_restrictions = bool(
+            DefaultPlanConfiguration.user_dietary_restriction_terms(self.user)
+        )
+        seen_ids = set()
+
+        def yield_unique(config):
+            if config.id in seen_ids:
+                return
+            seen_ids.add(config.id)
+            yield config
+
         if user_has_dietary_restrictions:
             for config in configurations:
                 if config.dietary_restriction_terms() and config.matches_user_profile(self.user):
-                    return config
+                    yield from yield_unique(config)
 
-        # Buscar la primera que coincida con el perfil del usuario.
         for config in configurations:
             if config.matches_user_profile(self.user):
-                return config
-        
-        # Si no hay coincidencia exacta, buscar solo por objetivo
+                yield from yield_unique(config)
+
         if self.user.main_goal:
             fallback_configurations = DefaultPlanConfiguration.objects.filter(
                 is_active=True,
                 main_goal=self.user.main_goal,
-                gender__isnull=True,  # Configuración genérica
-                age_min__isnull=True,  # Sin restricción de edad
+                gender__isnull=True,
+                age_min__isnull=True,
+            ).select_related(
+                'default_nutrition_plan',
+                'default_workout_program',
             ).order_by('priority')
-            
+
             for config in fallback_configurations:
                 if config.matches_user_profile(self.user):
-                    return config
-        
-        # Como último recurso, devolver la configuración de mayor prioridad (menor número)
-        for config in configurations:
-            if config.matches_user_profile(self.user):
-                return config
+                    yield from yield_unique(config)
 
-        return None
+    def _resolve_configuration_templates(self, configuration):
+        """Devuelve plantillas válidas de una configuración (ignora referencias inválidas)."""
+        nutrition_template = None
+        workout_template = None
+
+        if configuration.default_nutrition_plan_id:
+            if is_assignable_nutrition_template(configuration.default_nutrition_plan):
+                nutrition_template = configuration.default_nutrition_plan
+            else:
+                logger.warning(
+                    "default_plan_assignment.invalid_nutrition_template config_id=%s plan_id=%s user_id=%s is_template=%s is_system=%s owner_id=%s",
+                    configuration.id,
+                    configuration.default_nutrition_plan_id,
+                    self.user.id,
+                    getattr(configuration.default_nutrition_plan, 'is_template', None),
+                    getattr(configuration.default_nutrition_plan, 'is_system', None),
+                    getattr(configuration.default_nutrition_plan, 'user_id', None),
+                )
+
+        if configuration.default_workout_program_id:
+            if is_assignable_workout_template(configuration.default_workout_program):
+                workout_template = configuration.default_workout_program
+            else:
+                logger.warning(
+                    "default_plan_assignment.invalid_workout_template config_id=%s program_id=%s user_id=%s is_template=%s is_system=%s owner_id=%s",
+                    configuration.id,
+                    configuration.default_workout_program_id,
+                    self.user.id,
+                    getattr(configuration.default_workout_program, 'is_template', None),
+                    getattr(configuration.default_workout_program, 'is_system', None),
+                    getattr(configuration.default_workout_program, 'user_id', None),
+                )
+
+        return nutrition_template, workout_template
+
+    def find_best_configuration(self):
+        """Encontrar la mejor configuración con plantillas válidas para el usuario."""
+        for configuration in self._iter_matching_configurations():
+            nutrition_template, workout_template = self._resolve_configuration_templates(configuration)
+            if nutrition_template or workout_template:
+                return configuration, nutrition_template, workout_template
+        return None, None, None
     
     def assign(self):
         """Asignar planes al usuario basado en configuración"""
         from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise
-    from workouts.services import build_assigned_program_tags
+        from workouts.services import build_assigned_program_tags
         from nutrition.models import NutritionPlan, NutritionPlanAssignment, PlanMeal
         from nutrition.services import select_compatible_recipes_for_meal
         from django.utils import timezone
         from datetime import timedelta
         
-        # Encontrar la mejor configuración
-        configuration = self.find_best_configuration()
+        configuration, nutrition_template, workout_template = self.find_best_configuration()
         
         if not configuration:
             logger.info(
-                "default_plan_assignment.legacy_fallback user_id=%s main_goal=%s",
+                "default_plan_assignment.no_compatible_configuration user_id=%s main_goal=%s training_days=%s",
                 self.user.id,
                 self.user.main_goal,
-            )
-            # Si no hay configuración, usar el método legacy
-            results = assign_default_plans_to_user(self.user)
-            logger.info(
-                "default_plan_assignment.legacy_result user_id=%s nutrition_plan_id=%s workout_program_id=%s",
-                self.user.id,
-                getattr(results.get('nutrition_plan'), 'id', None),
-                getattr(results.get('workout_program'), 'id', None),
+                self.user.training_days_per_week,
             )
             return AssignmentResult(
-                nutrition_plan=results.get('nutrition_plan'),
-                workout_program=results.get('workout_program')
+                nutrition_message=NO_COMPATIBLE_NUTRITION_MESSAGE,
+                workout_message=NO_COMPATIBLE_WORKOUT_MESSAGE,
             )
 
         logger.info(
@@ -469,12 +567,19 @@ class DefaultPlanAssignmentService:
         
         nutrition_plan = None
         workout_program = None
+        nutrition_message = None
+        workout_message = None
+
+        if configuration.default_nutrition_plan_id and not nutrition_template:
+            nutrition_message = INVALID_TEMPLATE_NUTRITION_MESSAGE
+        if configuration.default_workout_program_id and not workout_template:
+            workout_message = INVALID_TEMPLATE_WORKOUT_MESSAGE
         
         # =====================================================================
         # ASIGNAR PLAN NUTRICIONAL
         # =====================================================================
-        if configuration.default_nutrition_plan:
-            template = configuration.default_nutrition_plan
+        if nutrition_template:
+            template = nutrition_template
 
             deactivated_count = NutritionPlan.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
@@ -540,12 +645,15 @@ class DefaultPlanAssignmentService:
                 copied_meals_count,
                 selected_recipes_count,
             )
+            nutrition_message = f"Plan nutricional '{template.name}' asignado automáticamente"
+        elif not nutrition_message:
+            nutrition_message = NO_COMPATIBLE_NUTRITION_MESSAGE
         
         # =====================================================================
         # ASIGNAR PROGRAMA DE ENTRENAMIENTO
         # =====================================================================
-        if configuration.default_workout_program:
-            template_program = configuration.default_workout_program
+        if workout_template:
+            template_program = workout_template
             existing_active_workout = WorkoutProgram.objects.filter(
                 user=self.user,
                 is_active=True,
@@ -563,6 +671,8 @@ class DefaultPlanAssignmentService:
                     configuration=configuration,
                     nutrition_plan=nutrition_plan,
                     workout_program=workout_program,
+                    nutrition_message=nutrition_message,
+                    workout_message=workout_message or "Se conservó tu plan de entrenamiento personalizado",
                 )
 
             deactivated_count = WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
@@ -586,6 +696,7 @@ class DefaultPlanAssignmentService:
                 equipment_needed=template_program.equipment_needed,
                 tags=build_assigned_program_tags(template_program),
                 is_template=False,
+                is_system=False,
                 is_active=True,
                 start_date=timezone.now().date(),
                 created_by=None
@@ -658,9 +769,14 @@ class DefaultPlanAssignmentService:
                     copied_days_count,
                     copied_exercises_count,
                 )
+            workout_message = f"Plan de entrenamiento '{template_program.name}' asignado automáticamente"
+        elif not workout_message:
+            workout_message = NO_COMPATIBLE_WORKOUT_MESSAGE
         
         return AssignmentResult(
             configuration=configuration,
             nutrition_plan=nutrition_plan,
-            workout_program=workout_program
+            workout_program=workout_program,
+            nutrition_message=nutrition_message,
+            workout_message=workout_message,
         )
