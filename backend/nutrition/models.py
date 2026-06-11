@@ -1141,6 +1141,11 @@ class PlanMeal(TimeStampedModel):
         help_text="Día de la semana (1=Lunes..7=Domingo). Null = aplica a cualquier día."
     )
 
+    week_number = models.PositiveSmallIntegerField(
+        default=1,
+        help_text="Semana del plan (1-based). Permite menús distintos por semana del ciclo.",
+    )
+
     name = models.CharField(
         max_length=200,
         help_text="Nombre de la comida (ej: 'Desayuno energético')"
@@ -1214,7 +1219,7 @@ class PlanMeal(TimeStampedModel):
     )
     
     class Meta:
-        ordering = ['day_of_week', 'order_index']
+        ordering = ['week_number', 'day_of_week', 'order_index']
         verbose_name = "Comida en Plan"
         verbose_name_plural = "Comidas en Plan"
     

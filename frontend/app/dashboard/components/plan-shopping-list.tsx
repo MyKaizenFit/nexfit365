@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { authenticatedFetch } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { ShoppingListSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
 interface ShoppingItem {
   name: string
@@ -191,10 +192,7 @@ export function PlanShoppingList() {
 
       <CardContent className="p-3 sm:p-4">
         {loading ? (
-          <div className="flex items-center justify-center py-12 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Preparando tu lista...
-          </div>
+          <ShoppingListSkeleton />
         ) : error ? (
           <div className="text-sm text-red-600 py-4">{error}</div>
         ) : grouped.length === 0 ? (

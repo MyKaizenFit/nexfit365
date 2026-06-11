@@ -5,6 +5,7 @@ from datetime import date
 from typing import Any
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .models import Achievement, UserAchievement
@@ -100,11 +101,19 @@ def get_required_plan_meals(user, target_date: date):
     if not plan:
         return []
 
-    meals = list(plan.meals.filter(day_of_week=target_date.isoweekday()).order_by("order_index", "created_at"))
+    from nutrition.plan_week_utils import resolve_plan_week_number
+
+    plan_week = resolve_plan_week_number(plan, target_date)
+    weekday = target_date.isoweekday()
+    base_qs = plan.meals.filter(Q(day_of_week=weekday) | Q(day_of_week__isnull=True))
+    if base_qs.filter(week_number=plan_week).exists():
+        meals = list(base_qs.filter(week_number=plan_week).order_by("order_index", "created_at"))
+    else:
+        meals = list(base_qs.filter(week_number=1).order_by("order_index", "created_at"))
     if meals:
         return meals
 
-    return list(plan.meals.filter(day_of_week__isnull=True).order_by("order_index", "created_at"))
+    return list(plan.meals.filter(day_of_week__isnull=True, week_number=1).order_by("order_index", "created_at"))
 
 
 def is_nutrition_completed_for_date(user, target_date: date) -> tuple[bool, bool]:

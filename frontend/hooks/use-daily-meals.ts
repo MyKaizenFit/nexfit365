@@ -61,6 +61,7 @@ export function useDailyMeals() {
   const [syncing, setSyncing] = useState(false)
   const [planMealOptions, setPlanMealOptions] = useState<Record<string, MealOption[]>>({})
   const [planMealSlots, setPlanMealSlots] = useState<PlanMealSlot[]>([])
+  const [hasUserPlan, setHasUserPlan] = useState(false)
   const [planOptionsByMealId, setPlanOptionsByMealId] = useState<Record<string, MealOption[]>>({})
   const [logMetaByKey, setLogMetaByKey] = useState<Record<string, {
     id: string
@@ -209,6 +210,7 @@ export function useDailyMeals() {
       lunch: "🍽️",
       afternoon_snack: "🍎",
       dinner: "🌙",
+      snack: "🍎",
       evening_snack: "🌜",
       pre_workout: "⚡",
       post_workout: "💪",
@@ -219,7 +221,7 @@ export function useDailyMeals() {
 
   // Generar comidas del día (dinámico según el plan del usuario)
   const generateDailyMeals = useCallback((slotOverrides?: PlanMealSlot[]) => {
-    const slots = Array.isArray(slotOverrides) && slotOverrides.length > 0 ? slotOverrides : planMealSlots
+    const slots = slotOverrides !== undefined ? slotOverrides : planMealSlots
 
     // Si el backend devolvió slots, respetarlos (nº variable y tipos variables)
     if (Array.isArray(slots) && slots.length > 0) {
@@ -238,7 +240,12 @@ export function useDailyMeals() {
       }))
     }
 
-    // Fallback: estructura fija de 5 comidas
+    // Con plan asignado: no inventar comidas extra (p. ej. desayuno si no está en el plan)
+    if (hasUserPlan || currentPlan?.id) {
+      return []
+    }
+
+    // Fallback: estructura fija de 5 comidas (solo usuarios sin plan)
     const mealNames = ["Desayuno", "Snack Mañana", "Almuerzo", "Snack Tarde", "Cena"]
     const mealKeys = Object.keys(mealTimes)
     return mealNames.map((name, index) => ({
@@ -262,7 +269,7 @@ export function useDailyMeals() {
       isSkipped: false,
       skipReason: null,
     }))
-  }, [planMealSlots])
+  }, [planMealSlots, hasUserPlan, currentPlan?.id])
 
   // Obtener descripción de la comida
   const getMealDescription = (mealName: string): string => {
@@ -951,10 +958,11 @@ export function useDailyMeals() {
   }, [calculateTotalMacros, isAuthenticated, meals])
 
   // Cargar opciones de comidas del plan activo
-  const loadPlanMealOptions = useCallback(async (): Promise<PlanMealSlot[]> => {
+  const loadPlanMealOptions = useCallback(async (date?: string): Promise<PlanMealSlot[]> => {
     try {
-      const planMeals = await nutritionService.getPlanMealsForSelection()
+      const planMeals = await nutritionService.getPlanMealsForSelection(date)
       if (planMeals && planMeals.meals_by_type) {
+        setHasUserPlan(planMeals.source === 'user_plan' || !!currentPlan?.id)
         setPlanMealOptions(planMeals.meals_by_type)
 
         if (planMeals.options_by_meal_id && typeof planMeals.options_by_meal_id === "object") {
@@ -999,14 +1007,14 @@ export function useDailyMeals() {
           return []
         }
       } else {
-        // Fallback a opciones por defecto
+        setHasUserPlan(!!currentPlan?.id)
         setPlanMealOptions(defaultMealOptions)
         setPlanMealSlots([])
         setPlanOptionsByMealId({})
         return []
       }
     } catch (error) {
-      // Fallback a opciones por defecto
+      setHasUserPlan(!!currentPlan?.id)
       setPlanMealOptions(defaultMealOptions)
       setPlanMealSlots([])
       setPlanOptionsByMealId({})
@@ -1026,14 +1034,14 @@ export function useDailyMeals() {
     
     const loadData = async () => {
       try {
-        // Primero cargar opciones del plan
-        const loadedSlots = await loadPlanMealOptions()
+        const today = new Date().toISOString().split('T')[0]
+        // Primero cargar opciones del plan (solo slots del día)
+        const loadedSlots = await loadPlanMealOptions(today)
         
         if (!isMounted) return
         
         // Generar comidas del día usando los slots recién cargados
         const dailyMeals = generateDailyMeals(loadedSlots)
-        const today = new Date().toISOString().split('T')[0]
         
         // Intentar cargar desde el backend primero
         const backendSelections = await loadSelectionsFromBackend(today)
@@ -1075,8 +1083,7 @@ export function useDailyMeals() {
         }
       } catch (error) {
         if (!isMounted) return
-        // Fallback: usar solo comidas sin selecciones
-        const fallbackMeals = generateDailyMeals()
+        const fallbackMeals = generateDailyMeals(planMealSlots)
         setMeals(fallbackMeals)
         const initialMacros = calculateTotalMacros(fallbackMeals)
         setMacros(prev => ({
@@ -1127,8 +1134,9 @@ export function useDailyMeals() {
     if (isAuthenticated) {
       setLoading(true)
       try {
-        const dailyMeals = generateDailyMeals()
         const today = new Date().toISOString().split('T')[0]
+        const loadedSlots = await loadPlanMealOptions(today)
+        const dailyMeals = generateDailyMeals(loadedSlots)
         
         // Cargar desde backend
         const backendSelections = await loadSelectionsFromBackend(today)
@@ -1147,8 +1155,9 @@ export function useDailyMeals() {
         // Sincronizar localStorage
         saveSelectionsToStorage(mealsWithSelections)
       } catch (error) {
-        // Fallback a localStorage
-        const dailyMeals = generateDailyMeals()
+        const today = new Date().toISOString().split('T')[0]
+        const loadedSlots = await loadPlanMealOptions(today).catch(() => planMealSlots)
+        const dailyMeals = generateDailyMeals(loadedSlots)
         const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)
         setMeals(mealsWithLocalSelections)
         const initialMacros = calculateTotalMacros(mealsWithLocalSelections)
@@ -1157,12 +1166,13 @@ export function useDailyMeals() {
         setLoading(false)
       }
     }
-  }, [isAuthenticated, generateDailyMeals, calculateTotalMacros, loadSelectionsFromBackend, applySelectionsToMeals, saveSelectionsToStorage, loadSelectionsFromStorage])
+  }, [isAuthenticated, generateDailyMeals, calculateTotalMacros, loadPlanMealOptions, planMealSlots, loadSelectionsFromBackend, applySelectionsToMeals, saveSelectionsToStorage, loadSelectionsFromStorage])
 
   return {
     meals,
     macros,
     loading,
+    hasUserPlan,
     error,
     syncing,
     selectMealOption,

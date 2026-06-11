@@ -412,7 +412,7 @@ class NutritionService {
   }
 
   // Obtener comidas del plan activo organizadas por tipo
-  async getPlanMealsForSelection(): Promise<{ 
+  async getPlanMealsForSelection(date?: string): Promise<{ 
     meals_by_type: Record<string, MealOption[]>, 
     meal_slots?: Array<{
       id: string
@@ -425,6 +425,7 @@ class NutritionService {
     }>,
     options_by_meal_id?: Record<string, MealOption[]>,
     plan_name?: string,
+    source?: string,
     daily_calories_target?: number,
     daily_macros?: {
       protein: number,
@@ -437,7 +438,10 @@ class NutritionService {
   } | null> {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLAN_MEALS_FOR_SELECTION), {
+      const endpoint = date
+        ? `${NUTRITION_ENDPOINTS.PLAN_MEALS_FOR_SELECTION}?date=${date}`
+        : NUTRITION_ENDPOINTS.PLAN_MEALS_FOR_SELECTION
+      const response = await fetch(buildApiUrl(endpoint), {
         headers,
         method: 'GET',
       })
@@ -455,6 +459,7 @@ class NutritionService {
         meal_slots: data.meal_slots || [],
         options_by_meal_id: data.options_by_meal_id || {},
         plan_name: data.plan_name,
+        source: data.source,
         daily_calories_target: data.daily_calories_target,
         daily_macros: data.daily_macros
       }
