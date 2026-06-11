@@ -4,7 +4,11 @@ Comando para asignar planes a usuarios que no tienen planes activos.
 """
 from django.core.management.base import BaseCommand
 from accounts.models import CustomUser
-from accounts.services import assign_default_plans_to_user
+from accounts.services import (
+    DefaultPlanAssignmentService,
+    is_assignable_nutrition_template,
+    is_assignable_workout_template,
+)
 from workouts.models import WorkoutProgram
 from nutrition.models import NutritionPlan
 
@@ -64,26 +68,26 @@ class Command(BaseCommand):
             
             # Asignar planes
             try:
-                results = assign_default_plans_to_user(user)
+                result = DefaultPlanAssignmentService(user).assign()
                 
-                if results['workout_program']:
+                if result.workout_program:
                     assigned_workout += 1
                     self.stdout.write(self.style.SUCCESS(
-                        f'   ✅ Entrenamiento: {results["workout_program"].name}'
+                        f'   ✅ Entrenamiento: {result.workout_program.name}'
                     ))
                 elif not has_workout:
                     self.stdout.write(self.style.WARNING(
-                        '   ⚠️ No se pudo asignar programa de entrenamiento'
+                        f'   ⚠️ {result.workout_message or "No se pudo asignar programa de entrenamiento"}'
                     ))
                 
-                if results['nutrition_plan']:
+                if result.nutrition_plan:
                     assigned_nutrition += 1
                     self.stdout.write(self.style.SUCCESS(
-                        f'   ✅ Nutrición: {results["nutrition_plan"].name}'
+                        f'   ✅ Nutrición: {result.nutrition_plan.name}'
                     ))
                 elif not has_nutrition:
                     self.stdout.write(self.style.WARNING(
-                        '   ⚠️ No se pudo asignar plan nutricional'
+                        f'   ⚠️ {result.nutrition_message or "No se pudo asignar plan nutricional"}'
                     ))
                     
             except Exception as e:

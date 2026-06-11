@@ -257,7 +257,7 @@ class TestProfilePlanIntegration:
             default_nutrition_plan=lactose_free_plan,
         )
 
-        result = DefaultPlanAssignmentService(user).find_best_configuration()
+        result, _, _ = DefaultPlanAssignmentService(user).find_best_configuration()
 
         assert result == lactose_config
 
@@ -292,7 +292,7 @@ class TestProfilePlanIntegration:
             default_nutrition_plan=generic_plan,
         )
 
-        result = DefaultPlanAssignmentService(user).find_best_configuration()
+        result, _, _ = DefaultPlanAssignmentService(user).find_best_configuration()
 
         assert result == generic_config
         assert not lactose_config.matches_user_profile(user)
@@ -423,3 +423,87 @@ class TestProfilePlanIntegration:
         assert result.workout_program == custom_workout
         assert custom_workout.is_active is True
         assert WorkoutProgram.objects.filter(user=user).count() == 1
+
+    def test_default_assignment_skips_user_owned_nutrition_plan_in_configuration(self, user):
+        """No copiar planes personales de otro usuario referenciados por error en la config."""
+        other_user = User.objects.create_user(
+            email="other-owner@test.com",
+            password="testpass123",
+            main_goal="lose_weight",
+        )
+        invalid_nutrition = NutritionPlan.objects.create(
+            user=other_user,
+            name="Plan personal de otro usuario",
+            goal="lose_weight",
+            is_template=False,
+            is_active=True,
+            daily_calories=1800,
+        )
+        valid_nutrition = NutritionPlan.objects.create(
+            name="Plantilla válida",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1700,
+        )
+        PlanMeal.objects.create(
+            plan=valid_nutrition,
+            name="Desayuno",
+            meal_type="breakfast",
+            order_index=1,
+            calories=400,
+            protein=Decimal("25.0"),
+            carbs=Decimal("45.0"),
+            fat=Decimal("10.0"),
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config inválida",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=invalid_nutrition,
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config válida",
+            priority=2,
+            is_active=True,
+            main_goal="lose_weight",
+            default_nutrition_plan=valid_nutrition,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assert result.nutrition_plan is not None
+        assert result.nutrition_plan.user == user
+        assert result.nutrition_plan.is_system is False
+        assert result.nutrition_plan.is_template is False
+        assert "Plantilla válida" in result.nutrition_plan.name
+        assert result.configuration.name == "Config válida"
+
+    def test_default_assignment_does_not_fallback_to_system_plans(self, user):
+        """Sin configuración compatible, no asignar planes de sistema genéricos."""
+        NutritionPlan.objects.create(
+            name="Plan sistema interno",
+            goal="lose_weight",
+            is_system=True,
+            is_template=False,
+            is_active=True,
+            daily_calories=1800,
+        )
+        WorkoutProgram.objects.create(
+            name="Rutina sistema",
+            goal="weight_loss",
+            is_system=True,
+            is_template=False,
+            is_active=True,
+            days_per_week=3,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assert result.nutrition_plan is None
+        assert result.workout_program is None
+        assert result.configuration is None
+        assert "compatible" in (result.nutrition_message or "").lower()
+        assert NutritionPlan.objects.filter(user=user).count() == 0
+        assert WorkoutProgram.objects.filter(user=user).count() == 0
