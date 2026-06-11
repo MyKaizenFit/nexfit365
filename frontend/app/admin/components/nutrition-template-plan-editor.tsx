@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
+import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
