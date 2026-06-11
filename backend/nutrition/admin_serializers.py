@@ -130,7 +130,7 @@ class AdminPlanMealSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanMeal
         fields = [
-            'id', 'plan_id', 'day_of_week', 'name', 'meal_type', 'time',
+            'id', 'plan_id', 'day_of_week', 'week_number', 'name', 'meal_type', 'time',
             'calories', 'protein', 'carbs', 'fat',
             'description', 'order_index', 'suggested_recipes', 'suggested_recipes_ids', 'meal_recipes'
         ]

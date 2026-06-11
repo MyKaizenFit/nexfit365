@@ -1181,6 +1181,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             copied_meal = PlanMeal.objects.create(
                 plan=copied_plan,
                 day_of_week=source_meal.day_of_week,
+                week_number=max(1, int(getattr(source_meal, 'week_number', 1) or 1)),
                 name=source_meal.name,
                 meal_type=source_meal.meal_type,
                 time=source_meal.time,
@@ -1369,6 +1370,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             meal = PlanMeal.objects.create(
                 plan=plan,
                 day_of_week=meal_data.get('day_of_week') or None,
+                week_number=max(1, int(meal_data.get('week_number') or 1)),
                 name=meal_data.get('name') or f'Comida {idx + 1}',
                 meal_type=meal_data.get('meal_type') or 'lunch',
                 time=meal_data.get('time') or None,
@@ -1447,6 +1449,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         if base_day < 1 or base_day > 7:
             return Response({'detail': 'base_day debe estar entre 1 y 7.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        week_number = max(1, self._to_int(request.data.get('week_number')) or 1)
+
         target_days = request.data.get('target_days') or [1, 2, 3, 4, 5, 6, 7]
         if not isinstance(target_days, list):
             target_days = [target_days]
@@ -1470,13 +1474,13 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'step_percent debe estar entre 0 y 25.'}, status=status.HTTP_400_BAD_REQUEST)
 
         base_meals = list(
-            plan.meals.filter(day_of_week=base_day)
+            plan.meals.filter(day_of_week=base_day, week_number=week_number)
             .prefetch_related('suggested_recipes', 'meal_recipes__recipe')
             .order_by('order_index', 'created_at')
         )
         if not base_meals:
             base_meals = list(
-                plan.meals.filter(day_of_week__isnull=True)
+                plan.meals.filter(day_of_week__isnull=True, week_number=week_number)
                 .prefetch_related('suggested_recipes', 'meal_recipes__recipe')
                 .order_by('order_index', 'created_at')
             )
@@ -1493,10 +1497,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         for day in target_days:
             if day == base_day and preserve_base_day:
                 continue
-            if plan.meals.filter(day_of_week=day).exists():
+            if plan.meals.filter(day_of_week=day, week_number=week_number).exists():
                 if not overwrite:
                     continue
-                plan.meals.filter(day_of_week=day).delete()
+                plan.meals.filter(day_of_week=day, week_number=week_number).delete()
 
             distance = day - base_day
             direction = Decimal('-1') if mode == 'decrease' else Decimal('1')
@@ -1508,6 +1512,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 meal = PlanMeal.objects.create(
                     plan=plan,
                     day_of_week=day,
+                    week_number=week_number,
                     name=base_meal.name,
                     meal_type=base_meal.meal_type,
                     time=base_meal.time,
@@ -1676,6 +1681,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'meals__meal_recipes__recipe',
             'assignments__user',
         ).get(pk=plan.pk)
+
+        from dashboard.plan_sync import sync_users_from_nutrition_plan
+        sync_users_from_nutrition_plan(plan)
+
         return Response(self.get_serializer(plan).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=['post'], url_path='allergen-check')
@@ -1769,7 +1778,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'comidas_por_dia', 'duracion_semanas', 'multiplicador_porcion',
             'es_plantilla', 'es_sistema', 'activo',
             # Campos exclusivos de comidas (vacíos en filas de plan)
-            'comida_nombre', 'tipo_comida', 'dia_semana', 'orden_comida', 'hora',
+            'comida_nombre', 'tipo_comida', 'numero_semana', 'dia_semana', 'orden_comida', 'hora',
             'calorias_comida', 'proteinas_comida', 'carbohidratos_comida', 'grasas_comida',
             'descripcion_comida', 'recetas_sugeridas',
             # Campos exclusivos de opcion_receta
@@ -1780,7 +1789,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         ]
         writer = csv.DictWriter(response, fieldnames=fieldnames)
         writer.writeheader()
-        empty_meal = {k: '' for k in ['comida_nombre', 'tipo_comida', 'dia_semana', 'orden_comida', 'hora',
+        empty_meal = {k: '' for k in ['comida_nombre', 'tipo_comida', 'numero_semana', 'dia_semana', 'orden_comida', 'hora',
                                        'calorias_comida', 'proteinas_comida', 'carbohidratos_comida',
                                        'grasas_comida', 'descripcion_comida', 'recetas_sugeridas']}
         empty_option = {k: '' for k in ['receta_nombre', 'imagen_url', 'orden_visualizacion', 'porciones',
@@ -1816,7 +1825,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 **empty_option,
                 **empty_assignment,
             })
-            for meal in plan.meals.order_by('day_of_week', 'order_index'):
+            for meal in plan.meals.order_by('week_number', 'day_of_week', 'order_index'):
                 recipe_names = set()
                 for mr in meal.meal_recipes.all():
                     recipe_names.add(mr.recipe.name)
@@ -1829,6 +1838,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     **empty_plan,
                     'comida_nombre': meal.name,
                     'tipo_comida': meal_type_labels.get(meal.meal_type, meal.meal_type),
+                    'numero_semana': meal.week_number if meal.week_number is not None else 1,
                     'dia_semana': meal.day_of_week if meal.day_of_week is not None else '',
                     'orden_comida': meal.order_index if meal.order_index is not None else '',
                     'hora': str(meal.time) if meal.time else '',
@@ -1849,6 +1859,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                         **empty_plan,
                         'comida_nombre': meal.name,
                         'tipo_comida': meal_type_labels.get(meal.meal_type, meal.meal_type),
+                        'numero_semana': meal.week_number if meal.week_number is not None else 1,
                         'dia_semana': meal.day_of_week if meal.day_of_week is not None else '',
                         'orden_comida': meal.order_index if meal.order_index is not None else '',
                         'hora': str(meal.time) if meal.time else '',
@@ -1953,7 +1964,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         # ========== HOJA 2: COMIDAS ==========
         ws_meals = workbook.add_worksheet('Comidas')
         meal_headers = [
-            'plan_nombre', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida', 'hora',
+            'plan_nombre', 'numero_semana', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida', 'hora',
             'calorias_comida', 'proteinas_comida', 'carbohidratos_comida', 'grasas_comida',
             'descripcion_comida', 'recetas_sugeridas',
         ]
@@ -1961,7 +1972,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             ws_meals.write(0, col, h, header_format)
         meal_row = 1
         for plan in plans:
-            for meal in plan.meals.order_by('day_of_week', 'order_index'):
+            for meal in plan.meals.order_by('week_number', 'day_of_week', 'order_index'):
                 recipe_names = set()
                 for mr in meal.meal_recipes.all():
                     recipe_names.add(mr.recipe.name)
@@ -1969,17 +1980,18 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     recipe_names.add(sr.name)
                 recetas_str = '; '.join(sorted(recipe_names))
                 ws_meals.write(meal_row, 0, plan.name)
-                ws_meals.write(meal_row, 1, meal.day_of_week if meal.day_of_week is not None else '')
-                ws_meals.write(meal_row, 2, meal.order_index if meal.order_index is not None else '')
-                ws_meals.write(meal_row, 3, meal.name)
-                ws_meals.write(meal_row, 4, meal_type_labels.get(meal.meal_type, meal.meal_type))
-                ws_meals.write(meal_row, 5, str(meal.time) if meal.time else '')
-                ws_meals.write(meal_row, 6, meal.calories or 0)
-                ws_meals.write(meal_row, 7, float(meal.protein or 0))
-                ws_meals.write(meal_row, 8, float(meal.carbs or 0))
-                ws_meals.write(meal_row, 9, float(meal.fat or 0))
-                ws_meals.write(meal_row, 10, meal.description or '')
-                ws_meals.write(meal_row, 11, recetas_str)
+                ws_meals.write(meal_row, 1, meal.week_number if meal.week_number is not None else 1)
+                ws_meals.write(meal_row, 2, meal.day_of_week if meal.day_of_week is not None else '')
+                ws_meals.write(meal_row, 3, meal.order_index if meal.order_index is not None else '')
+                ws_meals.write(meal_row, 4, meal.name)
+                ws_meals.write(meal_row, 5, meal_type_labels.get(meal.meal_type, meal.meal_type))
+                ws_meals.write(meal_row, 6, str(meal.time) if meal.time else '')
+                ws_meals.write(meal_row, 7, meal.calories or 0)
+                ws_meals.write(meal_row, 8, float(meal.protein or 0))
+                ws_meals.write(meal_row, 9, float(meal.carbs or 0))
+                ws_meals.write(meal_row, 10, float(meal.fat or 0))
+                ws_meals.write(meal_row, 11, meal.description or '')
+                ws_meals.write(meal_row, 12, recetas_str)
                 meal_row += 1
         ws_meals.set_column('A:A', 30)
         ws_meals.set_column('D:D', 28)
@@ -1988,7 +2000,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         # ========== HOJA 3: OPCIONES RECETA COMIDA ==========
         ws_options = workbook.add_worksheet('Opciones_Receta_Comida')
         option_headers = [
-            'plan_nombre', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida',
+            'plan_nombre', 'numero_semana', 'dia_semana', 'orden_comida', 'comida_nombre', 'tipo_comida',
             'receta_nombre', 'imagen_url', 'orden_visualizacion', 'porciones',
             'calorias_personalizadas', 'proteinas_personalizadas', 'carbohidratos_personalizados', 'grasas_personalizadas',
             'categoria_receta', 'tipos_comida_receta',
@@ -1997,26 +2009,27 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             ws_options.write(0, col, h, header_format)
         option_row = 1
         for plan in plans:
-            for meal in plan.meals.order_by('day_of_week', 'order_index'):
+            for meal in plan.meals.order_by('week_number', 'day_of_week', 'order_index'):
                 for option in meal.meal_recipes.all().order_by('display_order', 'created_at'):
                     ws_options.write(option_row, 0, plan.name)
-                    ws_options.write(option_row, 1, meal.day_of_week if meal.day_of_week is not None else '')
-                    ws_options.write(option_row, 2, meal.order_index if meal.order_index is not None else '')
-                    ws_options.write(option_row, 3, meal.name)
-                    ws_options.write(option_row, 4, meal_type_labels.get(meal.meal_type, meal.meal_type))
-                    ws_options.write(option_row, 5, option.recipe.name)
-                    ws_options.write(option_row, 6, option.recipe.image_url or '')
-                    ws_options.write(option_row, 7, option.display_order if option.display_order is not None else 0)
-                    ws_options.write(option_row, 8, float(option.servings or 1))
-                    ws_options.write(option_row, 9, option.custom_calories if option.custom_calories is not None else '')
-                    ws_options.write(option_row, 10, float(option.custom_protein) if option.custom_protein is not None else '')
-                    ws_options.write(option_row, 11, float(option.custom_carbs) if option.custom_carbs is not None else '')
-                    ws_options.write(option_row, 12, float(option.custom_fat) if option.custom_fat is not None else '')
-                    ws_options.write(option_row, 13, option.recipe.category or '')
+                    ws_options.write(option_row, 1, meal.week_number if meal.week_number is not None else 1)
+                    ws_options.write(option_row, 2, meal.day_of_week if meal.day_of_week is not None else '')
+                    ws_options.write(option_row, 3, meal.order_index if meal.order_index is not None else '')
+                    ws_options.write(option_row, 4, meal.name)
+                    ws_options.write(option_row, 5, meal_type_labels.get(meal.meal_type, meal.meal_type))
+                    ws_options.write(option_row, 6, option.recipe.name)
+                    ws_options.write(option_row, 7, option.recipe.image_url or '')
+                    ws_options.write(option_row, 8, option.display_order if option.display_order is not None else 0)
+                    ws_options.write(option_row, 9, float(option.servings or 1))
+                    ws_options.write(option_row, 10, option.custom_calories if option.custom_calories is not None else '')
+                    ws_options.write(option_row, 11, float(option.custom_protein) if option.custom_protein is not None else '')
+                    ws_options.write(option_row, 12, float(option.custom_carbs) if option.custom_carbs is not None else '')
+                    ws_options.write(option_row, 13, float(option.custom_fat) if option.custom_fat is not None else '')
+                    ws_options.write(option_row, 14, option.recipe.category or '')
                     meal_types_readable = []
                     for mt in (option.recipe.meal_types or []):
                         meal_types_readable.append(meal_type_labels.get(mt, mt))
-                    ws_options.write(option_row, 14, ','.join(meal_types_readable))
+                    ws_options.write(option_row, 15, ','.join(meal_types_readable))
                     option_row += 1
         ws_options.set_column('A:A', 30)
         ws_options.set_column('D:D', 28)
@@ -2365,6 +2378,16 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             day_of_week, err = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
             if err:
                 errors.append(err)
+            week_number, err = parse_int(
+                row.get('numero_semana', '') or row.get('semana', ''),
+                'numero_semana',
+                minimum=1,
+                allow_blank=True,
+            )
+            if err:
+                errors.append(err)
+            if week_number is None:
+                week_number = 1
             order_index, err = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1, allow_blank=True)
             if err:
                 errors.append(err)
@@ -2392,6 +2415,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
             return {
                 'meal_type': meal_type,
+                'week_number': week_number,
                 'day_of_week': day_of_week,
                 'order_index': order_index,
                 'time': meal_time,
@@ -2556,6 +2580,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
             meal = PlanMeal.objects.filter(
                 plan=plan,
+                week_number=parsed['week_number'],
                 day_of_week=parsed['day_of_week'],
                 order_index=parsed['order_index'],
             ).first()
@@ -2577,6 +2602,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             else:
                 PlanMeal.objects.create(
                     plan=plan,
+                    week_number=parsed['week_number'],
                     day_of_week=parsed['day_of_week'],
                     order_index=parsed['order_index'],
                     **meal_fields,
@@ -2628,19 +2654,36 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
             day_of_week, err = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
             order_index, err2 = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1)
+            week_number, err3 = parse_int(
+                row.get('numero_semana', '') or row.get('semana', ''),
+                'numero_semana',
+                minimum=1,
+                allow_blank=True,
+            )
+            if week_number is None:
+                week_number = 1
             local_errors = []
             if err:
                 local_errors.append(err)
             if err2:
                 local_errors.append(err2)
+            if err3:
+                local_errors.append(err3)
             parsed_option, option_errors = parse_option_fields(row)
             if option_errors:
                 local_errors.extend(option_errors)
             meal = None
             if not local_errors:
-                meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                meal = PlanMeal.objects.filter(
+                    plan=plan,
+                    week_number=week_number,
+                    day_of_week=day_of_week,
+                    order_index=order_index,
+                ).first()
                 if not meal:
-                    local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
+                    local_errors.append(
+                        f"No existe comida para clave ({plan_name}, semana={week_number}, día={day_of_week}, orden={order_index})"
+                    )
             recipe = None
             if not local_errors:
                 if recipe_name:
@@ -2724,13 +2767,26 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 if not plan_name:
                     continue
                 day_of_week, _ = parse_int(row.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
+                week_number, _ = parse_int(
+                    row.get('numero_semana', '') or row.get('semana', ''),
+                    'numero_semana',
+                    minimum=1,
+                    allow_blank=True,
+                )
+                if week_number is None:
+                    week_number = 1
                 order_index, err = parse_int(row.get('orden_comida', ''), 'orden_comida', minimum=1)
                 if err:
                     continue
                 plan = NutritionPlan.objects.filter(name=plan_name).first()
                 if not plan:
                     continue
-                meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                meal = PlanMeal.objects.filter(
+                    plan=plan,
+                    week_number=week_number,
+                    day_of_week=day_of_week,
+                    order_index=order_index,
+                ).first()
                 if not meal:
                     continue
                 recetas_str = str(row.get('recetas_sugeridas', '') or '').strip()
@@ -3040,6 +3096,16 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             day_of_week, err = parse_int(row_dict.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
             if err:
                 errors.append(err)
+            week_number, err = parse_int(
+                row_dict.get('numero_semana', '') or row_dict.get('semana', ''),
+                'numero_semana',
+                minimum=1,
+                allow_blank=True,
+            )
+            if err:
+                errors.append(err)
+            if week_number is None:
+                week_number = 1
             order_index, err = parse_int(row_dict.get('orden_comida', ''), 'orden_comida', minimum=1)
             if err:
                 errors.append(err)
@@ -3063,6 +3129,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 return None, errors
             return {
                 'meal_type': meal_type,
+                'week_number': week_number,
                 'day_of_week': day_of_week,
                 'order_index': order_index,
                 'time': meal_time,
@@ -3234,6 +3301,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
                 meal = PlanMeal.objects.filter(
                     plan=plan,
+                    week_number=parsed_meal['week_number'],
                     day_of_week=parsed_meal['day_of_week'],
                     order_index=parsed_meal['order_index'],
                 ).first()
@@ -3255,6 +3323,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 else:
                     meal = PlanMeal.objects.create(
                         plan=plan,
+                        week_number=parsed_meal['week_number'],
                         day_of_week=parsed_meal['day_of_week'],
                         order_index=parsed_meal['order_index'],
                         **meal_fields
@@ -3305,19 +3374,36 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                     created += 1
                 day_of_week, err = parse_int(orow.get('dia_semana', ''), 'dia_semana', minimum=1, maximum=7, allow_blank=True)
                 order_index, err2 = parse_int(orow.get('orden_comida', ''), 'orden_comida', minimum=1)
+                week_number, err3 = parse_int(
+                    orow.get('numero_semana', '') or orow.get('semana', ''),
+                    'numero_semana',
+                    minimum=1,
+                    allow_blank=True,
+                )
+                if week_number is None:
+                    week_number = 1
                 local_errors = []
                 if err:
                     local_errors.append(err)
                 if err2:
                     local_errors.append(err2)
+                if err3:
+                    local_errors.append(err3)
                 parsed_option, option_errors = parse_option_fields(orow)
                 if option_errors:
                     local_errors.extend(option_errors)
                 meal = None
                 if not local_errors:
-                    meal = PlanMeal.objects.filter(plan=plan, day_of_week=day_of_week, order_index=order_index).first()
+                    meal = PlanMeal.objects.filter(
+                        plan=plan,
+                        week_number=week_number,
+                        day_of_week=day_of_week,
+                        order_index=order_index,
+                    ).first()
                     if not meal:
-                        local_errors.append(f"No existe comida para clave ({plan_name}, día={day_of_week}, orden={order_index})")
+                        local_errors.append(
+                            f"No existe comida para clave ({plan_name}, semana={week_number}, día={day_of_week}, orden={order_index})"
+                        )
                 recipe = None
                 if not local_errors:
                     if recipe_name:
@@ -4117,6 +4203,9 @@ def admin_change_user_plan(request):
 
         if not new_plan:
             return Response({'error': 'No se pudo asignar el plan al usuario'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from dashboard.plan_sync import sync_user_from_active_plans
+        sync_user_from_active_plans(target_user)
 
         serializer = AdminNutritionPlanSerializer(new_plan)
         return Response(

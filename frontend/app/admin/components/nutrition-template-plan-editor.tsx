@@ -14,7 +14,7 @@ import { buildApiUrl } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { handle401AndRefresh } from "@/lib/fetch-with-auth"
+import { mealMatchesDayAndWeek, planDurationWeeks, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -47,6 +47,7 @@ interface MealRecipeOption {
 interface PlanMealDraft {
   id?: string
   day_of_week: number
+  week_number: number
   name: string
   meal_type: string
   time: string
@@ -229,6 +230,8 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
+  const [activeWeek, setActiveWeek] = useState(1)
+  const [planDurationWeeksState, setPlanDurationWeeksState] = useState(4)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loadedMealsCount, setLoadedMealsCount] = useState(0)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
@@ -335,10 +338,17 @@ export const NutritionTemplatePlanEditor = forwardRef<
   }, [availableRecipes, recipeSearch, recipeCategoryFilter, recipeFreeFromFilters])
 
   const mealsForDay = useMemo(() => {
+    const dayNum = Number(activeDay)
     return meals
-      .filter((m) => dayKeyFromMeal(m) === activeDay)
+      .filter((m) => mealMatchesDayAndWeek(m, dayNum, activeWeek))
       .sort((a, b) => a.order_index - b.order_index)
-  }, [meals, activeDay])
+  }, [meals, activeDay, activeWeek])
+
+  const syncSelectionFromDate = (date: Date) => {
+    setSelectedCalendarDate(date)
+    setActiveDay(dayKeyFromDate(date))
+    setActiveWeek(weekNumberFromCalendarDate(date, planDurationWeeksState))
+  }
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
 
@@ -385,10 +395,12 @@ export const NutritionTemplatePlanEditor = forwardRef<
       const data = await fetchJsonWithAuth(`admin/nutrition/plans/${planId}/`)
 
       const incomingMeals = Array.isArray(data.meals) ? data.meals : []
+      setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
       const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => {
         return {
           id: m.id ? String(m.id) : undefined,
           day_of_week: m.day_of_week ?? 1,
+          week_number: m.week_number ?? 1,
           name: fixEncoding(m.name || `Comida ${idx + 1}`),
           meal_type: m.meal_type || "lunch",
           time: m.time || "12:00",
@@ -436,11 +448,12 @@ export const NutritionTemplatePlanEditor = forwardRef<
     const nextOrder =
       Math.max(
         0,
-        ...meals.filter((m) => (m.day_of_week ?? null) === dayNum).map((m) => m.order_index || 0)
+        ...meals.filter((m) => mealMatchesDayAndWeek(m, dayNum, activeWeek)).map((m) => m.order_index || 0)
       ) + 1
 
     const newMeal: PlanMealDraft = {
       day_of_week: dayNum,
+      week_number: activeWeek,
       name: `Comida ${nextOrder} (${DAY_LABELS[activeDay]})`,
       meal_type: "breakfast",
       time: "08:00",
@@ -469,9 +482,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
     })
   }
 
-  const normalizeMealOrder = (items: PlanMealDraft[], dayOfWeek: number) => {
+  const normalizeMealOrder = (items: PlanMealDraft[], dayOfWeek: number, weekNumber: number) => {
     const dayMeals = items
-      .filter((m) => m.day_of_week === dayOfWeek)
+      .filter((m) => mealMatchesDayAndWeek(m, dayOfWeek, weekNumber))
       .slice()
       .sort((a, b) => a.order_index - b.order_index)
 
@@ -488,7 +501,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
     updateUnsavedChanges(true)
     setMeals((prev) => {
       const dayMeals = prev
-        .filter((m) => m.day_of_week === meal.day_of_week)
+        .filter((m) => mealMatchesDayAndWeek(m, meal.day_of_week, meal.week_number ?? 1))
         .slice()
         .sort((a, b) => a.order_index - b.order_index)
       const currentIndex = dayMeals.findIndex((m) => m === meal)
@@ -508,7 +521,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
   }
 
   const removeMeal = (meal: PlanMealDraft) => {
-    setMeals((prev) => normalizeMealOrder(prev.filter((m) => m !== meal), meal.day_of_week))
+    setMeals((prev) => normalizeMealOrder(prev.filter((m) => m !== meal), meal.day_of_week, meal.week_number ?? 1))
     updateUnsavedChanges(true)
   }
 
@@ -642,14 +655,15 @@ export const NutritionTemplatePlanEditor = forwardRef<
     setCopyMode("append")
   }
 
-  const getNextMealOrder = (items: PlanMealDraft[], dayOfWeek: number) => (
-    Math.max(0, ...items.filter((meal) => meal.day_of_week === dayOfWeek).map((meal) => meal.order_index || 0)) + 1
+  const getNextMealOrder = (items: PlanMealDraft[], dayOfWeek: number, weekNumber: number) => (
+    Math.max(0, ...items.filter((meal) => mealMatchesDayAndWeek(meal, dayOfWeek, weekNumber)).map((meal) => meal.order_index || 0)) + 1
   )
 
-  const cloneMealForDay = (meal: PlanMealDraft, dayOfWeek: number, orderIndex: number): PlanMealDraft => ({
+  const cloneMealForDay = (meal: PlanMealDraft, dayOfWeek: number, weekNumber: number, orderIndex: number): PlanMealDraft => ({
     ...meal,
     id: undefined,
     day_of_week: dayOfWeek,
+    week_number: weekNumber,
     order_index: orderIndex,
     meal_recipes: meal.meal_recipes.map((option, index) => ({ ...option, display_order: index })),
   })
@@ -660,34 +674,37 @@ export const NutritionTemplatePlanEditor = forwardRef<
     setMeals((prev) => {
       let next = [...prev]
       const targetNumbers = copyTargetDays.map((day) => Number(day))
+      const sourceWeek = copySource.type === "meal"
+        ? (copySource.meal.week_number ?? 1)
+        : activeWeek
 
       if (copySource.type === "meal") {
         for (const dayNumber of targetNumbers) {
-          const orderIndex = getNextMealOrder(next, dayNumber)
-          next.push(cloneMealForDay(copySource.meal, dayNumber, orderIndex))
+          const orderIndex = getNextMealOrder(next, dayNumber, sourceWeek)
+          next.push(cloneMealForDay(copySource.meal, dayNumber, sourceWeek, orderIndex))
         }
         return next
       }
 
       const sourceDayNumber = Number(copySource.day)
       const sourceMeals = prev
-        .filter((meal) => meal.day_of_week === sourceDayNumber)
+        .filter((meal) => mealMatchesDayAndWeek(meal, sourceDayNumber, activeWeek))
         .slice()
         .sort((a, b) => a.order_index - b.order_index)
 
       for (const dayNumber of targetNumbers) {
         if (copyMode === "replace") {
-          next = next.filter((meal) => meal.day_of_week !== dayNumber)
+          next = next.filter((meal) => !mealMatchesDayAndWeek(meal, dayNumber, activeWeek))
         }
-        let orderIndex = getNextMealOrder(next, dayNumber)
+        let orderIndex = getNextMealOrder(next, dayNumber, activeWeek)
         for (const meal of sourceMeals) {
-          next.push(cloneMealForDay(meal, dayNumber, orderIndex))
+          next.push(cloneMealForDay(meal, dayNumber, activeWeek, orderIndex))
           orderIndex += 1
         }
       }
       return next
     })
-    toast({ title: "✅ Copiado", description: "Las comidas/recetas se han duplicado en los días seleccionados." })
+    toast({ title: "✅ Copiado", description: "Las comidas/recetas se han duplicado en los días seleccionados de esta semana." })
     closeCopyDialog()
   }
 
@@ -704,6 +721,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
 
       const mealsPayload = meals.map((m) => ({
         day_of_week: m.day_of_week,
+        week_number: m.week_number ?? 1,
         name: m.name,
         meal_type: m.meal_type,
         time: m.time,
@@ -804,7 +822,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const key = dayKeyFromDate(date)
-              const dayMeals = meals.filter((meal) => dayKeyFromMeal(meal) === key)
+              const weekNumber = weekNumberFromCalendarDate(date, planDurationWeeksState)
+              const dayNum = Number(key)
+              const dayMeals = meals.filter((meal) => mealMatchesDayAndWeek(meal, dayNum, weekNumber))
               const recipeCount = dayMeals.reduce((total, meal) => total + meal.meal_recipes.length, 0)
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
               const isSelected = isSameCalendarDay(date, selectedCalendarDate)
@@ -813,10 +833,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
                 <button
                   key={date.toISOString()}
                   type="button"
-                  onClick={() => {
-                    setSelectedCalendarDate(date)
-                    setActiveDay(key)
-                  }}
+                  onClick={() => syncSelectionFromDate(date)}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-blue-500 bg-blue-50 shadow-sm" : "hover:border-blue-300 hover:bg-blue-50/40"
                   } ${isCurrentMonth ? "bg-white" : "bg-slate-50 text-muted-foreground"}`}
@@ -847,6 +864,14 @@ export const NutritionTemplatePlanEditor = forwardRef<
       </Card>
 
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
+        <div className="flex items-center justify-between gap-2 px-1">
+          <div className="text-sm font-semibold text-blue-800">
+            Semana {activeWeek} · {selectedCalendarDate.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Cada semana del calendario es independiente
+          </div>
+        </div>
         <TabsList className="grid grid-cols-7">
           {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((d) => (
             <TabsTrigger key={d} value={d} className="text-xs">

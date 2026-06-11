@@ -540,6 +540,7 @@ export function MenuPlanManagementV2() {
 
       const mealsPayload = draftMeals.map((m) => {
         return {
+        week_number: 1,
         day_of_week: m.day_of_week,
         name: m.name,
         meal_type: m.meal_type,
@@ -653,6 +654,7 @@ export function MenuPlanManagementV2() {
         percents: { protein: Number(detail.protein_percentage) || 30, carbs: Number(detail.carbs_percentage) || 40, fat: Number(detail.fat_percentage) || 30 },
         user_ids: [userId],
         meals: Array.isArray(detail.meals) ? detail.meals.map((m: any) => ({
+          week_number: m.week_number ?? 1,
           day_of_week: m.day_of_week ?? null,
           name: m.name,
           meal_type: m.meal_type,
@@ -714,6 +716,7 @@ export function MenuPlanManagementV2() {
         user_ids: preservedUserIds,
         meals: Array.isArray(detail.meals)
           ? detail.meals.map((m: any) => ({
+              week_number: m.week_number ?? 1,
               day_of_week: m.day_of_week ?? null,
               name: m.name,
               meal_type: m.meal_type,

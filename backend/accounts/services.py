@@ -301,6 +301,7 @@ def assign_default_plans_to_user(user):
             new_meal = PlanMeal.objects.create(
                 plan=plan,
                 day_of_week=meal_template.day_of_week,
+                week_number=getattr(meal_template, 'week_number', 1) or 1,
                 name=meal_template.name,
                 meal_type=meal_template.meal_type,
                 time=meal_template.time,
@@ -621,6 +622,7 @@ class DefaultPlanAssignmentService:
                 meal = PlanMeal.objects.create(
                     plan=nutrition_plan,
                     day_of_week=meal_template.day_of_week,
+                    week_number=getattr(meal_template, 'week_number', 1) or 1,
                     name=meal_template.name,
                     meal_type=meal_template.meal_type,
                     time=meal_template.time,

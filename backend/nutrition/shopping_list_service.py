@@ -250,12 +250,18 @@ def build_shopping_list(user, plan: NutritionPlan, days: int) -> dict[str, Any]:
                     recipe_name=recipe_name,
                 )
 
+    from nutrition.plan_week_utils import resolve_plan_week_number
+
     for offset in range(days):
         date = today + timedelta(days=offset)
         weekday = date.isoweekday()
+        plan_week = resolve_plan_week_number(plan, date)
+        week_meals = [meal for meal in meals_by_id.values() if (meal.week_number or 1) == plan_week]
+        if not week_meals:
+            week_meals = [meal for meal in meals_by_id.values() if (meal.week_number or 1) == 1]
         day_meals = [
             meal
-            for meal in meals_by_id.values()
+            for meal in week_meals
             if meal.day_of_week is None or meal.day_of_week == weekday
         ]
         for meal in day_meals:

@@ -508,10 +508,19 @@ def plan_meals_for_selection(request):
     options_by_meal_id = {}
     
     if user_plan:
-        # Si el plan tiene comidas por día, mostrar las del día actual.
-        # day_of_week: 1=Lunes..7=Domingo. Null = aplica a cualquier día (compatibilidad).
+        from nutrition.plan_week_utils import resolve_plan_week_number
+
+        # Comidas del día y semana del ciclo del plan (semanas independientes).
         today_dow = date_for_slots.isoweekday()
-        meals = user_plan.meals.filter(Q(day_of_week=today_dow) | Q(day_of_week__isnull=True)).order_by('order_index', 'id')
+        plan_week = resolve_plan_week_number(user_plan, date_for_slots)
+        base_meals_qs = user_plan.meals.filter(
+            Q(day_of_week=today_dow) | Q(day_of_week__isnull=True)
+        )
+        if base_meals_qs.filter(week_number=plan_week).exists():
+            meals = base_meals_qs.filter(week_number=plan_week).order_by('order_index', 'id')
+        else:
+            # Compatibilidad: planes antiguos solo tienen semana 1.
+            meals = base_meals_qs.filter(week_number=1).order_by('order_index', 'id')
         for meal in meals:
             meal_type = meal.meal_type
             if meal_type not in meals_by_type:
@@ -521,6 +530,7 @@ def plan_meals_for_selection(request):
             meal_slots.append({
                 'id': str(meal.id),
                 'day_of_week': meal.day_of_week,
+                'week_number': meal.week_number,
                 'name': meal.name,
                 'meal_type': meal.meal_type,
                 'time': meal.time.isoformat() if meal.time else None,
