@@ -566,15 +566,22 @@ def user_stats(request):
                 next_review = "Hoy"
             else:
                 next_review = "Vencida"
-        
+
+        # Preferir objetivos del plan activo asignado por el admin
+        from dashboard.plan_sync import derive_plan_targets
+
+        plan_targets = derive_plan_targets(user)
+        calories_goal = plan_targets.get("calories_goal") or stats.calories_goal
+        workouts_goal = plan_targets.get("workouts_goal") or stats.workouts_goal
+
         response_data = {
             "caloriesToday": calories_today,
-            "caloriesGoal": stats.calories_goal,
+            "caloriesGoal": calories_goal,
             "currentWeight": float(stats.current_weight) if stats.current_weight else None,
             "targetWeight": float(stats.weight_goal) if stats.weight_goal else None,
             "weightChange": weight_change,
             "workoutsThisWeek": workouts_this_week,
-            "workoutsGoal": stats.workouts_goal,
+            "workoutsGoal": workouts_goal,
             "nextReview": next_review,
             "daysInTransformation": days_in_transformation,
         }

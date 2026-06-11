@@ -14,13 +14,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useUserData } from '@/hooks/use-user-data'
 import { PlanShoppingList } from '@/app/dashboard/components/plan-shopping-list'
 import { formatMacro } from '@/lib/utils'
-import { SkeletonMealPlan, TabsSkeleton } from '@/components/dashboard/dashboard-skeletons'
-import { Skeleton } from '@/components/ui/skeleton'
+import { MealsSectionSkeleton, WeeklyCalendarSkeleton } from '@/components/dashboard/dashboard-skeletons'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
+  const { meals, macros, loading, hasUserPlan, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -101,27 +100,7 @@ export function MealDashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="space-y-8 pb-4">
-        <Card className="border shadow-xl dark:bg-card overflow-hidden relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20" />
-          <CardHeader className="text-center relative z-10 p-4 md:p-6">
-            <div className="mx-auto w-16 h-16 md:w-24 md:h-24 bg-orange-100 rounded-full flex items-center justify-center mb-3 md:mb-4">
-              <ChefHat className="h-8 w-8 md:h-12 md:w-12 text-orange-700" />
-            </div>
-            <CardTitle className="text-xl md:text-3xl font-bold text-slate-900">
-              Plan Nutricional
-            </CardTitle>
-            <CardDescription className="text-sm md:text-base mt-2 text-foreground">
-              Tu alimentación equilibrada para alcanzar tus objetivos
-            </CardDescription>
-            <Skeleton className="mx-auto mt-4 h-3 w-full max-w-md rounded-full" />
-          </CardHeader>
-        </Card>
-        <TabsSkeleton />
-        <SkeletonMealPlan />
-      </div>
-    )
+    return <MealsSectionSkeleton />
   }
 
   return (
@@ -234,6 +213,15 @@ export function MealDashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {meals.length === 0 && hasUserPlan ? (
+            <Card className="col-span-full border-dashed">
+              <CardContent className="py-10 text-center space-y-2">
+                <ChefHat className="h-8 w-8 mx-auto text-muted-foreground" />
+                <p className="text-sm font-medium">No hay comidas asignadas para hoy en tu plan</p>
+                <p className="text-xs text-muted-foreground">Revisa la vista semanal para planificar otros días</p>
+              </CardContent>
+            </Card>
+          ) : null}
           {meals.map((meal) => {
             const previewOption = meal.selectedOption ? null : getMealOptions(meal.id)[0] || null
             const displayOption = meal.selectedOption || previewOption
@@ -454,7 +442,7 @@ export function MealDashboard() {
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-6">
-          <Suspense fallback={<SkeletonMealPlan />}>
+          <Suspense fallback={<WeeklyCalendarSkeleton />}>
             <WeeklyMealPlan />
           </Suspense>
         </TabsContent>

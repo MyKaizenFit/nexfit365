@@ -40,14 +40,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useProgressStats } from "@/hooks/use-progress-stats"
-import { useDailyMeals } from "@/hooks/use-daily-meals"
-import { useWorkouts } from "@/hooks/use-workouts"
-import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAutoRefresh } from "@/hooks/use-auto-refresh"
-import { useWeightHistory } from "@/hooks/use-weight-history"
-import { useUserProfile } from "@/hooks/use-user-profile"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
+import { userService } from "@/lib/user-service"
 import {
   ContentReveal,
   DashboardHeroShell,
@@ -65,16 +61,13 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const { user, isAuthenticated } = useAuth()
   const { userStats, loading: statsLoading, refreshStats } = useUserData()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats: refreshProgressStats } = useProgressStats()
-  const { macros, loading: mealsLoading } = useDailyMeals()
-  const { workoutLogs, loading: workoutLoading } = useWorkouts()
-  const { photos, loading: photosLoading, refreshPhotos, uploadPhoto } = useProgressPhotos()
-  const { entries: weightEntries, loading: weightLoading, refresh: refreshWeight } = useWeightHistory()
-  const { profile } = useUserProfile()
 
   // Estados locales
   const [isPhotoDialogOpen, setIsPhotoDialogOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const [greeting, setGreeting] = useState("¡Hola")
+  const [lastRefreshLabel, setLastRefreshLabel] = useState<string | null>(null)
+  const [todayDate, setTodayDate] = useState("")
   const [birthdayMessage, setBirthdayMessage] = useState<string | null>(null)
   
   // Estados para subida de fotos
@@ -83,19 +76,29 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
-  const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
+  const [newPhotoDate, setNewPhotoDate] = useState("")
 
-  // Refrescar datos cuando se actualiza el peso
+  useEffect(() => {
+    const now = new Date()
+    const hour = now.getHours()
+    if (hour < 12) setGreeting("¡Buenos días")
+    else if (hour < 18) setGreeting("¡Buenas tardes")
+    else setGreeting("¡Buenas noches")
+
+    const dateLabel = now.toLocaleDateString("en-CA")
+    setTodayDate(dateLabel)
+    setNewPhotoDate(dateLabel)
+    setLastRefreshLabel(now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }))
+  }, [])
+
   useEffect(() => {
     const handleWeightUpdate = async () => {
-      // Refrescar historial de peso y estadísticas
-      if (refreshWeight) await refreshWeight()
-      if (refreshStats) await refreshStats()
+      await Promise.all([refreshStats(), refreshProgressStats()])
     }
-    
+
     window.addEventListener('weightUpdated', handleWeightUpdate)
     return () => window.removeEventListener('weightUpdated', handleWeightUpdate)
-  }, [refreshWeight, refreshStats])
+  }, [refreshStats, refreshProgressStats])
 
   useEffect(() => {
     if (!isAuthenticated || !user?.id) return
@@ -130,110 +133,78 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     }
   }, [isAuthenticated, user?.id])
 
-  // Calcular métricas con useMemo para evitar recálculos innecesarios
   const metrics = useMemo(() => {
-    const latestWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[0] : null
-    const firstWeightEntry = weightEntries && weightEntries.length > 0 ? weightEntries[weightEntries.length - 1] : null
-    const hasTrackedWeightProgress = Boolean(latestWeightEntry && firstWeightEntry && weightEntries.length >= 2)
-    const currentWeight = latestWeightEntry?.weight || progressStats?.weight?.current || user?.weight || userStats?.currentWeight || null
-    const targetWeight = user?.target_weight || progressStats?.weight?.goal || userStats?.targetWeight || null
-    const weightChange = latestWeightEntry && firstWeightEntry && hasTrackedWeightProgress
-      ? latestWeightEntry.weight - firstWeightEntry.weight 
-      : 0
-    const weightProgress = hasTrackedWeightProgress && targetWeight
+    const entriesCount = progressStats?.weight?.entries_count ?? 0
+    const hasTrackedWeightProgress = entriesCount >= 2
+    const currentWeight =
+      progressStats?.weight?.current ??
+      userStats?.currentWeight ??
+      user?.weight ??
+      null
+    const targetWeight =
+      user?.target_weight ??
+      progressStats?.weight?.goal ??
+      userStats?.targetWeight ??
+      null
+    const weightChange = progressStats?.weight?.change ?? userStats?.weightChange ?? 0
+    const weightProgress = hasTrackedWeightProgress
       ? Math.min(Math.max(progressStats?.weight?.progress || 0, 0), 100)
       : 0
-    
+
     return {
       transformationProgress: weightProgress,
       hasTrackedWeightProgress,
-      latestWeightEntry,
-      firstWeightEntry,
       currentWeight,
       targetWeight,
       weightChange,
-      daysInTransformation: userStats?.daysInTransformation || 1
+      daysInTransformation: userStats?.daysInTransformation || 1,
     }
-  }, [weightEntries, progressStats, user, userStats])
+  }, [progressStats, user, userStats])
   
   const { transformationProgress, hasTrackedWeightProgress, currentWeight, targetWeight, weightChange, daysInTransformation } = metrics
 
-  // Calcular calorías con useMemo
   const nutritionData = useMemo(() => {
-    const caloriesConsumed = macros.caloriesConsumed || 0
-    const caloriesGoal = macros.caloriesGoal || 2000
-    const caloriesProgress = caloriesGoal > 0 ? Math.min(Math.max((caloriesConsumed / caloriesGoal) * 100, 0), 100) : 0
-    
-    return {
-      caloriesConsumed,
-      caloriesGoal,
-      caloriesProgress,
-    }
-  }, [macros])
+    const caloriesConsumed = userStats?.caloriesToday ?? 0
+    const caloriesGoal = userStats?.caloriesGoal ?? 2000
+    const caloriesProgress =
+      caloriesGoal > 0 ? Math.min(Math.max((caloriesConsumed / caloriesGoal) * 100, 0), 100) : 0
+
+    return { caloriesConsumed, caloriesGoal, caloriesProgress }
+  }, [userStats])
   
   const { caloriesConsumed, caloriesGoal, caloriesProgress } = nutritionData
 
-  // Estadísticas de entrenamientos con useMemo
-  const workoutStats = useMemo(() => {
-    const now = new Date()
-    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-    const workoutsThisWeek = workoutLogs.filter(log => {
-      const logDate = new Date(log.date)
-      return logDate >= weekAgo
-    }).length
-    
-    return { workoutsThisWeek, weekAgo }
-  }, [workoutLogs])
+  const workoutsThisWeek =
+    userStats?.workoutsThisWeek ?? progressStats?.workouts?.this_week ?? 0
   
-  const { workoutsThisWeek } = workoutStats
-  
-  // Usar los días de entrenamiento del perfil del usuario como objetivo semanal con useMemo
+  // Usar objetivo de entrenamientos del plan (vía user-stats sincronizado con admin)
   const trainingData = useMemo(() => {
-    const trainingDays = profile?.training_days || []
-    const workoutsGoal = trainingDays.length > 0 ? trainingDays.length : (profile?.training_days_per_week || 5)
+    const workoutsGoal = userStats?.workoutsGoal || 5
     const workoutProgress = workoutsGoal > 0 ? Math.min(Math.round((workoutsThisWeek / workoutsGoal) * 100), 100) : 0
-    
-    // Calcular cuántas sesiones REALMENTE faltan esta semana (solo días de entrenamiento restantes)
-    const getRemainingTrainingDays = () => {
-      const today = new Date()
-      const todayDayNumber = today.getDay() === 0 ? 7 : today.getDay() // 1=Lunes, 7=Domingo
-      
-      // Contar cuántos días de entrenamiento quedan en la semana (incluyendo hoy)
-      const remainingDays = trainingDays.filter((day: number) => day >= todayDayNumber).length
-      return remainingDays
+
+    return {
+      workoutsGoal,
+      workoutProgress,
+      remainingSessions: Math.max(0, workoutsGoal - workoutsThisWeek),
     }
-    
-    return { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays }
-  }, [profile, workoutsThisWeek])
-  
-  const { trainingDays, workoutsGoal, workoutProgress, getRemainingTrainingDays } = trainingData
-  const remainingTrainingSessions = Math.max(0, getRemainingTrainingDays() - workoutsThisWeek)
+  }, [userStats, workoutsThisWeek])
 
-  // Estadísticas de fotos
-  const totalPhotos = progressStats?.photos.total || photos.length || 0
+  const { workoutsGoal, workoutProgress, remainingSessions: remainingTrainingSessions } = trainingData
 
-  // Obtener saludo según la hora
-  const getGreeting = () => {
-    const hour = new Date().getHours()
-    if (hour < 12) return "¡Buenos días"
-    if (hour < 18) return "¡Buenas tardes"
-    return "¡Buenas noches"
-  }
+  const totalPhotos = progressStats?.photos.total ?? 0
 
-  // Métricas de progreso/peso (varias fuentes)
-  const progressMetricsLoading = statsLoading || progressStatsLoading || weightLoading
+  const progressMetricsLoading = progressStatsLoading
+  const caloriesLoading = statsLoading
+  const workoutsLoading = statsLoading
+  const photosLoading = progressStatsLoading
 
   // Función para refrescar todos los datos
   const handleRefreshAll = async () => {
     try {
       setIsRefreshing(true)
-      await Promise.all([
-        refreshStats(),
-        refreshProgressStats(),
-        refreshPhotos(),
-        refreshWeight()
-      ])
-      setLastRefresh(new Date())
+      await Promise.all([refreshStats(), refreshProgressStats()])
+      const now = new Date()
+      setLastRefreshLabel(now.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }))
       toast({
         title: "✅ Datos actualizados",
         description: "Inicio se ha actualizado correctamente.",
@@ -278,12 +249,22 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
     try {
       const weight = parseFloat(newPhotoWeight)
-      await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType, newPhotoDate)
+      await userService.uploadProgressPhoto(
+        selectedFile,
+        weight,
+        newPhotoNotes,
+        selectedPhotoType,
+        newPhotoDate
+      )
+      await refreshProgressStats()
+      if (weight !== undefined && !isNaN(weight)) {
+        window.dispatchEvent(new CustomEvent('weightUpdated', { detail: { weight } }))
+      }
       toast({ title: "✅ ¡Foto añadida!", description: "Tu foto de progreso ha sido guardada." })
       setSelectedFile(null)
       setNewPhotoWeight("")
       setNewPhotoNotes("")
-      setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
+      setNewPhotoDate(todayDate)
       setIsPhotoDialogOpen(false)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
       setPreviewUrl(null)
@@ -335,9 +316,9 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   return (
     <div className={`flex flex-col space-y-6 sm:space-y-8 ${className}`}>
       <DashboardHeroShell
-        greeting={getGreeting()}
+        greeting={greeting}
         userName={user?.first_name || "Campeón"}
-        daysLoading={statsLoading}
+        daysLoading={statsLoading && userStats == null}
         daysLabel={
           <p className="text-white/80 text-sm sm:text-base">
             Día {daysInTransformation} de tu transformación
@@ -422,7 +403,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         )}
 
         {/* Entrenamientos */}
-        {workoutLoading ? (
+        {workoutsLoading ? (
           <StatCardSkeleton />
         ) : (
           <ContentReveal>
@@ -448,7 +429,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         )}
 
         {/* Calorías */}
-        {mealsLoading ? (
+        {caloriesLoading ? (
           <StatCardSkeleton />
         ) : (
           <ContentReveal>
@@ -477,7 +458,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       {/* Accesos rápidos */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         {/* Próximo Entrenamiento */}
-        {workoutLoading ? (
+        {workoutsLoading ? (
           <QuickAccessCardSkeleton className="bg-gradient-to-br from-purple-500/30 to-pink-500/30" />
         ) : (
           <ContentReveal>
@@ -516,7 +497,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         )}
 
         {/* Fotos de Progreso */}
-        {photosLoading || progressStatsLoading ? (
+        {photosLoading ? (
           <QuickAccessCardSkeleton className="bg-gradient-to-br from-emerald-500/30 to-teal-500/30" />
         ) : (
           <ContentReveal>
@@ -613,7 +594,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
 
       {/* Footer info */}
       <div className="text-center text-xs text-gray-400 py-2">
-        Última actualización: {lastRefresh.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}
+        {lastRefreshLabel ? `Última actualización: ${lastRefreshLabel}` : null}
       </div>
 
       {/* Dialog para subir foto */}
@@ -667,7 +648,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <Input
                 id="photo-date"
                 type="date"
-                max={new Date().toLocaleDateString('en-CA')}
+                max={todayDate || undefined}
                 value={newPhotoDate}
                 onChange={(e) => setNewPhotoDate(e.target.value)}
                 className="text-sm"
@@ -709,7 +690,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
                 setPreviewUrl(null)
                 setNewPhotoWeight("")
                 setNewPhotoNotes("")
-                setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
+                setNewPhotoDate(todayDate)
               }}
               className="flex-1 sm:flex-none"
             >

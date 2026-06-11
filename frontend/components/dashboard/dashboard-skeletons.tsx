@@ -98,7 +98,7 @@ export function DashboardHeroShell({
                 <Sparkles className="w-7 h-7 sm:w-8 sm:h-8 text-white" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold truncate">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold truncate" suppressHydrationWarning>
                   {greeting}, {userName}! 💪
                 </h1>
                 {daysLoading ? (
@@ -164,14 +164,19 @@ function SectionHeroSkeleton({
   )
 }
 
-export function TabsSkeleton() {
+/** Tabs de comidas: Diaria | Semanal | Compras */
+export function MealsTabsSkeleton() {
   return (
-    <div className="grid grid-cols-3 gap-2 p-1 rounded-lg bg-muted/50">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Skeleton key={i} className="h-10 rounded-md" />
+    <div className="grid w-full grid-cols-3 gap-1 p-1 rounded-lg bg-muted h-auto">
+      {["Vista Diaria", "Vista Semanal", "Compras"].map((label) => (
+        <Skeleton key={label} className="h-9 md:h-10 rounded-md" />
       ))}
     </div>
   )
+}
+
+export function TabsSkeleton() {
+  return <MealsTabsSkeleton />
 }
 
 function FormCardSkeleton({ rows = 4 }: { rows?: number }) {
@@ -189,25 +194,132 @@ function FormCardSkeleton({ rows = 4 }: { rows?: number }) {
   )
 }
 
-export function SkeletonMealPlan() {
+/** Hero del plan nutricional (ChefHat + título + progreso) */
+export function MealDashboardHeroSkeleton() {
   return (
-    <Card>
-      <CardContent className="p-4 sm:p-6 space-y-3">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20">
-            <div className="flex items-center gap-3">
-              <Skeleton className="w-5 h-5 rounded-full" />
-              <div className="space-y-1">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-3 w-32" />
-              </div>
+    <Card className="border shadow-xl dark:bg-card overflow-hidden relative">
+      <div className="absolute inset-0 bg-gradient-to-r from-orange-200/20 to-amber-200/20" />
+      <CardContent className="text-center relative z-10 p-4 md:p-6 space-y-3">
+        <Skeleton className="mx-auto w-16 h-16 md:w-24 md:h-24 rounded-full" />
+        <Skeleton className="mx-auto h-7 md:h-9 w-48 max-w-full" />
+        <Skeleton className="mx-auto h-4 w-64 max-w-full" />
+        <Skeleton className="mx-auto h-5 w-40 rounded-full" />
+        <Skeleton className="mx-auto h-3 w-full max-w-md rounded-full" />
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Tarjeta de comida del día (imagen h-48 + macros) */
+export function MealCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
+      <Skeleton className="h-48 w-full rounded-none" />
+      <div className="space-y-3 p-3">
+        <div className="grid grid-cols-3 gap-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Skeleton className="h-9 rounded-xl" />
+          <Skeleton className="h-9 rounded-xl" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Macro tracker del día (círculos + barras) */
+export function MacroTrackerSkeleton() {
+  return (
+    <Card className="border shadow-sm">
+      <CardContent className="p-4 sm:p-6 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-6 w-44" />
+          <Skeleton className="h-4 w-56" />
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex flex-col items-center gap-2">
+              <Skeleton className="w-20 h-20 rounded-full" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-3 w-12" />
             </div>
-            <Skeleton className="h-4 w-16" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-2 w-full rounded-full" />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+/** Calendario semanal: 7 días en franja horizontal */
+export function WeeklyCalendarSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="p-4 space-y-2">
+          <Skeleton className="h-6 w-44" />
+          <Skeleton className="h-4 w-56" />
+        </CardContent>
+      </Card>
+      <div className="flex gap-3 overflow-hidden pb-1">
+        {Array.from({ length: 7 }).map((_, i) => (
+          <div
+            key={i}
+            className="min-w-[88px] sm:min-w-0 sm:flex-1 shrink-0 rounded-xl border p-3 space-y-2"
+          >
+            <Skeleton className="h-3 w-8 mx-auto" />
+            <Skeleton className="h-8 w-10 mx-auto" />
+            <Skeleton className="h-2 w-6 mx-auto" />
+            <Skeleton className="h-1.5 w-full rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Lista de compra agrupada */
+export function ShoppingListSkeleton() {
+  return (
+    <Card className="border shadow-xl overflow-hidden">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex justify-between gap-2">
+          <Skeleton className="h-6 w-36" />
+          <Skeleton className="h-9 w-9 rounded-md" />
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-9 w-36 rounded-md" />
+          <Skeleton className="h-9 flex-1 rounded-md" />
+        </div>
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="rounded-xl border overflow-hidden">
+            <Skeleton className="h-10 w-full rounded-none" />
+            <div className="divide-y">
+              {Array.from({ length: 2 }).map((_, j) => (
+                <div key={j} className="flex items-center gap-3 p-3">
+                  <Skeleton className="h-5 w-5 rounded-full shrink-0" />
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-6 w-14 rounded-md" />
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </CardContent>
     </Card>
   )
+}
+
+/** @deprecated Usar WeeklyCalendarSkeleton para vista semanal */
+export function SkeletonMealPlan() {
+  return <WeeklyCalendarSkeleton />
 }
 
 export function FeedGridSkeleton({ count = 4 }: { count?: number }) {
@@ -229,19 +341,30 @@ export function FeedGridSkeleton({ count = 4 }: { count?: number }) {
 
 export function MealsSectionSkeleton() {
   return (
-    <div className="space-y-6 sm:space-y-8">
-      <SectionHeroSkeleton gradient="bg-gradient-to-br from-orange-500/90 via-orange-400/90 to-amber-400/90" />
-      <TabsSkeleton />
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Card key={i}>
-            <CardContent className="p-4 space-y-3">
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-20 w-full rounded-lg" />
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-8 pb-4">
+      <MealDashboardHeroSkeleton />
+      <MealsTabsSkeleton />
+      <div className="space-y-4 md:space-y-6 mt-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-5 w-48" />
+            <Skeleton className="h-3 w-56" />
+          </div>
+        </div>
+        <MacroTrackerSkeleton />
+        <div className="flex items-center gap-3">
+          <Skeleton className="w-10 h-10 rounded-lg shrink-0" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-5 w-44" />
+            <Skeleton className="h-3 w-52" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <MealCardSkeleton key={i} />
+          ))}
+        </div>
       </div>
     </div>
   )

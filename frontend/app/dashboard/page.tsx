@@ -60,7 +60,7 @@ const WorkoutDashboardEnhanced = lazy(() => import("@/components/dashboard/worko
 const Achievements = lazy(() => import("./components/achievements").then(module => ({ default: module.Achievements })))
 const AchievementsDuolingo = lazy(() => import("./components/achievements-duolingo").then(module => ({ default: module.AchievementsDuolingo })))
 const MobileNavigation = lazy(() => import("./components/mobile-navigation").then(module => ({ default: module.MobileNavigation })))
-const MobileHeader = lazy(() => import("./components/mobile-header").then(module => ({ default: module.MobileHeader })))
+import { MobileHeader } from "./components/mobile-header"
 const DayOneSheet = lazy(() => import("./components/day-one-sheet").then(module => ({ default: module.DayOneSheet })))
 const SettingsPage = lazy(() => import("./components/settings-page").then(module => ({ default: module.default })))
 const ProfilePanel = lazy(() => import("./components/profile-panel").then(module => ({ default: module.ProfilePanel })))
@@ -78,10 +78,9 @@ const RecipeCommunity = lazy(() => import("./components/recipe-community").then(
 
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
-import { useUserProfile } from "@/hooks/use-user-profile"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { DashboardHomeSkeleton, DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
+import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -101,35 +100,48 @@ const menuItems = [
 
 const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
 
-function DashboardContent() {
+function DashboardSectionSync({
+  selectedSection,
+  isPremiumUser,
+  onSectionChange,
+}: {
+  selectedSection: string
+  isPremiumUser: boolean
+  onSectionChange: (section: string) => void
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const sectionParam = searchParams?.get("section")
+
+    if (sectionParam && isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
+      onSectionChange("dashboard")
+      router.replace("/dashboard", { scroll: false })
+      return
+    }
+
+    if (sectionParam && sectionParam !== selectedSection) {
+      onSectionChange(sectionParam)
+    } else if (!sectionParam && selectedSection !== "dashboard") {
+      onSectionChange("dashboard")
+    }
+  }, [searchParams, selectedSection, isPremiumUser, router, onSectionChange])
+
+  return null
+}
+
+function DashboardContent() {
+  const router = useRouter()
   const [selectedSection, setSelectedSection] = useState("dashboard")
   const { user, logout } = useAuth()
-  const { userStats, loading: statsLoading } = useUserData()
-  const { profile, loading: profileLoading } = useUserProfile()
+  const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
   const userRole = (user?.role || "").toLowerCase()
   const isPremiumUser = userRole === "premium"
   const visibleMenuItems = isPremiumUser
     ? menuItems.filter((item) => !PREMIUM_BLOCKED_SECTIONS.has(item.url))
     : menuItems
-
-  useEffect(() => {
-    const sectionParam = searchParams?.get("section")
-
-    if (sectionParam && isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
-      setSelectedSection("dashboard")
-      router.replace("/dashboard", { scroll: false })
-      return
-    }
-
-    if (sectionParam && sectionParam !== selectedSection) {
-      setSelectedSection(sectionParam)
-    } else if (!sectionParam && selectedSection !== "dashboard") {
-      setSelectedSection("dashboard")
-    }
-  }, [searchParams, selectedSection, isPremiumUser, router])
 
   const handleMenuClick = useCallback((section: string, title: string) => {
     if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(section)) {
@@ -470,6 +482,13 @@ function DashboardContent() {
 
   return (
     <div className="app-container bg-background min-h-screen">
+      <Suspense fallback={null}>
+        <DashboardSectionSync
+          selectedSection={selectedSection}
+          isPremiumUser={isPremiumUser}
+          onSectionChange={setSelectedSection}
+        />
+      </Suspense>
       {/* Desktop Layout */}
       <div className="hidden md:flex h-full w-full">
         <SidebarProvider>
@@ -657,9 +676,7 @@ function DashboardContent() {
 
             {/* Desktop Main Content */}
             <main className="flex-1 min-h-0 w-full">
-              <Suspense fallback={<DashboardHomeSkeleton />}>
-                {renderContent()}
-              </Suspense>
+              {renderContent()}
             </main>
           </SidebarInset>
         </SidebarProvider>
@@ -668,19 +685,15 @@ function DashboardContent() {
       {/* Mobile Layout */}
       <div className="md:hidden flex flex-col h-full w-full">
         {/* Mobile Header */}
-        <Suspense fallback={<div className="h-16 bg-card border-b"></div>}>
-          <MobileHeader
-            notifications={unreadCount}
-            onNotificationClick={handleNotificationClick}
-            selectedSection={selectedSection}
-          />
-        </Suspense>
+        <MobileHeader
+          notifications={unreadCount}
+          onNotificationClick={handleNotificationClick}
+          selectedSection={selectedSection}
+        />
 
         {/* Mobile Main Content */}
         <main id="mobile-scroll-content" className="flex-1 min-h-0 w-full pt-0 pb-28 overflow-y-auto">
-          <Suspense fallback={<DashboardHomeSkeleton />}>
-            {renderContent()}
-          </Suspense>
+          {renderContent()}
         </main>
 
         {/* Mobile Bottom Navigation */}
@@ -693,9 +706,5 @@ function DashboardContent() {
 }
 
 export default function Dashboard() {
-  return (
-    <Suspense fallback={<DashboardHomeSkeleton />}>
-      <DashboardContent />
-    </Suspense>
-  )
+  return <DashboardContent />
 }
