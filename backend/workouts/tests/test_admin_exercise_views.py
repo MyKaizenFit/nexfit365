@@ -165,6 +165,44 @@ class TestAdminExerciseEndpoint:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert 'Formato' in response.data['detail']
 
+    def test_upload_video_rolls_back_when_storage_missing(self, admin_client, exercise):
+        video = SimpleUploadedFile(
+            'ejercicio-horizontal.mp4',
+            b'fake-video-content',
+            content_type='video/mp4',
+        )
+        with patch('workouts.admin_exercise_views._storage_file_exists', return_value=False):
+            response = admin_client.post(
+                f'/api/admin/exercises/{exercise.id}/upload-video/',
+                {'video_file': video},
+                format='multipart',
+            )
+
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert 'no se guardó' in response.data['detail'].lower()
+        exercise.refresh_from_db()
+        assert not (exercise.video_file and exercise.video_file.name)
+
+    def test_has_video_false_when_file_missing_on_storage(self, admin_client, exercise):
+        video = SimpleUploadedFile(
+            'ejercicio-horizontal.mp4',
+            b'fake-video-content',
+            content_type='video/mp4',
+        )
+        response = admin_client.post(
+            f'/api/admin/exercises/{exercise.id}/upload-video/',
+            {'video_file': video},
+            format='multipart',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        exercise.refresh_from_db()
+        assert exercise.has_video is True
+
+        from django.core.files.storage import default_storage
+        default_storage.delete(exercise.video_file.name)
+        exercise.refresh_from_db()
+        assert exercise.has_video is False
+
     def test_upload_thumbnail(self, admin_client, exercise):
         thumbnail = SimpleUploadedFile(
             'ejercicio.webp',

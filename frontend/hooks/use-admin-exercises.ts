@@ -67,12 +67,24 @@ const readUploadError = async (response: Response) => {
 
   if (contentType.includes('application/json')) {
     const errorData = await response.json().catch(() => ({}))
-    return errorData.detail || errorData.error || errorData.message || `Error ${response.status}`
+    const detail = errorData.detail ?? errorData.error ?? errorData.message
+    if (typeof detail === 'string' && detail.trim()) {
+      return detail
+    }
+    if (Array.isArray(detail)) {
+      return detail.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join('. ')
+    }
+    if (detail && typeof detail === 'object') {
+      return Object.entries(detail)
+        .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : String(value)}`)
+        .join('. ')
+    }
+    return `Error ${response.status}`
   }
 
   const text = await response.text().catch(() => '')
   if (response.status === 413) {
-    return 'El archivo es demasiado grande para el servidor. Reduce el tamaño o súbelo por Drive.'
+    return 'El archivo es demasiado grande para el servidor (máx. 300MB). Reduce el tamaño o usa Google Drive.'
   }
   if (text.toLowerCase().includes('<!doctype') || text.toLowerCase().includes('<html')) {
     return `El servidor devolvió una página de error (${response.status}). Revisa tamaño/formato del archivo.`
@@ -125,10 +137,13 @@ export const useAdminExercises = () => {
     })
   }
 
-  const fetchExercises = async () => {
+  const fetchExercises = async (options?: { silent?: boolean }) => {
     let allExercises: Exercise[] = []
+    const silent = options?.silent ?? false
     try {
-      setLoading(true)
+      if (!silent) {
+        setLoading(true)
+      }
       setError(null)
 
       let headers = await getAuthHeaders()
@@ -210,7 +225,9 @@ export const useAdminExercises = () => {
         })
       }
     } finally {
-      setLoading(false)
+      if (!silent) {
+        setLoading(false)
+      }
     }
   }
 
@@ -737,6 +754,10 @@ export const useAdminExercises = () => {
     getExerciseSubstitutes,
     addExerciseSubstitute,
     removeExerciseSubstitute,
-    refetch: () => { fetchExercises(); fetchStats(); fetchCategories() }
+    refetch: (options?: { silent?: boolean }) => {
+      fetchExercises(options)
+      fetchStats()
+      fetchCategories()
+    }
   }
 }

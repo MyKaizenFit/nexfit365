@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/hooks/use-toast"
 import { useAdminExercises, Exercise } from "@/hooks/use-admin-exercises"
-import { getAuthHeaders, buildApiUrl } from "@/lib/api"
+import { getAuthHeaders, buildApiUrl, buildMediaUrl } from "@/lib/api"
 import {
   Dumbbell,
   Plus,
@@ -352,6 +352,11 @@ export function ExerciseManagement() {
   const [substituteSearch, setSubstituteSearch] = useState("")
   const [loadingSubstitutes, setLoadingSubstitutes] = useState(false)
 
+  const exerciseHasAssignedVideo = (exercise?: Exercise | null) => Boolean(exercise?.has_video)
+
+  const getExerciseVideoPreviewUrl = (exercise?: Exercise | null) =>
+    buildMediaUrl(exercise?.video_display_url) || buildMediaUrl(exercise?.video_file_url) || exercise?.video_url || null
+
   // Asegurar que exercises sea un array
   const exercisesArray = Array.isArray(exercises) ? exercises : []
   // Obtener categorías únicas para el filtro
@@ -359,7 +364,7 @@ export function ExerciseManagement() {
   const uniqueMuscleGroups = Array.from(new Set(
     exercisesArray.flatMap(exercise => fixEncodingArray(exercise?.muscle_groups || []))
   ))
-  const exercisesWithVideo = exercisesArray.filter(exercise => Boolean(exercise?.has_video || exercise?.video_url || exercise?.video_file || exercise?.video_file_url)).length
+  const exercisesWithVideo = exercisesArray.filter(exercise => exerciseHasAssignedVideo(exercise)).length
   const exercisesWithoutVideo = Math.max(0, exercisesArray.length - exercisesWithVideo)
   const videoCoverage = exercisesArray.length > 0 ? Math.round((exercisesWithVideo / exercisesArray.length) * 100) : 0
 
@@ -373,7 +378,7 @@ export function ExerciseManagement() {
     const matchesMuscleGroup = muscleGroupFilter === "all" ||
       (Array.isArray(exercise.muscle_groups) && exercise.muscle_groups.includes(muscleGroupFilter))
 
-    const hasVideo = Boolean(exercise.has_video || exercise.video_url || exercise.video_file || exercise.video_file_url)
+    const hasVideo = exerciseHasAssignedVideo(exercise)
     const matchesVideo =
       videoFilter === "all" ||
       (videoFilter === "with_video" && hasVideo) ||
@@ -1796,10 +1801,21 @@ export function ExerciseManagement() {
                         ✓ Seleccionado: {videoFile.name} ({(videoFile.size / 1024 / 1024).toFixed(2)} MB)
                       </p>
                     )}
-                    {editingExercise.has_video && !videoFile && (
-                      <p className="text-sm text-green-600 mt-2">
-                        ✓ Este ejercicio ya tiene un video
-                      </p>
+                    {exerciseHasAssignedVideo(editingExercise) && !videoFile && (
+                      <div className="mt-2 space-y-2">
+                        <p className="text-sm text-green-600">
+                          ✓ Video asignado y guardado en el servidor
+                        </p>
+                        {getExerciseVideoPreviewUrl(editingExercise) && (
+                          <video
+                            key={getExerciseVideoPreviewUrl(editingExercise) || editingExercise.id}
+                            src={getExerciseVideoPreviewUrl(editingExercise) || undefined}
+                            controls
+                            className="w-full max-h-48 rounded-md border bg-black"
+                            preload="metadata"
+                          />
+                        )}
+                      </div>
                     )}
                     {videoFile && (
                       <Button
@@ -1809,16 +1825,18 @@ export function ExerciseManagement() {
                         onClick={async () => {
                           try {
                             setUploadingVideo(true)
-                            await uploadExerciseVideo(editingExercise.id, videoFile)
+                            const updated = await uploadExerciseVideo(editingExercise.id, videoFile)
+                            setEditingExercise(updated)
+                            setFormData(prev => ({ ...prev, video_url: '' }))
                             toast({
                               title: "✅ Video subido",
-                              description: "El video se ha subido correctamente",
+                              description: "El video se ha guardado correctamente en el servidor",
                             })
                             setVideoFile(null)
-                            refetch()
+                            refetch({ silent: true })
                           } catch (error) {
                             toast({
-                              title: "❌ Error",
+                              title: "❌ Error al subir video",
                               description: error instanceof Error ? error.message : "Error al subir video",
                               variant: "destructive",
                             })
@@ -1856,13 +1874,14 @@ export function ExerciseManagement() {
                         onClick={async () => {
                           try {
                             setUploadingThumbnail(true)
-                            await uploadExerciseThumbnail(editingExercise.id, thumbnailFile)
+                            const updated = await uploadExerciseThumbnail(editingExercise.id, thumbnailFile)
+                            setEditingExercise(updated)
                             toast({
                               title: "✅ Miniatura subida",
                               description: "La miniatura se ha subido correctamente",
                             })
                             setThumbnailFile(null)
-                            refetch()
+                            refetch({ silent: true })
                           } catch (error) {
                             toast({
                               title: "❌ Error",

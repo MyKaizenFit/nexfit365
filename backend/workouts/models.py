@@ -5,6 +5,7 @@ import uuid
 import re
 from urllib.parse import parse_qs, urlparse
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.db import models, transaction
 from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db.models.functions import Lower
@@ -160,9 +161,18 @@ class Exercise(TimeStampedModel):
             self.google_drive_file_id = drive_file_id
         super().save(*args, **kwargs)
     
+    def _video_file_is_available(self) -> bool:
+        """True si hay archivo subido y existe en el storage."""
+        if not self.video_file or not self.video_file.name:
+            return False
+        try:
+            return default_storage.exists(self.video_file.name)
+        except Exception:
+            return False
+
     @property
     def has_video(self):
-        """Verifica si tiene video disponible"""
+        """Verifica si tiene video disponible (archivo en disco, URL o Drive válido)."""
         return bool(self.get_video_url())
 
     @staticmethod
@@ -232,7 +242,7 @@ class Exercise(TimeStampedModel):
     
     def get_video_url(self):
         """Retorna la URL del video (prioridad: archivo > URL > Google Drive ID)."""
-        if self.video_file:
+        if self._video_file_is_available():
             return self.video_file.url
         if self.video_url:
             normalized_url = self._to_google_drive_preview_url(str(self.video_url).strip())

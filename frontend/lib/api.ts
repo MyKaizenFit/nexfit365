@@ -124,6 +124,16 @@ export const buildApiUrl = (endpoint: string): string => {
   return `${API_CONFIG.BASE_URL}/api/${cleanEndpoint}`
 }
 
+/** URL absoluta para archivos en /media/ (vídeos, miniaturas). */
+export const buildMediaUrl = (mediaPath?: string | null): string | null => {
+  if (!mediaPath) return null
+  if (mediaPath.startsWith('http://') || mediaPath.startsWith('https://')) {
+    return mediaPath
+  }
+  const cleanPath = mediaPath.startsWith('/') ? mediaPath : `/${mediaPath}`
+  return `${API_CONFIG.BASE_URL}${cleanPath}`
+}
+
 // Función para obtener headers con autenticación
 export const getAuthHeaders = (token?: string): Record<string, string> => {
   const headers: Record<string, string> = { ...API_CONFIG.DEFAULT_HEADERS }

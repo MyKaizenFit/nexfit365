@@ -10,7 +10,9 @@ from django.db.models import Count, Q
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.core.validators import FileExtensionValidator
+import logging
 from datetime import timedelta
 from django.db import IntegrityError
 
@@ -23,6 +25,27 @@ MAX_EXERCISE_VIDEO_SIZE = 300 * 1024 * 1024
 MAX_EXERCISE_THUMBNAIL_SIZE = 10 * 1024 * 1024
 ALLOWED_EXERCISE_VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov']
 ALLOWED_EXERCISE_THUMBNAIL_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp']
+
+logger = logging.getLogger(__name__)
+
+
+def _delete_stored_file(file_name: str) -> None:
+    if not file_name:
+        return
+    try:
+        if default_storage.exists(file_name):
+            default_storage.delete(file_name)
+    except Exception:
+        logger.exception("No se pudo eliminar el archivo almacenado: %s", file_name)
+
+
+def _storage_file_exists(file_name: str) -> bool:
+    if not file_name:
+        return False
+    try:
+        return default_storage.exists(file_name)
+    except Exception:
+        return False
 
 
 def validate_uploaded_file(uploaded_file, *, max_size, allowed_extensions, label):
@@ -769,10 +792,31 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
         if error:
             return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
 
-        exercise.video_file = video_file
-        exercise.video_url = ''
-        exercise.google_drive_file_id = ''
-        exercise.save(update_fields=['video_file', 'video_url', 'google_drive_file_id', 'updated_at'])
+        previous_file_name = exercise.video_file.name if exercise.video_file else ''
+        try:
+            exercise.video_file = video_file
+            exercise.video_url = ''
+            exercise.google_drive_file_id = ''
+            exercise.save(update_fields=['video_file', 'video_url', 'google_drive_file_id', 'updated_at'])
+        except Exception as exc:
+            logger.exception("Error al guardar video del ejercicio %s", exercise.id)
+            return Response(
+                {'detail': f'Error al guardar el video: {exc}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        saved_name = exercise.video_file.name if exercise.video_file else ''
+        if not saved_name or not _storage_file_exists(saved_name):
+            exercise.video_file = previous_file_name or ''
+            exercise.save(update_fields=['video_file', 'updated_at'])
+            return Response(
+                {'detail': 'El video no se guardó en el servidor. Comprueba tamaño/formato e inténtalo de nuevo.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        if previous_file_name and previous_file_name != saved_name:
+            _delete_stored_file(previous_file_name)
+
         serializer = self.get_serializer(exercise)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
