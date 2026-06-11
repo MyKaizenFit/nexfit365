@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/auth-context'
 import { progressService, ProgressStats } from '@/lib/progress-service'
 
 export function useProgressStats() {
+  const { isAuthenticated } = useAuth()
   const [stats, setStats] = useState<ProgressStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -11,14 +13,8 @@ export function useProgressStats() {
       setLoading(true)
       setError(null)
       const data = await progressService.getProgressStats()
-      if (data) {
-        setStats(data)
-      } else {
-        // Si no hay datos (usuario no autenticado), establecer null
-        setStats(null)
-      }
+      setStats(data)
     } catch (err) {
-      // Silenciar errores de autenticación
       if (err instanceof Error && err.message.includes('token')) {
         setStats(null)
         return
@@ -30,8 +26,13 @@ export function useProgressStats() {
   }
 
   useEffect(() => {
-    fetchStats()
-  }, [])
+    if (isAuthenticated) {
+      fetchStats()
+    } else {
+      setStats(null)
+      setLoading(false)
+    }
+  }, [isAuthenticated])
 
   const refreshStats = () => {
     fetchStats()

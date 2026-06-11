@@ -27,6 +27,12 @@ import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 import { RestTimer } from "@/components/rest-timer"
 import { WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
+import {
+  getPlanDayForWeekday,
+  getPlanTrainingWeekdays,
+  getPlanWeeklyGoal,
+  getWeekdayNumber,
+} from "@/lib/workout-plan-utils"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 
@@ -465,18 +471,25 @@ export function WorkoutDashboardEnhanced() {
     }
   })()
 
-  // Calcular el objetivo semanal basado en los días de entrenamiento del usuario
-  // Usar profile?.training_days directamente para evitar problemas de inicialización
-  const trainingDaysCount = Array.isArray(profile?.training_days) ? profile.training_days.length : 0
-  const calculatedWeeklyGoal = trainingDaysCount > 0
-    ? trainingDaysCount
-    : (workoutStatistics?.weekly_goal || 5)
+  // Objetivo semanal y días de entrenamiento desde el plan activo (admin)
+  const planTrainingDays = getPlanTrainingWeekdays(userPlan)
+  const calculatedWeeklyGoal = getPlanWeeklyGoal(userPlan) || workoutStatistics?.weekly_goal || 5
+  const trainingDays = planTrainingDays.length > 0
+    ? planTrainingDays
+    : (profile?.training_days || []).map((day: string | number) => {
+        if (typeof day === 'string') {
+          const dayMap: Record<string, number> = {
+            monday: 1, tuesday: 2, wednesday: 3, thursday: 4,
+            friday: 5, saturday: 6, sunday: 7,
+          }
+          return dayMap[day.toLowerCase()] ?? day
+        }
+        return day
+      }).filter((d: unknown): d is number => typeof d === 'number')
 
-  // Usar estadísticas del servidor si están disponibles, sino calcular manualmente
-  // Priorizar el valor calculado del frontend sobre el del backend para asegurar precisión
   const stats = workoutStatistics ? {
     completedThisWeek: Math.max(workoutStatistics.completed_this_week || 0, localWeekStats.completedThisWeek),
-    weeklyGoal: calculatedWeeklyGoal, // Siempre usar el calculado basado en training_days del perfil
+    weeklyGoal: calculatedWeeklyGoal,
     totalWorkouts: workoutStatistics.total_workouts,
     averageDuration: workoutStatistics.average_duration,
     currentStreak: workoutStatistics.current_streak,
@@ -484,7 +497,7 @@ export function WorkoutDashboardEnhanced() {
     totalMinutesWeek: Math.max(workoutStatistics.total_minutes_week || 0, localWeekStats.totalMinutesWeek)
   } : {
     completedThisWeek: localWeekStats.completedThisWeek,
-    weeklyGoal: calculatedWeeklyGoal, // Usar el calculado basado en training_days
+    weeklyGoal: calculatedWeeklyGoal,
     totalWorkouts: workoutLogs.length,
     averageDuration: workoutLogs.filter(log => log.completed && log.duration_minutes).length > 0
       ? Math.round(workoutLogs.filter(log => log.completed && log.duration_minutes)
@@ -502,33 +515,16 @@ export function WorkoutDashboardEnhanced() {
     return days[new Date().getDay()]
   }
 
-  // Obtener días de entrenamiento del perfil y convertir strings a números si es necesario
-  const trainingDaysRaw = profile?.training_days || []
-  const trainingDays = trainingDaysRaw.map((day: string | number) => {
-    // Si es un string, convertir a número
-    if (typeof day === 'string') {
-      const dayMap: Record<string, number> = {
-        'monday': 1,
-        'tuesday': 2,
-        'wednesday': 3,
-        'thursday': 4,
-        'friday': 5,
-        'saturday': 6,
-        'sunday': 7
-      }
-      return dayMap[day.toLowerCase()] || day
-    }
-    return day
-  }).filter((d: any) => typeof d === 'number') as number[]
-
-  // Función para obtener el nombre del día desde el número (1=Lunes, 7=Domingo)
   const getDayNameFromNumber = (dayNumber: number) => {
     const days = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     return days[dayNumber] || ''
   }
 
-  // Función para determinar si un día es de entrenamiento o descanso
   const isTrainingDay = (dayNumber: number) => {
+    if (userPlan?.days?.length) {
+      const planDay = getPlanDayForWeekday(userPlan, dayNumber)
+      return Boolean(planDay && !planDay.is_rest_day)
+    }
     return trainingDays.includes(dayNumber)
   }
 
@@ -609,40 +605,18 @@ export function WorkoutDashboardEnhanced() {
       { number: 7, name: 'Domingo' },
     ]
 
-    const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
-    const todayNumber = today === 0 ? 7 : today // Convertir a nuestro formato (1-7)
-
-    // Obtener días de entrenamiento del plan (sin descanso), ordenados
-    const planWorkoutDays = userPlan?.days
-      ?.filter((d: any) => !d.is_rest_day)
-      ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-
-    // Días del usuario ordenados, limitados al número real de días del plan
-    // para evitar mostrar días extra cuando el perfil tiene más días que el plan activo
-    const userTrainingDays = trainingDays.length > 0
-      ? [...trainingDays].sort((a, b) => a - b).slice(0, planWorkoutDays.length)
-      : []
+    const todayNumber = getWeekdayNumber()
 
     return days.map(day => {
-      // El calendario usa los días del perfil limitados al plan activo
-      const isTraining = userTrainingDays.includes(day.number)
-
-      // Si hay días del usuario configurados, buscar el entrenamiento mapeado
-      let mappedWorkoutDay = null
-      if (isTraining) {
-        const userDayIndex = userTrainingDays.indexOf(day.number)
-        if (userDayIndex >= 0 && userDayIndex < planWorkoutDays.length) {
-          mappedWorkoutDay = planWorkoutDays[userDayIndex]
-        }
-      }
+      const planDay = getPlanDayForWeekday(userPlan, day.number)
+      const isTraining = planDay ? !planDay.is_rest_day : trainingDays.includes(day.number)
 
       return {
         ...day,
-        isTraining, // Basado en el perfil del usuario
+        isTraining,
         isToday: day.number === todayNumber,
-        workoutDay: mappedWorkoutDay, // El entrenamiento mapeado para este día del usuario
-        // Indica si hay un entrenamiento asignado para este día
-        hasPlanWorkout: mappedWorkoutDay !== null
+        workoutDay: planDay && !planDay.is_rest_day ? planDay : null,
+        hasPlanWorkout: Boolean(planDay && !planDay.is_rest_day),
       }
     })
   }
@@ -757,49 +731,6 @@ export function WorkoutDashboardEnhanced() {
     )
   }
 
-  // Obtener el entrenamiento de hoy basado en los días del perfil
-  const getTodaysWorkoutFromProfile = () => {
-    if (!userPlan || !trainingDays.length) {
-      // Si no hay training_days, usar la función original
-      return getTodaysWorkout()
-    }
-
-    const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
-    const todayNumber = today === 0 ? 7 : today // Convertir a nuestro formato (1-7)
-
-    // Obtener días de entrenamiento del plan (sin descanso), ordenados
-    const planWorkoutDays = userPlan.days
-      ?.filter((d: any) => !d.is_rest_day)
-      ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-
-    // Días del usuario ordenados, limitados al número real de días del plan
-    const userTrainingDays = [...trainingDays]
-      .sort((a, b) => a - b)
-      .slice(0, planWorkoutDays.length)
-
-    // Verificar si hoy está dentro de los días efectivos (limitados al plan)
-    if (!userTrainingDays.includes(todayNumber)) {
-      return null
-    }
-
-    // Encontrar el índice del día de hoy en los días del usuario
-    const todayIndex = userTrainingDays.indexOf(todayNumber)
-
-    // Si hoy está en los días del usuario, obtener el entrenamiento correspondiente por índice
-    if (todayIndex >= 0 && todayIndex < planWorkoutDays.length) {
-      const todayWorkout = planWorkoutDays[todayIndex]
-      // Retornar con day_number modificado al día de hoy para mantener consistencia
-      return {
-        ...todayWorkout,
-        day_number: todayNumber, // Usar el día del usuario
-        mapped_from: todayWorkout.day_number // Guardar el día original del plan para referencia
-      }
-    }
-
-    return null
-  }
-
-  const todaysWorkoutFromProfile = getTodaysWorkoutFromProfile()
   const daysInTransformation = userStats?.daysInTransformation || 1
 
   // Función para refrescar datos
@@ -951,13 +882,13 @@ export function WorkoutDashboardEnhanced() {
 
       {/* Entrenamiento de Hoy - Destacado y Completo */}
       {/* Nota: El entrenamiento de hoy se muestra más completo que los demás porque es lo más importante para el usuario */}
-      {todaysWorkoutFromProfile && !todaysWorkoutFromProfile.is_rest_day ? (
+      {todaysWorkout && !todaysWorkout.is_rest_day ? (
         (() => {
-          const dayId = String(todaysWorkoutFromProfile.id)
+          const dayId = String(todaysWorkout.id)
           const completedByLog = todayWorkoutCompleted[dayId] === true
-          const completedByExercises = isWorkoutFullyCompleted(todaysWorkoutFromProfile)
+          const completedByExercises = isWorkoutFullyCompleted(todaysWorkout)
           const isTodayCompleted = completedByLog || completedByExercises
-          const todayTheme = getWorkoutFocusTheme(todaysWorkoutFromProfile)
+          const todayTheme = getWorkoutFocusTheme(todaysWorkout)
 
           return (
             <Card className={`overflow-hidden border-2 ${todayTheme.border} shadow-xl dark:bg-card`}>
@@ -976,7 +907,7 @@ export function WorkoutDashboardEnhanced() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <CardDescription className="text-xs font-semibold uppercase tracking-normal text-white/75 md:text-sm">
-                          {getTodayName()} - {todaysWorkoutFromProfile.day_name || getDayNameFromNumber(todaysWorkoutFromProfile.day_number)}
+                          {getTodayName()} - {todaysWorkout.day_name || getDayNameFromNumber(todaysWorkout.day_number)}
                         </CardDescription>
                         <CardTitle className="mt-1 text-2xl font-black leading-tight text-white md:text-4xl">
                           Entrenamiento de Hoy
@@ -984,7 +915,7 @@ export function WorkoutDashboardEnhanced() {
                       </div>
                     </div>
                     <Badge className="flex-shrink-0 border-0 bg-white/20 px-2 py-1 text-[10px] font-black text-white shadow backdrop-blur md:px-3 md:text-sm">
-                      {todaysWorkoutFromProfile.exercises?.length || 0} ej.
+                      {todaysWorkout.exercises?.length || 0} ej.
                     </Badge>
                   </div>
                   <div className="flex flex-wrap items-end justify-between gap-3">
@@ -1008,11 +939,11 @@ export function WorkoutDashboardEnhanced() {
                 {/* Ejercicios completos */}
                 {/* Nota: Este entrenamiento se muestra completo porque es el de hoy, que es lo más relevante */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 md:gap-3">
-                  {todaysWorkoutFromProfile.exercises?.map((exercise, index) => {
+                  {todaysWorkout.exercises?.map((exercise, index) => {
                     const exerciseData = exercise.exercise || exercise
                     // Intentar obtener el ID del ejercicio de diferentes formas
                     const exerciseId = exerciseData.id || exercise.id
-                    const dayId = todaysWorkoutFromProfile.id
+                    const dayId = todaysWorkout.id
                     const completedExercisesForDay = getCompletedExercisesForDay(dayId)
                     // Verificar si el ejercicio está completado usando diferentes formatos de ID
                     const isExerciseCompleted = exerciseId && (
@@ -1112,7 +1043,7 @@ export function WorkoutDashboardEnhanced() {
                     <Button
                       className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20"
                       style={{ position: 'sticky', bottom: 0, left: 0, right: 0 }}
-                      onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+                      onClick={() => handleStartWorkout(todaysWorkout)}
                     >
                       <CheckCircle2 className="h-5 w-5 mr-2" />
                       Editar Entrenamiento de Hoy
@@ -1121,7 +1052,7 @@ export function WorkoutDashboardEnhanced() {
                     <Button
                       className={`w-full ${todayTheme.button} border-0 text-base md:text-lg py-3 md:py-6 shadow-lg sticky bottom-0 z-20`}
                       style={{ position: 'sticky', bottom: 0, left: 0, right: 0 }}
-                      onClick={() => handleStartWorkout(todaysWorkoutFromProfile)}
+                      onClick={() => handleStartWorkout(todaysWorkout)}
                     >
                       <Play className="h-5 w-5 mr-2" />
                       Iniciar Entrenamiento de Hoy
@@ -1132,8 +1063,8 @@ export function WorkoutDashboardEnhanced() {
             </Card>
           )
         })()
-      ) : trainingDays.length > 0 && !trainingDays.includes(todayDayNumber) ? (
-        // Si hoy no es un día de entrenamiento según el perfil
+      ) : !isTrainingDay(todayDayNumber) ? (
+        // Día de descanso según el plan del admin
         <Card className="border-2 border-border/50 shadow-lg dark:bg-card">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
@@ -1179,40 +1110,23 @@ export function WorkoutDashboardEnhanced() {
 
         <TabsContent value="schedule" className="space-y-4">
 
-          {/* Mostrar días según el perfil del usuario, mapeando entrenamientos del plan en orden */}
-          {trainingDays.length > 0 ? (() => {
-            // Obtener días de entrenamiento del plan (sin descanso), ordenados por day_number
-            const planWorkoutDays = userPlan?.days
-              ?.filter((d: any) => !d.is_rest_day)
-              ?.sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0)) || []
-
-            // Días del usuario ordenados, limitados al número real de días del plan
-            // para evitar mostrar días extra cuando el perfil tiene más días que el plan activo
-            const userTrainingDays = [...trainingDays]
-              .sort((a, b) => a - b)
-              .slice(0, planWorkoutDays.length)
-
-            // Mapear entrenamientos del plan a los días del usuario
-            // Primer entrenamiento del plan → primer día del usuario
-            // Segundo entrenamiento del plan → segundo día del usuario
-            // etc.
-            const mappedDays = userTrainingDays.map((userDayNumber, index) => {
-              const planWorkoutDay = planWorkoutDays[index] || null // Usar índice para mapear
-              return {
-                userDayNumber,
-                planDay: planWorkoutDay
-              }
-            })
+          {/* Programa semanal según el plan asignado por el admin */}
+          {userPlan?.days?.length ? (() => {
+            const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+              weekday,
+              planDay: getPlanDayForWeekday(userPlan, weekday),
+            }))
 
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                {mappedDays.map(({ userDayNumber, planDay }) => {
-                  const dayName = getDayNameFromNumber(userDayNumber)
-                  const isToday = userDayNumber === (new Date().getDay() === 0 ? 7 : new Date().getDay())
+                {scheduleDays.map(({ weekday, planDay }) => {
+                  const dayName = getDayNameFromNumber(weekday)
+                  const isToday = weekday === todayDayNumber
                   const dayTheme = getWorkoutFocusTheme(planDay)
+                  const isRest = !planDay || planDay.is_rest_day
 
                   return (
-                    <Card key={userDayNumber} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${planDay ? `border-2 ${dayTheme.border}` : 'border-orange-100 bg-orange-50/20'}`}>
+                    <Card key={weekday} className={`overflow-hidden shadow-lg transition-all hover:-translate-y-0.5 hover:shadow-xl ${!isRest ? `border-2 ${dayTheme.border}` : 'border-slate-200 bg-slate-50/40'}`}>
                       <CardHeader className={`relative min-h-[132px] overflow-hidden p-0 ${planDay ? `bg-gradient-to-br ${dayTheme.hero}` : 'bg-gradient-to-br from-slate-50 via-orange-50 to-stone-50'}`}>
                         <div className="absolute inset-0 opacity-70">
                           <div className="absolute -right-10 -top-10 h-32 w-32 rounded-full border border-white/80" />
@@ -1222,8 +1136,8 @@ export function WorkoutDashboardEnhanced() {
                         </div>
                         <div className="relative z-10 flex h-full min-h-[132px] flex-col justify-between p-3 text-slate-900">
                           <div className="flex items-start justify-between gap-2">
-                            <Badge className={`px-2 py-0.5 text-[10px] font-black shadow-sm ${planDay ? dayTheme.chip : 'border-orange-200 bg-orange-50 text-orange-800'}`}>
-                              {planDay ? dayTheme.label : 'Pendiente'}
+                            <Badge className={`px-2 py-0.5 text-[10px] font-black shadow-sm ${!isRest ? dayTheme.chip : 'border-slate-200 bg-slate-100 text-slate-600'}`}>
+                              {!isRest ? dayTheme.label : 'Descanso'}
                             </Badge>
                             {isToday && (
                               <Badge variant="default" className="border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-bold text-sky-700">
@@ -1237,16 +1151,15 @@ export function WorkoutDashboardEnhanced() {
                                 {dayName}
                               </CardDescription>
                               <CardTitle className="mt-0.5 line-clamp-2 text-lg font-black leading-tight text-slate-900">
-                                {planDay?.day_name || (planDay ? 'Entrenamiento' : 'Sin plan asignado')}
+                                {isRest ? (planDay?.name || 'Descanso') : (planDay?.name || planDay?.day_name || 'Entrenamiento')}
                               </CardTitle>
                             </div>
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className={`space-y-2 p-3 ${planDay ? `bg-gradient-to-br ${dayTheme.heroSoft}` : ''}`}>
-                        {planDay ? (() => {
-                          // Obtener ejercicios completados para este día
-                          const dayId = planDay.id || planDay.day_number || userDayNumber
+                      <CardContent className={`space-y-2 p-3 ${!isRest ? `bg-gradient-to-br ${dayTheme.heroSoft}` : ''}`}>
+                        {!isRest && planDay ? (() => {
+                          const dayId = planDay.id || planDay.day_number || weekday
                           const completedExercisesForDay = getCompletedExercisesForDay(dayId)
                           const totalExercises = planDay.exercises?.length || 0
                           const completedCount = completedExercisesForDay.size
@@ -1318,7 +1231,7 @@ export function WorkoutDashboardEnhanced() {
                                 )}
                               </div>
 
-                              {todayWorkoutCompleted[planDay.id] ? (
+                              {todayWorkoutCompleted[String(planDay.id || weekday)] ? (
                                 <Button
                                   size="sm"
                                   className="w-full bg-green-100 border border-green-300 text-green-700 hover:bg-green-200 text-sm"
@@ -1341,15 +1254,15 @@ export function WorkoutDashboardEnhanced() {
                               )}
                             </>
                           )
-                        })() : (
+                        })() : isRest ? (
+                          <div className="text-center py-6">
+                            <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground">Día de descanso</p>
+                          </div>
+                        ) : (
                           <div className="text-center py-6">
                             <Clock className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                             <p className="text-sm text-orange-700 font-medium mb-1">Sin plan asignado</p>
-                            <p className="text-xs text-muted-foreground">
-                              No hay entrenamiento asignado para este día.
-                              <br />
-                              Contacta con tu entrenador para que te asigne ejercicios.
-                            </p>
                           </div>
                         )}
                       </CardContent>

@@ -587,16 +587,17 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         
         streak = get_user_activity_streak(user, reference_date=today)
         
-        # Objetivo semanal basado en los días de entrenamiento del usuario
-        # Obtener los días de entrenamiento directamente del usuario (CustomUser)
-        training_days = user.training_days if hasattr(user, 'training_days') and user.training_days else []
-        
-        # Calcular weekly_goal basándose en training_days
-        if training_days and len(training_days) > 0:
-            weekly_goal = len(training_days)
-        else:
-            # Si no hay training_days configurado, usar training_days_per_week o 5 por defecto
-            weekly_goal = user.training_days_per_week if hasattr(user, 'training_days_per_week') and user.training_days_per_week else 5
+        # Objetivo semanal: preferir plan de entrenamiento activo (admin)
+        from dashboard.plan_sync import derive_plan_targets
+
+        plan_targets = derive_plan_targets(user)
+        weekly_goal = plan_targets.get("workouts_goal")
+        if not weekly_goal:
+            training_days = user.training_days if hasattr(user, 'training_days') and user.training_days else []
+            if training_days and len(training_days) > 0:
+                weekly_goal = len(training_days)
+            else:
+                weekly_goal = user.training_days_per_week if hasattr(user, 'training_days_per_week') and user.training_days_per_week else 5
         
         # Calcular progreso semanal
         progress_percentage = round((completed_this_week / weekly_goal * 100)) if weekly_goal > 0 else 0

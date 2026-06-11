@@ -9,14 +9,8 @@ export function useUserData() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Solo ejecutar cuando el usuario esté completamente autenticado
     if (isAuthenticated && user) {
-      // Pequeño delay para asegurar que los tokens estén disponibles
-      const timer = setTimeout(() => {
-        fetchUserStats()
-      }, 100)
-      
-      return () => clearTimeout(timer)
+      fetchUserStats()
     } else {
       setLoading(false)
     }
