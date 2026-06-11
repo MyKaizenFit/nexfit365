@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
+import { formatInvalidIdMessage, isValidUserId, parsePositiveIntId } from "@/lib/admin-id-utils"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { cn } from "@/lib/utils"
 
@@ -351,6 +352,9 @@ export function WorkoutProgramEditor({
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
   const lastUserInteractionRef = useRef(Date.now())
+  const hasLoadedOnceRef = useRef(false)
+  const resolvedUserId = parsePositiveIntId(userId)
+  const invalidUserId = userId != null && userId !== "" && resolvedUserId == null
 
   const filteredReplacementExercises = useMemo(() => {
     const query = exerciseSearch.trim().toLowerCase()
@@ -376,6 +380,13 @@ export function WorkoutProgramEditor({
   }
 
   useEffect(() => {
+    hasLoadedOnceRef.current = false
+    if (!isValidUserId(userId)) {
+      setLoading(false)
+      setProgram(null)
+      setError(formatInvalidIdMessage("ID de usuario"))
+      return
+    }
     void loadUserProgram()
     void loadCalendarWorkoutLogs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -391,15 +402,22 @@ export function WorkoutProgramEditor({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  const loadUserProgram = async () => {
+  const loadUserProgram = async (options: { silent?: boolean } = {}) => {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) {
+      setError(formatInvalidIdMessage("ID de usuario"))
+      setLoading(false)
+      return
+    }
+
+    const showBlockingLoader = !options.silent && !hasLoadedOnceRef.current
     try {
-      setLoading(true)
+      if (showBlockingLoader) setLoading(true)
       setError(null)
 
       const headers = await getAuthHeaders()
 
-      // Usar el endpoint de admin que devuelve el programa activo del usuario
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/program/`), {
+      const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/program/`), {
         headers,
         cache: "no-store",
       })
@@ -480,7 +498,8 @@ export function WorkoutProgramEditor({
       })
       updateUnsavedChanges(false)
     } finally {
-      setLoading(false)
+      hasLoadedOnceRef.current = true
+      if (showBlockingLoader) setLoading(false)
     }
   }
 
@@ -515,9 +534,14 @@ export function WorkoutProgramEditor({
   }
 
   const loadCalendarWorkoutLogs = async () => {
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) {
+      setCalendarWorkoutLogs([])
+      return
+    }
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/workouts/users/${userId}/workout-logs/?limit=500`), {
+      const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/workout-logs/?limit=500`), {
         headers,
         cache: "no-store",
       })
@@ -1027,6 +1051,15 @@ export function WorkoutProgramEditor({
 
   const handleSave = async (options: { silent?: boolean } = {}) => {
     if (!program) return
+    const parsedUserId = parsePositiveIntId(userId)
+    if (!parsedUserId) {
+      toast({
+        title: "No se puede guardar",
+        description: formatInvalidIdMessage("ID de usuario"),
+        variant: "destructive",
+      })
+      return
+    }
     const silent = options.silent === true
 
     try {
@@ -1075,7 +1108,7 @@ export function WorkoutProgramEditor({
       }))
 
       const payload: any = {
-        user_id: userId,
+        user_id: parsedUserId,
         name: program.name,
         description: buildDescriptionWithRpe(program.description, program.targetRpe),
         difficulty: program.level, // El backend usa 'difficulty', no 'level'
@@ -1114,12 +1147,15 @@ export function WorkoutProgramEditor({
         throw new Error(errorData.detail || errorData.error || "Error al guardar el programa de entrenamientos")
       }
 
-      await response.json().catch(() => null)
+      const savedProgram = await response.json().catch(() => null)
+      if (savedProgram?.id) {
+        setProgram((current) => (current ? { ...current, id: savedProgram.id } : current))
+      }
       updateUnsavedChanges(false)
       if (silent) {
         setAutosaveState("saved")
       } else {
-        await loadUserProgram()
+        await loadUserProgram({ silent: true })
 
         toast({
           title: "✅ Programa de entrenamientos guardado",
@@ -1179,7 +1215,15 @@ export function WorkoutProgramEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, hasUnsavedChanges, loading, saving])
 
-  if (loading || !program) {
+  if (invalidUserId) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        {formatInvalidIdMessage("ID de usuario")}
+      </div>
+    )
+  }
+
+  if ((loading && !hasLoadedOnceRef.current) || !program) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center space-y-4">
@@ -1221,7 +1265,6 @@ export function WorkoutProgramEditor({
       onFocusCapture={markUserInteraction}
       onKeyDownCapture={markUserInteraction}
       onPointerDownCapture={markUserInteraction}
-      onTouchMoveCapture={markUserInteraction}
     >
       {/* Header del programa — colapsable para no ocupar pantalla en móvil */}
       <Collapsible open={showProgramSettings} onOpenChange={setShowProgramSettings}>
@@ -2031,6 +2074,7 @@ export function WorkoutProgramEditor({
       <div className="fixed bottom-0 inset-x-0 z-30 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:static md:border-0 md:bg-transparent md:p-0 md:pt-6">
         <div className="flex gap-2 max-w-3xl mx-auto md:max-w-none">
           <Button
+            type="button"
             onClick={() => handleSave()}
             disabled={saving}
             className="flex-1 md:flex-none bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0 h-11"
@@ -2048,11 +2092,12 @@ export function WorkoutProgramEditor({
             )}
           </Button>
           <Button
+            type="button"
             variant="outline"
             onClick={() => {
               if (!confirmDiscardChanges()) return
               updateUnsavedChanges(false)
-              void loadUserProgram()
+              void loadUserProgram({ silent: true })
             }}
             disabled={saving}
             className="shrink-0 h-11"
