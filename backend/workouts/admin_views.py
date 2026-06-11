@@ -196,7 +196,8 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
                 5: 'friday', 6: 'saturday', 7: 'sunday'
             }
-            day_of_week = day_data.get('day_of_week') or day_of_week_map.get(day_number, 'monday')
+            slot_in_week = ((int(day_number) - 1) % 7) + 1
+            day_of_week = day_data.get('day_of_week') or day_of_week_map.get(slot_in_week, 'monday')
 
             workout_day = WorkoutDay.objects.create(
                 program=program,
@@ -263,9 +264,14 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             program.save(update_fields=['days_per_week', 'updated_at'])
 
         if program.user_id and program.is_active and weekly_training_days:
-            User.objects.filter(pk=program.user_id).exclude(
-                training_days_per_week=weekly_training_days
-            ).update(training_days_per_week=weekly_training_days)
+            from dashboard.plan_sync import infer_training_day_numbers, sync_users_from_workout_program
+
+            day_numbers = infer_training_day_numbers(program)
+            user_updates = {"training_days_per_week": weekly_training_days}
+            if day_numbers:
+                user_updates["training_days"] = day_numbers
+            User.objects.filter(pk=program.user_id).update(**user_updates)
+            sync_users_from_workout_program(program)
 
         if hasattr(program, '_prefetched_objects_cache'):
             program._prefetched_objects_cache = {}
@@ -418,6 +424,10 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 is_active=True,
             ).exclude(pk=program.pk).update(is_active=False)
 
+        from dashboard.plan_sync import sync_users_from_workout_program
+        if program.user_id:
+            sync_users_from_workout_program(program)
+
         response_serializer = AdminWorkoutProgramSerializer(program)
         response_data = dict(response_serializer.data)
         if assigned_user_ids is None:
@@ -430,6 +440,38 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     def partial_update(self, request, *args, **kwargs):
         kwargs['partial'] = True
         return self.update(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'], url_path='copy-weeks')
+    def copy_weeks(self, request, pk=None):
+        """Copia una semana origen a una o varias semanas destino del mismo programa."""
+        from .workout_week_utils import copy_program_weeks, normalize_week_list
+
+        program = self.get_object()
+        try:
+            source_week = int(request.data.get('source_week'))
+        except (TypeError, ValueError):
+            return Response({'detail': 'source_week es obligatorio y debe ser un entero >= 1'}, status=status.HTTP_400_BAD_REQUEST)
+
+        target_weeks = normalize_week_list(request.data.get('target_weeks'))
+        if not target_weeks:
+            return Response({'detail': 'target_weeks debe ser un array con al menos una semana destino'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = copy_program_weeks(program, source_week=source_week, target_weeks=target_weeks)
+        except ValueError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        program.refresh_from_db()
+        serializer = self.get_serializer(program)
+        target_label = ", ".join(f"S{week}" for week in result["target_weeks"])
+        return Response(
+            {
+                'detail': f'Semana {source_week} copiada a {target_label} ({result["copied_days"]} días).',
+                **result,
+                'program': serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminWorkoutDayViewSet(viewsets.ModelViewSet):
