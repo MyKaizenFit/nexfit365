@@ -376,6 +376,8 @@ class DefaultPlanConfiguration(TimeStampedModel):
         }
         return aliases.get(value, value)
     
+    LEGACY_DIFFICULTY_ACTIVITY_LEVELS = frozenset({'beginner', 'intermediate', 'advanced'})
+
     def matches_user_profile(self, user):
         """
         Verifica si esta configuración coincide con el perfil del usuario
@@ -388,9 +390,10 @@ class DefaultPlanConfiguration(TimeStampedModel):
         if self.training_location and user.training_location != self.training_location:
             return False
         
-        # Verificar nivel de actividad
-        if self.activity_level and user.activity_level != self.activity_level:
-            return False
+        # Verificar nivel de actividad (ignorar valores legacy de dificultad de entrenamiento)
+        if self.activity_level and self.activity_level not in self.LEGACY_DIFFICULTY_ACTIVITY_LEVELS:
+            if user.activity_level != self.activity_level:
+                return False
         
         # Verificar género
         if self.gender and user.gender != self.gender:

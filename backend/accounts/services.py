@@ -264,6 +264,12 @@ def assign_default_plans_to_user(user):
     from workouts.services import build_assigned_program_tags
     from nutrition.models import NutritionPlan, PlanMeal, Recipe
     from nutrition.services import select_compatible_recipes_for_meal
+    from accounts.default_plan_display_names import (
+        build_user_nutrition_plan_name,
+        build_user_workout_plan_name,
+        sanitize_plan_description,
+        sanitize_workout_day_name,
+    )
     from django.utils import timezone
     
     results = {'workout_program': None, 'nutrition_plan': None}
@@ -280,8 +286,11 @@ def assign_default_plans_to_user(user):
 
         plan = NutritionPlan.objects.create(
             user=user,
-            name=f"{template.name} - {user.first_name}",
-            description=template.description,
+            name=build_user_nutrition_plan_name(template, user),
+            description=sanitize_plan_description(
+                template.description,
+                fallback="Menú semanal personalizado según tu perfil.",
+            ),
             daily_calories=template.daily_calories,
             protein_grams=template.protein_grams,
             carbs_grams=template.carbs_grams,
@@ -335,8 +344,11 @@ def assign_default_plans_to_user(user):
         # Crear programa personalizado
         program = WorkoutProgram.objects.create(
             user=user,
-            name=f"{template.name} - {user.first_name}",
-            description=template.description,
+            name=build_user_workout_plan_name(template, user),
+            description=sanitize_plan_description(
+                template.description,
+                fallback="Programa de entrenamiento personalizado según tu perfil.",
+            ),
             difficulty=template.difficulty,
             goal=template.goal,
             location=getattr(template, 'location', None),
@@ -366,7 +378,7 @@ def assign_default_plans_to_user(user):
                     template_day = source_days[i % len(source_days)]
                     
                     # Crear día de entrenamiento
-                    day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} - {template_day.name}"
+                    day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} · {sanitize_workout_day_name(template_day.name)}"
                     
                     new_day = WorkoutDay.objects.create(
                         program=program,
@@ -396,7 +408,7 @@ def assign_default_plans_to_user(user):
                         continue
                     new_day = WorkoutDay.objects.create(
                         program=program,
-                        name=template_day.name,
+                        name=sanitize_workout_day_name(template_day.name),
                         day_number=template_day.day_number,
                         day_of_week=template_day.day_of_week or weekday_for_day_number(template_day.day_number),
                         is_rest_day=template_day.is_rest_day,
@@ -492,6 +504,91 @@ class DefaultPlanAssignmentService:
                 if config.matches_user_profile(self.user):
                     yield from yield_unique(config)
 
+        # Fallback final: configuraciones genéricas sin criterios estrictos de actividad/sexo/edad
+        for config in configurations:
+            if (
+                not config.gender
+                and not config.age_min
+                and not config.age_max
+                and (
+                    not config.activity_level
+                    or config.activity_level in DefaultPlanConfiguration.LEGACY_DIFFICULTY_ACTIVITY_LEVELS
+                )
+                and config.matches_user_profile(self.user)
+            ):
+                yield from yield_unique(config)
+
+    def _configuration_specificity(self, configuration):
+        """Mayor puntuación = configuración más específica (preferida en empates de prioridad)."""
+        from dashboard.models import DefaultPlanConfiguration
+
+        score = 0
+        if configuration.main_goal:
+            score += 1
+        if configuration.training_location:
+            score += 1
+        if configuration.gender:
+            score += 1
+        if configuration.activity_level and configuration.activity_level not in DefaultPlanConfiguration.LEGACY_DIFFICULTY_ACTIVITY_LEVELS:
+            score += 1
+        if configuration.min_training_days_per_week or configuration.max_training_days_per_week:
+            score += 1
+        if configuration.age_min or configuration.age_max:
+            score += 1
+        if configuration.dietary_restriction_terms():
+            score += 2
+        return score
+
+    def find_best_configuration(self):
+        """Encontrar la mejor configuración con plantillas válidas para el usuario."""
+        from accounts.default_plan_auto_provision import (
+            ensure_configuration_for_user,
+            ensure_fallback_configuration,
+            find_exact_configuration,
+            is_generic_configuration,
+        )
+
+        ensure_fallback_configuration()
+        exact_configuration = find_exact_configuration(self.user)
+        if not exact_configuration:
+            ensure_configuration_for_user(self.user)
+
+        best = None
+        best_nutrition = None
+        best_workout = None
+        best_key = None
+
+        for configuration in self._iter_matching_configurations():
+            nutrition_template, workout_template = self._resolve_configuration_templates(configuration)
+            if not (nutrition_template or workout_template):
+                continue
+            key = (
+                configuration.priority,
+                -self._configuration_specificity(configuration),
+            )
+            if best_key is None or key < best_key:
+                best_key = key
+                best = configuration
+                best_nutrition = nutrition_template
+                best_workout = workout_template
+
+        if best and not is_generic_configuration(best):
+            return best, best_nutrition, best_workout
+
+        exact_configuration = find_exact_configuration(self.user)
+        if exact_configuration:
+            return self._resolve_configuration_templates_pair(exact_configuration)
+
+        if best:
+            return best, best_nutrition, best_workout
+        return None, None, None
+
+    def _resolve_configuration_templates_pair(self, configuration):
+        nutrition_template, workout_template = self._resolve_configuration_templates(configuration)
+        if nutrition_template or workout_template:
+            return configuration, nutrition_template, workout_template
+        return None, None, None
+
     def _resolve_configuration_templates(self, configuration):
         """Devuelve plantillas válidas de una configuración (ignora referencias inválidas)."""
         nutrition_template = None
@@ -526,14 +623,6 @@ class DefaultPlanAssignmentService:
                 )
 
         return nutrition_template, workout_template
-
-    def find_best_configuration(self):
-        """Encontrar la mejor configuración con plantillas válidas para el usuario."""
-        for configuration in self._iter_matching_configurations():
-            nutrition_template, workout_template = self._resolve_configuration_templates(configuration)
-            if nutrition_template or workout_template:
-                return configuration, nutrition_template, workout_template
-        return None, None, None
     
     def assign(self):
         """Asignar planes al usuario basado en configuración"""
@@ -581,6 +670,10 @@ class DefaultPlanAssignmentService:
         # =====================================================================
         if nutrition_template:
             template = nutrition_template
+            from accounts.default_plan_display_names import (
+                build_user_nutrition_plan_name,
+                sanitize_plan_description,
+            )
 
             deactivated_count = NutritionPlan.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
@@ -590,8 +683,11 @@ class DefaultPlanAssignmentService:
             # Crear plan personalizado para el usuario
             nutrition_plan = NutritionPlan.objects.create(
                 user=self.user,
-                name=f"{template.name} - {self.user.first_name}",
-                description=template.description,
+                name=build_user_nutrition_plan_name(template, self.user),
+                description=sanitize_plan_description(
+                    template.description,
+                    fallback="Menú semanal personalizado según tu perfil.",
+                ),
                 daily_calories=template.daily_calories,
                 protein_grams=template.protein_grams,
                 carbs_grams=template.carbs_grams,
@@ -656,6 +752,11 @@ class DefaultPlanAssignmentService:
         # =====================================================================
         if workout_template:
             template_program = workout_template
+            from accounts.default_plan_display_names import (
+                build_user_workout_plan_name,
+                sanitize_plan_description,
+                sanitize_workout_day_name,
+            )
             existing_active_workout = WorkoutProgram.objects.filter(
                 user=self.user,
                 is_active=True,
@@ -689,8 +790,11 @@ class DefaultPlanAssignmentService:
             # Crear programa personalizado
             workout_program = WorkoutProgram.objects.create(
                 user=self.user,
-                name=f"{template_program.name} - {self.user.first_name}",
-                description=template_program.description,
+                name=build_user_workout_plan_name(template_program, self.user),
+                description=sanitize_plan_description(
+                    template_program.description,
+                    fallback="Programa de entrenamiento personalizado según tu perfil.",
+                ),
                 difficulty=template_program.difficulty,
                 goal=template_program.goal,
                 duration_weeks=template_program.duration_weeks,
@@ -719,7 +823,7 @@ class DefaultPlanAssignmentService:
                     for i, user_day in enumerate(sorted(user_training_days)):
                         template_day = source_days[i % len(source_days)]
                         
-                        day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} - {template_day.name}"
+                        day_name = f"{DAY_NUMBER_TO_SPANISH.get(user_day, f'Día {user_day}')} · {sanitize_workout_day_name(template_day.name)}"
                         
                         new_day = WorkoutDay.objects.create(
                             program=workout_program,
@@ -749,7 +853,7 @@ class DefaultPlanAssignmentService:
                             continue
                         new_day = WorkoutDay.objects.create(
                             program=workout_program,
-                            name=template_day.name,
+                            name=sanitize_workout_day_name(template_day.name),
                             day_number=template_day.day_number,
                             day_of_week=template_day.day_of_week or weekday_for_day_number(template_day.day_number),
                             is_rest_day=template_day.is_rest_day,
@@ -771,7 +875,7 @@ class DefaultPlanAssignmentService:
                     copied_days_count,
                     copied_exercises_count,
                 )
-            workout_message = f"Plan de entrenamiento '{template_program.name}' asignado automáticamente"
+            workout_message = f"Plan de entrenamiento asignado automáticamente"
         elif not workout_message:
             workout_message = NO_COMPATIBLE_WORKOUT_MESSAGE
         
