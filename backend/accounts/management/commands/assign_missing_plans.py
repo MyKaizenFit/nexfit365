@@ -39,7 +39,7 @@ class Command(BaseCommand):
         if specific_email:
             users = CustomUser.objects.filter(email=specific_email)
         else:
-            users = CustomUser.objects.filter(is_active=True)
+            users = CustomUser.objects.filter(is_active=True, role__in=['basic', 'pro'])
         
         self.stdout.write(f'Revisando {users.count()} usuarios...\n')
         

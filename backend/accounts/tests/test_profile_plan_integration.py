@@ -480,6 +480,142 @@ class TestProfilePlanIntegration:
         assert "Plantilla válida" in result.nutrition_plan.name
         assert result.configuration.name == "Config válida"
 
+    def test_default_assignment_auto_provisions_configuration_for_new_profile(self, user):
+        """Un perfil sin regla exacta debe crear automáticamente una configuración [AUTO-DEFECTO]."""
+        from accounts.default_plan_auto_provision import find_exact_configuration
+        from dashboard.models import DefaultPlanConfiguration
+
+        user.main_goal = "gain_muscle"
+        user.training_location = "gym"
+        user.gender = "male"
+        user.activity_level = "active"
+        user.training_days_per_week = 4
+        user.training_days = [1, 2, 4, 5]
+        user.save()
+
+        before_count = DefaultPlanConfiguration.objects.filter(
+            is_active=True,
+            name__startswith="[AUTO-DEFECTO]",
+        ).count()
+        assert find_exact_configuration(user) is None
+
+        nutrition_template = NutritionPlan.objects.create(
+            name="Plantilla ganancia",
+            goal="gain_muscle",
+            is_template=True,
+            is_active=True,
+            daily_calories=2500,
+        )
+        PlanMeal.objects.create(
+            plan=nutrition_template,
+            name="Desayuno",
+            meal_type="breakfast",
+            order_index=1,
+            calories=600,
+            protein=Decimal("40.0"),
+            carbs=Decimal("60.0"),
+            fat=Decimal("15.0"),
+        )
+        workout_template = WorkoutProgram.objects.create(
+            name="Rutina ganancia",
+            goal="muscle_gain",
+            is_template=True,
+            is_active=True,
+            days_per_week=4,
+        )
+        workout_day = WorkoutDay.objects.create(
+            program=workout_template,
+            name="Torso",
+            day_number=1,
+            order_index=1,
+        )
+        exercise = Exercise.objects.create(name="Press auto provision", is_system=True)
+        WorkoutDayExercise.objects.create(
+            workout_day=workout_day,
+            exercise=exercise,
+            sets=3,
+            reps="10",
+        )
+
+        # Fuentes reales mínimas para que el auto-provision pueda copiar plantillas.
+        NutritionPlan.objects.create(
+            name="Dieta Flexible Personalizada",
+            goal="maintain",
+            is_template=True,
+            is_active=True,
+            daily_calories=2200,
+        )
+        PlanMeal.objects.create(
+            plan=NutritionPlan.objects.get(name="Dieta Flexible Personalizada"),
+            name="Comida",
+            meal_type="lunch",
+            order_index=1,
+            calories=500,
+            protein=Decimal("30.0"),
+            carbs=Decimal("50.0"),
+            fat=Decimal("12.0"),
+        )
+        WorkoutProgram.objects.create(
+            name="¡AUMENTA TU POMPOSO II!",
+            goal="general_fitness",
+            is_template=True,
+            is_active=True,
+            days_per_week=4,
+        )
+        WorkoutDay.objects.create(
+            program=WorkoutProgram.objects.get(name="¡AUMENTA TU POMPOSO II!"),
+            name="Día 1",
+            day_number=1,
+            order_index=1,
+        )
+
+        result = DefaultPlanAssignmentService(user).assign()
+
+        assert result.configuration is not None
+        assert result.nutrition_plan is not None
+        assert result.workout_program is not None
+        assert find_exact_configuration(user) is not None
+        assert DefaultPlanConfiguration.objects.filter(
+            is_active=True,
+            name__startswith="[AUTO-DEFECTO]",
+        ).count() >= before_count + 1
+
+    def test_default_assignment_ignores_legacy_difficulty_activity_level(self, user):
+        """Configs con beginner/intermediate/advanced no deben bloquear por activity_level del usuario."""
+        nutrition_template = NutritionPlan.objects.create(
+            name="Plantilla legacy actividad",
+            goal="lose_weight",
+            is_template=True,
+            is_active=True,
+            daily_calories=1800,
+        )
+        PlanMeal.objects.create(
+            plan=nutrition_template,
+            name="Desayuno",
+            meal_type="breakfast",
+            order_index=1,
+            calories=400,
+            protein=Decimal("25.0"),
+            carbs=Decimal("45.0"),
+            fat=Decimal("10.0"),
+        )
+        DefaultPlanConfiguration.objects.create(
+            name="Config legacy actividad",
+            priority=1,
+            is_active=True,
+            main_goal="lose_weight",
+            activity_level="beginner",
+            default_nutrition_plan=nutrition_template,
+        )
+
+        user.activity_level = "light"
+        user.save(update_fields=["activity_level"])
+
+        result, _, _ = DefaultPlanAssignmentService(user).find_best_configuration()
+
+        assert result is not None
+        assert result.name == "Config legacy actividad"
+
     def test_default_assignment_does_not_fallback_to_system_plans(self, user):
         """Sin configuración compatible, no asignar planes de sistema genéricos."""
         NutritionPlan.objects.create(
