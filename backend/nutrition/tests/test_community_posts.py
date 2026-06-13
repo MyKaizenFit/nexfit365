@@ -83,6 +83,22 @@ class TestCommunityPosts:
         assert response.data['template_data'] == {'duration': '30 minutos'}
         assert response.data['tags'] == ['cardio', 'casa']
 
+    def test_create_post_rejects_oversized_photo(self, community_client):
+        large = SimpleUploadedFile(
+            "huge.jpg",
+            b"x" * (6 * 1024 * 1024 + 1),
+            content_type="image/jpeg",
+        )
+        response = community_client.post(self.url, {
+            'title': 'Foto grande',
+            'description': 'No deberia pasar',
+            'post_type': 'progress',
+            'photo': large,
+        }, format='multipart')
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert '6MB' in str(response.data)
+
     def test_create_post_accepts_mobile_jpg_content_type(self, community_client):
         photo = make_test_image(content_type="image/jpg")
         response = community_client.post(self.url, {

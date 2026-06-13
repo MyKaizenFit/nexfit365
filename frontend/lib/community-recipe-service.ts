@@ -89,6 +89,8 @@ export const communityRecipeService = {
     const response = await authenticatedFetch("nutrition/community-recipes/", {
       method: "POST",
       body: formData,
+      uploadTimeoutMs: 120000,
+      networkRetries: 1,
     })
     if (!response.ok) {
       throw new Error(await responseErrorMessage(response))
@@ -141,6 +143,8 @@ export const communityRecipeService = {
     const response = await authenticatedFetch(`nutrition/community-recipes/${postId}/upload-photo/`, {
       method: "POST",
       body: formData,
+      uploadTimeoutMs: 120000,
+      networkRetries: 1,
     })
     if (!response.ok) {
       throw new Error(await responseErrorMessage(response))

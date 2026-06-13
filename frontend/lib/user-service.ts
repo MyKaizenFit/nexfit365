@@ -5,6 +5,7 @@ import { buildApiUrl, getAuthHeaders, handleApiResponse, handleFetchError, AUTH_
 import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
+import { normalizePhotoFile } from './image-upload'
 
 // Importar tipos desde el archivo centralizado
 import type { User, UserProfile, UserStats } from '@/types/user'
@@ -40,100 +41,7 @@ export interface MeasurementEntry {
   notes?: string
 }
 
-const MAX_PROGRESS_PHOTO_BYTES = 5 * 1024 * 1024
-
-const isHeicFile = (file: File) => {
-  const name = file.name.toLowerCase()
-  return file.type === 'image/heic' || file.type === 'image/heif' || name.endsWith('.heic') || name.endsWith('.heif')
-}
-
-const loadImageElement = (file: File): Promise<HTMLImageElement> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const img = new Image()
-      img.onload = () => resolve(img)
-      img.onerror = (err) => reject(err)
-      img.src = reader.result as string
-    }
-    reader.onerror = (err) => reject(err)
-    reader.readAsDataURL(file)
-  })
-}
-
-const compressImageIfNeeded = async (file: File): Promise<File> => {
-  if (typeof window === 'undefined') return file
-  if (file.size <= MAX_PROGRESS_PHOTO_BYTES) return file
-
-  const maxDim = 1920
-  const quality = 0.85
-
-  try {
-    const bitmap = await createImageBitmap(file)
-    const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height))
-    const width = Math.max(1, Math.round(bitmap.width * scale))
-    const height = Math.max(1, Math.round(bitmap.height * scale))
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return file
-    ctx.drawImage(bitmap, 0, 0, width, height)
-
-    const blob = await new Promise<Blob | null>((resolve) => {
-      canvas.toBlob((b) => resolve(b), 'image/jpeg', quality)
-    })
-
-    if (!blob) return file
-    const newName = file.name.replace(/\.(heic|heif|png)$/i, '.jpg')
-    return new File([blob], newName, { type: 'image/jpeg' })
-  } catch {
-    try {
-      const img = await loadImageElement(file)
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height))
-      const width = Math.max(1, Math.round(img.width * scale))
-      const height = Math.max(1, Math.round(img.height * scale))
-
-      const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
-      const ctx = canvas.getContext('2d')
-      if (!ctx) return file
-      ctx.drawImage(img, 0, 0, width, height)
-
-      const blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob((b) => resolve(b), 'image/jpeg', quality)
-      })
-
-      if (!blob) return file
-      const newName = file.name.replace(/\.(heic|heif|png)$/i, '.jpg')
-      return new File([blob], newName, { type: 'image/jpeg' })
-    } catch {
-      return file
-    }
-  }
-}
-
-const normalizeProgressPhotoFile = async (file: File): Promise<File> => {
-  let normalized = file
-
-  if (typeof window !== 'undefined' && isHeicFile(file)) {
-    try {
-      const { default: heic2any } = await import('heic2any')
-      const result = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.85 })
-      const blob = Array.isArray(result) ? result[0] : result
-      if (blob instanceof Blob) {
-        const newName = file.name.replace(/\.(heic|heif)$/i, '.jpg')
-        normalized = new File([blob], newName, { type: 'image/jpeg' })
-      }
-    } catch {
-      // si falla la conversión, seguimos con el archivo original
-    }
-  }
-
-  return compressImageIfNeeded(normalized)
-}
+const normalizeProgressPhotoFile = normalizePhotoFile
 
 export interface NutritionPlan {
   id: number

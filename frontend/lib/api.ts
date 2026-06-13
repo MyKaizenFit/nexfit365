@@ -268,7 +268,18 @@ const isRetryableNetworkError = (error: unknown): boolean => {
   }
 
   const message = error.message.toLowerCase()
-  return message.includes('failed to fetch') || message.includes('networkerror') || message.includes('network request failed')
+  return (
+    message.includes('failed to fetch')
+    || message.includes('networkerror')
+    || message.includes('network request failed')
+    || message.includes('load failed')
+    || message.includes('aborted')
+  )
+}
+
+export type AuthenticatedFetchOptions = RequestInit & {
+  uploadTimeoutMs?: number
+  networkRetries?: number
 }
 
 const delay = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
@@ -284,12 +295,13 @@ const getClientContextHeaders = (): Record<string, string> => {
 }
 
 // Función para hacer requests con manejo automático de renovación de tokens
-export const authenticatedFetch = async (url: string, options: RequestInit = {}): Promise<Response> => {
+export const authenticatedFetch = async (url: string, options: AuthenticatedFetchOptions = {}): Promise<Response> => {
   const authService = getAuthService()
   const token = authService.getAccessToken()
   const method = (options.method || 'GET').toUpperCase()
+  const { uploadTimeoutMs, networkRetries = 0, ...fetchOptions } = options
   const canRetryTransient = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
-  const maxTransientRetries = canRetryTransient ? 2 : 0
+  const maxTransientRetries = canRetryTransient ? 2 : networkRetries
   let transientAttempt = 0
 
   if (!token) {
@@ -304,10 +316,22 @@ export const authenticatedFetch = async (url: string, options: RequestInit = {})
   })
 
   const executeRequest = async (authToken: string): Promise<Response> => {
-    return fetch(buildApiUrl(url), {
-      ...options,
-      headers: buildHeaders(authToken)
-    })
+    const controller = uploadTimeoutMs ? new AbortController() : null
+    const timeoutId = controller
+      ? window.setTimeout(() => controller.abort(), uploadTimeoutMs)
+      : null
+
+    try {
+      return await fetch(buildApiUrl(url), {
+        ...fetchOptions,
+        signal: controller ? controller.signal : fetchOptions.signal,
+        headers: buildHeaders(authToken),
+      })
+    } finally {
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId)
+      }
+    }
   }
 
   while (true) {
