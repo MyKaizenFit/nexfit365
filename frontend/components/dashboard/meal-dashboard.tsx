@@ -67,6 +67,22 @@ export function MealDashboard() {
   const handleCloseModal = () => {
     setIsModalOpen(false)
     setSelectedMeal(null)
+    setInitialView(undefined)
+  }
+
+  const handleViewPreviewRecipe = (
+    meal: { id: string; name: string; time: string; mealType: string },
+    previewOption: MealOption,
+  ) => {
+    setSelectedMeal({
+      ...meal,
+      currentSelection: {
+        optionId: String(previewOption.id),
+        recipeId: previewOption.recipeId ? String(previewOption.recipeId) : null,
+      },
+    })
+    setInitialView('recipe')
+    setIsModalOpen(true)
   }
 
   // Calcular progreso del día con useMemo
@@ -402,6 +418,17 @@ export function MealDashboard() {
                         <span>Cambiar</span>
                       </button>
                     </div>
+
+                    {previewOption.recipeId ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewPreviewRecipe(meal, previewOption)}
+                        className="flex w-full items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>Ver receta</span>
+                      </button>
+                    ) : null}
                   </>
                 ) : (
                   <button
