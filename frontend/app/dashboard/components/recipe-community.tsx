@@ -22,6 +22,13 @@ import {
   CommunityPostType,
   CommunityRecipePost,
 } from "@/lib/community-recipe-service"
+import {
+  assertPhotoWithinUploadLimit,
+  cropPhotoToRatio,
+  formatPhotoUploadError,
+  MAX_PHOTO_UPLOAD_BYTES,
+  normalizePhotoFile,
+} from "@/lib/image-upload"
 
 type ImageFormat = "original" | "square" | "portrait" | "landscape"
 type ImageFit = "cover" | "contain"
@@ -99,64 +106,28 @@ const formatDate = (value: string) => new Date(value).toLocaleDateString("es-ES"
 
 const postTypeInfo = (type: CommunityPostType) => POST_TYPES.find((item) => item.value === type) || POST_TYPES[0]
 
-const loadBrowserImage = (file: File): Promise<HTMLImageElement> => new Promise((resolve, reject) => {
-  const url = URL.createObjectURL(file)
-  const image = new window.Image()
-  image.onload = () => {
-    URL.revokeObjectURL(url)
-    resolve(image)
-  }
-  image.onerror = () => {
-    URL.revokeObjectURL(url)
-    reject(new Error("No se pudo preparar la imagen"))
-  }
-  image.src = url
-})
-
-const canvasToFile = (canvas: HTMLCanvasElement, originalName: string, format: ImageFormat): Promise<File> => new Promise((resolve, reject) => {
-  canvas.toBlob((blob) => {
-    if (!blob) {
-      reject(new Error("No se pudo generar la imagen"))
-      return
-    }
-    const baseName = originalName.replace(/\.[^.]+$/, "") || "team-sk"
-    resolve(new File([blob], `${baseName}-${format}.jpg`, { type: "image/jpeg" }))
-  }, "image/jpeg", 0.9)
-})
-
 const preparePhotoForUpload = async (
   file: File,
   format: ImageFormat,
   fit: ImageFit,
   position: { x: number; y: number },
 ): Promise<File> => {
+  const normalized = await normalizePhotoFile(file, {
+    maxBytes: MAX_PHOTO_UPLOAD_BYTES,
+    maxDimension: 2048,
+  })
+
   const config = formatConfig(format)
-  if (format === "original" || !config.ratio) return file
+  if (format === "original" || !config.ratio) {
+    assertPhotoWithinUploadLimit(normalized)
+    return normalized
+  }
 
-  const image = await loadBrowserImage(file)
-  const maxSide = 1600
-  const targetWidth = config.ratio >= 1 ? maxSide : Math.round(maxSide * config.ratio)
-  const targetHeight = Math.round(targetWidth / config.ratio)
-  const canvas = document.createElement("canvas")
-  canvas.width = targetWidth
-  canvas.height = targetHeight
-
-  const context = canvas.getContext("2d")
-  if (!context) throw new Error("No se pudo preparar la imagen")
-
-  context.fillStyle = "#ffffff"
-  context.fillRect(0, 0, targetWidth, targetHeight)
-
-  const scale = fit === "cover"
-    ? Math.max(targetWidth / image.width, targetHeight / image.height)
-    : Math.min(targetWidth / image.width, targetHeight / image.height)
-  const drawWidth = image.width * scale
-  const drawHeight = image.height * scale
-  const x = fit === "cover" ? (targetWidth - drawWidth) * (position.x / 100) : (targetWidth - drawWidth) / 2
-  const y = fit === "cover" ? (targetHeight - drawHeight) * (position.y / 100) : (targetHeight - drawHeight) / 2
-
-  context.drawImage(image, x, y, drawWidth, drawHeight)
-  return canvasToFile(canvas, file.name, format)
+  return cropPhotoToRatio(normalized, file.name, {
+    ratio: config.ratio,
+    fit,
+    position,
+  })
 }
 
 export function RecipeCommunity() {
@@ -258,7 +229,7 @@ export function RecipeCommunity() {
     } catch (error) {
       toast({
         title: "No se pudo publicar",
-        description: error instanceof Error ? error.message : "Revisa los datos y vuelve a intentarlo.",
+        description: formatPhotoUploadError(error),
         variant: "destructive",
       })
     } finally {
@@ -410,7 +381,7 @@ export function RecipeCommunity() {
                       Foto opcional
                     </div>
                   )}
-                  <input type="file" accept="image/*" className="hidden" onChange={(event) => setForm((current) => ({ ...current, photo: event.target.files?.[0] || null }))} />
+                  <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => setForm((current) => ({ ...current, photo: event.target.files?.[0] || null }))} />
                 </label>
 
                 {photoPreview ? (
@@ -458,7 +429,7 @@ export function RecipeCommunity() {
                 <Button type="submit" className="w-full bg-teal-600 hover:bg-teal-700" disabled={saving}>
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}Publicar
                 </Button>
-                <p className="text-xs text-muted-foreground">La publicación se elimina automáticamente al cumplir 7 días.</p>
+                <p className="text-xs text-muted-foreground">Las fotos se optimizan automáticamente antes de publicarse (máx. 5 MB).</p>
               </div>
             </form>
           </CardContent>
