@@ -1,5 +1,9 @@
 from rest_framework import serializers
 
+from accounts.services import is_assignable_nutrition_template, is_assignable_workout_template
+from nutrition.models import NutritionPlan
+from workouts.models import WorkoutProgram
+
 from .models import (
     DashboardData,
     WellnessTip,
@@ -9,7 +13,6 @@ from .models import (
     HelpSettings,
     ProblemReport,
 )
-from accounts.services import is_assignable_nutrition_template, is_assignable_workout_template
 
 
 class DashboardDataSerializer(serializers.ModelSerializer):
@@ -295,6 +298,10 @@ class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
     
     default_nutrition_plan = serializers.SerializerMethodField()
     default_workout_program = serializers.SerializerMethodField()
+    nutrition_plan_is_assignable = serializers.SerializerMethodField()
+    workout_program_is_assignable = serializers.SerializerMethodField()
+    has_valid_templates = serializers.SerializerMethodField()
+    templates_issue = serializers.SerializerMethodField()
     
     class Meta:
         model = DefaultPlanConfiguration
@@ -304,6 +311,8 @@ class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
             'min_training_days_per_week', 'max_training_days_per_week',
             'age_min', 'age_max', 'dietary_restrictions', 'equipment_keywords',
             'default_nutrition_plan', 'default_workout_program',
+            'nutrition_plan_is_assignable', 'workout_program_is_assignable',
+            'has_valid_templates', 'templates_issue',
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
@@ -323,6 +332,29 @@ class DefaultPlanConfigurationSerializer(serializers.ModelSerializer):
                 'name': obj.default_workout_program.name,
             }
         return None
+
+    def get_nutrition_plan_is_assignable(self, obj) -> bool:
+        if not obj.default_nutrition_plan_id:
+            return True
+        return is_assignable_nutrition_template(obj.default_nutrition_plan)
+
+    def get_workout_program_is_assignable(self, obj) -> bool:
+        if not obj.default_workout_program_id:
+            return True
+        return is_assignable_workout_template(obj.default_workout_program)
+
+    def get_has_valid_templates(self, obj) -> bool:
+        return self.get_nutrition_plan_is_assignable(obj) and self.get_workout_program_is_assignable(obj)
+
+    def get_templates_issue(self, obj) -> str | None:
+        issues = []
+        if obj.default_nutrition_plan_id and not is_assignable_nutrition_template(obj.default_nutrition_plan):
+            issues.append('plan nutricional no válido')
+        if obj.default_workout_program_id and not is_assignable_workout_template(obj.default_workout_program):
+            issues.append('programa de entrenamiento no válido')
+        if not issues:
+            return None
+        return 'Tiene ' + ' y '.join(issues) + '. Elige plantillas activas sin usuario (no del sistema).'
 
 
 class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer):
@@ -381,6 +413,40 @@ class DefaultPlanConfigurationCreateUpdateSerializer(serializers.ModelSerializer
                     'default_workout_program_id': (
                         'Debe ser una plantilla activa sin usuario asignado '
                         '(no planes de sistema ni planes personales de usuarios).'
+                    )
+                })
+
+        instance = getattr(self, 'instance', None)
+        will_be_active = attrs.get('is_active', instance.is_active if instance else True)
+        if will_be_active and instance:
+            nutrition_plan = None
+            workout_program = None
+            if 'default_nutrition_plan_id' in attrs:
+                nutrition_plan_id = attrs.get('default_nutrition_plan_id')
+                if nutrition_plan_id:
+                    nutrition_plan = NutritionPlan.objects.filter(id=nutrition_plan_id).first()
+            elif instance.default_nutrition_plan_id:
+                nutrition_plan = instance.default_nutrition_plan
+
+            if 'default_workout_program_id' in attrs:
+                workout_program_id = attrs.get('default_workout_program_id')
+                if workout_program_id:
+                    workout_program = WorkoutProgram.objects.filter(id=workout_program_id).first()
+            elif instance.default_workout_program_id:
+                workout_program = instance.default_workout_program
+
+            if nutrition_plan and not is_assignable_nutrition_template(nutrition_plan):
+                raise serializers.ValidationError({
+                    'default_nutrition_plan_id': (
+                        'No se puede activar: el plan nutricional vinculado no es una plantilla válida. '
+                        'Selecciona otra plantilla en la pestaña Planes.'
+                    )
+                })
+            if workout_program and not is_assignable_workout_template(workout_program):
+                raise serializers.ValidationError({
+                    'default_workout_program_id': (
+                        'No se puede activar: el programa de entrenamiento vinculado no es válido. '
+                        'Selecciona otra plantilla en la pestaña Planes.'
                     )
                 })
         

@@ -841,6 +841,25 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
 
             {/* TAB 3: Planes */}
             <TabsContent value="planes" className="space-y-4">
+              <div className="flex items-start gap-2 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>
+                  Solo se listan plantillas válidas para asignación automática: activas, sin usuario
+                  y que no sean del sistema. Prefiere las marcadas como <strong>[AUTO-DEFECTO]</strong>.
+                </span>
+              </div>
+              {dialogState.mode === "edit" && dialogState.targetId && (() => {
+                const config = configurations.find(c => c.id === dialogState.targetId)
+                if (config?.has_valid_templates === false && config.templates_issue) {
+                  return (
+                    <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                      <span>{config.templates_issue} Selecciona nuevas plantillas antes de activar.</span>
+                    </div>
+                  )
+                }
+                return null
+              })()}
               <SearchablePlanSelect
                 label="Plan de nutrición por defecto"
                 value={dialogState.form.default_nutrition_plan_id ?? null}
@@ -1007,6 +1026,11 @@ function ConfigurationCard({ configuration, onEdit, onDelete }: ConfigurationCar
                   >
                     Orden {applicationOrder}
                   </Badge>
+                  {configuration.has_valid_templates === false && (
+                    <Badge variant="destructive" className="text-xs flex-shrink-0" title={configuration.templates_issue ?? undefined}>
+                      Plantillas inválidas
+                    </Badge>
+                  )}
                 </div>
                 {configuration.description && (
                   <div className="text-xs text-muted-foreground line-clamp-2 mb-2">
@@ -1049,6 +1073,12 @@ function ConfigurationCard({ configuration, onEdit, onDelete }: ConfigurationCar
             </div>
 
             {/* Planes asignados - siempre visibles */}
+            {configuration.has_valid_templates === false && configuration.templates_issue && (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-2 mb-2 text-xs text-destructive">
+                <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                <span>{configuration.templates_issue}</span>
+              </div>
+            )}
             <div className="space-y-2 pt-2 border-t">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-xs text-muted-foreground">Nutrición:</span>

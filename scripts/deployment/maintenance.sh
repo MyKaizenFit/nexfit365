@@ -37,6 +37,9 @@ EOF
 render_page() {
   mkdir -p "$MAINTENANCE_DIR"
   install -m 0644 "$PAGE_TEMPLATE" "$MAINTENANCE_DIR/index.html"
+  if [ -f "$ROOT_DIR/frontend/public/icono.png" ]; then
+    install -m 0644 "$ROOT_DIR/frontend/public/icono.png" "$MAINTENANCE_DIR/icono.png"
+  fi
 }
 
 reload_nginx() {
