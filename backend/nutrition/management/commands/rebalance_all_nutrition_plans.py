@@ -157,14 +157,18 @@ class Command(BaseCommand):
                 fixed += 1
                 continue
 
-            with transaction.atomic():
-                finalize_plan_after_meal_changes(
-                    plan,
-                    preserve_daily_calories=preserve_cal,
-                    preserve_protein=preserve_protein,
-                    preserve_carbs=preserve_carbs,
-                    preserve_fat=preserve_fat,
-                )
+            try:
+                with transaction.atomic():
+                    finalize_plan_after_meal_changes(
+                        plan,
+                        preserve_daily_calories=preserve_cal,
+                        preserve_protein=preserve_protein,
+                        preserve_carbs=preserve_carbs,
+                        preserve_fat=preserve_fat,
+                    )
+            except Exception as exc:
+                self.stdout.write(self.style.ERROR(f"  ✗ Error: {exc}"))
+                continue
 
             plan.refresh_from_db()
             after_mpd, after_day_cal, _ = _reference_day_totals(plan)
