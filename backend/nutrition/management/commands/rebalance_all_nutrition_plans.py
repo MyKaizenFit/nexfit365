@@ -21,6 +21,7 @@ from django.db.models import Count, Prefetch
 
 from nutrition.models import NutritionPlan, PlanMeal
 from nutrition.plan_meal_utils import (
+    _meal_effective_macros,
     compute_average_day_macros,
     compute_meals_per_day,
     finalize_plan_after_meal_changes,
@@ -46,7 +47,7 @@ def _reference_day_totals(plan: NutritionPlan) -> tuple[int, int, int]:
             day_meals = resolve_meals_for_calendar_day(meals, day, week)
         else:
             day_meals = groups.get((week, None), [])
-        day_calories = sum(int(m.calories or 0) for m in day_meals)
+        day_calories = sum(int(round(_meal_effective_macros(m)['calories'])) for m in day_meals)
 
     return actual_mpd, day_calories, stored_mpd
 

@@ -9,13 +9,40 @@ from typing import Iterable, Optional
 from nutrition.models import NutritionPlan, PlanMeal, PlanMealRecipe
 
 
+MAX_CUSTOM_MACRO = Decimal('9999.99')
+
+
+def _meal_effective_macros(meal: PlanMeal) -> dict[str, float]:
+    """Macros de una comida; si tiene recetas usa su promedio (opciones alternativas)."""
+    meal_recipes = list(meal.meal_recipes.all())
+    if meal_recipes:
+        display_calories = [mr.get_display_calories() for mr in meal_recipes]
+        display_protein = [mr.get_display_protein() for mr in meal_recipes]
+        display_carbs = [mr.get_display_carbs() for mr in meal_recipes]
+        display_fat = [mr.get_display_fat() for mr in meal_recipes]
+        count = len(meal_recipes)
+        return {
+            'calories': sum(display_calories) / count,
+            'protein': sum(display_protein) / count,
+            'carbs': sum(display_carbs) / count,
+            'fat': sum(display_fat) / count,
+        }
+    return {
+        'calories': float(meal.calories or 0),
+        'protein': float(meal.protein or 0),
+        'carbs': float(meal.carbs or 0),
+        'fat': float(meal.fat or 0),
+    }
+
+
 def _sum_meal_macros(meals: Iterable[PlanMeal]) -> dict[str, float]:
     totals = {'calories': 0.0, 'protein': 0.0, 'carbs': 0.0, 'fat': 0.0}
     for meal in meals:
-        totals['calories'] += float(meal.calories or 0)
-        totals['protein'] += float(meal.protein or 0)
-        totals['carbs'] += float(meal.carbs or 0)
-        totals['fat'] += float(meal.fat or 0)
+        macros = _meal_effective_macros(meal)
+        totals['calories'] += macros['calories']
+        totals['protein'] += macros['protein']
+        totals['carbs'] += macros['carbs']
+        totals['fat'] += macros['fat']
     return totals
 
 
@@ -115,14 +142,17 @@ def _scale_meal_recipes(meal: PlanMeal, ratio: Decimal) -> None:
         display_fat = meal_recipe.get_display_fat()
 
         meal_recipe.custom_calories = max(1, int(round(display_calories * float(ratio))))
-        meal_recipe.custom_protein = (Decimal(str(display_protein)) * ratio).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
+        meal_recipe.custom_protein = min(
+            (Decimal(str(display_protein)) * ratio).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+            MAX_CUSTOM_MACRO,
         )
-        meal_recipe.custom_carbs = (Decimal(str(display_carbs)) * ratio).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
+        meal_recipe.custom_carbs = min(
+            (Decimal(str(display_carbs)) * ratio).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+            MAX_CUSTOM_MACRO,
         )
-        meal_recipe.custom_fat = (Decimal(str(display_fat)) * ratio).quantize(
-            Decimal('0.01'), rounding=ROUND_HALF_UP
+        meal_recipe.custom_fat = min(
+            (Decimal(str(display_fat)) * ratio).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
+            MAX_CUSTOM_MACRO,
         )
         meal_recipe.servings = Decimal('1.00')
         meal_recipe.save(update_fields=[
@@ -174,7 +204,7 @@ def rebalance_meal_group(
     calorie_ratio = Decimal(str(target_calories)) / Decimal(str(current_calories))
 
     for meal in meals:
-        old_calories = int(meal.calories or 0)
+        old_calories = int(round(_meal_effective_macros(meal)['calories']))
         if old_calories <= 0:
             continue
         ratio = calorie_ratio
