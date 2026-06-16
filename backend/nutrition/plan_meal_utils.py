@@ -106,33 +106,28 @@ def meal_calorie_fraction(meals_for_day: list[PlanMeal], meal: PlanMeal) -> floa
 
 
 def _scale_meal_recipes(meal: PlanMeal, ratio: Decimal) -> None:
+    """Escala recetas de una comida; usa custom_* para evitar overflow en servings."""
     meal_recipes = list(meal.meal_recipes.select_related('recipe').all())
     for meal_recipe in meal_recipes:
-        update_fields = []
-        if meal_recipe.custom_calories is not None:
-            meal_recipe.custom_calories = max(1, int(round(meal_recipe.custom_calories * ratio)))
-            update_fields.append('custom_calories')
-        if meal_recipe.custom_protein is not None:
-            meal_recipe.custom_protein = (Decimal(str(meal_recipe.custom_protein)) * ratio).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-            update_fields.append('custom_protein')
-        if meal_recipe.custom_carbs is not None:
-            meal_recipe.custom_carbs = (Decimal(str(meal_recipe.custom_carbs)) * ratio).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-            update_fields.append('custom_carbs')
-        if meal_recipe.custom_fat is not None:
-            meal_recipe.custom_fat = (Decimal(str(meal_recipe.custom_fat)) * ratio).quantize(
-                Decimal('0.01'), rounding=ROUND_HALF_UP
-            )
-            update_fields.append('custom_fat')
-        meal_recipe.servings = (Decimal(str(meal_recipe.servings or 1)) * ratio).quantize(
+        display_calories = meal_recipe.get_display_calories()
+        display_protein = meal_recipe.get_display_protein()
+        display_carbs = meal_recipe.get_display_carbs()
+        display_fat = meal_recipe.get_display_fat()
+
+        meal_recipe.custom_calories = max(1, int(round(display_calories * float(ratio))))
+        meal_recipe.custom_protein = (Decimal(str(display_protein)) * ratio).quantize(
             Decimal('0.01'), rounding=ROUND_HALF_UP
         )
-        update_fields.append('servings')
-        if update_fields:
-            meal_recipe.save(update_fields=update_fields)
+        meal_recipe.custom_carbs = (Decimal(str(display_carbs)) * ratio).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+        meal_recipe.custom_fat = (Decimal(str(display_fat)) * ratio).quantize(
+            Decimal('0.01'), rounding=ROUND_HALF_UP
+        )
+        meal_recipe.servings = Decimal('1.00')
+        meal_recipe.save(update_fields=[
+            'custom_calories', 'custom_protein', 'custom_carbs', 'custom_fat', 'servings',
+        ])
 
     if meal_recipes:
         display_calories = [mr.get_display_calories() for mr in meal_recipes]
