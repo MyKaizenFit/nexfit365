@@ -27,6 +27,10 @@ export interface DefaultPlanConfiguration {
   equipment_keywords: string[]
   default_nutrition_plan: PlanSummary | null
   default_workout_program: PlanSummary | null
+  nutrition_plan_is_assignable?: boolean
+  workout_program_is_assignable?: boolean
+  has_valid_templates?: boolean
+  templates_issue?: string | null
   created_by: CreatedBySummary | null
   created_at: string
   updated_at: string

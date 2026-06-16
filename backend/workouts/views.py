@@ -700,6 +700,17 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
             return WorkoutProgram.objects.none()
+        assignable_only = self.request.query_params.get('assignable_only', '').lower() in ('true', '1', 'yes')
+        if assignable_only:
+            return WorkoutProgram.objects.filter(
+                is_template=True,
+                is_active=True,
+                is_system=False,
+                user__isnull=True,
+            ).prefetch_related(
+                'days__exercises__exercise',
+                'days__exercises__exercise__substitutions__substitute',
+            )
         # Devolver plantillas y programas del sistema
         return WorkoutProgram.objects.filter(
             models.Q(is_template=True) | models.Q(is_system=True)

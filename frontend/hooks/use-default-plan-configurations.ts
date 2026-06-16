@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { CONFIGURATION_ENDPOINTS, buildApiUrl } from "@/lib/api"
+import { formatApiError } from "@/lib/api-errors"
 import { DefaultPlanConfiguration, PlanOption, UpsertDefaultPlanConfigurationPayload } from "@/types"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 
-// Endpoints para obtener TODOS los planes (no solo los default)
-const ALL_NUTRITION_PLANS_ENDPOINT = "nutrition/default-nutrition-plans/" // Todos los planes de nutrición
-const ALL_WORKOUT_PROGRAMS_ENDPOINT = "workout-plan-templates/" // Todos los templates de entrenamiento (los 315)
+// Endpoints filtrados a plantillas asignables (configuraciones por defecto)
+const ALL_NUTRITION_PLANS_ENDPOINT = "nutrition/default-nutrition-plans/"
+const ALL_WORKOUT_PROGRAMS_ENDPOINT = "workout-plan-templates/"
+const ASSIGNABLE_ONLY_QUERY = "assignable_only=true"
 
 type FetchState = "idle" | "loading" | "success" | "error"
 
@@ -138,12 +140,11 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       // removed stray parenthesis
 
       if (!response.ok) {
-        const message =
-          (payload && typeof payload === "object" && "detail" in payload && (payload as any).detail) ||
-          (payload && typeof payload === "object" && "message" in payload && (payload as any).message) ||
-          response.statusText ||
-          "No se pudieron cargar las configuraciones."
-        throw new Error(String(message))
+        const message = formatApiError(
+          payload,
+          response.statusText || "No se pudieron cargar las configuraciones.",
+        )
+        throw new Error(message)
       }
 
       // Si la respuesta es OK pero el payload tiene un error, manejarlo
@@ -226,7 +227,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       
       // Cargar todos los planes con paginación
       while (hasMore) {
-        const url = buildApiUrl(`${ALL_NUTRITION_PLANS_ENDPOINT}?page=${page}&page_size=${pageSize}`)
+        const url = buildApiUrl(`${ALL_NUTRITION_PLANS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=${page}&page_size=${pageSize}`)
         const response: Response = await fetch(url, { headers })
         
         if (!response.ok) {
@@ -277,7 +278,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       
       
       // Intentar cargar todos de una vez con page_size grande
-      const url = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?page=1&page_size=1000`)
+      const url = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=1&page_size=1000`)
       
       const response: Response = await fetch(url, { headers })
       
@@ -317,7 +318,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
         let hasMore = true
         
         while (hasMore && page <= 20) {
-          const nextUrl = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?page=${page}&page_size=1000`)
+          const nextUrl = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=${page}&page_size=1000`)
           const nextResponse: Response = await fetch(nextUrl, { headers })
           
           if (!nextResponse.ok) {
@@ -403,11 +404,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
           : await response.text()
 
         if (!response.ok) {
-          const message =
-            (responseData && typeof responseData === "object" && "detail" in responseData && (responseData as any).detail) ||
-            response.statusText ||
-            "No se pudo guardar la configuración."
-          throw new Error(String(message))
+          throw new Error(formatApiError(responseData, "No se pudo guardar la configuración."))
         }
 
         await fetchConfigurations(true) // Forzar recarga después de mutación

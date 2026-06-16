@@ -2993,7 +2993,16 @@ def default_nutrition_plans(request):
     Devuelve planes que pueden ser usados como plantillas o para asignación.
     Los admins ven todos los planes activos; el resto solo ve templates.
     """
-    if request.user.is_staff or request.user.is_superuser:
+    assignable_only = request.query_params.get('assignable_only', '').lower() in ('true', '1', 'yes')
+    if assignable_only:
+        # Plantillas válidas para configuraciones por defecto (asignación automática)
+        plans = NutritionPlan.objects.filter(
+            is_active=True,
+            is_template=True,
+            is_system=False,
+            user__isnull=True,
+        ).distinct()
+    elif request.user.is_staff or request.user.is_superuser:
         # Admins pueden asignar cualquier plan activo
         plans = NutritionPlan.objects.filter(is_active=True).distinct()
     else:

@@ -239,7 +239,43 @@ cleanup_deploy_pid() {
         cp "$DEPLOY_LOG_FILE" "$DEPLOY_LOG_DIR/deploy-$(date +%Y%m%d-%H%M%S).log" 2>/dev/null || true
     fi
 }
-trap cleanup_deploy_pid EXIT
+cleanup_on_exit() {
+  disable_maintenance_mode
+  cleanup_deploy_pid
+}
+
+trap cleanup_on_exit EXIT
+
+MAINTENANCE_SCRIPT="$SCRIPT_DIR/scripts/deployment/maintenance.sh"
+MAINTENANCE_ENABLED_BY_DEPLOY=false
+
+enable_maintenance_mode() {
+  if [ ! -f "$MAINTENANCE_SCRIPT" ]; then
+    print_warning "Script de mantenimiento no encontrado: $MAINTENANCE_SCRIPT"
+    return 0
+  fi
+  print_info "Activando modo mantenimiento..."
+  if bash "$MAINTENANCE_SCRIPT" on; then
+    MAINTENANCE_ENABLED_BY_DEPLOY=true
+    print_success "Modo mantenimiento activado"
+  else
+    print_warning "No se pudo activar mantenimiento automáticamente (¿sudo nginx?)."
+    print_info "Actívalo manualmente: ./scripts/deployment/maintenance.sh on && sudo systemctl reload nginx"
+  fi
+}
+
+disable_maintenance_mode() {
+  if [ "$MAINTENANCE_ENABLED_BY_DEPLOY" != true ]; then
+    return 0
+  fi
+  print_info "Desactivando modo mantenimiento..."
+  if bash "$MAINTENANCE_SCRIPT" off; then
+    print_success "Modo mantenimiento desactivado"
+  else
+    print_warning "No se pudo desactivar mantenimiento automáticamente."
+    print_info "Desactívalo manualmente: ./scripts/deployment/maintenance.sh off && sudo systemctl reload nginx"
+  fi
+}
 
 echo ""
 echo "========================================="
@@ -293,6 +329,8 @@ if [ ! -f "frontend/docker.env.production" ]; then
 fi
 
 print_success "Archivos de configuración verificados"
+
+enable_maintenance_mode
 
 # 3. Construir imágenes (si no se especifica --no-build)
 if [ "$NO_BUILD" = false ]; then
