@@ -1283,36 +1283,48 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         }
 
     def _recompute_plan_macros(self, plan: NutritionPlan):
-        day_totals = {}
-        meals = list(plan.meals.all())
+        from nutrition.plan_meal_utils import finalize_plan_after_meal_changes
 
-        for day in range(1, 8):
-            totals = {'calories': 0, 'protein': 0, 'carbs': 0, 'fat': 0}
-            for meal in meals:
-                if meal.day_of_week and meal.day_of_week != day:
-                    continue
-                totals['calories'] += float(meal.calories or 0)
-                totals['protein'] += float(meal.protein or 0)
-                totals['carbs'] += float(meal.carbs or 0)
-                totals['fat'] += float(meal.fat or 0)
-            day_totals[day] = totals
+        finalize_plan_after_meal_changes(plan)
 
-        active_days = [t for t in day_totals.values() if sum(t.values()) > 0]
-        if not active_days:
+    def _finalize_plan_after_meals(
+        self,
+        plan: NutritionPlan,
+        meals_payload,
+        *,
+        requested_daily_calories=None,
+        requested_protein=None,
+        requested_carbs=None,
+        requested_fat=None,
+    ):
+        from nutrition.plan_meal_utils import finalize_plan_after_meal_changes
+
+        if meals_payload is None:
             return
 
-        avg = {
-            'calories': sum(t['calories'] for t in active_days) / len(active_days),
-            'protein': sum(t['protein'] for t in active_days) / len(active_days),
-            'carbs': sum(t['carbs'] for t in active_days) / len(active_days),
-            'fat': sum(t['fat'] for t in active_days) / len(active_days),
-        }
+        preserve_cal = self._to_int(requested_daily_calories)
+        if not preserve_cal or preserve_cal <= 0:
+            preserve_cal = int(plan.daily_calories or 0) or None
 
-        plan.daily_calories = int(round(avg['calories']))
-        plan.protein_grams = int(round(avg['protein']))
-        plan.carbs_grams = int(round(avg['carbs']))
-        plan.fat_grams = int(round(avg['fat']))
-        plan.save(update_fields=['daily_calories', 'protein_grams', 'carbs_grams', 'fat_grams'])
+        preserve_protein = self._to_int(requested_protein)
+        if preserve_protein is None:
+            preserve_protein = int(plan.protein_grams) if plan.protein_grams is not None else None
+
+        preserve_carbs = self._to_int(requested_carbs)
+        if preserve_carbs is None:
+            preserve_carbs = int(plan.carbs_grams) if plan.carbs_grams is not None else None
+
+        preserve_fat = self._to_int(requested_fat)
+        if preserve_fat is None:
+            preserve_fat = int(plan.fat_grams) if plan.fat_grams is not None else None
+
+        finalize_plan_after_meal_changes(
+            plan,
+            preserve_daily_calories=preserve_cal,
+            preserve_protein=preserve_protein,
+            preserve_carbs=preserve_carbs,
+            preserve_fat=preserve_fat,
+        )
 
     def _to_int(self, value):
         try:
@@ -1589,7 +1601,14 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.save(update_fields=['is_template'])
 
         self._replace_plan_meals(plan, meals_payload)
-        self._recompute_plan_macros(plan)
+        self._finalize_plan_after_meals(
+            plan,
+            meals_payload,
+            requested_daily_calories=request.data.get('daily_calories'),
+            requested_protein=request.data.get('protein_grams'),
+            requested_carbs=request.data.get('carbs_grams'),
+            requested_fat=request.data.get('fat_grams'),
+        )
 
         plan.refresh_from_db()
         plan = NutritionPlan.objects.prefetch_related(
@@ -1640,7 +1659,14 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.save(update_fields=['is_template'])
 
         self._replace_plan_meals(plan, meals_payload)
-        self._recompute_plan_macros(plan)
+        self._finalize_plan_after_meals(
+            plan,
+            meals_payload,
+            requested_daily_calories=requested_daily_calories,
+            requested_protein=requested_protein,
+            requested_carbs=requested_carbs,
+            requested_fat=requested_fat,
+        )
 
         # Si un admin fija calorías manualmente en un plan de usuario,
         # reescalamos comidas/recetas para no perder ese valor al recalcular.
