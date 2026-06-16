@@ -339,22 +339,34 @@ def plan_meals_for_selection(request):
         candidates.sort(key=lambda candidate: macro_distance(candidate, target_calories, target_protein, target_carbs, target_fat))
         return candidates[0]
     
-    # Distribución de calorías por comida (porcentajes del total diario)
+    # Distribución legacy por tipo (fallback si no hay comidas del plan cargadas aún)
     meal_calorie_distribution = {
-        'breakfast': 0.25,      # 25% del día
-        'morning_snack': 0.075,  # 7.5% del día (snack dividido en dos)
-        'lunch': 0.35,          # 35% del día
-        'afternoon_snack': 0.075, # 7.5% del día (snack dividido en dos)
-        'dinner': 0.25,          # 25% del día
-        'evening_snack': 0.075,   # 7.5% del día
-        'snack': 0.15            # 15% del día (genérico)
+        'breakfast': 0.25,
+        'morning_snack': 0.075,
+        'lunch': 0.35,
+        'afternoon_snack': 0.075,
+        'dinner': 0.25,
+        'evening_snack': 0.075,
+        'snack': 0.15,
     }
-    
+    meal_percentage_by_meal_id: dict[str, float] = {}
+    meals_count_for_day = 0
+
+    def _resolve_meal_percentage(meal_type: str, meal_base=None) -> float:
+        if meal_base is not None and meal_base.id is not None:
+            cached = meal_percentage_by_meal_id.get(str(meal_base.id))
+            if cached is not None:
+                return cached
+            if meal_base.calories and daily_calories:
+                return max(0.05, min(1.0, float(meal_base.calories) / float(daily_calories)))
+        if meals_count_for_day > 0:
+            return 1.0 / meals_count_for_day
+        return meal_calorie_distribution.get(meal_type, 0.25)
+
     # Función helper para personalizar una receta
     def personalize_recipe(recipe, meal_type, meal_base=None):
         """Personaliza una receta según el perfil del usuario"""
-        # Calcular porcentaje de calorías para este tipo de comida
-        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        meal_percentage = _resolve_meal_percentage(meal_type, meal_base)
         target_calories = daily_calories * meal_percentage
         
         # Calcular factor de escala basado en calorías objetivo vs receta base (convertir Decimal a float)
@@ -397,7 +409,7 @@ def plan_meals_for_selection(request):
     # Función helper para personalizar una comida sin receta
     def personalize_meal(meal, meal_type):
         """Personaliza una comida genérica según el perfil del usuario"""
-        meal_percentage = meal_calorie_distribution.get(meal_type, 0.25)
+        meal_percentage = _resolve_meal_percentage(meal_type, meal)
         target_calories = daily_calories * meal_percentage
         
         # Calcular factor de escala (convertir Decimal a float)
@@ -509,18 +521,19 @@ def plan_meals_for_selection(request):
     
     if user_plan:
         from nutrition.plan_week_utils import resolve_plan_week_number
+        from nutrition.plan_meal_utils import meal_calorie_fraction, resolve_meals_for_calendar_day
 
         # Comidas del día y semana del ciclo del plan (semanas independientes).
         today_dow = date_for_slots.isoweekday()
         plan_week = resolve_plan_week_number(user_plan, date_for_slots)
-        base_meals_qs = user_plan.meals.filter(
-            Q(day_of_week=today_dow) | Q(day_of_week__isnull=True)
-        )
-        if base_meals_qs.filter(week_number=plan_week).exists():
-            meals = base_meals_qs.filter(week_number=plan_week).order_by('order_index', 'id')
-        else:
-            # Compatibilidad: planes antiguos solo tienen semana 1.
-            meals = base_meals_qs.filter(week_number=1).order_by('order_index', 'id')
+        all_plan_meals = list(user_plan.meals.all())
+        meals = resolve_meals_for_calendar_day(all_plan_meals, today_dow, plan_week)
+        if not meals and plan_week != 1:
+            meals = resolve_meals_for_calendar_day(all_plan_meals, today_dow, 1)
+        meals_count_for_day = len(meals)
+        for meal in meals:
+            meal_percentage_by_meal_id[str(meal.id)] = meal_calorie_fraction(meals, meal)
+
         for meal in meals:
             meal_type = meal.meal_type
             if meal_type not in meals_by_type:
@@ -626,6 +639,18 @@ def plan_meals_for_selection(request):
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
         
+        if meal_slots:
+            from nutrition.plan_meal_utils import _sum_meal_macros
+
+            day_totals = _sum_meal_macros(meals)
+            if day_totals['calories'] > 0:
+                daily_calories = int(round(day_totals['calories']))
+                daily_macros = {
+                    'protein': round(day_totals['protein'], 1),
+                    'carbs': round(day_totals['carbs'], 1),
+                    'fat': round(day_totals['fat'], 1),
+                }
+
         # Si el usuario tiene plan pero no hay comidas configuradas para ese día,
         # NO devolver vacío: continuar con plantillas del sistema / fallback por recetas.
         if meal_slots:
