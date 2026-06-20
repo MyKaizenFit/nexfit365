@@ -13,7 +13,9 @@ import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight } from "lucide-react"
+import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, ChevronRight, Copy, ClipboardPaste, Check, ChevronDown } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { mealMatchesDayAndWeek, planDurationWeeks, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
 
@@ -64,7 +66,8 @@ interface PlanMealDraft {
 type RecipeSelectorMode = "add" | "replace"
 type CopySource =
   | { type: "meal"; meal: PlanMealDraft }
-  | { type: "day"; day: DayKey }
+  | { type: "day"; day: DayKey; sourceWeek: number }
+  | { type: "week"; sourceWeek: number }
   | null
 
 const DAY_LABELS: Record<DayKey, string> = {
@@ -264,7 +267,11 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const [targetRecipeId, setTargetRecipeId] = useState<string | null>(null)
   const [copySource, setCopySource] = useState<CopySource>(null)
   const [copyTargetDays, setCopyTargetDays] = useState<DayKey[]>([])
+  const [copyTargetWeeks, setCopyTargetWeeks] = useState<number[]>([])
   const [copyMode, setCopyMode] = useState<"append" | "replace">("append")
+  const [showCopyWeekTools, setShowCopyWeekTools] = useState(false)
+  const [weekCopySource, setWeekCopySource] = useState("1")
+  const [selectedWeekCopyTargets, setSelectedWeekCopyTargets] = useState<string[]>([])
 
   const recipesById = useMemo(() => {
     const map = new Map<string, AdminRecipe>()
@@ -344,6 +351,35 @@ export const NutritionTemplatePlanEditor = forwardRef<
       .filter((m) => mealMatchesDayAndWeek(m, dayNum, activeWeek))
       .sort((a, b) => a.order_index - b.order_index)
   }, [meals, activeDay, activeWeek])
+
+  const weekOptions = useMemo(
+    () => Array.from({ length: planDurationWeeksState }, (_, index) => String(index + 1)),
+    [planDurationWeeksState]
+  )
+
+  const weekHasMeals = useCallback(
+    (week: number) => meals.some((meal) => (meal.week_number ?? 1) === week),
+    [meals]
+  )
+
+  const weekCopySourceSummary = useMemo(() => {
+    const week = Number(weekCopySource)
+    const weekMeals = meals.filter((meal) => (meal.week_number ?? 1) === week)
+    const recipeCount = weekMeals.reduce((total, meal) => total + meal.meal_recipes.length, 0)
+    return `${weekMeals.length} comidas · ${recipeCount} recetas`
+  }, [meals, weekCopySource])
+
+  const toggleWeekCopyTarget = (week: string) => {
+    setSelectedWeekCopyTargets((prev) =>
+      prev.includes(week) ? prev.filter((value) => value !== week) : [...prev, week]
+    )
+  }
+
+  const toggleCopyTargetWeek = (week: number) => {
+    setCopyTargetWeeks((prev) =>
+      prev.includes(week) ? prev.filter((value) => value !== week) : [...prev, week]
+    )
+  }
 
   const syncSelectionFromDate = (date: Date) => {
     setSelectedCalendarDate(date)
@@ -641,18 +677,28 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const openCopyMealDialog = (meal: PlanMealDraft) => {
     setCopySource({ type: "meal", meal })
     setCopyTargetDays([])
+    setCopyTargetWeeks([])
     setCopyMode("append")
   }
 
   const openCopyDayDialog = (day: DayKey) => {
-    setCopySource({ type: "day", day })
+    setCopySource({ type: "day", day, sourceWeek: activeWeek })
     setCopyTargetDays([])
+    setCopyTargetWeeks([])
     setCopyMode("append")
+  }
+
+  const openCopyWeekDialog = () => {
+    setCopySource({ type: "week", sourceWeek: activeWeek })
+    setCopyTargetDays((["1", "2", "3", "4", "5", "6", "7"] as DayKey[]))
+    setCopyTargetWeeks([])
+    setCopyMode("replace")
   }
 
   const closeCopyDialog = () => {
     setCopySource(null)
     setCopyTargetDays([])
+    setCopyTargetWeeks([])
     setCopyMode("append")
   }
 
@@ -669,43 +715,112 @@ export const NutritionTemplatePlanEditor = forwardRef<
     meal_recipes: meal.meal_recipes.map((option, index) => ({ ...option, display_order: index })),
   })
 
+  const copyMealsToWeeks = (
+    sourceWeek: number,
+    targetWeeks: number[],
+    mode: "append" | "replace",
+    prev: PlanMealDraft[]
+  ) => {
+    let next = [...prev]
+    const sourceMeals = prev
+      .filter((meal) => (meal.week_number ?? 1) === sourceWeek)
+      .slice()
+      .sort((a, b) => a.day_of_week - b.day_of_week || a.order_index - b.order_index)
+
+    for (const targetWeek of targetWeeks) {
+      if (targetWeek === sourceWeek) continue
+      if (mode === "replace") {
+        next = next.filter((meal) => (meal.week_number ?? 1) !== targetWeek)
+      }
+      for (const meal of sourceMeals) {
+        const orderIndex = getNextMealOrder(next, meal.day_of_week, targetWeek)
+        next.push(cloneMealForDay(meal, meal.day_of_week, targetWeek, orderIndex))
+      }
+    }
+    return next
+  }
+
+  const copyWeekDirectly = () => {
+    const sourceWeek = Number(weekCopySource)
+    const targetWeeks = selectedWeekCopyTargets
+      .map((week) => Number(week))
+      .filter((week) => week !== sourceWeek)
+
+    if (!weekHasMeals(sourceWeek)) {
+      toast({ title: "Semana vacía", description: "La semana origen no tiene comidas para copiar.", variant: "destructive" })
+      return
+    }
+    if (targetWeeks.length === 0) {
+      toast({ title: "Elige semanas destino", description: "Marca al menos una semana distinta a la origen.", variant: "destructive" })
+      return
+    }
+
+    updateUnsavedChanges(true)
+    setMeals((prev) => copyMealsToWeeks(sourceWeek, targetWeeks, "replace", prev))
+    toast({
+      title: "✅ Semana copiada",
+      description: `Semana ${sourceWeek} pegada en ${targetWeeks.map((week) => `S${week}`).join(", ")}.`,
+    })
+  }
+
   const applyCopy = () => {
-    if (!copySource || copyTargetDays.length === 0) return
+    if (!copySource) return
+    if (copyTargetWeeks.length === 0) {
+      toast({ title: "Elige semanas destino", description: "Marca al menos una semana donde pegar.", variant: "destructive" })
+      return
+    }
+    if (copySource.type !== "week" && copyTargetDays.length === 0) {
+      toast({ title: "Elige días destino", description: "Marca al menos un día donde pegar.", variant: "destructive" })
+      return
+    }
+
     updateUnsavedChanges(true)
     setMeals((prev) => {
       let next = [...prev]
-      const targetNumbers = copyTargetDays.map((day) => Number(day))
-      const sourceWeek = copySource.type === "meal"
-        ? (copySource.meal.week_number ?? 1)
-        : activeWeek
+
+      if (copySource.type === "week") {
+        return copyMealsToWeeks(copySource.sourceWeek, copyTargetWeeks, copyMode, prev)
+      }
 
       if (copySource.type === "meal") {
-        for (const dayNumber of targetNumbers) {
-          const orderIndex = getNextMealOrder(next, dayNumber, sourceWeek)
-          next.push(cloneMealForDay(copySource.meal, dayNumber, sourceWeek, orderIndex))
+        for (const targetWeek of copyTargetWeeks) {
+          for (const dayNumber of copyTargetDays.map((day) => Number(day))) {
+            const orderIndex = getNextMealOrder(next, dayNumber, targetWeek)
+            next.push(cloneMealForDay(copySource.meal, dayNumber, targetWeek, orderIndex))
+          }
         }
         return next
       }
 
+      const sourceWeek = copySource.sourceWeek
       const sourceDayNumber = Number(copySource.day)
       const sourceMeals = prev
-        .filter((meal) => mealMatchesDayAndWeek(meal, sourceDayNumber, activeWeek))
+        .filter((meal) => mealMatchesDayAndWeek(meal, sourceDayNumber, sourceWeek))
         .slice()
         .sort((a, b) => a.order_index - b.order_index)
 
-      for (const dayNumber of targetNumbers) {
-        if (copyMode === "replace") {
-          next = next.filter((meal) => !mealMatchesDayAndWeek(meal, dayNumber, activeWeek))
-        }
-        let orderIndex = getNextMealOrder(next, dayNumber, activeWeek)
-        for (const meal of sourceMeals) {
-          next.push(cloneMealForDay(meal, dayNumber, activeWeek, orderIndex))
-          orderIndex += 1
+      for (const targetWeek of copyTargetWeeks) {
+        for (const dayNumber of copyTargetDays.map((day) => Number(day))) {
+          if (copyMode === "replace") {
+            next = next.filter((meal) => !mealMatchesDayAndWeek(meal, dayNumber, targetWeek))
+          }
+          let orderIndex = getNextMealOrder(next, dayNumber, targetWeek)
+          for (const meal of sourceMeals) {
+            next.push(cloneMealForDay(meal, dayNumber, targetWeek, orderIndex))
+            orderIndex += 1
+          }
         }
       }
       return next
     })
-    toast({ title: "✅ Copiado", description: "Las comidas/recetas se han duplicado en los días seleccionados de esta semana." })
+
+    const weekLabel = copyTargetWeeks.map((week) => `S${week}`).join(", ")
+    toast({
+      title: "✅ Copiado",
+      description: copySource.type === "week"
+        ? `Semana ${copySource.sourceWeek} pegada en ${weekLabel}.`
+        : `Contenido copiado en ${weekLabel}.`,
+    })
     closeCopyDialog()
   }
 
@@ -775,7 +890,12 @@ export const NutritionTemplatePlanEditor = forwardRef<
         </div>
         <div className="flex flex-wrap justify-end gap-2">
           <Button onClick={() => openCopyDayDialog(activeDay)} size="sm" variant="outline" disabled={mealsForDay.length === 0}>
+            <Copy className="h-3.5 w-3.5 mr-1" />
             Copiar día
+          </Button>
+          <Button onClick={openCopyWeekDialog} size="sm" variant="outline" disabled={!weekHasMeals(activeWeek)}>
+            <Copy className="h-3.5 w-3.5 mr-1" />
+            Copiar semana
           </Button>
           <Button onClick={addMealForActiveDay} size="sm" variant="outline">
             <Plus className="h-4 w-4 mr-1" />
@@ -816,7 +936,76 @@ export const NutritionTemplatePlanEditor = forwardRef<
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <Collapsible open={showCopyWeekTools} onOpenChange={setShowCopyWeekTools}>
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex w-full items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-slate-100"
+              >
+                <span>Copiar semanas entre bloques</span>
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", showCopyWeekTools && "rotate-180")} />
+              </button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="pt-3">
+              <div className="space-y-3 rounded-lg border bg-slate-50 p-3">
+                <div>
+                  <p className="text-sm font-semibold">Copiar semana completa</p>
+                  <p className="text-xs text-muted-foreground">
+                    Copia todas las comidas de una semana y pégalas en otra u otras semanas del plan.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_1fr_auto] lg:items-end">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Copiar desde</Label>
+                    <Select value={weekCopySource} onValueChange={setWeekCopySource}>
+                      <SelectTrigger className="h-8 bg-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {weekOptions.map((week) => (
+                          <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-2 rounded-md border bg-white px-2 py-1 text-xs">
+                      <Check className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="font-medium">S{weekCopySource}:</span>
+                      <span className="truncate text-muted-foreground">{weekCopySourceSummary}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Pegar en</Label>
+                    <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:flex lg:flex-wrap">
+                      {weekOptions.map((week) => {
+                        const isSource = week === weekCopySource
+                        const isSelected = selectedWeekCopyTargets.includes(week)
+                        return (
+                          <Button
+                            key={week}
+                            type="button"
+                            size="sm"
+                            variant={isSelected ? "default" : "outline"}
+                            className={`h-8 justify-center ${isSelected ? "" : "bg-white"}`}
+                            disabled={isSource}
+                            onClick={() => toggleWeekCopyTarget(week)}
+                          >
+                            {isSelected ? <Check className="mr-1 h-3.5 w-3.5" /> : null}
+                            S{week}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <Button type="button" size="sm" variant="secondary" onClick={copyWeekDirectly} disabled={!weekHasMeals(Number(weekCopySource))}>
+                    <Copy className="h-3.5 w-3.5 mr-2" />
+                    Copiar en {selectedWeekCopyTargets.filter((week) => week !== weekCopySource).length || 0}
+                  </Button>
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
           <div className="grid grid-cols-7 gap-1 text-center text-xs font-medium text-muted-foreground mb-2">
             {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => <div key={day}>{DAY_LABELS[day]}</div>)}
           </div>
@@ -1176,25 +1365,88 @@ export const NutritionTemplatePlanEditor = forwardRef<
         <DialogContent className="max-w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>
-              {copySource?.type === "day" ? "Copiar bloque de comidas" : "Copiar comida"}
+              {copySource?.type === "week"
+                ? "Copiar semana completa"
+                : copySource?.type === "day"
+                  ? "Copiar bloque de comidas"
+                  : "Copiar comida"}
             </DialogTitle>
             <DialogDescription>
-              Duplica {copySource?.type === "day" ? "todas las comidas y recetas del día" : "esta comida con sus recetas"} a otros días de la semana.
+              {copySource?.type === "week"
+                ? "Duplica todas las comidas y recetas de la semana origen en las semanas destino que elijas."
+                : copySource?.type === "day"
+                  ? "Duplica todas las comidas y recetas del día en los días y semanas destino que elijas."
+                  : "Duplica esta comida con sus recetas en los días y semanas destino que elijas."}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
             <div>
+              <Label className="text-sm font-semibold">Semanas destino</Label>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {weekOptions.map((week) => {
+                  const weekNumber = Number(week)
+                  const isSource =
+                    copySource?.type === "week"
+                      ? weekNumber === copySource.sourceWeek
+                      : copySource?.type === "day"
+                        ? weekNumber === copySource.sourceWeek
+                        : copySource?.type === "meal"
+                          ? weekNumber === (copySource.meal.week_number ?? 1)
+                          : false
+                  const isSelected = copyTargetWeeks.includes(weekNumber)
+                  return (
+                    <Button
+                      key={week}
+                      type="button"
+                      size="sm"
+                      variant={isSelected ? "default" : "outline"}
+                      disabled={isSource && copySource?.type === "week"}
+                      onClick={() => toggleCopyTargetWeek(weekNumber)}
+                    >
+                      {isSelected ? <Check className="mr-1 h-3.5 w-3.5" /> : null}
+                      Semana {week}
+                    </Button>
+                  )
+                })}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const sourceWeek = copySource?.type === "week"
+                      ? copySource.sourceWeek
+                      : copySource?.type === "day"
+                        ? copySource.sourceWeek
+                        : copySource?.type === "meal"
+                          ? (copySource.meal.week_number ?? 1)
+                          : activeWeek
+                    setCopyTargetWeeks(
+                      weekOptions
+                        .map((week) => Number(week))
+                        .filter((week) => week !== sourceWeek || copySource?.type !== "week")
+                    )
+                  }}
+                >
+                  Todas las semanas
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setCopyTargetWeeks([])}>
+                  Limpiar
+                </Button>
+              </div>
+            </div>
+
+            {copySource?.type !== "week" ? (
+            <div>
               <Label className="text-sm font-semibold">Días destino</Label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => {
-                  const disabled = copySource?.type === "day" && copySource.day === day
-                  return (
-                    <label key={day} className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${disabled ? "opacity-50" : ""}`}>
+                {(["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).map((day) => (
+                    <label key={day} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
                       <input
                         type="checkbox"
                         checked={copyTargetDays.includes(day)}
-                        disabled={disabled}
                         onChange={(event) => {
                           setCopyTargetDays((prev) => {
                             if (event.target.checked) {
@@ -1207,15 +1459,14 @@ export const NutritionTemplatePlanEditor = forwardRef<
                       />
                       <span>{DAY_LABELS[day]}</span>
                     </label>
-                  )
-                })}
+                  ))}
               </div>
               <div className="flex flex-wrap gap-2 mt-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => setCopyTargetDays((["1", "2", "3", "4", "5", "6", "7"] as DayKey[]).filter((day) => !(copySource?.type === "day" && copySource.day === day)))}
+                  onClick={() => setCopyTargetDays(["1", "2", "3", "4", "5", "6", "7"] as DayKey[])}
                 >
                   Toda la semana
                 </Button>
@@ -1224,8 +1475,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
                 </Button>
               </div>
             </div>
+            ) : null}
 
-            {copySource?.type === "day" ? (
+            {copySource?.type === "day" || copySource?.type === "week" ? (
               <div>
                 <Label className="text-sm font-semibold">Modo de copia</Label>
                 <Select value={copyMode} onValueChange={(value) => setCopyMode(value as "append" | "replace")}>
@@ -1234,7 +1486,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="append">Añadir a lo existente</SelectItem>
-                    <SelectItem value="replace">Reemplazar comidas del día destino</SelectItem>
+                    <SelectItem value="replace">Reemplazar comidas del destino</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1243,7 +1495,16 @@ export const NutritionTemplatePlanEditor = forwardRef<
 
           <DialogFooter>
             <Button variant="outline" onClick={closeCopyDialog}>Cancelar</Button>
-            <Button onClick={applyCopy} disabled={copyTargetDays.length === 0}>Copiar</Button>
+            <Button
+              onClick={applyCopy}
+              disabled={
+                copyTargetWeeks.length === 0
+                || (copySource?.type !== "week" && copyTargetDays.length === 0)
+              }
+            >
+              <ClipboardPaste className="h-3.5 w-3.5 mr-2" />
+              Pegar
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
