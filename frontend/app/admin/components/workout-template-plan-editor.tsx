@@ -70,17 +70,24 @@ const DAY_FULL_NAMES: Record<DayKey, string> = {
 const WEEK_DAY_KEYS: DayKey[] = ["1", "2", "3", "4", "5", "6", "7"]
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
-function createDefaultWeekDays(): WorkoutDayDraft[] {
-  return WEEK_DAY_KEYS.map((key) => {
-    const dayNumber = Number(key)
-    return {
-      day_number: dayNumber,
-      day_name: `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`,
-      is_rest_day: true,
-      notes: "",
-      exercises: [],
+function createDefaultWeekDays(durationWeeks = 1): WorkoutDayDraft[] {
+  const result: WorkoutDayDraft[] = []
+  for (let week = 1; week <= Math.max(1, durationWeeks); week++) {
+    for (const key of WEEK_DAY_KEYS) {
+      const weekday = Number(key)
+      const dayNumber = dayNumberFromWeekAndDay(week, weekday)
+      result.push({
+        day_number: dayNumber,
+        day_name: durationWeeks > 1
+          ? `Semana ${week} - ${DAY_FULL_NAMES[key]}`
+          : `Día ${weekday} - ${DAY_FULL_NAMES[key]}`,
+        is_rest_day: true,
+        notes: "",
+        exercises: [],
+      })
     }
-  })
+  }
+  return result
 }
 
 function toNumber(value: unknown, fallback = 0) {
@@ -109,6 +116,22 @@ function isSameCalendarDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
+/** Semana del plan (1-based, cíclica) para una fecha del calendario. */
+function weekNumberFromCalendarDate(date: Date, planDurationWeeks: number): number {
+  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
+  const mondayOffset = (firstOfMonth.getDay() + 6) % 7
+  const daysSinceStart =
+    Math.floor((date.getTime() - firstOfMonth.getTime()) / (1000 * 60 * 60 * 24)) + mondayOffset
+  const calendarWeek = Math.floor(daysSinceStart / 7) + 1
+  const duration = Math.max(1, planDurationWeeks)
+  return ((calendarWeek - 1) % duration) + 1
+}
+
+/** day_number global a partir de semana (1-based) y día de la semana (1=Lun…7=Dom). */
+function dayNumberFromWeekAndDay(week: number, weekday: number): number {
+  return (week - 1) * 7 + weekday
+}
+
 export const WorkoutTemplatePlanEditor = forwardRef<
   { handleSave: () => Promise<void>; hasUnsavedChanges: () => boolean; confirmDiscardChanges: () => boolean },
   {
@@ -134,6 +157,8 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeDay, setActiveDay] = useState<DayKey>("1")
+  const [activeWeek, setActiveWeek] = useState(1)
+  const [planDurationWeeks, setPlanDurationWeeks] = useState(1)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
@@ -141,7 +166,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
 
-  const [days, setDays] = useState<WorkoutDayDraft[]>(createDefaultWeekDays())
+  const [days, setDays] = useState<WorkoutDayDraft[]>(() => createDefaultWeekDays(1))
 
   const updateUnsavedChanges = useCallback((value: boolean) => {
     setHasUnsavedChanges(value)
@@ -218,10 +243,10 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   }, [availableExercises, exerciseSearch, exerciseCategoryFilter, exerciseMuscleFilter])
 
   const currentDayExercises = useMemo(() => {
-    const activeNum = Number(activeDay)
-    const day = days.find((d) => d.day_number === activeNum)
+    const dn = dayNumberFromWeekAndDay(activeWeek, Number(activeDay))
+    const day = days.find((d) => d.day_number === dn)
     return day?.exercises || []
-  }, [days, activeDay])
+  }, [days, activeDay, activeWeek])
   const calendarDays = getMonthCalendarDays(calendarMonth)
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
@@ -304,6 +329,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     try {
       const data = await fetchJsonWithAuth(`admin/workouts/programs/${planId}/`)
 
+      const duration = Math.max(1, data.duration_weeks || 1)
+      setPlanDurationWeeks(duration)
+
       const incomingDays = Array.isArray(data.days) ? data.days : []
       const mapped: WorkoutDayDraft[] = incomingDays.map((d: any) => {
         const exercises = Array.isArray(d.exercises) ? d.exercises : []
@@ -325,23 +353,29 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       })
 
       const daysByNumber = new Map<number, WorkoutDayDraft>()
-      mapped.forEach((day) => {
-        daysByNumber.set(day.day_number, day)
-      })
+      mapped.forEach((day) => { daysByNumber.set(day.day_number, day) })
 
-      const normalizedDays = WEEK_DAY_KEYS.map((key) => {
-        const dayNumber = Number(key)
-        const existing = daysByNumber.get(dayNumber)
-        return existing || {
-          day_number: dayNumber,
-          day_name: `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`,
-          is_rest_day: true,
-          notes: "",
-          exercises: [],
+      // Crear la rejilla completa: duration_weeks × 7 días, con independencia por semana
+      const normalizedDays: WorkoutDayDraft[] = []
+      for (let week = 1; week <= duration; week++) {
+        for (const key of WEEK_DAY_KEYS) {
+          const weekday = Number(key)
+          const dn = dayNumberFromWeekAndDay(week, weekday)
+          const existing = daysByNumber.get(dn)
+          normalizedDays.push(existing || {
+            day_number: dn,
+            day_name: duration > 1
+              ? `Semana ${week} - ${DAY_FULL_NAMES[key as DayKey]}`
+              : `Día ${weekday} - ${DAY_FULL_NAMES[key as DayKey]}`,
+            is_rest_day: true,
+            notes: "",
+            exercises: [],
+          })
         }
-      })
+      }
 
       setDays(normalizedDays)
+      setActiveWeek(1)
       updateUnsavedChanges(false)
     } catch (e) {
       toast({
@@ -695,19 +729,15 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         setSaving(true)
       }
 
-      const daysPayload = WEEK_DAY_KEYS.map((key) => {
-        const dayNumber = Number(key)
-        const day = days.find((d) => d.day_number === dayNumber)
-        const fallbackDayName = `Día ${dayNumber} - ${DAY_FULL_NAMES[key]}`
-        const dayName = day?.day_name?.trim() ? day.day_name : fallbackDayName
-        const exercises = Array.isArray(day?.exercises) ? day!.exercises : []
+      // Enviar todos los días de todas las semanas (no solo los 7 de la semana 1)
+      const daysPayload = days.map((day) => {
+        const exercises = Array.isArray(day.exercises) ? day.exercises : []
         const hasExercises = exercises.length > 0
-
         return {
-          day_number: dayNumber,
-          day_name: dayName,
-          is_rest_day: hasExercises ? false : true,
-          notes: day?.notes || "",
+          day_number: day.day_number,
+          day_name: day.day_name?.trim() || `Día ${day.day_number}`,
+          is_rest_day: !hasExercises,
+          notes: day.notes || "",
           exercises: exercises
             .filter((e) => e.exercise_id)
             .map((e) => ({
@@ -795,6 +825,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
             <div className="text-lg">📅</div>
             <div className="text-xs text-muted-foreground">Día activo</div>
             <div className="text-base font-bold">{DAY_LABELS[activeDay]}</div>
+            {planDurationWeeks > 1 && (
+              <div className="text-xs text-blue-600 font-semibold mt-0.5">Semana {activeWeek}</div>
+            )}
           </CardContent>
         </Card>
         <Card className="border-emerald-200 bg-emerald-50">
@@ -813,9 +846,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         </Card>
         <Card className="border-violet-200 bg-violet-50">
           <CardContent className="p-3 text-center">
-            <div className="text-lg">💤</div>
-            <div className="text-xs text-muted-foreground">Descanso</div>
-            <div className="text-base font-bold">{days.filter((d) => d.exercises.length === 0 || d.is_rest_day).length}</div>
+            <div className="text-lg">📆</div>
+            <div className="text-xs text-muted-foreground">Semanas</div>
+            <div className="text-base font-bold">{planDurationWeeks}</div>
           </CardContent>
         </Card>
       </div>
@@ -865,7 +898,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const key = dayKeyFromDate(date)
-              const day = days.find((item) => String(item.day_number) === key)
+              const weekForDate = weekNumberFromCalendarDate(date, planDurationWeeks)
+              const dn = dayNumberFromWeekAndDay(weekForDate, Number(key))
+              const day = days.find((item) => item.day_number === dn)
               const exerciseCount = day?.exercises.length || 0
               const isRest = !day || day.is_rest_day || exerciseCount === 0
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
@@ -878,6 +913,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                   onClick={() => {
                     setSelectedCalendarDate(date)
                     setActiveDay(key)
+                    setActiveWeek(weekForDate)
                   }}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
@@ -890,12 +926,14 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                     </span>
                   </div>
                   <div className="mt-2 space-y-1">
+                    {planDurationWeeks > 1 && (
+                      <div className="truncate rounded px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700">
+                        Sem. {weekForDate}
+                      </div>
+                    )}
                     <div className={`truncate rounded px-1.5 py-0.5 text-[10px] ${isRest ? "bg-slate-100 text-slate-600" : "bg-purple-100 text-purple-800"}`}>
                       {isRest ? "Descanso" : `${exerciseCount} ejercicios`}
                     </div>
-                    {day?.day_name ? (
-                      <div className="truncate text-[10px] text-muted-foreground">{day.day_name}</div>
-                    ) : null}
                   </div>
                 </button>
               )
@@ -904,21 +942,55 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         </CardContent>
       </Card>
 
+      {/* Selector de semana (solo visible si el plan tiene más de 1 semana) */}
+      {planDurationWeeks > 1 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-muted-foreground">Semana:</span>
+          {Array.from({ length: planDurationWeeks }, (_, i) => i + 1).map((w) => {
+            const weekDays = WEEK_DAY_KEYS.map((k) =>
+              days.find((x) => x.day_number === dayNumberFromWeekAndDay(w, Number(k)))
+            )
+            const withExercises = weekDays.filter((d) => d && d.exercises.length > 0).length
+            return (
+              <Button
+                key={w}
+                type="button"
+                variant={activeWeek === w ? "default" : "outline"}
+                size="sm"
+                onClick={() => setActiveWeek(w)}
+                className="text-xs"
+              >
+                Semana {w}
+                {withExercises > 0 && (
+                  <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] ${activeWeek === w ? "bg-white/20" : "bg-purple-100 text-purple-700"}`}>
+                    {withExercises}d
+                  </span>
+                )}
+              </Button>
+            )
+          })}
+        </div>
+      )}
+
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
         <TabsList className="grid grid-cols-7 rounded-lg bg-muted p-1 h-auto">
           {WEEK_DAY_KEYS.map((d) => {
-            const dayNum = Number(d)
-            const day = days.find((x) => x.day_number === dayNum)
+            const dn = dayNumberFromWeekAndDay(activeWeek, Number(d))
+            const day = days.find((x) => x.day_number === dn)
+            const hasExercises = (day?.exercises.length ?? 0) > 0
             return (
-              <TabsTrigger key={d} value={d} className="text-xs rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm">
+              <TabsTrigger key={d} value={d} className="text-xs rounded-md data-[state=active]:bg-background data-[state=active]:shadow-sm relative">
                 {DAY_LABELS[d]}
+                {hasExercises && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-purple-500" />
+                )}
               </TabsTrigger>
             )
           })}
         </TabsList>
 
         {WEEK_DAY_KEYS.map((d) => {
-          const dayNum = Number(d)
+          const dayNum = dayNumberFromWeekAndDay(activeWeek, Number(d))
           const day = days.find((x) => x.day_number === dayNum)
           if (!day) return null
 

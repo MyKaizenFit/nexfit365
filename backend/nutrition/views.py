@@ -639,21 +639,44 @@ def plan_meals_for_selection(request):
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
         
-        if meal_slots:
-            from nutrition.plan_meal_utils import _sum_meal_macros
-
-            day_totals = _sum_meal_macros(meals)
-            if day_totals['calories'] > 0:
-                daily_calories = int(round(day_totals['calories']))
-                daily_macros = {
-                    'protein': round(day_totals['protein'], 1),
-                    'carbs': round(day_totals['carbs'], 1),
-                    'fat': round(day_totals['fat'], 1),
-                }
-
         # Si el usuario tiene plan pero no hay comidas configuradas para ese día,
         # NO devolver vacío: continuar con plantillas del sistema / fallback por recetas.
         if meal_slots:
+            # Objetivo calórico del usuario (del plan, ya fijado antes de este bloque).
+            user_target_cal = float(daily_calories)
+
+            # Calcular el total real a partir de las opciones ya construidas y escaladas.
+            # Como el usuario elegirá UNA opción por comida, usamos la media de las opciones
+            # de cada slot como valor representativo del total del día.
+            raw_total_cal = 0.0
+            raw_total_protein = 0.0
+            raw_total_carbs = 0.0
+            raw_total_fat = 0.0
+            for opts in options_by_meal_id.values():
+                if opts:
+                    n = len(opts)
+                    raw_total_cal += sum(o.get('calories', 0) for o in opts) / n
+                    raw_total_protein += sum(o.get('protein', 0) for o in opts) / n
+                    raw_total_carbs += sum(o.get('carbs', 0) for o in opts) / n
+                    raw_total_fat += sum(o.get('fat', 0) for o in opts) / n
+
+            # Si el total real se desvía más de un 5 % del objetivo del usuario,
+            # escalar todas las opciones para que se ajusten al objetivo.
+            # Las opciones en options_by_meal_id y meals_by_type son los mismos objetos
+            # en memoria, por lo que basta con modificarlos en un solo pase.
+            correction = 1.0
+            MAX_DEVIATION = 0.05
+            if raw_total_cal > 0 and user_target_cal > 0:
+                deviation = abs(raw_total_cal - user_target_cal) / user_target_cal
+                if deviation > MAX_DEVIATION:
+                    correction = user_target_cal / raw_total_cal
+                    for opts in options_by_meal_id.values():
+                        for opt in opts:
+                            opt['calories'] = max(1, int(round(opt.get('calories', 0) * correction)))
+                            opt['protein'] = round(opt.get('protein', 0) * correction, 1)
+                            opt['carbs'] = round(opt.get('carbs', 0) * correction, 1)
+                            opt['fat'] = round(opt.get('fat', 0) * correction, 1)
+
             return Response({
                 'meals_by_type': meals_by_type,
                 'meal_slots': meal_slots,
@@ -661,8 +684,12 @@ def plan_meals_for_selection(request):
                 'plan_name': user_plan.name,
                 'source': 'user_plan',
                 'date': date_for_slots.isoformat(),
-                'daily_calories_target': daily_calories,
-                'daily_macros': daily_macros
+                'daily_calories_target': int(round(user_target_cal)),
+                'daily_macros': {
+                    'protein': round(raw_total_protein * correction, 1),
+                    'carbs': round(raw_total_carbs * correction, 1),
+                    'fat': round(raw_total_fat * correction, 1),
+                },
             })
     
     # Si no tiene plan (o no hay comidas configuradas), devolver opciones desde plantillas del sistema
