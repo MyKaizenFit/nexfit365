@@ -5,7 +5,6 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  ChefHat,
   Check,
   Clock,
   Loader2,
@@ -15,11 +14,12 @@ import {
   MoreVertical,
   X,
   CopyCheck,
+  ClipboardPaste,
+  ChevronDown,
 } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,6 +27,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { toast } from "@/hooks/use-toast"
 import { MealIngredientSubstitution, nutritionService } from "@/lib/nutrition-service"
 import { MealSelectionModal } from "@/components/dashboard/meal-selection-modal"
@@ -40,12 +41,12 @@ import {
   isPast,
   addMonths,
   subMonths,
-  getISOWeek,
   startOfWeek,
   addDays,
 } from "date-fns"
 import { es } from "date-fns/locale"
 import { authenticatedFetch } from "@/lib/api"
+import { cn } from "@/lib/utils"
 
 const MEAL_TYPES = [
   { name: "Desayuno", type: "breakfast", time: "08:00", icon: "🌅" },
@@ -76,44 +77,47 @@ interface MonthlyMealSelection {
   fat?: number
 }
 
-type CopyMode = {
+type MealClipboard = {
   type: "day" | "week"
   sourceDate: string
-} | null
+  /** Snapshot de comidas copiadas (independiente del mes visible). */
+  sourceDays: Record<string, MonthlyMealSelection[]>
+}
 
-// ─── helpers ──────────────────────────────────────────────────────────────────
-
-/** Devuelve las 7 fechas (YYYY-MM-DD) de la semana que contiene startDate. */
 function weekDates(startDate: string): string[] {
   const d = new Date(startDate + "T00:00:00")
   const mon = startOfWeek(d, { weekStartsOn: 1 })
   return Array.from({ length: 7 }, (_, i) => format(addDays(mon, i), "yyyy-MM-dd"))
 }
 
-/** Normaliza una fecha string a YYYY-MM-DD asegurando zona horaria local. */
+function weekKey(startDate: string): string {
+  return weekDates(startDate)[0]
+}
+
 function toLocalDateStr(d: Date): string {
   return format(d, "yyyy-MM-dd")
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
+function formatWeekRange(anchorDate: string): string {
+  const days = weekDates(anchorDate)
+  const start = new Date(days[0] + "T00:00:00")
+  const end = new Date(days[6] + "T00:00:00")
+  return `${format(start, "d MMM", { locale: es })} – ${format(end, "d MMM yyyy", { locale: es })}`
+}
 
 export function MonthlyMealPlan() {
   const [currentMonth, setCurrentMonth] = useState<Date>(() => startOfMonth(new Date()))
   const [monthlySelections, setMonthlySelections] = useState<Record<string, MonthlyMealSelection[]>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [selectedDay, setSelectedDay] = useState<string | null>(null)
   const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
-  const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar")
-
-  // ── copy mode ──
-  const [copyMode, setCopyMode] = useState<CopyMode>(null)
-  // Cache de selecciones de otros meses (para copias cross-month)
   const [remoteSelections, setRemoteSelections] = useState<Record<string, MonthlyMealSelection[]>>({})
 
-  // ── navigation ──────────────────────────────────────────────────────────────
+  const [clipboard, setClipboard] = useState<MealClipboard | null>(null)
+  const [selectedPasteWeeks, setSelectedPasteWeeks] = useState<Set<string>>(new Set())
+  const [showCopyTools, setShowCopyTools] = useState(false)
 
   const getMonthDays = useCallback(() => {
     return eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) })
@@ -141,10 +145,16 @@ export function MonthlyMealPlan() {
   const goToNextMonth = () => setCurrentMonth(addMonths(currentMonth, 1))
   const goToCurrentMonth = () => setCurrentMonth(startOfMonth(new Date()))
 
-  // ── meal selection ──────────────────────────────────────────────────────────
+  const getSelectionsForDate = useCallback((dateStr: string): MonthlyMealSelection[] => {
+    return monthlySelections[dateStr] || remoteSelections[dateStr] || []
+  }, [monthlySelections, remoteSelections])
+
+  const weekHasMeals = useCallback((anchorDate: string): boolean => {
+    return weekDates(anchorDate).some((dateStr) => getSelectionsForDate(dateStr).length > 0)
+  }, [getSelectionsForDate])
 
   const handleSelectMeal = async (date: string, mealType: string) => {
-    setSelectedDay(date)
+    if (clipboard) return
     setSelectedMeal({ date, meal_type: mealType })
     try {
       const response = await authenticatedFetch(`nutrition/plan-meals-for-selection/?meal_type=${mealType}`, {
@@ -212,11 +222,12 @@ export function MonthlyMealPlan() {
     }
   }
 
-  // ── copy helpers ────────────────────────────────────────────────────────────
-
-  /** Construye la lista de selecciones para guardar a partir de un origen de un día. */
-  const buildDaySelections = (sourceDateStr: string, targetDateStr: string): any[] => {
-    const src = monthlySelections[sourceDateStr] || remoteSelections[sourceDateStr] || []
+  const buildDaySelectionsFromSnapshot = (
+    sourceDays: Record<string, MonthlyMealSelection[]>,
+    sourceDateStr: string,
+    targetDateStr: string,
+  ): any[] => {
+    const src = sourceDays[sourceDateStr] || []
     return src.map((s) => ({
       date: targetDateStr,
       meal_type: s.meal_type,
@@ -231,10 +242,8 @@ export function MonthlyMealPlan() {
     }))
   }
 
-  /** Guarda selecciones; detecta cambios de mes automáticamente. */
   const saveSelections = async (selectionsToSave: any[]) => {
     if (!selectionsToSave.length) return
-    // Agrupar por mes para respetar la API
     const byMonth: Record<string, any[]> = {}
     for (const sel of selectionsToSave) {
       const d = new Date(sel.date + "T00:00:00")
@@ -248,117 +257,158 @@ export function MonthlyMealPlan() {
     }
   }
 
-  /** Carga selecciones de otro mes si aún no están en cache. */
-  const ensureRemoteMonth = async (year: number, month: number) => {
-    const key = `${year}-${month}`
-    if ((remoteSelections as any)[key + "_loaded"]) return
-    try {
-      const data = await nutritionService.getMonthlyMealSelections(year, month)
-      setRemoteSelections((prev) => ({ ...prev, ...data, [key + "_loaded"]: [] as any }))
-    } catch {
-      // silencioso
-    }
+  const snapshotDays = (type: "day" | "week", anchorDate: string): Record<string, MonthlyMealSelection[]> => {
+    const dates = type === "day" ? [anchorDate] : weekDates(anchorDate)
+    return Object.fromEntries(
+      dates.map((dateStr) => [dateStr, [...getSelectionsForDate(dateStr)]]),
+    )
   }
 
-  // ── copy mode UI ────────────────────────────────────────────────────────────
+  const copyToClipboard = (date: string, type: "day" | "week") => {
+    const sourceDays = snapshotDays(type, date)
+    const hasContent = Object.values(sourceDays).some((items) => items.length > 0)
+    if (!hasContent) {
+      toast({
+        title: type === "day" ? "Día vacío" : "Semana vacía",
+        description: "No hay comidas planificadas para copiar.",
+        variant: "destructive",
+      })
+      return
+    }
 
-  const startCopyMode = (date: string, type: "day" | "week") => {
-    setCopyMode({ type, sourceDate: date })
+    setClipboard({ type, sourceDate: date, sourceDays })
+    setSelectedPasteWeeks(new Set())
+    setShowCopyTools(true)
+
+    const sourceLabel = type === "day"
+      ? format(new Date(date + "T00:00:00"), "EEEE d MMM yyyy", { locale: es })
+      : formatWeekRange(date)
+
     toast({
-      title: type === "day" ? "📋 Modo copia: día" : "📅 Modo copia: semana",
-      description:
-        type === "day"
-          ? "Selecciona el día destino en el calendario (puedes navegar a otro mes)"
-          : "Selecciona el primer día de la semana destino (puedes navegar a otro mes)",
+      title: type === "day" ? "📋 Día copiado" : "📅 Semana copiada",
+      description: `${sourceLabel} · Elige destino y pulsa Pegar`,
     })
   }
 
-  const cancelCopyMode = () => {
-    setCopyMode(null)
+  const clearClipboard = () => {
+    setClipboard(null)
+    setSelectedPasteWeeks(new Set())
   }
 
-  const handleCopyTarget = async (targetDate: string) => {
-    if (!copyMode) return
+  const pasteDay = async (targetDate: string) => {
+    if (!clipboard || clipboard.type !== "day") return
+    if (targetDate === clipboard.sourceDate) {
+      toast({ title: "Mismo día", description: "Elige un día distinto al origen.", variant: "destructive" })
+      return
+    }
+
     setSaving(true)
     try {
-      const src = copyMode.sourceDate
-      const srcDate = new Date(src + "T00:00:00")
-      // Asegurar que tenemos las selecciones del mes origen si es otro mes
-      if (
-        srcDate.getFullYear() !== currentMonth.getFullYear() ||
-        srcDate.getMonth() !== currentMonth.getMonth()
-      ) {
-        await ensureRemoteMonth(srcDate.getFullYear(), srcDate.getMonth() + 1)
+      const selToSave = buildDaySelectionsFromSnapshot(clipboard.sourceDays, clipboard.sourceDate, targetDate)
+      if (!selToSave.length) {
+        toast({ title: "Sin contenido", description: "No hay comidas para pegar.", variant: "destructive" })
+        return
       }
-
-      if (copyMode.type === "day") {
-        const selToSave = buildDaySelections(src, targetDate)
-        if (!selToSave.length) {
-          toast({
-            title: "Día vacío",
-            description: "El día origen no tiene comidas planificadas.",
-            variant: "destructive",
-          })
-          setSaving(false)
-          return
-        }
-        await saveSelections(selToSave)
-        toast({
-          title: "✅ Día copiado",
-          description: `Comidas del ${format(srcDate, "d MMM yyyy", { locale: es })} → ${format(new Date(targetDate + "T00:00:00"), "d MMM yyyy", { locale: es })}`,
-        })
-      } else {
-        // Semana: calcular los 7 días de la semana origen y mapear a la semana destino
-        const srcWeek = weekDates(src)
-        const dstWeek = weekDates(targetDate)
-        const allSels: any[] = []
-        let totalSrc = 0
-        for (let i = 0; i < 7; i++) {
-          const daySels = buildDaySelections(srcWeek[i], dstWeek[i])
-          totalSrc += (monthlySelections[srcWeek[i]] || remoteSelections[srcWeek[i]] || []).length
-          allSels.push(...daySels)
-        }
-        if (!allSels.length && totalSrc === 0) {
-          toast({
-            title: "Semana vacía",
-            description: "La semana origen no tiene comidas planificadas.",
-            variant: "destructive",
-          })
-          setSaving(false)
-          return
-        }
-        if (allSels.length > 0) {
-          await saveSelections(allSels)
-        }
-        const srcLabel = format(new Date(srcWeek[0] + "T00:00:00"), "d MMM", { locale: es })
-        const dstLabel = format(new Date(dstWeek[0] + "T00:00:00"), "d MMM yyyy", { locale: es })
-        toast({ title: "✅ Semana copiada", description: `Semana del ${srcLabel} → semana del ${dstLabel}` })
-      }
-
-      setCopyMode(null)
+      await saveSelections(selToSave)
+      toast({
+        title: "✅ Día pegado",
+        description: `${format(new Date(clipboard.sourceDate + "T00:00:00"), "d MMM", { locale: es })} → ${format(new Date(targetDate + "T00:00:00"), "d MMM yyyy", { locale: es })}`,
+      })
       await loadMonthlySelections()
     } catch {
-      toast({ title: "Error", description: "No se pudo copiar", variant: "destructive" })
+      toast({ title: "Error", description: "No se pudo pegar el día", variant: "destructive" })
     } finally {
       setSaving(false)
     }
   }
 
-  // ── apply to month ──────────────────────────────────────────────────────────
+  const pasteWeek = async (targetAnchorDate: string) => {
+    if (!clipboard || clipboard.type !== "week") return
 
-  const handleApplyToMonth = async (sourceDate: string) => {
+    const sourceWeekKey = weekKey(clipboard.sourceDate)
+    const targetWeekKey = weekKey(targetAnchorDate)
+    if (sourceWeekKey === targetWeekKey) {
+      toast({ title: "Misma semana", description: "Elige una semana distinta al origen.", variant: "destructive" })
+      return
+    }
+
     setSaving(true)
     try {
-      const sourceSelections = monthlySelections[sourceDate] || []
+      const srcWeek = weekDates(clipboard.sourceDate)
+      const dstWeek = weekDates(targetAnchorDate)
+      const allSels: any[] = []
+      for (let i = 0; i < 7; i++) {
+        allSels.push(...buildDaySelectionsFromSnapshot(clipboard.sourceDays, srcWeek[i], dstWeek[i]))
+      }
+      if (!allSels.length) {
+        toast({ title: "Semana vacía", description: "No hay comidas para pegar.", variant: "destructive" })
+        return
+      }
+      await saveSelections(allSels)
+      toast({
+        title: "✅ Semana pegada",
+        description: `${formatWeekRange(clipboard.sourceDate)} → ${formatWeekRange(targetAnchorDate)}`,
+      })
+      await loadMonthlySelections()
+    } catch {
+      toast({ title: "Error", description: "No se pudo pegar la semana", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const pasteWeekToMany = async () => {
+    if (!clipboard || clipboard.type !== "week" || selectedPasteWeeks.size === 0) return
+
+    setSaving(true)
+    try {
+      const srcWeek = weekDates(clipboard.sourceDate)
+      const allSels: any[] = []
+      for (const targetKey of selectedPasteWeeks) {
+        const dstWeek = weekDates(targetKey)
+        if (weekKey(clipboard.sourceDate) === targetKey) continue
+        for (let i = 0; i < 7; i++) {
+          allSels.push(...buildDaySelectionsFromSnapshot(clipboard.sourceDays, srcWeek[i], dstWeek[i]))
+        }
+      }
+      if (!allSels.length) {
+        toast({ title: "Sin destinos válidos", description: "Selecciona al menos una semana distinta al origen.", variant: "destructive" })
+        return
+      }
+      await saveSelections(allSels)
+      toast({
+        title: "✅ Semanas pegadas",
+        description: `Copiado en ${selectedPasteWeeks.size} semana${selectedPasteWeeks.size === 1 ? "" : "s"}.`,
+      })
+      setSelectedPasteWeeks(new Set())
+      await loadMonthlySelections()
+    } catch {
+      toast({ title: "Error", description: "No se pudieron pegar las semanas", variant: "destructive" })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleApplyToMonth = async (sourceDate: string) => {
+    if (!confirm(
+      "¿Aplicar este día a TODO el mes?\n\nEsto sobrescribirá las comidas de los demás días del mes. Para copiar solo a días concretos, usa Copiar / Pegar.",
+    )) {
+      return
+    }
+
+    setSaving(true)
+    try {
+      const sourceSelections = getSelectionsForDate(sourceDate)
       if (!sourceSelections.length) {
         toast({ title: "Sin selecciones", description: "El día no tiene comidas planificadas.", variant: "destructive" })
         return
       }
+      const snapshot = { [sourceDate]: sourceSelections }
       const selectionsToSave: any[] = []
       getMonthDays().forEach((day) => {
         const targetDateStr = toLocalDateStr(day)
         if (targetDateStr === sourceDate) return
-        selectionsToSave.push(...buildDaySelections(sourceDate, targetDateStr))
+        selectionsToSave.push(...buildDaySelectionsFromSnapshot(snapshot, sourceDate, targetDateStr))
       })
       if (selectionsToSave.length > 0) {
         await saveSelections(selectionsToSave)
@@ -375,10 +425,8 @@ export function MonthlyMealPlan() {
     }
   }
 
-  // ── display helpers ─────────────────────────────────────────────────────────
-
   const getSelectionForMeal = (dateStr: string, mealType: string): any | null => {
-    const daySelections = monthlySelections[dateStr] || []
+    const daySelections = getSelectionsForDate(dateStr)
     return daySelections.find((s: any) => typeof s === "object" && s?.meal_type === mealType) || null
   }
 
@@ -397,13 +445,11 @@ export function MonthlyMealPlan() {
     return `${mealTypeNames[selection.meal_type] || "Comida"} - Seleccionada`
   }
 
-  // ── calendar layout ─────────────────────────────────────────────────────────
-
   const monthDays = getMonthDays()
   const monthStart = startOfMonth(currentMonth)
   const monthEnd = endOfMonth(currentMonth)
   const firstDayOfWeek = getDay(monthStart) === 0 ? 6 : getDay(monthStart) - 1
-  const calendarDays: (Date | null)[] = []
+  const calendarDays: Date[] = []
   for (let i = 0; i < firstDayOfWeek; i++) {
     const prevDay = new Date(monthStart)
     prevDay.setDate(prevDay.getDate() - (firstDayOfWeek - i))
@@ -418,20 +464,36 @@ export function MonthlyMealPlan() {
       calendarDays.push(nextDay)
     }
   }
-  const weeks: (Date | null)[][] = []
+
+  const weeks: Date[][] = []
   for (let i = 0; i < calendarDays.length; i += 7) {
     weeks.push(calendarDays.slice(i, i + 7))
   }
 
-  // Semana origen en copy-week mode
-  const sourceCopyWeekDates =
-    copyMode?.type === "week" ? new Set(weekDates(copyMode.sourceDate)) : new Set<string>()
+  const visibleWeekKeys = weeks.map((week) => weekKey(toLocalDateStr(week[0])))
+  const sourceWeekKeySet = clipboard?.type === "week"
+    ? new Set(weekDates(clipboard.sourceDate))
+    : new Set<string>()
+  const clipboardSourceWeekKey = clipboard?.type === "week" ? weekKey(clipboard.sourceDate) : null
 
-  // ── render ──────────────────────────────────────────────────────────────────
+  const togglePasteWeek = (key: string) => {
+    if (clipboardSourceWeekKey && key === clipboardSourceWeekKey) return
+    setSelectedPasteWeeks((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const clipboardSummary = clipboard
+    ? clipboard.type === "day"
+      ? format(new Date(clipboard.sourceDate + "T00:00:00"), "EEEE d MMM yyyy", { locale: es })
+      : formatWeekRange(clipboard.sourceDate)
+    : ""
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card>
         <CardHeader className="pb-3 md:pb-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0">
@@ -445,31 +507,13 @@ export function MonthlyMealPlan() {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToPreviousMonth}
-                disabled={loading}
-                className="h-8 md:h-9"
-              >
+              <Button variant="outline" size="sm" onClick={goToPreviousMonth} disabled={loading} className="h-8 md:h-9">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToCurrentMonth}
-                disabled={loading}
-                className="h-8 md:h-9 text-xs md:text-sm"
-              >
+              <Button variant="outline" size="sm" onClick={goToCurrentMonth} disabled={loading} className="h-8 md:h-9 text-xs md:text-sm">
                 Hoy
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={goToNextMonth}
-                disabled={loading}
-                className="h-8 md:h-9"
-              >
+              <Button variant="outline" size="sm" onClick={goToNextMonth} disabled={loading} className="h-8 md:h-9">
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -484,49 +528,99 @@ export function MonthlyMealPlan() {
         </CardContent>
       </Card>
 
-      {/* Banner de modo copia */}
-      {copyMode && (
-        <Card className="border-2 border-blue-400 bg-blue-50">
-          <CardContent className="py-3 px-4">
-            <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2 text-blue-800">
-                <CopyCheck className="h-5 w-5 flex-shrink-0" />
-                <div>
-                  <p className="font-semibold text-sm">
-                    {copyMode.type === "day" ? "Copia de día activa" : "Copia de semana activa"}
-                  </p>
-                  <p className="text-xs text-blue-600">
-                    Origen:{" "}
-                    <strong>
-                      {format(new Date(copyMode.sourceDate + "T00:00:00"), "EEEE d MMM yyyy", { locale: es })}
-                    </strong>
-                    {copyMode.type === "week" && " (semana completa)"}
-                    {" · "}Puedes navegar a otro mes y elegir el destino
-                  </p>
-                </div>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={cancelCopyMode}
-                className="border-blue-400 text-blue-700 hover:bg-blue-100 h-8 flex-shrink-0"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Cancelar
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <Collapsible open={showCopyTools || !!clipboard} onOpenChange={setShowCopyTools}>
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-lg border bg-slate-50 px-3 py-2.5 text-left text-sm font-medium hover:bg-slate-100 transition-colors"
+          >
+            <span className="flex items-center gap-2">
+              <Copy className="h-4 w-4 text-teal-700" />
+              Copiar y pegar comidas
+            </span>
+            <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", (showCopyTools || clipboard) && "rotate-180")} />
+          </button>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <Card className={cn("border", clipboard ? "border-blue-400 bg-blue-50/60" : "bg-slate-50")}>
+            <CardContent className="py-3 px-4 space-y-3">
+              {clipboard ? (
+                <>
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div className="flex items-start gap-2 text-blue-900">
+                      <CopyCheck className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold text-sm">
+                          Portapapeles: {clipboard.type === "day" ? "Día" : "Semana"}
+                        </p>
+                        <p className="text-xs text-blue-700">{clipboardSummary}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {clipboard.type === "day"
+                            ? "Pulsa «Pegar día» en el destino. Puedes cambiar de mes antes de pegar."
+                            : "Marca semanas destino abajo o pulsa «Pegar semana» en cada fila."}
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={clearClipboard} className="h-8 flex-shrink-0">
+                      <X className="h-4 w-4 mr-1" />
+                      Vaciar
+                    </Button>
+                  </div>
 
-      {/* Calendario */}
+                  {clipboard.type === "week" && (
+                    <div className="space-y-2 rounded-lg border bg-white/80 p-3">
+                      <p className="text-xs font-medium">Pegar en varias semanas del calendario visible</p>
+                      <div className="flex flex-wrap gap-2">
+                        {visibleWeekKeys.map((key, index) => {
+                          const isSource = key === clipboardSourceWeekKey
+                          const isSelected = selectedPasteWeeks.has(key)
+                          return (
+                            <Button
+                              key={key}
+                              type="button"
+                              size="sm"
+                              variant={isSelected ? "default" : "outline"}
+                              className="h-8"
+                              disabled={isSource || saving}
+                              onClick={() => togglePasteWeek(key)}
+                            >
+                              {isSelected ? <Check className="mr-1 h-3.5 w-3.5" /> : null}
+                              Sem. {index + 1}
+                            </Button>
+                          )
+                        })}
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        disabled={selectedPasteWeeks.size === 0 || saving}
+                        onClick={() => void pasteWeekToMany()}
+                      >
+                        {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <ClipboardPaste className="h-3.5 w-3.5 mr-2" />}
+                        Pegar en {selectedPasteWeeks.size} semana{selectedPasteWeeks.size === 1 ? "" : "s"}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Usa el menú <strong>⋮</strong> de un día para copiar un día o una semana completa.
+                  Después elige el destino y pulsa <strong>Pegar</strong>.
+                  «Aplicar a todo el mes» es distinto: repite un día en todo el mes.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        </CollapsibleContent>
+      </Collapsible>
+
       {loading ? (
         <div className="flex items-center justify-center p-12">
           <Loader2 className="h-8 w-8 animate-spin text-teal-600" />
         </div>
       ) : (
         <div className="space-y-2 md:space-y-4">
-          {/* Encabezados días */}
           <div className="grid grid-cols-7 gap-1 md:gap-2">
             {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((d) => (
               <div key={d} className="text-center text-xs md:text-sm font-medium text-muted-foreground py-1 md:py-2">
@@ -535,269 +629,230 @@ export function MonthlyMealPlan() {
             ))}
           </div>
 
-          {/* Semanas */}
           <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0 md:overflow-visible">
-            <div className="inline-block min-w-full md:block">
-              {weeks.map((week, weekIndex) => (
-                <div
-                  key={weekIndex}
-                  className="grid grid-cols-7 gap-1 md:gap-2 min-w-[700px] md:min-w-0 mb-1 md:mb-2"
-                >
-                  {week.map((day, dayIndex) => {
-                    if (!day) return <div key={dayIndex} className="min-h-[120px]" />
+            <div className="inline-block min-w-full md:block space-y-1 md:space-y-2">
+              {weeks.map((week, weekIndex) => {
+                const weekAnchor = toLocalDateStr(week[0])
+                const wKey = weekKey(weekAnchor)
+                const isSourceWeek = clipboard?.type === "week" && wKey === clipboardSourceWeekKey
+                const canPasteWeek = clipboard?.type === "week" && !isSourceWeek
 
-                    const dateStr = toLocalDateStr(day)
-                    const isCurrentMonth = day.getMonth() === currentMonth.getMonth()
-                    const isCurrentDay = isToday(day)
-                    const daySelections = monthlySelections[dateStr] || []
-                    const hasSelections = daySelections.length > 0
-                    const isPastDay = isPast(day) && !isCurrentDay
+                return (
+                  <div key={weekIndex} className="space-y-1">
+                    <div className="flex items-center justify-between gap-2 rounded-md bg-muted/40 px-2 py-1">
+                      <span className="text-[10px] md:text-xs font-medium text-muted-foreground truncate">
+                        Sem. {weekIndex + 1} · {formatWeekRange(weekAnchor)}
+                      </span>
+                      {canPasteWeek && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 text-[10px] md:text-xs flex-shrink-0"
+                          disabled={saving}
+                          onClick={() => void pasteWeek(weekAnchor)}
+                        >
+                          <ClipboardPaste className="h-3 w-3 mr-1" />
+                          Pegar semana
+                        </Button>
+                      )}
+                      {isSourceWeek && (
+                        <Badge variant="outline" className="text-[10px] border-blue-400 text-blue-700">
+                          Origen
+                        </Badge>
+                      )}
+                    </div>
 
-                    // Copy mode styles
-                    const isSource = copyMode?.sourceDate === dateStr
-                    const isSourceWeekDay = copyMode?.type === "week" && sourceCopyWeekDates.has(dateStr)
-                    const isCopyTarget = copyMode && isCurrentMonth && !isSource && !isSourceWeekDay
+                    <div className="grid grid-cols-7 gap-1 md:gap-2 min-w-[700px] md:min-w-0">
+                      {week.map((day) => {
+                        const dateStr = toLocalDateStr(day)
+                        const isCurrentMonth = day.getMonth() === currentMonth.getMonth()
+                        const isCurrentDay = isToday(day)
+                        const daySelections = getSelectionsForDate(dateStr)
+                        const hasSelections = daySelections.length > 0
+                        const isPastDay = isPast(day) && !isCurrentDay
 
-                    return (
-                      <Card
-                        key={dateStr}
-                        className={[
-                          "min-h-[100px] md:min-h-[120px] transition-all",
-                          !isCurrentMonth ? "opacity-40" : "",
-                          isCurrentDay ? "ring-2 ring-teal-500" : "",
-                          isPastDay ? "bg-muted" : "",
-                          isSource || isSourceWeekDay
-                            ? "ring-2 ring-blue-500 bg-blue-50"
-                            : "",
-                          isCopyTarget
-                            ? "cursor-pointer hover:ring-2 hover:ring-blue-300 hover:bg-blue-50/60"
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" ")}
-                        onClick={() => {
-                          if (copyMode && isCurrentMonth && !isSource && !isSourceWeekDay) {
-                            handleCopyTarget(dateStr)
-                          }
-                        }}
-                      >
-                        <CardHeader className="pb-1 md:pb-2 p-1.5 md:p-2">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <CardTitle className="text-xs md:text-sm font-medium">
-                                {format(day, "d")}
-                              </CardTitle>
-                              {isCurrentDay && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] md:text-[10px] mt-0.5 md:mt-1 px-1 py-0"
-                                >
-                                  Hoy
-                                </Badge>
-                              )}
-                              {(isSource || isSourceWeekDay) && (
-                                <Badge className="text-[9px] mt-0.5 px-1 py-0 bg-blue-500 text-white">
-                                  Origen
-                                </Badge>
-                              )}
-                              {isCopyTarget && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[9px] mt-0.5 px-1 py-0 border-blue-400 text-blue-600"
-                                >
-                                  ← Clic para pegar
-                                </Badge>
-                              )}
-                            </div>
+                        const isSourceDay = clipboard?.type === "day" && clipboard.sourceDate === dateStr
+                        const isSourceWeekDay = clipboard?.type === "week" && sourceWeekKeySet.has(dateStr)
+                        const canPasteDay = clipboard?.type === "day" && !isSourceDay
 
-                            {/* Menú de acciones (solo días del mes actual) */}
-                            {isCurrentMonth && !copyMode && (
-                              <div className="flex items-center gap-0.5">
-                                {hasSelections && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 md:h-5 md:w-5 touch-manipulation"
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleApplyToMonth(dateStr)
-                                    }}
-                                    disabled={saving}
-                                    title="Aplicar a todo el mes"
-                                  >
-                                    <ArrowRight className="h-3 w-3" />
-                                  </Button>
-                                )}
+                        return (
+                          <Card
+                            key={dateStr}
+                            className={cn(
+                              "min-h-[100px] md:min-h-[120px] transition-all",
+                              !isCurrentMonth && "opacity-50",
+                              isCurrentDay && "ring-2 ring-teal-500",
+                              isPastDay && isCurrentMonth && "bg-muted",
+                              (isSourceDay || isSourceWeekDay) && "ring-2 ring-blue-500 bg-blue-50",
+                            )}
+                          >
+                            <CardHeader className="pb-1 md:pb-2 p-1.5 md:p-2">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <CardTitle className="text-xs md:text-sm font-medium">{format(day, "d")}</CardTitle>
+                                  {isCurrentDay && (
+                                    <Badge variant="outline" className="text-[9px] md:text-[10px] mt-0.5 md:mt-1 px-1 py-0">
+                                      Hoy
+                                    </Badge>
+                                  )}
+                                  {(isSourceDay || isSourceWeekDay) && (
+                                    <Badge className="text-[9px] mt-0.5 px-1 py-0 bg-blue-500 text-white">Origen</Badge>
+                                  )}
+                                </div>
 
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-6 w-6 md:h-5 md:w-5 touch-manipulation"
-                                      onClick={(e) => e.stopPropagation()}
-                                      disabled={saving}
-                                    >
-                                      <MoreVertical className="h-3 w-3" />
-                                    </Button>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end" className="z-50">
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        startCopyMode(dateStr, "day")
-                                      }}
-                                      disabled={!hasSelections}
-                                    >
-                                      <Copy className="h-4 w-4 mr-2" />
-                                      Copiar día
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        startCopyMode(dateStr, "week")
-                                      }}
-                                      disabled={!hasSelections}
-                                    >
-                                      <Calendar className="h-4 w-4 mr-2" />
-                                      Copiar semana completa
-                                    </DropdownMenuItem>
+                                {isCurrentMonth && !clipboard && (
+                                  <div className="flex items-center gap-0.5">
                                     {hasSelections && (
-                                      <>
-                                        <DropdownMenuSeparator />
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 md:h-5 md:w-5 touch-manipulation"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          void handleApplyToMonth(dateStr)
+                                        }}
+                                        disabled={saving}
+                                        title="Aplicar a todo el mes (sobrescribe el mes)"
+                                      >
+                                        <ArrowRight className="h-3 w-3" />
+                                      </Button>
+                                    )}
+
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-6 w-6 md:h-5 md:w-5 touch-manipulation"
+                                          onClick={(e) => e.stopPropagation()}
+                                          disabled={saving}
+                                        >
+                                          <MoreVertical className="h-3 w-3" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="z-50">
                                         <DropdownMenuItem
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleApplyToMonth(dateStr)
+                                            copyToClipboard(dateStr, "day")
                                           }}
+                                          disabled={!hasSelections}
                                         >
-                                          <ArrowRight className="h-4 w-4 mr-2" />
-                                          Aplicar a todo el mes
+                                          <Copy className="h-4 w-4 mr-2" />
+                                          Copiar día
                                         </DropdownMenuItem>
-                                      </>
-                                    )}
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
+                                        <DropdownMenuItem
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            copyToClipboard(dateStr, "week")
+                                          }}
+                                          disabled={!weekHasMeals(dateStr)}
+                                        >
+                                          <Calendar className="h-4 w-4 mr-2" />
+                                          Copiar semana completa
+                                        </DropdownMenuItem>
+                                        {hasSelections && (
+                                          <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                void handleApplyToMonth(dateStr)
+                                              }}
+                                            >
+                                              <ArrowRight className="h-4 w-4 mr-2" />
+                                              Aplicar a todo el mes
+                                            </DropdownMenuItem>
+                                          </>
+                                        )}
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                        </CardHeader>
+                            </CardHeader>
 
-                        <CardContent className="p-1.5 md:p-2 space-y-0.5 md:space-y-1">
-                          {/* En modo copia mostrar resumen simplificado */}
-                          {copyMode && isCurrentMonth ? (
-                            <div className="text-center py-2">
-                              {hasSelections ? (
-                                <p className="text-[9px] text-muted-foreground">
-                                  {daySelections.length} comida{daySelections.length !== 1 ? "s" : ""}
-                                </p>
-                              ) : (
-                                <p className="text-[9px] text-muted-foreground italic">Vacío</p>
+                            <CardContent className="p-1.5 md:p-2 space-y-1">
+                              {canPasteDay && (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="secondary"
+                                  className="h-7 w-full text-[10px] md:text-xs"
+                                  disabled={saving}
+                                  onClick={() => void pasteDay(dateStr)}
+                                >
+                                  <ClipboardPaste className="h-3 w-3 mr-1" />
+                                  Pegar día
+                                </Button>
                               )}
-                            </div>
-                          ) : (
-                            isCurrentMonth &&
-                            MEAL_TYPES.map((meal) => {
-                              const selection = getSelectionForMeal(dateStr, meal.type)
-                              const isCompleted = selection?.completed === true
-                              const hasSelection = !!selection
 
-                              return (
-                                <div key={meal.type} className="relative group">
-                                  <Button
-                                    variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
-                                    className={[
-                                      "w-full justify-start h-auto p-1 md:p-1.5 text-[8px] md:text-[9px] touch-manipulation",
-                                      hasSelection && !isCompleted
-                                        ? "border-blue-300 bg-blue-50 hover:bg-blue-100 active:bg-blue-200"
-                                        : "",
-                                      hasSelection
-                                        ? "min-h-[70px] md:min-h-[85px]"
-                                        : "min-h-[32px] md:min-h-[40px]",
-                                    ]
-                                      .filter(Boolean)
-                                      .join(" ")}
-                                    onClick={() => handleSelectMeal(dateStr, meal.type)}
-                                    disabled={saving || !isCurrentMonth}
-                                  >
-                                    <div className="flex flex-col gap-0.5 md:gap-1 w-full text-left">
-                                      <div className="flex items-center gap-0.5 md:gap-1">
-                                        <span className="text-[10px] md:text-[11px] flex-shrink-0">{meal.icon}</span>
-                                        <div className="flex-1 min-w-0">
-                                          <div className="font-medium text-[8px] md:text-[9px] leading-tight truncate">
-                                            {meal.name}
-                                          </div>
-                                          {!hasSelection && (
-                                            <div className="text-[6px] md:text-[7px] text-muted-foreground">
-                                              {meal.time}
+                              {isCurrentMonth && MEAL_TYPES.map((meal) => {
+                                const selection = getSelectionForMeal(dateStr, meal.type)
+                                const isCompleted = selection?.completed === true
+                                const hasSelection = !!selection
+
+                                return (
+                                  <div key={meal.type} className="relative group">
+                                    <Button
+                                      variant={hasSelection ? (isCompleted ? "secondary" : "outline") : "outline"}
+                                      className={cn(
+                                        "w-full justify-start h-auto p-1 md:p-1.5 text-[8px] md:text-[9px] touch-manipulation",
+                                        hasSelection && !isCompleted && "border-blue-300 bg-blue-50 hover:bg-blue-100",
+                                        hasSelection ? "min-h-[70px] md:min-h-[85px]" : "min-h-[32px] md:min-h-[40px]",
+                                      )}
+                                      onClick={() => handleSelectMeal(dateStr, meal.type)}
+                                      disabled={saving || !isCurrentMonth || !!clipboard}
+                                    >
+                                      <div className="flex flex-col gap-0.5 md:gap-1 w-full text-left">
+                                        <div className="flex items-center gap-0.5 md:gap-1">
+                                          <span className="text-[10px] md:text-[11px] flex-shrink-0">{meal.icon}</span>
+                                          <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-[8px] md:text-[9px] leading-tight truncate">
+                                              {meal.name}
                                             </div>
+                                            {!hasSelection && (
+                                              <div className="text-[6px] md:text-[7px] text-muted-foreground">{meal.time}</div>
+                                            )}
+                                          </div>
+                                          {hasSelection && (
+                                            <Check className={cn("h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0", isCompleted ? "text-teal-600" : "text-blue-500")} />
                                           )}
                                         </div>
+
                                         {hasSelection && (
-                                          <Check
-                                            className={`h-2 w-2 md:h-2.5 md:w-2.5 flex-shrink-0 ${isCompleted ? "text-teal-600" : "text-blue-500"}`}
-                                          />
+                                          <div className="mt-0.5 pt-0.5 md:pt-1 border-t border-border/60 space-y-0.5 md:space-y-1">
+                                            <div className="text-[8px] md:text-[9px] font-semibold text-foreground leading-tight break-words line-clamp-2">
+                                              {getMealName(selection)}
+                                            </div>
+                                            {(selection.recipe?.calories || selection.calories) && (
+                                              <div className="text-center bg-orange-50 rounded p-0.5">
+                                                <div className="font-bold text-orange-600 text-[7px] md:text-[8px]">
+                                                  {selection.recipe?.calories || selection.calories || 0} kcal
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
                                         )}
                                       </div>
-
-                                      {hasSelection && (
-                                        <div className="mt-0.5 pt-0.5 md:pt-1 border-t border-border/60 space-y-0.5 md:space-y-1">
-                                          <div className="text-[8px] md:text-[9px] font-semibold text-foreground leading-tight break-words line-clamp-2">
-                                            {getMealName(selection)}
-                                          </div>
-                                          <div className="flex items-center gap-0.5 md:gap-1">
-                                            {!isCompleted && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-blue-300 text-blue-600 bg-blue-50"
-                                              >
-                                                📋
-                                              </Badge>
-                                            )}
-                                            {isCompleted && (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-teal-300 text-teal-600 bg-teal-50"
-                                              >
-                                                ✅
-                                              </Badge>
-                                            )}
-                                            {selection.substitution_details?.length ? (
-                                              <Badge
-                                                variant="outline"
-                                                className="text-[6px] md:text-[7px] px-0.5 md:px-1 py-0 h-2.5 md:h-3 border-emerald-300 text-emerald-700 bg-emerald-50"
-                                              >
-                                                Cambio
-                                              </Badge>
-                                            ) : null}
-                                          </div>
-                                          {(selection.recipe?.calories || selection.calories) && (
-                                            <div className="text-center bg-orange-50 rounded p-0.5">
-                                              <div className="font-bold text-orange-600 text-[7px] md:text-[8px]">
-                                                {selection.recipe?.calories || selection.calories || 0} kcal
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </Button>
-                                </div>
-                              )
-                            })
-                          )}
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-              ))}
+                                    </Button>
+                                  </div>
+                                )
+                              })}
+                            </CardContent>
+                          </Card>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal de selección */}
       {isModalOpen && selectedMeal && (
         <MealSelectionModal
           isOpen={isModalOpen}

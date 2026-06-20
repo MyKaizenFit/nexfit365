@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, SkipForward, Pencil, BookOpen, Shuffle } from 'lucide-react'
+import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, BookOpen, Shuffle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -17,6 +17,7 @@ import { formatMacro } from '@/lib/utils'
 import { MealsSectionSkeleton, WeeklyCalendarSkeleton } from '@/components/dashboard/dashboard-skeletons'
 
 const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal-plan').then(module => ({ default: module.WeeklyMealPlan })))
+const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
   const { meals, macros, loading, hasUserPlan, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
@@ -169,7 +170,7 @@ export function MealDashboard() {
 
       {/* Tabs para vista diaria y semanal */}
       <Tabs defaultValue="daily" className="w-full" onValueChange={(v) => { if (v === 'daily') refreshData() }}>
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
           <TabsTrigger value="daily" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Clock className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Diaria
@@ -177,6 +178,10 @@ export function MealDashboard() {
           <TabsTrigger value="weekly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Calendar className="h-3.5 w-3.5 md:h-4 md:w-4" />
             <span className="hidden sm:inline">Vista </span>Semanal
+          </TabsTrigger>
+          <TabsTrigger value="monthly" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
+            <CalendarDays className="h-3.5 w-3.5 md:h-4 md:w-4" />
+            <span className="hidden sm:inline">Vista </span>Mensual
           </TabsTrigger>
           <TabsTrigger value="shopping" className="flex items-center gap-1.5 md:gap-2 text-xs md:text-sm py-2 md:py-2.5">
             <Utensils className="h-3.5 w-3.5 md:h-4 md:w-4" />
@@ -471,6 +476,12 @@ export function MealDashboard() {
         <TabsContent value="weekly" className="mt-6">
           <Suspense fallback={<WeeklyCalendarSkeleton />}>
             <WeeklyMealPlan />
+          </Suspense>
+        </TabsContent>
+
+        <TabsContent value="monthly" className="mt-6">
+          <Suspense fallback={<WeeklyCalendarSkeleton />}>
+            <MonthlyMealPlan />
           </Suspense>
         </TabsContent>
       </Tabs>
