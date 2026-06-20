@@ -1937,6 +1937,53 @@ export function WorkoutPlanManagement() {
     )
   }
 
+  if (showWorkoutEditor && workoutEditorPlanId) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3 pb-2 border-b">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (!confirmWorkoutEditorClose()) return
+              setShowWorkoutEditor(false)
+              setWorkoutEditorPlanId(null)
+              setHasUnsavedWorkoutEditorChanges(false)
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Volver a la lista
+          </Button>
+          <div className="h-4 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-violet-600">
+              <Dumbbell className="h-4 w-4 text-white" />
+            </div>
+            <span className="text-sm font-semibold text-muted-foreground">Editor de Ejercicios</span>
+          </div>
+        </div>
+        <WorkoutTemplatePlanEditor
+          ref={editorRef}
+          planId={workoutEditorPlanId}
+          availableExercises={Array.isArray(exercises) ? exercises : []}
+          onSaved={async () => {
+            toast({ title: "✅ Guardado", description: "Los ejercicios han sido guardados correctamente." })
+            refetch()
+          }}
+          onClose={() => {
+            if (!confirmWorkoutEditorClose()) return
+            setShowWorkoutEditor(false)
+            setWorkoutEditorPlanId(null)
+            setHasUnsavedWorkoutEditorChanges(false)
+          }}
+          isEmbedded={false}
+          onDirtyChange={setHasUnsavedWorkoutEditorChanges}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Card de Exportación/Importación */}
@@ -2408,6 +2455,17 @@ export function WorkoutPlanManagement() {
                                 Ver Detalles
                               </DropdownMenuItem>
                               <DropdownMenuItem
+                                onClick={() => handleEditWorkout(plan.id)}
+                                disabled={loadingDetail}
+                              >
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Dumbbell className="h-4 w-4 mr-2" />
+                                )}
+                                Editar Rutina
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
                                 onClick={() => handleEditPlan(plan.id, false)}
                                 disabled={loadingDetail}
                               >
@@ -2416,7 +2474,7 @@ export function WorkoutPlanManagement() {
                                 ) : (
                                   <Edit className="h-4 w-4 mr-2" />
                                 )}
-                                Editar
+                                Editar Información
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleCopyPlan(plan.id)} disabled={copyingPlanId !== null}>
                                 {copyingPlanId === plan.id ? (
@@ -2429,10 +2487,6 @@ export function WorkoutPlanManagement() {
                               <DropdownMenuItem onClick={() => openAssignUserDialog(plan.id)} disabled={copyingPlanId !== null}>
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Asignar copia a usuario
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditWorkout(plan.id)}>
-                                <Dumbbell className="h-4 w-4 mr-2" />
-                                Editar Ejercicios
                               </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleToggleActive(plan.id)}>
                                 {plan.is_active ? (
@@ -2674,8 +2728,20 @@ export function WorkoutPlanManagement() {
                                 Ver Detalles
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleEditPlan(plan.id, false)}
+                                onClick={() => handleEditWorkout(plan.id)}
                                 className="hover:bg-gradient-to-r hover:from-purple-50 hover:to-violet-50"
+                                disabled={loadingDetail}
+                              >
+                                {loadingDetail ? (
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                ) : (
+                                  <Dumbbell className="h-4 w-4 mr-2" />
+                                )}
+                                Editar Rutina
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleEditPlan(plan.id, false)}
+                                className="hover:bg-gradient-to-r hover:from-slate-50 hover:to-gray-50"
                                 disabled={loadingDetail}
                               >
                                 {loadingDetail ? (
@@ -2683,7 +2749,7 @@ export function WorkoutPlanManagement() {
                                 ) : (
                                   <Edit className="h-4 w-4 mr-2" />
                                 )}
-                                Editar
+                                Editar Información
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 onClick={() => handleCopyPlan(plan.id)}
@@ -3225,691 +3291,156 @@ export function WorkoutPlanManagement() {
       <Dialog open={!!editingPlan} onOpenChange={(open) => {
         if (!open) {
           resetForm()
-          setIsViewMode(false) // Reset view mode
+          setIsViewMode(false)
         }
       }}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              {isViewMode ? '👁️ Ver Detalles del Plan' : '✏️ Editar Plan de Entrenamiento'}
-            </DialogTitle>
-            <DialogDescription>
-              {isViewMode
-                ? 'Visualiza la información y ejercicios del plan (solo lectura)'
-                : 'Modifica la información y ejercicios del plan'}
-            </DialogDescription>
+            <div className="flex items-center gap-3">
+              <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${isViewMode ? 'bg-blue-100' : 'bg-gradient-to-br from-purple-500 to-violet-600'}`}>
+                {isViewMode
+                  ? <Eye className="h-5 w-5 text-blue-600" />
+                  : <Edit className="h-5 w-5 text-white" />
+                }
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">
+                  {isViewMode ? 'Detalles del Plan' : 'Editar Información del Plan'}
+                </DialogTitle>
+                <DialogDescription className="text-sm">
+                  {isViewMode
+                    ? 'Información general del plan de entrenamiento'
+                    : 'Modifica el nombre, descripción y configuración básica'}
+                </DialogDescription>
+              </div>
+            </div>
           </DialogHeader>
 
-          <div className="space-y-6">
-            {/* Información básica */}
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <FormLabel>Nombre del Plan *</FormLabel>
-                <Input
-                  placeholder="Ej: Rutina de Fuerza para Principiantes"
-                  value={formData.name}
-                  onChange={(e) => handleFormChange('name', e.target.value)}
-                  disabled={isViewMode}
-                />
-              </div>
-              <div>
-                <FormLabel>Dificultad *</FormLabel>
-                <Select
-                  value={formData.difficulty}
-                  onValueChange={(value) => handleFormChange('difficulty', value)}
-                  disabled={isViewMode}
-                >
-                  <SelectTrigger disabled={isViewMode}>
-                    <SelectValue placeholder="Selecciona la dificultad" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="beginner">Principiante</SelectItem>
-                    <SelectItem value="intermediate">Intermedio</SelectItem>
-                    <SelectItem value="advanced">Avanzado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <FormLabel>Descripción *</FormLabel>
-              <Textarea
-                placeholder="Describe el objetivo y características del plan..."
-                value={formData.description}
-                onChange={(e) => handleFormChange('description', e.target.value)}
-                rows={3}
-                disabled={isViewMode}
-              />
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-4">
-              <div>
-                <FormLabel>Duración (semanas) *</FormLabel>
-                <Input
-                  type="number"
-                  placeholder="4"
-                  value={formData.duration_weeks}
-                  onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
-                  disabled={isViewMode}
-                />
-              </div>
-              <div>
-                <FormLabel>
-                  Usuario Asignado
-                  {editingPlan?.user_email && (
-                    <span className="ml-2 text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full">
-                      {editingPlan.user_email}
-                    </span>
-                  )}
-                </FormLabel>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {editingPlan?.user_email
-                    ? "No se puede cambiar el usuario de un plan existente"
-                    : "Este plan es una plantilla (no asignado a ningún usuario)"}
-                </p>
-              </div>
-              <div>
-                <FormLabel>Rol Mínimo Requerido *</FormLabel>
-                <Select
-                  value={formData.min_role_required}
-                  onValueChange={(value) => handleFormChange('min_role_required', value)}
-                  disabled={isViewMode}
-                >
-                  <SelectTrigger disabled={isViewMode}>
-                    <SelectValue placeholder="Selecciona el rol" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="basic">Básico</SelectItem>
-                    <SelectItem value="pro">Plan de Prueba</SelectItem>
-                    <SelectItem value="premium">Premium</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <FormLabel>Duración por Sesión (min)</FormLabel>
-                <Input
-                  type="number"
-                  placeholder="60"
-                  value={formData.estimated_duration_minutes}
-                  onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
-                  disabled={isViewMode}
-                />
-              </div>
-            </div>
-
-            {/* Días de entrenamiento */}
-            <div>
-              <div className="flex flex-col gap-3 mb-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-5">
+            <div className="rounded-xl border bg-card p-4 space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <FormLabel className="text-lg font-semibold">Días de Entrenamiento</FormLabel>
-                  <div className="text-xs text-muted-foreground">
-                    {workoutWeekGroups.length} semana{workoutWeekGroups.length === 1 ? '' : 's'} · {workoutDays.length} día{workoutDays.length === 1 ? '' : 's'}
+                  <FormLabel>Nombre del Plan *</FormLabel>
+                  <Input
+                    placeholder="Ej: Rutina de Fuerza para Principiantes"
+                    value={formData.name}
+                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    disabled={isViewMode}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <FormLabel>Dificultad *</FormLabel>
+                  <Select
+                    value={formData.difficulty}
+                    onValueChange={(value) => handleFormChange('difficulty', value)}
+                    disabled={isViewMode}
+                  >
+                    <SelectTrigger disabled={isViewMode} className="mt-1">
+                      <SelectValue placeholder="Selecciona la dificultad" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">Principiante</SelectItem>
+                      <SelectItem value="intermediate">Intermedio</SelectItem>
+                      <SelectItem value="advanced">Avanzado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div>
+                <FormLabel>Descripción</FormLabel>
+                <Textarea
+                  placeholder="Describe el objetivo y características del plan..."
+                  value={formData.description}
+                  onChange={(e) => handleFormChange('description', e.target.value)}
+                  rows={3}
+                  disabled={isViewMode}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border bg-card p-4 space-y-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Configuración</p>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <FormLabel>Duración (semanas)</FormLabel>
+                  <Input
+                    type="number"
+                    placeholder="4"
+                    value={formData.duration_weeks}
+                    onChange={(e) => handleFormChange('duration_weeks', parseInt(e.target.value) || 4)}
+                    disabled={isViewMode}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <FormLabel>Rol Mínimo Requerido</FormLabel>
+                  <Select
+                    value={formData.min_role_required}
+                    onValueChange={(value) => handleFormChange('min_role_required', value)}
+                    disabled={isViewMode}
+                  >
+                    <SelectTrigger disabled={isViewMode} className="mt-1">
+                      <SelectValue placeholder="Selecciona el rol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="basic">Básico</SelectItem>
+                      <SelectItem value="pro">Plan de Prueba</SelectItem>
+                      <SelectItem value="premium">Premium</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <FormLabel>Duración por Sesión (min)</FormLabel>
+                  <Input
+                    type="number"
+                    placeholder="60"
+                    value={formData.estimated_duration_minutes}
+                    onChange={(e) => handleFormChange('estimated_duration_minutes', parseInt(e.target.value) || 60)}
+                    disabled={isViewMode}
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+              {editingPlan?.user_email && (
+                <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2 text-sm">
+                  <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  <span className="text-muted-foreground">Usuario asignado:</span>
+                  <span className="font-medium">{editingPlan.user_email}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Ejercicios y días — redirige al editor moderno */}
+            <div>
+              <div className="rounded-xl border-2 border-dashed border-purple-200 bg-gradient-to-br from-purple-50 to-violet-50 p-5 text-center space-y-3">
+                <div className="flex justify-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-violet-600">
+                    <Dumbbell className="h-6 w-6 text-white" />
                   </div>
                 </div>
-                {!isViewMode && (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={addWorkoutDay}
-                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar Día
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={addWorkoutWeek}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Agregar Semana
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-6">
-                {workoutWeekGroups.map(({ weekIndex, days }) => (
-                  <section key={`week-${weekIndex}`} className="rounded-md border-2 border-blue-200 bg-blue-50/30">
-                    <div className="flex flex-col gap-3 border-b border-blue-200 px-4 py-3 md:flex-row md:items-center md:justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-blue-600 text-sm font-semibold text-white">
-                          {weekIndex + 1}
-                        </div>
-                        <div>
-                          <h3 className="text-base font-semibold text-blue-950">Semana {weekIndex + 1}</h3>
-                          <p className="text-xs text-blue-800">
-                            {days.length} día{days.length === 1 ? '' : 's'} · {days.reduce((total, day) => total + (Array.isArray(day?.exercises) ? day.exercises.length : 0), 0)} ejercicios
-                          </p>
-                        </div>
-                      </div>
-                      {!isViewMode && (
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => copyWorkoutWeek(weekIndex)}
-                            className="h-8 border-blue-300 bg-white text-blue-800 hover:bg-blue-50"
-                          >
-                            <Copy className="h-4 w-4 mr-2" />
-                            Copiar
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => moveWorkoutWeek(weekIndex, -1)}
-                            disabled={weekIndex === 0}
-                            className="h-8 bg-white"
-                          >
-                            <ArrowUp className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            onClick={() => moveWorkoutWeek(weekIndex, 1)}
-                            disabled={weekIndex === workoutWeekGroups.length - 1}
-                            className="h-8 bg-white"
-                          >
-                            <ArrowDown className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="space-y-4 p-4">
-                      {days.map((day, dayOffset) => {
-                        if (!day) return null
-                        const dayIndex = weekIndex * 7 + dayOffset
-                        return (
-                          <div key={day.id} className="rounded-md border-2 border-slate-300 bg-white shadow-sm">
-                            <div className="border-b border-slate-200 px-4 py-3">
-                              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                                <div className="flex min-w-0 flex-1 items-center space-x-3">
-                            <GripVertical className="h-4 w-4 text-muted-foreground" />
-                            <Input
-                              value={day.day_name}
-                              onChange={(e) => updateWorkoutDay(day.id, 'day_name', e.target.value)}
-                              className="h-auto min-w-0 border-0 bg-transparent p-0 text-base font-semibold"
-                              disabled={isViewMode}
-                              type="text"
-                              autoComplete="off"
-                            />
-                            <Checkbox
-                              checked={day.is_rest_day}
-                              onCheckedChange={(checked) => updateWorkoutDay(day.id, 'is_rest_day', checked)}
-                              disabled={isViewMode}
-                            />
-                            <span className="text-sm text-muted-foreground">Día de descanso</span>
-                          </div>
-                          {!isViewMode && (
-                            <div className="flex items-center space-x-2">
-                              {/* Botones de reordenar */}
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => moveDayUp(dayIndex)}
-                                disabled={dayIndex === 0}
-                                className="h-8 w-8 p-0"
-                              >
-                                <ArrowUp className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => moveDayDown(dayIndex)}
-                                disabled={dayIndex === workoutDays.length - 1}
-                                className="h-8 w-8 p-0"
-                              >
-                                <ArrowDown className="h-4 w-4" />
-                              </Button>
-                              {workoutDays.length > 1 && (
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => removeWorkoutDay(day.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 p-4">
-                        {!day.is_rest_day && (
-                          <>
-                            <div>
-                              <FormLabel>Notas del día</FormLabel>
-                              <Textarea
-                                placeholder="Instrucciones especiales para este día..."
-                                value={day.notes}
-                                onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
-                                rows={2}
-                                disabled={isViewMode}
-                                autoComplete="off"
-                              />
-                            </div>
-
-                            {/* Selector múltiple de ejercicios */}
-                            <div>
-                              <div className="flex items-center justify-between mb-3">
-                                <FormLabel>Agregar Ejercicios</FormLabel>
-                                {!isViewMode && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => toggleExerciseSelector(day.id)}
-                                    className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white border-0"
-                                  >
-                                    <Plus className="h-4 w-4 mr-2" />
-                                    {showExerciseSelector[day.id] ? 'Cancelar' : 'Seleccionar Ejercicios'}
-                                  </Button>
-                                )}
-                              </div>
-
-                              {/* Selector múltiple expandible */}
-                              {showExerciseSelector[day.id] && (
-                                <Card className="border border-green-200 bg-green-50">
-                                  <CardContent className="pt-4">
-                                    <div className="space-y-4">
-                                      <div className="flex items-center justify-between">
-                                        <FormLabel className="text-sm font-medium">
-                                          Selecciona múltiples ejercicios:
-                                        </FormLabel>
-                                        <div className="text-sm text-muted-foreground">
-                                          {selectedExercisesForDay[day.id]?.length || 0} seleccionados
-                                        </div>
-                                      </div>
-
-                                      {/* Búsqueda y Filtros */}
-                                      <div className="space-y-3">
-                                        {/* Buscador por nombre */}
-                                        <div className="relative">
-                                          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                          <Input
-                                            placeholder="Buscar ejercicio por nombre..."
-                                            value={exerciseSearchTerm[day.id] || ''}
-                                            onChange={(e) => setExerciseSearchTerm(prev => ({
-                                              ...prev,
-                                              [day.id]: e.target.value
-                                            }))}
-                                            className="pl-9"
-                                          />
-                                        </div>
-
-                                        {/* Filtros */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                          {/* Filtro por categoría */}
-                                          <Select
-                                            value={exerciseCategoryFilter[day.id] || 'all'}
-                                            onValueChange={(value) => setExerciseCategoryFilter(prev => ({
-                                              ...prev,
-                                              [day.id]: value
-                                            }))}
-                                          >
-                                            <SelectTrigger className="h-9">
-                                              <SelectValue placeholder="Filtrar por categoría" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="all">Todas las categorías</SelectItem>
-                                              {getUniqueCategories().map(category => (
-                                                <SelectItem key={category} value={category}>
-                                                  {fixEncoding(category)}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-
-                                          {/* Filtro por músculo */}
-                                          <Select
-                                            value={exerciseMuscleFilter[day.id] || 'all'}
-                                            onValueChange={(value) => setExerciseMuscleFilter(prev => ({
-                                              ...prev,
-                                              [day.id]: value
-                                            }))}
-                                          >
-                                            <SelectTrigger className="h-9">
-                                              <SelectValue placeholder="Filtrar por músculo" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                              <SelectItem value="all">Todos los músculos</SelectItem>
-                                              {getUniqueMuscles().map(muscle => (
-                                                <SelectItem key={muscle} value={muscle}>
-                                                  {fixEncoding(muscle)}
-                                                </SelectItem>
-                                              ))}
-                                            </SelectContent>
-                                          </Select>
-                                        </div>
-
-                                        {/* Botón para limpiar filtros */}
-                                        {(exerciseSearchTerm[day.id] || exerciseCategoryFilter[day.id] !== 'all' || exerciseMuscleFilter[day.id] !== 'all') && (
-                                          <Button
-                                            size="sm"
-                                            variant="ghost"
-                                            onClick={() => {
-                                              setExerciseSearchTerm(prev => ({ ...prev, [day.id]: '' }))
-                                              setExerciseCategoryFilter(prev => ({ ...prev, [day.id]: 'all' }))
-                                              setExerciseMuscleFilter(prev => ({ ...prev, [day.id]: 'all' }))
-                                            }}
-                                            className="w-full text-xs"
-                                          >
-                                            <Filter className="h-3 w-3 mr-1" />
-                                            Limpiar filtros
-                                          </Button>
-                                        )}
-                                      </div>
-
-                                      {/* Lista de ejercicios con checkboxes */}
-                                      <div className="max-h-60 overflow-y-auto space-y-2">
-                                        {getFilteredExercises(day.id).map((exercise) => {
-                                          if (!exercise) return null
-                                          const exerciseIdStr = String(exercise.id)
-                                          const isSelected = Array.isArray(selectedExercisesForDay[day.id]) && selectedExercisesForDay[day.id].includes(exerciseIdStr)
-                                          const dayExercises = Array.isArray(day.exercises) ? day.exercises : []
-                                          const alreadyInDay = dayExercises.some(e => String(e.exercise_id) === exerciseIdStr)
-
-                                          return (
-                                            <div
-                                              key={exerciseIdStr}
-                                              className={`flex items-center space-x-3 p-2 rounded border ${alreadyInDay
-                                                  ? 'bg-gray-100 border-gray-300'
-                                                  : isSelected
-                                                    ? 'bg-green-100 border-green-300'
-                                                    : 'bg-white border-gray-200 hover:bg-gray-50'
-                                                }`}
-                                            >
-                                              <Checkbox
-                                                checked={isSelected}
-                                                onCheckedChange={() => toggleExerciseSelection(day.id, exerciseIdStr)}
-                                                disabled={alreadyInDay}
-                                              />
-                                              <div className="flex-1">
-                                                <div className="font-medium text-sm">{fixEncoding(exercise.name)}</div>
-                                                <div className="text-xs text-muted-foreground">
-                                                  {fixEncoding(exercise.category)} • {exercise.muscle_groups?.map(m => fixEncoding(m)).join(', ')}
-                                                </div>
-                                              </div>
-                                              {alreadyInDay && (
-                                                <Badge variant="outline" className="text-xs">
-                                                  Ya agregado
-                                                </Badge>
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-
-                                      {/* Mensaje si no hay resultados */}
-                                      {getFilteredExercises(day.id).length === 0 && (
-                                        <div className="text-center py-4 text-sm text-muted-foreground">
-                                          No se encontraron ejercicios con los filtros aplicados
-                                        </div>
-                                      )}
-
-                                      {/* Botones de acción */}
-                                      <div className="flex gap-2 pt-2 border-t">
-                                        <Button
-                                          size="sm"
-                                          onClick={() => addSelectedExercisesToDay(day.id)}
-                                          disabled={!selectedExercisesForDay[day.id]?.length}
-                                          className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white border-0"
-                                        >
-                                          <Plus className="h-4 w-4 mr-2" />
-                                          Agregar Seleccionados
-                                        </Button>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => clearExerciseSelection(day.id)}
-                                          disabled={!selectedExercisesForDay[day.id]?.length}
-                                        >
-                                          Limpiar Selección
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </CardContent>
-                                </Card>
-                              )}
-                            </div>
-
-                            {/* Lista de ejercicios del día */}
-                            {Array.isArray(day.exercises) && day.exercises.length > 0 && (
-                              <div className="space-y-3">
-                                <FormLabel>Ejercicios del día ({day.exercises.length})</FormLabel>
-                                {day.exercises.map((exercise, exerciseIndex) => {
-                                  // Buscar datos del ejercicio en el array de ejercicios disponibles
-                                  const exercisesArray = Array.isArray(exercises) ? exercises : []
-                                  const exerciseData = exercisesArray.find(e => String(e.id) === String(exercise.exercise_id))
-                                  // Usar el nombre guardado si no se encuentra en el array
-                                  const displayName = exerciseData?.name || exercise.exercise_name || 'Ejercicio'
-                                  const displayCategory = exerciseData?.category || ''
-                                  // Obtener substitutes del ejercicio
-                                  const exerciseSubstitutes = exercise.substitutes || exerciseData?.substitutes || []
-                                  const hasSubstitutes = Array.isArray(exerciseSubstitutes) && exerciseSubstitutes.length > 0
-                                  return (
-                                    <Card key={exerciseIndex} className={hasSubstitutes ? "border-2 border-amber-200 bg-amber-50/20" : "border border-gray-200"}>
-                                      <CardContent className="pt-4">
-                                        <div className="flex items-center justify-between mb-3">
-                                          <div className="flex-1">
-                                            <div className="flex items-center gap-2">
-                                              <h4 className="font-medium">{displayName}</h4>
-                                              {hasSubstitutes && (
-                                                <Badge className="bg-gradient-to-r from-amber-500 to-orange-500 text-white text-[10px] px-1.5 py-0.5">
-                                                  <Shield className="h-3 w-3 mr-1" />
-                                                  {exerciseSubstitutes.length} respaldo{exerciseSubstitutes.length > 1 ? 's' : ''}
-                                                </Badge>
-                                              )}
-                                            </div>
-                                            <p className="text-sm text-muted-foreground">{displayCategory}</p>
-                                          </div>
-                                          {!isViewMode && (
-                                            <div className="flex items-center gap-1">
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => moveExerciseInDay(day.id, exerciseIndex, -1)}
-                                                disabled={exerciseIndex === 0}
-                                                className="h-8 w-8 p-0"
-                                                title="Subir ejercicio"
-                                                aria-label="Subir ejercicio"
-                                              >
-                                                <ArrowUp className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                onClick={() => moveExerciseInDay(day.id, exerciseIndex, 1)}
-                                                disabled={exerciseIndex === day.exercises.length - 1}
-                                                className="h-8 w-8 p-0"
-                                                title="Bajar ejercicio"
-                                                aria-label="Bajar ejercicio"
-                                              >
-                                                <ArrowDown className="h-4 w-4" />
-                                              </Button>
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="destructive"
-                                                onClick={() => removeExerciseFromDay(day.id, exerciseIndex)}
-                                                className="h-8 w-8 p-0"
-                                                title="Eliminar ejercicio"
-                                                aria-label="Eliminar ejercicio"
-                                              >
-                                                <Trash2 className="h-4 w-4" />
-                                              </Button>
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                          <div>
-                                            <FormLabel className="text-xs">Series</FormLabel>
-                                            <Input
-                                              type="number"
-                                              value={exercise.sets}
-                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'sets', parseInt(e.target.value) || 0)}
-                                              className="h-8"
-                                              disabled={isViewMode}
-                                            />
-                                          </div>
-                                          <div>
-                                            <FormLabel className="text-xs">Repeticiones</FormLabel>
-                                            <Input
-                                              type="text"
-                                              inputMode="text"
-                                              autoComplete="off"
-                                              placeholder="ej: 10 o 8-12"
-                                              value={exercise.reps || ''}
-                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'reps', e.target.value)}
-                                              className="h-8"
-                                              disabled={isViewMode}
-                                            />
-                                          </div>
-                                          <div>
-                                            <FormLabel className="text-xs">Peso (kg)</FormLabel>
-                                            <Input
-                                              type="text"
-                                              inputMode="text"
-                                              autoComplete="off"
-                                              placeholder="ej: 50 o RPE 8"
-                                              value={exercise.weight || ''}
-                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'weight', e.target.value)}
-                                              className="h-8"
-                                              disabled={isViewMode}
-                                            />
-                                          </div>
-                                          <div>
-                                            <FormLabel className="text-xs">Descanso (seg)</FormLabel>
-                                            <Input
-                                              type="number"
-                                              value={exercise.rest_time || ''}
-                                              onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'rest_time', parseInt(e.target.value) || 0)}
-                                              className="h-8"
-                                              disabled={isViewMode}
-                                            />
-                                          </div>
-                                        </div>
-
-                                        <div className="mt-3">
-                                          <FormLabel className="text-xs">Notas del ejercicio</FormLabel>
-                                          <Input
-                                            type="text"
-                                            inputMode="text"
-                                            autoComplete="off"
-                                            placeholder="Técnica, variaciones, etc..."
-                                            value={exercise.notes}
-                                            onChange={(e) => updateExerciseInDay(day.id, exerciseIndex, 'notes', e.target.value)}
-                                            className="h-8"
-                                            disabled={isViewMode}
-                                          />
-                                        </div>
-
-                                        {/* Mostrar ejercicios de respaldo */}
-                                        <div className="mt-4 pt-4 border-t border-amber-200">
-                                          <div className="flex items-center justify-between mb-2">
-                                            <FormLabel className="text-xs font-semibold text-amber-900 flex items-center gap-1">
-                                              <Shield className="h-3.5 w-3.5" />
-                                              Ejercicios de Respaldo ({exerciseSubstitutes.length}/3)
-                                            </FormLabel>
-                                            {!isViewMode && (
-                                              <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="outline"
-                                                className="h-6 px-2 text-xs border-amber-300 hover:bg-amber-50"
-                                                onClick={() => openSubstitutesDialog(exercise.exercise_id, exercise.exercise_name || 'Ejercicio')}
-                                              >
-                                                <Edit className="h-3 w-3 mr-1" />
-                                                Editar
-                                              </Button>
-                                            )}
-                                          </div>
-                                          <div className="flex flex-wrap gap-2 mt-2">
-                                            {exerciseSubstitutes.length > 0 ? (
-                                              exerciseSubstitutes.map((substitute: any, subIndex: number) => (
-                                                <Badge
-                                                  key={subIndex}
-                                                  variant="secondary"
-                                                  className="bg-gradient-to-r from-amber-100 to-orange-100 text-amber-900 border border-amber-300 text-xs px-2 py-1"
-                                                >
-                                                  <Shield className="h-3 w-3 mr-1 inline" />
-                                                  #{subIndex + 1} {substitute.substitute_name || substitute.name}
-                                                  {substitute.notes && (
-                                                    <span className="ml-1 text-[10px] opacity-70">({substitute.notes})</span>
-                                                  )}
-                                                </Badge>
-                                              ))
-                                            ) : (
-                                              <p className="text-[10px] text-gray-500 italic">Sin ejercicios de respaldo configurados</p>
-                                            )}
-                                          </div>
-                                          <p className="text-[10px] text-amber-700 mt-2 italic">
-                                            El usuario puede usar estos ejercicios si no puede realizar el principal.
-                                          </p>
-                                        </div>
-                                      </CardContent>
-                                    </Card>
-                                  )
-                                })}
-                              </div>
-                            )}
-                          </>
-                        )}
-
-                        {day.is_rest_day && (
-                          <div className="text-center py-8 text-muted-foreground">
-                            <Calendar className="h-12 w-12 mx-auto mb-2" />
-                            <p>Día de descanso activo</p>
-                            <Textarea
-                              placeholder="Actividades de recuperación recomendadas..."
-                              value={day.notes}
-                              onChange={(e) => updateWorkoutDay(day.id, 'notes', e.target.value)}
-                              rows={3}
-                              disabled={isViewMode}
-                              autoComplete="off"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          ))}
-
-                {/* Botón para agregar día debajo de la lista */}
-                {!isViewMode && (
-                  <div className="flex flex-wrap justify-center gap-2 pt-4">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={addWorkoutDay}
-                      className="border-emerald-300 text-emerald-700 hover:bg-emerald-50"
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Agregar Día
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={addWorkoutWeek}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-50"
-                    >
-                      <Calendar className="h-4 w-4 mr-2" />
-                      Agregar Semana
-                    </Button>
-                  </div>
+                <div>
+                  <p className="font-semibold text-purple-900">Ejercicios y días de entrenamiento</p>
+                  <p className="text-sm text-purple-700 mt-1">
+                    {workoutDays.length > 0
+                      ? `${workoutWeekGroups.length} semana${workoutWeekGroups.length === 1 ? '' : 's'} · ${workoutDays.length} día${workoutDays.length === 1 ? '' : 's'} configurados`
+                      : 'Sin días configurados aún'}
+                  </p>
+                </div>
+                {editingPlan && (
+                  <Button
+                    onClick={() => {
+                      resetForm()
+                      handleEditWorkout(editingPlan.id)
+                    }}
+                    className="bg-gradient-to-r from-purple-500 to-violet-600 hover:from-purple-600 hover:to-violet-700 text-white border-0"
+                  >
+                    <Dumbbell className="h-4 w-4 mr-2" />
+                    Abrir Editor de Ejercicios
+                  </Button>
                 )}
               </div>
             </div>
@@ -3922,7 +3453,7 @@ export function WorkoutPlanManagement() {
             {!isViewMode && (
               <Button
                 onClick={() => handleSubmitPlan()}
-                disabled={!formData.name || !formData.description || isLoading}
+                disabled={!formData.name || isLoading}
                 className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 text-white border-0"
               >
                 {isLoading ? (

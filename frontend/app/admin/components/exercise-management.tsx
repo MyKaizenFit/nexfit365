@@ -544,7 +544,7 @@ export function ExerciseManagement() {
         editingExercise.tags || []
       )
 
-      await updateExercise(Number(editingExercise.id), {
+      await updateExercise(editingExercise.id, {
         name: formData.name,
         description: formData.description || undefined,
         category: formData.category,
@@ -578,7 +578,7 @@ export function ExerciseManagement() {
   const handleDelete = async (exerciseId: string | number) => {
     try {
       setIsLoading(true)
-      await deleteExercise(Number(exerciseId))
+      await deleteExercise(exerciseId)
       toast({
         title: "✅ Ejercicio eliminado",
         description: "El ejercicio ha sido eliminado correctamente",
@@ -677,7 +677,7 @@ export function ExerciseManagement() {
     try {
       setBulkUpdatingVideo(true)
       for (const exerciseId of selectedExercises) {
-        await updateExercise(Number(exerciseId), {
+        await updateExercise(exerciseId, {
           video_url: clearOnly ? '' : bulkVideoUrl.trim(),
         })
       }

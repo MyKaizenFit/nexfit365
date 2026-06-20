@@ -27,11 +27,13 @@ export const metadata: Metadata = {
   authors: [{ name: 'NEXFIT Team' }],
   icons: {
     icon: [
-      { url: '/icono.png?v=2', type: 'image/png', sizes: '32x32' },
-      { url: '/icono.png?v=2', type: 'image/png', sizes: '192x192' },
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icono.png?v=3', type: 'image/png', sizes: '32x32' },
+      { url: '/icono.png?v=3', type: 'image/png', sizes: '192x192' },
+      { url: '/icono.png?v=3', type: 'image/png', sizes: '512x512' },
     ],
-    shortcut: ['/icono.png?v=2'],
-    apple: [{ url: '/icono.png?v=2', sizes: '180x180' }],
+    shortcut: ['/icono.png?v=3'],
+    apple: [{ url: '/apple-touch-icon.png?v=3', sizes: '180x180', type: 'image/png' }],
   },
   manifest: '/manifest.json',
   other: {

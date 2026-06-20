@@ -6,11 +6,11 @@ import { NextResponse } from 'next/server'
 
 // Contenido del Service Worker embebido
 const SW_CONTENT = `// Service Worker para NexFit365 PWA
-// Versión: 1.6.0 - cache offline estable para HTML + assets críticos, sin cachear API/auth
+// Versión: 1.7.0 - icono actualizado, limpieza de caches viejos
 
-const CACHE_NAME = 'nexfit365-v1.6'
-const RUNTIME_CACHE = 'nexfit365-runtime-v1.6'
-const IMAGE_CACHE = 'nexfit365-images-v1.6'
+const CACHE_NAME = 'nexfit365-v1.7'
+const RUNTIME_CACHE = 'nexfit365-runtime-v1.7'
+const IMAGE_CACHE = 'nexfit365-images-v1.7'
 const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB máximo
 
 // Archivos estáticos críticos para cachear (solo lo esencial)
@@ -55,7 +55,7 @@ self.addEventListener('activate', (event) => {
       return self.clients.claim().then(() => {
         return self.clients.matchAll().then((clients) => {
           clients.forEach((client) => {
-            client.postMessage({ type: 'SW_UPDATED', version: '1.6' })
+            client.postMessage({ type: 'SW_UPDATED', version: '1.7' })
           })
         })
       })

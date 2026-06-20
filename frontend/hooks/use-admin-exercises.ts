@@ -387,7 +387,7 @@ export const useAdminExercises = () => {
     }
   }
 
-  const updateExercise = async (exerciseId: number, exerciseData: Partial<CreateExerciseData>): Promise<Exercise> => {
+  const updateExercise = async (exerciseId: number | string, exerciseData: Partial<CreateExerciseData>): Promise<Exercise> => {
     try {
       let headers = await getAuthHeaders()
       const requestBody = JSON.stringify(exerciseData)
@@ -437,7 +437,7 @@ export const useAdminExercises = () => {
     }
   }
 
-  const deleteExercise = async (exerciseId: number): Promise<void> => {
+  const deleteExercise = async (exerciseId: number | string): Promise<void> => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/`), {
@@ -474,7 +474,7 @@ export const useAdminExercises = () => {
     }
   }
 
-  const bulkDeleteExercises = async (exerciseIds: number[]): Promise<void> => {
+  const bulkDeleteExercises = async (exerciseIds: (number | string)[]): Promise<void> => {
     try {
       let headers = await getAuthHeaders()
       const requestBody = JSON.stringify({ exercise_ids: exerciseIds })
