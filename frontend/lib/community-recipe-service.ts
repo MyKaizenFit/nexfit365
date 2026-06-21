@@ -78,7 +78,7 @@ const normalizeList = async (response: Response): Promise<CommunityRecipePost[]>
     throw new Error(await responseErrorMessage(response))
   }
   const data = await response.json()
-  const items = Array.isArray(data) ? data : data.results || []
+  const items: Partial<CommunityRecipePost>[] = Array.isArray(data) ? data : data.results || []
   return items.map((item) => normalizePost(item))
 }
 
