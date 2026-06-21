@@ -1209,7 +1209,7 @@ export function WorkoutDashboardEnhanced() {
                           {trainingDays.map((day) => (
                             <Badge key={day.id || day.day_number} variant="secondary" className="text-xs">
                               {getDayNameFromNumber(slotInWeekFromDayNumber(day.day_number || 1))}
-                              {day.day_name || day.name ? ` · ${day.day_name || day.name}` : ""}
+                              {day.day_name ? ` · ${day.day_name}` : ""}
                             </Badge>
                           ))}
                         </div>
