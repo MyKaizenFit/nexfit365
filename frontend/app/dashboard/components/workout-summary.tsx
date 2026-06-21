@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Progress } from "@/components/ui/progress"
 import { toast } from "@/hooks/use-toast"
 import { useWorkouts } from "@/hooks/use-workouts"
+import { getPlanDayForWeekday, getMondayOfWeek } from "@/lib/workout-plan-utils"
 
 export function WorkoutSummary() {
   const {
@@ -64,14 +65,17 @@ export function WorkoutSummary() {
 
     const dayNames = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"]
 
+    const monday = getMondayOfWeek(new Date())
+
     return dayNames.map((dayName, index) => {
       const dayNumber = index === 0 ? 7 : index // Domingo es día 7
-      const programDay = activeProgram.days?.find(day => day.day_number === dayNumber) || null
-
-      // Verificar si hay logs para este día
-      const today = new Date()
-      const dayDate = new Date(today)
-      dayDate.setDate(today.getDate() - today.getDay() + index)
+      const dayDate = new Date(monday)
+      if (index === 0) {
+        dayDate.setDate(monday.getDate() + 6)
+      } else {
+        dayDate.setDate(monday.getDate() + (index - 1))
+      }
+      const programDay = getPlanDayForWeekday(activeProgram, dayNumber, dayDate)
       const dayDateStr = dayDate.toISOString().split('T')[0]
 
       const hasLog = workoutLogs.some(log =>
