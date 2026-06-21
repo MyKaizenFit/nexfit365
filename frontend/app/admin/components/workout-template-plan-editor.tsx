@@ -15,10 +15,10 @@ import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
 import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
 import { fixEncoding } from "@/lib/encoding-fix"
-import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
+import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Copy, ClipboardPaste } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
-import { getMondayOfWeek, getProgramWeekForAnchor } from "@/lib/workout-plan-utils"
+import { getMondayOfWeek, getProgramWeekForAnchor, slotInWeekFromDayNumber, weekNumberFromDayNumber } from "@/lib/workout-plan-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -46,6 +46,19 @@ interface ExerciseSubstituteItem {
   category?: string
   priority: number
   notes: string
+}
+
+type TemplateClipboard =
+  | { type: "day"; day: WorkoutDayDraft }
+  | { type: "week"; weekNumber: number; days: WorkoutDayDraft[] }
+  | null
+
+function cloneDayDraft(day: WorkoutDayDraft, overrides: Partial<WorkoutDayDraft> = {}): WorkoutDayDraft {
+  return {
+    ...day,
+    ...overrides,
+    exercises: day.exercises.map((exercise) => ({ ...exercise })),
+  }
 }
 
 const DAY_LABELS: Record<DayKey, string> = {
@@ -156,6 +169,10 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
+  const [workoutClipboard, setWorkoutClipboard] = useState<TemplateClipboard>(null)
+  const [showWeekCopyDialog, setShowWeekCopyDialog] = useState(false)
+  const [weekCopySource, setWeekCopySource] = useState("1")
+  const [weekCopyTargets, setWeekCopyTargets] = useState<string[]>(["2"])
 
   const [days, setDays] = useState<WorkoutDayDraft[]>(() => createDefaultWeekDays(1))
 
@@ -239,6 +256,133 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     return day?.exercises || []
   }, [days, activeDay, activeWeek])
   const calendarDays = getMonthCalendarDays(calendarMonth)
+
+  const getDaysForWeek = useCallback((weekNumber: number) => {
+    return days.filter((day) => weekNumberFromDayNumber(day.day_number) === weekNumber)
+  }, [days])
+
+  const applyDaysUpdate = useCallback((nextDays: WorkoutDayDraft[]) => {
+    setDays(nextDays)
+    updateUnsavedChanges(true)
+  }, [updateUnsavedChanges])
+
+  const copyCurrentDay = () => {
+    const dayNumber = dayNumberFromWeekAndDay(activeWeek, Number(activeDay))
+    const day = days.find((item) => item.day_number === dayNumber)
+    if (!day || day.exercises.length === 0) {
+      toast({
+        title: "Día vacío",
+        description: "No hay ejercicios para copiar en este día.",
+        variant: "destructive",
+      })
+      return
+    }
+    setWorkoutClipboard({ type: "day", day })
+    toast({ title: "📋 Día copiado", description: `${day.day_name} listo para pegar.` })
+  }
+
+  const copyWeek = (weekNumber: number) => {
+    const weekDays = getDaysForWeek(weekNumber).filter((day) => day.exercises.length > 0)
+    if (weekDays.length === 0) {
+      toast({
+        title: "Semana vacía",
+        description: "No hay entrenamientos para copiar en esa semana.",
+        variant: "destructive",
+      })
+      return
+    }
+    setWorkoutClipboard({ type: "week", weekNumber, days: weekDays })
+    setWeekCopySource(String(weekNumber))
+    setWeekCopyTargets((current) => {
+      const filtered = current.filter((week) => Number(week) !== weekNumber)
+      return filtered.length > 0 ? filtered : [String(weekNumber === 1 ? 2 : 1)]
+    })
+    toast({ title: "📋 Semana copiada", description: `Semana ${weekNumber} lista para pegar.` })
+  }
+
+  const pasteDayToActiveSlot = () => {
+    if (!workoutClipboard || workoutClipboard.type !== "day") {
+      toast({
+        title: "No hay día copiado",
+        description: "Copia primero un día con ejercicios.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const targetDayNumber = dayNumberFromWeekAndDay(activeWeek, Number(activeDay))
+    const weekday = Number(activeDay)
+    const pastedDay = cloneDayDraft(workoutClipboard.day, {
+      day_number: targetDayNumber,
+      day_name: planDurationWeeks > 1
+        ? `Semana ${activeWeek} - ${DAY_FULL_NAMES[activeDay]}`
+        : `Día ${weekday} - ${DAY_FULL_NAMES[activeDay]}`,
+      is_rest_day: false,
+    })
+
+    applyDaysUpdate([
+      ...days.filter((day) => day.day_number !== targetDayNumber),
+      pastedDay,
+    ])
+    toast({
+      title: "✅ Día pegado",
+      description: `Copiado en Semana ${activeWeek} · ${DAY_FULL_NAMES[activeDay]}.`,
+    })
+  }
+
+  const pasteWeekToTargets = (targetWeeks: number[]) => {
+    if (!workoutClipboard || workoutClipboard.type !== "week") {
+      toast({
+        title: "No hay semana copiada",
+        description: "Copia primero una semana con entrenamientos.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const uniqueTargets = Array.from(new Set(targetWeeks)).filter((week) => week >= 1)
+    if (uniqueTargets.length === 0) return
+
+    let nextDays = [...days]
+    for (const targetWeek of uniqueTargets) {
+      const copiedDays = workoutClipboard.days.map((sourceDay) => {
+        const slot = slotInWeekFromDayNumber(sourceDay.day_number)
+        const targetDayNumber = dayNumberFromWeekAndDay(targetWeek, slot)
+        return cloneDayDraft(sourceDay, {
+          day_number: targetDayNumber,
+          day_name: planDurationWeeks > 1
+            ? `Semana ${targetWeek} - ${DAY_FULL_NAMES[String(slot) as DayKey]}`
+            : `Día ${slot} - ${DAY_FULL_NAMES[String(slot) as DayKey]}`,
+          is_rest_day: false,
+        })
+      })
+      const targetDayNumbers = new Set(copiedDays.map((day) => day.day_number))
+      nextDays = [
+        ...nextDays.filter((day) => !targetDayNumbers.has(day.day_number)),
+        ...copiedDays,
+      ]
+    }
+
+    applyDaysUpdate(nextDays)
+    setPlanDurationWeeks((current) => Math.max(current, ...uniqueTargets))
+    toast({
+      title: "✅ Semanas actualizadas",
+      description: `Semana ${workoutClipboard.weekNumber} pegada en ${uniqueTargets.map((week) => `S${week}`).join(", ")}.`,
+    })
+  }
+
+  const pasteWeekToActiveWeek = () => {
+    pasteWeekToTargets([activeWeek])
+  }
+
+  const toggleWeekCopyTarget = (week: string) => {
+    if (week === weekCopySource) return
+    setWeekCopyTargets((current) => (
+      current.includes(week)
+        ? current.filter((target) => target !== week)
+        : [...current, week]
+    ))
+  }
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
     let headers = await getAuthHeaders()
@@ -970,6 +1114,35 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         </div>
       )}
 
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-slate-50 p-3">
+        <Button type="button" variant="outline" size="sm" onClick={copyCurrentDay}>
+          <Copy className="h-3.5 w-3.5 mr-1" />
+          Copiar día
+        </Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => copyWeek(activeWeek)}>
+          <Copy className="h-3.5 w-3.5 mr-1" />
+          Copiar semana {activeWeek}
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={pasteDayToActiveSlot}>
+          <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+          Pegar día
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={pasteWeekToActiveWeek}>
+          <ClipboardPaste className="h-3.5 w-3.5 mr-1" />
+          Pegar semana aquí
+        </Button>
+        <Button type="button" variant="secondary" size="sm" onClick={() => setShowWeekCopyDialog(true)}>
+          Copiar semanas entre bloques
+        </Button>
+        <span className="text-xs text-muted-foreground ml-auto">
+          Portapapeles: {workoutClipboard
+            ? workoutClipboard.type === "day"
+              ? `Día (${workoutClipboard.day.exercises.length} ej.)`
+              : `Semana ${workoutClipboard.weekNumber}`
+            : "vacío"}
+        </span>
+      </div>
+
       <Tabs value={activeDay} onValueChange={(v) => setActiveDay(v as DayKey)}>
         <TabsList className="grid grid-cols-7 rounded-lg bg-muted p-1 h-auto">
           {WEEK_DAY_KEYS.map((d) => {
@@ -1496,6 +1669,70 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSubstitutesDialog(false)}>
               Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showWeekCopyDialog} onOpenChange={setShowWeekCopyDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copiar semanas entre bloques</DialogTitle>
+            <DialogDescription>
+              Elige la semana origen y una o más semanas destino. Se reemplazarán los entrenamientos de esas semanas.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Semana origen</Label>
+              <Select value={weekCopySource} onValueChange={setWeekCopySource}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: Math.max(planDurationWeeks, 1) }, (_, index) => String(index + 1)).map((week) => (
+                    <SelectItem key={week} value={week}>Semana {week}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Semanas destino</Label>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {Array.from({ length: Math.max(planDurationWeeks + 1, 2) }, (_, index) => String(index + 1)).map((week) => (
+                  <label key={week} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <Checkbox
+                      checked={weekCopyTargets.includes(week)}
+                      disabled={week === weekCopySource}
+                      onCheckedChange={() => toggleWeekCopyTarget(week)}
+                    />
+                    Semana {week}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowWeekCopyDialog(false)}>Cancelar</Button>
+            <Button
+              onClick={() => {
+                copyWeek(Number(weekCopySource))
+                const targets = weekCopyTargets
+                  .map((week) => Number(week))
+                  .filter((week) => Number.isFinite(week) && week >= 1 && week !== Number(weekCopySource))
+                if (targets.length === 0) {
+                  toast({
+                    title: "Elige semanas destino",
+                    description: "Selecciona al menos una semana distinta de la origen.",
+                    variant: "destructive",
+                  })
+                  return
+                }
+                pasteWeekToTargets(targets)
+                setShowWeekCopyDialog(false)
+              }}
+            >
+              Copiar y pegar
             </Button>
           </DialogFooter>
         </DialogContent>
