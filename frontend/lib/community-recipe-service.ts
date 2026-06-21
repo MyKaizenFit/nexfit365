@@ -61,18 +61,34 @@ const responseErrorMessage = async (response: Response): Promise<string> => {
   return firstErrorMessage(errorData?.detail) || firstErrorMessage(errorData?.errors) || firstErrorMessage(errorData) || `Error ${response.status}`
 }
 
+const normalizePost = (post: Partial<CommunityRecipePost>): CommunityRecipePost => ({
+  ...(post as CommunityRecipePost),
+  post_type: post.post_type || "recipe",
+  comments: post.comments ?? [],
+  tags: post.tags ?? [],
+  template_data: post.template_data ?? {},
+  likes_count: post.likes_count ?? 0,
+  comments_count: post.comments_count ?? 0,
+  liked_by_me: post.liked_by_me ?? false,
+  photo_url: post.photo_url ?? "",
+})
+
 const normalizeList = async (response: Response): Promise<CommunityRecipePost[]> => {
   if (!response.ok) {
     throw new Error(await responseErrorMessage(response))
   }
   const data = await response.json()
-  return Array.isArray(data) ? data : data.results || []
+  const items = Array.isArray(data) ? data : data.results || []
+  return items.map((item) => normalizePost(item))
 }
 
 export const communityRecipeService = {
   async list(postType?: CommunityPostType): Promise<CommunityRecipePost[]> {
-    const suffix = postType ? `?post_type=${postType}` : ""
-    return normalizeList(await authenticatedFetch(`nutrition/community-recipes/${suffix}`))
+    const params = new URLSearchParams()
+    if (postType) params.set("post_type", postType)
+    const query = params.toString()
+    const endpoint = query ? `nutrition/community-recipes/?${query}` : "nutrition/community-recipes/"
+    return normalizeList(await authenticatedFetch(endpoint, { cache: "no-store" }))
   },
 
   async create(payload: CommunityPostPayload): Promise<CommunityRecipePost> {
@@ -95,7 +111,7 @@ export const communityRecipeService = {
     if (!response.ok) {
       throw new Error(await responseErrorMessage(response))
     }
-    return response.json()
+    return normalizePost(await response.json())
   },
 
   async toggleLike(postId: string): Promise<{ liked_by_me: boolean; likes_count: number }> {
@@ -134,7 +150,7 @@ export const communityRecipeService = {
     if (!response.ok) {
       throw new Error(await responseErrorMessage(response))
     }
-    return response.json()
+    return normalizePost(await response.json())
   },
 
   async uploadPhoto(postId: string, photo: File): Promise<CommunityRecipePost> {
@@ -149,7 +165,7 @@ export const communityRecipeService = {
     if (!response.ok) {
       throw new Error(await responseErrorMessage(response))
     }
-    return response.json()
+    return normalizePost(await response.json())
   },
 
   async deleteComment(postId: string, commentId: string): Promise<void> {

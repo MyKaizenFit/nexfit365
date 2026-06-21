@@ -165,10 +165,10 @@ export function RecipeCommunity() {
     return () => URL.revokeObjectURL(url)
   }, [form.photo])
 
-  const loadPosts = async () => {
+  const loadPosts = async (postType: CommunityPostType | "all" = filter) => {
     try {
       setLoading(true)
-      setPosts(await communityRecipeService.list(filter === "all" ? undefined : filter))
+      setPosts(await communityRecipeService.list(postType === "all" ? undefined : postType))
     } catch (error) {
       toast({
         title: "Error al cargar Team SK",
@@ -183,6 +183,23 @@ export function RecipeCommunity() {
   useEffect(() => {
     loadPosts()
   }, [filter])
+
+  const openComposer = () => {
+    const defaultType: CommunityPostType = filter === "all" ? "recipe" : filter
+    setForm(emptyForm(defaultType))
+    setTagsText("")
+    setImageFormat("original")
+    setImageFit("cover")
+    setImagePosition({ x: 50, y: 50 })
+    setShowComposer(true)
+  }
+
+  const handleFilterChange = (nextFilter: CommunityPostType | "all") => {
+    setFilter(nextFilter)
+    if (showComposer && nextFilter !== "all") {
+      setForm((current) => ({ ...current, post_type: nextFilter }))
+    }
+  }
 
   const selectTemplate = (postType: CommunityPostType) => {
     setForm(emptyForm(postType))
@@ -218,7 +235,12 @@ export function RecipeCommunity() {
         tags: tagsText.split(",").map((tag) => tag.trim()).filter(Boolean),
         photo: preparedPhoto,
       })
-      setPosts((current) => [created, ...current])
+      const visibleFilter = filter === "all" || filter === created.post_type ? filter : created.post_type
+      if (visibleFilter !== filter) {
+        setFilter(visibleFilter)
+      } else {
+        await loadPosts(visibleFilter)
+      }
       setForm(emptyForm())
       setTagsText("")
       setImageFormat("original")
@@ -303,7 +325,7 @@ export function RecipeCommunity() {
           <h2 className="text-2xl font-bold text-foreground">Team SK</h2>
           <p className="text-sm text-muted-foreground">Comparte, pregunta y aprende junto a la comunidad.</p>
         </div>
-        <Button onClick={() => setShowComposer((current) => !current)} className="bg-teal-600 hover:bg-teal-700">
+        <Button onClick={() => (showComposer ? setShowComposer(false) : openComposer())} className="bg-teal-600 hover:bg-teal-700">
           {showComposer ? <X className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
           {showComposer ? "Cerrar" : "Crear publicación"}
         </Button>
@@ -437,8 +459,8 @@ export function RecipeCommunity() {
       ) : null}
 
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => setFilter("all")}>Todo</Button>
-        {AVAILABLE_POST_TYPES.map((type) => <Button key={type.value} size="sm" variant={filter === type.value ? "default" : "outline"} onClick={() => setFilter(type.value)}>{type.label}</Button>)}
+        <Button size="sm" variant={filter === "all" ? "default" : "outline"} onClick={() => handleFilterChange("all")}>Todo</Button>
+        {AVAILABLE_POST_TYPES.map((type) => <Button key={type.value} size="sm" variant={filter === type.value ? "default" : "outline"} onClick={() => handleFilterChange(type.value)}>{type.label}</Button>)}
       </div>
 
       {loading ? (
@@ -503,7 +525,7 @@ export function RecipeCommunity() {
                   </div>
 
                   <div className="space-y-2">
-                    {post.comments.map((comment) => <div key={comment.id} className="rounded-lg bg-muted/50 p-3 text-sm"><p className="font-medium">{comment.author_name}</p><p className="text-muted-foreground">{comment.text}</p></div>)}
+                    {(post.comments ?? []).map((comment) => <div key={comment.id} className="rounded-lg bg-muted/50 p-3 text-sm"><p className="font-medium">{comment.author_name}</p><p className="text-muted-foreground">{comment.text}</p></div>)}
                     <div className="flex gap-2">
                       <Input value={commentText[post.id] || ""} onChange={(event) => setCommentText((current) => ({ ...current, [post.id]: event.target.value }))} placeholder="Escribe un comentario" />
                       <Button size="icon" onClick={() => addComment(post)} aria-label="Comentar"><Send className="h-4 w-4" /></Button>

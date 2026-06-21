@@ -141,9 +141,9 @@ class CommunityRecipeCommentSerializer(serializers.ModelSerializer):
 class CommunityRecipePostSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     comments = CommunityRecipeCommentSerializer(many=True, read_only=True)
-    comments_count = serializers.IntegerField(read_only=True)
-    likes_count = serializers.IntegerField(read_only=True)
-    liked_by_me = serializers.BooleanField(read_only=True)
+    comments_count = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
     can_delete = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
@@ -163,6 +163,27 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
 
     def get_author_name(self, obj) -> str:
         return user_display_name(obj.author)
+
+    def get_likes_count(self, obj) -> int:
+        annotated = getattr(obj, "likes_count", None)
+        if annotated is not None:
+            return int(annotated)
+        return obj.likes.count()
+
+    def get_comments_count(self, obj) -> int:
+        annotated = getattr(obj, "comments_count", None)
+        if annotated is not None:
+            return int(annotated)
+        return obj.comments.count()
+
+    def get_liked_by_me(self, obj) -> bool:
+        if hasattr(obj, "liked_by_me"):
+            return bool(obj.liked_by_me)
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.likes.filter(user=user).exists()
 
     def get_photo_url(self, obj) -> str:
         if not obj.photo:
