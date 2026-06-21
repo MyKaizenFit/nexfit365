@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, Shuffle } from 'lucide-react'
+import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, Shuffle, BookOpen } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -85,6 +85,23 @@ export function MealDashboard() {
       },
     })
     setInitialView('recetas-equivalencias')
+    setIsModalOpen(true)
+  }
+
+  const handleViewRecipe = (
+    meal: { id: string; name: string; time: string; mealType: string },
+    previewOption?: MealOption,
+  ) => {
+    const fullMeal = meals.find((item) => item.id === meal.id)
+    const option = previewOption || fullMeal?.selectedOption
+    setSelectedMeal({
+      ...meal,
+      currentSelection: {
+        optionId: option?.id ? String(option.id) : null,
+        recipeId: option?.recipeId ? String(option.recipeId) : null,
+      },
+    })
+    setInitialView('recipe')
     setIsModalOpen(true)
   }
 
@@ -401,6 +418,17 @@ export function MealDashboard() {
                         </button>
                       )}
                     </div>
+
+                    {displayOption.recipeId ? (
+                      <button
+                        type="button"
+                        onClick={() => handleViewRecipe(meal, isPreview ? displayOption : undefined)}
+                        className="flex w-full items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
+                      >
+                        <BookOpen className="h-3.5 w-3.5" />
+                        <span>Ver receta</span>
+                      </button>
+                    ) : null}
                   </>
                 ) : (
                   <button
