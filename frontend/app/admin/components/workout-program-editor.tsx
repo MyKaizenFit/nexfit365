@@ -16,6 +16,18 @@ import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { formatInvalidIdMessage, isValidUserId, parsePositiveIntId } from "@/lib/admin-id-utils"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { cn } from "@/lib/utils"
+import {
+  dayNumberForWeekDay,
+  dayNumberForWeekSlot,
+  getWorkoutSlotIndexFromDay,
+  getWorkoutWeekFromDay,
+  normalizeWorkoutDayNumbers,
+  programWeekFromCalendarGridWeek,
+  workoutDayHasSlot,
+  workoutDayInWeek,
+  workoutDayMatchesSlot,
+  WORKOUT_DAY_NAMES,
+} from "@/lib/workout-week-utils"
 
 interface Exercise {
   id?: string
@@ -72,7 +84,7 @@ interface ExerciseOption {
   muscle_groups?: string[]
 }
 
-const DAY_OPTIONS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+const DAY_OPTIONS: string[] = [...WORKOUT_DAY_NAMES]
 const UNSAVED_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 const AUTOSAVE_DELAY_MS = 10000
 const AUTOSAVE_IDLE_GRACE_MS = 3000
@@ -154,11 +166,13 @@ function getWorkoutDayKey(day: WorkoutDay, fallbackIndex: number) {
 }
 
 function getWorkoutWeekNumber(day: WorkoutDay, fallbackIndex: number) {
-  return Math.max(1, Math.ceil((day.dayNumber ?? fallbackIndex + 1) / 7))
+  const weekFromDayNumber = getWorkoutWeekFromDay(day)
+  if (weekFromDayNumber != null) return weekFromDayNumber
+  return Math.max(1, Math.ceil((fallbackIndex + 1) / 7))
 }
 
-function getWorkoutDayIndexInWeek(day: WorkoutDay, fallbackIndex: number) {
-  return ((day.dayNumber ?? fallbackIndex + 1) - 1) % 7
+function getWorkoutDayIndexInWeek(day: WorkoutDay, _fallbackIndex: number) {
+  return getWorkoutSlotIndexFromDay(day)
 }
 
 function normalizeWorkoutSchedule(days: WorkoutDay[]) {
@@ -216,7 +230,7 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
 
   const sortedDays = [...(detailDays || [])].sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0))
 
-  return sortedDays.map((day: any, index: number) => ({
+  const mappedDays = sortedDays.map((day: any, index: number) => ({
     id: day.id,
     localId: createLocalId("day"),
     day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
@@ -237,6 +251,8 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
       notes: ex.notes || "",
     })),
   }))
+
+  return normalizeWorkoutDayNumbers(mappedDays)
 }
 
 function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
@@ -245,8 +261,8 @@ function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targ
   const targetDayIndex = DAY_OPTIONS.indexOf(targetDayName)
   if (targetDayIndex < 0) return null
 
-  const targetDayNumber = (targetWeek - 1) * 7 + targetDayIndex + 1
-  const exact = schedule.find((day, index) => (day.dayNumber ?? index + 1) === targetDayNumber)
+  const targetDayNumber = dayNumberForWeekDay(targetWeek, targetDayName)
+  const exact = schedule.find((day) => workoutDayHasSlot(day) && day.dayNumber === targetDayNumber)
   if (exact) return exact
 
   const sameWeekDay = schedule.find(
@@ -559,11 +575,8 @@ export function WorkoutProgramEditor({
     const targetDay = preferredDay || DAY_OPTIONS[program.weeklySchedule.length % DAY_OPTIONS.length]
     const targetDayIndex = DAY_OPTIONS.indexOf(targetDay)
     const targetWeek = Math.max(1, preferredWeek || Math.ceil((program.weeklySchedule.length + 1) / 7))
-    const targetDayNumber = targetDayIndex >= 0
-      ? (targetWeek - 1) * 7 + targetDayIndex + 1
-      : (program.weeklySchedule.length || 0) + 1
-
-    const alreadyExists = program.weeklySchedule.some((day, index) => (day.dayNumber ?? index + 1) === targetDayNumber)
+    const targetDayNumber = dayNumberForWeekDay(targetWeek, targetDay)
+    const alreadyExists = program.weeklySchedule.some((day) => workoutDayMatchesSlot(day, targetWeek, targetDay))
     if (alreadyExists) {
       toast({
         title: "Ya existe entrenamiento",
@@ -691,10 +704,10 @@ export function WorkoutProgramEditor({
     if (!sourceItem) return
 
     const sourceWeek = getWorkoutWeekNumber(sourceItem.day, sourceItem.index)
-    const targetDayNumber = (sourceWeek - 1) * 7 + targetDayIndex + 1
+    const targetDayNumber = dayNumberForWeekDay(sourceWeek, targetDay)
     const targetOccupied = program.weeklySchedule.some((day, index) => {
       if (getWorkoutDayKey(day, index) === dayKey) return false
-      return (day.dayNumber ?? index + 1) === targetDayNumber
+      return workoutDayMatchesSlot(day, sourceWeek, targetDay)
     })
 
     if (targetOccupied) {
@@ -757,13 +770,15 @@ export function WorkoutProgramEditor({
     const targetDayIndex = DAY_OPTIONS.indexOf(targetDayName)
     if (targetDayIndex < 0) return
 
-    const targetDayNumber = (targetWeek - 1) * 7 + targetDayIndex + 1
+    const targetDayNumber = dayNumberForWeekDay(targetWeek, targetDayName)
     const clonedDay = cloneWorkoutDayForCopy(sourceDay, {
       day: targetDayName,
       dayNumber: targetDayNumber,
     })
 
-    const withoutTarget = program.weeklySchedule.filter((day, index) => (day.dayNumber ?? index + 1) !== targetDayNumber)
+    const withoutTarget = program.weeklySchedule.filter(
+      (day) => !workoutDayMatchesSlot(day, targetWeek, targetDayName),
+    )
     const weeklySchedule = normalizeWorkoutSchedule([...withoutTarget, clonedDay])
     setProgramDraft({
       ...program,
@@ -775,18 +790,17 @@ export function WorkoutProgramEditor({
 
   const pasteWorkoutWeek = (sourceDays: WorkoutDay[], targetWeek: number) => {
     if (!program) return
-    const targetNumbers = new Set(Array.from({ length: 7 }, (_, index) => (targetWeek - 1) * 7 + index + 1))
-    const copiedDays = sourceDays.map((day, index) => {
-      const sourceDayIndex = getWorkoutDayIndexInWeek(day, index)
+    const copiedDays = sourceDays.map((day) => {
+      const sourceDayIndex = getWorkoutDayIndexInWeek(day, 0)
       const targetDayName = DAY_OPTIONS[sourceDayIndex] || day.day
       return cloneWorkoutDayForCopy(day, {
         day: targetDayName,
-        dayNumber: (targetWeek - 1) * 7 + sourceDayIndex + 1,
+        dayNumber: dayNumberForWeekSlot(targetWeek, sourceDayIndex + 1),
       })
     })
 
     const weeklySchedule = normalizeWorkoutSchedule([
-      ...program.weeklySchedule.filter((day, index) => !targetNumbers.has(day.dayNumber ?? index + 1)),
+      ...program.weeklySchedule.filter((day) => !workoutDayInWeek(day, targetWeek)),
       ...copiedDays,
     ])
     setProgramDraft({
@@ -802,24 +816,21 @@ export function WorkoutProgramEditor({
     const uniqueTargetWeeks = Array.from(new Set(targetWeeks)).filter((week) => week >= 1)
     if (uniqueTargetWeeks.length === 0) return
 
-    const targetNumbers = new Set<number>()
-    const copiedDays = uniqueTargetWeeks.flatMap((targetWeek) => {
-      Array.from({ length: 7 }, (_, index) => (targetWeek - 1) * 7 + index + 1).forEach((dayNumber) => {
-        targetNumbers.add(dayNumber)
-      })
-
-      return sourceDays.map((day, index) => {
-        const sourceDayIndex = getWorkoutDayIndexInWeek(day, index)
+    const copiedDays = uniqueTargetWeeks.flatMap((targetWeek) =>
+      sourceDays.map((day) => {
+        const sourceDayIndex = getWorkoutDayIndexInWeek(day, 0)
         const targetDayName = DAY_OPTIONS[sourceDayIndex] || day.day
         return cloneWorkoutDayForCopy(day, {
           day: targetDayName,
-          dayNumber: (targetWeek - 1) * 7 + sourceDayIndex + 1,
+          dayNumber: dayNumberForWeekSlot(targetWeek, sourceDayIndex + 1),
         })
-      })
-    })
+      }),
+    )
 
     const weeklySchedule = normalizeWorkoutSchedule([
-      ...program.weeklySchedule.filter((day, index) => !targetNumbers.has(day.dayNumber ?? index + 1)),
+      ...program.weeklySchedule.filter(
+        (day) => !uniqueTargetWeeks.some((targetWeek) => workoutDayInWeek(day, targetWeek)),
+      ),
       ...copiedDays,
     ])
     setProgramDraft({
@@ -859,11 +870,12 @@ export function WorkoutProgramEditor({
     }
 
     const targetWeek = Math.max(1, targetWeekOverride || Number(clipboardTargetWeek) || 1)
+    const targetDayName = activeDayName || selectedDayName
     if (workoutClipboard.type === "day") {
-      pasteWorkoutDay(workoutClipboard.day, targetWeek, selectedDayName)
+      pasteWorkoutDay(workoutClipboard.day, targetWeek, targetDayName)
       toast({
         title: "✅ Día pegado",
-        description: `Se pegó en Semana ${targetWeek} · ${selectedDayName}.`,
+        description: `Se pegó en Semana ${targetWeek} · ${targetDayName}.`,
       })
       return
     }
@@ -1123,11 +1135,12 @@ export function WorkoutProgramEditor({
         Domingo: "sunday",
       }
 
-      const daysPayload = program.weeklySchedule.map((day, index) => ({
+      const normalizedSchedule = normalizeWorkoutDayNumbers(program.weeklySchedule)
+      const daysPayload = normalizedSchedule.map((day, index) => ({
         id: day.id,
         day_of_week: dayToDayOfWeekMap[day.day] || day.day.toLowerCase() || "monday",
         name: day.name,
-        day_number: day.dayNumber ?? index + 1,
+        day_number: day.dayNumber,
         duration_minutes: day.duration,
         is_rest_day: day.isRestDay,
         notes: day.notes || "",
@@ -1734,9 +1747,10 @@ export function WorkoutProgramEditor({
             {calendarDays.map((date) => {
               const dayName = getSpanishDayName(date)
               const calendarWeek = getCalendarWeekNumber(date, calendarStartDate)
+              const programWeek = programWeekFromCalendarGridWeek(calendarWeek, program.durationWeeks || 4)
               const dayWorkouts = program.weeklySchedule
                 .map((workoutDay, index) => ({ workoutDay, index }))
-                .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === calendarWeek)
+                .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === programWeek)
                 .map((item) => item.workoutDay)
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
               const isSelected = isSameCalendarDay(date, selectedCalendarDate)
@@ -1758,7 +1772,7 @@ export function WorkoutProgramEditor({
                   key={date.toISOString()}
                   type="button"
                   onClick={() => {
-                    syncSelectionFromDate(date, calendarWeek, dayName)
+                    syncSelectionFromDate(date, programWeek, dayName)
                   }}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
@@ -1780,7 +1794,7 @@ export function WorkoutProgramEditor({
                     {dayWorkouts.length > 0 ? (
                       dayWorkouts.slice(0, 2).map((item, index) => (
                         <div key={`${item.id || item.localId || index}-${date.toISOString()}`} className="truncate rounded bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-800">
-                          {item.isRestDay ? "Descanso" : `S${calendarWeek} · ${item.name}`}
+                          {item.isRestDay ? "Descanso" : `S${programWeek} · ${item.name}`}
                         </div>
                       ))
                     ) : (
