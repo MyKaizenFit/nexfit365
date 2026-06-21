@@ -2,8 +2,15 @@ import {
   DAY_NAME_TO_NUMBER,
   getWeekdayNumber,
   getPlanDayForWeekday,
+  getPlanDayForDate,
   getPlanTrainingWeekdays,
   getPlanWeeklyGoal,
+  getProgramWeekForDate,
+  globalDayNumberForProgramWeek,
+  isMultiWeekPlan,
+  isProgramWeekInRange,
+  planDurationWeeksFromPlan,
+  getTodaysPlanDay,
   isPlanTrainingWeekday,
   weekNumberFromDayNumber,
   slotInWeekFromDayNumber,
@@ -93,6 +100,83 @@ describe('getPlanDayForWeekday', () => {
   it('handles uppercase day_of_week', () => {
     const p: WorkoutPlanLike = { days: [{ day_of_week: 'MONDAY' }] }
     expect(getPlanDayForWeekday(p, 1)).not.toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Multi-week plan resolution
+// ---------------------------------------------------------------------------
+
+describe('multi-week plan resolution', () => {
+  const multiWeekPlan: WorkoutPlanLike = {
+    start_date: '2026-06-16', // Monday
+    duration_weeks: 8,
+    days: [
+      { day_number: 1, name: 'W1 Mon', is_rest_day: false },
+      { day_number: 3, name: 'W1 Wed', is_rest_day: false },
+      { day_number: 8, name: 'W2 Mon', is_rest_day: false },
+      { day_number: 10, name: 'W2 Wed', is_rest_day: false },
+    ],
+  }
+
+  it('detects multi-week plans', () => {
+    expect(isMultiWeekPlan(multiWeekPlan)).toBe(true)
+    expect(isMultiWeekPlan({ days: [{ day_number: 1 }] })).toBe(false)
+  })
+
+  it('returns week 1 during the first calendar week after start_date', () => {
+    expect(getProgramWeekForDate(multiWeekPlan, new Date('2026-06-18'))).toBe(1)
+  })
+
+  it('returns week 2 during the second calendar week', () => {
+    expect(getProgramWeekForDate(multiWeekPlan, new Date('2026-06-23'))).toBe(2)
+  })
+
+  it('resolves week 1 Monday on activation week', () => {
+    const day = getPlanDayForWeekday(multiWeekPlan, 1, new Date('2026-06-16'))
+    expect(day?.name).toBe('W1 Mon')
+  })
+
+  it('resolves week 2 Monday after one full week', () => {
+    const day = getPlanDayForWeekday(multiWeekPlan, 1, new Date('2026-06-23'))
+    expect(day?.name).toBe('W2 Mon')
+  })
+
+  it('does not repeat week 1 on week 2 dates', () => {
+    const week2Day = getPlanDayForWeekday(multiWeekPlan, 1, new Date('2026-06-23'))
+    expect(week2Day?.name).not.toBe('W1 Mon')
+  })
+
+  it('returns null before program start', () => {
+    expect(getPlanDayForWeekday(multiWeekPlan, 1, new Date('2026-06-10'))).toBeNull()
+  })
+
+  it('returns null after program duration ends', () => {
+    expect(isProgramWeekInRange(multiWeekPlan, new Date('2026-08-18'))).toBe(false)
+    expect(getPlanDayForDate(multiWeekPlan, new Date('2026-08-18'))).toBeNull()
+  })
+
+  it('computes global day numbers', () => {
+    expect(globalDayNumberForProgramWeek(2, 1)).toBe(8)
+    expect(globalDayNumberForProgramWeek(2, 3)).toBe(10)
+  })
+
+  it('counts training days for the current program week only', () => {
+    expect(getPlanTrainingWeekdays(multiWeekPlan, new Date('2026-06-18'))).toEqual([1, 3])
+    expect(getPlanTrainingWeekdays(multiWeekPlan, new Date('2026-06-23'))).toEqual([1, 3])
+  })
+
+  it('derives duration from day numbers when duration_weeks is missing', () => {
+    const plan: WorkoutPlanLike = {
+      start_date: '2026-06-16',
+      days: [{ day_number: 15, name: 'W3 Fri' }],
+    }
+    expect(planDurationWeeksFromPlan(plan)).toBe(3)
+  })
+
+  it('getTodaysPlanDay uses week-aware lookup', () => {
+    const day = getTodaysPlanDay(multiWeekPlan, new Date('2026-06-24'))
+    expect(day?.name).toBe('W2 Wed')
   })
 })
 

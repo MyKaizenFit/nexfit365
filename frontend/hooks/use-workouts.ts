@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
+import { getTodaysPlanDay } from '@/lib/workout-plan-utils'
 
 const getErrorMessage = (error: unknown): string => {
   if (error instanceof Error) return error.message
@@ -704,14 +705,10 @@ export function useWorkouts() {
     )
   }
 
-  // Obtener programa activo del día actual
+  // Obtener programa activo del día actual (respeta semana del plan según start_date)
   const getTodaysWorkout = () => {
-    if (!activeProgram || !activeProgram.days) return null
-
-    const today = new Date().getDay() // 0 = Domingo, 1 = Lunes, etc.
-    const dayNumber = today === 0 ? 7 : today // Convertir domingo a día 7
-
-    return activeProgram.days.find(day => day.day_number === dayNumber) || null
+    if (!activeProgram?.days?.length) return null
+    return getTodaysPlanDay(activeProgram) as WorkoutDay | null
   }
 
   // Obtener progreso semanal (usando datos del servidor)

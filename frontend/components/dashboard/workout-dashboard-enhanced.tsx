@@ -32,6 +32,7 @@ import {
   getPlanTrainingWeekdays,
   getPlanWeeklyGoal,
   getWeekdayNumber,
+  getMondayOfWeek,
 } from "@/lib/workout-plan-utils"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -520,12 +521,19 @@ export function WorkoutDashboardEnhanced() {
     return days[dayNumber] || ''
   }
 
-  const isTrainingDay = (dayNumber: number) => {
+  const isTrainingDay = (dayNumber: number, referenceDate = new Date()) => {
     if (userPlan?.days?.length) {
-      const planDay = getPlanDayForWeekday(userPlan, dayNumber)
+      const planDay = getPlanDayForWeekday(userPlan, dayNumber, referenceDate)
       return Boolean(planDay && !planDay.is_rest_day)
     }
     return trainingDays.includes(dayNumber)
+  }
+
+  const getDateForWeekdayInCurrentWeek = (weekdayNumber: number) => {
+    const monday = getMondayOfWeek(new Date())
+    const date = new Date(monday)
+    date.setDate(monday.getDate() + (weekdayNumber - 1))
+    return date
   }
 
   // Función para obtener ejercicios completados de un día desde localStorage y workoutLogs
@@ -608,7 +616,8 @@ export function WorkoutDashboardEnhanced() {
     const todayNumber = getWeekdayNumber()
 
     return days.map(day => {
-      const planDay = getPlanDayForWeekday(userPlan, day.number)
+      const dayDate = getDateForWeekdayInCurrentWeek(day.number)
+      const planDay = getPlanDayForWeekday(userPlan, day.number, dayDate)
       const isTraining = planDay ? !planDay.is_rest_day : trainingDays.includes(day.number)
 
       return {
@@ -1112,10 +1121,13 @@ export function WorkoutDashboardEnhanced() {
 
           {/* Programa semanal según el plan asignado por el admin */}
           {userPlan?.days?.length ? (() => {
-            const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
-              weekday,
-              planDay: getPlanDayForWeekday(userPlan, weekday),
-            }))
+            const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => {
+              const dayDate = getDateForWeekdayInCurrentWeek(weekday)
+              return {
+                weekday,
+                planDay: getPlanDayForWeekday(userPlan, weekday, dayDate),
+              }
+            })
 
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
