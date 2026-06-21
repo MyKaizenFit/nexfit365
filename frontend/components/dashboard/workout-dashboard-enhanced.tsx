@@ -33,6 +33,12 @@ import {
   getPlanWeeklyGoal,
   getWeekdayNumber,
   getMondayOfWeek,
+  getProgramWeekForDate,
+  planDurationWeeksFromPlan,
+  isMultiWeekPlan,
+  isProgramWeekInRange,
+  groupDaysByWeek,
+  slotInWeekFromDayNumber,
 } from "@/lib/workout-plan-utils"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -323,6 +329,10 @@ export function WorkoutDashboardEnhanced() {
 
   // Usar activeProgram como userPlan
   const userPlan = activeProgram
+  const currentProgramWeek = userPlan ? getProgramWeekForDate(userPlan) : 1
+  const totalProgramWeeks = userPlan ? planDurationWeeksFromPlan(userPlan) : 1
+  const programWeekGroups = userPlan?.days?.length ? groupDaysByWeek(userPlan.days) : []
+  const isProgramActiveToday = userPlan ? isProgramWeekInRange(userPlan) : false
 
   const [isWorkoutDialogOpen, setIsWorkoutDialogOpen] = useState(false)
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null)
@@ -1118,6 +1128,74 @@ export function WorkoutDashboardEnhanced() {
         </TabsList>
 
         <TabsContent value="schedule" className="space-y-4">
+          {userPlan && isMultiWeekPlan(userPlan) && (
+            <Card className="border-purple-200 bg-purple-50/40">
+              <CardContent className="pt-4 pb-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-purple-900">
+                      Semana {Math.max(1, currentProgramWeek)} de {totalProgramWeeks}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {userPlan.start_date
+                        ? `Plan activo desde ${new Date(`${userPlan.start_date}T00:00:00`).toLocaleDateString("es-ES")}`
+                        : "Progresión por semanas del plan"}
+                    </p>
+                  </div>
+                  {!isProgramActiveToday && (
+                    <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
+                      {currentProgramWeek <= 0 ? "Plan aún no iniciado" : "Plan completado"}
+                    </Badge>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {userPlan && isMultiWeekPlan(userPlan) && programWeekGroups.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Programa completo ({totalProgramWeeks} semanas)</CardTitle>
+                <CardDescription>
+                  Vista orientativa de todas las semanas del plan desde su activación
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {Array.from({ length: totalProgramWeeks }, (_, index) => {
+                  const weekNumber = index + 1
+                  const weekDays = programWeekGroups.find((group) => group.weekIndex === index)?.days || []
+                  const trainingDays = weekDays.filter((day) => !day.is_rest_day)
+                  const isCurrentWeek = weekNumber === currentProgramWeek
+
+                  return (
+                    <div
+                      key={weekNumber}
+                      className={`rounded-lg border p-3 ${isCurrentWeek ? "border-purple-400 bg-purple-50/60" : "border-slate-200"}`}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-sm font-semibold">Semana {weekNumber}</span>
+                        {isCurrentWeek && (
+                          <Badge className="bg-purple-600 text-white">Actual</Badge>
+                        )}
+                      </div>
+                      {trainingDays.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {trainingDays.map((day) => (
+                            <Badge key={day.id || day.day_number} variant="secondary" className="text-xs">
+                              {getDayNameFromNumber(slotInWeekFromDayNumber(day.day_number || 1))}
+                              {day.day_name || day.name ? ` · ${day.day_name || day.name}` : ""}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">Sin entrenamientos configurados</p>
+                      )}
+                    </div>
+                  )
+                })}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Programa semanal según el plan asignado por el admin */}
           {userPlan?.days?.length ? (() => {

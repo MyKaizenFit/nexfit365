@@ -22,12 +22,13 @@ import {
   getWorkoutSlotIndexFromDay,
   getWorkoutWeekFromDay,
   normalizeWorkoutDayNumbers,
-  programWeekFromCalendarGridWeek,
+  programWeekFromAnchorDate,
   workoutDayHasSlot,
   workoutDayInWeek,
   workoutDayMatchesSlot,
   WORKOUT_DAY_NAMES,
 } from "@/lib/workout-week-utils"
+import { getMondayOfWeek } from "@/lib/workout-plan-utils"
 
 interface Exercise {
   id?: string
@@ -63,6 +64,7 @@ interface WorkoutProgram {
   daysPerWeek: number
   weeklySchedule: WorkoutDay[]
   durationWeeks?: number
+  startDate?: string
   isActive?: boolean
 }
 
@@ -370,6 +372,7 @@ export function WorkoutProgramEditor({
   const isAutosavingRef = useRef(false)
   const lastUserInteractionRef = useRef(Date.now())
   const hasLoadedOnceRef = useRef(false)
+  const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
   const resolvedUserId = parsePositiveIntId(userId)
   const invalidUserId = userId != null && userId !== "" && resolvedUserId == null
 
@@ -480,6 +483,12 @@ export function WorkoutProgramEditor({
       }
 
       const weeklySchedule = mapApiDaysToSchedule(detail.days || [])
+      const startDate = detail.start_date || undefined
+      if (startDate) {
+        calendarPlanAnchorRef.current = getMondayOfWeek(new Date(`${startDate}T00:00:00`)).toISOString().slice(0, 10)
+        setCalendarMonth(new Date(`${startDate}T00:00:00`))
+        setSelectedCalendarDate(new Date(`${startDate}T00:00:00`))
+      }
       setProgram({
         id: detail.id,
         name: fixEncoding(detail.name || "Programa de Entrenamiento"),
@@ -490,6 +499,7 @@ export function WorkoutProgramEditor({
         daysPerWeek: detail.days_per_week || weeklySchedule.length || 3,
         weeklySchedule,
         durationWeeks: detail.duration_weeks,
+        startDate,
         isActive: detail.is_active,
       })
       updateUnsavedChanges(false)
@@ -1290,7 +1300,10 @@ export function WorkoutProgramEditor({
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
   const calendarStartDate = calendarDays[0] || calendarMonth
-  const selectedCalendarWeek = getCalendarWeekNumber(selectedCalendarDate, calendarStartDate)
+  const planCalendarAnchor = program.startDate || calendarPlanAnchorRef.current
+  const resolveProgramWeekForDate = (date: Date) =>
+    programWeekFromAnchorDate(date, planCalendarAnchor, program.durationWeeks || 4)
+  const selectedCalendarWeek = resolveProgramWeekForDate(selectedCalendarDate)
   const selectedDayName = getSpanishDayName(selectedCalendarDate)
   const selectedWorkoutDays = getWorkoutDaysForWeekDay(program.weeklySchedule, activeWeek, activeDayName)
   const totalWeeks = Math.max(
@@ -1746,12 +1759,15 @@ export function WorkoutProgramEditor({
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const dayName = getSpanishDayName(date)
-              const calendarWeek = getCalendarWeekNumber(date, calendarStartDate)
-              const programWeek = programWeekFromCalendarGridWeek(calendarWeek, program.durationWeeks || 4)
-              const dayWorkouts = program.weeklySchedule
-                .map((workoutDay, index) => ({ workoutDay, index }))
-                .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === programWeek)
-                .map((item) => item.workoutDay)
+              const programWeek = resolveProgramWeekForDate(date)
+              const durationWeeks = program.durationWeeks || 4
+              const isWithinPlanRange = programWeek >= 1 && programWeek <= durationWeeks
+              const dayWorkouts = isWithinPlanRange
+                ? program.weeklySchedule
+                  .map((workoutDay, index) => ({ workoutDay, index }))
+                  .filter((item) => item.workoutDay.day === dayName && getWorkoutWeekNumber(item.workoutDay, item.index) === programWeek)
+                  .map((item) => item.workoutDay)
+                : []
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
               const isSelected = isSameCalendarDay(date, selectedCalendarDate)
               const hasTraining = dayWorkouts.some((day) => !day.isRestDay && day.exercises.length > 0)
