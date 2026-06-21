@@ -55,6 +55,9 @@ export function MealDashboard() {
     }
   }
 
+  const handleSelectPreviewOption = async (mealId: string, option: MealOption) => {
+    await selectMealOption(mealId, option)
+  }
 
   const handleDeselectOption = async () => {
     if (selectedMeal) {
@@ -313,9 +316,9 @@ export function MealDashboard() {
               </div>
 
               <div className="space-y-3 p-3">
-                {meal.selectedOption ? (
+                {displayOption ? (
                   <>
-                    {meal.isSkipped ? (
+                    {meal.selectedOption && meal.isSkipped ? (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 p-2">
                         <Badge variant="outline" className="text-[10px] md:text-xs border-amber-300 text-amber-700">
                           No se contará en macros de hoy
@@ -325,7 +328,7 @@ export function MealDashboard() {
                         ) : null}
                       </div>
                     ) : null}
-                    {meal.selectedOption.substitution_details?.length ? (
+                    {meal.selectedOption?.substitution_details?.length ? (
                       <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-2 text-[10px] font-semibold text-emerald-800 md:text-xs">
                         Cambio: {meal.selectedOption.substitution_details[0].original_food_name} por {meal.selectedOption.substitution_details[0].replacement_quantity}{meal.selectedOption.substitution_details[0].replacement_unit} de {meal.selectedOption.substitution_details[0].replacement_food_name}
                       </div>
@@ -333,29 +336,54 @@ export function MealDashboard() {
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl border border-orange-100 bg-orange-50 p-2 text-center">
-                        <div className="text-lg font-black text-orange-700">{meal.selectedOption.calories}</div>
+                        <div className="text-lg font-black text-orange-700">{displayOption.calories}</div>
                         <div className="text-[10px] font-semibold text-orange-500">kcal</div>
                       </div>
                       <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-center">
-                        <div className="text-lg font-black text-blue-700">{formatMacro(meal.selectedOption.protein)}</div>
+                        <div className="text-lg font-black text-blue-700">{formatMacro(displayOption.protein)}</div>
                         <div className="text-[10px] font-semibold text-blue-500">prot</div>
                       </div>
                       <div className="rounded-xl border border-green-100 bg-green-50 p-2 text-center">
-                        <div className="text-lg font-black text-green-700">{formatMacro(meal.selectedOption.carbs)}</div>
+                        <div className="text-lg font-black text-green-700">{formatMacro(displayOption.carbs)}</div>
                         <div className="text-[10px] font-semibold text-green-500">carb</div>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => handleViewRecipeEquivalencia(meal)}
+                        type="button"
+                        onClick={() => handleViewRecipeEquivalencia(meal, isPreview ? displayOption : undefined)}
                         className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                       >
                         <Shuffle className="h-3.5 w-3.5" />
                         <span>Receta equivalencia</span>
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMealOptions(meal)}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        <span>Cambiar</span>
+                      </button>
+                      {isPreview ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectPreviewOption(meal.id, displayOption)}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-100 px-2 py-2 text-xs font-bold text-orange-800 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={syncing}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Seleccionar</span>
+                        </button>
+                      ) : (
+                        <span className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700">
+                          Seleccionada
+                        </span>
+                      )}
                       {!meal.isSkipped ? (
                         <button
+                          type="button"
                           onClick={async () => { await handleSkipMeal(meal.id) }}
                           className="flex items-center justify-center gap-1 rounded-xl bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
                         >
@@ -364,6 +392,7 @@ export function MealDashboard() {
                         </button>
                       ) : (
                         <button
+                          type="button"
                           onClick={async () => { await handleSkipMeal(meal.id) }}
                           className="flex items-center justify-center gap-1 rounded-xl bg-amber-50 px-2 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100"
                         >
@@ -371,48 +400,6 @@ export function MealDashboard() {
                           <span>Reactivar</span>
                         </button>
                       )}
-                      <button
-                        onClick={() => handleOpenMealOptions(meal)}
-                        className="col-span-2 flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        <span>Cambiar</span>
-                      </button>
-                    </div>
-                  </>
-                ) : isPreview && previewOption ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="rounded-xl border border-orange-100 bg-orange-50 p-2 text-center">
-                        <div className="text-lg font-black text-orange-700">{previewOption.calories}</div>
-                        <div className="text-[10px] font-semibold text-orange-500">kcal</div>
-                      </div>
-                      <div className="rounded-xl border border-blue-100 bg-blue-50 p-2 text-center">
-                        <div className="text-lg font-black text-blue-700">{formatMacro(previewOption.protein)}</div>
-                        <div className="text-[10px] font-semibold text-blue-500">prot</div>
-                      </div>
-                      <div className="rounded-xl border border-green-100 bg-green-50 p-2 text-center">
-                        <div className="text-lg font-black text-green-700">{formatMacro(previewOption.carbs)}</div>
-                        <div className="text-[10px] font-semibold text-green-500">carb</div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleViewRecipeEquivalencia(meal, previewOption)}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
-                      >
-                        <Shuffle className="h-3.5 w-3.5" />
-                        <span>Receta equivalencia</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleOpenMealOptions(meal)}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        <span>Cambiar</span>
-                      </button>
                     </div>
                   </>
                 ) : (
