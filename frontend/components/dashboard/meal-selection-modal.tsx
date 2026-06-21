@@ -606,9 +606,25 @@ export function MealSelectionModal({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
+                            handleViewRecipe(option)
+                          }}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 font-bold text-orange-700 transition-colors hover:bg-orange-100"
+                          disabled={loadingRecipe || !option.recipeId}
+                        >
+                          {loadingRecipe ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <BookOpen className="h-3.5 w-3.5" />
+                          )}
+                          <span>Ver receta</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
                             handleViewAllRecipes(undefined, { equivalenceOnly: false })
                           }}
-                          className="col-span-2 flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                           disabled={loadingRecipes}
                         >
                           {loadingRecipes ? (
