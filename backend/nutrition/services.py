@@ -681,11 +681,7 @@ class PersonalizedNutritionService:
         logger.info(f"   Target calorías ({meal_type}): {target_calories:.0f} kcal ({meal_percentage*100:.0f}% del día)")
         logger.info(f"   Factor de escala: {scale_factor:.2f}x")
         
-        def _is_oil_like(food_name: str, food_category: str) -> bool:
-            normalized_name = (food_name or '').strip().lower()
-            normalized_category = (food_category or '').strip().lower()
-            oil_terms = ('aceite', 'oil')
-            return any(term in normalized_name for term in oil_terms) or any(term in normalized_category for term in oil_terms)
+        from nutrition.ingredient_scaling import scale_ingredient_quantity
 
         # Calcular ingredientes escalados
         scaled_ingredients = []
@@ -700,11 +696,12 @@ class PersonalizedNutritionService:
         if recipe_ingredients:
             for ingredient in recipe_ingredients:
                 original_amount = float(ingredient.quantity or 0)
-                scaled_amount = original_amount * scale_factor
-
-                # Límite defensivo para aceites: evita que una receta escalada dispare grasas de forma irreal.
-                if _is_oil_like(getattr(ingredient.food, 'name', ''), getattr(ingredient.food, 'category', '')):
-                    scaled_amount = min(scaled_amount, 15.0)
+                scaled_amount = scale_ingredient_quantity(
+                    original_amount,
+                    scale_factor,
+                    food_name=getattr(ingredient.food, 'name', ''),
+                    food_category=getattr(ingredient.food, 'category', ''),
+                )
 
                 ratio = RecipeIngredient.compute_nutrition_ratio(
                     quantity=scaled_amount,
@@ -731,7 +728,12 @@ class PersonalizedNutritionService:
             for ingredient in recipe.ingredients:
                 if isinstance(ingredient, dict):
                     original_amount = float(ingredient.get('amount', 0))
-                    scaled_amount = original_amount * scale_factor
+                    scaled_amount = scale_ingredient_quantity(
+                        original_amount,
+                        scale_factor,
+                        food_name=str(ingredient.get('name', '')),
+                        food_category=str(ingredient.get('category', '')),
+                    )
                     scaled_ingredients.append({
                         'name': ingredient.get('name', 'Ingrediente'),
                         'amount': round(scaled_amount, 1),

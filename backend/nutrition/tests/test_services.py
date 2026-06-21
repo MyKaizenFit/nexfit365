@@ -236,8 +236,10 @@ class PersonalizedNutritionServiceTest(TestCase):
         )
 
         oil_row = next(item for item in personalized["ingredients"] if item["name"] == "Aceite de oliva test")
-        self.assertEqual(oil_row["amount"], 15)
-        self.assertLessEqual(personalized["macros"]["fat"], 16)
+        rice_row = next(item for item in personalized["ingredients"] if item["name"] == "Arroz test limitador")
+        self.assertEqual(oil_row["amount"], 20)
+        self.assertEqual(rice_row["amount"], 100)
+        self.assertLessEqual(personalized["macros"]["fat"], 20)
 
     def test_assign_best_plan_creates_user_plan_and_history(self):
         service = PersonalizedNutritionService(self.user)
