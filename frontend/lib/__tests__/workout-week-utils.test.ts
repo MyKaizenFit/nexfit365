@@ -1,6 +1,7 @@
 import {
   dayNumberForWeekDay,
   dayNumberForWeekSlot,
+  programWeekFromAnchorDate,
   programWeekFromCalendarGridWeek,
   weekNumberFromDayNumber,
   workoutDayInWeek,
@@ -30,5 +31,12 @@ describe("workout-week-utils", () => {
     expect(programWeekFromCalendarGridWeek(1, 4)).toBe(1)
     expect(programWeekFromCalendarGridWeek(4, 4)).toBe(4)
     expect(programWeekFromCalendarGridWeek(5, 4)).toBe(1)
+  })
+
+  it("anchors program weeks to a fixed start date across months", () => {
+    const anchor = "2026-06-16"
+    expect(programWeekFromAnchorDate(new Date("2026-06-18"), anchor, 8)).toBe(1)
+    expect(programWeekFromAnchorDate(new Date("2026-07-07"), anchor, 8)).toBe(4)
+    expect(programWeekFromAnchorDate(new Date("2026-07-07"), anchor, 8)).not.toBe(1)
   })
 })
