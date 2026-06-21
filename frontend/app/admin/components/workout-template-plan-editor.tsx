@@ -18,6 +18,7 @@ import { fixEncoding } from "@/lib/encoding-fix"
 import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
+import { getMondayOfWeek, getProgramWeekForAnchor } from "@/lib/workout-plan-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -116,17 +117,6 @@ function isSameCalendarDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
-/** Semana del plan (1-based, cíclica) para una fecha del calendario. */
-function weekNumberFromCalendarDate(date: Date, planDurationWeeks: number): number {
-  const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)
-  const mondayOffset = (firstOfMonth.getDay() + 6) % 7
-  const daysSinceStart =
-    Math.floor((date.getTime() - firstOfMonth.getTime()) / (1000 * 60 * 60 * 24)) + mondayOffset
-  const calendarWeek = Math.floor(daysSinceStart / 7) + 1
-  const duration = Math.max(1, planDurationWeeks)
-  return ((calendarWeek - 1) % duration) + 1
-}
-
 /** day_number global a partir de semana (1-based) y día de la semana (1=Lun…7=Dom). */
 function dayNumberFromWeekAndDay(week: number, weekday: number): number {
   return (week - 1) * 7 + weekday
@@ -163,6 +153,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const [autosaveState, setAutosaveState] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date())
+  const calendarPlanAnchorRef = useRef(getMondayOfWeek(new Date()).toISOString().slice(0, 10))
   const autosaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isAutosavingRef = useRef(false)
 
@@ -898,9 +889,14 @@ export const WorkoutTemplatePlanEditor = forwardRef<
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const key = dayKeyFromDate(date)
-              const weekForDate = weekNumberFromCalendarDate(date, planDurationWeeks)
-              const dn = dayNumberFromWeekAndDay(weekForDate, Number(key))
-              const day = days.find((item) => item.day_number === dn)
+              const weekForDate = getProgramWeekForAnchor(
+                calendarPlanAnchorRef.current,
+                date,
+                planDurationWeeks,
+              )
+              const isWithinPlanRange = weekForDate >= 1 && weekForDate <= planDurationWeeks
+              const dn = isWithinPlanRange ? dayNumberFromWeekAndDay(weekForDate, Number(key)) : null
+              const day = dn != null ? days.find((item) => item.day_number === dn) : undefined
               const exerciseCount = day?.exercises.length || 0
               const isRest = !day || day.is_rest_day || exerciseCount === 0
               const isCurrentMonth = date.getMonth() === calendarMonth.getMonth()
@@ -913,7 +909,9 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                   onClick={() => {
                     setSelectedCalendarDate(date)
                     setActiveDay(key)
-                    setActiveWeek(weekForDate)
+                    if (isWithinPlanRange) {
+                      setActiveWeek(weekForDate)
+                    }
                   }}
                   className={`min-h-[82px] rounded-lg border p-2 text-left transition ${
                     isSelected ? "border-purple-500 bg-purple-50 shadow-sm" : "hover:border-purple-300 hover:bg-purple-50/40"
@@ -926,7 +924,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
                     </span>
                   </div>
                   <div className="mt-2 space-y-1">
-                    {planDurationWeeks > 1 && (
+                    {planDurationWeeks > 1 && isWithinPlanRange && (
                       <div className="truncate rounded px-1.5 py-0.5 text-[10px] bg-blue-50 text-blue-700">
                         Sem. {weekForDate}
                       </div>

@@ -1,3 +1,5 @@
+import { getProgramWeekForAnchor } from "@/lib/workout-plan-utils"
+
 export const WORKOUT_DAY_NAMES = [
   "Lunes",
   "Martes",
@@ -48,6 +50,15 @@ export function programWeekFromCalendarGridWeek(gridWeek: number, durationWeeks:
   const duration = planDurationWeeks(durationWeeks)
   const normalizedGridWeek = Math.max(1, gridWeek)
   return ((normalizedGridWeek - 1) % duration) + 1
+}
+
+/** Semana del plan anclada a una fecha de inicio fija (sin reiniciar cada mes). */
+export function programWeekFromAnchorDate(
+  date: Date,
+  anchorDate: Date | string,
+  durationWeeks: number,
+): number {
+  return getProgramWeekForAnchor(anchorDate, date, durationWeeks)
 }
 
 export function workoutDayHasSlot(day: { dayNumber?: number | null }): day is { dayNumber: number } {

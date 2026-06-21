@@ -80,6 +80,28 @@ export function isMultiWeekPlan(plan: WorkoutPlanLike | null | undefined): boole
   return plan.days.some((day) => (day.day_number || 0) > 7)
 }
 
+export function getProgramWeekForAnchor(
+  anchorDate: Date | string,
+  referenceDate: Date = new Date(),
+  durationWeeks?: number,
+): number {
+  const startMonday = getMondayOfWeek(
+    typeof anchorDate === "string" ? parseDateOnly(anchorDate) : anchorDate,
+  )
+  const refMonday = getMondayOfWeek(referenceDate)
+  const msPerWeek = 7 * 24 * 60 * 60 * 1000
+  const weeksElapsed = Math.floor((refMonday.getTime() - startMonday.getTime()) / msPerWeek)
+
+  if (weeksElapsed < 0) return 0
+
+  const programWeek = weeksElapsed + 1
+  if (typeof durationWeeks === "number" && durationWeeks > 0 && programWeek > durationWeeks) {
+    return durationWeeks + 1
+  }
+
+  return programWeek
+}
+
 export function getProgramWeekForDate(
   plan: WorkoutPlanLike | null | undefined,
   referenceDate: Date = new Date(),
@@ -94,17 +116,7 @@ export function getProgramWeekForDate(
     return 1
   }
 
-  const startMonday = getMondayOfWeek(parseDateOnly(plan.start_date))
-  const refMonday = getMondayOfWeek(referenceDate)
-  const msPerWeek = 7 * 24 * 60 * 60 * 1000
-  const weeksElapsed = Math.floor((refMonday.getTime() - startMonday.getTime()) / msPerWeek)
-
-  if (weeksElapsed < 0) return 0
-
-  const programWeek = weeksElapsed + 1
-  const duration = planDurationWeeksFromPlan(plan)
-
-  return programWeek
+  return getProgramWeekForAnchor(plan.start_date, referenceDate, planDurationWeeksFromPlan(plan))
 }
 
 export function isProgramWeekInRange(

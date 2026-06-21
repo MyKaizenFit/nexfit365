@@ -6,6 +6,7 @@ import {
   getPlanTrainingWeekdays,
   getPlanWeeklyGoal,
   getProgramWeekForDate,
+  getProgramWeekForAnchor,
   globalDayNumberForProgramWeek,
   isMultiWeekPlan,
   isProgramWeekInRange,
@@ -177,6 +178,13 @@ describe('multi-week plan resolution', () => {
   it('getTodaysPlanDay uses week-aware lookup', () => {
     const day = getTodaysPlanDay(multiWeekPlan, new Date('2026-06-24'))
     expect(day?.name).toBe('W2 Wed')
+  })
+
+  it('continues week progression across calendar months', () => {
+    const anchor = '2026-06-16'
+    expect(getProgramWeekForAnchor(anchor, new Date('2026-06-30'), 8)).toBe(3)
+    expect(getProgramWeekForAnchor(anchor, new Date('2026-07-07'), 8)).toBe(4)
+    expect(getProgramWeekForAnchor(anchor, new Date('2026-07-07'), 8)).not.toBe(1)
   })
 })
 
