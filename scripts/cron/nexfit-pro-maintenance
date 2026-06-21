@@ -1,0 +1,29 @@
+# NexFit PRO — mantenimiento programado
+# Instalar: sudo ./scripts/install-cron-maintenance.sh
+#
+# Horarios (Europe/Madrid):
+#   02:00  auto-backup.sh        dump canónico + SHA256
+#   03:00  db-backup container   SQL daily (docker-compose)
+#   04:30  optimize-database.sh  domingos, DESPUÉS de backups (sin REINDEX DATABASE)
+#   04:00  domingos verify-backup.sh
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# Backup dump canónico (usuario iago)
+0 2 * * * iago /srv/mykaizenfit/pro/scripts/auto-backup.sh >> /srv/mykaizenfit/pro/backups/cron.log 2>&1
+
+# Health check horario
+0 * * * * iago /srv/mykaizenfit/pro/scripts/health-check.sh >> /srv/mykaizenfit/pro/backups/cron_health.log 2>&1
+
+# Alertas cada 2 horas
+0 */2 * * * iago /srv/mykaizenfit/pro/scripts/alert-logs.sh >> /srv/mykaizenfit/pro/backups/cron_alerts.log 2>&1
+
+# Optimización semanal — 04:30 domingo (evita colisión con db-backup 03:00)
+30 4 * * 0 iago /srv/mykaizenfit/pro/scripts/optimize-database.sh >> /srv/mykaizenfit/pro/backups/cron_optimization.log 2>&1
+
+# Verificación de backup — domingo 05:00
+0 5 * * 0 iago /srv/mykaizenfit/pro/scripts/verify-backup.sh >> /srv/mykaizenfit/pro/backups/backup-verify.log 2>&1
+
+# Performance diario
+0 1 * * * iago /srv/mykaizenfit/pro/scripts/monitor-performance.sh >> /srv/mykaizenfit/pro/backups/cron_performance.log 2>&1

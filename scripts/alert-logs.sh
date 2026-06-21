@@ -3,11 +3,27 @@
 # Sistema de Alertas - Solo Logs Locales
 # Centraliza todos los errores en archivos
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=db-integrity-check.sh
+source "$SCRIPT_DIR/db-integrity-check.sh"
+
 ALERT_LOG="/srv/mykaizenfit/pro/backups/alerts.log"
 ERROR_LOG="/srv/mykaizenfit/pro/backups/error.log"
 HEALTH_LOG="/srv/mykaizenfit/pro/backups/health.log"
+# Errores en la última ejecución de optimize-database.sh (no histórico completo)
+_optimization_last_run_errors() {
+    local log_file=$1
+    [ -f "$log_file" ] || return 1
+    local start_line
+    start_line=$(grep -n "INICIANDO OPTIMIZACIÓN DE BD" "$log_file" | tail -1 | cut -d: -f1)
+    [ -n "$start_line" ] || return 1
+    tail -n +"$start_line" "$log_file" | grep -qiE 'could not open file|read only 0 of 8192|ERROR:.*Abortado|optimize-database: Abortado|Corrupción detectada'
+}
 COMPOSE_FILE="/srv/mykaizenfit/pro/docker-compose.prod.yml"
 PROJECT="nexfit-pro"
+BACKUP_DIR="/srv/mykaizenfit/pro/backups"
+DAILY_BACKUP="/srv/mykaizenfit/pro/data/backups/daily/mykaizenfit-latest.sql.gz"
+OPT_LOG="/srv/mykaizenfit/pro/backups/optimization.log"
 
 log_alert() {
     local level=$1
@@ -45,25 +61,46 @@ check_disk_space() {
     fi
 }
 
-# 3. ALERTA: Backup fallido
+# 3. ALERTA: Backup fallido o antiguo
 check_backup_status() {
-    LATEST_BACKUP=$(ls -t /srv/mykaizenfit/pro/backups/backup_*.sql* 2>/dev/null | head -1)
-    
-    if [ -z "$LATEST_BACKUP" ]; then
-        MSG="CRÍTICO - NO HAY BACKUPS"
-        log_alert "CRITICAL" "$MSG"
-        log_error "$MSG"
-        return
+    local latest_dump="" backup_ok=false daily_ok=false
+
+    if [ -L "$BACKUP_DIR/latest.dump" ] && [ -f "$BACKUP_DIR/latest.dump" ]; then
+        latest_dump="$BACKUP_DIR/latest.dump"
+    elif ls "$BACKUP_DIR"/mykaizenfit_*.dump >/dev/null 2>&1; then
+        latest_dump=$(ls -t "$BACKUP_DIR"/mykaizenfit_*.dump 2>/dev/null | head -1)
     fi
-    
-    BACKUP_AGE=$(($(date +%s) - $(stat -c %Y "$LATEST_BACKUP")))
-    BACKUP_AGE_HOURS=$((BACKUP_AGE / 3600))
-    BACKUP_SIZE=$(du -h "$LATEST_BACKUP" | cut -f1)
-    
-    if [ "$BACKUP_AGE_HOURS" -gt 25 ]; then
-        MSG="CRÍTICO - Backup antiguo: ${BACKUP_AGE_HOURS}h (${BACKUP_SIZE})"
+
+    if [ -n "$latest_dump" ] && [ -f "$latest_dump" ]; then
+        local age_h=$(( ($(date +%s) - $(stat -c %Y "$latest_dump")) / 3600 ))
+        if [ "$age_h" -le 25 ]; then
+            backup_ok=true
+        else
+            MSG="CRÍTICO - Dump antiguo: ${age_h}h ($latest_dump)"
+            log_alert "CRITICAL" "$MSG"
+            log_error "$MSG"
+        fi
+    else
+        MSG="CRÍTICO - No hay dump canónico en $BACKUP_DIR"
         log_alert "CRITICAL" "$MSG"
         log_error "$MSG"
+    fi
+
+    if [ -f "$DAILY_BACKUP" ] || [ -L "$DAILY_BACKUP" ]; then
+        local daily_h=$(( ($(date +%s) - $(stat -c %Y "$DAILY_BACKUP")) / 3600 ))
+        if [ "$daily_h" -le 25 ]; then
+            daily_ok=true
+        else
+            MSG="ADVERTENCIA - Backup daily antiguo: ${daily_h}h"
+            log_alert "WARNING" "$MSG"
+        fi
+    else
+        MSG="ADVERTENCIA - Falta backup daily del contenedor db-backup"
+        log_alert "WARNING" "$MSG"
+    fi
+
+    if [ "$backup_ok" = true ] && [ "$daily_ok" = true ]; then
+        log_alert "INFO" "Backups dump + daily OK"
     fi
 }
 
@@ -80,14 +117,31 @@ check_error_logs() {
     fi
 }
 
-# 5. ALERTA: BD con problemas
+# 5. ALERTA: BD con problemas o corrupción
 check_database_health() {
-    DB_CHECK=$(COMPOSE_PROJECT_NAME=$PROJECT docker compose -f "$COMPOSE_FILE" exec -T db psql -U postgres -c "SELECT 1;" 2>/dev/null)
-    
-    if [ -z "$DB_CHECK" ]; then
-        MSG="CRÍTICO - Base de datos no responde"
+    local msg="" rc=0
+    msg=$(check_db_integrity) || rc=$?
+
+    if [ "$rc" -eq 1 ]; then
+        MSG="CRÍTICO - Corrupción PostgreSQL: $msg"
         log_alert "CRITICAL" "$MSG"
         log_error "$MSG"
+    elif [ "$rc" -eq 2 ]; then
+        MSG="CRÍTICO - Base de datos no responde: $msg"
+        log_alert "CRITICAL" "$MSG"
+        log_error "$MSG"
+    fi
+}
+
+# 5b. ALERTA: Errores en la última ejecución de optimize-database.sh
+check_optimization_log() {
+    if _optimization_last_run_errors "$OPT_LOG"; then
+        MSG="CRÍTICO - Errores de corrupción/optimización en la última ejecución semanal"
+        log_alert "CRITICAL" "$MSG"
+        log_error "$MSG"
+        local start_line
+        start_line=$(grep -n "INICIANDO OPTIMIZACIÓN DE BD" "$OPT_LOG" | tail -1 | cut -d: -f1)
+        tail -n +"$start_line" "$OPT_LOG" | tail -20 >> "$ERROR_LOG"
     fi
 }
 
@@ -123,6 +177,7 @@ check_disk_space
 check_backup_status
 check_error_logs
 check_database_health
+check_optimization_log
 check_memory_usage
 check_cpu_usage
 echo "" >> "$ALERT_LOG"

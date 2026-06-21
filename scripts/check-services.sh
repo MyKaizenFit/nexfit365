@@ -12,6 +12,10 @@ set -u
 
 # Configuración
 PROJECT_DIR="/srv/mykaizenfit/pro"
+SCRIPT_DIR="$PROJECT_DIR/scripts"
+# shellcheck source=db-integrity-check.sh
+source "$SCRIPT_DIR/db-integrity-check.sh"
+DB_CORRUPTION=false
 LOG_FILE="/var/log/nexfit-check.log"
 COMPOSE_PROJECT_NAME="nexfit-pro"
 COMPOSE_FILE="docker-compose.prod.yml"
@@ -136,6 +140,16 @@ fi
 
 log "🔍 Iniciando verificación de servicios..."
 
+integrity_msg=""
+integrity_rc=0
+integrity_msg=$(check_db_integrity) || integrity_rc=$?
+if [ "$integrity_rc" -eq 1 ]; then
+    DB_CORRUPTION=true
+    log "🔴 CRÍTICO: corrupción PostgreSQL detectada — NO reiniciar db"
+    log "   Detalle: $integrity_msg"
+    log "   Acción: ./scripts/restore.sh (NO mover data/postgres/)"
+fi
+
 # Backend con auto-heal avanzado
 check_backend_and_heal || true
 
@@ -143,6 +157,11 @@ check_backend_and_heal || true
 SERVICES=("frontend" "db" "redis")
 
 for service in "${SERVICES[@]}"; do
+    if [ "$service" = "db" ] && [ "$DB_CORRUPTION" = true ]; then
+        log "⚠️  db: omitiendo restart por corrupción detectada"
+        continue
+    fi
+
     container_id=$(get_container_id "$service")
     if [ -z "$container_id" ] || ! is_container_running "$container_id"; then
         log "❌ $service no está corriendo, intentando restart"
