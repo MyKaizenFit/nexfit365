@@ -255,8 +255,8 @@ def copy_workout_day_exercises(source_day, target_day):
 
 
 def _template_is_multi_week(template_days, duration_weeks=None):
-    if duration_weeks and int(duration_weeks) > 1:
-        return True
+    """Plantilla multi-semana solo si hay day_number > 7 (estructura por semanas en BD)."""
+    _ = duration_weeks  # duración del plan != semanas distintas en day_number
     return any((day.day_number or 0) > 7 for day in template_days)
 
 
@@ -661,6 +661,7 @@ class DefaultPlanAssignmentService:
             find_exact_configuration,
             is_generic_configuration,
         )
+        from dashboard.models import DefaultPlanConfiguration
 
         ensure_fallback_configuration()
         exact_configuration = find_exact_configuration(self.user)
@@ -671,12 +672,20 @@ class DefaultPlanAssignmentService:
         best_nutrition = None
         best_workout = None
         best_key = None
+        user_has_dietary = bool(
+            DefaultPlanConfiguration.user_dietary_restriction_terms(self.user)
+        )
 
         for configuration in self._iter_matching_configurations():
             nutrition_template, workout_template = self._resolve_configuration_templates(configuration)
             if not (nutrition_template or workout_template):
                 continue
+            dietary_match = (
+                user_has_dietary
+                and bool(configuration.dietary_restriction_terms())
+            )
             key = (
+                0 if dietary_match else 1,
                 configuration.priority,
                 -self._configuration_specificity(configuration),
             )

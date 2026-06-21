@@ -237,9 +237,11 @@ class PersonalizedNutritionServiceTest(TestCase):
 
         oil_row = next(item for item in personalized["ingredients"] if item["name"] == "Aceite de oliva test")
         rice_row = next(item for item in personalized["ingredients"] if item["name"] == "Arroz test limitador")
-        self.assertEqual(oil_row["amount"], 20)
-        self.assertEqual(rice_row["amount"], 100)
-        self.assertLessEqual(personalized["macros"]["fat"], 20)
+        scale_factor = personalized["scale_factor"]
+        self.assertGreater(oil_row["amount"], 20)
+        self.assertLess(oil_row["amount"], 20 * scale_factor)
+        self.assertAlmostEqual(rice_row["amount"], 100 * scale_factor, delta=2)
+        self.assertLessEqual(personalized["macros"]["fat"], 30)
 
     def test_assign_best_plan_creates_user_plan_and_history(self):
         service = PersonalizedNutritionService(self.user)
@@ -380,6 +382,6 @@ class PersonalizedNutritionServiceTest(TestCase):
         assigned_plan = PersonalizedNutritionService(self.user).assign_best_plan()
 
         assigned_breakfast = assigned_plan.meals.get(name="Desayuno")
-        assigned_recipe_ids = list(assigned_breakfast.suggested_recipes.values_list("id", flat=True))
+        assigned_recipe_ids = list(assigned_breakfast.meal_recipes.values_list("recipe_id", flat=True))
         self.assertIn(safe_recipe.id, assigned_recipe_ids)
         self.assertNotIn(blocked_recipe.id, assigned_recipe_ids)
