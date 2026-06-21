@@ -21,7 +21,7 @@ interface MealSelectionModalProps {
   }
   onSelectOption: (option: MealOption) => void
   onDeselectOption?: () => void
-  initialView?: 'recipe' | 'equivalencias'
+  initialView?: 'recipe' | 'equivalencias' | 'recetas-equivalencias'
 }
 
 const resolveRecipeImageSrc = (src?: string | null) => {
@@ -75,10 +75,13 @@ export function MealSelectionModal({
   }
 
   // Cargar recetas recomendadas o todas las disponibles
-  const handleViewAllRecipes = async (autoOpenRecipeId?: string | number | null) => {
+  const handleViewAllRecipes = async (
+    autoOpenRecipeId?: string | number | null,
+    opts?: { equivalenceOnly?: boolean },
+  ) => {
     setLoadingRecipes(true)
     setAutoOpenEquivalenceRecipeId(autoOpenRecipeId ? String(autoOpenRecipeId) : null)
-    setEquivalenceOnlyMode(Boolean(autoOpenRecipeId))
+    setEquivalenceOnlyMode(opts?.equivalenceOnly ?? Boolean(autoOpenRecipeId))
     setShowAllRecipes(true)
     try {
       const allRecipes = await nutritionService.listRecipes()
@@ -404,7 +407,9 @@ export function MealSelectionModal({
     if (initialView === 'recipe') {
       handleViewRecipe(currentOption)
     } else if (initialView === 'equivalencias') {
-      handleViewAllRecipes(currentOption.recipeId || currentOption.id)
+      handleViewAllRecipes(currentOption.recipeId || currentOption.id, { equivalenceOnly: true })
+    } else if (initialView === 'recetas-equivalencias') {
+      handleViewAllRecipes(undefined, { equivalenceOnly: false })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mounted, initialView, options, currentSelection])
@@ -501,7 +506,7 @@ export function MealSelectionModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleViewAllRecipes()}
+                    onClick={() => handleViewAllRecipes(undefined, { equivalenceOnly: false })}
                     className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
                     disabled={loadingRecipes}
                   >
@@ -513,7 +518,7 @@ export function MealSelectionModal({
                     ) : (
                       <>
                         <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                        <span>Ver recetas y equivalencias</span>
+                        <span>Receta equivalencia</span>
                       </>
                     )}
                   </button>
@@ -601,30 +606,9 @@ export function MealSelectionModal({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleViewRecipe(option)
+                            handleViewAllRecipes(undefined, { equivalenceOnly: false })
                           }}
-                          className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 font-bold text-orange-700 transition-colors hover:bg-orange-100"
-                          disabled={loadingRecipe}
-                        >
-                          {loadingRecipe ? (
-                            <>
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              <span>Receta</span>
-                            </>
-                          ) : (
-                            <>
-                              <BookOpen className="h-3.5 w-3.5" />
-                              <span>Receta</span>
-                            </>
-                          )}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleViewAllRecipes(option.recipeId || option.id)
-                          }}
-                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
+                          className="col-span-2 flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                           disabled={loadingRecipes}
                         >
                           {loadingRecipes ? (
@@ -632,7 +616,7 @@ export function MealSelectionModal({
                           ) : (
                             <Shuffle className="h-3.5 w-3.5" />
                           )}
-                          <span>Equivalencias</span>
+                          <span>Receta equivalencia</span>
                         </button>
                         {isCurrentSelection && onDeselectOption && (
                           <button

@@ -5,7 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
-import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, BookOpen, Shuffle } from 'lucide-react'
+import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, Shuffle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,9 +34,9 @@ export function MealDashboard() {
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [initialView, setInitialView] = useState<'recipe' | 'equivalencias' | undefined>(undefined)
+  const [initialView, setInitialView] = useState<'recipe' | 'equivalencias' | 'recetas-equivalencias' | undefined>(undefined)
 
-  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }, view?: 'recipe' | 'equivalencias') => {
+  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }, view?: 'recipe' | 'equivalencias' | 'recetas-equivalencias') => {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
@@ -55,9 +55,6 @@ export function MealDashboard() {
     }
   }
 
-  const handleSelectPreviewOption = async (mealId: string, option: MealOption) => {
-    await selectMealOption(mealId, option)
-  }
 
   const handleDeselectOption = async () => {
     if (selectedMeal) {
@@ -71,18 +68,20 @@ export function MealDashboard() {
     setInitialView(undefined)
   }
 
-  const handleViewPreviewRecipe = (
+  const handleViewRecipeEquivalencia = (
     meal: { id: string; name: string; time: string; mealType: string },
-    previewOption: MealOption,
+    previewOption?: MealOption,
   ) => {
+    const fullMeal = meals.find((item) => item.id === meal.id)
+    const option = previewOption || fullMeal?.selectedOption
     setSelectedMeal({
       ...meal,
       currentSelection: {
-        optionId: String(previewOption.id),
-        recipeId: previewOption.recipeId ? String(previewOption.recipeId) : null,
+        optionId: option?.id ? String(option.id) : null,
+        recipeId: option?.recipeId ? String(option.recipeId) : null,
       },
     })
-    setInitialView('recipe')
+    setInitialView('recetas-equivalencias')
     setIsModalOpen(true)
   }
 
@@ -349,18 +348,11 @@ export function MealDashboard() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => handleOpenMealOptions(meal, 'recipe')}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span>Receta</span>
-                      </button>
-                      <button
-                        onClick={() => handleOpenMealOptions(meal, 'equivalencias')}
+                        onClick={() => handleViewRecipeEquivalencia(meal)}
                         className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                       >
                         <Shuffle className="h-3.5 w-3.5" />
-                        <span>Equivalencias</span>
+                        <span>Receta equivalencia</span>
                       </button>
                       {!meal.isSkipped ? (
                         <button
@@ -381,7 +373,7 @@ export function MealDashboard() {
                       )}
                       <button
                         onClick={() => handleOpenMealOptions(meal)}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
+                        className="col-span-2 flex items-center justify-center gap-1 rounded-xl bg-gray-50 px-2 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-100"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                         <span>Cambiar</span>
@@ -407,12 +399,11 @@ export function MealDashboard() {
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
-                        onClick={() => handleSelectPreviewOption(meal.id, previewOption)}
-                        className="flex items-center justify-center gap-1 rounded-xl bg-orange-100 px-2 py-2 text-xs font-bold text-orange-800 transition-colors hover:bg-orange-200 disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={syncing}
+                        onClick={() => handleViewRecipeEquivalencia(meal, previewOption)}
+                        className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
                       >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Seleccionar</span>
+                        <Shuffle className="h-3.5 w-3.5" />
+                        <span>Receta equivalencia</span>
                       </button>
 
                       <button
@@ -423,17 +414,6 @@ export function MealDashboard() {
                         <span>Cambiar</span>
                       </button>
                     </div>
-
-                    {previewOption.recipeId ? (
-                      <button
-                        type="button"
-                        onClick={() => handleViewPreviewRecipe(meal, previewOption)}
-                        className="flex w-full items-center justify-center gap-1 rounded-xl bg-orange-50 px-2 py-2.5 text-xs font-bold text-orange-700 transition-colors hover:bg-orange-100"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span>Ver receta</span>
-                      </button>
-                    ) : null}
                   </>
                 ) : (
                   <button
