@@ -27,7 +27,7 @@ echo -e "${GREEN}Instalando crons de mantenimiento NexFit PRO...${NC}"
 install -m 0644 "$CRON_SRC" "$CRON_DST"
 echo "  ✓ $CRON_DST"
 
-for script in db-integrity-check.sh optimize-database.sh health-check.sh alert-logs.sh verify-backup.sh check-services.sh auto-backup.sh restore.sh; do
+for script in db-integrity-check.sh optimize-database.sh reindex-jwt-blacklist.sh health-check.sh alert-logs.sh verify-backup.sh check-services.sh auto-backup.sh restore.sh; do
   chmod +x "$ROOT/scripts/$script"
 done
 echo "  ✓ Permisos de scripts"
@@ -46,6 +46,7 @@ echo ""
 echo "Horarios clave:"
 echo "  02:00  auto-backup (dump + SHA256)"
 echo "  03:00  db-backup container (SQL daily)"
+echo "  04:15  reindex-jwt-blacklist (diario, tablas refresh/blacklist)"
 echo "  04:30  optimize-database (domingos, sin REINDEX DATABASE)"
 echo "  05:00  verify-backup (domingos)"
 echo ""

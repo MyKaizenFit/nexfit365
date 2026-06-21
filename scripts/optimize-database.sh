@@ -70,7 +70,7 @@ SQL
 log "Índices verificados"
 
 log "REINDEX TABLE (tablas críticas, sin REINDEX DATABASE)..."
-for table in token_blacklist_outstandingtoken workouts_workoutdayexercise workouts_workoutprogram; do
+for table in token_blacklist_outstandingtoken token_blacklist_blacklistedtoken workouts_workoutdayexercise workouts_workoutprogram; do
   log "REINDEX TABLE ${table}..."
   run_psql "REINDEX TABLE ${table}" -c "REINDEX TABLE ${table};"
 done
