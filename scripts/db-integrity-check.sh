@@ -13,7 +13,7 @@ PROJECT="${COMPOSE_PROJECT_NAME:-nexfit-pro}"
 DB_NAME="${DB_NAME:-mykaizenfit}"
 DB_USER="${DB_USER:-postgres}"
 
-CORRUPTION_PATTERN='could not open file|could not read block|read only 0 of 8192|invalid page|missing chunk|cache lookup failed|could not access status of transaction'
+CORRUPTION_PATTERN='could not open file|could not read block|read only 0 of 8192|invalid page|missing chunk|cache lookup failed|could not access status of transaction|unexpected data beyond EOF'
 
 _dbc_psql() {
   COMPOSE_PROJECT_NAME="$PROJECT" docker compose -f "$COMPOSE_FILE" exec -T db \
@@ -32,6 +32,7 @@ check_db_integrity() {
     workouts_workoutday
     nutrition_recipe
     token_blacklist_outstandingtoken
+    token_blacklist_blacklistedtoken
   )
 
   if ! COMPOSE_PROJECT_NAME="$PROJECT" docker compose -f "$COMPOSE_FILE" exec -T db \
@@ -85,6 +86,30 @@ check_db_integrity() {
   done
 
   echo "Integridad OK"
+  return 0
+}
+
+# Prueba de escritura en tablas JWT (detecta corrupción que COUNT no ve).
+probe_jwt_blacklist_writable() {
+  local output
+  output=$(_dbc_psql -c "
+    INSERT INTO token_blacklist_outstandingtoken (token, created_at, expires_at, user_id, jti)
+    SELECT 'integrity-probe', NOW(), NOW() + interval '1 day', id,
+           'integrity-probe-' || floor(extract(epoch from clock_timestamp()))::text
+    FROM accounts_customuser
+    WHERE is_active = true
+    ORDER BY id
+    LIMIT 1;
+    DELETE FROM token_blacklist_outstandingtoken WHERE jti LIKE 'integrity-probe-%';
+  " 2>&1) || {
+    if _dbc_is_corruption_output "$output"; then
+      echo "Corrupción en escritura JWT (outstandingtoken): $output"
+      return 1
+    fi
+    echo "Fallo en probe JWT: $output"
+    return 2
+  }
+  echo "JWT writable OK"
   return 0
 }
 
