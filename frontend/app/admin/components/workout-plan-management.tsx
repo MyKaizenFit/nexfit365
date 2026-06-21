@@ -31,6 +31,7 @@ import {
   Users,
   Activity,
   Copy,
+  BookmarkPlus,
   UserPlus,
   GripVertical,
   ArrowUp,
@@ -277,6 +278,7 @@ export function WorkoutPlanManagement() {
   const [isViewMode, setIsViewMode] = useState(false) // Modo solo lectura
   const [isLoading, setIsLoading] = useState(false)
   const [copyingPlanId, setCopyingPlanId] = useState<string | null>(null)
+  const [savingTemplatePlanId, setSavingTemplatePlanId] = useState<string | null>(null)
   const [showAssignUserDialog, setShowAssignUserDialog] = useState(false)
   const [assignUserSourceId, setAssignUserSourceId] = useState<string | null>(null)
   const [assignUserTargetId, setAssignUserTargetId] = useState<string>("none")
@@ -1623,6 +1625,48 @@ export function WorkoutPlanManagement() {
     }
   }
 
+  const mapPlanDetailDaysToPayload = (days: any[]) =>
+    days.map((day: any, dayIndex: number) => ({
+      day_name: day.name || day.day_name || `Día ${day.day_number || dayIndex + 1}`,
+      day_number: day.day_number ?? dayIndex + 1,
+      day_of_week: day.day_of_week || undefined,
+      is_rest_day: Boolean(day.is_rest_day),
+      duration_minutes: day.duration_minutes || undefined,
+      notes: day.notes || "",
+      exercises: Array.isArray(day.exercises)
+        ? day.exercises.map((ex: any, index: number) => ({
+            exercise_id: ex.exercise_id || ex.exercise?.id || ex.exercise,
+            sets: ex.sets || 3,
+            reps: ex.reps || "10",
+            weight: ex.weight || 0,
+            duration: ex.duration_seconds || ex.duration || 0,
+            rest_time: ex.rest_seconds || ex.rest_time || 60,
+            notes: ex.notes || "",
+            order: ex.order_index || ex.order || index + 1,
+            substitutes: Array.isArray(ex.substitutes)
+              ? ex.substitutes.map((sub: any) => ({
+                  substitute_id: sub.substitute_id || sub.id,
+                  priority: sub.priority || 1,
+                  notes: sub.notes || "",
+                }))
+              : [],
+          }))
+        : [],
+    }))
+
+  const buildPlanPayloadFromDetail = (planDetail: any, overrides: Record<string, unknown> = {}) => ({
+    name: overrides.name ?? fixEncoding(planDetail.name || "Rutina"),
+    description: fixEncoding(planDetail.description || ""),
+    difficulty: planDetail.difficulty || "beginner",
+    goal: planDetail.goal || undefined,
+    location: planDetail.location || undefined,
+    duration_weeks: planDetail.duration_weeks || 4,
+    days_per_week: planDetail.days_per_week || undefined,
+    estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
+    days: Array.isArray(planDetail.days) ? mapPlanDetailDaysToPayload(planDetail.days) : [],
+    ...overrides,
+  })
+
   const handleCopyPlan = async (planId: string) => {
     if (!isValidWorkoutPlanId(planId)) {
       toast({
@@ -1644,51 +1688,16 @@ export function WorkoutPlanManagement() {
         fixEncoding(planDetail.name || "Rutina"),
         plansArray.map((p) => fixEncoding(p.name || ""))
       )
-      const copiedDays = Array.isArray(planDetail.days)
-        ? planDetail.days.map((day: any, dayIndex: number) => ({
-            day_name: day.name || day.day_name || `Día ${day.day_number || 1}`,
-            day_number: dayIndex + 1,
-            day_of_week: day.day_of_week || undefined,
-            is_rest_day: Boolean(day.is_rest_day),
-            duration_minutes: day.duration_minutes || undefined,
-            notes: day.notes || "",
-            exercises: Array.isArray(day.exercises)
-              ? day.exercises.map((ex: any, index: number) => ({
-                  exercise_id: ex.exercise_id || ex.exercise?.id || ex.exercise,
-                  sets: ex.sets || 3,
-                  reps: ex.reps || "10",
-                  weight: ex.weight || 0,
-                  duration: ex.duration_seconds || ex.duration || 0,
-                  rest_time: ex.rest_seconds || ex.rest_time || 60,
-                  notes: ex.notes || "",
-                  order: ex.order_index || ex.order || index + 1,
-                  substitutes: Array.isArray(ex.substitutes)
-                    ? ex.substitutes.map((sub: any) => ({
-                        substitute_id: sub.substitute_id || sub.id,
-                        priority: sub.priority || 1,
-                        notes: sub.notes || "",
-                      }))
-                    : [],
-                }))
-              : [],
-          }))
-        : []
+      const copiedDays = Array.isArray(planDetail.days) ? mapPlanDetailDaysToPayload(planDetail.days) : []
       const sourceUserId = planDetail.user_id || planDetail.user || undefined
       const isUserRoutine = Boolean(sourceUserId)
 
-      const created = await createPlan({
+      const created = await createPlan(buildPlanPayloadFromDetail(planDetail, {
         name: copiedName,
-        description: fixEncoding(planDetail.description || ""),
-        difficulty: planDetail.difficulty || "beginner",
-        goal: (planDetail as any).goal || undefined,
-        location: (planDetail as any).location || undefined,
-        duration_weeks: planDetail.duration_weeks || 4,
-        days_per_week: (planDetail as any).days_per_week || undefined,
-        estimated_duration_minutes: planDetail.estimated_duration_minutes || 60,
         user: sourceUserId,
         is_active: isUserRoutine ? false : (planDetail.is_active ?? true),
         days: copiedDays,
-      })
+      }))
 
       toast({
         title: "✅ Copia creada",
@@ -1715,6 +1724,61 @@ export function WorkoutPlanManagement() {
       })
     } finally {
       setCopyingPlanId(null)
+    }
+  }
+
+  const handleSaveAsTemplate = async (planId: string) => {
+    if (!isValidWorkoutPlanId(planId)) {
+      toast({
+        title: "No se puede convertir",
+        description: formatInvalidIdMessage("Identificador de rutina"),
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setSavingTemplatePlanId(planId)
+      const planDetail = await fetchPlanDetail(planId)
+      if (!planDetail) {
+        throw new Error("No se pudo cargar la rutina origen")
+      }
+
+      const templateNames = plansArray
+        .filter((plan) => plan.is_template)
+        .map((plan) => fixEncoding(plan.name || ""))
+      const templateName = getNextCopyName(
+        `${fixEncoding(planDetail.name || "Rutina")} (Plantilla)`,
+        templateNames,
+      )
+
+      const created = await createPlan(buildPlanPayloadFromDetail(planDetail, {
+        name: templateName,
+        is_template: true,
+        is_active: true,
+        user: undefined,
+      }))
+
+      toast({
+        title: "✅ Plantilla creada",
+        description: `"${templateName}" ya está disponible en Plantillas y Conf. por defecto.`,
+      })
+
+      const createdId = created?.id ? String(created.id) : ""
+      if (isValidWorkoutPlanId(createdId)) {
+        setPlanTypeFilter("templates")
+        await handleEditPlan(createdId, false)
+      } else {
+        await refetch()
+      }
+    } catch (error) {
+      toast({
+        title: "❌ Error",
+        description: error instanceof Error ? error.message : "No se pudo crear la plantilla",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingTemplatePlanId(null)
     }
   }
 
@@ -2484,6 +2548,19 @@ export function WorkoutPlanManagement() {
                                 )}
                                 Copiar rutina
                               </DropdownMenuItem>
+                              {getPlanCategory(plan) === "Usuario" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleSaveAsTemplate(plan.id)}
+                                  disabled={savingTemplatePlanId !== null}
+                                >
+                                  {savingTemplatePlanId === plan.id ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <BookmarkPlus className="h-4 w-4 mr-2" />
+                                  )}
+                                  Guardar como plantilla
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem onClick={() => openAssignUserDialog(plan.id)} disabled={copyingPlanId !== null}>
                                 <UserPlus className="h-4 w-4 mr-2" />
                                 Asignar copia a usuario
@@ -2763,6 +2840,20 @@ export function WorkoutPlanManagement() {
                                 )}
                                 Copiar rutina
                               </DropdownMenuItem>
+                              {getPlanCategory(plan) === "Usuario" && (
+                                <DropdownMenuItem
+                                  onClick={() => handleSaveAsTemplate(plan.id)}
+                                  className="hover:bg-gradient-to-r hover:from-amber-50 hover:to-orange-50"
+                                  disabled={savingTemplatePlanId !== null}
+                                >
+                                  {savingTemplatePlanId === plan.id ? (
+                                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  ) : (
+                                    <BookmarkPlus className="h-4 w-4 mr-2" />
+                                  )}
+                                  Guardar como plantilla
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuItem
                                 onClick={() => openAssignUserDialog(plan.id)}
                                 className="hover:bg-gradient-to-r hover:from-teal-50 hover:to-cyan-50"
