@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import { Plus, Trash2, Save, Dumbbell, Clock, Loader2, RefreshCw, ChevronLeft, ChevronRight, Search, ArrowUp, ArrowDown, Copy, ClipboardPaste, Check, CalendarDays, ChevronDown, Settings2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -648,6 +648,18 @@ export function WorkoutProgramEditor({
     return true
   }
 
+  const getPlanCalendarAnchor = useCallback(() => {
+    return program?.startDate || calendarPlanAnchorRef.current
+  }, [program?.startDate])
+
+  const getDateForProgramWeekDay = useCallback((week: number, dayName: string) => {
+    const dayIndex = DAY_OPTIONS.indexOf(dayName)
+    const anchorMonday = getMondayOfWeek(new Date(`${getPlanCalendarAnchor()}T00:00:00`))
+    const targetDate = new Date(anchorMonday)
+    targetDate.setDate(anchorMonday.getDate() + (week - 1) * 7 + Math.max(0, dayIndex))
+    return targetDate
+  }, [getPlanCalendarAnchor])
+
   const syncSelectionFromDate = (date: Date, week: number, dayName: string) => {
     setSelectedCalendarDate(date)
     setActiveWeek(week)
@@ -656,10 +668,7 @@ export function WorkoutProgramEditor({
   }
 
   const handleDayChipClick = (week: number, dayName: string) => {
-    const dayIndex = DAY_OPTIONS.indexOf(dayName)
-    const calendarStartDate = getMonthCalendarDays(calendarMonth)[0] || calendarMonth
-    const targetDate = new Date(calendarStartDate)
-    targetDate.setDate(calendarStartDate.getDate() + (week - 1) * 7 + Math.max(0, dayIndex))
+    const targetDate = getDateForProgramWeekDay(week, dayName)
     syncSelectionFromDate(targetDate, week, dayName)
 
     if (!program) return
@@ -673,11 +682,7 @@ export function WorkoutProgramEditor({
     const nextWeek = Math.max(1, week)
     setActiveWeek(nextWeek)
     setClipboardTargetWeek(String(nextWeek))
-    const dayIndex = DAY_OPTIONS.indexOf(activeDayName)
-    const calendarStartDate = getMonthCalendarDays(calendarMonth)[0] || calendarMonth
-    const targetDate = new Date(calendarStartDate)
-    targetDate.setDate(calendarStartDate.getDate() + (nextWeek - 1) * 7 + Math.max(0, dayIndex))
-    setSelectedCalendarDate(targetDate)
+    setSelectedCalendarDate(getDateForProgramWeekDay(nextWeek, activeDayName))
   }
 
   const updateWorkoutDay = (dayKey: string, updates: Partial<WorkoutDay>) => {
@@ -1300,7 +1305,7 @@ export function WorkoutProgramEditor({
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
   const calendarStartDate = calendarDays[0] || calendarMonth
-  const planCalendarAnchor = program.startDate || calendarPlanAnchorRef.current
+  const planCalendarAnchor = getPlanCalendarAnchor()
   const resolveProgramWeekForDate = (date: Date) =>
     programWeekFromAnchorDate(date, planCalendarAnchor, program.durationWeeks || 4)
   const selectedCalendarWeek = resolveProgramWeekForDate(selectedCalendarDate)
