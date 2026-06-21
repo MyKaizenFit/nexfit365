@@ -77,7 +77,9 @@ describe('Register input validation rules', () => {
   })
 
   it('passwords do not match returns false', () => {
-    expect('secure123' === 'different456').toBe(false)
+    const p1: string = 'secure123'
+    const p2: string = 'different456'
+    expect(p1 === p2).toBe(false)
   })
 
   it('password length must be at least 8', () => {

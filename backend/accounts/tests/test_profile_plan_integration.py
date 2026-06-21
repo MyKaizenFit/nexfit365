@@ -389,9 +389,9 @@ class TestProfilePlanIntegration:
             (5, 1),
         ]
         assert [day.name for day in assigned_days] == [
-            "Lunes - Pierna",
-            "Miércoles - Hombro",
-            "Viernes - Pierna",
+            "Lunes · Pierna",
+            "Miércoles · Hombro",
+            "Viernes · Pierna",
         ]
 
     def test_default_assignment_preserves_active_custom_workout_plan(self, user):
@@ -477,7 +477,7 @@ class TestProfilePlanIntegration:
         assert result.nutrition_plan.user == user
         assert result.nutrition_plan.is_system is False
         assert result.nutrition_plan.is_template is False
-        assert "Plantilla válida" in result.nutrition_plan.name
+        assert "Plantilla valida" in result.nutrition_plan.name
         assert result.configuration.name == "Config válida"
 
     def test_default_assignment_auto_provisions_configuration_for_new_profile(self, user):
@@ -567,6 +567,16 @@ class TestProfilePlanIntegration:
             name="Día 1",
             day_number=1,
             order_index=1,
+        )
+        auto_workout_day = WorkoutDay.objects.get(
+            program=WorkoutProgram.objects.get(name="¡AUMENTA TU POMPOSO II!"),
+            day_number=1,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=auto_workout_day,
+            exercise=Exercise.objects.create(name="Press auto provision II", is_system=True),
+            sets=3,
+            reps="10",
         )
 
         result = DefaultPlanAssignmentService(user).assign()

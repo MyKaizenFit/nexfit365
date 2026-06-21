@@ -1,9 +1,20 @@
 """Tests for multi-week workout template assignment."""
 
 import pytest
+from django.contrib.auth import get_user_model
 
 from accounts.services import copy_template_days_to_user_program
 from workouts.models import Exercise, WorkoutDay, WorkoutDayExercise, WorkoutProgram
+
+User = get_user_model()
+
+
+@pytest.fixture
+def user(db):
+    return User.objects.create_user(
+        email="multiweek@test.com",
+        password="testpass123",
+    )
 
 
 @pytest.mark.django_db
