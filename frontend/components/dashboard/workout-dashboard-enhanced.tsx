@@ -37,6 +37,8 @@ import {
   planDurationWeeksFromPlan,
   isMultiWeekPlan,
   isProgramWeekInRange,
+  isProgramCompleted,
+  getProgramLifecycleStatus,
   groupDaysByWeek,
   slotInWeekFromDayNumber,
 } from "@/lib/workout-plan-utils"
@@ -332,7 +334,9 @@ export function WorkoutDashboardEnhanced() {
   const currentProgramWeek = userPlan ? getProgramWeekForDate(userPlan) : 1
   const totalProgramWeeks = userPlan ? planDurationWeeksFromPlan(userPlan) : 1
   const programWeekGroups = userPlan?.days?.length ? groupDaysByWeek(userPlan.days) : []
-  const isProgramActiveToday = userPlan ? isProgramWeekInRange(userPlan) : false
+  const programLifecycleStatus = userPlan ? getProgramLifecycleStatus(userPlan) : "not_started"
+  const isProgramActiveToday = programLifecycleStatus === "active"
+  const isProgramFinished = programLifecycleStatus === "completed"
 
   const [isWorkoutDialogOpen, setIsWorkoutDialogOpen] = useState(false)
   const [selectedDay, setSelectedDay] = useState<WorkoutDay | null>(null)
@@ -900,8 +904,25 @@ export function WorkoutDashboardEnhanced() {
       </Card>
 
       {/* Entrenamiento de Hoy - Destacado y Completo */}
+      {isProgramFinished ? (
+        <Card className="overflow-hidden border-2 border-emerald-300 bg-emerald-50/60 shadow-xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-emerald-900">
+              <Award className="h-5 w-5" />
+              Programa completado
+            </CardTitle>
+            <CardDescription className="text-emerald-800">
+              Has finalizado las {totalProgramWeeks} semanas de {userPlan?.name}. Puedes revisar tu historial y progreso.
+              {userPlan?.end_date
+                ? ` Finalizó el ${new Date(`${userPlan.end_date}T00:00:00`).toLocaleDateString("es-ES")}.`
+                : ""}
+              {" "}Tu entrenador puede asignarte el siguiente bloque cuando corresponda.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      ) : null}
       {/* Nota: El entrenamiento de hoy se muestra más completo que los demás porque es lo más importante para el usuario */}
-      {todaysWorkout && !todaysWorkout.is_rest_day ? (
+      {!isProgramFinished && todaysWorkout && !todaysWorkout.is_rest_day ? (
         (() => {
           const dayId = String(todaysWorkout.id)
           const completedByLog = todayWorkoutCompleted[dayId] === true
@@ -1104,7 +1125,7 @@ export function WorkoutDashboardEnhanced() {
             </CardDescription>
           </CardContent>
         </Card>
-      ) : todaysWorkout && todaysWorkout.is_rest_day ? (
+      ) : !isProgramFinished && todaysWorkout && todaysWorkout.is_rest_day ? (
         <Card className="border-2 border-border/50 shadow-lg dark:bg-card">
           <CardContent className="p-8 text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-gray-400 to-slate-500 rounded-xl flex items-center justify-center mx-auto mb-4 shadow-md">
@@ -1142,9 +1163,14 @@ export function WorkoutDashboardEnhanced() {
                         : "Progresión por semanas del plan"}
                     </p>
                   </div>
-                  {!isProgramActiveToday && (
+                  {!isProgramActiveToday && !isProgramFinished && (
                     <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
-                      {currentProgramWeek <= 0 ? "Plan aún no iniciado" : "Plan completado"}
+                      Plan aún no iniciado
+                    </Badge>
+                  )}
+                  {isProgramFinished && (
+                    <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-800">
+                      Completado
                     </Badge>
                   )}
                 </div>

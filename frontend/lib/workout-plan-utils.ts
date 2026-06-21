@@ -123,9 +123,42 @@ export function isProgramWeekInRange(
   plan: WorkoutPlanLike | null | undefined,
   referenceDate: Date = new Date(),
 ): boolean {
+  return getProgramLifecycleStatus(plan, referenceDate) === "active"
+}
+
+export type ProgramLifecycleStatus = "not_started" | "active" | "completed"
+
+export function getProgramLifecycleStatus(
+  plan: WorkoutPlanLike | null | undefined,
+  referenceDate: Date = new Date(),
+): ProgramLifecycleStatus {
+  if (!plan?.days?.length) return "not_started"
+
+  const ref = new Date(referenceDate)
+  ref.setHours(0, 0, 0, 0)
+
+  if (plan.end_date) {
+    const end = parseDateOnly(plan.end_date)
+    if (ref > end) return "completed"
+  }
+
+  if (!isMultiWeekPlan(plan)) {
+    return "active"
+  }
+
   const programWeek = getProgramWeekForDate(plan, referenceDate)
-  if (programWeek <= 0) return false
-  return programWeek <= planDurationWeeksFromPlan(plan)
+  const duration = planDurationWeeksFromPlan(plan)
+
+  if (programWeek <= 0) return "not_started"
+  if (programWeek > duration) return "completed"
+  return "active"
+}
+
+export function isProgramCompleted(
+  plan: WorkoutPlanLike | null | undefined,
+  referenceDate: Date = new Date(),
+): boolean {
+  return getProgramLifecycleStatus(plan, referenceDate) === "completed"
 }
 
 function findPlanDayByGlobalNumber(

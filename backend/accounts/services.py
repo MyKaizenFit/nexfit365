@@ -418,6 +418,7 @@ def assign_default_plans_to_user(user):
         sanitize_workout_day_name,
     )
     from django.utils import timezone
+    from datetime import timedelta
     
     results = {'workout_program': None, 'nutrition_plan': None}
     
@@ -506,6 +507,7 @@ def assign_default_plans_to_user(user):
             is_template=False,
             is_active=True,
             start_date=timezone.localdate(),
+            end_date=timezone.localdate() + timedelta(weeks=template.duration_weeks or 4),
             created_by=None,
             tags=build_assigned_program_tags(template),
         )
@@ -917,6 +919,7 @@ class DefaultPlanAssignmentService:
                 is_system=False,
                 is_active=True,
                 start_date=timezone.now().date(),
+                end_date=timezone.now().date() + timedelta(weeks=template_program.duration_weeks or 4),
                 created_by=None
             )
             

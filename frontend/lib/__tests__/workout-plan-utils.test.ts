@@ -8,6 +8,8 @@ import {
   getProgramWeekForDate,
   getProgramWeekForAnchor,
   globalDayNumberForProgramWeek,
+  getProgramLifecycleStatus,
+  isProgramCompleted,
   isMultiWeekPlan,
   isProgramWeekInRange,
   planDurationWeeksFromPlan,
@@ -155,6 +157,13 @@ describe('multi-week plan resolution', () => {
   it('returns null after program duration ends', () => {
     expect(isProgramWeekInRange(multiWeekPlan, new Date('2026-08-18'))).toBe(false)
     expect(getPlanDayForDate(multiWeekPlan, new Date('2026-08-18'))).toBeNull()
+    expect(isProgramCompleted(multiWeekPlan, new Date('2026-08-18'))).toBe(true)
+  })
+
+  it('reports lifecycle status across program window', () => {
+    expect(getProgramLifecycleStatus(multiWeekPlan, new Date('2026-06-10'))).toBe('not_started')
+    expect(getProgramLifecycleStatus(multiWeekPlan, new Date('2026-06-18'))).toBe('active')
+    expect(getProgramLifecycleStatus(multiWeekPlan, new Date('2026-08-18'))).toBe('completed')
   })
 
   it('computes global day numbers', () => {
