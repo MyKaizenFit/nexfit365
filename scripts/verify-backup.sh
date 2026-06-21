@@ -46,7 +46,7 @@ SELECT 'nutrition_recipe',            COUNT(*) FROM nutrition_recipe
 UNION ALL
 SELECT 'nutrition_nutritionplan',     COUNT(*) FROM nutrition_nutritionplan
 UNION ALL
-SELECT 'users_customuser',            COUNT(*) FROM users_customuser
+SELECT 'accounts_customuser',           COUNT(*) FROM accounts_customuser
 UNION ALL
 SELECT 'nutrition_planmeal',          COUNT(*) FROM nutrition_planmeal
 UNION ALL
