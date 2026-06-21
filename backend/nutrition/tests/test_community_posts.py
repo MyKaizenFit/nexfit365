@@ -111,6 +111,19 @@ class TestCommunityPosts:
         assert response.status_code == status.HTTP_201_CREATED
         assert response.data['photo_url']
 
+    def test_create_returns_counts_for_feed(self, community_client):
+        response = community_client.post(self.url, {
+            'title': 'Pregunta visible',
+            'description': '¿Aparece en el feed?',
+            'post_type': 'question',
+        }, format='json')
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert response.data['post_type'] == 'question'
+        assert response.data['likes_count'] == 0
+        assert response.data['comments_count'] == 0
+        assert response.data['comments'] == []
+
     def test_filter_feed_by_post_type(self, community_client, community_user):
         CommunityRecipePost.objects.create(
             author=community_user,

@@ -3107,6 +3107,7 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
     serializer_class = CommunityRecipePostSerializer
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    pagination_class = None
 
     def get_queryset(self):
         from django.db.models import Count, Exists, OuterRef
@@ -3131,17 +3132,32 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        serializer.save(author=self.request.user, expires_at=None)
+
+    def _serialize_saved_post(self, post, *, status_code=status.HTTP_200_OK):
+        annotated = self.get_queryset().filter(pk=post.pk).first()
+        serializer = self.get_serializer(annotated or post)
+        return Response(serializer.data, status=status_code)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return self._serialize_saved_post(serializer.instance, status_code=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         """Solo el autor puede editar su propia publicación."""
+        partial = kwargs.pop("partial", False)
         post = self.get_object()
         if post.author_id != request.user.id and not request.user.is_staff:
             return Response(
                 {'detail': 'Solo puedes editar tus propias publicaciones.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        return super().update(request, *args, **kwargs)
+        serializer = self.get_serializer(post, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return self._serialize_saved_post(serializer.instance)
 
     def destroy(self, request, *args, **kwargs):
         """Solo el autor o admin puede eliminar."""
@@ -3182,8 +3198,7 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
             post.photo.delete(save=False)
         post.photo = photo
         post.save(update_fields=['photo', 'updated_at'])
-        serializer = self.get_serializer(post)
-        return Response(serializer.data)
+        return self._serialize_saved_post(post)
 
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
