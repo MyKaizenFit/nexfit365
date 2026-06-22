@@ -47,6 +47,28 @@ def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgr
     return program
 
 
+def prepare_user_program_activation(program: WorkoutProgram) -> WorkoutProgram:
+    """
+    Al activar o reasignar un plan de usuario desde admin, ancla fechas para que
+    el calendario arranque en semana 1 desde la semana actual.
+    """
+    if not program or not program.user_id:
+        return program
+
+    from .program_lifecycle import program_duration_weeks_from_plan
+
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+    duration = program_duration_weeks_from_plan(program)
+
+    program.start_date = monday
+    program.duration_weeks = duration
+    program.end_date = monday + timedelta(weeks=duration)
+    program.is_active = True
+    program.save(update_fields=["start_date", "end_date", "duration_weeks", "is_active", "updated_at"])
+    return program
+
+
 def rollover_program_cycle_if_completed(program: WorkoutProgram) -> WorkoutProgram:
     """
     Si el usuario ha completado todas las semanas del plan, reinicia en semana 1
@@ -551,7 +573,14 @@ class DefaultWorkoutAssignmentService:
         assigned_by: Optional[CustomUser] = None,
         notes: Optional[str] = None,
     ) -> Optional[WorkoutProgram]:
-        if not default_program or not default_program.is_active:
+        if not default_program:
+            return None
+
+        # Las plantillas se pueden asignar aunque is_active=False en el listado admin.
+        if not default_program.is_template and not default_program.is_system and not default_program.is_active:
+            return None
+
+        if not default_program.days.exists():
             return None
 
         existing_active_program = WorkoutProgram.objects.filter(user=self.user, is_active=True).first()
@@ -560,8 +589,12 @@ class DefaultWorkoutAssignmentService:
             existing_active_program.end_date = timezone.now().date()
             existing_active_program.save()
 
-        start_date = timezone.now().date()
-        end_date = start_date + timedelta(weeks=default_program.duration_weeks or 4)
+        from .program_lifecycle import program_duration_weeks_from_plan
+
+        today = timezone.now().date()
+        monday = today - timedelta(days=today.weekday())
+        duration = program_duration_weeks_from_plan(default_program)
+        end_date = monday + timedelta(weeks=duration)
         assigned_days_per_week = self.infer_weekly_training_days(default_program)
 
         program = WorkoutProgram.objects.create(
@@ -571,10 +604,12 @@ class DefaultWorkoutAssignmentService:
             difficulty=default_program.difficulty or "beginner",
             goal=self._infer_goal(default_program),
             days_per_week=assigned_days_per_week,
-            duration_weeks=default_program.duration_weeks,
-            start_date=start_date,
+            duration_weeks=duration,
+            start_date=monday,
             end_date=end_date,
             is_active=True,
+            is_template=False,
+            is_system=False,
             tags=build_assigned_program_tags(default_program),
         )
 

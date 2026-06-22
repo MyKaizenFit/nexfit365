@@ -62,3 +62,26 @@ def test_completed_plan_rolls_over_to_week_one(user):
     assert updated.is_active is True
     assert updated.start_date == date(2026, 6, 16)  # lunes de la semana del 22-jun-2026
     assert get_program_lifecycle_status(updated, date(2026, 6, 22)) == "active"
+
+
+@pytest.mark.django_db
+def test_prepare_user_program_activation_resets_completed_plan(user):
+    program = WorkoutProgram.objects.create(
+        user=user,
+        name="Plan reactivado",
+        is_active=False,
+        duration_weeks=4,
+        start_date=date(2026, 3, 1),
+        end_date=date(2026, 3, 29),
+    )
+    WorkoutDay.objects.create(program=program, day_number=1, name="Día 1", order_index=1)
+
+    from workouts.services import prepare_user_program_activation
+
+    updated = prepare_user_program_activation(program)
+    updated.refresh_from_db()
+
+    assert updated.is_active is True
+    assert updated.start_date == date(2026, 6, 16)
+    assert updated.end_date == date(2026, 7, 14)
+    assert get_program_lifecycle_status(updated, date(2026, 6, 22)) == "active"
