@@ -25,6 +25,12 @@
 #   - staticfiles/ -> Archivos estáticos Django
 #   - media/       -> Archivos subidos por usuarios
 #   - backups/     -> Backups automáticos de la BD
+#
+# Nombre fijo del proyecto: evita que `docker compose up` sin COMPOSE_PROJECT_NAME
+# cree un stack paralelo "pro" (misma carpeta /srv/mykaizenfit/pro) con otro PostgreSQL
+# en el mismo volumen y alias DNS nexfit-pro-db → split-brain.
+
+name: nexfit-pro
 
 services:
   # ============================================
