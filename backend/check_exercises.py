@@ -2,7 +2,7 @@ from workouts.models import WorkoutProgram, Exercise
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
-user = User.objects.get(email='user@example.invalid')
+user = User.objects.get(email='member@example.invalid')
 program = WorkoutProgram.objects.filter(user=user, is_active=True).first()
 
 print(f"\n📋 Programa: {program.name}")

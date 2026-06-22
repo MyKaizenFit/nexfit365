@@ -22,10 +22,10 @@ def clean_workout_logs():
     """Elimina todos los logs de entrenamientos del usuario de prueba"""
     
     try:
-        user = User.objects.get(email='user@example.invalid')
+        user = User.objects.get(email='member@example.invalid')
         print(f"✓ Usuario encontrado: {user.email}")
     except User.DoesNotExist:
-        print("✗ Usuario 'user@example.invalid' no encontrado")
+        print("✗ Usuario 'member@example.invalid' no encontrado")
         return
     
     # Contar entrenamientos existentes

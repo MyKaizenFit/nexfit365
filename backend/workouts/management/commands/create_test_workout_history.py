@@ -18,7 +18,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--email',
             type=str,
-            default='demo-user-2@example.invalid',
+            default='demo-user-1@example.invalid',
             help='Email del usuario para el que crear el historial'
         )
         parser.add_argument(

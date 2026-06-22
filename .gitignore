@@ -59,6 +59,7 @@ htmlcov/
 .coverage
 .coverage.*
 nosetests.xml
+coverage.json
 coverage.xml
 *.cover
 .hypothesis/
@@ -129,3 +130,5 @@ coverage.xml
 # Pero permitir backups comprimidos de desarrollo
 !backups/dev/*.sql.gz
 *.sqlite
+output.txt
+pg_hba.conf.modificado.txt

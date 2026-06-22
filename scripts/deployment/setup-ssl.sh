@@ -89,7 +89,7 @@ print_warning "Cloudflare debe estar en modo 'DNS only' o 'Full' (no 'Full stric
 
 # Certificado para frontend
 print_info "Obteniendo certificado para nexfit365.dpdns.org y www.nexfit365.dpdns.org..."
-if certbot --nginx -d nexfit365.dpdns.org -d www.nexfit365.dpdns.org --non-interactive --agree-tos --email admin@nexfit365.dpdns.org --redirect 2>&1 | tee /tmp/certbot-frontend.log; then
+if certbot --nginx -d nexfit365.dpdns.org -d www.nexfit365.dpdns.org --non-interactive --agree-tos --email admin@example.invalid --redirect 2>&1 | tee /tmp/certbot-frontend.log; then
     print_success "Certificado obtenido para frontend"
 else
     print_error "Error obteniendo certificado para frontend"
@@ -99,7 +99,7 @@ fi
 
 # Certificado para backend
 print_info "Obteniendo certificado para api.nexfit365.dpdns.org..."
-if certbot --nginx -d api.nexfit365.dpdns.org --non-interactive --agree-tos --email admin@nexfit365.dpdns.org --redirect 2>&1 | tee /tmp/certbot-backend.log; then
+if certbot --nginx -d api.nexfit365.dpdns.org --non-interactive --agree-tos --email admin@example.invalid --redirect 2>&1 | tee /tmp/certbot-backend.log; then
     print_success "Certificado obtenido para backend"
 else
     print_error "Error obteniendo certificado para backend"

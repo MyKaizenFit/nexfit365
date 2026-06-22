@@ -262,7 +262,7 @@ python manage.py create_sample_nutrition_plans
 
 ### **Contacto**
 - Slack: #staging-deploys
-- Email: staging@mykaizenfit.com
+- Email: staging@example.invalid
 
 ### **Horario**
 - Staging disponible 24/7

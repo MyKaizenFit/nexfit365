@@ -19,7 +19,7 @@ def main():
     
     # Obtener usuario
     try:
-        user = CustomUser.objects.get(email='user@example.invalid')
+        user = CustomUser.objects.get(email='member@example.invalid')
     except CustomUser.DoesNotExist:
         return
     

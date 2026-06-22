@@ -11,16 +11,16 @@ from accounts.models import UserProfile
 
 User = get_user_model()
 
-# Datos de los 8 usuarios originales
+# Datos demo. No usar datos reales ni contrasenas operativas en este script.
 users_data = [
-    {"email": "admin@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": None},
-    {"email": "user@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": None},
-    {"email": "demo-user-1@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": None},
-    {"email": "demo-user-2@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": "000000000"},
-    {"email": "demo-user-3@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": "000000000"},
-    {"email": "demo-user-4@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": "642855638"},
-    {"email": "prueba@test.com", "password": "CHANGE_ME_PASSWORD", "phone": "123123123"},
-    {"email": "demo-user-5@example.invalid", "password": "CHANGE_ME_PASSWORD", "phone": "000000000"},
+    {"email": "admin@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "member@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "member2@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "demo-user-1@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "demo-user-2@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "demo-user-3@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "demo-user-4@example.invalid", "password": "ChangeMe123!", "phone": None},
+    {"email": "demo-user-5@example.invalid", "password": "ChangeMe123!", "phone": None},
 ]
 
 print("📝 Creando 8 usuarios...")

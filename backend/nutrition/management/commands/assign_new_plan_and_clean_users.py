@@ -16,13 +16,13 @@ class Command(BaseCommand):
         parser.add_argument(
             '--user-email',
             type=str,
-            help='Email del usuario al que asignar el nuevo plan (por defecto: user@example.invalid)'
+            help='Email del usuario al que asignar el nuevo plan (por defecto: member@example.invalid)'
         )
         parser.add_argument(
             '--keep-users',
             nargs='+',
-            default=['admin@example.invalid', 'user@example.invalid'],
-            help='Lista de emails de usuarios a mantener (por defecto: admin@example.invalid user@example.invalid)'
+            default=['admin@example.invalid', 'member@example.invalid'],
+            help='Lista de emails de usuarios a mantener (por defecto: admin@example.invalid member@example.invalid)'
         )
         parser.add_argument(
             '--dry-run',
@@ -32,7 +32,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         keep_emails = options['keep_users']
-        user_email = options.get('user_email') or 'user@example.invalid'
+        user_email = options.get('user_email') or 'member@example.invalid'
         dry_run = options['dry_run']
         
         self.stdout.write("=" * 70)

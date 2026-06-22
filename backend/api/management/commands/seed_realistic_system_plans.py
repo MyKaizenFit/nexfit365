@@ -40,7 +40,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--assign-users",
             nargs="*",
-            default=["admin@example.invalid", "user@example.invalid"],
+            default=["admin@example.invalid", "member@example.invalid"],
             help="Usuarios a los que se les asignara una copia activa del plan.",
         )
 

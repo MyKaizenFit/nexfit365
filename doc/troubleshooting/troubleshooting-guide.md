@@ -811,7 +811,7 @@ python manage.py shell
 - **Logs**: `backend/logs/` directory
 - **Issues**: GitHub Issues
 - **Discord**: [Link al servidor]
-- **Email**: soporte@mykaizenfit.com
+- **Email**: support@example.invalid
 
 ### **Escalación de Problemas**
 1. **Nivel 1**: Consultar esta guía

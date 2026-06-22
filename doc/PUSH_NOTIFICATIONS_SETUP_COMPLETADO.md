@@ -1,4 +1,4 @@
-# ✅ Push Notifications - Configuración Completada
+# Push Notifications - Configuracion
 
 ## 📋 Resumen de Implementación
 
@@ -26,22 +26,13 @@ Se ha implementado completamente el sistema de push notifications para NexFit365
    - ✅ Tests para componentes críticos
    - ✅ Tests para utilidades de API
 
-## 🔑 Claves VAPID Generadas
+## Claves VAPID
 
-Las siguientes claves fueron generadas y deben agregarse a los archivos de configuración:
+No guardes claves reales en el repositorio. Genera claves para cada entorno y
+guarda la clave privada en el gestor de secretos correspondiente.
 
-### Clave Pública (VAPID_PUBLIC_KEY):
-```
-CHANGE_ME_VAPID_PUBLIC_KEY
-```
-
-### Clave Privada (VAPID_PRIVATE_KEY):
-```
------BEGIN PRIVATE KEY-----
-CHANGE_ME_VAPID_PRIVATE_KEY
-CHANGE_ME_VAPID_PRIVATE_KEY
-CHANGE_ME_VAPID_PRIVATE_KEY
------END PRIVATE KEY-----
+```bash
+python manage.py generate_vapid_keys
 ```
 
 ## 📝 Pasos Finales para Activar
@@ -51,15 +42,15 @@ CHANGE_ME_VAPID_PRIVATE_KEY
 #### Backend (docker-compose.prod.yml o entorno del backend)
 Variables requeridas:
 ```yaml
-VAPID_PUBLIC_KEY: "CHANGE_ME_VAPID_PUBLIC_KEY"
-VAPID_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nCHANGE_ME_VAPID_PRIVATE_KEY\nCHANGE_ME_VAPID_PRIVATE_KEY\nCHANGE_ME_VAPID_PRIVATE_KEY\n-----END PRIVATE KEY-----\n"
-VAPID_CLAIM_EMAIL: "no-reply@nex-fit.local"
+VAPID_PUBLIC_KEY: "CHANGE_ME"
+VAPID_PRIVATE_KEY: "CHANGE_ME"
+VAPID_CLAIM_EMAIL: "no-reply@example.invalid"
 ```
 
 #### Frontend (entorno del frontend)
 Variable requerida:
 ```yaml
-NEXT_PUBLIC_VAPID_PUBLIC_KEY: "CHANGE_ME_VAPID_PUBLIC_KEY"
+NEXT_PUBLIC_VAPID_PUBLIC_KEY: "CHANGE_ME"
 ```
 
 ### 2. Reiniciar Contenedores
@@ -154,7 +145,6 @@ Las notificaciones push se envían automáticamente cuando se crea una `Notifica
 - ✅ Sincronización en segundo plano
 
 ¡El sistema está listo para usar! 🚀
-
 
 
 

@@ -317,7 +317,7 @@ def admin_user():
     """Fixture para crear usuario admin"""
     return CustomUser.objects.create_superuser(
         email="admin@example.com",
-        password="CHANGE_ME_PASSWORD"
+        password="ChangeMeAdmin123!"
     )
 
 @pytest.mark.django_db
@@ -380,11 +380,11 @@ class TestPermissions:
         self.client = APIClient()
         self.user = CustomUser.objects.create_user(
             email="user@example.com",
-            password="CHANGE_ME_PASSWORD"
+            password="ChangeMeUser123!"
         )
         self.admin = CustomUser.objects.create_superuser(
             email="admin@example.com",
-            password="CHANGE_ME_PASSWORD"
+            password="ChangeMeAdmin123!"
         )
     
     def test_user_cannot_access_admin_endpoint(self):

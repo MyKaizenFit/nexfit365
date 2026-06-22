@@ -2,9 +2,10 @@
 
 Este documento explica cómo crear la nueva base de datos `ddbb_nextfit` y restaurar los datos desde el backup.
 
-## 📋 Credenciales Generadas
+## 📋 Credenciales
 
-Las siguientes credenciales han sido generadas automáticamente y ya están configuradas en el archivo `.env`:
+Usa valores propios en tu archivo `.env` local. No guardes contraseñas reales en
+este documento ni en Git.
 
 - **Base de datos:** `ddbb_nextfit`
 - **Usuario:** `nexfit_app`
@@ -130,7 +131,6 @@ Si tienes problemas, verifica:
 1. Que PostgreSQL esté corriendo: `Get-Service postgresql*`
 2. Que el archivo de backup exista en `backups/dev_database_export_20251224_142932.sql.zip`
 3. Que tengas permisos para crear bases de datos en PostgreSQL
-
 
 
 
