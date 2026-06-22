@@ -1,9 +1,10 @@
 # accounts/urls.py
 from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView
 from api.auth_views import (
     LoginView,
     LogoutView,
+    RefreshView,
     RegisterView,
     ForgotPasswordView,
     ResetPasswordView,
@@ -16,8 +17,8 @@ urlpatterns = [
     # Autenticación JWT
     path('auth/login/', LoginView.as_view(), name='token_obtain_pair'),
     path('auth/login/', LoginView.as_view(), name='auth-login'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('auth/refresh/', TokenRefreshView.as_view(), name='auth-refresh'),
+    path('auth/refresh/', RefreshView.as_view(), name='token_refresh'),
+    path('auth/refresh/', RefreshView.as_view(), name='auth-refresh'),
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),  # Logout endpoint
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
     path('auth/forgot-password/', ForgotPasswordView.as_view(), name='auth-forgot-password'),

@@ -259,6 +259,22 @@ export class AuthService {
     return this.isAccessTokenExpired() || this.isTokenExpiringSoon()
   }
 
+  private async postAuthWithTransientRetry(url: string, body: unknown): Promise<Response> {
+    const doRequest = () =>
+      fetch(url, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
+      })
+
+    let response = await doRequest()
+    if (response.status === 500) {
+      await new Promise((resolve) => setTimeout(resolve, 800))
+      response = await doRequest()
+    }
+    return response
+  }
+
   refreshAccessTokenDeduped(): Promise<{ success: boolean; newToken?: string; error?: string }> {
     if (!refreshAccessTokenPromise) {
       refreshAccessTokenPromise = this.refreshAccessToken().finally(() => {
@@ -322,11 +338,10 @@ export class AuthService {
       // Agregar un pequeño delay para evitar rate limiting
       await new Promise(resolve => setTimeout(resolve, 1000))
 
-      const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGIN), {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(credentials),
-      })
+      const response = await this.postAuthWithTransientRetry(
+        buildApiUrl(AUTH_ENDPOINTS.LOGIN),
+        credentials,
+      )
 
       // Manejar diferentes códigos de respuesta
       if (response.status === 400) {
@@ -744,13 +759,8 @@ export class AuthService {
 
       let response: Response
       try {
-        response = await fetch(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-          body: JSON.stringify({ refresh: refreshToken }),
+        response = await this.postAuthWithTransientRetry(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
+          refresh: refreshToken,
         })
       } catch (fetchError) {
         // Manejar errores de red/CORS
