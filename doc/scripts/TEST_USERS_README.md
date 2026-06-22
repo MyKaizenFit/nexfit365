@@ -9,7 +9,7 @@ Este documento describe los usuarios de prueba disponibles para desarrollo y tes
 ## 👥 **Usuarios Disponibles**
 
 ### **🔐 Usuario Cliente de Pruebas**
-- **Email**: `test@mykaizenfit.com`
+- **Email**: `test@example.invalid`
 - **Contraseña**: `TestUser123!`
 - **Rol**: `member` (cliente)
 - **Permisos**: Acceso a funcionalidades de cliente
@@ -113,7 +113,7 @@ python manage.py shell
 # En el shell:
 from django.contrib.auth import get_user_model
 User = get_user_model()
-User.objects.filter(email__in=['test@mykaizenfit.com', 'admin@example.invalid']).delete()
+User.objects.filter(email__in=['test@example.invalid', 'admin@example.invalid']).delete()
 ```
 
 ---

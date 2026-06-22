@@ -15,7 +15,7 @@ from decimal import Decimal
 from datetime import datetime, timedelta
 
 User = get_user_model()
-user = User.objects.get(email='user@example.invalid')
+user = User.objects.get(email='member@example.invalid')
 
 print('\n' + '='*70)
 print('📊 RESUMEN COMPLETO DEL HISTORIAL DE ENTRENAMIENTOS')

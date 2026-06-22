@@ -401,7 +401,7 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "NexFit365 <no-reply@nex-fi
 
 ERROR_REPORT_EMAILS = [
     email.strip()
-    for email in os.getenv("ERROR_REPORT_EMAILS", "maintainer@example.invalid").split(",")
+    for email in os.getenv("ERROR_REPORT_EMAILS", "errors@example.invalid").split(",")
     if email.strip()
 ]
 ERROR_REPORT_LOG_DIR = os.getenv("ERROR_REPORT_LOG_DIR", str(BASE_DIR / "logs" / "error-reports"))

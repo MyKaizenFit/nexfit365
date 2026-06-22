@@ -22,7 +22,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(f'Usuario ADMIN actualizado/creado: {admin_email}'))
 
         # Crear o actualizar usuario de prueba
-        test_email = "user@example.invalid"
+        test_email = "member@example.invalid"
         test_password = "Test123!"
         test_user, created = CustomUser.objects.update_or_create(
             email=test_email,

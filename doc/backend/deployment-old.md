@@ -381,16 +381,16 @@ chmod -R 755 */
 - **Health Check**: http://localhost:8000/api/health/
 
 ### Usuarios demo (después de seed_demo)
-- **Admin**: admin@example.invalid / CHANGE_ME_PASSWORD
-- **Trainer**: trainer@mykaizenfit.com / CHANGE_ME_PASSWORD
-- **User**: user1@mykaizenfit.com / CHANGE_ME_PASSWORD
+- **Admin**: admin@example.invalid / ChangeMeAdmin123!
+- **Trainer**: trainer@example.invalid / ChangeMeTrainer123!
+- **User**: user1@example.invalid / ChangeMeUser123!
 
 ### Autenticación
 ```bash
 # Obtener token JWT
 curl -X POST http://localhost:8000/api/auth/login/ \
   -H "Content-Type: application/json" \
-  -d '{"email": "admin@example.invalid", "password": "CHANGE_ME_PASSWORD"}'
+  -d '{"email": "admin@example.invalid", "password": "ChangeMeAdmin123!"}'
 
 # Usar token en requests
 curl -X GET http://localhost:8000/api/me/ \

@@ -18,7 +18,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--user-email',
             type=str,
-            default='user@example.invalid',
+            default='member@example.invalid',
             help='Email del usuario al que asignar el plan'
         )
         parser.add_argument(

@@ -34,7 +34,7 @@ def setup_users():
             )
         
         # Crear usuario normal
-        user_email = 'user@example.invalid'
+        user_email = 'member@example.invalid'
         user_password = 'UsuarioTest123!'
         
         if User.objects.filter(email=user_email).exists():

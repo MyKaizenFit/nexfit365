@@ -3,7 +3,7 @@
 
 # Usuario de pruebas (cliente)
 TEST_USER_CONFIG = {
-    'email': 'test@mykaizenfit.com',
+    'email': 'test@example.invalid',
     'password': 'TestUser123!',
     'first_name': 'Usuario',
     'last_name': 'Pruebas',

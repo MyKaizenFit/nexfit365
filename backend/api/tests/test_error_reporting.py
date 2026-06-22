@@ -18,7 +18,7 @@ User = get_user_model()
 @pytest.mark.django_db
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
-    ERROR_REPORT_EMAILS=["maintainer@example.invalid"],
+    ERROR_REPORT_EMAILS=["errors@example.invalid"],
 )
 def test_capture_error_report_writes_file_sends_email_and_redacts_sensitive_data(tmp_path, settings):
     settings.ERROR_REPORT_LOG_DIR = str(tmp_path)
@@ -51,7 +51,7 @@ def test_capture_error_report_writes_file_sends_email_and_redacts_sensitive_data
     assert payload["client"]["url"] == "https://nexfit365.dpdns.org/dashboard?tab=team-sk"
     assert payload["error"] == "Algo fallo"
     assert len(mail.outbox) == 1
-    assert mail.outbox[0].to == ["maintainer@example.invalid"]
+    assert mail.outbox[0].to == ["errors@example.invalid"]
     assert "cliente@example.com" in mail.outbox[0].body
     assert "Pantalla frontend: /dashboard?tab=team-sk" in mail.outbox[0].body
 

@@ -248,7 +248,7 @@ class EnvironmentSetup:
                 
                 # Establecer contraseña
                 env = os.environ.copy()
-                env["DJANGO_SUPERUSER_PASSWORD"] = "CHANGE_ME_PASSWORD"
+                env["DJANGO_SUPERUSER_PASSWORD"] = "ChangeMeAdmin123!"
                 
                 result = subprocess.run(
                     create_cmd,

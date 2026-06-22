@@ -37,7 +37,7 @@ DB_PASSWORD='CHANGE_ME_DB_PASSWORD'
 
 O sin comillas pero escapando los `$`:
 ```
-DB_PASSWORD=\$ydEt4Kdpe012oB\$07tArRak
+DB_PASSWORD=CHANGE_ME_DB_PASSWORD
 ```
 
 ### Opción 3: Verificar que pg_hba.conf permite conexiones
@@ -54,7 +54,6 @@ python test_database_connection.py
 ```
 
 Todas las pruebas deberían pasar.
-
 
 
 

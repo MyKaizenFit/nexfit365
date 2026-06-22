@@ -66,7 +66,7 @@ Si después de limpiar la caché sigues viendo caracteres mal codificados:
    ```
    ```python
    from accounts.models import CustomUser
-   user = CustomUser.objects.get(email='user@example.invalid')
+   user = CustomUser.objects.get(email='member@example.invalid')
    print(f"Nombre: {user.first_name} {user.last_name}")
    ```
 
