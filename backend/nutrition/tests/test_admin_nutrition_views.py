@@ -934,6 +934,95 @@ class TestAdminPlanAssignments:
         assert template_plan.daily_calories == 1800
         assert meal_recipe.custom_calories == 1800
 
+    def test_update_assigned_template_meals_reuses_user_plan_on_second_save(
+        self,
+        admin_client,
+        regular_user,
+        template_plan,
+        recipe,
+    ):
+        NutritionPlanAssignment.objects.create(
+            plan=template_plan,
+            user=regular_user,
+            is_active=True,
+        )
+        PlanMeal.objects.create(
+            plan=template_plan,
+            day_of_week=1,
+            week_number=1,
+            name='Lunes original',
+            meal_type='lunch',
+            order_index=1,
+            calories=500,
+            protein=Decimal('30.0'),
+            carbs=Decimal('50.0'),
+            fat=Decimal('15.0'),
+        )
+
+        first = admin_client.patch(
+            f'{PLANS_URL}{template_plan.id}/',
+            {
+                'assigned_user_ids': [regular_user.id],
+                'meals': [
+                    {
+                        'day_of_week': 1,
+                        'week_number': 1,
+                        'name': 'Lunes editado',
+                        'meal_type': 'lunch',
+                        'order_index': 1,
+                        'suggested_recipes_ids': [str(recipe.id)],
+                        'meal_recipes': [
+                            {
+                                'recipe_id': str(recipe.id),
+                                'servings': 1,
+                                'display_order': 0,
+                            }
+                        ],
+                    }
+                ],
+            },
+            format='json',
+        )
+        assert first.status_code == status.HTTP_200_OK
+        user_plan_id = first.data['id']
+        user_plan = NutritionPlan.objects.get(id=user_plan_id)
+        assert user_plan.user == regular_user
+        assert user_plan.meals.count() == 1
+        assert user_plan.meals.first().name == 'Lunes editado'
+
+        second = admin_client.patch(
+            f'{PLANS_URL}{template_plan.id}/',
+            {
+                'assigned_user_ids': [regular_user.id],
+                'meals': [
+                    {
+                        'day_of_week': 2,
+                        'week_number': 1,
+                        'name': 'Martes añadido',
+                        'meal_type': 'lunch',
+                        'order_index': 1,
+                        'suggested_recipes_ids': [str(recipe.id)],
+                        'meal_recipes': [
+                            {
+                                'recipe_id': str(recipe.id),
+                                'servings': 1,
+                                'display_order': 0,
+                            }
+                        ],
+                    }
+                ],
+            },
+            format='json',
+        )
+        assert second.status_code == status.HTTP_200_OK
+        assert second.data['id'] == user_plan_id
+        user_plan.refresh_from_db()
+        template_plan.refresh_from_db()
+        assert user_plan.meals.count() == 1
+        assert user_plan.meals.first().name == 'Martes añadido'
+        assert template_plan.meals.count() == 1
+        assert template_plan.meals.first().name == 'Lunes original'
+
     def test_update_multi_assigned_plan_without_user_context_edits_original(
         self,
         admin_client,

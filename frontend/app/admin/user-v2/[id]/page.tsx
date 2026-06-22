@@ -42,7 +42,9 @@ import { formatInvalidIdMessage, parsePositiveIntId } from "@/lib/admin-id-utils
 // Importar componente de edición de entrenamiento
 import { WorkoutProgramEditor } from "../../components/workout-program-editor"
 // Importar componente de edición de nutrición
-import { NutritionPlanEditor } from "../../components/nutrition-plan-editor"
+import { NutritionTemplatePlanEditor, type AdminRecipe } from "../../components/nutrition-template-plan-editor"
+import { getAuthHeaders } from "@/lib/api"
+import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 // Importar componentes de progreso e historial
 import { UserProgressPanel } from "../../components/user-progress-panel"
 import { UserProgressOverview } from "../../components/user-progress-overview"
@@ -173,7 +175,9 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   // Estado para override de calorías admin
   const [caloriesOverrideInput, setCaloriesOverrideInput] = useState<string>("")
   const [savingCalories, setSavingCalories] = useState(false)
-  const [nutritionEditorReloadKey, setNutritionEditorReloadKey] = useState(0)
+  const [nutritionPlanId, setNutritionPlanId] = useState<string | null>(null)
+  const [nutritionPlanLoading, setNutritionPlanLoading] = useState(true)
+  const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
 
   // Hooks para datos adicionales
   const workouts = useAdminUserWorkouts(userId || "")
@@ -195,6 +199,70 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       // removed stray object literal
     }
   }, [userId, workouts.loading, workouts.error, workouts.logs, workouts.totals])
+
+  const loadNutritionEditorData = useCallback(async () => {
+    const parsedId = parsePositiveIntId(userId)
+    if (!parsedId) {
+      setNutritionPlanId(null)
+      setNutritionPlanLoading(false)
+      return
+    }
+
+    setNutritionPlanLoading(true)
+    try {
+      const headers = await getAuthHeaders()
+      const planResponse = await fetch(buildApiUrl(`admin/nutrition/users/${parsedId}/plan/`), { headers })
+      if (planResponse.ok) {
+        const planData = await planResponse.json()
+        setNutritionPlanId(planData?.plan?.id ? String(planData.plan.id) : null)
+      } else {
+        setNutritionPlanId(null)
+      }
+
+      let nextUrl: string | null = buildApiUrl("admin/nutrition/recipes/?page_size=500")
+      const recipes: AdminRecipe[] = []
+      let authHeaders = headers
+      while (nextUrl) {
+        let res: Response = await fetch(nextUrl, { headers: authHeaders })
+        if (res.status === 401) {
+          const newHeaders = await handle401AndRefresh(async () => getAuthHeaders())
+          if (!newHeaders) break
+          authHeaders = newHeaders
+          res = await fetch(nextUrl, { headers: authHeaders })
+        }
+        if (!res.ok) break
+        const data = await res.json()
+        const list = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
+        recipes.push(
+          ...list.map((recipe: Record<string, unknown>) => ({
+            id: String(recipe.id),
+            name: String(recipe.name || ""),
+            category: recipe.category as string | undefined,
+            goal_category: recipe.goal_category as string | undefined,
+            calories: recipe.calories as number | undefined,
+            protein: recipe.protein as number | undefined,
+            carbs: recipe.carbs as number | undefined,
+            fat: recipe.fat as number | undefined,
+            prep_time_minutes: recipe.prep_time_minutes as number | undefined,
+            difficulty: recipe.difficulty as string | undefined,
+            image_url: recipe.image_url as string | undefined,
+            diet_types: recipe.diet_types as string[] | undefined,
+            allergens: recipe.allergens as string[] | undefined,
+          }))
+        )
+        nextUrl = (data.next as string) || null
+      }
+      setAvailableRecipes(recipes)
+    } catch {
+      setNutritionPlanId(null)
+    } finally {
+      setNutritionPlanLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    void loadNutritionEditorData()
+  }, [loadNutritionEditorData])
 
   // Resolver params (Next.js 15+ async params)
   useEffect(() => {
@@ -402,7 +470,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
         throw new Error(err.detail || `Error ${response.status}`)
       }
       await fetchUser()
-      setNutritionEditorReloadKey((key) => key + 1)
+      await loadNutritionEditorData()
       toast({ title: clear ? "✅ Override eliminado" : "✅ Calorías guardadas", description: clear ? "Se usará el cálculo automático" : "El override del admin ha sido aplicado" })
     } catch (err) {
       toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al guardar", variant: "destructive" })
@@ -1368,16 +1436,38 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             </Card>
 
             {/* Editor de plan nutricional */}
-            <NutritionPlanEditor
-              userId={user.id.toString()}
-              reloadKey={nutritionEditorReloadKey}
-              onSave={() => {
-                toast({
-                  title: "✅ Plan nutricional guardado",
-                  description: "El plan nutricional ha sido actualizado",
-                })
-              }}
-            />
+            {nutritionPlanLoading ? (
+              <Card>
+                <CardContent className="py-12 flex items-center justify-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Cargando menú del usuario...
+                </CardContent>
+              </Card>
+            ) : nutritionPlanId ? (
+              <NutritionTemplatePlanEditor
+                planId={nutritionPlanId}
+                availableRecipes={availableRecipes}
+                ownerUserId={user.id.toString()}
+                onPlanIdChange={(nextPlanId) => setNutritionPlanId(nextPlanId)}
+                onSaved={async (saved) => {
+                  if (saved?.id) {
+                    setNutritionPlanId(String(saved.id))
+                  }
+                  toast({
+                    title: "✅ Plan nutricional guardado",
+                    description: "El menú semanal del usuario ha sido actualizado",
+                  })
+                  await loadNutritionEditorData()
+                }}
+                onClose={() => undefined}
+              />
+            ) : (
+              <Card>
+                <CardContent className="py-8 text-center text-muted-foreground">
+                  Este usuario no tiene un plan nutricional activo. Asígnalo desde Creación de menús.
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* ================================================================ */}

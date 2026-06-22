@@ -52,6 +52,9 @@ interface Meal {
   fat: number
   description: string
   order_index?: number
+  day_of_week?: number
+  week_number?: number
+  meal_type?: string
   meal_foods?: MealFood[]
   suggested_recipes?: SuggestedRecipe[]
 }
@@ -291,6 +294,9 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       fat: toNumber(meal.fat),
       description: fixEncoding(meal.description || ""),
       order_index: meal.order_index || index + 1,
+      day_of_week: meal.day_of_week ?? undefined,
+      week_number: meal.week_number ?? 1,
+      meal_type: meal.meal_type || "lunch",
       meal_foods: Array.isArray(meal.meal_foods)
         ? meal.meal_foods.map((f: any) => ({
             food_id: String(f.food_id || ""),
@@ -598,6 +604,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
 
       const planData = {
         user_id: userId,
+        assigned_user_ids: [Number(userId)],
         name: plan.name,
         description: plan.description,
         daily_calories: toNumber(plan.daily_calories),
@@ -607,8 +614,10 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         meals_per_day: mealsArray.length || 5,
         is_active: plan.is_active !== false,
         meals: mealsArray.map((meal, index) => ({
-          id: meal.id,
+          day_of_week: meal.day_of_week ?? null,
+          week_number: meal.week_number ?? 1,
           name: meal.name,
+          meal_type: meal.meal_type || "lunch",
           time: meal.time,
           calories: toNumber(meal.calories),
           protein: toNumber(meal.protein),
@@ -616,6 +625,20 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
           fat: toNumber(meal.fat),
           description: meal.description,
           order_index: meal.order_index || index + 1,
+          suggested_recipes_ids: Array.isArray(meal.suggested_recipes)
+            ? meal.suggested_recipes.map((recipe) => recipe.id)
+            : [],
+          meal_recipes: Array.isArray(meal.suggested_recipes)
+            ? meal.suggested_recipes.map((recipe, recipeIndex) => ({
+                recipe_id: recipe.id,
+                servings: recipe.servings ?? 1,
+                custom_calories: recipe.custom_calories,
+                custom_protein: recipe.custom_protein,
+                custom_carbs: recipe.custom_carbs,
+                custom_fat: recipe.custom_fat,
+                display_order: recipe.display_order ?? recipeIndex,
+              }))
+            : [],
           meal_foods: Array.isArray(meal.meal_foods)
             ? meal.meal_foods.map((f) => ({
                 food_id: f.food_id,
@@ -651,112 +674,14 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       }
 
       const saved = await response.json()
-      
-      const savedPlanId = saved.id || plan.id
-      
-      // Actualizar las recetas sugeridas y sus cantidades personalizadas
-      if (savedPlanId) {
-        for (let i = 0; i < mealsArray.length; i++) {
-          const meal = mealsArray[i]
-          if (!meal.id) {
-            continue
-          }
-          
-          const suggestedRecipeIds = Array.isArray(meal.suggested_recipes) 
-            ? meal.suggested_recipes.map(r => r.id)
-            : []
-          
-          // Primero, actualizar la relación ManyToMany simple
-          const mealUpdateResponse = await fetch(buildApiUrl(`admin/nutrition/meals/${meal.id}/`), {
-            method: "PATCH",
-            headers: { ...headers, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              suggested_recipes_ids: suggestedRecipeIds,
-            }),
-          })
-          
-          if (!mealUpdateResponse.ok) {
-          } else {
-          }
-          
-          // Luego, actualizar las cantidades personalizadas usando PlanMealRecipe
-          if (Array.isArray(meal.suggested_recipes)) {
-            for (const recipe of meal.suggested_recipes) {
-              try {
-                // Buscar si ya existe un PlanMealRecipe para esta combinación
-                const existingResponse = await fetch(
-                  buildApiUrl(`admin/nutrition/meal-recipes/?meal_id=${meal.id}`),
-                  { headers }
-                )
-                
-                let existingMealRecipe: any = null
-                if (existingResponse.ok) {
-                  const existingData = await existingResponse.json()
-                  const recipes = Array.isArray(existingData.results) ? existingData.results : (Array.isArray(existingData) ? existingData : [])
-                  existingMealRecipe = recipes.find((mr: any) => 
-                    (mr.recipe?.id === recipe.id) || (mr.recipe_id === recipe.id) || (String(mr.recipe?.id) === String(recipe.id))
-                  )
-                }
-                
-                const mealRecipeData: any = {
-                  meal_id: meal.id,
-                  recipe_id: recipe.id,
-                  servings: recipe.servings || 1,
-                  display_order: recipe.display_order || 0,
-                }
-                
-                // Solo incluir custom values si están definidos explícitamente
-                if (recipe.custom_calories !== undefined && recipe.custom_calories !== null) {
-                  mealRecipeData.custom_calories = recipe.custom_calories
-                }
-                if (recipe.custom_protein !== undefined && recipe.custom_protein !== null) {
-                  mealRecipeData.custom_protein = recipe.custom_protein
-                }
-                if (recipe.custom_carbs !== undefined && recipe.custom_carbs !== null) {
-                  mealRecipeData.custom_carbs = recipe.custom_carbs
-                }
-                if (recipe.custom_fat !== undefined && recipe.custom_fat !== null) {
-                  mealRecipeData.custom_fat = recipe.custom_fat
-                }
-                
-                // Crear o actualizar PlanMealRecipe
-                if (existingMealRecipe?.id) {
-                  // Actualizar existente
-                  const updateResponse = await fetch(
-                    buildApiUrl(`admin/nutrition/meal-recipes/${existingMealRecipe.id}/`),
-                    {
-                      method: "PATCH",
-                      headers: { ...headers, "Content-Type": "application/json" },
-                      body: JSON.stringify(mealRecipeData),
-                    }
-                  )
-                  if (!updateResponse.ok) {
-                    const errorText = await updateResponse.text()
-                  } else {
-                  }
-                } else {
-                  // Crear nuevo
-                  const createResponse = await fetch(
-                    buildApiUrl(`admin/nutrition/meal-recipes/`),
-                    {
-                      method: "POST",
-                      headers: { ...headers, "Content-Type": "application/json" },
-                      body: JSON.stringify(mealRecipeData),
-                    }
-                  )
-                  if (!createResponse.ok) {
-                    const errorText = await createResponse.text()
-                  } else {
-                  }
-                }
-              } catch (err) {
-              }
-            }
-          }
-        }
+      const savedPlanId = saved.id ? String(saved.id) : plan.id
+
+      if (!plan.id && saved.id) {
+        updatePlanState({ id: saved.id })
+      } else if (savedPlanId && savedPlanId !== String(plan.id || "")) {
+        updatePlanState({ id: savedPlanId })
       }
-      
-      // Recargar el plan para asegurar que tenemos los datos actualizados
+
       await loadUserPlan()
       
       toast({ 
@@ -764,9 +689,6 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         description: "Los cambios han sido aplicados al usuario de forma individual" 
       })
       
-      if (!plan.id && saved.id) {
-        updatePlanState({ id: saved.id })
-      }
       onSave()
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error desconocido")

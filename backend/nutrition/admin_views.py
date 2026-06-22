@@ -1225,6 +1225,21 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return active_assignments[0].user
         return None
 
+    def _resolve_plan_for_user_edit(self, source_plan: NutritionPlan, user) -> NutritionPlan:
+        """Edita el plan individual activo del usuario en lugar de la plantilla compartida."""
+        if source_plan.user_id == user.id:
+            return source_plan
+
+        active_user_plan = (
+            NutritionPlan.objects.filter(user=user, is_active=True)
+            .order_by('-updated_at')
+            .first()
+        )
+        if active_user_plan:
+            return active_user_plan
+
+        return self._copy_plan_for_user(source_plan, user)
+
     def _build_recipe_map(self, meals_payload):
         recipe_ids = set()
         for meal_data in meals_payload or []:
@@ -1635,7 +1650,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         edit_owner = self._owner_for_individual_edit(instance, assigned_user_ids)
         if edit_owner and instance.user_id != edit_owner.id:
-            instance = self._copy_plan_for_user(instance, edit_owner)
+            instance = self._resolve_plan_for_user_edit(instance, edit_owner)
             prev_is_active = instance.is_active
 
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
