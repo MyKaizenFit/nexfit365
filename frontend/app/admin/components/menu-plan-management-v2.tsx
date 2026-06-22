@@ -2015,7 +2015,12 @@ export function MenuPlanManagementV2() {
                   ref={nutritionEditorRef}
                   planId={editingPlanId!}
                   availableRecipes={availableRecipes}
-                  onSaved={async () => {
+                  assignedUserIds={form.assigned_user_ids}
+                  onPlanIdChange={(nextPlanId) => setEditingPlanId(nextPlanId)}
+                  onSaved={async (saved) => {
+                    if (saved?.id) {
+                      setEditingPlanId(String(saved.id))
+                    }
                     setHasUnsavedNutritionEditorChanges(false)
                     await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })
                   }}

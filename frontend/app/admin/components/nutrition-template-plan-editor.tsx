@@ -219,9 +219,12 @@ export const NutritionTemplatePlanEditor = forwardRef<
   {
     planId: string
     availableRecipes: AdminRecipe[]
-    onSaved: () => void | Promise<void>
+    onSaved: (savedPlan?: { id?: string | number }) => void | Promise<void>
     onClose: () => void
     onDirtyChange?: (hasUnsavedChanges: boolean) => void
+    assignedUserIds?: string[]
+    ownerUserId?: string
+    onPlanIdChange?: (planId: string) => void
   }
 >(function NutritionTemplatePlanEditor({
   planId,
@@ -229,6 +232,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
   onSaved,
   onClose,
   onDirtyChange,
+  assignedUserIds = [],
+  ownerUserId,
+  onPlanIdChange,
 }, ref) {
   const { getAuthHeaders } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -843,9 +849,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
         time: m.time,
         description: m.description,
         order_index: toNumber(m.order_index, 1),
-        // Mantener compatibilidad: el panel de usuario usa suggested_recipes para generar "opciones" (max 3).
         suggested_recipes_ids: m.meal_recipes.map((r) => r.recipe_id),
-        // Y también guardamos las cantidades/orden en PlanMealRecipe.
         meal_recipes: m.meal_recipes.map((r) => ({
           recipe_id: r.recipe_id,
           servings: r.servings ?? 1,
@@ -857,12 +861,49 @@ export const NutritionTemplatePlanEditor = forwardRef<
         })),
       }))
 
-      await patchJsonWithAuth(`admin/nutrition/plans/${planId}/`, { meals: mealsPayload })
+      const patchBody: Record<string, unknown> = { meals: mealsPayload }
+      const normalizedAssignedIds = assignedUserIds
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+      if (normalizedAssignedIds.length > 0) {
+        patchBody.assigned_user_ids = normalizedAssignedIds
+      } else if (ownerUserId) {
+        patchBody.user_id = Number(ownerUserId)
+      }
+
+      const saved = await patchJsonWithAuth(`admin/nutrition/plans/${planId}/`, patchBody)
+      const savedPlanId = saved?.id ? String(saved.id) : String(planId)
+      if (savedPlanId !== String(planId)) {
+        onPlanIdChange?.(savedPlanId)
+      }
 
       toast({ title: "✅ Menú semanal guardado", description: "Se actualizaron los días/comidas y sus opciones." })
-      await loadPlan()
+      if (savedPlanId !== String(planId)) {
+        const data = await fetchJsonWithAuth(`admin/nutrition/plans/${savedPlanId}/`)
+        const incomingMeals = Array.isArray(data.meals) ? data.meals : []
+        setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
+        const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => ({
+          id: m.id ? String(m.id) : undefined,
+          day_of_week: m.day_of_week ?? 1,
+          week_number: m.week_number ?? 1,
+          name: fixEncoding(m.name || `Comida ${idx + 1}`),
+          meal_type: m.meal_type || "lunch",
+          time: m.time || "12:00",
+          calories: toNumber(m.calories),
+          protein: toNumber(m.protein),
+          carbs: toNumber(m.carbs),
+          fat: toNumber(m.fat),
+          description: fixEncoding(m.description || ""),
+          order_index: toNumber(m.order_index, idx + 1),
+          meal_recipes: mapMealRecipeOptions(m),
+        }))
+        setMeals(mapped)
+        setLoadedMealsCount(mapped.length)
+      } else {
+        await loadPlan()
+      }
       updateUnsavedChanges(false)
-      await onSaved()
+      await onSaved(saved ?? { id: savedPlanId })
     } catch (e) {
       toast({
         title: "❌ Error",
