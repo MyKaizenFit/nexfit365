@@ -150,10 +150,7 @@ function dispatch(action: Action) {
 type Toast = Omit<ToasterToast, "id">
 
 function toast({ ...props }: Toast) {
-  const isDestructive = props.variant === "destructive"
-
   if (
-    isDestructive &&
     typeof window !== "undefined" &&
     localStorage.getItem("auth_logout_in_progress") === "true"
   ) {

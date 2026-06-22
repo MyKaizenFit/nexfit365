@@ -12,8 +12,9 @@ import {
   RegisterCredentials,
   AuthResponse
 } from '@/lib/auth-service'
-import { buildApiUrl, USER_ENDPOINTS } from '@/lib/api'
+import { AUTH_ENDPOINTS, buildApiUrl, getAuthHeaders as buildAuthRequestHeaders, USER_ENDPOINTS } from '@/lib/api'
 import { isAdminJwtPayload, parseJwtPayload } from '@/lib/jwt'
+import { dismissBlockingOverlays } from '@/lib/dismiss-blocking-overlays'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
 
 // Estado de autenticación
@@ -384,15 +385,43 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     logoutInProgressRef.current = true
+
+    const authService = getAuthService()
+    const accessTokenToRevoke = authService.getAccessToken()
+    const refreshTokenToRevoke = authService.getRefreshToken()
+
     if (typeof window !== 'undefined') {
       localStorage.setItem('auth_logout_in_progress', 'true')
     }
 
-    const authService = getAuthService()
     localStorage.removeItem('initial_form_completed')
     localStorage.removeItem('user_profile')
     localStorage.removeItem('form_version')
     setInitialRegistrationCookie(false)
+    authService.clearTokens()
+
+    if (
+      typeof window !== 'undefined' &&
+      refreshTokenToRevoke &&
+      !authService.getOfflineMode()
+    ) {
+      void fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
+        method: 'POST',
+        headers: buildAuthRequestHeaders(accessTokenToRevoke || undefined),
+        body: JSON.stringify({ refresh: refreshTokenToRevoke }),
+        keepalive: true,
+      }).catch(() => {
+        // La sesión local ya está cerrada.
+      })
+    }
+
+    dismissBlockingOverlays()
+
+    if (typeof window !== 'undefined') {
+      // Evitar re-render del dashboard sin sesión (dispara error.tsx) antes de salir.
+      window.location.replace('/auth')
+      return
+    }
 
     setState({
       user: null,
@@ -401,19 +430,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       error: null,
       mustChangePassword: false,
     })
-
-    try {
-      await authService.logout()
-    } catch (error) {
-      // El cierre local ya se ha completado. No mostrar errores si falla invalidar el token remoto.
-    } finally {
-      authNotifications.showLogoutSuccess()
-      if (typeof window !== 'undefined') {
-        window.location.replace('/auth')
-      } else {
-        router.replace('/auth')
-      }
-    }
+    router.replace('/auth')
   }
 
   // Limpiar errores
