@@ -189,7 +189,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['get'])
     def my_active_program(self, request):
         """Programa activo del usuario actual"""
-        from .services import reset_weekly_workout_plan_if_needed
+        from .services import reset_weekly_workout_plan_if_needed, rollover_program_cycle_if_completed
 
         try:
             active_program_ids = list(
@@ -211,8 +211,9 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
             ).order_by('-updated_at', '-created_at').first()
 
             if program:
-                # Inicializar start_date si falta, sin reinicios semanales automáticos.
+                # Inicializar start_date si falta, sincronizar duración y reiniciar ciclo si terminó.
                 program = reset_weekly_workout_plan_if_needed(program)
+                program = rollover_program_cycle_if_completed(program)
                 serializer = WorkoutProgramSerializer(program)
                 return Response({'program': serializer.data})
             return Response({'program': None})

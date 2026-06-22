@@ -62,16 +62,19 @@ export function globalDayNumberForProgramWeek(programWeek: number, weekdayNumber
 }
 
 export function planDurationWeeksFromPlan(plan: WorkoutPlanLike | null | undefined): number {
-  const explicit = plan?.duration_weeks
-  if (typeof explicit === "number" && explicit > 0) {
-    return explicit
+  const days = plan?.days || []
+  let fromDays = 1
+  if (days.length) {
+    const maxDayNumber = Math.max(...days.map((day) => day.day_number || 1))
+    fromDays = weekNumberFromDayNumber(maxDayNumber)
   }
 
-  const days = plan?.days || []
-  if (!days.length) return 1
+  const explicit = plan?.duration_weeks
+  if (typeof explicit === "number" && explicit > 0) {
+    return Math.max(explicit, fromDays)
+  }
 
-  const maxDayNumber = Math.max(...days.map((day) => day.day_number || 1))
-  return weekNumberFromDayNumber(maxDayNumber)
+  return fromDays
 }
 
 export function isMultiWeekPlan(plan: WorkoutPlanLike | null | undefined): boolean {
