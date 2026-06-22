@@ -59,6 +59,9 @@ elif [ "$integrity_rc" -eq 2 ]; then
   fail "Abortado — BD no accesible: $integrity_msg"
 fi
 
+log "Eliminando refresh tokens expirados..."
+run_psql "DELETE expired outstanding" -c "DELETE FROM token_blacklist_outstandingtoken WHERE expires_at < NOW();"
+
 log "REINDEX TABLE token_blacklist_outstandingtoken..."
 run_psql "REINDEX outstandingtoken" -c "REINDEX TABLE token_blacklist_outstandingtoken;"
 

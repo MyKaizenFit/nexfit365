@@ -85,6 +85,11 @@ check_db_integrity() {
     }
   done
 
+  output=$(probe_jwt_blacklist_writable 2>&1) || {
+    echo "$output"
+    return 1
+  }
+
   echo "Integridad OK"
   return 0
 }

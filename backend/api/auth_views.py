@@ -67,7 +67,12 @@ class LoginView(TokenObtainPairView):
 
     # (usamos el post del padre; el decorador documenta la ruta)
     def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
+        from .jwt_blacklist_recovery import call_with_jwt_blacklist_recovery
+
+        def execute_login():
+            return super(LoginView, self).post(request, *args, **kwargs)
+
+        response = call_with_jwt_blacklist_recovery(execute_login)
         
         # Si el login fue exitoso, agregar información del usuario
         if response.status_code == 200:
@@ -162,6 +167,14 @@ class LoginView(TokenObtainPairView):
 class RefreshView(TokenRefreshView):
     permission_classes = (AllowAny,)
     authentication_classes = ()
+
+    def post(self, request, *args, **kwargs):
+        from .jwt_blacklist_recovery import call_with_jwt_blacklist_recovery
+
+        def execute_refresh():
+            return super(RefreshView, self).post(request, *args, **kwargs)
+
+        return call_with_jwt_blacklist_recovery(execute_refresh)
 
 
 @extend_schema(
