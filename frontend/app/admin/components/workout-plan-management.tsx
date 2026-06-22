@@ -587,11 +587,26 @@ export function WorkoutPlanManagement() {
   const handleToggleActive = async (planId: string) => {
     try {
       setIsLoading(true)
-      await togglePlanActive(planId)
+      const plan = plansArray.find((p) => p.id === planId)
+      const activating = plan ? !plan.is_active : true
+      await updatePlan(planId, { is_active: activating })
       toast({
-        title: "✅ Estado actualizado",
-        description: "El estado del plan ha sido actualizado correctamente",
+        title: activating ? "✅ Plan activado" : "✅ Plan desactivado",
+        description: activating
+          ? "La rutina quedó activa y el calendario del usuario arranca en semana 1 desde esta semana."
+          : "El estado del plan ha sido actualizado correctamente",
       })
+      if (activating && plan?.user) {
+        setPlanTypeFilter("users")
+        const userId = String(plan.user_id || plan.user)
+        if (userId && userId !== "null") {
+          updateFilters({
+            ...serverFilters,
+            is_template: false,
+            user: userId,
+          })
+        }
+      }
     } catch (error) {
       toast({
         title: "❌ Error",
@@ -1218,9 +1233,16 @@ export function WorkoutPlanManagement() {
       // Si estamos editando, guardamos todo (info básica + días/ejercicios)
       if (editingPlan) {
         const currentUserId = (editingPlan as any).user_id || (editingPlan as any).user
-        const shouldSendAssignedUsers = !currentUserId && formData.assigned_users.length > 0
-        const planData = {
-          ...formData,
+        const parsedUserId = currentUserId ? Number(currentUserId) : null
+        const assignedFromForm = formData.assigned_users
+          .map((id) => Number(id))
+          .filter((id) => Number.isFinite(id))
+        const planData: Record<string, unknown> = {
+          name: formData.name,
+          description: formData.description,
+          difficulty: formData.difficulty,
+          duration_weeks: formData.duration_weeks,
+          estimated_duration_minutes: formData.estimated_duration_minutes,
           days: (Array.isArray(workoutDays) ? workoutDays : []).map(day => ({
             day_name: day.day_name,
             day_number: day.day_number,
@@ -1228,9 +1250,11 @@ export function WorkoutPlanManagement() {
             notes: day.notes,
             exercises: day.exercises
           })),
-          ...(shouldSendAssignedUsers
-            ? { assigned_user_ids: formData.assigned_users.map((id) => Number(id)).filter((id) => Number.isFinite(id)) }
-            : {}),
+        }
+        if (parsedUserId && Number.isFinite(parsedUserId)) {
+          planData.assigned_user_ids = [parsedUserId]
+        } else if (assignedFromForm.length > 0) {
+          planData.assigned_user_ids = assignedFromForm
         }
         await updatePlan(editingPlan.id, planData)
         toast({
@@ -1607,13 +1631,27 @@ export function WorkoutPlanManagement() {
     try {
       setAssigningToUser(true)
       const userId = Number(assignUserTargetId)
-      await updatePlan(assignUserSourceId, { assigned_user_ids: [userId] })
+      const result = await updatePlan(assignUserSourceId, { assigned_user_ids: [userId] })
+      const createdIds = Array.isArray(result?.created_user_program_ids)
+        ? result.created_user_program_ids
+        : []
+      if (createdIds.length === 0) {
+        throw new Error(
+          "No se creó ninguna rutina para el usuario. Comprueba que la plantilla tenga días con ejercicios."
+        )
+      }
       const userName = usersList.find((u) => u.id === assignUserTargetId)?.email || "usuario"
       toast({
         title: "✅ Plan asignado",
         description: `Se ha clonado y asignado la rutina a ${userName}`,
       })
       setShowAssignUserDialog(false)
+      setPlanTypeFilter("users")
+      updateFilters({
+        ...serverFilters,
+        is_template: false,
+        user: String(userId),
+      })
     } catch (e) {
       toast({
         title: "❌ Error",
