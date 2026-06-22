@@ -32,7 +32,7 @@ import {
   getPlanTrainingWeekdays,
   getPlanWeeklyGoal,
   getWeekdayNumber,
-  getMondayOfWeek,
+  getDateForWeekdayInProgramWeek,
   getProgramWeekForDate,
   planDurationWeeksFromPlan,
   isMultiWeekPlan,
@@ -543,11 +543,15 @@ export function WorkoutDashboardEnhanced() {
     return trainingDays.includes(dayNumber)
   }
 
-  const getDateForWeekdayInCurrentWeek = (weekdayNumber: number) => {
-    const monday = getMondayOfWeek(new Date())
-    const date = new Date(monday)
-    date.setDate(monday.getDate() + (weekdayNumber - 1))
-    return date
+  const getProgramWeekDayDate = (weekdayNumber: number) =>
+    getDateForWeekdayInProgramWeek(userPlan, weekdayNumber, currentProgramWeek)
+
+  const isSameCalendarDay = (a: Date, b: Date) => {
+    const left = new Date(a)
+    const right = new Date(b)
+    left.setHours(0, 0, 0, 0)
+    right.setHours(0, 0, 0, 0)
+    return left.getTime() === right.getTime()
   }
 
   // Función para obtener ejercicios completados de un día desde localStorage y workoutLogs
@@ -627,17 +631,18 @@ export function WorkoutDashboardEnhanced() {
       { number: 7, name: 'Domingo' },
     ]
 
-    const todayNumber = getWeekdayNumber()
+    const today = new Date()
 
     return days.map(day => {
-      const dayDate = getDateForWeekdayInCurrentWeek(day.number)
+      const dayDate = getProgramWeekDayDate(day.number)
       const planDay = getPlanDayForWeekday(userPlan, day.number, dayDate)
       const isTraining = planDay ? !planDay.is_rest_day : trainingDays.includes(day.number)
 
       return {
         ...day,
+        dayDate,
         isTraining,
-        isToday: day.number === todayNumber,
+        isToday: isSameCalendarDay(dayDate, today),
         workoutDay: planDay && !planDay.is_rest_day ? planDay : null,
         hasPlanWorkout: Boolean(planDay && !planDay.is_rest_day),
       }
@@ -823,11 +828,26 @@ export function WorkoutDashboardEnhanced() {
             <div className="grid grid-cols-7 gap-0.5 md:gap-2">
               {getWeeklyCalendar().map((day) => {
                 const isTrainingByProfile = day.isTraining
+                const canStartWorkout = Boolean(day.workoutDay)
 
                 return (
                   <div
                     key={day.number}
-                    className={`min-h-[58px] rounded-lg border-2 p-1.5 text-center transition-all md:min-h-[76px] md:p-3 ${day.isToday
+                    role={canStartWorkout ? "button" : undefined}
+                    tabIndex={canStartWorkout ? 0 : undefined}
+                    onClick={() => {
+                      if (day.workoutDay) {
+                        void handleStartWorkout(day.workoutDay)
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (!day.workoutDay) return
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault()
+                        void handleStartWorkout(day.workoutDay)
+                      }
+                    }}
+                    className={`min-h-[58px] rounded-lg border-2 p-1.5 text-center transition-all md:min-h-[76px] md:p-3 ${canStartWorkout ? "cursor-pointer hover:shadow-md" : ""} ${day.isToday
                       ? isTrainingByProfile
                         ? 'border-emerald-300 bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-900 shadow-md md:scale-105'
                         : 'border-slate-300 bg-gradient-to-br from-slate-100 to-gray-200 text-slate-700 shadow-md md:scale-105'
@@ -1225,19 +1245,21 @@ export function WorkoutDashboardEnhanced() {
 
           {/* Programa semanal según el plan asignado por el admin */}
           {userPlan?.days?.length ? (() => {
+            const today = new Date()
             const scheduleDays = [1, 2, 3, 4, 5, 6, 7].map((weekday) => {
-              const dayDate = getDateForWeekdayInCurrentWeek(weekday)
+              const dayDate = getProgramWeekDayDate(weekday)
               return {
                 weekday,
+                dayDate,
                 planDay: getPlanDayForWeekday(userPlan, weekday, dayDate),
               }
             })
 
             return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
-                {scheduleDays.map(({ weekday, planDay }) => {
+                {scheduleDays.map(({ weekday, dayDate, planDay }) => {
                   const dayName = getDayNameFromNumber(weekday)
-                  const isToday = weekday === todayDayNumber
+                  const isToday = isSameCalendarDay(dayDate, today)
                   const dayTheme = getWorkoutFocusTheme(planDay)
                   const isRest = !planDay || planDay.is_rest_day
 
