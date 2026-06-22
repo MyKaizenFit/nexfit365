@@ -94,6 +94,18 @@ check_db_integrity() {
   return 0
 }
 
+# Alerta si el stack legacy "pro" sigue activo (split-brain PostgreSQL).
+check_legacy_pro_stack() {
+  local running=0 c
+  for c in pro-db-1 pro-db-backup-1 pro-celery_worker-1; do
+    if docker ps --format '{{.Names}}' | grep -qx "$c"; then
+      echo "ALERTA: contenedor legacy $c en ejecución — ejecutar scripts/deployment/disable-legacy-pro-stack.sh"
+      running=1
+    fi
+  done
+  return "$running"
+}
+
 # Prueba de escritura en tablas JWT (detecta corrupción que COUNT no ve).
 probe_jwt_blacklist_writable() {
   local output

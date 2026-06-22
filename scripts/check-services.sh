@@ -150,6 +150,11 @@ if [ "$integrity_rc" -eq 1 ]; then
     log "   Acción: ./scripts/restore.sh (NO mover data/postgres/)"
 fi
 
+if check_legacy_pro_stack; then
+    log "⚠️  Stack Docker legacy 'pro' activo — riesgo split-brain en PostgreSQL"
+    log "   Acción: ./scripts/deployment/disable-legacy-pro-stack.sh"
+fi
+
 # Backend con auto-heal avanzado
 check_backend_and_heal || true
 
