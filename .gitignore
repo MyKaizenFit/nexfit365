@@ -22,6 +22,7 @@ docker-data/
 
 # ===== Backups =====
 backups/
+*-BACKUP
 # Backups/exports operativos del servidor (no deben versionarse)
 backups-current/
 
