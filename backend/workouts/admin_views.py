@@ -137,6 +137,16 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_system', 'is_template', 'is_active', 'user', 'created_by']
     ordering_fields = ['name', 'created_at', 'updated_at']
     ordering = ['-created_at']
+    _DETAIL_ACTIONS = frozenset({
+        'retrieve', 'update', 'partial_update', 'destroy', 'copy_weeks',
+    })
+
+    def filter_queryset(self, queryset):
+        # Los filtros de listado (?user=, ?is_template=, etc.) no deben aplicarse
+        # en acciones de detalle: provocan 404 al editar plantillas con filtros activos.
+        if getattr(self, 'action', None) in self._DETAIL_ACTIONS:
+            return queryset
+        return super().filter_queryset(queryset)
 
     def get_queryset(self):
         """
@@ -276,6 +286,13 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if hasattr(program, '_prefetched_objects_cache'):
             program._prefetched_objects_cache = {}
 
+        from .program_lifecycle import program_duration_weeks_from_plan
+
+        synced_duration = program_duration_weeks_from_plan(program)
+        if (program.duration_weeks or 0) != synced_duration:
+            program.duration_weeks = synced_duration
+            program.save(update_fields=['duration_weeks', 'updated_at'])
+
     @staticmethod
     def _normalize_date_like_workout_text(value):
         raw_value = str(value or '').strip()
@@ -283,6 +300,16 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         if not match:
             return value
         return f'{int(match.group(2))}-{int(match.group(1))}'
+
+    @staticmethod
+    def _sanitize_program_payload(data):
+        """Elimina campos del frontend que no existen en el modelo."""
+        for key in ('assigned_users', 'min_role_required', 'user_ids'):
+            if hasattr(data, 'pop'):
+                data.pop(key, None)
+            elif isinstance(data, dict):
+                data.pop(key, None)
+        return data
 
     def _extract_assigned_user_ids(self, data):
         # Solo activar el flujo de asignación por plantilla cuando llega
@@ -335,7 +362,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         days_data = data.pop('days', []) or []
         assigned_user_ids = self._extract_assigned_user_ids(data)
         data.pop('assigned_user_ids', None)
-        data.pop('user_ids', None)
+        self._sanitize_program_payload(data)
 
         user_id = data.get('user_id') or data.get('user')
         if assigned_user_ids:
@@ -365,6 +392,29 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 program.save(update_fields=['user', 'is_template', 'is_system'])
 
             created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+            if not created_user_program_ids:
+                return Response(
+                    {
+                        'detail': (
+                            'No se pudo asignar la rutina a ningún usuario. '
+                            'Comprueba que la plantilla tenga días con ejercicios.'
+                        ),
+                        'created_user_program_ids': [],
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        if program.user_id and program.is_active:
+            WorkoutProgram.objects.filter(
+                user_id=program.user_id,
+                is_active=True,
+            ).exclude(pk=program.pk).update(is_active=False)
+            from .services import prepare_user_program_activation
+            prepare_user_program_activation(program)
+
+        from dashboard.plan_sync import sync_users_from_workout_program
+        if program.user_id:
+            sync_users_from_workout_program(program)
 
         response_serializer = AdminWorkoutProgramSerializer(program)
         response_data = dict(response_serializer.data)
@@ -382,12 +432,13 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
         """
         partial = kwargs.pop('partial', False)
         instance: WorkoutProgram = self.get_object()
+        was_active = instance.is_active
 
         data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
         days_data = data.pop('days', None)  # None => no tocar días
         assigned_user_ids = self._extract_assigned_user_ids(data)
         data.pop('assigned_user_ids', None)
-        data.pop('user_ids', None)
+        self._sanitize_program_payload(data)
 
         serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
@@ -395,6 +446,7 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
         if days_data is not None:
             self._apply_days_payload(program, days_data)
+            program = prefetch_workout_program_with_days(program) or program
 
         created_user_program_ids = []
         if assigned_user_ids is not None:
@@ -417,12 +469,27 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
             if assigned_user_ids and not same_user_assignment:
                 created_user_program_ids = self._assign_template_to_users(program, assigned_user_ids, request.user)
+                if not created_user_program_ids:
+                    return Response(
+                        {
+                            'detail': (
+                                'No se pudo asignar la rutina a ningún usuario. '
+                                'Comprueba que la plantilla tenga días con ejercicios.'
+                            ),
+                            'created_user_program_ids': [],
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
         if program.user_id and program.is_active:
             WorkoutProgram.objects.filter(
                 user_id=program.user_id,
                 is_active=True,
             ).exclude(pk=program.pk).update(is_active=False)
+
+        if program.user_id and program.is_active and not was_active:
+            from .services import prepare_user_program_activation
+            prepare_user_program_activation(program)
 
         from dashboard.plan_sync import sync_users_from_workout_program
         if program.user_id:
