@@ -17,20 +17,74 @@ from .models import (
 
 def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgram:
     """
-    Mantiene compatibilidad con el flujo anterior de reinicio semanal.
-    Ahora los planes activos continúan indefinidamente hasta que se reasignan
-    o modifican, así que solo inicializa start_date si falta.
+    Inicializa start_date si falta y sincroniza duration_weeks con el contenido del plan.
     """
     if not program or not program.is_active:
         return program
 
-    today = timezone.now().date()
+    from .program_lifecycle import program_duration_weeks_from_plan
 
-    # Si no tiene start_date, establecerlo a hoy
+    today = timezone.now().date()
+    update_fields: list[str] = []
+
     if not program.start_date:
         program.start_date = today
-        program.save()
+        update_fields.append("start_date")
 
+    synced_duration = program_duration_weeks_from_plan(program)
+    if (program.duration_weeks or 0) != synced_duration:
+        program.duration_weeks = synced_duration
+        update_fields.append("duration_weeks")
+
+    if program.start_date and not program.end_date and synced_duration > 0:
+        program.end_date = program.start_date + timedelta(weeks=synced_duration)
+        update_fields.append("end_date")
+
+    if update_fields:
+        update_fields.append("updated_at")
+        program.save(update_fields=update_fields)
+
+    return program
+
+
+def rollover_program_cycle_if_completed(program: WorkoutProgram) -> WorkoutProgram:
+    """
+    Si el usuario ha completado todas las semanas del plan, reinicia en semana 1
+    sin desactivar el programa y avisa a los administradores.
+    """
+    if not program or not program.is_active or not program.user_id:
+        return program
+
+    from .program_lifecycle import is_program_completed, program_duration_weeks_from_plan
+    from notifications.utils import notify_admins_user_change
+
+    if not is_program_completed(program):
+        return program
+
+    today = timezone.now().date()
+    monday = today - timedelta(days=today.weekday())
+    duration = program_duration_weeks_from_plan(program)
+
+    if program.user:
+        notify_admins_user_change(
+            user=program.user,
+            title="Plan de entrenamiento reiniciado automáticamente",
+            message=(
+                f"El plan «{program.name}» de {program.user.email} completó un ciclo "
+                f"de {duration} semana(s) y se reinició en semana 1 desde el "
+                f"{monday.strftime('%d/%m/%Y')}."
+            ),
+            data={
+                "source": "workout_program_rollover",
+                "program_id": str(program.id),
+                "duration_weeks": duration,
+            },
+        )
+
+    program.start_date = monday
+    program.end_date = monday + timedelta(weeks=duration)
+    program.duration_weeks = duration
+    program.save(update_fields=["start_date", "end_date", "duration_weeks", "updated_at"])
     return program
 
 class PersonalizedWorkoutService:

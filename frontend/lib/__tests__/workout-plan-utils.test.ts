@@ -184,6 +184,15 @@ describe('multi-week plan resolution', () => {
     expect(planDurationWeeksFromPlan(plan)).toBe(3)
   })
 
+  it('uses the greater of duration_weeks and weeks inferred from day_number', () => {
+    const plan: WorkoutPlanLike = {
+      duration_weeks: 4,
+      start_date: '2026-05-20',
+      days: [{ day_number: 40, name: 'W6' }],
+    }
+    expect(planDurationWeeksFromPlan(plan)).toBe(6)
+  })
+
   it('getTodaysPlanDay uses week-aware lookup', () => {
     const day = getTodaysPlanDay(multiWeekPlan, new Date('2026-06-24'))
     expect(day?.name).toBe('W2 Wed')
