@@ -639,6 +639,31 @@ class TestAdminWorkoutProgramViewSet:
         response = admin_client.delete(f'/api/admin/workouts/programs/{program_id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
 
+    def test_detail_actions_ignore_list_filters(self, admin_client, regular_user):
+        template = WorkoutProgram.objects.create(
+            name='Plantilla filtro',
+            difficulty='beginner',
+            goal='general_fitness',
+            days_per_week=3,
+            duration_weeks=4,
+            is_template=True,
+            user=None,
+        )
+
+        detail_url = f'/api/admin/workouts/programs/{template.id}/'
+
+        get_response = admin_client.get(f'{detail_url}?user={regular_user.id}&is_template=false')
+        assert get_response.status_code == status.HTTP_200_OK
+        assert get_response.data['id'] == str(template.id)
+
+        patch_response = admin_client.patch(
+            f'{detail_url}?user={regular_user.id}&is_template=false',
+            {'name': 'Plantilla filtro editada'},
+            format='json',
+        )
+        assert patch_response.status_code == status.HTTP_200_OK
+        assert patch_response.data['name'] == 'Plantilla filtro editada'
+
     def test_requires_admin(self, regular_user, workout_program):
         client = APIClient()
         client.force_authenticate(user=regular_user)
