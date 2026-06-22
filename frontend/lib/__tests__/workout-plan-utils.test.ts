@@ -6,6 +6,7 @@ import {
   getPlanTrainingWeekdays,
   getPlanWeeklyGoal,
   getProgramWeekForDate,
+  getDateForWeekdayInProgramWeek,
   getProgramWeekForAnchor,
   globalDayNumberForProgramWeek,
   getProgramLifecycleStatus,
@@ -203,6 +204,31 @@ describe('multi-week plan resolution', () => {
     expect(getProgramWeekForAnchor(anchor, new Date('2026-06-30'), 8)).toBe(3)
     expect(getProgramWeekForAnchor(anchor, new Date('2026-07-07'), 8)).toBe(4)
     expect(getProgramWeekForAnchor(anchor, new Date('2026-07-07'), 8)).not.toBe(1)
+  })
+
+  it('anchors weekday dates to the current program week', () => {
+    const monday = getDateForWeekdayInProgramWeek(multiWeekPlan, 1, 1, new Date('2026-06-18'))
+    const friday = getDateForWeekdayInProgramWeek(multiWeekPlan, 5, 1, new Date('2026-06-18'))
+    const week2Monday = getDateForWeekdayInProgramWeek(multiWeekPlan, 1, 2, new Date('2026-06-23'))
+    const week2Friday = getDateForWeekdayInProgramWeek(multiWeekPlan, 5, 2, new Date('2026-06-23'))
+
+    expect(friday.getTime() - monday.getTime()).toBe(4 * 24 * 60 * 60 * 1000)
+    expect(week2Monday.getTime() - monday.getTime()).toBe(7 * 24 * 60 * 60 * 1000)
+    expect(week2Friday.getTime() - week2Monday.getTime()).toBe(4 * 24 * 60 * 60 * 1000)
+  })
+
+  it('resolves Friday workout in current program week even on Monday', () => {
+    const mondayRef = new Date('2026-06-16')
+    const fridayDate = getDateForWeekdayInProgramWeek(multiWeekPlan, 5, 1, mondayRef)
+    const day = getPlanDayForWeekday(
+      {
+        ...multiWeekPlan,
+        days: [...(multiWeekPlan.days || []), { day_number: 5, name: 'W1 Fri', is_rest_day: false }],
+      },
+      5,
+      fridayDate,
+    )
+    expect(day?.name).toBe('W1 Fri')
   })
 })
 

@@ -122,6 +122,28 @@ export function getProgramWeekForDate(
   return getProgramWeekForAnchor(plan.start_date, referenceDate, planDurationWeeksFromPlan(plan))
 }
 
+/** Fecha concreta para un día de la semana dentro de una semana del plan (anclada a start_date). */
+export function getDateForWeekdayInProgramWeek(
+  plan: WorkoutPlanLike | null | undefined,
+  weekdayNumber: number,
+  programWeek?: number,
+  referenceDate: Date = new Date(),
+): Date {
+  const week = Math.max(1, programWeek ?? getProgramWeekForDate(plan, referenceDate))
+
+  if (plan?.start_date && isMultiWeekPlan(plan)) {
+    const startMonday = getMondayOfWeek(parseDateOnly(plan.start_date))
+    const date = new Date(startMonday)
+    date.setDate(startMonday.getDate() + (week - 1) * 7 + (weekdayNumber - 1))
+    return date
+  }
+
+  const monday = getMondayOfWeek(referenceDate)
+  const date = new Date(monday)
+  date.setDate(monday.getDate() + (weekdayNumber - 1))
+  return date
+}
+
 export function isProgramWeekInRange(
   plan: WorkoutPlanLike | null | undefined,
   referenceDate: Date = new Date(),
@@ -176,13 +198,14 @@ function findPlanDayByGlobalNumber(
 
   return (
     plan.days?.find((day) => {
+      if (day.day_number === globalDayNumber) return true
       if (day.day_of_week) {
         const weekday = DAY_NAME_TO_NUMBER[String(day.day_of_week).toLowerCase()]
         if (weekday !== targetSlot) return false
         if (typeof day.day_number === "number" && day.day_number > 0) {
           return weekNumberFromDayNumber(day.day_number) === targetWeek
         }
-        return targetWeek === 1
+        return false
       }
       return false
     }) ?? null
