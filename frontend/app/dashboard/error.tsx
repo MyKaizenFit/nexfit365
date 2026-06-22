@@ -3,6 +3,19 @@
 import { useEffect } from 'react'
 import { dismissBlockingOverlays } from '@/lib/dismiss-blocking-overlays'
 
+const AUTO_RECOVERY_KEY = 'dashboard_error_auto_recovered'
+const MAX_AUTO_RECOVERY_ATTEMPTS = 2
+
+function isChunkLoadError(error?: Error): boolean {
+  const message = `${error?.name || ''} ${error?.message || ''}`.toLowerCase()
+  return (
+    message.includes('chunkloaderror') ||
+    message.includes('loading chunk') ||
+    message.includes('failed to fetch dynamically imported module') ||
+    message.includes('importing a module script failed')
+  )
+}
+
 export default function DashboardError({
   error,
   reset,
@@ -22,16 +35,15 @@ export default function DashboardError({
       return
     }
 
-    // Auto-recuperacion una vez por sesion para errores de bundle/acciones desincronizadas.
-    const key = 'dashboard_error_auto_recovered'
+    // Auto-recuperacion para errores de bundle/acciones desincronizadas.
+    const attempts = Number(sessionStorage.getItem(AUTO_RECOVERY_KEY) || '0')
 
-    try {
-      if (typeof window !== 'undefined' && !sessionStorage.getItem(key)) {
-        sessionStorage.setItem(key, '1')
+    if (attempts < MAX_AUTO_RECOVERY_ATTEMPTS) {
+      sessionStorage.setItem(AUTO_RECOVERY_KEY, String(attempts + 1))
+      const delay = isChunkLoadError(error) ? 0 : attempts === 0 ? 0 : 1200
+      window.setTimeout(() => {
         window.location.reload()
-      }
-    } catch {
-      // ignore
+      }, delay)
     }
   }, [])
 
@@ -43,7 +55,7 @@ export default function DashboardError({
   const handleGoHome = () => {
     dismissBlockingOverlays()
     try {
-      sessionStorage.removeItem('dashboard_error_auto_recovered')
+      sessionStorage.removeItem(AUTO_RECOVERY_KEY)
     } catch {
       // ignore
     }

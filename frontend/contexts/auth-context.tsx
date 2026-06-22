@@ -13,6 +13,7 @@ import {
   AuthResponse
 } from '@/lib/auth-service'
 import { AUTH_ENDPOINTS, buildApiUrl, getAuthHeaders as buildAuthRequestHeaders, USER_ENDPOINTS } from '@/lib/api'
+import { isTransientAuthFailure, sleep } from '@/lib/auth-transient-errors'
 import { isAdminJwtPayload, parseJwtPayload } from '@/lib/jwt'
 import { dismissBlockingOverlays } from '@/lib/dismiss-blocking-overlays'
 import { useAuthNotifications } from '@/hooks/use-auth-notifications'
@@ -129,14 +130,32 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         let hasValidTokens = authService.hasValidTokens()
 
         if (!hasValidTokens && authService.hasRefreshToken()) {
-          const refreshResult = await authService.refreshAccessTokenDeduped()
+          let refreshResult = await authService.refreshAccessTokenDeduped()
+
+          if (!refreshResult.success && isTransientAuthFailure(refreshResult.error)) {
+            await sleep(700)
+            refreshResult = await authService.refreshAccessTokenDeduped()
+          }
+
           hasValidTokens = Boolean(refreshResult.success && refreshResult.newToken)
         }
 
         if (hasValidTokens) {
           try {
-            // Intentar obtener usuario actual
-            const user = await authService.getCurrentUser()
+            const loadCurrentUser = async () => authService.getCurrentUser()
+            let user
+
+            try {
+              user = await loadCurrentUser()
+            } catch (userError: unknown) {
+              const message = userError instanceof Error ? userError.message : ''
+              if (isTransientAuthFailure(message)) {
+                await sleep(700)
+                user = await loadCurrentUser()
+              } else {
+                throw userError
+              }
+            }
             // NO loguear datos del usuario por seguridad
             if (process.env.NODE_ENV === 'development') {
             }
@@ -183,10 +202,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           }
         } else {
           // No hay tokens válidos, marcar como no autenticado silenciosamente
-          setState(prev => ({
-            ...prev,
+          setState({
+            user: null,
+            isAuthenticated: false,
             isLoading: false,
-          }))
+            error: null,
+            mustChangePassword: false,
+          })
+
+          if (
+            typeof window !== 'undefined' &&
+            authService.hasRefreshToken() &&
+            window.location.pathname.startsWith('/dashboard')
+          ) {
+            window.location.replace('/auth')
+          }
         }
       } catch (error) {
         // Solo mostrar warning si no es un error de autenticación esperado

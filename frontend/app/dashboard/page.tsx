@@ -80,7 +80,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
+import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
 const menuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", isActive: true },
@@ -134,7 +134,7 @@ function DashboardSectionSync({
 function DashboardContent() {
   const router = useRouter()
   const [selectedSection, setSelectedSection] = useState("dashboard")
-  const { user, logout } = useAuth()
+  const { user, logout, isAuthenticated, isLoading } = useAuth()
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
   const userRole = (user?.role || "").toLowerCase()
@@ -142,6 +142,22 @@ function DashboardContent() {
   const visibleMenuItems = isPremiumUser
     ? menuItems.filter((item) => !PREMIUM_BLOCKED_SECTIONS.has(item.url))
     : menuItems
+
+  useEffect(() => {
+    if (!isLoading && isAuthenticated) {
+      try {
+        sessionStorage.removeItem('dashboard_error_auto_recovered')
+      } catch {
+        // ignore
+      }
+    }
+  }, [isLoading, isAuthenticated])
+
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      window.location.replace('/auth')
+    }
+  }, [isLoading, isAuthenticated])
 
   const handleMenuClick = useCallback((section: string, title: string) => {
     if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(section)) {
@@ -168,6 +184,16 @@ function DashboardContent() {
     window.addEventListener("sectionChange", handleSectionChange)
     return () => window.removeEventListener("sectionChange", handleSectionChange)
   }, [handleMenuClick])
+
+  if (isLoading || !isAuthenticated) {
+    return (
+      <div className="app-container bg-background min-h-screen">
+        <div className="responsive-content p-3 sm:p-4 lg:p-6">
+          <DashboardHomeSkeleton />
+        </div>
+      </div>
+    )
+  }
 
   const handleNotificationClick = () => {
     refreshNotifications()
