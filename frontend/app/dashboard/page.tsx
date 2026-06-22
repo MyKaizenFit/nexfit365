@@ -595,8 +595,9 @@ function DashboardContent() {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={async () => {
-                          await logout()
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          void logout()
                         }}
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >
@@ -660,8 +661,9 @@ function DashboardContent() {
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
-                        onClick={async () => {
-                          await logout()
+                        onSelect={(event) => {
+                          event.preventDefault()
+                          void logout()
                         }}
                         className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
                       >

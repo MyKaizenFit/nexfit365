@@ -45,8 +45,9 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
     navigateToDashboardSection(router, "settings")
   }
 
-  const handleLogout = async () => {
-    await logout()
+  const handleLogout = () => {
+    setIsSearchOpen(false)
+    void logout()
   }
 
   const searchOptions = [
@@ -138,7 +139,10 @@ export function MobileHeader({ notifications, onNotificationClick, selectedSecti
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                onClick={handleLogout}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  handleLogout()
+                }}
                 className="hover:bg-gradient-to-r hover:from-red-50 hover:to-pink-50"
               >
                 Cerrar sesión
