@@ -1177,6 +1177,7 @@ export function WorkoutProgramEditor({
 
       const payload: any = {
         user_id: parsedUserId,
+        assigned_user_ids: [parsedUserId],
         name: program.name,
         description: buildDescriptionWithRpe(program.description, program.targetRpe),
         difficulty: program.level, // El backend usa 'difficulty', no 'level'
@@ -1197,6 +1198,7 @@ export function WorkoutProgramEditor({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
+          cache: "no-store",
         })
       } else {
         // Crear nuevo programa usando el endpoint de admin
@@ -1207,6 +1209,7 @@ export function WorkoutProgramEditor({
             "Content-Type": "application/json",
           },
           body: JSON.stringify(payload),
+          cache: "no-store",
         })
       }
 

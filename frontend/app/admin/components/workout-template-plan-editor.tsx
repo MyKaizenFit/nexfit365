@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl } from "@/lib/api"
-import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
+import { formatInvalidIdMessage, isValidWorkoutPlanId, normalizeWorkoutPlanId } from "@/lib/admin-id-utils"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { Loader2, Plus, Trash2, Search, Filter, ArrowUp, ArrowDown, Shield, X, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Copy, ClipboardPaste } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
@@ -386,12 +386,12 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
     let headers = await getAuthHeaders()
-    let res = await fetch(buildApiUrl(url), { headers })
+    let res = await fetch(buildApiUrl(url), { headers, cache: 'no-store' })
     if (res.status === 401) {
       const newHeaders = await handle401AndRefresh(getAuthHeaders)
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
-      res = await fetch(buildApiUrl(url), { headers })
+      res = await fetch(buildApiUrl(url), { headers, cache: 'no-store' })
     }
     if (!res.ok) throw new Error(`Error ${res.status}`)
     return await res.json()
@@ -403,6 +403,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      cache: 'no-store',
     })
     if (res.status === 401) {
       const newHeaders = await handle401AndRefresh(getAuthHeaders)
@@ -412,6 +413,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        cache: 'no-store',
       })
     }
     if (!res.ok) {
@@ -445,8 +447,10 @@ export const WorkoutTemplatePlanEditor = forwardRef<
     return await res.json().catch(() => null)
   }, [getAuthHeaders])
 
+  const resolvedPlanId = normalizeWorkoutPlanId(planId) || planId
+
   const loadPlan = async () => {
-    if (!isValidWorkoutPlanId(planId)) {
+    if (!isValidWorkoutPlanId(resolvedPlanId)) {
       setLoading(false)
       setDays(createDefaultWeekDays())
       updateUnsavedChanges(false)
@@ -462,7 +466,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
     setLoading(true)
     try {
-      const data = await fetchJsonWithAuth(`admin/workouts/programs/${planId}/`)
+      const data = await fetchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/`)
 
       const duration = Math.max(1, data.duration_weeks || 1)
       setPlanDurationWeeks(duration)
@@ -513,11 +517,17 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       setActiveWeek(1)
       updateUnsavedChanges(false)
     } catch (e) {
+      const message = e instanceof Error ? e.message : "No se pudo cargar el plan"
       toast({
-        title: "❌ Error",
-        description: e instanceof Error ? e.message : "No se pudo cargar el plan",
+        title: message.includes("404") ? "Rutina no encontrada" : "❌ Error",
+        description: message.includes("404")
+          ? "La rutina ya no existe. Se actualizará el listado."
+          : message,
         variant: "destructive",
       })
+      if (message.includes("404")) {
+        await onSaved()
+      }
     } finally {
       setLoading(false)
     }
@@ -847,7 +857,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   }, [availableExercises, substitutesExerciseId, substituteSearch, substitutes])
 
   const handleSaveImpl = async (options: { silent?: boolean } = {}) => {
-    if (!isValidWorkoutPlanId(planId)) {
+    if (!isValidWorkoutPlanId(resolvedPlanId)) {
       toast({
         title: "No se puede guardar",
         description: formatInvalidIdMessage("Identificador de rutina"),
@@ -886,7 +896,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
         }
       })
 
-      await patchJsonWithAuth(`admin/workouts/programs/${planId}/`, { days: daysPayload })
+      await patchJsonWithAuth(`admin/workouts/programs/${resolvedPlanId}/`, { days: daysPayload })
 
       updateUnsavedChanges(false)
       if (silent) {

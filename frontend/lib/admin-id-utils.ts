@@ -18,9 +18,15 @@ export function isValidUserId(value: unknown): value is string | number {
 
 export function isValidWorkoutPlanId(value: unknown): boolean {
   if (value == null) return false
-  const raw = String(value).trim()
+  const raw = String(value).trim().split("?")[0].split("#")[0]
   if (!raw || INVALID_ID_STRINGS.has(raw.toLowerCase())) return false
   return UUID_RE.test(raw)
+}
+
+export function normalizeWorkoutPlanId(value: unknown): string | null {
+  if (value == null) return null
+  const raw = String(value).trim().split("?")[0].split("#")[0]
+  return isValidWorkoutPlanId(raw) ? raw : null
 }
 
 export function formatInvalidIdMessage(label: string): string {
