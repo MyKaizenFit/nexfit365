@@ -198,14 +198,6 @@ cd backend
 pytest
 ```
 
-## Convenciones de documentacion
-
-- Mantener un tono profesional, claro y tecnico.
-- No incluir emojis en titulos, commits o contenido del README.
-- No publicar rutas internas del servidor, credenciales, nombres privados de contenedores ni datos operativos sensibles.
-- Usar iconos tecnologicos con un estilo uniforme, preferiblemente `skillicons.dev`, y siempre con texto alternativo.
-- Documentar comandos de forma generica para que funcionen en cualquier clon del repositorio.
-
 ## Documentacion relacionada
 
 - `doc/`: documentacion general del proyecto.
