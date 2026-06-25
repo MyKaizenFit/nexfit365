@@ -1,6 +1,6 @@
 # NexFit365
 
-Sistema web para la gestión integral de fitness, nutrición y seguimiento de progreso. Este repositorio corresponde al entorno de producción ubicado en `/srv/mykaizenfit/pro`.
+Plataforma web para la gestion de programas de fitness, nutricion, progreso y administracion de usuarios.
 
 <p>
   <a href="https://nextjs.org/" aria-label="Next.js">
@@ -32,177 +32,144 @@ Sistema web para la gestión integral de fitness, nutrición y seguimiento de pr
   </a>
 </p>
 
-## Descripción
+## Descripcion
 
-NexFit365 centraliza la administración de planes de alimentación, programas de entrenamiento, métricas de progreso y usuarios. La aplicación combina un frontend en Next.js con una API Django, base de datos PostgreSQL, Redis y despliegue mediante Docker Compose.
+NexFit365 centraliza la operacion de un servicio digital de entrenamiento y nutricion. El sistema permite crear planes, asignarlos a usuarios, gestionar contenido, consultar metricas de progreso y mantener flujos administrativos desde una aplicacion web moderna.
 
-## Funcionalidades
+El proyecto esta dividido en dos aplicaciones principales:
 
-### Nutrición
+- Frontend: aplicacion Next.js con TypeScript, React, Tailwind CSS y componentes reutilizables.
+- Backend: API Django REST Framework con autenticacion JWT, PostgreSQL, Redis y servicios auxiliares.
 
-- Planes de alimentación personalizados.
-- Biblioteca de recetas con información nutricional.
-- Seguimiento de macronutrientes y calorías.
-- Dashboard nutricional interactivo.
-- Sistema de equivalencias multi-categoría para recomendaciones de sustitución.
-- Gestión administrativa de categorías de equivalencia.
+## Funcionalidades principales
+
+### Usuarios y administracion
+
+- Registro, autenticacion y gestion de sesiones mediante JWT.
+- Roles diferenciados para usuarios, administradores y perfiles operativos.
+- Panel administrativo para gestionar planes, contenidos y datos de usuarios.
+- Flujos de mantenimiento para datos de entrenamiento, nutricion y progreso.
+
+### Nutricion
+
+- Planes de alimentacion personalizados.
+- Biblioteca de recetas con datos nutricionales.
+- Gestion de equivalencias alimentarias para sustituciones.
+- Seguimiento de calorias y macronutrientes.
+- Herramientas administrativas para importar, editar y mantener contenido nutricional.
 
 ### Entrenamientos
 
-- Programas de entrenamiento personalizables.
-- Biblioteca de ejercicios con videos.
-- Seguimiento de progreso y rendimiento.
-- Planes predeterminados y personalizados.
+- Programas y plantillas de entrenamiento.
+- Biblioteca de ejercicios con soporte para recursos multimedia.
+- Asignacion de planes segun configuraciones y objetivos.
+- Seguimiento semanal del cumplimiento y progreso del usuario.
 
-### Progreso
+### Progreso y analitica
 
-- Métricas avanzadas y análisis.
-- Gráficos interactivos.
-- Historial de actividades.
-- Sistema de logros.
+- Registro de metricas corporales y actividad.
+- Dashboards para visualizar evolucion y adherencia.
+- Historial de planes, entrenamientos y datos relevantes.
+- Base funcional para logros, notificaciones y seguimiento operativo.
 
-### Administración y seguridad
+## Stack tecnologico
 
-- Autenticación JWT con tokens de acceso y renovación.
-- Roles de usuario para administración, entrenamiento y cliente.
-- Panel de administración para gestión operativa.
+| Area | Tecnologias |
+| --- | --- |
+| Frontend | Next.js 15, React 19, TypeScript, Tailwind CSS |
+| UI | Radix UI, shadcn/ui patterns, Lucide React, Recharts |
+| Backend | Python, Django 5.2, Django REST Framework |
+| Auth | JWT con `djangorestframework-simplejwt` |
+| Datos | PostgreSQL, Redis |
+| Tareas y cache | Celery, django-redis, django-celery-results |
+| Calidad | Jest, Testing Library, Pytest, ESLint, TypeScript |
+| Despliegue | Docker, Docker Compose, Gunicorn, WhiteNoise |
 
 ## Arquitectura
 
 ```text
-Frontend Next.js 14      Backend Django 4.2       PostgreSQL + Redis
-Port 3000          <-->  Port 8000           <-->  Port 5432
-
-                    Docker Compose en producción
+Frontend              Backend API                 Infraestructura
+Next.js + React  <--> Django REST Framework  <--> PostgreSQL + Redis
 ```
 
-## Estructura del proyecto
+## Estructura del repositorio
 
 ```text
-nexfit365/
-├── frontend/                   # Aplicación Next.js
-│   ├── app/                    # App Router
-│   ├── components/             # Componentes React
-│   ├── hooks/                  # Hooks personalizados
-│   ├── lib/                    # Servicios y utilidades
-│   └── docker.env.example      # Variables de entorno
-│
-├── backend/                    # API Django
-│   ├── accounts/               # Gestión de usuarios
-│   ├── nutrition/              # Nutrición y recetas
-│   ├── workouts/               # Entrenamientos y ejercicios
-│   ├── progress/               # Seguimiento de progreso
-│   ├── achievements/           # Logros
-│   ├── notifications/          # Notificaciones
-│   ├── dashboard/              # Panel de administración
-│   └── docker/                 # Configuración Docker
-│       └── backend.env.example
-│
-├── doc/                        # Documentación
-├── scripts/                    # Scripts de despliegue y mantenimiento
-├── docker-compose.dev.yml      # Stack de desarrollo
-├── docker-compose.prod.yml     # Stack de producción
-└── .gitignore
+.
+|-- backend/                  # API, modelos, servicios y tareas del servidor
+|   |-- accounts/             # Usuarios, autenticacion y perfiles
+|   |-- achievements/         # Logros y progreso asociado
+|   |-- dashboard/            # Servicios para vistas administrativas
+|   |-- notifications/        # Notificaciones
+|   |-- nutrition/            # Planes, recetas y equivalencias
+|   |-- progress/             # Metricas y seguimiento del usuario
+|   `-- workouts/             # Entrenamientos, ejercicios y programas
+|
+|-- frontend/                 # Aplicacion web
+|   |-- app/                  # Rutas y layouts de Next.js
+|   |-- components/           # Componentes de interfaz
+|   |-- hooks/                # Hooks de React
+|   |-- lib/                  # Clientes, utilidades y logica compartida
+|   `-- public/               # Recursos estaticos
+|
+|-- doc/                      # Documentacion complementaria
+|-- scripts/                  # Scripts de soporte operativo
+|-- docker-compose.dev.yml    # Orquestacion para desarrollo
+`-- docker-compose.prod.yml   # Orquestacion para despliegue
 ```
 
-## Guía de iconos tecnológicos
+## Requisitos
 
-Cuando el README o la documentación necesiten mostrar iconos de tecnologías, se debe mantener un estilo uniforme basado en iconos cuadrados con esquinas redondeadas, fondo oscuro y logotipo centrado, similar a los iconos de Skill Icons.
+- Node.js compatible con Next.js 15.
+- Python 3.11 o superior.
+- PostgreSQL.
+- Redis.
+- Docker y Docker Compose para ejecucion contenerizada.
 
-Formato recomendado:
+## Configuracion
 
-```html
-<p>
-  <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,python,django,postgres,redis,docker" alt="Stack tecnológico" height="42" />
-</p>
-```
+El proyecto utiliza variables de entorno para credenciales, endpoints, claves secretas y configuracion de servicios externos.
 
-Buenas prácticas:
+Archivos de referencia:
 
-- Usar iconos solo para tecnologías principales del proyecto.
-- Mantener una altura consistente, preferiblemente entre `40` y `44` píxeles.
-- Incluir siempre texto alternativo descriptivo.
-- Evitar mezclar estilos de iconos, badges y emojis en la misma sección.
-- Mantener un tono profesional y orientado a documentación técnica.
+- `backend/env.example`
+- `backend/env.production.example`
+- `frontend/env.example`
 
-## Inicio rápido con Docker
+Pasos generales:
 
-### Prerrequisitos
+1. Crear los archivos `.env` necesarios a partir de los ejemplos.
+2. Configurar credenciales de base de datos, Redis, JWT, CORS y servicios externos.
+3. Ejecutar migraciones del backend.
+4. Instalar dependencias y levantar frontend y backend.
 
-- Docker y Docker Compose.
-- Git.
-- Acceso a las variables de entorno necesarias para producción.
+No se deben versionar credenciales, rutas internas de servidores ni archivos de entorno reales.
 
-### Preparar el repositorio
+## Ejecucion con Docker
+
+### Desarrollo
 
 ```bash
-cd /srv/mykaizenfit/pro
-git checkout main
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-### Levantar los servicios
+### Produccion
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml up -d --build
 ```
 
-### Acceder a la aplicación
-
-- Frontend: http://localhost:3000
-- Backend API: http://localhost:8000/api
-- Admin Django: http://localhost:8000/admin
-- PostgreSQL: 127.0.0.1:5432
-
-## Comandos útiles
-
-### Docker
-
-```bash
-docker compose -f docker-compose.prod.yml logs -f
-docker compose -f docker-compose.prod.yml restart backend
-docker compose -f docker-compose.prod.yml ps
-```
-
-### Django
-
-```bash
-docker exec pro-backend-1 python manage.py migrate
-docker exec -it pro-backend-1 python manage.py createsuperuser
-docker exec -it pro-backend-1 python manage.py shell
-```
-
-### Base de datos
-
-```bash
-docker exec pro-db-1 pg_dump -U postgres mykaizenfit > backup-prod.sql
-docker exec -i pro-db-1 psql -U postgres mykaizenfit < backup-prod.sql
-```
-
-## Entornos
-
-Producción:
-
-- Ruta: `/srv/mykaizenfit/pro`
-- Rama: `main`
-- Datos persistentes: `/srv/mykaizenfit/pro/data`
-
-Desarrollo:
-
-- Ruta: `/srv/mykaizenfit/dev`
-- Rama: `dev`
-- Datos persistentes: `/srv/mykaizenfit/dev/data`
-
-## Desarrollo local sin Docker
+## Desarrollo local
 
 ### Backend
 
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 python manage.py migrate
-python manage.py runserver 8000
+python manage.py runserver
 ```
 
 ### Frontend
@@ -213,10 +180,36 @@ npm install
 npm run dev
 ```
 
-## Documentación relacionada
+## Calidad y pruebas
 
-- `doc/`: documentación general del proyecto.
-- `doc/backend/`: documentación técnica del backend.
-- `doc/frontend/`: documentación técnica del frontend.
-- `doc/docker/`: documentación de Docker y despliegue.
+### Frontend
+
+```bash
+cd frontend
+npm run lint
+npm run typecheck
+npm test
+```
+
+### Backend
+
+```bash
+cd backend
+pytest
+```
+
+## Convenciones de documentacion
+
+- Mantener un tono profesional, claro y tecnico.
+- No incluir emojis en titulos, commits o contenido del README.
+- No publicar rutas internas del servidor, credenciales, nombres privados de contenedores ni datos operativos sensibles.
+- Usar iconos tecnologicos con un estilo uniforme, preferiblemente `skillicons.dev`, y siempre con texto alternativo.
+- Documentar comandos de forma generica para que funcionen en cualquier clon del repositorio.
+
+## Documentacion relacionada
+
+- `doc/`: documentacion general del proyecto.
+- `doc/backend/`: notas tecnicas del backend.
+- `doc/frontend/`: notas tecnicas del frontend.
+- `doc/docker/`: documentacion de despliegue y contenedores.
 - `scripts/deployment/`: utilidades operativas de despliegue y mantenimiento.
