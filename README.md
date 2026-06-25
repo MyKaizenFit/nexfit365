@@ -1,148 +1,201 @@
-# NexFit365 - Sistema Integral de Fitness y Nutrición
+# NexFit365
 
-[![Next.js](https://img.shields.io/badge/Next.js-14.0-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![Django](https://img.shields.io/badge/Django-4.2-green?style=for-the-badge&logo=django)](https://django.com/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)](https://docker.com/)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-336791?style=for-the-badge&logo=postgresql)](https://postgresql.org/)
+Sistema web para la gestión integral de fitness, nutrición y seguimiento de progreso. Este repositorio corresponde al entorno de producción ubicado en `/srv/mykaizenfit/pro`.
 
-## 🚀 Descripción
+<p>
+  <a href="https://nextjs.org/" aria-label="Next.js">
+    <img src="https://skillicons.dev/icons?i=nextjs" alt="Next.js" height="42" />
+  </a>
+  <a href="https://react.dev/" aria-label="React">
+    <img src="https://skillicons.dev/icons?i=react" alt="React" height="42" />
+  </a>
+  <a href="https://www.typescriptlang.org/" aria-label="TypeScript">
+    <img src="https://skillicons.dev/icons?i=ts" alt="TypeScript" height="42" />
+  </a>
+  <a href="https://tailwindcss.com/" aria-label="Tailwind CSS">
+    <img src="https://skillicons.dev/icons?i=tailwind" alt="Tailwind CSS" height="42" />
+  </a>
+  <a href="https://www.python.org/" aria-label="Python">
+    <img src="https://skillicons.dev/icons?i=python" alt="Python" height="42" />
+  </a>
+  <a href="https://www.djangoproject.com/" aria-label="Django">
+    <img src="https://skillicons.dev/icons?i=django" alt="Django" height="42" />
+  </a>
+  <a href="https://www.postgresql.org/" aria-label="PostgreSQL">
+    <img src="https://skillicons.dev/icons?i=postgres" alt="PostgreSQL" height="42" />
+  </a>
+  <a href="https://redis.io/" aria-label="Redis">
+    <img src="https://skillicons.dev/icons?i=redis" alt="Redis" height="42" />
+  </a>
+  <a href="https://www.docker.com/" aria-label="Docker">
+    <img src="https://skillicons.dev/icons?i=docker" alt="Docker" height="42" />
+  </a>
+</p>
 
-NexFit365 es una aplicación web moderna para la gestión integral de fitness y nutrición. Esta copia corresponde al entorno de **desarrollo** separado de producción.
+## Descripción
 
-## ✨ Características Principales
+NexFit365 centraliza la administración de planes de alimentación, programas de entrenamiento, métricas de progreso y usuarios. La aplicación combina un frontend en Next.js con una API Django, base de datos PostgreSQL, Redis y despliegue mediante Docker Compose.
+
+## Funcionalidades
 
 ### Nutrición
-- Planes de alimentación personalizados
-- Biblioteca de recetas con información nutricional
-- Seguimiento de macros y calorías
-- Dashboard nutricional interactivo
-- **Sistema de equivalencias multi-categoría**: cada alimento puede pertenecer a varias categorías de intercambio; las recomendaciones de sustitución buscan en todas ellas
-- Categorías de equivalencia personalizables por el administrador (crear, editar, eliminar)
+
+- Planes de alimentación personalizados.
+- Biblioteca de recetas con información nutricional.
+- Seguimiento de macronutrientes y calorías.
+- Dashboard nutricional interactivo.
+- Sistema de equivalencias multi-categoría para recomendaciones de sustitución.
+- Gestión administrativa de categorías de equivalencia.
 
 ### Entrenamientos
-- Programas de entrenamiento personalizables
-- Biblioteca de ejercicios con videos
-- Seguimiento de progreso y rendimiento
-- Planes predeterminados y personalizados
+
+- Programas de entrenamiento personalizables.
+- Biblioteca de ejercicios con videos.
+- Seguimiento de progreso y rendimiento.
+- Planes predeterminados y personalizados.
 
 ### Progreso
-- Métricas avanzadas y análisis
-- Gráficos interactivos
-- Historial completo de actividades
-- Sistema de logros y gamificación
 
-### Autenticación
-- JWT seguro con tokens de acceso y renovación
-- Roles de usuario (admin, trainer, user)
-- Panel de administración completo
+- Métricas avanzadas y análisis.
+- Gráficos interactivos.
+- Historial de actividades.
+- Sistema de logros.
+
+### Administración y seguridad
+
+- Autenticación JWT con tokens de acceso y renovación.
+- Roles de usuario para administración, entrenamiento y cliente.
+- Panel de administración para gestión operativa.
 
 ## Arquitectura
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend       │    │   PostgreSQL    │
-│   Next.js 14    │◄──►│   Django 4.2    │◄──►│   + Redis       │
-│   Port: 3000    │    │   Port: 8000    │    │   Port: 5432    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                      │                      │
-         └──────────────────────┴──────────────────────┘
-                        Docker Compose (producción)
+```text
+Frontend Next.js 14      Backend Django 4.2       PostgreSQL + Redis
+Port 3000          <-->  Port 8000           <-->  Port 5432
+
+                    Docker Compose en producción
 ```
 
-## Estructura del Proyecto
+## Estructura del proyecto
 
-```
+```text
 nexfit365/
 ├── frontend/                   # Aplicación Next.js
-│   ├── app/                   # App Router
-│   ├── components/            # Componentes React
-│   ├── hooks/                 # Hooks personalizados
-│   ├── lib/                   # Servicios y utilidades
-│   └── docker.env.example     # Variables de entorno
+│   ├── app/                    # App Router
+│   ├── components/             # Componentes React
+│   ├── hooks/                  # Hooks personalizados
+│   ├── lib/                    # Servicios y utilidades
+│   └── docker.env.example      # Variables de entorno
 │
 ├── backend/                    # API Django
-│   ├── accounts/              # Gestión de usuarios
-│   ├── nutrition/             # Nutrición y recetas
-│   ├── workouts/              # Entrenamientos y ejercicios
-│   ├── progress/              # Seguimiento de progreso
-│   ├── achievements/          # Sistema de logros
-│   ├── notifications/         # Notificaciones
-│   ├── dashboard/             # Panel de admin
-│   └── docker/                # Configuración Docker
+│   ├── accounts/               # Gestión de usuarios
+│   ├── nutrition/              # Nutrición y recetas
+│   ├── workouts/               # Entrenamientos y ejercicios
+│   ├── progress/               # Seguimiento de progreso
+│   ├── achievements/           # Logros
+│   ├── notifications/          # Notificaciones
+│   ├── dashboard/              # Panel de administración
+│   └── docker/                 # Configuración Docker
 │       └── backend.env.example
 │
 ├── doc/                        # Documentación
-│
-├── docker-compose.dev.yml      # Configuración para desarrollo separado
+├── scripts/                    # Scripts de despliegue y mantenimiento
+├── docker-compose.dev.yml      # Stack de desarrollo
+├── docker-compose.prod.yml     # Stack de producción
 └── .gitignore
 ```
 
-## Inicio Rápido con Docker
+## Guía de iconos tecnológicos
+
+Cuando el README o la documentación necesiten mostrar iconos de tecnologías, se debe mantener un estilo uniforme basado en iconos cuadrados con esquinas redondeadas, fondo oscuro y logotipo centrado, similar a los iconos de Skill Icons.
+
+Formato recomendado:
+
+```html
+<p>
+  <img src="https://skillicons.dev/icons?i=nextjs,react,ts,tailwind,python,django,postgres,redis,docker" alt="Stack tecnológico" height="42" />
+</p>
+```
+
+Buenas prácticas:
+
+- Usar iconos solo para tecnologías principales del proyecto.
+- Mantener una altura consistente, preferiblemente entre `40` y `44` píxeles.
+- Incluir siempre texto alternativo descriptivo.
+- Evitar mezclar estilos de iconos, badges y emojis en la misma sección.
+- Mantener un tono profesional y orientado a documentación técnica.
+
+## Inicio rápido con Docker
 
 ### Prerrequisitos
-- Docker y Docker Compose
-- Git
 
-### 1. Clonar y entrar en producción
+- Docker y Docker Compose.
+- Git.
+- Acceso a las variables de entorno necesarias para producción.
+
+### Preparar el repositorio
+
 ```bash
 cd /srv/mykaizenfit/pro
 git checkout main
 ```
 
-### 2. Levantar los servicios
+### Levantar los servicios
+
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
 
-### 3. Acceder a la aplicación
-- **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:8000/api
-- **Backend API**: http://localhost:8000/api
-- **Admin Django**: http://localhost:8000/admin
-- **Postgres**: 127.0.0.1:5432
+### Acceder a la aplicación
 
-## Comandos Útiles
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8000/api
+- Admin Django: http://localhost:8000/admin
+- PostgreSQL: 127.0.0.1:5432
+
+## Comandos útiles
 
 ### Docker
+
 ```bash
-# Ver logs
 docker compose -f docker-compose.prod.yml logs -f
-
-# Reiniciar un servicio
 docker compose -f docker-compose.prod.yml restart backend
-
-# Ejecutar migraciones
-docker exec pro-backend-1 python manage.py migrate
-
-# Crear superusuario
-docker exec -it pro-backend-1 python manage.py createsuperuser
-
-# Acceder al shell de Django
-docker exec -it pro-backend-1 python manage.py shell
-
-# Ver estado de los contenedores
 docker compose -f docker-compose.prod.yml ps
 ```
 
-### Base de datos
-```bash
-# Backup de la base de datos
-docker exec pro-db-1 pg_dump -U postgres mykaizenfit > backup-prod.sql
+### Django
 
-# Restaurar backup
+```bash
+docker exec pro-backend-1 python manage.py migrate
+docker exec -it pro-backend-1 python manage.py createsuperuser
+docker exec -it pro-backend-1 python manage.py shell
+```
+
+### Base de datos
+
+```bash
+docker exec pro-db-1 pg_dump -U postgres mykaizenfit > backup-prod.sql
 docker exec -i pro-db-1 psql -U postgres mykaizenfit < backup-prod.sql
 ```
 
 ## Entornos
 
-Producción vive en `/srv/mykaizenfit/pro`, rama `main`, con datos en `/srv/mykaizenfit/pro/data`.
+Producción:
 
-Desarrollo vive en `/srv/mykaizenfit/dev`, rama `dev`, con datos en `/srv/mykaizenfit/dev/data`.
+- Ruta: `/srv/mykaizenfit/pro`
+- Rama: `main`
+- Datos persistentes: `/srv/mykaizenfit/pro/data`
 
-## Desarrollo Local (sin Docker)
+Desarrollo:
+
+- Ruta: `/srv/mykaizenfit/dev`
+- Rama: `dev`
+- Datos persistentes: `/srv/mykaizenfit/dev/data`
+
+## Desarrollo local sin Docker
 
 ### Backend
+
 ```bash
 cd backend
 python -m venv venv
@@ -153,12 +206,17 @@ python manage.py runserver 8000
 ```
 
 ### Frontend
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-- **`docker-compose.prod.yml`**: stack Docker de producción
-- **`docker-compose.dev.yml`**: stack Docker de desarrollo
-- **`scripts/deployment/`**: utilidades operativas de despliegue y mantenimiento
+## Documentación relacionada
+
+- `doc/`: documentación general del proyecto.
+- `doc/backend/`: documentación técnica del backend.
+- `doc/frontend/`: documentación técnica del frontend.
+- `doc/docker/`: documentación de Docker y despliegue.
+- `scripts/deployment/`: utilidades operativas de despliegue y mantenimiento.
