@@ -48,6 +48,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { fixEncoding, fixEncodingArray } from "@/lib/encoding-fix"
+import { ExerciseCoverUpload } from "@/components/exercise-cover-upload"
+import { getExerciseCoverUrl, getExerciseVideoUrl } from "@/lib/exercise-media"
 
 // Funciones de traducción y capitalización
 const translateCategory = (category: string): string => {
@@ -302,6 +304,8 @@ export function ExerciseManagement() {
     bulkDeleteExercises,
     uploadExerciseVideo,
     uploadExerciseThumbnail,
+    setExerciseCoverUrl,
+    removeExerciseCover,
     getExerciseSubstitutes,
     addExerciseSubstitute,
     removeExerciseSubstitute,
@@ -336,14 +340,16 @@ export function ExerciseManagement() {
     difficulty: '',
     location: 'any',
     instructions: '',
-    video_url: ''
+    video_url: '',
+    image_url: ''
   })
 
-  // Estado para archivos de video y miniatura
+  // Estado para archivos de video y portada
   const [videoFile, setVideoFile] = useState<File | null>(null)
-  const [thumbnailFile, setThumbnailFile] = useState<File | null>(null)
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null)
+  const [pendingCoverPreviewUrl, setPendingCoverPreviewUrl] = useState<string | null>(null)
   const [uploadingVideo, setUploadingVideo] = useState(false)
-  const [uploadingThumbnail, setUploadingThumbnail] = useState(false)
+  const [uploadingCover, setUploadingCover] = useState(false)
 
   // Estado para gestión de sustitutos
   const [showSubstitutesDialog, setShowSubstitutesDialog] = useState(false)
@@ -355,7 +361,7 @@ export function ExerciseManagement() {
   const exerciseHasAssignedVideo = (exercise?: Exercise | null) => Boolean(exercise?.has_video)
 
   const getExerciseVideoPreviewUrl = (exercise?: Exercise | null) =>
-    buildMediaUrl(exercise?.video_display_url) || buildMediaUrl(exercise?.video_file_url) || exercise?.video_url || null
+    getExerciseVideoUrl(exercise) || buildMediaUrl(exercise?.video_display_url) || buildMediaUrl(exercise?.video_file_url) || exercise?.video_url || null
 
   // Asegurar que exercises sea un array
   const exercisesArray = Array.isArray(exercises) ? exercises : []
@@ -493,7 +499,7 @@ export function ExerciseManagement() {
 
       const locationTags = buildTagsWithLocation(formData.location)
 
-      await createExercise({
+      const createdExercise = await createExercise({
         name: formData.name,
         description: formData.description || undefined,
         category: formData.category,
@@ -502,8 +508,13 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
+        image_url: formData.image_url || undefined,
         tags: locationTags
       })
+
+      if (pendingCoverFile) {
+        await uploadExerciseThumbnail(createdExercise.id, pendingCoverFile)
+      }
 
       toast({
         title: "✅ Ejercicio creado",
@@ -553,6 +564,7 @@ export function ExerciseManagement() {
         difficulty: formData.difficulty || undefined,
         instructions: formData.instructions,
         video_url: formData.video_url || undefined,
+        image_url: formData.image_url || undefined,
         tags: locationTags
       })
 
@@ -636,6 +648,7 @@ export function ExerciseManagement() {
       difficulty: exercise.difficulty || '',
       has_video: exercise.has_video ? 'yes' : 'no',
       video_url: exercise.video_url || exercise.video_file_url || '',
+      url_portada: exercise.image_url || exercise.cover_url || exercise.thumbnail_url || '',
     }))
 
     if (rows.length === 0) {
@@ -713,10 +726,15 @@ export function ExerciseManagement() {
       difficulty: '',
       location: 'any',
       instructions: '',
-      video_url: ''
+      video_url: '',
+      image_url: ''
     })
     setVideoFile(null)
-    setThumbnailFile(null)
+    setPendingCoverFile(null)
+    if (pendingCoverPreviewUrl) {
+      URL.revokeObjectURL(pendingCoverPreviewUrl)
+    }
+    setPendingCoverPreviewUrl(null)
   }
 
   const openEditDialog = (exercise: Exercise) => {
@@ -730,7 +748,8 @@ export function ExerciseManagement() {
       difficulty: exercise.difficulty || '',
       location: getLocationFromTags(exercise.tags || []),
       instructions: fixEncoding(exercise.instructions || ''),
-      video_url: exercise.video_url || ''
+      video_url: exercise.video_url || '',
+      image_url: exercise.image_url || ''
     })
   }
 
@@ -881,7 +900,7 @@ export function ExerciseManagement() {
           <DialogHeader>
             <DialogTitle>📥 Importar Ejercicios</DialogTitle>
             <DialogDescription>
-              Sube un archivo CSV o Excel para importar o actualizar ejercicios. Los ejercicios existentes se actualizarán si el nombre coincide.
+              Sube un archivo CSV o Excel para importar o actualizar ejercicios. Los ejercicios existentes se actualizarán si el nombre coincide. Incluye la columna <strong>url_portada</strong> para asignar portadas por URL.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1634,9 +1653,10 @@ export function ExerciseManagement() {
           </DialogHeader>
 
           <Tabs value={currentTab} onValueChange={setCurrentTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="basicos">📋 Básicos</TabsTrigger>
               <TabsTrigger value="musculos">💪 Músculos</TabsTrigger>
+              <TabsTrigger value="medios">🎬 Medios</TabsTrigger>
               <TabsTrigger value="instrucciones">📖 Instrucciones</TabsTrigger>
             </TabsList>
 
@@ -1755,41 +1775,132 @@ export function ExerciseManagement() {
                 />
                 <p className="text-xs text-gray-500 mt-2">💡 Separa cada equipo con una coma</p>
               </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <FormLabel className="font-semibold">URL del Video (opcional)</FormLabel>
-                  <Input
-                    value={formData.video_url}
-                    onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
-                    placeholder="https://drive.google.com/file/d/..."
-                    className="mt-2"
-                  />
-                </div>
-
-
-              </div>
             </TabsContent>
 
-            {/* TAB 3: Instrucciones */}
-            <TabsContent value="instrucciones" className="space-y-4">
-              <div>
-                <FormLabel className="font-semibold">Instrucciones detalladas *</FormLabel>
-                <Textarea
-                  value={formData.instructions}
-                  onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
-                  placeholder="1. Posición inicial...&#10;2. Ejecución del movimiento...&#10;3. Punto de máxima contracción...&#10;4. Retorno..."
-                  rows={8}
-                  className="mt-2 font-mono text-sm"
+            {/* TAB 3: Medios (portada y vídeo) */}
+            <TabsContent value="medios" className="space-y-6">
+              <div className="space-y-3">
+                <FormLabel className="font-semibold text-base">Portada del ejercicio</FormLabel>
+                <p className="text-xs text-muted-foreground">
+                  Imagen profesional visible en la app antes de reproducir el vídeo. También se exporta como columna <strong>url_portada</strong>.
+                </p>
+                <ExerciseCoverUpload
+                  coverUrl={
+                    editingExercise
+                      ? getExerciseCoverUrl(editingExercise)
+                      : pendingCoverPreviewUrl || formData.image_url || null
+                  }
+                  uploading={uploadingCover}
+                  onUploadFile={async (file) => {
+                    if (editingExercise) {
+                      try {
+                        setUploadingCover(true)
+                        const updated = await uploadExerciseThumbnail(editingExercise.id, file)
+                        setEditingExercise(updated)
+                        toast({
+                          title: '✅ Portada subida',
+                          description: 'La portada se ha guardado correctamente',
+                        })
+                        refetch({ silent: true })
+                      } catch (error) {
+                        toast({
+                          title: '❌ Error',
+                          description: error instanceof Error ? error.message : 'Error al subir portada',
+                          variant: 'destructive',
+                        })
+                        throw error
+                      } finally {
+                        setUploadingCover(false)
+                      }
+                      return
+                    }
+
+                    if (pendingCoverPreviewUrl) {
+                      URL.revokeObjectURL(pendingCoverPreviewUrl)
+                    }
+                    setPendingCoverFile(file)
+                    setPendingCoverPreviewUrl(URL.createObjectURL(file))
+                  }}
+                  onSetUrl={async (url) => {
+                    if (editingExercise) {
+                      try {
+                        setUploadingCover(true)
+                        const updated = await setExerciseCoverUrl(editingExercise.id, url)
+                        setEditingExercise(updated)
+                        setFormData((prev) => ({ ...prev, image_url: updated.image_url || url }))
+                        toast({
+                          title: '✅ Portada actualizada',
+                          description: 'La URL de portada se ha guardado correctamente',
+                        })
+                        refetch({ silent: true })
+                      } catch (error) {
+                        toast({
+                          title: '❌ Error',
+                          description: error instanceof Error ? error.message : 'Error al guardar la URL',
+                          variant: 'destructive',
+                        })
+                        throw error
+                      } finally {
+                        setUploadingCover(false)
+                      }
+                      return
+                    }
+
+                    setFormData((prev) => ({ ...prev, image_url: url }))
+                    setPendingCoverFile(null)
+                    if (pendingCoverPreviewUrl) {
+                      URL.revokeObjectURL(pendingCoverPreviewUrl)
+                      setPendingCoverPreviewUrl(null)
+                    }
+                  }}
+                  onRemove={async () => {
+                    if (editingExercise) {
+                      try {
+                        setUploadingCover(true)
+                        const updated = await removeExerciseCover(editingExercise.id)
+                        setEditingExercise(updated)
+                        setFormData((prev) => ({ ...prev, image_url: '' }))
+                        toast({ title: '✅ Portada eliminada' })
+                        refetch({ silent: true })
+                      } finally {
+                        setUploadingCover(false)
+                      }
+                      return
+                    }
+
+                    setFormData((prev) => ({ ...prev, image_url: '' }))
+                    setPendingCoverFile(null)
+                    if (pendingCoverPreviewUrl) {
+                      URL.revokeObjectURL(pendingCoverPreviewUrl)
+                      setPendingCoverPreviewUrl(null)
+                    }
+                  }}
                 />
-                <p className="text-xs text-gray-500 mt-2">💡 Usa números o viñetas para cada paso</p>
               </div>
 
-              {/* Subir archivos - solo si está editando */}
-              {editingExercise && (
-                <>
-                  <div className="border-t pt-4">
-                    <FormLabel className="font-semibold">📹 Subir Video (MP4, WebM, MOV - máx. 300MB)</FormLabel>
+              <div className="space-y-3 border-t pt-4">
+                <FormLabel className="font-semibold text-base">Vídeo del ejercicio</FormLabel>
+                <Input
+                  value={formData.video_url}
+                  onChange={(e) => setFormData(prev => ({ ...prev, video_url: e.target.value }))}
+                  placeholder="https://drive.google.com/file/d/... o YouTube"
+                  className="mt-1"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Pega una URL externa o sube un archivo MP4/WebM/MOV (máx. 300 MB) al editar un ejercicio ya guardado.
+                </p>
+
+                {editingExercise && (
+                  <div
+                    className="rounded-xl border-2 border-dashed border-slate-200 bg-slate-50/60 p-4"
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => {
+                      event.preventDefault()
+                      const file = event.dataTransfer.files?.[0]
+                      if (file) setVideoFile(file)
+                    }}
+                  >
+                    <FormLabel className="font-semibold">Subir vídeo (arrastra o selecciona)</FormLabel>
                     <Input
                       type="file"
                       accept="video/mp4,video/webm,video/ogg,video/quicktime"
@@ -1802,17 +1913,16 @@ export function ExerciseManagement() {
                       </p>
                     )}
                     {exerciseHasAssignedVideo(editingExercise) && !videoFile && (
-                      <div className="mt-2 space-y-2">
-                        <p className="text-sm text-green-600">
-                          ✓ Video asignado y guardado en el servidor
-                        </p>
-                        {getExerciseVideoPreviewUrl(editingExercise) && (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-sm text-green-600">✓ Vídeo asignado en el servidor</p>
+                        {getExerciseVideoPreviewUrl(editingExercise) && !getExerciseVideoPreviewUrl(editingExercise)?.includes('drive.google.com') && (
                           <video
                             key={getExerciseVideoPreviewUrl(editingExercise) || editingExercise.id}
                             src={getExerciseVideoPreviewUrl(editingExercise) || undefined}
                             controls
                             className="w-full max-h-48 rounded-md border bg-black"
                             preload="metadata"
+                            poster={getExerciseCoverUrl(editingExercise) || undefined}
                           />
                         )}
                       </div>
@@ -1829,16 +1939,16 @@ export function ExerciseManagement() {
                             setEditingExercise(updated)
                             setFormData(prev => ({ ...prev, video_url: '' }))
                             toast({
-                              title: "✅ Video subido",
-                              description: "El video se ha guardado correctamente en el servidor",
+                              title: '✅ Vídeo subido',
+                              description: 'El vídeo se ha guardado correctamente en el servidor',
                             })
                             setVideoFile(null)
                             refetch({ silent: true })
                           } catch (error) {
                             toast({
-                              title: "❌ Error al subir video",
-                              description: error instanceof Error ? error.message : "Error al subir video",
-                              variant: "destructive",
+                              title: '❌ Error al subir vídeo',
+                              description: error instanceof Error ? error.message : 'Error al subir vídeo',
+                              variant: 'destructive',
                             })
                           } finally {
                             setUploadingVideo(false)
@@ -1848,60 +1958,27 @@ export function ExerciseManagement() {
                         className="mt-2"
                       >
                         {uploadingVideo && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        Subir Video
+                        Subir vídeo
                       </Button>
                     )}
                   </div>
+                )}
+              </div>
+            </TabsContent>
 
-                  <div>
-                    <FormLabel className="font-semibold">🖼️ Subir Miniatura (JPG, PNG, WebP - máx. 5MB)</FormLabel>
-                    <Input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
-                      className="cursor-pointer mt-2"
-                    />
-                    {thumbnailFile && (
-                      <p className="text-sm text-blue-600 mt-2">
-                        ✓ Seleccionado: {thumbnailFile.name} ({(thumbnailFile.size / 1024 / 1024).toFixed(2)} MB)
-                      </p>
-                    )}
-                    {thumbnailFile && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={async () => {
-                          try {
-                            setUploadingThumbnail(true)
-                            const updated = await uploadExerciseThumbnail(editingExercise.id, thumbnailFile)
-                            setEditingExercise(updated)
-                            toast({
-                              title: "✅ Miniatura subida",
-                              description: "La miniatura se ha subido correctamente",
-                            })
-                            setThumbnailFile(null)
-                            refetch({ silent: true })
-                          } catch (error) {
-                            toast({
-                              title: "❌ Error",
-                              description: error instanceof Error ? error.message : "Error al subir miniatura",
-                              variant: "destructive",
-                            })
-                          } finally {
-                            setUploadingThumbnail(false)
-                          }
-                        }}
-                        disabled={uploadingThumbnail}
-                        className="mt-2"
-                      >
-                        {uploadingThumbnail && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                        Subir Miniatura
-                      </Button>
-                    )}
-                  </div>
-                </>
-              )}
+            {/* TAB 4: Instrucciones */}
+            <TabsContent value="instrucciones" className="space-y-4">
+              <div>
+                <FormLabel className="font-semibold">Instrucciones detalladas *</FormLabel>
+                <Textarea
+                  value={formData.instructions}
+                  onChange={(e) => setFormData(prev => ({ ...prev, instructions: e.target.value }))}
+                  placeholder="1. Posición inicial...&#10;2. Ejecución del movimiento...&#10;3. Punto de máxima contracción...&#10;4. Retorno..."
+                  rows={8}
+                  className="mt-2 font-mono text-sm"
+                />
+                <p className="text-xs text-gray-500 mt-2">💡 Usa números o viñetas para cada paso</p>
+              </div>
             </TabsContent>
           </Tabs>
 

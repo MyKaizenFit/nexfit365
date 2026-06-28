@@ -87,6 +87,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# ===== Cursor / Codex / agentes locales =====
+.cursor/*
+!.cursor/skills/
+!.cursor/skills/**
+!.cursor/rules/
+!.cursor/rules/**
+.codex/
+.agents/
+
 # ===== IDE y editores =====
 .idea/
 .vscode/

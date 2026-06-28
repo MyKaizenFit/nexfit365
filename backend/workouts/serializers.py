@@ -39,12 +39,22 @@ def build_exercise_video_display_url(serializer, exercise) -> str | None:
     return exercise.get_video_url()
 
 
+def build_exercise_cover_url(serializer, exercise) -> str | None:
+    """Portada del ejercicio: miniatura subida o URL externa."""
+    thumbnail = build_absolute_file_url(serializer, getattr(exercise, "thumbnail", None))
+    if thumbnail:
+        return thumbnail
+    image_url = (getattr(exercise, "image_url", None) or "").strip()
+    return image_url or None
+
+
 class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer para ejercicios"""
     has_video = serializers.BooleanField(read_only=True)
     video_display_url = serializers.SerializerMethodField()
     video_file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    cover_url = serializers.SerializerMethodField()
     substitutes = serializers.SerializerMethodField()
     
     class Meta:
@@ -52,13 +62,17 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
         fields = [
             "id", "name", "description", "instructions",
             "category", "muscle_groups", "equipment", "difficulty",
-            "video_url", "video_file_url", "image_url", "thumbnail_url", "google_drive_file_id",
+            "video_url", "video_file_url", "image_url", "thumbnail_url", "cover_url",
+            "google_drive_file_id",
             "has_video", "video_display_url",
             "substitutes",
             "is_system", "is_active", "tags",
             "created_at", "updated_at"
         ]
-        read_only_fields = ["id", "has_video", "video_display_url", "video_file_url", "thumbnail_url", "created_at", "updated_at"]
+        read_only_fields = [
+            "id", "has_video", "video_display_url", "video_file_url",
+            "thumbnail_url", "cover_url", "created_at", "updated_at",
+        ]
     
     def get_video_display_url(self, obj) -> str | None:
         """Retorna la URL del video"""
@@ -69,6 +83,9 @@ class ExerciseSerializer(EncodingFixMixin, serializers.ModelSerializer):
 
     def get_thumbnail_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.thumbnail)
+
+    def get_cover_url(self, obj) -> str | None:
+        return build_exercise_cover_url(self, obj)
 
     def get_substitutes(self, obj) -> list:
         try:
@@ -84,13 +101,14 @@ class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer
     video_display_url = serializers.SerializerMethodField()
     video_file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    cover_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Exercise
         fields = [
             "id", "name", "category", "muscle_groups", "equipment", "difficulty",
             "description", "instructions",
-            "video_url", "video_file_url", "image_url", "thumbnail_url",
+            "video_url", "video_file_url", "image_url", "thumbnail_url", "cover_url",
             "google_drive_file_id", "has_video", "video_display_url",
         ]
 
@@ -104,6 +122,9 @@ class ExerciseSubstituteSerializer(EncodingFixMixin, serializers.ModelSerializer
     def get_thumbnail_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.thumbnail)
 
+    def get_cover_url(self, obj) -> str | None:
+        return build_exercise_cover_url(self, obj)
+
 
 class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     """Serializer minimal para listas - incluye datos de video para reproducción"""
@@ -111,6 +132,7 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
     video_display_url = serializers.SerializerMethodField()
     video_file_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
+    cover_url = serializers.SerializerMethodField()
     substitutes = serializers.SerializerMethodField()
     
     class Meta:
@@ -118,7 +140,7 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
         fields = [
             "id", "name", "category", "muscle_groups", "difficulty",
             "description", "instructions",
-            "video_url", "video_file_url", "image_url", "thumbnail_url",
+            "video_url", "video_file_url", "image_url", "thumbnail_url", "cover_url",
             "google_drive_file_id", "has_video", "video_display_url",
             "substitutes",
         ]
@@ -132,6 +154,9 @@ class ExerciseMinimalSerializer(EncodingFixMixin, serializers.ModelSerializer):
 
     def get_thumbnail_url(self, obj) -> str | None:
         return build_absolute_file_url(self, obj.thumbnail)
+
+    def get_cover_url(self, obj) -> str | None:
+        return build_exercise_cover_url(self, obj)
 
     def get_substitutes(self, obj) -> list:
         try:

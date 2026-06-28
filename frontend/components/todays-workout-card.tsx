@@ -16,6 +16,7 @@ import {
   Shield
 } from 'lucide-react'
 import { ExerciseVideoPlayer } from './exercise-video-player'
+import { getExerciseCoverUrl } from '@/lib/exercise-media'
 import { ActiveWorkoutSession } from './active-workout-session'
 import { toast } from '@/hooks/use-toast'
 import { useWorkouts } from '@/hooks/use-workouts'
@@ -468,20 +469,26 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
                     </div>
 
                     {/* Thumbnail del ejercicio si existe */}
-                    {(mainExerciseData.thumbnail_url || mainExerciseData.image_url) && (
+                    {(() => {
+                      const coverUrl = getExerciseCoverUrl(mainExerciseData)
+                      if (!coverUrl) return null
+                      return (
                       <ExerciseVideoPlayer exercise={mainExerciseData}>
-                        <div className="mt-2 relative w-32 h-20 bg-muted rounded overflow-hidden cursor-pointer hover:opacity-80 transition-opacity border border-border">
+                        <div className="mt-2 relative w-full max-w-xs aspect-video bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity border border-border shadow-sm">
                           <img
-                            src={mainExerciseData.thumbnail_url || mainExerciseData.image_url}
+                            src={coverUrl}
                             alt={mainExerciseData.name}
                             className="w-full h-full object-cover"
                           />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20 hover:bg-black/30 transition-colors">
-                            <Play className="h-6 w-6 text-white drop-shadow-lg" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/25 hover:bg-black/35 transition-colors">
+                            <div className="rounded-full bg-white/90 p-2.5 shadow">
+                              <Play className="h-5 w-5 text-foreground" />
+                            </div>
                           </div>
                         </div>
                       </ExerciseVideoPlayer>
-                    )}
+                      )
+                    })()}
 
                     {/* Notas si existen */}
                     {exercise.notes && (

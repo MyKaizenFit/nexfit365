@@ -128,6 +128,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                     'dificultad': 'difficulty',
                     'video_url': 'video_url',
                     'url_video': 'video_url',
+                    'image_url': 'image_url',
+                    'url_portada': 'image_url',
+                    'url_imagen': 'image_url',
+                    'portada_url': 'image_url',
                     'google_drive_file_id': 'google_drive_file_id',
                     'google_drive_id_archivo': 'google_drive_file_id',
                     'is_system': 'is_system',
@@ -229,6 +233,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             'equipment': [normalize_code(e, equipment_es_to_code) for e in raw_equipment],
                             'difficulty': normalize_code(str(get_value(row, 'difficulty', '') or '').strip(), difficulty_es_to_code),
                             'video_url': str(get_value(row, 'video_url', '') or '').strip(),
+                            'image_url': str(get_value(row, 'image_url', '') or '').strip(),
                             'google_drive_file_id': str(get_value(row, 'google_drive_file_id', '') or '').strip(),
                             'is_system': to_bool(get_value(row, 'is_system', ''), default=False),
                             'is_active': to_bool(get_value(row, 'is_active', ''), default=True),
@@ -328,6 +333,10 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                     'dificultad': 'difficulty',
                     'video_url': 'video_url',
                     'url_video': 'video_url',
+                    'image_url': 'image_url',
+                    'url_portada': 'image_url',
+                    'url_imagen': 'image_url',
+                    'portada_url': 'image_url',
                     'google_drive_file_id': 'google_drive_file_id',
                     'google_drive_id_archivo': 'google_drive_file_id',
                     'is_system': 'is_system',
@@ -456,6 +465,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                             'equipment': [normalize_code(e, equipment_es_to_code) for e in raw_equipment],
                             'difficulty': normalize_code(clean_str(row_dict.get('difficulty', '')), difficulty_es_to_code),
                             'video_url': clean_str(row_dict.get('video_url', '')),
+                            'image_url': clean_str(row_dict.get('image_url', '')),
                             'google_drive_file_id': clean_str(row_dict.get('google_drive_file_id', '')),
                             'is_system': to_bool(row_dict.get('is_system', False)),
                             'is_active': to_bool(row_dict.get('is_active', True)),
@@ -517,7 +527,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
         
             fieldnames = [
                 'nombre', 'descripción', 'instrucciones', 'categoría', 'grupos_musculares',
-                'equipamiento', 'dificultad', 'url_video', 'google_drive_id_archivo',
+                'equipamiento', 'dificultad', 'url_video', 'url_portada', 'google_drive_id_archivo',
                 'es_del_sistema', 'está_activo', 'etiquetas'
             ]
             writer = csv.DictWriter(response, fieldnames=fieldnames)
@@ -578,6 +588,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                     'equipamiento': ','.join([to_spanish_label(eq, equipment_code_to_es) for eq in (exercise.equipment or [])]),
                     'dificultad': to_spanish_label(exercise.difficulty, difficulty_code_to_es),
                     'url_video': exercise.video_url or '',
+                    'url_portada': exercise.image_url or '',
                     'google_drive_id_archivo': exercise.google_drive_file_id or '',
                     'es_del_sistema': 'Sí' if (exercise.is_system if hasattr(exercise, 'is_system') else False) else 'No',
                     'está_activo': 'Sí' if (exercise.is_active if hasattr(exercise, 'is_active') else True) else 'No',
@@ -605,7 +616,7 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
         
             headers = [
                 'nombre', 'descripción', 'instrucciones', 'categoría', 'grupos_musculares',
-                'equipamiento', 'dificultad', 'url_video', 'google_drive_id_archivo',
+                'equipamiento', 'dificultad', 'url_video', 'url_portada', 'google_drive_id_archivo',
                 'es_del_sistema', 'está_activo', 'etiquetas'
             ]
 
@@ -685,10 +696,11 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
                 worksheet.write(row_idx, 5, ','.join([to_spanish_label(eq, equipment_code_to_es) for eq in (exercise.equipment or [])]))
                 worksheet.write(row_idx, 6, to_spanish_label(exercise.difficulty, difficulty_code_to_es))
                 worksheet.write(row_idx, 7, exercise.video_url or '')
-                worksheet.write(row_idx, 8, exercise.google_drive_file_id or '')
-                worksheet.write(row_idx, 9, 'Sí' if getattr(exercise, 'is_system', False) else 'No')
-                worksheet.write(row_idx, 10, 'Sí' if getattr(exercise, 'is_active', True) else 'No')
-                worksheet.write(row_idx, 11, ','.join(exercise.tags or []))
+                worksheet.write(row_idx, 8, exercise.image_url or '')
+                worksheet.write(row_idx, 9, exercise.google_drive_file_id or '')
+                worksheet.write(row_idx, 10, 'Sí' if getattr(exercise, 'is_system', False) else 'No')
+                worksheet.write(row_idx, 11, 'Sí' if getattr(exercise, 'is_active', True) else 'No')
+                worksheet.write(row_idx, 12, ','.join(exercise.tags or []))
             
             # Ajustar ancho de columnas
             worksheet.set_column('A:A', 30)  # name
@@ -835,6 +847,34 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
 
         exercise.thumbnail = thumbnail
         exercise.save(update_fields=['thumbnail', 'updated_at'])
+        serializer = self.get_serializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='set-cover-url')
+    def set_cover_url(self, request, pk=None):
+        """Asigna portada por URL externa (image_url)."""
+        exercise = self.get_object()
+        image_url = (request.data.get('image_url') or '').strip()
+        exercise.image_url = image_url
+        exercise.save(update_fields=['image_url', 'updated_at'])
+        serializer = self.get_serializer(exercise)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'], url_path='remove-cover')
+    def remove_cover(self, request, pk=None):
+        """Elimina portada subida y/o URL externa."""
+        exercise = self.get_object()
+        update_fields = ['updated_at']
+        if exercise.thumbnail:
+            previous = exercise.thumbnail.name
+            exercise.thumbnail = None
+            update_fields.append('thumbnail')
+            if previous:
+                _delete_stored_file(previous)
+        if exercise.image_url:
+            exercise.image_url = ''
+            update_fields.append('image_url')
+        exercise.save(update_fields=update_fields)
         serializer = self.get_serializer(exercise)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
