@@ -18,6 +18,7 @@ import type { WorkoutLog } from "@/hooks/use-workouts"
 
 interface WorkoutHistoryEnhancedProps {
   workoutLogs: WorkoutLog[]
+  showAdminDetails?: boolean
 }
 
 interface ExerciseStats {
@@ -91,7 +92,7 @@ const fixEncoding = (text: string): string => {
   return fixed
 }
 
-export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedProps) {
+export function WorkoutHistoryEnhanced({ workoutLogs, showAdminDetails = false }: WorkoutHistoryEnhancedProps) {
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'all'>('month')
 
@@ -332,7 +333,15 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
         tonnage: Math.round(exerciseTonnage),
         pr: maxWeight,
         rem: maxReps,
-        setsData: sets.filter((s: any) => s.completed)
+        setsData: sets.filter((s: any) => s.completed),
+        isSubstitute: Boolean(
+          exerciseData.original_exercise_id
+          && String(exerciseData.original_exercise_id) !== String(exerciseData.exercise_id)
+        ),
+        originalExerciseId: exerciseData.original_exercise_id
+          ? String(exerciseData.original_exercise_id)
+          : null,
+        originalExerciseName: exerciseData.original_exercise_name || null,
       }
     })
   }
@@ -457,7 +466,14 @@ export function WorkoutHistoryEnhanced({ workoutLogs }: WorkoutHistoryEnhancedPr
                               {exerciseDetails.map((exercise: any, idx: number) => (
                                 <div key={idx} className="p-3 bg-muted rounded-lg">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
+                                    <div className="flex flex-col gap-1">
+                                      <span className="font-medium text-sm">{fixEncoding(exercise.name)}</span>
+                                      {showAdminDetails && exercise.isSubstitute && (
+                                        <Badge variant="outline" className="w-fit bg-amber-50 text-amber-800 border-amber-200 text-[10px]">
+                                          Sustituto en lugar de {fixEncoding(exercise.originalExerciseName || `ejercicio #${exercise.originalExerciseId}`)}
+                                        </Badge>
+                                      )}
+                                    </div>
                                     <div className="flex items-center gap-3 text-xs">
                                       {exercise.pr > 0 && (
                                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">

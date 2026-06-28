@@ -1155,6 +1155,16 @@ def daily_meal_selections(request):
             'fat': float(fat) if fat else 0,
             'custom_description': custom_description,
         }
+        substitution_details = data.get('substitution_details')
+        if substitution_details is not None:
+            if isinstance(substitution_details, str):
+                try:
+                    import json
+                    substitution_details = json.loads(substitution_details)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    substitution_details = []
+            if isinstance(substitution_details, list):
+                defaults['substitution_details'] = substitution_details
         if photo_file:
             defaults['photo'] = photo_file
 
@@ -1752,6 +1762,7 @@ def monthly_meal_selections(request):
                         'carbs': selection_data.get('carbs', 0) if is_completed else 0,
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
+                        'substitution_details': selection_data.get('substitution_details') or [],
                     }
                 )
                 
@@ -1915,6 +1926,7 @@ def weekly_meal_selections(request):
                         'carbs': selection_data.get('carbs', 0) if is_completed else 0,
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
+                        'substitution_details': selection_data.get('substitution_details') or [],
                     }
                 )
                 

@@ -20,6 +20,7 @@ urlpatterns = [
     # Gestión directa de planes y logs de usuarios
     path('users/<int:user_id>/plan/', admin_views.admin_user_plan, name='admin-user-plan'),
     path('users/<int:user_id>/plan-history/', admin_views.admin_user_plan_history, name='admin-user-plan-history'),
+    path('users/<int:user_id>/daily-meal-status/', admin_views.admin_user_daily_meal_status, name='admin-user-daily-meal-status'),
     path('users/<int:user_id>/meal-logs/', admin_views.admin_user_meal_logs, name='admin-user-meal-logs'),
     path('users/<int:user_id>/meal-logs/<uuid:log_id>/', admin_views.admin_user_meal_log_detail, name='admin-user-meal-log-detail'),
     # Estadísticas y historial general de planes de usuarios

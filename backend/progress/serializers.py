@@ -166,12 +166,33 @@ class WeightEntrySerializer(serializers.ModelSerializer):
         user.weight = validated_data["weight"]
         user.save(update_fields=["weight"])
 
-        return WeightEntry.objects.create(
+        entry = WeightEntry.objects.create(
             user=user,
             weight=validated_data["weight"],
             date=validated_data["date"],
             notes=validated_data.get("notes", ""),
         )
+
+        try:
+            from notifications.utils import notify_admins_user_change
+            notify_admins_user_change(
+                user=user,
+                title='🔔 Usuario registró peso',
+                message=(
+                    f"{user.email} registró {validated_data['weight']} kg "
+                    f"el {validated_data['date'].strftime('%d/%m/%Y')}"
+                ),
+                data={
+                    'category': 'weight_entry',
+                    'weight': str(validated_data['weight']),
+                    'date': validated_data['date'].isoformat(),
+                    'source': 'progress',
+                },
+            )
+        except Exception:
+            pass
+
+        return entry
     
     def validate_weight(self, value):
         # Convertir a Decimal si es necesario
