@@ -20,6 +20,8 @@ export interface Exercise {
   video_display_url?: string
   thumbnail?: string
   thumbnail_url?: string
+  image_url?: string
+  cover_url?: string
   has_video?: boolean
   google_drive_file_id?: string
   is_system?: boolean
@@ -45,6 +47,7 @@ export interface CreateExerciseData {
   difficulty?: string
   instructions: string
   video_url?: string
+  image_url?: string
   tags?: string[]
 }
 
@@ -622,6 +625,70 @@ export const useAdminExercises = () => {
     }
   }
 
+  const setExerciseCoverUrl = async (exerciseId: number | string, imageUrl: string): Promise<Exercise> => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/set-cover-url/`), {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: imageUrl }),
+      })
+
+      if (response.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (!newHeaders) throw new Error('Sesión expirada')
+        headers = newHeaders
+        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/set-cover-url/`), {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ image_url: imageUrl }),
+        })
+      }
+
+      if (!response.ok) throw new Error(await readUploadError(response))
+      const updatedExercise = await response.json()
+      setExercises(prev => prev.map(exercise =>
+        String(exercise.id) === String(exerciseId) ? updatedExercise : exercise
+      ))
+      return updatedExercise
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
+  const removeExerciseCover = async (exerciseId: number | string): Promise<Exercise> => {
+    try {
+      let headers = await getAuthHeaders()
+      let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove-cover/`), {
+        method: 'POST',
+        headers,
+      })
+
+      if (response.status === 401) {
+        const newHeaders = await handle401AndRefresh(getAuthHeaders)
+        if (!newHeaders) throw new Error('Sesión expirada')
+        headers = newHeaders
+        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove-cover/`), {
+          method: 'POST',
+          headers,
+        })
+      }
+
+      if (!response.ok) throw new Error(await readUploadError(response))
+      const updatedExercise = await response.json()
+      setExercises(prev => prev.map(exercise =>
+        String(exercise.id) === String(exerciseId) ? updatedExercise : exercise
+      ))
+      return updatedExercise
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Error desconocido'
+      setError(errorMessage)
+      throw new Error(errorMessage)
+    }
+  }
+
   const bulkCreateExercises = async (exercises: CreateExerciseData[]): Promise<{ success: boolean; created: number; updated: number; errors: any[] }> => {
     try {
       let headers = await getAuthHeaders()
@@ -751,6 +818,8 @@ export const useAdminExercises = () => {
     bulkCreateExercises,
     uploadExerciseVideo,
     uploadExerciseThumbnail,
+    setExerciseCoverUrl,
+    removeExerciseCover,
     getExerciseSubstitutes,
     addExerciseSubstitute,
     removeExerciseSubstitute,

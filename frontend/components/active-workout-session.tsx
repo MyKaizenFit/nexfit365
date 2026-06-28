@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { toast } from '@/hooks/use-toast'
 import { ExerciseVideoPlayer } from './exercise-video-player'
+import { ExerciseCoverThumbnail } from './exercise-cover-thumbnail'
 import { cn } from '@/lib/utils'
 
 // =============================================
@@ -1460,7 +1461,12 @@ export function ActiveWorkoutSession({
                       : 'bg-card border-border hover:border-purple-400/60'
                   )}
                 >
-                  <CardContent className="p-4">
+                  <CardContent className="p-0">
+                    <ExerciseCoverThumbnail
+                      exercise={mainExercise}
+                      className="mx-3 mt-3 h-36 w-[calc(100%-1.5rem)] rounded-xl border border-border/70 shadow-inner md:h-44"
+                    />
+                    <div className="p-4">
                     <div className="flex items-start gap-3">
                       {/* Info del ejercicio */}
                       <div className="flex-1">
@@ -1641,6 +1647,7 @@ export function ActiveWorkoutSession({
                           </div>
                         </div>
                       </div>
+                    </div>
                     </div>
                   </CardContent>
                 </Card>

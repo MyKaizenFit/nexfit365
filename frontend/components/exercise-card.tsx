@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button'
 import { Play, Dumbbell, Target, BarChart3 } from 'lucide-react'
 import { ExerciseVideoPlayer } from './exercise-video-player'
 import Image from 'next/image'
+import { getExerciseCoverUrl, type ExerciseMediaLike } from '@/lib/exercise-media'
 
 interface ExerciseCardProps {
-  exercise: {
+  exercise: ExerciseMediaLike & {
     id: string
     name: string
     description?: string
@@ -17,13 +18,6 @@ interface ExerciseCardProps {
     equipment?: string[]
     difficulty?: string
     instructions?: string
-    video_display_url?: string
-    video_file_url?: string
-    video_url?: string
-    thumbnail_url?: string
-    image_url?: string
-    has_video?: boolean
-    google_drive_file_id?: string
   }
   showDetails?: boolean
   className?: string
@@ -36,7 +30,8 @@ const difficultyLabels: Record<string, { label: string; color: string }> = {
 }
 
 export function ExerciseCard({ exercise, showDetails = true, className }: ExerciseCardProps) {
-  const hasVisual = exercise.has_video || exercise.thumbnail_url || exercise.image_url
+  const coverUrl = getExerciseCoverUrl(exercise)
+  const hasVisual = exercise.has_video || Boolean(coverUrl)
   const difficultyInfo = exercise.difficulty ? difficultyLabels[exercise.difficulty] : null
 
   return (
@@ -65,16 +60,16 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
       </CardHeader>
 
       <CardContent className="space-y-3 md:space-y-4 pt-0 px-3 md:px-6 pb-3 md:pb-6">
-        {/* Thumbnail o imagen */}
         {hasVisual && (
           <ExerciseVideoPlayer exercise={exercise}>
             <div className="relative w-full aspect-video bg-gray-100 rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity touch-manipulation">
-              {exercise.thumbnail_url || exercise.image_url ? (
+              {coverUrl ? (
                 <Image
-                  src={exercise.thumbnail_url || exercise.image_url || ''}
+                  src={coverUrl}
                   alt={exercise.name}
                   fill
                   className="object-cover"
+                  unoptimized
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-purple-500 to-blue-500">
@@ -90,7 +85,6 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </ExerciseVideoPlayer>
         )}
 
-        {/* Categoría */}
         {exercise.category && (
           <div className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground">
             <Target className="w-3.5 h-3.5 md:w-4 md:h-4 flex-shrink-0" />
@@ -98,7 +92,6 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </div>
         )}
 
-        {/* Muscle groups */}
         {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
           <div>
             <p className="text-xs md:text-sm font-semibold md:font-medium mb-2 flex items-center gap-2">
@@ -115,7 +108,6 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </div>
         )}
 
-        {/* Equipment */}
         {showDetails && exercise.equipment && exercise.equipment.length > 0 && (
           <div>
             <p className="text-xs md:text-sm font-semibold md:font-medium mb-2 flex items-center gap-2">
@@ -132,7 +124,6 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </div>
         )}
 
-        {/* Instructions */}
         {showDetails && exercise.instructions && (
           <div>
             <p className="text-xs md:text-sm font-semibold md:font-medium mb-2">📋 Instrucciones:</p>
@@ -142,7 +133,6 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
           </div>
         )}
 
-        {/* Botón de ver video si hay video */}
         {exercise.has_video && (
           <ExerciseVideoPlayer exercise={exercise}>
             <Button variant="outline" className="w-full touch-manipulation active:scale-[0.98]" size="sm">
@@ -155,4 +145,3 @@ export function ExerciseCard({ exercise, showDetails = true, className }: Exerci
     </Card>
   )
 }
-
