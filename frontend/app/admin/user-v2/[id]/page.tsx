@@ -51,6 +51,7 @@ import { UserProgressOverview } from "../../components/user-progress-overview"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
 import { UserNotifications } from "../../components/user-notifications"
+import { UserMealActivityPanel } from "../../components/user-meal-activity-panel"
 
 const UNSAVED_WORKOUT_CHANGES_MESSAGE = "Hay cambios sin guardar. ¿Quieres salir sin guardar?"
 
@@ -107,6 +108,20 @@ interface PremiumAlerts {
     rating: number | null
     message: string | null
   } | null
+  recent_substitute_usage?: number
+  latest_substitute_events?: Array<{
+    date: string | null
+    performed_exercise_name?: string | null
+    original_exercise_name?: string | null
+    max_weight_kg?: number | null
+    original_exercise_id?: string
+  }>
+  recent_weight_updates?: number
+  latest_weight_updates?: Array<{
+    date: string
+    weight: number
+    notes?: string | null
+  }>
   pending_total: number
   has_pending: boolean
 }
@@ -1647,6 +1662,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                       </p>
                     </div>
                     <WorkoutHistoryEnhanced 
+                      showAdminDetails
                       workoutLogs={workouts.logs.map(log => ({
                         id: log.id,
                         user: userId || "",
@@ -1675,6 +1691,8 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                 )}
               </CardContent>
             </Card>
+
+            {userId ? <UserMealActivityPanel userId={userId} /> : null}
 
             {/* Información de cuenta y actividad */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1746,7 +1764,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                   <CardDescription>Resumen de señales priorizadas para revisión del usuario premium</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div className="rounded-lg border p-3 bg-white">
                       <p className="text-xs text-muted-foreground">Pendientes totales</p>
                       <p className="text-xl font-semibold">{premiumPendingTotal}</p>
@@ -1763,7 +1781,47 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                       <p className="text-xs text-muted-foreground">Feedback entreno</p>
                       <p className="text-xl font-semibold">{premiumAlerts?.recent_workout_feedback ?? 0}</p>
                     </div>
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">Sustitutos</p>
+                      <p className="text-xl font-semibold">{premiumAlerts?.recent_substitute_usage ?? 0}</p>
+                    </div>
+                    <div className="rounded-lg border p-3 bg-white">
+                      <p className="text-xs text-muted-foreground">Actualiz. peso</p>
+                      <p className="text-xl font-semibold">{premiumAlerts?.recent_weight_updates ?? 0}</p>
+                    </div>
                   </div>
+
+                  {(premiumAlerts?.latest_substitute_events?.length || premiumAlerts?.latest_weight_updates?.length) ? (
+                    <div className="mt-4 space-y-3">
+                      {premiumAlerts.latest_substitute_events?.length ? (
+                        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                          <p className="text-sm font-semibold text-amber-900 mb-2">Ejercicios sustitutos recientes</p>
+                          <ul className="space-y-1 text-xs text-amber-900">
+                            {premiumAlerts.latest_substitute_events.map((event, idx) => (
+                              <li key={`sub-${idx}`}>
+                                {event.date}: sustituto <strong>{event.performed_exercise_name || "—"}</strong>
+                                {" en lugar de "}
+                                {event.original_exercise_name || "ejercicio planificado"}
+                                {event.max_weight_kg ? ` · ${event.max_weight_kg} kg` : ""}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                      {premiumAlerts.latest_weight_updates?.length ? (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                          <p className="text-sm font-semibold text-blue-900 mb-2">Actualizaciones de peso corporal</p>
+                          <ul className="space-y-1 text-xs text-blue-900">
+                            {premiumAlerts.latest_weight_updates.map((entry, idx) => (
+                              <li key={`weight-${idx}`}>
+                                {entry.date}: {entry.weight} kg
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             ) : null}

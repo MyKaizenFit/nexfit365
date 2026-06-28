@@ -43,6 +43,25 @@ export interface AdminMealLog {
   fat?: number
   recipe_name?: string
   notes?: string
+  completed?: boolean
+  is_skipped?: boolean
+  substitution_details?: Array<Record<string, unknown>>
+  custom_description?: string
+  recipe_changed?: boolean
+}
+
+export interface AdminDailyMealSlot {
+  plan_meal_id?: string | null
+  name: string
+  meal_type: string
+  suggested_recipe_name?: string | null
+  status: "completed" | "pending" | "skipped" | "missing"
+  log?: AdminMealLog | null
+}
+
+export interface AdminDailyMealStatus {
+  date: string
+  slots: AdminDailyMealSlot[]
 }
 
 interface HookState {
