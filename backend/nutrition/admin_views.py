@@ -32,6 +32,7 @@ from .admin_serializers import (
 from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 from .serializers import AdminCommunityRecipePostSerializer
 from .services import PersonalizedNutritionService
+from .views import get_active_plan_for_user
 from notifications.models import Notification
 
 User = get_user_model()
@@ -4486,6 +4487,142 @@ def admin_user_plan_history(request, user_id: int):
         'user_id': user.id,
         'count': len(serializer.data),
         'history': serializer.data,
+    })
+
+
+@api_view(['GET'])
+@perm_classes([IsAdminUser])
+def admin_user_daily_meal_status(request, user_id: int):
+    """
+    Estado diario de comidas del usuario para admin: slots del plan + logs reales.
+    Query params: start_date, end_date (YYYY-MM-DD). Por defecto últimos 7 días.
+    """
+    from nutrition.plan_week_utils import resolve_plan_week_number
+    from nutrition.plan_meal_utils import resolve_meals_for_calendar_day
+
+    user = get_object_or_404(User, pk=user_id)
+    today = timezone.localdate()
+
+    def _parse_date(value, fallback):
+        if not value:
+            return fallback
+        try:
+            return datetime.strptime(value, '%Y-%m-%d').date()
+        except ValueError:
+            return fallback
+
+    end_date = _parse_date(request.query_params.get('end_date'), today)
+    start_date = _parse_date(request.query_params.get('start_date'), end_date - timedelta(days=6))
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    plan = get_active_plan_for_user(user)
+    all_plan_meals = []
+    if plan:
+        plan = NutritionPlan.objects.filter(pk=plan.pk).prefetch_related(
+            'meals__meal_recipes__recipe',
+        ).first()
+        all_plan_meals = list(plan.meals.all()) if plan else []
+
+    logs_qs = MealLog.objects.filter(
+        user=user,
+        date__range=(start_date, end_date),
+    ).select_related('recipe', 'plan_meal').order_by('date', 'plan_meal__order_index', 'meal_type')
+
+    logs_by_date: dict = {}
+    for log in logs_qs:
+        logs_by_date.setdefault(log.date, []).append(log)
+
+    days = []
+    current = start_date
+    while current <= end_date:
+        day_logs = logs_by_date.get(current, [])
+        logs_by_plan_meal = {
+            str(log.plan_meal_id): log for log in day_logs if log.plan_meal_id
+        }
+        logs_by_type = {log.meal_type: log for log in day_logs}
+
+        dow = current.isoweekday()
+        plan_week = resolve_plan_week_number(plan, current) if plan else 1
+        slots_for_day = resolve_meals_for_calendar_day(all_plan_meals, dow, plan_week) if plan else []
+        if not slots_for_day and plan and plan_week != 1:
+            slots_for_day = resolve_meals_for_calendar_day(all_plan_meals, dow, 1)
+
+        matched_log_ids = set()
+        slot_rows = []
+        for meal in slots_for_day:
+            log = logs_by_plan_meal.get(str(meal.id))
+            if not log:
+                log = logs_by_type.get(meal.meal_type)
+
+            suggested_recipe_name = None
+            suggested_recipe_id = None
+            first_meal_recipe = meal.meal_recipes.order_by('display_order', 'id').first()
+            if first_meal_recipe and first_meal_recipe.recipe:
+                suggested_recipe_name = first_meal_recipe.recipe.name
+                suggested_recipe_id = str(first_meal_recipe.recipe_id)
+
+            if log:
+                matched_log_ids.add(str(log.id))
+                if log.completed and not log.is_skipped:
+                    status = 'completed'
+                elif log.is_skipped:
+                    status = 'skipped'
+                else:
+                    status = 'pending'
+            else:
+                status = 'missing'
+
+            log_data = None
+            if log:
+                log_data = MealLogSerializer(log).data
+                if suggested_recipe_id and log.recipe_id and str(log.recipe_id) != suggested_recipe_id:
+                    log_data['recipe_changed'] = True
+                else:
+                    log_data['recipe_changed'] = False
+
+            slot_rows.append({
+                'plan_meal_id': str(meal.id),
+                'name': meal.name,
+                'meal_type': meal.meal_type,
+                'suggested_recipe_name': suggested_recipe_name,
+                'suggested_recipe_id': suggested_recipe_id,
+                'status': status,
+                'log': log_data,
+            })
+
+        extra_logs = []
+        for log in day_logs:
+            if str(log.id) in matched_log_ids:
+                continue
+            if log.completed and not log.is_skipped:
+                extra_status = 'completed'
+            elif log.is_skipped:
+                extra_status = 'skipped'
+            else:
+                extra_status = 'pending'
+            extra_logs.append({
+                'plan_meal_id': str(log.plan_meal_id) if log.plan_meal_id else None,
+                'name': log.plan_meal.name if log.plan_meal else log.get_meal_type_display(),
+                'meal_type': log.meal_type,
+                'suggested_recipe_name': None,
+                'suggested_recipe_id': None,
+                'status': extra_status,
+                'log': MealLogSerializer(log).data,
+            })
+
+        days.append({
+            'date': current.isoformat(),
+            'slots': slot_rows + extra_logs,
+        })
+        current += timedelta(days=1)
+
+    return Response({
+        'user_id': user.id,
+        'start_date': start_date.isoformat(),
+        'end_date': end_date.isoformat(),
+        'has_plan': plan is not None,
+        'days': days,
     })
 
 

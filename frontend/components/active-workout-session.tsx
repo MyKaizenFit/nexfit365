@@ -655,6 +655,7 @@ export function ActiveWorkoutSession({
         exercise_id: mainExercise.id,
         exercise_name: mainExercise.name,
         original_exercise_id: baseExercise.id,
+        original_exercise_name: baseExercise.name,
         sets: validSets,
         completed: completedExercises.has(String(exerciseId)),
         effort: firstSet.effort !== undefined ? Number(firstSet.effort) : null
@@ -662,18 +663,31 @@ export function ActiveWorkoutSession({
     })
   }, [completedExercises, exerciseSets, exercises, getExerciseStateKey, substituteSelections])
 
-  const getLastExercisePerformance = useCallback((exercise: any) => {
-    const exerciseId = String(exercise?.id || '')
-    if (!exerciseId) return null
+  const getLastExercisePerformance = useCallback((exercise: any, selectedSubstitute?: any) => {
+    const baseExerciseId = String(exercise?.id || '')
+    if (!baseExerciseId) return null
+
+    const performedExerciseId = selectedSubstitute
+      ? String(selectedSubstitute.id)
+      : baseExerciseId
 
     const today = new Date().toISOString().split('T')[0]
     for (const log of workoutLogs || []) {
       if (!log?.completed || log?.date === today || !Array.isArray(log?.exercises_data)) continue
       const match = log.exercises_data.find((entry: any) => {
-        const ids = [entry?.exercise_id, entry?.original_exercise_id, entry?.id]
-          .filter((value) => value !== undefined && value !== null)
-          .map((value) => String(value))
-        return ids.includes(exerciseId)
+        const performedId = entry?.exercise_id != null ? String(entry.exercise_id) : ''
+        const originalId = entry?.original_exercise_id != null ? String(entry.original_exercise_id) : null
+
+        if (selectedSubstitute) {
+          return performedId === performedExerciseId
+        }
+
+        // Para el ejercicio principal: ignorar sesiones donde usó sustituto
+        if (originalId && originalId !== performedId) {
+          return false
+        }
+
+        return performedId === baseExerciseId
       })
       if (match) {
         return { ...match, date: log.date }
@@ -1434,7 +1448,7 @@ export function ActiveWorkoutSession({
               const isCompleted = completedExercises.has(String(exerciseId))
               const targetRpe = getTargetRpe(exerciseItem, exercise)
               const targetLabel = formatPlanTarget(exerciseItem, exercise)
-              const lastPerformance = getLastExercisePerformance(exercise)
+              const lastPerformance = getLastExercisePerformance(exercise, selectedSubstitute)
               const lastPerformanceLabel = formatLastPerformance(lastPerformance)
               const exerciseSetData = exerciseSets[exerciseId] || {
                 seriesCount: normalizeSeriesCount(exerciseItem?.sets || exercise?.sets || 1, 1),

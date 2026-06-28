@@ -7,8 +7,9 @@ from django.db import models
 from django.utils import timezone
 
 from notifications.models import Notification
-from workouts.models import WorkoutLog, WorkoutProgram
+from workouts.models import WorkoutLog, WorkoutProgram, Exercise
 from nutrition.models import MealRecipeExclusion, MealIngredientExclusion
+from progress.models import WeightEntry
 
 from .models import CustomUser, ProfileAuditLog
 
@@ -288,6 +289,63 @@ class AdminUserSerializer(serializers.ModelSerializer):
             .first()
         )
 
+        recent_logs = (
+            WorkoutLog.objects.filter(user=obj, completed=True, date__gte=recent_feedback_date)
+            .order_by('-date', '-created_at')[:30]
+        )
+        substitute_events = []
+        exercise_name_cache: dict[str, str | None] = {}
+        for workout_log in recent_logs:
+            exercises_data = workout_log.exercises_data or []
+            if not isinstance(exercises_data, list):
+                continue
+            for exercise_entry in exercises_data:
+                original_id = exercise_entry.get('original_exercise_id')
+                performed_id = exercise_entry.get('exercise_id')
+                if not original_id or not performed_id:
+                    continue
+                if str(original_id) == str(performed_id):
+                    continue
+                original_key = str(original_id)
+                if original_key not in exercise_name_cache:
+                    exercise_name_cache[original_key] = (
+                        exercise_entry.get('original_exercise_name')
+                        or Exercise.objects.filter(pk=original_id).values_list('name', flat=True).first()
+                    )
+                sets = exercise_entry.get('sets') or []
+                max_weight = None
+                for set_entry in sets:
+                    weight = set_entry.get('weight')
+                    if weight is not None:
+                        try:
+                            weight_value = float(weight)
+                        except (TypeError, ValueError):
+                            continue
+                        if max_weight is None or weight_value > max_weight:
+                            max_weight = weight_value
+                substitute_events.append({
+                    'date': workout_log.date.isoformat() if workout_log.date else None,
+                    'original_exercise_id': str(original_id),
+                    'original_exercise_name': exercise_name_cache.get(original_key),
+                    'performed_exercise_id': str(performed_id),
+                    'performed_exercise_name': exercise_entry.get('exercise_name'),
+                    'max_weight_kg': max_weight,
+                    'workout_log_id': str(workout_log.id),
+                })
+
+        recent_weight_entries = WeightEntry.objects.filter(
+            user=obj,
+            date__gte=recent_profile_window.date(),
+        ).order_by('-date', '-created_at')[:10]
+        recent_weight_updates = [
+            {
+                'date': entry.date.isoformat(),
+                'weight': float(entry.weight),
+                'notes': entry.notes or None,
+            }
+            for entry in recent_weight_entries
+        ]
+
         feedback_recent_count = 0
         latest_feedback_data = None
         if latest_feedback and latest_feedback.date and latest_feedback.date >= recent_feedback_date:
@@ -302,7 +360,13 @@ class AdminUserSerializer(serializers.ModelSerializer):
                 'message': note_preview or None,
             }
 
-        pending_total = unread_notifications_count + recent_profile_changes_count + feedback_recent_count
+        pending_total = (
+            unread_notifications_count
+            + recent_profile_changes_count
+            + feedback_recent_count
+            + len(substitute_events)
+            + len(recent_weight_updates)
+        )
 
         return {
             'enabled': True,
@@ -310,6 +374,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'recent_profile_changes': recent_profile_changes_count,
             'recent_workout_feedback': feedback_recent_count,
             'latest_workout_feedback': latest_feedback_data,
+            'recent_substitute_usage': len(substitute_events),
+            'latest_substitute_events': substitute_events[:5],
+            'recent_weight_updates': len(recent_weight_updates),
+            'latest_weight_updates': recent_weight_updates[:5],
             'pending_total': pending_total,
             'has_pending': pending_total > 0,
         }
