@@ -5,30 +5,40 @@ const nextConfig = {
   skipTrailingSlashRedirect: true,
 
   async headers() {
+    const noStoreHeaders = [
+      { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
+      { key: 'Pragma', value: 'no-cache' },
+      { key: 'Expires', value: '0' },
+    ]
+
     return [
       {
+        source: '/',
+        headers: noStoreHeaders,
+      },
+      {
         source: '/dashboard/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
-          { key: 'Pragma', value: 'no-cache' },
-          { key: 'Expires', value: '0' },
-        ],
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/entrenamientos/:path*',
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/admin/:path*',
+        headers: noStoreHeaders,
       },
       {
         source: '/auth/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
-          { key: 'Pragma', value: 'no-cache' },
-          { key: 'Expires', value: '0' },
-        ],
+        headers: noStoreHeaders,
       },
       {
         source: '/initial-registration/:path*',
-        headers: [
-          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },
-          { key: 'Pragma', value: 'no-cache' },
-          { key: 'Expires', value: '0' },
-        ],
+        headers: noStoreHeaders,
+      },
+      {
+        source: '/sw.js',
+        headers: noStoreHeaders,
       },
     ]
   },
@@ -90,6 +100,26 @@ const nextConfig = {
         hostname: 'localhost',
         port: '8000',
         pathname: '/media/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'drive.google.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'i.ytimg.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'img.youtube.com',
+        pathname: '/**',
       },
     ],
   },

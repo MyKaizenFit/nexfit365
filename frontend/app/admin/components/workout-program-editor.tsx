@@ -182,6 +182,27 @@ function normalizeWorkoutSchedule(days: WorkoutDay[]) {
     .sort((a, b) => (a.dayNumber ?? 9999) - (b.dayNumber ?? 9999))
 }
 
+function isMultiWeekSchedule(program: WorkoutProgram) {
+  return (program.durationWeeks || 1) > 1 || program.weeklySchedule.some((day) => (day.dayNumber || 0) > 7)
+}
+
+function dedupeWorkoutScheduleBySlot(days: WorkoutDay[]) {
+  const daysByNumber = new Map<number, WorkoutDay>()
+  const daysWithoutNumber: WorkoutDay[] = []
+
+  days.forEach((day) => {
+    if (workoutDayHasSlot(day)) {
+      // Si por un bug previo hay dos días en el mismo slot, conservar el último
+      // estado editado para no enviar duplicados al backend.
+      daysByNumber.set(day.dayNumber, day)
+      return
+    }
+    daysWithoutNumber.push(day)
+  })
+
+  return normalizeWorkoutSchedule([...daysByNumber.values(), ...daysWithoutNumber])
+}
+
 function cloneExerciseForWorkoutCopy(exercise: Exercise): Exercise {
   return {
     ...exercise,
@@ -254,7 +275,7 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
     })),
   }))
 
-  return normalizeWorkoutDayNumbers(mappedDays)
+  return dedupeWorkoutScheduleBySlot(normalizeWorkoutDayNumbers(mappedDays))
 }
 
 function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
@@ -701,10 +722,9 @@ export function WorkoutProgramEditor({
 
     setProgramDraft({
       ...program,
-      daysPerWeek: Math.min(7, Math.max(1, program.weeklySchedule.length - 1)),
-      weeklySchedule: program.weeklySchedule
-        .filter((day) => (day.id ?? day.localId) !== dayKey)
-        .map((day, index) => ({ ...day, dayNumber: index + 1 })),
+      weeklySchedule: dedupeWorkoutScheduleBySlot(
+        program.weeklySchedule.filter((day) => (day.id ?? day.localId) !== dayKey),
+      ),
     })
   }
 
@@ -978,6 +998,16 @@ export function WorkoutProgramEditor({
   const syncDaysPerWeek = (targetDays: number) => {
     if (!program) return
     const normalizedTarget = Math.min(7, Math.max(1, targetDays || 1))
+
+    if (isMultiWeekSchedule(program)) {
+      setProgramDraft({
+        ...program,
+        daysPerWeek: normalizedTarget,
+        weeklySchedule: dedupeWorkoutScheduleBySlot(program.weeklySchedule),
+      })
+      return
+    }
+
     const currentDays = program.weeklySchedule
     let nextDays = [...currentDays]
 
@@ -1001,7 +1031,9 @@ export function WorkoutProgramEditor({
     setProgramDraft({
       ...program,
       daysPerWeek: normalizedTarget,
-      weeklySchedule: nextDays.map((day, index) => ({ ...day, dayNumber: index + 1 })),
+      weeklySchedule: dedupeWorkoutScheduleBySlot(
+        nextDays.map((day, index) => ({ ...day, dayNumber: index + 1 })),
+      ),
     })
   }
 
@@ -1150,7 +1182,9 @@ export function WorkoutProgramEditor({
         Domingo: "sunday",
       }
 
-      const normalizedSchedule = normalizeWorkoutDayNumbers(program.weeklySchedule)
+      const normalizedSchedule = dedupeWorkoutScheduleBySlot(
+        normalizeWorkoutDayNumbers(program.weeklySchedule),
+      )
       const daysPayload = normalizedSchedule.map((day, index) => ({
         id: day.id,
         day_of_week: dayToDayOfWeekMap[day.day] || day.day.toLowerCase() || "monday",

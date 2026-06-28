@@ -45,6 +45,7 @@ export interface Exercise {
   thumbnail?: string
   thumbnail_url?: string
   image_url?: string
+  cover_url?: string
   has_video?: boolean
   google_drive_file_id?: string
 }

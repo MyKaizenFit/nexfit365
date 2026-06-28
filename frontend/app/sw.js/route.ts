@@ -4,6 +4,31 @@
 
 import { NextResponse } from 'next/server'
 
+const KILL_SW_CONTENT = `// NexFit365 service worker cleanup
+self.addEventListener('install', (event) => {
+  self.skipWaiting()
+})
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil((async () => {
+    const keys = await caches.keys()
+    await Promise.all(keys.map((key) => caches.delete(key)))
+    const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of clientsList) {
+      client.postMessage({ type: 'SW_DISABLED' })
+      if ('navigate' in client) {
+        const url = new URL(client.url)
+        url.searchParams.set('sw_refresh', 'disabled')
+        client.navigate(url.toString()).catch(() => {})
+      }
+    }
+    await self.registration.unregister()
+  })())
+})
+
+self.addEventListener('fetch', () => {})
+`
+
 // Contenido del Service Worker embebido
 const SW_CONTENT = `// Service Worker para NexFit365 PWA
 // Versión: 1.7.0 - icono actualizado, limpieza de caches viejos
@@ -223,13 +248,17 @@ async function syncData() {
 `
 
 export async function GET() {
+  const pwaEnabled = (process.env.NEXT_PUBLIC_ENABLE_PWA || '').toLowerCase() === 'true'
+
   // Devolver el Service Worker con el tipo MIME correcto
-  return new NextResponse(SW_CONTENT, {
+  return new NextResponse(pwaEnabled ? SW_CONTENT : KILL_SW_CONTENT, {
     status: 200,
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
       'Service-Worker-Allowed': '/',
-      'Cache-Control': 'public, max-age=0, must-revalidate',
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
     },
   })
 }

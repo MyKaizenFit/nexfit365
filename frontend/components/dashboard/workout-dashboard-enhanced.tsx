@@ -24,6 +24,7 @@ import { authenticatedFetch } from "@/lib/api"
 import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
+import { ExerciseCoverThumbnail } from "@/components/exercise-cover-thumbnail"
 import { WorkoutHistoryEnhanced } from "./workout-history-enhanced"
 import { RestTimer } from "@/components/rest-timer"
 import { WorkoutsSectionSkeleton } from "@/components/dashboard/dashboard-skeletons"
@@ -39,8 +40,6 @@ import {
   isProgramWeekInRange,
   isProgramCompleted,
   getProgramLifecycleStatus,
-  groupDaysByWeek,
-  slotInWeekFromDayNumber,
 } from "@/lib/workout-plan-utils"
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -333,7 +332,6 @@ export function WorkoutDashboardEnhanced() {
   const userPlan = activeProgram
   const currentProgramWeek = userPlan ? getProgramWeekForDate(userPlan) : 1
   const totalProgramWeeks = userPlan ? planDurationWeeksFromPlan(userPlan) : 1
-  const programWeekGroups = userPlan?.days?.length ? groupDaysByWeek(userPlan.days) : []
   const programLifecycleStatus = userPlan ? getProgramLifecycleStatus(userPlan) : "not_started"
   const isProgramActiveToday = programLifecycleStatus === "active"
   const isProgramFinished = programLifecycleStatus === "completed"
@@ -1017,11 +1015,15 @@ export function WorkoutDashboardEnhanced() {
                     return (
                       <Card
                         key={exercise.id || index}
-                        className={`border-2 bg-white/92 shadow-sm transition-all touch-manipulation dark:bg-card/90 ${isExerciseCompleted
+                        className={`overflow-hidden border-2 bg-white/92 shadow-sm transition-all touch-manipulation dark:bg-card/90 ${isExerciseCompleted
                           ? 'bg-green-50/90 border-green-300 shadow-md'
                           : todayTheme.border
                           }`}
                       >
+                        <ExerciseCoverThumbnail
+                          exercise={exerciseData}
+                          className="mx-2 mt-2 h-28 w-[calc(100%-1rem)] rounded-xl border border-white/70 shadow-inner md:h-32"
+                        />
                         <CardContent className="p-1.5 md:p-4">
                           <div className="flex items-start justify-between gap-2 md:gap-3">
                             <div className="flex-1 min-w-0">
@@ -1194,51 +1196,6 @@ export function WorkoutDashboardEnhanced() {
                     </Badge>
                   )}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {userPlan && isMultiWeekPlan(userPlan) && programWeekGroups.length > 0 && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base">Programa completo ({totalProgramWeeks} semanas)</CardTitle>
-                <CardDescription>
-                  Vista orientativa de todas las semanas del plan desde su activación
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {Array.from({ length: totalProgramWeeks }, (_, index) => {
-                  const weekNumber = index + 1
-                  const weekDays = programWeekGroups.find((group) => group.weekIndex === index)?.days || []
-                  const trainingDays = weekDays.filter((day) => !day.is_rest_day)
-                  const isCurrentWeek = weekNumber === currentProgramWeek
-
-                  return (
-                    <div
-                      key={weekNumber}
-                      className={`rounded-lg border p-3 ${isCurrentWeek ? "border-purple-400 bg-purple-50/60" : "border-slate-200"}`}
-                    >
-                      <div className="flex items-center justify-between gap-2 mb-2">
-                        <span className="text-sm font-semibold">Semana {weekNumber}</span>
-                        {isCurrentWeek && (
-                          <Badge className="bg-purple-600 text-white">Actual</Badge>
-                        )}
-                      </div>
-                      {trainingDays.length > 0 ? (
-                        <div className="flex flex-wrap gap-2">
-                          {trainingDays.map((day) => (
-                            <Badge key={day.id || day.day_number} variant="secondary" className="text-xs">
-                              {getDayNameFromNumber(slotInWeekFromDayNumber(day.day_number || 1))}
-                              {day.day_name ? ` · ${day.day_name}` : ""}
-                            </Badge>
-                          ))}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-muted-foreground">Sin entrenamientos configurados</p>
-                      )}
-                    </div>
-                  )
-                })}
               </CardContent>
             </Card>
           )}
