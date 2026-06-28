@@ -84,7 +84,7 @@ export function MealDashboard() {
         recipeId: option?.recipeId ? String(option.recipeId) : null,
       },
     })
-    setInitialView('recetas-equivalencias')
+    setInitialView('equivalencias')
     setIsModalOpen(true)
   }
 
