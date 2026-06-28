@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/toaster'
 import { NotificationContainer } from '@/components/ui/notification-toast'
 import { BetaBanner } from '@/components/beta-banner'
 import { RegisterServiceWorker } from './register-sw'
+import { ClientVersionGuard } from './client-version-guard'
 import { ThemeProvider } from '@/components/theme-provider'
 import { CookieBanner } from '@/components/cookie-banner'
 
@@ -90,6 +91,7 @@ export default function RootLayout({
           </Script>
         ) : null}
         <RegisterServiceWorker />
+        <ClientVersionGuard />
         <BetaBanner />
         <ThemeProvider
           attribute="class"

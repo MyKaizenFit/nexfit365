@@ -1,0 +1,15 @@
+---
+description: Always use feature branches and PRs; merge only on deploy
+alwaysApply: true
+---
+
+# Git workflow (NexFit365)
+
+Follow the **branch-pr-deploy** skill (`.cursor/skills/branch-pr-deploy/SKILL.md`).
+
+- Do not commit feature/fix work on `main`.
+- Create `feat/`, `fix/`, `chore/`, or `docs/` branches from `main`.
+- Push and open a PR for every change set.
+- Merge the PR only when the user asks to deploy (or explicitly to merge).
+- After merge: `git pull origin main`, then `./deploy.sh --background`.
+- Track branch/PR/task in `.agents/state.md` (local, gitignored).
