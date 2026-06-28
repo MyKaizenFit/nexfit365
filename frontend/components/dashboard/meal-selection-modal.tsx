@@ -695,7 +695,7 @@ export function MealSelectionModal({
 
   return (
     <>
-      {typeof document !== 'undefined' && createPortal(modalContent, document.body)}
+      {typeof document !== 'undefined' && !(showAllRecipes && equivalenceOnlyMode) && createPortal(modalContent, document.body)}
 
       {/* Modal de Receta Completa */}
       {showRecipe && recipeData && (
