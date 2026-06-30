@@ -126,6 +126,7 @@ describe('multi-week plan resolution', () => {
   it('detects multi-week plans', () => {
     expect(isMultiWeekPlan(multiWeekPlan)).toBe(true)
     expect(isMultiWeekPlan({ days: [{ day_number: 1 }] })).toBe(false)
+    expect(isMultiWeekPlan({ duration_weeks: 4, days: [{ day_number: 1 }] })).toBe(false)
   })
 
   it('returns week 1 during the first calendar week after start_date', () => {
@@ -229,6 +230,46 @@ describe('multi-week plan resolution', () => {
       fridayDate,
     )
     expect(day?.name).toBe('W1 Fri')
+  })
+
+  it('reuses a single-week schedule across a longer program duration', () => {
+    const repeatedWeeklyPlan: WorkoutPlanLike = {
+      start_date: '2026-06-22',
+      duration_weeks: 4,
+      days: [
+        { day_number: 1, name: 'Push', is_rest_day: false },
+        { day_number: 2, name: 'Legs', is_rest_day: false },
+        { day_number: 3, name: 'Torso', is_rest_day: false },
+        { day_number: 4, name: 'Rest', is_rest_day: true },
+        { day_number: 5, name: 'Legs B', is_rest_day: false },
+        { day_number: 6, name: 'Pull', is_rest_day: false },
+        { day_number: 7, name: 'Rest', is_rest_day: true },
+      ],
+    }
+
+    expect(getPlanDayForWeekday(repeatedWeeklyPlan, 2, new Date('2026-06-30'))?.name).toBe('Legs')
+    expect(getPlanTrainingWeekdays(repeatedWeeklyPlan, new Date('2026-06-30'))).toEqual([1, 2, 3, 5, 6])
+  })
+
+  it('falls back to scheduled weeks instead of treating empty future weeks as rest', () => {
+    const partiallyScheduledPlan: WorkoutPlanLike = {
+      start_date: '2026-05-23',
+      duration_weeks: 10,
+      days: [
+        { day_number: 1, day_of_week: 'monday', name: 'W1 Mon', is_rest_day: false },
+        { day_number: 2, day_of_week: 'tuesday', name: 'W1 Tue', is_rest_day: false },
+        { day_number: 4, day_of_week: 'thursday', name: 'W1 Thu', is_rest_day: false },
+        { day_number: 5, day_of_week: 'friday', name: 'W1 Fri', is_rest_day: false },
+        { day_number: 29, day_of_week: 'monday', name: 'W5 Mon', is_rest_day: false },
+        { day_number: 30, day_of_week: 'monday', name: 'W5 Tue', is_rest_day: false },
+        { day_number: 32, day_of_week: 'monday', name: 'W5 Thu', is_rest_day: false },
+        { day_number: 33, day_of_week: 'monday', name: 'W5 Fri', is_rest_day: false },
+      ],
+    }
+
+    expect(getPlanDayForWeekday(partiallyScheduledPlan, 2, new Date('2026-06-30'))?.name).toBe('W1 Tue')
+    expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-16'))).toEqual([1, 2, 4, 5])
+    expect(getPlanTrainingWeekdays(partiallyScheduledPlan, new Date('2026-06-30'))).toEqual([1, 2, 4, 5])
   })
 })
 
