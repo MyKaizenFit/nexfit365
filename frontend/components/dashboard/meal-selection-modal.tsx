@@ -19,6 +19,7 @@ interface MealSelectionModalProps {
     optionId?: string | null
     recipeId?: string | null
   }
+  initialOption?: MealOption | null
   onSelectOption: (option: MealOption) => void
   onDeselectOption?: () => void
   initialView?: 'recipe' | 'equivalencias' | 'recetas-equivalencias'
@@ -44,6 +45,7 @@ export function MealSelectionModal({
   mealType,
   options,
   currentSelection,
+  initialOption,
   onSelectOption,
   onDeselectOption,
   initialView
@@ -108,6 +110,14 @@ export function MealSelectionModal({
     }
   }
 
+  const showRecipeLoadError = (description = 'No se pudo cargar la receta asociada a esta comida.') => {
+    toast({
+      title: 'No se pudo abrir la receta',
+      description,
+      variant: 'destructive',
+    })
+  }
+
   const handleViewRecipe = async (option: MealOption) => {
     setLoadingRecipe(true)
     try {
@@ -132,8 +142,7 @@ export function MealSelectionModal({
               recipeId = parsed
             } else {
               setLoadingRecipe(false)
-              alert(`Error: ID de receta inválido (${option.recipeId}). Esta opción no tiene una receta específica asociada.`)
-              handleViewAllRecipes()
+              showRecipeLoadError('Esta comida no tiene un ID de receta válido.')
               return
             }
           }
@@ -171,7 +180,7 @@ export function MealSelectionModal({
         if (loadedId !== expectedId) {
           // removed stray object literal
           setLoadingRecipe(false)
-          alert(`Error: Se cargó una receta diferente (${data.recipe.name}) a la esperada. Por favor, intenta de nuevo.`)
+          showRecipeLoadError('La respuesta no coincide con la receta seleccionada. Inténtalo de nuevo.')
           return
         }
       }
@@ -252,8 +261,7 @@ export function MealSelectionModal({
             })
             setShowRecipe(true)
           } else {
-            // Si no se puede cargar la receta básica, abrir el modal de todas las recetas
-            handleViewAllRecipes()
+            showRecipeLoadError()
           }
         }
       }
@@ -263,19 +271,12 @@ export function MealSelectionModal({
       // Si es un error 404 (receta no encontrada), abrir el modal de todas las recetas
       if (errorMessage.includes('404') || errorMessage.includes('Not Found') || errorMessage.includes('No Recipe matches')) {
         setLoadingRecipe(false)
-        handleViewAllRecipes()
+        showRecipeLoadError('La receta ya no está disponible o no está vinculada correctamente.')
         return
       }
-      
-      // Para otros errores, mostrar alerta pero también ofrecer ver todas las recetas
-      const shouldOpenAllRecipes = confirm(
-        `No se pudo cargar esta receta (${errorMessage}).\n\n¿Quieres ver todas las recetas disponibles?`
-      )
-      
-      if (shouldOpenAllRecipes) {
-        setLoadingRecipe(false)
-        handleViewAllRecipes()
-      }
+
+      setLoadingRecipe(false)
+      showRecipeLoadError(errorMessage)
     } finally {
       setLoadingRecipe(false)
     }
@@ -396,14 +397,24 @@ export function MealSelectionModal({
   }, [isOpen])
 
   useEffect(() => {
-    if (!isOpen || !mounted || !initialView || options.length === 0) return
+    if (!isOpen || !mounted || !initialView || (options.length === 0 && !initialOption)) return
     if (autoViewTriggeredRef.current) return
     autoViewTriggeredRef.current = true
-    const currentOption = options.find(opt =>
+    const optionCandidates = initialOption
+      ? [initialOption, ...options.filter((opt) => String(opt.id) !== String(initialOption.id))]
+      : options
+    const currentOption = optionCandidates.find(opt =>
       (currentSelection?.recipeId && opt.recipeId && String(currentSelection.recipeId) === String(opt.recipeId)) ||
       (currentSelection?.optionId && String(currentSelection.optionId) === String(opt.id))
-    ) || options[0]
-    if (!currentOption) return
+    )
+    if (!currentOption) {
+      if (initialView === 'recetas-equivalencias') {
+        handleViewAllRecipes(undefined, { equivalenceOnly: false })
+      } else {
+        showRecipeLoadError('No se encontró la receta seleccionada para esta comida.')
+      }
+      return
+    }
     if (initialView === 'recipe') {
       handleViewRecipe(currentOption)
     } else if (initialView === 'equivalencias') {
@@ -412,7 +423,7 @@ export function MealSelectionModal({
       handleViewAllRecipes(undefined, { equivalenceOnly: false })
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mounted, initialView, options, currentSelection])
+  }, [isOpen, mounted, initialView, options, currentSelection, initialOption])
 
   useEffect(() => {
     setMounted(true)

@@ -31,6 +31,7 @@ export function MealDashboard() {
       optionId?: string | null
       recipeId?: string | null
     }
+    initialOption?: MealOption | null
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -40,6 +41,7 @@ export function MealDashboard() {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
+      initialOption: fullMeal?.selectedOption || null,
       currentSelection: {
         optionId: fullMeal?.selectedOption?.id ? String(fullMeal.selectedOption.id) : null,
         recipeId: fullMeal?.selectedOption?.recipeId ? String(fullMeal.selectedOption.recipeId) : null,
@@ -79,6 +81,7 @@ export function MealDashboard() {
     const option = previewOption || fullMeal?.selectedOption
     setSelectedMeal({
       ...meal,
+      initialOption: option || null,
       currentSelection: {
         optionId: option?.id ? String(option.id) : null,
         recipeId: option?.recipeId ? String(option.recipeId) : null,
@@ -96,6 +99,7 @@ export function MealDashboard() {
     const option = previewOption || fullMeal?.selectedOption
     setSelectedMeal({
       ...meal,
+      initialOption: option || null,
       currentSelection: {
         optionId: option?.id ? String(option.id) : null,
         recipeId: option?.recipeId ? String(option.recipeId) : null,
@@ -457,6 +461,7 @@ export function MealDashboard() {
               mealType={selectedMeal.mealType}
               options={getMealOptions(selectedMeal.id)}
               currentSelection={selectedMeal.currentSelection}
+              initialOption={selectedMeal.initialOption}
               onSelectOption={handleSelectOption}
               onDeselectOption={handleDeselectOption}
               initialView={initialView}
