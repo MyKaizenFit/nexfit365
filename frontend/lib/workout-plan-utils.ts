@@ -79,7 +79,6 @@ export function planDurationWeeksFromPlan(plan: WorkoutPlanLike | null | undefin
 
 export function isMultiWeekPlan(plan: WorkoutPlanLike | null | undefined): boolean {
   if (!plan?.days?.length) return false
-  if ((plan.duration_weeks || 0) > 1) return true
   return plan.days.some((day) => (day.day_number || 0) > 7)
 }
 
@@ -212,6 +211,38 @@ function findPlanDayByGlobalNumber(
   )
 }
 
+function getScheduledWeekNumbers(plan: WorkoutPlanLike): number[] {
+  const weeks = new Set<number>()
+
+  for (const day of plan.days || []) {
+    const dayNumber = day.day_number || 0
+    if (dayNumber > 0) {
+      weeks.add(weekNumberFromDayNumber(dayNumber))
+    }
+  }
+
+  return Array.from(weeks).sort((a, b) => a - b)
+}
+
+function resolveScheduledProgramWeek(
+  plan: WorkoutPlanLike,
+  referenceDate: Date,
+): number {
+  const programWeek = getProgramWeekForDate(plan, referenceDate)
+  const scheduledWeeks = getScheduledWeekNumbers(plan)
+
+  if (scheduledWeeks.length === 0 || scheduledWeeks.includes(programWeek)) {
+    return programWeek
+  }
+
+  const maxScheduledWeek = scheduledWeeks[scheduledWeeks.length - 1]
+  if (programWeek > maxScheduledWeek) {
+    return scheduledWeeks[(programWeek - 1) % scheduledWeeks.length]
+  }
+
+  return [...scheduledWeeks].reverse().find((week) => week <= programWeek) ?? scheduledWeeks[0]
+}
+
 export function getPlanDayForWeekday(
   plan: WorkoutPlanLike | null | undefined,
   weekdayNumber: number,
@@ -224,7 +255,7 @@ export function getPlanDayForWeekday(
       return null
     }
 
-    const programWeek = getProgramWeekForDate(plan, referenceDate)
+    const programWeek = resolveScheduledProgramWeek(plan, referenceDate)
     const globalDayNumber = globalDayNumberForProgramWeek(programWeek, weekdayNumber)
     return findPlanDayByGlobalNumber(plan, globalDayNumber)
   }
@@ -258,14 +289,17 @@ export function getPlanTrainingWeekdays(
       return []
     }
 
-    const programWeek = getProgramWeekForDate(plan, referenceDate)
+    const programWeek = resolveScheduledProgramWeek(plan, referenceDate)
     return plan.days
       .filter((day) => !day.is_rest_day && weekNumberFromDayNumber(day.day_number || 1) === programWeek)
       .map((day) => {
+        if (typeof day.day_number === "number" && day.day_number > 0) {
+          return slotInWeekFromDayNumber(day.day_number)
+        }
         if (day.day_of_week) {
           return DAY_NAME_TO_NUMBER[String(day.day_of_week).toLowerCase()]
         }
-        return slotInWeekFromDayNumber(day.day_number || 1)
+        return undefined
       })
       .filter((value): value is number => typeof value === "number" && value >= 1 && value <= 7)
       .sort((a, b) => a - b)
