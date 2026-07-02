@@ -393,7 +393,14 @@ export function MealSelectionModal({
   const autoViewTriggeredRef = useRef(false)
 
   useEffect(() => {
-    if (!isOpen) { autoViewTriggeredRef.current = false }
+    if (!isOpen) {
+      autoViewTriggeredRef.current = false
+      setShowRecipe(false)
+      setShowAllRecipes(false)
+      setAutoOpenEquivalenceRecipeId(null)
+      setEquivalenceOnlyMode(false)
+      setRecipeData(null)
+    }
   }, [isOpen])
 
   useEffect(() => {
@@ -633,17 +640,21 @@ export function MealSelectionModal({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation()
-                            handleViewAllRecipes(undefined, { equivalenceOnly: false })
+                            if (option.recipeId) {
+                              handleViewAllRecipes(option.recipeId, { equivalenceOnly: true })
+                            } else {
+                              handleViewAllRecipes(undefined, { equivalenceOnly: false })
+                            }
                           }}
                           className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
-                          disabled={loadingRecipes}
+                          disabled={loadingRecipes || !option.recipeId}
                         >
                           {loadingRecipes ? (
                             <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
                             <Shuffle className="h-3.5 w-3.5" />
                           )}
-                          <span>Receta equivalencia</span>
+                          <span>Ver equivalencias</span>
                         </button>
                         {isCurrentSelection && onDeselectOption && (
                           <button
@@ -745,9 +756,13 @@ export function MealSelectionModal({
           mealTime={mealTime}
           loading={loadingRecipes}
           onClose={() => {
+            const shouldCloseEntireModal = equivalenceOnlyMode
             setShowAllRecipes(false)
             setAutoOpenEquivalenceRecipeId(null)
             setEquivalenceOnlyMode(false)
+            if (shouldCloseEntireModal) {
+              onClose()
+            }
           }}
           autoOpenEquivalenceRecipeId={autoOpenEquivalenceRecipeId}
           equivalenceOnlyMode={equivalenceOnlyMode}
