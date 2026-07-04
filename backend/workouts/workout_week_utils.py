@@ -40,6 +40,58 @@ def day_numbers_for_week(week_number: int) -> range:
     return range(start, end + 1)
 
 
+def get_scheduled_week_numbers(program) -> list[int]:
+    weeks: set[int] = set()
+    for day in program.days.all():
+        day_number = getattr(day, "day_number", None)
+        if day_number:
+            weeks.add(week_number_from_day_number(day_number))
+    return sorted(weeks)
+
+
+def is_multi_week_program(program) -> bool:
+    return any((getattr(day, "day_number", 0) or 0) > 7 for day in program.days.all())
+
+
+def fill_missing_program_weeks(
+    program,
+    *,
+    through_week: int | None = None,
+    source_week: int | None = None,
+) -> dict:
+    """
+    Copia la semana origen a cada semana faltante entre la última configurada y through_week.
+    """
+    scheduled_weeks = get_scheduled_week_numbers(program)
+    if not scheduled_weeks:
+        raise ValueError("El programa no tiene semanas configuradas")
+
+    duration = max(int(program.duration_weeks or 1), scheduled_weeks[-1])
+    target_through = min(int(through_week or duration), duration)
+    last_scheduled = scheduled_weeks[-1]
+    source = int(source_week or last_scheduled)
+
+    missing_weeks = [
+        week
+        for week in range(last_scheduled + 1, target_through + 1)
+        if week not in scheduled_weeks
+    ]
+    if not missing_weeks:
+        return {
+            "source_week": source,
+            "target_weeks": [],
+            "copied_days": 0,
+            "missing_weeks": [],
+        }
+
+    if source not in scheduled_weeks:
+        raise ValueError(f"La semana origen {source} no existe en el programa")
+
+    result = copy_program_weeks(program, source_week=source, target_weeks=missing_weeks)
+    result["missing_weeks"] = missing_weeks
+    return result
+
+
 def normalize_week_list(raw_weeks: Iterable) -> list[int]:
     weeks: list[int] = []
     for value in raw_weeks or []:
@@ -93,7 +145,7 @@ def copy_program_weeks(program, *, source_week: int, target_weeks: Iterable[int]
                     program=program,
                     name=source_day.name,
                     day_number=new_day_number,
-                    day_of_week=source_day.day_of_week or day_of_week_for_day_number(new_day_number),
+                    day_of_week=day_of_week_for_day_number(new_day_number),
                     is_rest_day=source_day.is_rest_day,
                     duration_minutes=source_day.duration_minutes,
                     focus=source_day.focus,

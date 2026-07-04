@@ -1,1 +1,1 @@
-export const APP_VERSION = '2026-06-26-workout-week-copy-delete-1'
+export const APP_VERSION = '2026-07-04-fill-missing-workout-weeks-1'
