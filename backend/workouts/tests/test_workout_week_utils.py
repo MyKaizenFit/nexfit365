@@ -5,6 +5,9 @@ from rest_framework.test import APIClient
 from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise, Exercise
 from workouts.workout_week_utils import (
     copy_program_weeks,
+    fill_missing_program_weeks,
+    get_scheduled_week_numbers,
+    is_multi_week_program,
     week_number_from_day_number,
     day_number_for_week_slot,
 )
@@ -137,3 +140,47 @@ class TestCopyProgramWeeks:
         program_with_weeks.days.all().delete()
         with pytest.raises(ValueError, match="no tiene entrenamientos"):
             copy_program_weeks(program_with_weeks, source_week=1, target_weeks=[2])
+
+    def test_copy_week_uses_slot_day_of_week_not_broken_source(self, program_with_weeks):
+        program_with_weeks.days.filter(day_number=8).delete()
+        WorkoutDay.objects.create(
+            program=program_with_weeks,
+            name="Semana 2 mal copiada",
+            day_number=8,
+            day_of_week="monday",
+            order_index=8,
+        )
+        copy_program_weeks(program_with_weeks, source_week=1, target_weeks=[2])
+        copied_wednesday = program_with_weeks.days.get(day_number=10)
+        assert copied_wednesday.day_of_week == "wednesday"
+
+
+@pytest.mark.django_db
+class TestFillMissingProgramWeeks:
+    def test_fill_missing_weeks_from_last_scheduled(self, program_with_weeks):
+        copy_program_weeks(program_with_weeks, source_week=1, target_weeks=[2])
+        program_with_weeks.duration_weeks = 4
+        program_with_weeks.save(update_fields=["duration_weeks"])
+
+        result = fill_missing_program_weeks(program_with_weeks)
+
+        assert result["missing_weeks"] == [3, 4]
+        assert result["copied_days"] == 6
+        assert program_with_weeks.days.filter(day_number=15, name="Pierna").exists()
+
+    def test_noop_when_all_weeks_present(self, program_with_weeks):
+        copy_program_weeks(program_with_weeks, source_week=1, target_weeks=[2, 3, 4])
+        program_with_weeks.duration_weeks = 4
+        program_with_weeks.save(update_fields=["duration_weeks"])
+
+        result = fill_missing_program_weeks(program_with_weeks)
+
+        assert result["missing_weeks"] == []
+        assert result["copied_days"] == 0
+
+    def test_is_multi_week_program(self, program_with_weeks):
+        assert not is_multi_week_program(program_with_weeks)
+        copy_program_weeks(program_with_weeks, source_week=1, target_weeks=[2])
+        program_with_weeks.refresh_from_db()
+        assert is_multi_week_program(program_with_weeks)
+        assert get_scheduled_week_numbers(program_with_weeks) == [1, 2]
