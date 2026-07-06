@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rest_framework import serializers
 
-from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
+from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness, RestWellnessAssessment
 
 
 def _build_public_media_url(request, media_path: str | None) -> str | None:
@@ -290,4 +290,48 @@ class DailyWellnessSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Crear registro de bienestar con usuario del request"""
         validated_data['user'] = self.context['request'].user
-        return super().create(validated_data) 
+        return super().create(validated_data)
+
+
+class RestWellnessAssessmentCreateSerializer(serializers.Serializer):
+    answers = serializers.ListField(
+        child=serializers.BooleanField(allow_null=True),
+        min_length=32,
+        max_length=32,
+    )
+
+    def validate_answers(self, value):
+        if any(answer is None for answer in value):
+            raise serializers.ValidationError("Todas las preguntas deben tener respuesta Sí o No.")
+        return value
+
+
+class RestWellnessAssessmentListSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    date = serializers.DateTimeField(source="created_at")
+
+    class Meta:
+        model = RestWellnessAssessment
+        fields = ["id", "name", "date", "top_categories", "scores"]
+
+    def get_name(self, obj):
+        full_name = obj.user.get_full_name().strip()
+        return full_name or obj.user.email
+
+
+class RestWellnessAssessmentDetailSerializer(RestWellnessAssessmentListSerializer):
+    script = serializers.CharField(read_only=True)
+    ranked = serializers.SerializerMethodField()
+    answers = serializers.JSONField(read_only=True)
+
+    class Meta(RestWellnessAssessmentListSerializer.Meta):
+        fields = RestWellnessAssessmentListSerializer.Meta.fields + [
+            "script",
+            "ranked",
+            "answers",
+        ]
+
+    def get_ranked(self, obj):
+        from .rest_wellness_content import build_ranked_with_tiers
+
+        return build_ranked_with_tiers(obj.scores or {})
