@@ -22,12 +22,24 @@ export interface AdminWeightSummary {
 }
 
 class AdminProgressService {
+  private parseWeightEntries(data: unknown): AdminWeightEntry[] {
+    if (Array.isArray(data)) {
+      return data
+    }
+    if (data && typeof data === "object" && "results" in data) {
+      const results = (data as { results?: AdminWeightEntry[] }).results
+      return Array.isArray(results) ? results : []
+    }
+    return []
+  }
+
   async listWeightEntries(userId: string | number, headers: HeadersInit): Promise<AdminWeightEntry[]> {
-    const res = await fetch(buildApiUrl(`admin/progress/users/${userId}/weight-history/`), {
+    const res = await fetch(buildApiUrl(`admin/progress/users/${userId}/weight-history/?page_size=500`), {
       headers,
     })
     if (!res.ok) throw new Error(`Error ${res.status} al cargar historial de peso`)
-    return res.json()
+    const data = await res.json()
+    return this.parseWeightEntries(data)
   }
 
   async summary(userId: string | number, headers: HeadersInit): Promise<AdminWeightSummary> {

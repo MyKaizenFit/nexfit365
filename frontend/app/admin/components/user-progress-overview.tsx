@@ -133,6 +133,8 @@ export function UserProgressOverview({ userId, currentWeight, targetWeight }: Pr
                   <Line type="monotone" dataKey="weight" stroke="#4f46e5" strokeWidth={3} dot={{ r: 3 }} />
                 </LineChart>
               </ResponsiveContainer>
+            ) : sortedWeights.length === 1 ? (
+              <EmptyState icon={<Scale className="h-8 w-8" />} text="Hay un registro de peso. Se necesita al menos uno más para mostrar la evolución." />
             ) : (
               <EmptyState icon={<Scale className="h-8 w-8" />} text="Se necesitan al menos dos registros para mostrar la evolución." />
             )}
@@ -163,6 +165,57 @@ export function UserProgressOverview({ userId, currentWeight, targetWeight }: Pr
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Registros de peso</CardTitle>
+          <CardDescription>
+            Listado cronológico de cada medición registrada por la usuaria.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {progress.loading ? (
+            <LoadingState label="Cargando registros..." />
+          ) : sortedWeights.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase tracking-wide text-slate-500">
+                    <th className="px-3 py-2 font-medium">Fecha</th>
+                    <th className="px-3 py-2 font-medium">Peso</th>
+                    <th className="px-3 py-2 font-medium">Cambio</th>
+                    <th className="px-3 py-2 font-medium">Notas</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedWeights.map((entry, index) => {
+                    const previous = index > 0 ? sortedWeights[index - 1] : null
+                    const change = previous ? Number(entry.weight) - Number(previous.weight) : null
+                    return (
+                      <tr key={entry.id} className="border-b last:border-0">
+                        <td className="px-3 py-3 font-medium text-slate-800">{formatDate(entry.date)}</td>
+                        <td className="px-3 py-3 text-slate-900">{Number(entry.weight).toFixed(1)} kg</td>
+                        <td className="px-3 py-3">
+                          {change === null ? (
+                            <span className="text-slate-400">—</span>
+                          ) : (
+                            <span className={change <= 0 ? "text-emerald-700" : "text-amber-700"}>
+                              {change > 0 ? "+" : ""}{change.toFixed(1)} kg
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-slate-500">{entry.notes?.trim() || "—"}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <EmptyState icon={<Scale className="h-8 w-8" />} text="Todavía no hay registros de peso para esta usuaria." />
+          )}
+        </CardContent>
+      </Card>
 
       <ProgressPhotoPackages photos={sortedPhotos} />
     </section>
