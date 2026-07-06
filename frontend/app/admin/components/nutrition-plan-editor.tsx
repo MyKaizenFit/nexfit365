@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Plus, Trash2, Save, ChefHat, Clock, Zap, Loader2, RefreshCw, Percent, BookOpen, Eye, Users, X } from "lucide-react"
+import { Plus, Trash2, Save, ChefHat, Clock, Zap, Loader2, RefreshCw, Percent, BookOpen, Eye, Users, X, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -14,6 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { useAdminNutritionPlans } from "@/hooks/use-admin-nutrition-plans"
+import { buildMealCountMismatchReport, computeMealsPerDay } from "@/lib/plan-meal-utils"
 
 interface MealFood {
   food_id: string
@@ -73,6 +75,7 @@ interface NutritionPlan {
     fat?: number
   }
   meals: Meal[]
+  meals_per_day?: number
   is_active?: boolean
   start_date?: string
   end_date?: string
@@ -401,6 +404,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         fat_percentage: percents.fat,
       },
       meals,
+      meals_per_day: toNumber(detail.meals_per_day, 5),
       is_active: detail.is_active,
       start_date: detail.start_date,
       end_date: detail.end_date,
@@ -408,6 +412,13 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
   }
 
   const mealsArray = useMemo(() => (Array.isArray(plan?.meals) ? plan!.meals : []), [plan])
+
+  const mealCountReport = useMemo(() => {
+    if (!plan) {
+      return null
+    }
+    return buildMealCountMismatchReport(mealsArray, plan.meals_per_day ?? computeMealsPerDay(mealsArray))
+  }, [mealsArray, plan])
 
   const updatePlanState = (partial: Partial<NutritionPlan>) => {
     setPlan((prev) => (prev ? { ...prev, ...partial } : prev))
@@ -611,7 +622,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         protein_grams: toNumber(plan.target_macros.protein),
         carbs_grams: toNumber(plan.target_macros.carbs),
         fat_grams: toNumber(plan.target_macros.fat),
-        meals_per_day: mealsArray.length || 5,
+        meals_per_day: computeMealsPerDay(mealsArray) || toNumber(plan.meals_per_day, 5),
         is_active: plan.is_active !== false,
         meals: mealsArray.map((meal, index) => ({
           day_of_week: meal.day_of_week ?? null,
@@ -926,6 +937,59 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
           </div>
         </CardContent>
       </Card>
+
+      {mealCountReport?.should_warn ? (
+        <Alert variant="destructive" className="border-amber-300 bg-amber-50 text-amber-950 [&>svg]:text-amber-700">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Revisa las comidas configuradas por día</AlertTitle>
+          <AlertDescription className="space-y-2">
+            <p>
+              El plan indica <strong>{mealCountReport.declared_meals_per_day} comidas por día</strong>, pero en la app
+              la usuaria verá lo que esté cargado en cada día concreto
+              ({mealCountReport.configured_min_per_day}
+              {mealCountReport.has_inconsistent_days
+                ? `–${mealCountReport.configured_max_per_day}`
+                : ""} comidas según el día).
+            </p>
+
+            {mealCountReport.mismatched_days.length > 0 ? (
+              <div>
+                <p className="font-medium">Días con un número distinto al declarado:</p>
+                <ul className="list-disc pl-5">
+                  {mealCountReport.mismatched_days.slice(0, 8).map((item) => (
+                    <li key={`${item.week_number}-${item.day_of_week ?? "generic"}`}>
+                      Semana {item.week_number}, {item.day_label}: {item.meal_count} comidas (esperadas: {item.expected_count})
+                    </li>
+                  ))}
+                </ul>
+                {mealCountReport.mismatched_days.length > 8 ? (
+                  <p className="text-xs">…y {mealCountReport.mismatched_days.length - 8} días más.</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {mealCountReport.has_inconsistent_days ? (
+              <p>
+                Hay días con distinto número de comidas entre sí. Conviene unificar la estructura semanal para que la app
+                sea predecible.
+              </p>
+            ) : null}
+
+            {mealCountReport.duplicate_meal_types.length > 0 ? (
+              <div>
+                <p className="font-medium">Tipos de comida repetidos el mismo día:</p>
+                <ul className="list-disc pl-5">
+                  {mealCountReport.duplicate_meal_types.slice(0, 6).map((item) => (
+                    <li key={`${item.week_number}-${item.day_of_week}-${item.meal_type}`}>
+                      Semana {item.week_number}, {item.day_label}: {item.count}× {item.meal_type_label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {/* Comidas y platos */}
       <div className="space-y-4">

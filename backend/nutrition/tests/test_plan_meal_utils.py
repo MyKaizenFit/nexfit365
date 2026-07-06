@@ -6,6 +6,7 @@ import pytest
 
 from nutrition.models import PlanMeal
 from nutrition.plan_meal_utils import (
+    build_meal_count_mismatch_report,
     finalize_plan_after_meal_changes,
     rebalance_meal_group,
     resolve_meals_for_calendar_day,
@@ -163,3 +164,53 @@ class TestRebalanceMealGroup:
 
         total = sum(m.calories for m in meals)
         assert total == 1200
+
+
+@pytest.mark.django_db
+class TestBuildMealCountMismatchReport:
+    def test_detects_day_with_fewer_meals_than_declared(self, nutrition_plan):
+        nutrition_plan.meals_per_day = 5
+        nutrition_plan.save()
+
+        for index, name in enumerate(["Desayuno", "Comida", "Snack", "Cena"], start=1):
+            PlanMeal.objects.create(
+                plan=nutrition_plan,
+                day_of_week=1,
+                week_number=1,
+                name=name,
+                meal_type="lunch",
+                order_index=index,
+                calories=300,
+            )
+
+        report = build_meal_count_mismatch_report(
+            nutrition_plan.meals.all(),
+            declared_meals_per_day=5,
+        )
+
+        assert report['should_warn'] is True
+        assert report['has_mismatch'] is True
+        assert len(report['mismatched_days']) == 1
+        assert report['mismatched_days'][0]['meal_count'] == 4
+        assert report['mismatched_days'][0]['expected_count'] == 5
+
+    def test_detects_duplicate_meal_type_same_day(self, nutrition_plan):
+        for index, meal_type in enumerate(["breakfast", "breakfast", "lunch"], start=1):
+            PlanMeal.objects.create(
+                plan=nutrition_plan,
+                day_of_week=2,
+                week_number=1,
+                name=f"Comida {index}",
+                meal_type=meal_type,
+                order_index=index,
+                calories=300,
+            )
+
+        report = build_meal_count_mismatch_report(
+            nutrition_plan.meals.all(),
+            declared_meals_per_day=3,
+        )
+
+        assert report['has_duplicate_meal_types'] is True
+        assert report['duplicate_meal_types'][0]['meal_type'] == 'breakfast'
+        assert report['duplicate_meal_types'][0]['count'] == 2
