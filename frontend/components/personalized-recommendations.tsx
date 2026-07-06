@@ -36,7 +36,7 @@ interface PersonalizedRecommendationsProps {
 }
 
 export function PersonalizedRecommendations({ userProfile: externalProfile, onComplete }: PersonalizedRecommendationsProps) {
-  const [activeTab, setActiveTab] = useState<'recipes' | 'workouts' | 'tips'>('tips')
+  const [activeTab, setActiveTab] = useState<'workouts' | 'tips'>('tips')
   const { recommendations, loading, error } = usePersonalizedRecommendations()
 
   const getGoalText = (goal: string) => {
@@ -146,16 +146,6 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
           <span className="hidden sm:inline">Consejos</span>
         </Button>
         <Button
-          onClick={() => setActiveTab('recipes')}
-          className={activeTab === 'recipes' 
-            ? 'bg-gradient-to-r from-orange-500 to-red-500 text-white' 
-            : 'bg-white text-gray-700 hover:bg-muted'
-          }
-        >
-          <ChefHat className="w-4 h-4 mr-2" />
-          <span className="hidden sm:inline">Recetas</span>
-        </Button>
-        <Button
           onClick={() => setActiveTab('workouts')}
           className={activeTab === 'workouts' 
             ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white' 
@@ -191,62 +181,6 @@ export function PersonalizedRecommendations({ userProfile: externalProfile, onCo
               </CardContent>
             </Card>
           ))}
-        </div>
-      )}
-
-      {/* Contenido de Recetas */}
-      {activeTab === 'recipes' && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-2xl font-bold text-foreground mb-2 flex items-center justify-center gap-2">
-              <ChefHat className="w-6 h-6 text-orange-500" />
-              Recetas para tu Objetivo
-            </h3>
-            <p className="text-muted-foreground">
-              {profile?.main_goal && `Seleccionadas para ${getGoalText(profile.main_goal)}`}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recommendations.recipes.slice(0, 6).map((recipe: any) => (
-              <Card key={recipe.id} className="border-0 bg-card hover:shadow-xl transition-all hover:-translate-y-1">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start gap-2">
-                    <CardTitle className="text-base line-clamp-2">{recipe.name}</CardTitle>
-                    <Badge className="bg-orange-100 text-orange-700 border-0 text-xs flex-shrink-0">
-                      {recipe.difficulty || 'Fácil'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div>
-                      <Flame className="w-4 h-4 text-red-500 mx-auto mb-1" />
-                      <p className="text-xs font-medium">{recipe.calories}</p>
-                    </div>
-                    <div>
-                      <span className="text-red-600 text-sm mx-auto block mb-1">🥩</span>
-                      <p className="text-xs font-medium">{recipe.protein}g</p>
-                    </div>
-                    <div>
-                      <span className="text-amber-600 text-sm mx-auto block mb-1">🍞</span>
-                      <p className="text-xs font-medium">{recipe.carbs}g</p>
-                    </div>
-                    <div>
-                      <span className="text-green-600 text-sm mx-auto block mb-1">🥑</span>
-                      <p className="text-xs font-medium">{recipe.fat}g</p>
-                    </div>
-                  </div>
-                  {recipe.prep_time_minutes && (
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <Clock className="w-3 h-3" />
-                      {recipe.prep_time_minutes} min
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
         </div>
       )}
 

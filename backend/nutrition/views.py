@@ -2987,6 +2987,12 @@ def list_recipes(request):
 
     request.user = auth_result[0]
 
+    if not (request.user.is_staff or request.user.is_superuser):
+        return JsonResponse(
+            {'detail': 'No tienes permiso para listar el catálogo completo de recetas.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+
     params = getattr(request, 'query_params', request.GET)
     queryset = Recipe.objects.filter(is_active=True)
     
