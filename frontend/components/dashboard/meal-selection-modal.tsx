@@ -22,7 +22,7 @@ interface MealSelectionModalProps {
   initialOption?: MealOption | null
   onSelectOption: (option: MealOption) => void
   onDeselectOption?: () => void
-  initialView?: 'recipe' | 'equivalencias' | 'recetas-equivalencias'
+  initialView?: 'recipe' | 'equivalencias'
 }
 
 const resolveRecipeImageSrc = (src?: string | null) => {
@@ -76,34 +76,36 @@ export function MealSelectionModal({
     "Cena": "dinner"
   }
 
-  // Cargar recetas recomendadas o todas las disponibles
-  const handleViewAllRecipes = async (
-    autoOpenRecipeId?: string | number | null,
-    opts?: { equivalenceOnly?: boolean },
-  ) => {
+  // Abrir equivalencias de ingredientes para una receta concreta del plan
+  const handleViewEquivalences = async (recipeId: string | number) => {
     setLoadingRecipes(true)
-    setAutoOpenEquivalenceRecipeId(autoOpenRecipeId ? String(autoOpenRecipeId) : null)
-    setEquivalenceOnlyMode(opts?.equivalenceOnly ?? Boolean(autoOpenRecipeId))
+    setAutoOpenEquivalenceRecipeId(String(recipeId))
+    setEquivalenceOnlyMode(true)
     setShowAllRecipes(true)
     try {
-      const allRecipes = await nutritionService.listRecipes()
-
-      // Filtrar recetas por tipo de comida si es posible
-      const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
-      const filteredRecipes = allRecipes.filter(r => {
-        if (r.meal_types && Array.isArray(r.meal_types)) {
-          return r.meal_types.includes(resolvedMealType) || r.meal_types.length === 0
-        }
-        return true
-      })
-
-      setAllRecipes(filteredRecipes)
+      const recipe = await nutritionService.getRecipe(recipeId)
+      if (!recipe) {
+        toast({
+          title: 'No se pudieron cargar las equivalencias',
+          description: 'La receta ya no está disponible.',
+          variant: 'destructive',
+        })
+        setShowAllRecipes(false)
+        setEquivalenceOnlyMode(false)
+        setAutoOpenEquivalenceRecipeId(null)
+        setAllRecipes([])
+        return
+      }
+      setAllRecipes([recipe])
     } catch (error) {
       toast({
-        title: 'No se pudieron cargar las recetas',
+        title: 'No se pudieron cargar las equivalencias',
         description: 'Inténtalo de nuevo en unos segundos.',
         variant: 'destructive',
       })
+      setShowAllRecipes(false)
+      setEquivalenceOnlyMode(false)
+      setAutoOpenEquivalenceRecipeId(null)
       setAllRecipes([])
     } finally {
       setLoadingRecipes(false)
@@ -415,19 +417,17 @@ export function MealSelectionModal({
       (currentSelection?.optionId && String(currentSelection.optionId) === String(opt.id))
     )
     if (!currentOption) {
-      if (initialView === 'recetas-equivalencias') {
-        handleViewAllRecipes(undefined, { equivalenceOnly: false })
-      } else {
-        showRecipeLoadError('No se encontró la receta seleccionada para esta comida.')
-      }
+      showRecipeLoadError('No se encontró la receta seleccionada para esta comida.')
       return
     }
     if (initialView === 'recipe') {
       handleViewRecipe(currentOption)
     } else if (initialView === 'equivalencias') {
-      handleViewAllRecipes(currentOption.recipeId || currentOption.id, { equivalenceOnly: true })
-    } else if (initialView === 'recetas-equivalencias') {
-      handleViewAllRecipes(undefined, { equivalenceOnly: false })
+      if (currentOption.recipeId) {
+        handleViewEquivalences(currentOption.recipeId)
+      } else {
+        showRecipeLoadError('Esta opción no tiene una receta asociada.')
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, mounted, initialView, options, currentSelection, initialOption])
@@ -521,24 +521,6 @@ export function MealSelectionModal({
                     disabled={excludingAllVisible || visibleRecipeIds.length === 0}
                   >
                     {excludingAllVisible ? 'Excluyendo...' : 'No como ninguna de estas'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleViewAllRecipes(undefined, { equivalenceOnly: false })}
-                    className="px-4 py-3 md:px-3 md:py-1.5 text-sm md:text-xs font-semibold md:font-medium text-white bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 rounded-xl md:rounded-lg transition-all shadow-md md:shadow-sm hover:shadow-lg md:hover:shadow-md flex items-center justify-center gap-2 md:gap-1.5 touch-manipulation"
-                    disabled={loadingRecipes}
-                  >
-                    {loadingRecipes ? (
-                      <>
-                        <Loader2 className="w-4 h-4 md:w-3 md:h-3 animate-spin" />
-                        <span>Cargando...</span>
-                      </>
-                    ) : (
-                      <>
-                        <BookOpen className="w-4 h-4 md:w-3 md:h-3" />
-                        <span>Receta equivalencia</span>
-                      </>
-                    )}
                   </button>
                 </div>
               </div>
@@ -641,9 +623,7 @@ export function MealSelectionModal({
                           onClick={(e) => {
                             e.stopPropagation()
                             if (option.recipeId) {
-                              handleViewAllRecipes(option.recipeId, { equivalenceOnly: true })
-                            } else {
-                              handleViewAllRecipes(undefined, { equivalenceOnly: false })
+                              handleViewEquivalences(option.recipeId)
                             }
                           }}
                           className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 font-bold text-emerald-700 transition-colors hover:bg-emerald-100"
@@ -695,7 +675,7 @@ export function MealSelectionModal({
 
               {visibleOptions.length === 0 ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-                  Ya no hay recetas visibles para esta comida. Puedes abrir "Ver Recetas Disponibles" o quitar exclusiones en tu perfil.
+                  Ya no hay recetas visibles para esta comida. Puedes quitar exclusiones en tu perfil o contactar con tu nutricionista.
                 </div>
               ) : null}
             </div>
@@ -748,12 +728,10 @@ export function MealSelectionModal({
         />
       )}
 
-      {/* Modal de Todas las Recetas */}
+      {/* Modal de equivalencias de ingredientes */}
       {showAllRecipes && (
         <AllRecipesModal
           recipes={allRecipes}
-          mealName={mealName}
-          mealTime={mealTime}
           loading={loadingRecipes}
           onClose={() => {
             const shouldCloseEntireModal = equivalenceOnlyMode
@@ -765,95 +743,7 @@ export function MealSelectionModal({
             }
           }}
           autoOpenEquivalenceRecipeId={autoOpenEquivalenceRecipeId}
-          equivalenceOnlyMode={equivalenceOnlyMode}
           onAutoOpenConsumed={() => setAutoOpenEquivalenceRecipeId(null)}
-          onSelectRecipe={async (recipe: Recipe) => {
-            try {
-              setLoadingRecipe(true)
-              const mealType = mealTypeMap[mealName] || "lunch"
-              
-              // Cerrar el modal de todas las recetas PRIMERO
-              setShowAllRecipes(false)
-              
-              // Pequeño delay para asegurar que el modal se cierre antes de mostrar el nuevo
-              await new Promise(resolve => setTimeout(resolve, 100))
-              
-              // Intentar obtener receta personalizada
-              let data = null
-              try {
-                data = await nutritionService.getPersonalizedRecipe(recipe.id, mealType)
-              } catch (error: any) {
-                // Si es 404, usar la receta básica directamente
-                if (error?.message?.includes('404') || error?.message?.includes('Not Found')) {
-                }
-              }
-              
-              if (data && data.recipe && data.personalized_quantities) {
-                // Mostrar modal de detalle con receta personalizada
-                setRecipeData({
-                  recipe: data.recipe,
-                  personalized: data.personalized_quantities,
-                  userProfile: data.user_profile
-                })
-                setShowRecipe(true)
-              } else {
-                // Fallback a receta básica
-                try {
-                  const basicRecipe = await nutritionService.getRecipe(recipe.id)
-                  if (basicRecipe) {
-                    // Mapear ingredientes al formato correcto
-                    const mappedIngredients = (basicRecipe.ingredients || []).map((ing: any) => ({
-                      name: ing.name || 'Ingrediente',
-                      amount: ing.amount || null,
-                      unit: ing.unit || null,
-                      note: typeof ing.amount === 'string' && !ing.unit ? ing.amount : undefined
-                    }))
-                    
-                    // Crear datos básicos para el modal de detalle
-                    const basicPersonalized = {
-                      macros: {
-                        calories: basicRecipe.calories || 0,
-                        protein: basicRecipe.protein || 0,
-                        carbs: basicRecipe.carbs || 0,
-                        fat: basicRecipe.fat || 0
-                      },
-                      ingredients: mappedIngredients,
-                      servings: basicRecipe.servings || 1,
-                      scale_factor: 1,
-                      meal_percentage: 0,
-                      original_calories: basicRecipe.calories || 0,
-                      target_calories: basicRecipe.calories || 0,
-                      meal_type: mealType || 'lunch'
-                    }
-                    
-                    setRecipeData({
-                      recipe: basicRecipe,
-                      personalized: basicPersonalized,
-                      userProfile: {
-                        weight: 70,
-                        height: 170,
-                        age: 30,
-                        gender: 'male',
-                        main_goal: 'maintain',
-                        activity_level: 'moderate',
-                        daily_calories_target: 2000
-                      }
-                    })
-                    setShowRecipe(true)
-                  } else {
-                    alert('No se pudo cargar la receta. Por favor, intenta de nuevo.')
-                  }
-                } catch (basicError: any) {
-                  // Si también falla la receta básica, mostrar error pero no abrir modal de todas las recetas
-                  alert('Error al cargar la receta. Por favor, intenta de nuevo.')
-                }
-              }
-            } catch (error) {
-              alert('Error al cargar la receta. Por favor, intenta de nuevo.')
-            } finally {
-              setLoadingRecipe(false)
-            }
-          }}
           onSelectOption={handleSelectOption}
         />
       )}
@@ -1130,86 +1020,36 @@ function RecipeDetailModal({
   return typeof document !== 'undefined' && createPortal(modalContent, document.body)
 }
 
-// Componente para mostrar todas las recetas disponibles
+// Modal de equivalencias de ingredientes para recetas del plan
 interface AllRecipesModalProps {
   recipes: Recipe[]
-  mealName: string
-  mealTime: string
   loading: boolean
   onClose: () => void
-  onSelectRecipe: (recipe: Recipe) => void | Promise<void>
   onSelectOption: (option: MealOption) => void
   autoOpenEquivalenceRecipeId?: string | null
-  equivalenceOnlyMode?: boolean
   onAutoOpenConsumed?: () => void
 }
 
 function AllRecipesModal({
   recipes,
-  mealName,
-  mealTime,
   loading,
   onClose,
-  onSelectRecipe,
   onSelectOption,
   autoOpenEquivalenceRecipeId,
-  equivalenceOnlyMode = false,
   onAutoOpenConsumed
 }: AllRecipesModalProps) {
   const [mounted, setMounted] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCategory, setSelectedCategory] = useState<string>("all")
-  const [selectedMealType, setSelectedMealType] = useState<string>("all")
-  const [visibleCount, setVisibleCount] = useState(20)
   const [substitutionRecipe, setSubstitutionRecipe] = useState<Recipe | null>(null)
   const [selectedIngredientId, setSelectedIngredientId] = useState<string>("")
   const [substitutionSearch, setSubstitutionSearch] = useState("")
   const [substitutions, setSubstitutions] = useState<IngredientSubstitutionResponse | null>(null)
   const [loadingSubstitutions, setLoadingSubstitutions] = useState(false)
   const [mobileStep, setMobileStep] = useState<"ingredients" | "results">("ingredients")
-  const scrollRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     setMounted(true)
     return () => setMounted(false)
   }, [])
-
-  const MEAL_TYPE_LABELS: Record<string, string> = {
-    breakfast: 'Desayuno',
-    lunch: 'Almuerzo',
-    dinner: 'Cena',
-    snack: 'Snack',
-    pre_workout: 'Pre-entreno',
-    post_workout: 'Post-entreno',
-    mid_morning: 'Media mañana',
-    afternoon_snack: 'Merienda',
-  }
-
-  // Filtrar recetas por búsqueda, categoría y tipo de comida
-  const filteredRecipes = recipes.filter(recipe => {
-    const recipeName = String(recipe?.name || '').toLowerCase()
-    const recipeDescription = String(recipe?.description || '').toLowerCase()
-    const query = searchQuery.trim().toLowerCase()
-    const matchesSearch = recipeName.includes(query) || recipeDescription.includes(query)
-    const matchesCategory = selectedCategory === "all" ||
-                           recipe.category?.toLowerCase() === selectedCategory.toLowerCase()
-    const matchesMealType = selectedMealType === "all" ||
-                           (recipe.meal_types && recipe.meal_types.includes(selectedMealType)) ||
-                           (!recipe.meal_types || recipe.meal_types.length === 0)
-    return matchesSearch && matchesCategory && matchesMealType
-  })
-
-  useEffect(() => {
-    setVisibleCount(20)
-  }, [searchQuery, selectedCategory, selectedMealType, recipes.length])
-
-  const handleScroll = () => {
-    const el = scrollRef.current
-    if (!el) return
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 120) {
-      setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length))
-    }
-  }
 
   const linkedIngredients = substitutionRecipe?.recipe_ingredients?.filter((ingredient) => ingredient.food_detail || ingredient.food_id || ingredient.food) || []
 
@@ -1304,9 +1144,7 @@ function AllRecipesModal({
 
   const closeSubstitutions = () => {
     setSubstitutionRecipe(null)
-    if (equivalenceOnlyMode) {
-      onClose()
-    }
+    onClose()
   }
 
   useEffect(() => {
@@ -1319,241 +1157,19 @@ function AllRecipesModal({
 
   if (!mounted) return null
 
-  // Obtener categorías y tipos de comida únicos de las recetas
-  const categories = Array.from(new Set(recipes.map(r => r.category).filter(Boolean)))
-  const mealTypes = Array.from(
-    new Set(recipes.flatMap(r => r.meal_types || []).filter(Boolean))
-  ).sort()
-
   const modalContent = (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998] flex items-start sm:items-center justify-center p-4">
-      {!equivalenceOnlyMode && (
-      <div className="w-full max-w-4xl h-[90dvh] max-h-[90dvh] z-[9999] rounded-2xl overflow-hidden shadow-2xl bg-card flex flex-col">
-          {/* Header */}
-          <div className="border-b border-border p-6 rounded-t-2xl bg-card flex-shrink-0">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-foreground mb-2 flex items-center gap-2">
-                  <BookOpen className="w-6 h-6 text-purple-600" />
-                  Recetas Recomendadas
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Recetas sugeridas para {mealName} ({mealTime}) según tu plan de nutrición
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors ml-4"
-                aria-label="Cerrar"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Búsqueda y Filtros */}
-            <div className="flex flex-col gap-2 mt-4">
-              <input
-                type="text"
-                placeholder="Buscar por nombre o parte del nombre..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <div className="flex flex-col sm:flex-row gap-2">
-                <select
-                  value={selectedMealType}
-                  onChange={(e) => setSelectedMealType(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  aria-label="Filtrar por tipo de comida"
-                  title="Filtrar por tipo de comida"
-                >
-                  <option value="all">Todos los tipos</option>
-                  {mealTypes.map(mt => (
-                    <option key={mt} value={mt}>{MEAL_TYPE_LABELS[mt] ?? mt}</option>
-                  ))}
-                </select>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  aria-label="Filtrar por categoría"
-                  title="Filtrar por categoría"
-                >
-                  <option value="all">Todos los objetivos</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Content - Scrollable */}
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            className="p-6 overflow-y-auto flex-1 min-h-0 overscroll-contain touch-pan-y"
-            style={{ WebkitOverflowScrolling: 'touch' }}
-          >
-            {loading ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
-                <span className="ml-3 text-muted-foreground">Cargando recetas...</span>
-              </div>
-            ) : filteredRecipes.length === 0 ? (
-              <div className="text-center py-12">
-                <BookOpen className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="text-muted-foreground">
-                  {searchQuery || selectedCategory !== "all" || selectedMealType !== "all"
-                    ? "No se encontraron recetas con los filtros seleccionados"
-                    : "No hay recetas recomendadas disponibles para esta comida"}
-                </p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Las recetas se muestran según las recomendaciones de tu plan de nutrición activo
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredRecipes.slice(0, visibleCount).map((recipe) => (
-                  <div
-                    key={recipe.id}
-                    className="group overflow-hidden rounded-2xl border border-orange-100 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-xl dark:bg-card dark:border-orange-900/30 cursor-pointer"
-                    onClick={async () => {
-                      await onSelectRecipe(recipe)
-                    }}
-                  >
-                    <div className="relative h-44 overflow-hidden bg-orange-50">
-                      <img
-                        src={resolveRecipeImageSrc(recipe.image_url)}
-                        alt={recipe.name}
-                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
-                        referrerPolicy="no-referrer"
-                        onError={(e) => {
-                          ;(e.target as HTMLImageElement).src = '/placeholder.jpg'
-                        }}
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent" />
-                      <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
-                        {recipe.category && (
-                          <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[10px] font-black text-lime-950 shadow">
-                            {recipe.category}
-                          </span>
-                        )}
-                        {recipe.difficulty && (
-                          <span className="rounded-full bg-white/90 px-2 py-1 text-[10px] font-bold text-gray-700 shadow">
-                            {recipe.difficulty}
-                          </span>
-                        )}
-                      </div>
-                      <div className="absolute bottom-3 left-3 right-3">
-                        <h3 className="line-clamp-2 text-lg font-black leading-tight text-white drop-shadow">
-                          {recipe.name}
-                        </h3>
-                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-snug text-white/85">
-                          {recipe.description}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="p-3">
-                      {/* Macros */}
-                      <div className="grid grid-cols-4 gap-1.5">
-                        <div className="rounded-xl border border-orange-100 bg-orange-50 px-1 py-2 text-center">
-                          <div className="text-sm font-black text-orange-700">{recipe.calories}</div>
-                          <div className="text-[10px] font-semibold text-orange-500">kcal</div>
-                        </div>
-                        <div className="rounded-xl border border-blue-100 bg-blue-50 px-1 py-2 text-center">
-                          <div className="text-sm font-black text-blue-700">{formatMacro(recipe.protein)}</div>
-                          <div className="text-[10px] font-semibold text-blue-500">P</div>
-                        </div>
-                        <div className="rounded-xl border border-green-100 bg-green-50 px-1 py-2 text-center">
-                          <div className="text-sm font-black text-green-700">{formatMacro(recipe.carbs)}</div>
-                          <div className="text-[10px] font-semibold text-green-500">C</div>
-                        </div>
-                        <div className="rounded-xl border border-yellow-100 bg-yellow-50 px-1 py-2 text-center">
-                          <div className="text-sm font-black text-yellow-700">{formatMacro(recipe.fat)}</div>
-                          <div className="text-[10px] font-semibold text-yellow-500">G</div>
-                        </div>
-                      </div>
-
-                      {/* Info adicional */}
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
-                        {recipe.prep_time_minutes > 0 && (
-                          <span className="flex items-center gap-1 rounded-full bg-gray-50 px-2 py-1">
-                            <Clock className="w-3 h-3" />
-                            {recipe.prep_time_minutes} min
-                          </span>
-                        )}
-                        <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
-                          Recomendada
-                        </span>
-                      </div>
-
-                      {/* Botón seleccionar */}
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation()
-                          await onSelectRecipe(recipe)
-                        }}
-                        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-pink-500 px-4 py-3 text-sm font-black text-white shadow-lg transition-all hover:from-orange-600 hover:to-pink-600 active:scale-[0.98]"
-                      >
-                        <BookOpen className="h-4 w-4" />
-                        Seleccionar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation()
-                          await openSubstitutions(recipe)
-                        }}
-                        className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-black text-emerald-700 transition-all hover:bg-emerald-100 active:scale-[0.98]"
-                      >
-                        <Shuffle className="h-4 w-4" />
-                        Ver equivalencias
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {!loading && filteredRecipes.length > visibleCount && (
-              <div className="flex justify-center mt-6">
-                <button
-                  type="button"
-                  onClick={() => setVisibleCount((prev) => Math.min(prev + 20, filteredRecipes.length))}
-                  className="px-4 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 rounded-lg transition"
-                >
-                  Cargar más recetas
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="bg-white border-t border-border p-4 rounded-b-2xl flex-shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full px-4 py-2 text-muted-foreground border border-gray-300 rounded-lg hover:bg-muted/50 transition-colors font-medium"
-            >
-              Cerrar
-            </button>
-          </div>
-      </div>
-      )}
-
-      {equivalenceOnlyMode && !substitutionRecipe && (
+      {!substitutionRecipe && (
         <div className="z-[9999] flex w-full max-w-md items-center justify-center rounded-2xl bg-white p-8 shadow-2xl">
           <Loader2 className="mr-3 h-6 w-6 animate-spin text-emerald-600" />
-          <span className="text-sm font-semibold text-gray-600">Cargando equivalencias...</span>
+          <span className="text-sm font-semibold text-gray-600">
+            {loading ? 'Cargando equivalencias...' : 'Preparando equivalencias...'}
+          </span>
         </div>
       )}
 
       {substitutionRecipe && (
-        <div className={`${equivalenceOnlyMode ? 'relative z-[9999] w-full' : 'absolute inset-0 z-[10000]'} flex items-start justify-center ${equivalenceOnlyMode ? '' : 'bg-black/55'} p-4 sm:items-center`}>
+        <div className="relative z-[9999] flex w-full items-start justify-center p-4 sm:items-center">
           <div className="flex max-h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
 
             {/* Header */}

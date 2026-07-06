@@ -28,16 +28,8 @@ export function usePersonalizedRecommendations() {
 
       const profile = await profileResponse.json()
 
-      // Cargar recetas según objetivo
-      const recipesResponse = await fetch(buildApiUrl('nutrition/recipes/?page_size=6&page=1'), {
-        headers: getAuthHeaders(),
-      })
-
-      let recipes = []
-      if (recipesResponse.ok) {
-        const recipesData = await recipesResponse.json()
-        recipes = recipesData.results || recipesData || []
-      }
+      // Las recetas del plan se gestionan desde nutrición; no listar el catálogo completo aquí.
+      const recipes: any[] = []
 
       // Cargar programas de entrenamiento
       const workoutResponse = await fetch(buildApiUrl('workout-programs/?limit=6'), {

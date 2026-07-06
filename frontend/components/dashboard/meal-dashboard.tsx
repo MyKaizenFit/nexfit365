@@ -35,9 +35,9 @@ export function MealDashboard() {
   } | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [initialView, setInitialView] = useState<'recipe' | 'equivalencias' | 'recetas-equivalencias' | undefined>(undefined)
+  const [initialView, setInitialView] = useState<'recipe' | 'equivalencias' | undefined>(undefined)
 
-  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }, view?: 'recipe' | 'equivalencias' | 'recetas-equivalencias') => {
+  const handleOpenMealOptions = (meal: { id: string; name: string; time: string; mealType: string }, view?: 'recipe' | 'equivalencias') => {
     const fullMeal = meals.find((item) => item.id === meal.id)
     setSelectedMeal({
       ...meal,
