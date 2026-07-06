@@ -281,3 +281,94 @@ def finalize_plan_after_meal_changes(
         'daily_calories', 'protein_grams', 'carbs_grams', 'fat_grams', 'meals_per_day', 'updated_at',
     ])
     return plan
+
+
+DAY_LABELS_ES = {
+    1: 'Lunes',
+    2: 'Martes',
+    3: 'Miércoles',
+    4: 'Jueves',
+    5: 'Viernes',
+    6: 'Sábado',
+    7: 'Domingo',
+}
+
+MEAL_TYPE_LABELS_ES = {
+    'breakfast': 'Desayuno',
+    'morning_snack': 'Snack mañana',
+    'lunch': 'Almuerzo',
+    'afternoon_snack': 'Snack tarde',
+    'dinner': 'Cena',
+    'evening_snack': 'Snack noche',
+    'snack': 'Snack',
+    'pre_workout': 'Pre-entreno',
+    'post_workout': 'Post-entreno',
+    'other': 'Otra',
+}
+
+
+def build_meal_count_mismatch_report(
+    meals: Iterable[PlanMeal],
+    *,
+    declared_meals_per_day: int | None = None,
+) -> dict:
+    """
+    Detecta días con un número de comidas distinto al declarado en meals_per_day
+    y tipos de comida duplicados en el mismo día.
+    """
+    meal_list = list(meals)
+    groups = group_meals_by_day_key(meal_list)
+    declared = int(declared_meals_per_day or 0)
+
+    per_day_counts: list[int] = []
+    mismatched_days: list[dict] = []
+    duplicate_meal_types: list[dict] = []
+
+    for (week, day), group in sorted(groups.items(), key=lambda item: (item[0][0], item[0][1] or 0)):
+        count = len(group)
+        per_day_counts.append(count)
+
+        if declared > 0 and count != declared:
+            day_label = 'Genérico (todos los días)' if day is None else DAY_LABELS_ES.get(day, f'Día {day}')
+            mismatched_days.append({
+                'week_number': week,
+                'day_of_week': day,
+                'day_label': day_label,
+                'meal_count': count,
+                'expected_count': declared,
+            })
+
+        if day is not None:
+            type_counts: dict[str, int] = defaultdict(int)
+            for meal in group:
+                meal_type = str(meal.meal_type or 'other')
+                type_counts[meal_type] += 1
+            for meal_type, type_count in type_counts.items():
+                if type_count > 1:
+                    duplicate_meal_types.append({
+                        'week_number': week,
+                        'day_of_week': day,
+                        'day_label': DAY_LABELS_ES.get(day, f'Día {day}'),
+                        'meal_type': meal_type,
+                        'meal_type_label': MEAL_TYPE_LABELS_ES.get(meal_type, meal_type),
+                        'count': type_count,
+                    })
+
+    configured_max = max(per_day_counts) if per_day_counts else 0
+    configured_min = min(per_day_counts) if per_day_counts else 0
+
+    return {
+        'declared_meals_per_day': declared,
+        'configured_max_per_day': configured_max,
+        'configured_min_per_day': configured_min,
+        'has_mismatch': bool(mismatched_days),
+        'has_inconsistent_days': configured_max != configured_min if per_day_counts else False,
+        'has_duplicate_meal_types': bool(duplicate_meal_types),
+        'should_warn': bool(
+            mismatched_days
+            or duplicate_meal_types
+            or (configured_max != configured_min if per_day_counts else False)
+        ),
+        'mismatched_days': mismatched_days,
+        'duplicate_meal_types': duplicate_meal_types,
+    }
