@@ -20,6 +20,7 @@ import {
   Heart,
   Moon,
   Crown,
+  CloudMoon,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,7 @@ const TipsShowcase = lazy(() => import("@/components/dashboard/tips-showcase").t
 const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 const RecommendationsSection = lazy(() => import("@/components/recommendations/recommendations-section").then(module => ({ default: module.RecommendationsSection })))
 const WellnessTracker = lazy(() => import("./components/wellness-tracker").then(module => ({ default: module.WellnessTracker })))
+const RestWellnessSection = lazy(() => import("./components/rest-wellness-section").then(module => ({ default: module.RestWellnessSection })))
 const BodyMeasurements = lazy(() => import("./components/body-measurements").then(module => ({ default: module.BodyMeasurements })))
 const CoachingCTA = lazy(() => import("./components/coaching-cta").then(module => ({ default: module.CoachingCTA })))
 const QuinzenalReview = lazy(() => import("./components/quinzenal-review").then(module => ({ default: module.QuinzenalReview })))
@@ -79,6 +81,7 @@ const RecipeCommunity = lazy(() => import("./components/recipe-community").then(
 import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
+import { useRestWellnessAccess } from "@/hooks/use-rest-wellness-access"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
@@ -92,6 +95,7 @@ const menuItems = [
   { title: "Team SK", icon: Camera, url: "recipe-community" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
+  { title: "Descanso", icon: CloudMoon, url: "rest-wellness", pilotOnly: true },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
@@ -99,14 +103,17 @@ const menuItems = [
 ]
 
 const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
+const PILOT_ONLY_SECTIONS = new Set(["rest-wellness"])
 
 function DashboardSectionSync({
   selectedSection,
   isPremiumUser,
+  canAccessRestWellness,
   onSectionChange,
 }: {
   selectedSection: string
   isPremiumUser: boolean
+  canAccessRestWellness: boolean
   onSectionChange: (section: string) => void
 }) {
   const router = useRouter()
@@ -121,12 +128,18 @@ function DashboardSectionSync({
       return
     }
 
+    if (sectionParam && PILOT_ONLY_SECTIONS.has(sectionParam) && !canAccessRestWellness) {
+      onSectionChange("dashboard")
+      router.replace("/dashboard", { scroll: false })
+      return
+    }
+
     if (sectionParam && sectionParam !== selectedSection) {
       onSectionChange(sectionParam)
     } else if (!sectionParam && selectedSection !== "dashboard") {
       onSectionChange("dashboard")
     }
-  }, [searchParams, selectedSection, isPremiumUser, router, onSectionChange])
+  }, [searchParams, selectedSection, isPremiumUser, canAccessRestWellness, router, onSectionChange])
 
   return null
 }
@@ -137,11 +150,15 @@ function DashboardContent() {
   const { user, logout, isAuthenticated, isLoading } = useAuth()
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
+  const { access: restWellnessAccess } = useRestWellnessAccess()
   const userRole = (user?.role || "").toLowerCase()
   const isPremiumUser = userRole === "premium"
-  const visibleMenuItems = isPremiumUser
-    ? menuItems.filter((item) => !PREMIUM_BLOCKED_SECTIONS.has(item.url))
-    : menuItems
+  const canAccessRestWellness = restWellnessAccess.can_fill
+  const visibleMenuItems = menuItems.filter((item) => {
+    if ("pilotOnly" in item && item.pilotOnly && !canAccessRestWellness) return false
+    if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
+    return true
+  })
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -166,13 +183,19 @@ function DashboardContent() {
       return
     }
 
+    if (PILOT_ONLY_SECTIONS.has(section) && !canAccessRestWellness) {
+      setSelectedSection("dashboard")
+      router.push("/dashboard", { scroll: false })
+      return
+    }
+
     setSelectedSection(section)
     if (section === "dashboard") {
       router.push("/dashboard", { scroll: false })
     } else {
       router.push(`/dashboard?section=${section}`, { scroll: false })
     }
-  }, [router, isPremiumUser])
+  }, [router, isPremiumUser, canAccessRestWellness])
 
   useEffect(() => {
     const handleSectionChange = (event: Event) => {
@@ -387,6 +410,24 @@ function DashboardContent() {
           </div>
         )
 
+      case "rest-wellness":
+        if (!canAccessRestWellness) {
+          return null
+        }
+        return (
+          <div className="fade-in-stagger scroll-area h-full w-full relative">
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-violet-200/20 to-fuchsia-200/20 rounded-full blur-3xl animate-pulse"></div>
+              <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-pink-200/20 to-violet-200/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
+            </div>
+            <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
+              <Suspense fallback={<DashboardSectionFallback><WellnessSectionSkeleton /></DashboardSectionFallback>}>
+                <RestWellnessSection canCoach={restWellnessAccess.can_coach} />
+              </Suspense>
+            </div>
+          </div>
+        )
+
       case "measurements":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
@@ -512,6 +553,7 @@ function DashboardContent() {
         <DashboardSectionSync
           selectedSection={selectedSection}
           isPremiumUser={isPremiumUser}
+          canAccessRestWellness={canAccessRestWellness}
           onSectionChange={setSelectedSection}
         />
       </Suspense>
@@ -726,7 +768,12 @@ function DashboardContent() {
 
         {/* Mobile Bottom Navigation */}
         <Suspense fallback={<div className="h-20 bg-card border-t"></div>}>
-          <MobileNavigation selectedSection={selectedSection} onSectionChange={handleMenuClick} isPremiumUser={isPremiumUser} />
+          <MobileNavigation
+            selectedSection={selectedSection}
+            onSectionChange={handleMenuClick}
+            isPremiumUser={isPremiumUser}
+            canAccessRestWellness={canAccessRestWellness}
+          />
         </Suspense>
       </div>
     </div>

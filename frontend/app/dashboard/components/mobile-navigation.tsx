@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Camera, ChefHat, Crown, Dumbbell, Heart, Home, Medal, Moon, Settings, Sparkles, Target, TrendingUp, User } from "lucide-react"
+import { Camera, ChefHat, CloudMoon, Crown, Dumbbell, Heart, Home, Medal, Moon, Settings, Sparkles, Target, TrendingUp, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +20,7 @@ const moreMenuItems = [
   { title: "Consejos", icon: Heart, url: "tips", badge: null, premiumBlocked: false },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements", badge: null, premiumBlocked: false },
   { title: "Bienestar", icon: Moon, url: "wellness", badge: null, premiumBlocked: false },
+  { title: "Descanso", icon: CloudMoon, url: "rest-wellness", badge: null, premiumBlocked: false, pilotOnly: true },
   { title: "Logros", icon: Medal, url: "achievements", badge: null, premiumBlocked: false },
   { title: "Configuración", icon: Settings, url: "settings", badge: null, premiumBlocked: false },
 ]
@@ -28,12 +29,20 @@ interface MobileNavigationProps {
   selectedSection: string
   onSectionChange: (section: string, title: string) => void
   isPremiumUser?: boolean
+  canAccessRestWellness?: boolean
 }
 
-export function MobileNavigation({ selectedSection, onSectionChange, isPremiumUser = false }: MobileNavigationProps) {
-  const visibleMoreItems = isPremiumUser
-    ? moreMenuItems.filter((item) => !item.premiumBlocked)
-    : moreMenuItems
+export function MobileNavigation({
+  selectedSection,
+  onSectionChange,
+  isPremiumUser = false,
+  canAccessRestWellness = false,
+}: MobileNavigationProps) {
+  const visibleMoreItems = moreMenuItems.filter((item) => {
+    if ("pilotOnly" in item && item.pilotOnly && !canAccessRestWellness) return false
+    if (isPremiumUser && item.premiumBlocked) return false
+    return true
+  })
   const [showMore, setShowMore] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
   const menuRef = useRef<HTMLDivElement | null>(null)
