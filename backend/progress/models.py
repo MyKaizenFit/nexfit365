@@ -244,3 +244,28 @@ class DailyWellness(TimeStampedModel):
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
+
+
+class RestWellnessAssessment(TimeStampedModel):
+    """Evaluación puntual de hábitos de descanso (piloto)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="rest_wellness_assessments",
+    )
+    answers = models.JSONField(help_text="Array de 32 respuestas booleanas en orden mezclado")
+    scores = models.JSONField(help_text="Puntuación por categoría")
+    script = models.TextField(help_text="Guión personalizado para el coach")
+    top_categories = models.JSONField(help_text="Top 3 categorías prioritarias")
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Evaluación de descanso"
+        verbose_name_plural = "Evaluaciones de descanso"
+        indexes = [
+            models.Index(fields=["user", "created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - descanso ({self.created_at:%Y-%m-%d})"
