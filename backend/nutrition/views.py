@@ -560,17 +560,10 @@ def plan_meals_for_selection(request):
                 meal_recipe_ratio = plan_target_ratio(user_plan)
                 for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
                     recipe = meal_recipe.recipe
+                    selected_recipe = recipe
                     replacement = None
-                    if not recipe_allowed_for_user(recipe):
-                        replacement = find_macro_similar_recipe(
-                            meal_type=meal_type,
-                            target_recipe=recipe,
-                            meal_base=meal,
-                            used_ids=used_recipe_ids,
-                        )
-                        if not replacement:
-                            continue
-                    selected_recipe = replacement or recipe
+                    if selected_recipe.id in used_recipe_ids:
+                        continue
                     used_recipe_ids.add(selected_recipe.id)
                     scaled_macros = scaled_meal_recipe_macros(meal_recipe, meal_recipe_ratio)
                     meal_options.append({
@@ -591,17 +584,7 @@ def plan_meals_for_selection(request):
             elif meal.suggested_recipes.exists():
                 used_recipe_ids = set()
                 for recipe in meal.suggested_recipes.all():
-                    replacement = None
-                    if not recipe_allowed_for_user(recipe):
-                        replacement = find_macro_similar_recipe(
-                            meal_type=meal_type,
-                            target_recipe=recipe,
-                            meal_base=meal,
-                            used_ids=used_recipe_ids,
-                        )
-                        if not replacement:
-                            continue
-                    selected_recipe = replacement or recipe
+                    selected_recipe = recipe
                     if selected_recipe.id in used_recipe_ids:
                         continue
                     used_recipe_ids.add(selected_recipe.id)
@@ -622,77 +605,26 @@ def plan_meals_for_selection(request):
                     'cookTime': '15 min'
                 })
 
-            if not meal_options:
-                fallback_candidates = []
-                for candidate in Recipe.objects.filter(is_active=True).exclude(id__in=excluded_recipe_ids):
-                    if not recipe_allowed_for_user(candidate):
-                        continue
-                    candidate_meal_types = [str(item).lower() for item in (candidate.meal_types or [])]
-                    candidate_category = str(candidate.category or '').lower()
-                    if meal_type.lower() in candidate_meal_types or candidate_category == meal_type.lower():
-                        fallback_candidates.append(candidate)
-                    if len(fallback_candidates) >= 5:
-                        break
-                for recipe in fallback_candidates:
-                    meal_options.append(build_recipe_option(recipe, meal_type, meal, meal.id))
-            
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
         
-        # Si el usuario tiene plan pero no hay comidas configuradas para ese día,
-        # NO devolver vacío: continuar con plantillas del sistema / fallback por recetas.
-        if meal_slots:
-            # Objetivo calórico del usuario (del plan, ya fijado antes de este bloque).
-            user_target_cal = float(daily_calories)
-
-            # Calcular el total real a partir de las opciones ya construidas y escaladas.
-            # Como el usuario elegirá UNA opción por comida, usamos la media de las opciones
-            # de cada slot como valor representativo del total del día.
-            raw_total_cal = 0.0
-            raw_total_protein = 0.0
-            raw_total_carbs = 0.0
-            raw_total_fat = 0.0
-            for opts in options_by_meal_id.values():
-                if opts:
-                    n = len(opts)
-                    raw_total_cal += sum(o.get('calories', 0) for o in opts) / n
-                    raw_total_protein += sum(o.get('protein', 0) for o in opts) / n
-                    raw_total_carbs += sum(o.get('carbs', 0) for o in opts) / n
-                    raw_total_fat += sum(o.get('fat', 0) for o in opts) / n
-
-            # Si el total real se desvía más de un 5 % del objetivo del usuario,
-            # escalar todas las opciones para que se ajusten al objetivo.
-            # Las opciones en options_by_meal_id y meals_by_type son los mismos objetos
-            # en memoria, por lo que basta con modificarlos en un solo pase.
-            correction = 1.0
-            MAX_DEVIATION = 0.05
-            if raw_total_cal > 0 and user_target_cal > 0:
-                deviation = abs(raw_total_cal - user_target_cal) / user_target_cal
-                if deviation > MAX_DEVIATION:
-                    correction = user_target_cal / raw_total_cal
-                    for opts in options_by_meal_id.values():
-                        for opt in opts:
-                            opt['calories'] = max(1, int(round(opt.get('calories', 0) * correction)))
-                            opt['protein'] = round(opt.get('protein', 0) * correction, 1)
-                            opt['carbs'] = round(opt.get('carbs', 0) * correction, 1)
-                            opt['fat'] = round(opt.get('fat', 0) * correction, 1)
-
-            return Response({
-                'meals_by_type': meals_by_type,
-                'meal_slots': meal_slots,
-                'options_by_meal_id': options_by_meal_id,
-                'plan_name': user_plan.name,
-                'source': 'user_plan',
-                'date': date_for_slots.isoformat(),
-                'daily_calories_target': int(round(user_target_cal)),
-                'daily_macros': {
-                    'protein': round(raw_total_protein * correction, 1),
-                    'carbs': round(raw_total_carbs * correction, 1),
-                    'fat': round(raw_total_fat * correction, 1),
-                },
-            })
+        # Plan asignado: solo lo configurado por la coach. Sin plantillas del sistema ni recetas aleatorias.
+        return Response({
+            'meals_by_type': meals_by_type,
+            'meal_slots': meal_slots,
+            'options_by_meal_id': options_by_meal_id,
+            'plan_name': user_plan.name,
+            'source': 'user_plan',
+            'date': date_for_slots.isoformat(),
+            'daily_calories_target': int(round(float(daily_calories))),
+            'daily_macros': {
+                'protein': daily_macros['protein'],
+                'carbs': daily_macros['carbs'],
+                'fat': daily_macros['fat'],
+            },
+        })
     
-    # Si no tiene plan (o no hay comidas configuradas), devolver opciones desde plantillas del sistema
+    # Sin plan de usuario: plantillas del sistema o fallback limitado
     system_plans = NutritionPlan.objects.filter(
         is_system=True,
         is_active=True
