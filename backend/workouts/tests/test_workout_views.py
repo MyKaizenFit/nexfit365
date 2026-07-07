@@ -489,6 +489,21 @@ class TestWorkoutLogViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['is_completed'] is False
 
+    def test_check_today_batch_requires_workout_day(self, auth_client):
+        response = auth_client.get('/api/workout-logs/check_today_batch/')
+        assert response.status_code == 400
+
+    def test_check_today_batch_returns_results_for_multiple_days(self, auth_client, workout_day):
+        import uuid
+        other_day_id = uuid.uuid4()
+        response = auth_client.get(
+            f'/api/workout-logs/check_today_batch/?workout_day={workout_day.id}&workout_day={other_day_id}'
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert 'results' in response.data
+        assert response.data['results'][str(workout_day.id)]['is_completed'] is False
+        assert response.data['results'][str(other_day_id)]['is_completed'] is False
+
 
 # ---------------------------------------------------------------------------
 # WorkoutPlanTemplateViewSet
