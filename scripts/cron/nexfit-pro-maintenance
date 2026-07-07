@@ -30,3 +30,6 @@ PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Performance diario
 0 1 * * * iago /srv/mykaizenfit/pro/scripts/monitor-performance.sh >> /srv/mykaizenfit/pro/backups/cron_performance.log 2>&1
+
+# Celery worker — revisión diaria (levantar si está caído)
+30 6 * * * iago /srv/mykaizenfit/pro/scripts/ensure-celery-worker.sh >> /srv/mykaizenfit/pro/backups/cron_celery.log 2>&1

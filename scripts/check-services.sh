@@ -159,7 +159,7 @@ fi
 check_backend_and_heal || true
 
 # Lista de servicios restantes
-SERVICES=("frontend" "db" "redis")
+SERVICES=("frontend" "db" "redis" "celery_worker")
 
 for service in "${SERVICES[@]}"; do
     if [ "$service" = "db" ] && [ "$DB_CORRUPTION" = true ]; then
