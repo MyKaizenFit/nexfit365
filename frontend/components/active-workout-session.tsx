@@ -812,6 +812,9 @@ export function ActiveWorkoutSession({
     return elapsedAtRunningStartRef.current + delta
   }, [elapsedSeconds, isPaused, isStarted])
 
+  const getCurrentElapsedSecondsRef = useRef(getCurrentElapsedSeconds)
+  getCurrentElapsedSecondsRef.current = getCurrentElapsedSeconds
+
   const syncElapsedFromClock = useCallback(() => {
     const nextElapsed = getCurrentElapsedSeconds()
     setElapsedSeconds(nextElapsed)
@@ -882,6 +885,41 @@ export function ActiveWorkoutSession({
     }
   }, [completedExercises, exerciseSets, isPaused, isStarted, notes, rating, saveWorkoutState, syncElapsedFromClock, workoutStartTime])
 
+  const persistServerProgress = useCallback(async () => {
+    if (!onSaveProgress || isFinishingRef.current) return
+
+    const hasProgress =
+      completedExercises.size > 0 ||
+      Object.values(exerciseSets).some((setData) => exerciseHasAnyData(setData)) ||
+      notes.trim().length > 0 ||
+      rating > 0
+
+    if (!hasProgress) return
+
+    setAutosaveState('saving')
+    try {
+      await onSaveProgress({
+        duration_minutes: Math.ceil(getCurrentElapsedSecondsRef.current() / 60),
+        rating,
+        notes,
+        exercises_data: buildExercisesData(),
+        completed: isEditingCompletedWorkout,
+      })
+      setAutosaveState('saved')
+    } catch {
+      setAutosaveState('error')
+    }
+  }, [
+    buildExercisesData,
+    completedExercises,
+    exerciseSets,
+    isEditingCompletedWorkout,
+    notes,
+    onSaveProgress,
+    rating,
+  ])
+
+  // Autosave al servidor solo cuando cambian datos del entreno (no cada tick del cronómetro).
   useEffect(() => {
     if (!isStarted || !onSaveProgress || isFinishingRef.current) return
 
@@ -893,34 +931,32 @@ export function ActiveWorkoutSession({
 
     if (!hasProgress) return
 
-    const timeoutId = setTimeout(async () => {
-      setAutosaveState('saving')
-      try {
-        await onSaveProgress({
-          duration_minutes: Math.ceil(getCurrentElapsedSeconds() / 60),
-          rating,
-          notes,
-          exercises_data: buildExercisesData(),
-          completed: isEditingCompletedWorkout,
-        })
-        setAutosaveState('saved')
-      } catch {
-        setAutosaveState('error')
-      }
+    const timeoutId = setTimeout(() => {
+      void persistServerProgress()
     }, 900)
 
     return () => clearTimeout(timeoutId)
   }, [
-    buildExercisesData,
     completedExercises,
     exerciseSets,
-    getCurrentElapsedSeconds,
-    isEditingCompletedWorkout,
     isStarted,
     notes,
     onSaveProgress,
+    persistServerProgress,
     rating,
   ])
+
+  // Sincronizar duración con el servidor cada minuto sin disparar en cada segundo.
+  const SERVER_AUTOSAVE_INTERVAL_MS = 60_000
+  useEffect(() => {
+    if (!isStarted || !onSaveProgress || isFinishingRef.current) return
+
+    const intervalId = setInterval(() => {
+      void persistServerProgress()
+    }, SERVER_AUTOSAVE_INTERVAL_MS)
+
+    return () => clearInterval(intervalId)
+  }, [isStarted, onSaveProgress, persistServerProgress])
 
   // Formatear tiempo
   const formatTime = useCallback((seconds: number) => {
