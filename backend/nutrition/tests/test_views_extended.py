@@ -1,5 +1,6 @@
 """Tests para nutrition/views.py - Endpoints de función y acciones ViewSet no cubiertas"""
 import pytest
+from datetime import date
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.contrib.auth import get_user_model
@@ -164,7 +165,8 @@ class TestPlanMealsForSelection:
         response = client.get('/api/nutrition/plan-meals-for-selection/')
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_excluded_recipe_is_filtered_from_options(self, auth_client, user, nutrition_plan, recipe):
+    def test_excluded_recipe_is_still_shown_when_coach_assigned(self, auth_client, user, nutrition_plan, recipe):
+        """Recetas del plan asignado por la coach se muestran aunque el usuario las haya excluido antes."""
         recipe.meal_types = ['breakfast']
         recipe.category = 'Desayuno'
         recipe.save(update_fields=['meal_types', 'category'])
@@ -196,9 +198,108 @@ class TestPlanMealsForSelection:
             options.extend(meal_options)
 
         option_recipe_ids = {str(option.get('recipeId')) for option in options if option.get('recipeId') is not None}
-        assert str(recipe.id) not in option_recipe_ids
+        assert str(recipe.id) in option_recipe_ids
 
-    def test_ingredient_exclusion_filters_recipe(self, auth_client, user, nutrition_plan):
+    def test_coach_assigned_drink_appears_on_breakfast(self, auth_client, user, nutrition_plan):
+        drink = Recipe.objects.create(
+            name='Café con leche',
+            category='Bebida',
+            difficulty='Fácil',
+            servings=1,
+            calories=80,
+            protein=Decimal('4.0'),
+            carbs=Decimal('8.0'),
+            fat=Decimal('3.0'),
+            is_active=True,
+            meal_types=['drink'],
+        )
+        meal = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Desayuno',
+            meal_type='breakfast',
+            order_index=1,
+        )
+        PlanMealRecipe.objects.create(meal=meal, recipe=drink, servings=Decimal('1.0'))
+
+        MealIngredientExclusion.objects.create(user=user, term='leche', is_active=True)
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+
+        breakfast_options = response.data.get('meals_by_type', {}).get('breakfast', [])
+        recipe_ids = {str(opt.get('recipeId')) for opt in breakfast_options}
+        assert str(drink.id) in recipe_ids
+
+    def test_user_plan_without_snacks_does_not_inject_random_recipes(self, auth_client, user, nutrition_plan):
+        breakfast_recipe = Recipe.objects.create(
+            name='Tostada coach',
+            category='Desayuno',
+            difficulty='Fácil',
+            servings=1,
+            calories=300,
+            protein=Decimal('12.0'),
+            carbs=Decimal('40.0'),
+            fat=Decimal('8.0'),
+            is_active=True,
+            meal_types=['breakfast'],
+        )
+        snack_recipe = Recipe.objects.create(
+            name='Snack no programado',
+            category='Snack',
+            difficulty='Fácil',
+            servings=1,
+            calories=150,
+            protein=Decimal('5.0'),
+            carbs=Decimal('20.0'),
+            fat=Decimal('4.0'),
+            is_active=True,
+            meal_types=['snack'],
+        )
+        breakfast = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Desayuno',
+            meal_type='breakfast',
+            order_index=1,
+        )
+        PlanMealRecipe.objects.create(meal=breakfast, recipe=breakfast_recipe, servings=Decimal('1.0'))
+        lunch = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Comida',
+            meal_type='lunch',
+            order_index=2,
+        )
+        PlanMealRecipe.objects.create(meal=lunch, recipe=breakfast_recipe, servings=Decimal('1.0'))
+        dinner = PlanMeal.objects.create(
+            plan=nutrition_plan,
+            name='Cena',
+            meal_type='dinner',
+            order_index=3,
+        )
+        PlanMealRecipe.objects.create(meal=dinner, recipe=breakfast_recipe, servings=Decimal('1.0'))
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('source') == 'user_plan'
+        assert len(response.data.get('meal_slots') or []) == 3
+
+        all_recipe_ids = set()
+        for meal_options in (response.data.get('meals_by_type') or {}).values():
+            for option in meal_options:
+                if option.get('recipeId') is not None:
+                    all_recipe_ids.add(str(option.get('recipeId')))
+
+        assert str(snack_recipe.id) not in all_recipe_ids
+
+    def test_user_plan_empty_day_returns_no_forced_meals(self, auth_client, user, nutrition_plan):
+        nutrition_plan.meals.all().delete()
+        NutritionPlanAssignment.objects.create(user=user, plan=nutrition_plan, is_active=True)
+
+        response = auth_client.get('/api/nutrition/plan-meals-for-selection/')
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data.get('source') == 'user_plan'
+        assert response.data.get('meal_slots') == []
+
+    def test_ingredient_exclusion_keeps_coach_assigned_recipe(self, auth_client, user, nutrition_plan):
         tomato_recipe = Recipe.objects.create(
             name='Tostada con tomate',
             category='Desayuno',
@@ -245,11 +346,11 @@ class TestPlanMealsForSelection:
             options.extend(meal_options)
 
         option_names = {str(option.get('name', '')).lower() for option in options}
-        assert 'tostada con tomate' not in option_names
+        assert 'tostada con tomate' in option_names
         assert 'avena con yogur' in option_names
 
     def test_suggested_recipe_calories_do_not_apply_goal_twice(self, auth_client, user):
-        user.birth_date = '1994-01-01'
+        user.birth_date = date(1994, 1, 1)
         user.gender = 'male'
         user.height = 180
         user.weight = 85
@@ -293,9 +394,10 @@ class TestPlanMealsForSelection:
         recipe_option = next((opt for opt in breakfast_options if str(opt.get('recipeId')) == str(recipe.id)), None)
         assert recipe_option is not None
 
-        daily_target = float(response.data['daily_calories_target'])
-        expected_breakfast = int(daily_target * 0.25)
-        assert abs(int(recipe_option['calories']) - expected_breakfast) <= 1
+        # Objetivo diario del plan (2000), no del perfil (~2459 con lose_weight).
+        assert response.data['daily_calories_target'] == 2000
+        profile_breakfast = int(2459 * 0.25)
+        assert abs(int(recipe_option['calories']) - profile_breakfast) > 50
 
 
 # ---------------------------------------------------------------------------
