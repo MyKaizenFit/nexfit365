@@ -365,6 +365,7 @@ export function WorkoutDashboardEnhanced() {
 
     const completed: Record<string, boolean> = {}
     const checkedDayIds = new Set<string>()
+    const pendingServerDayIds: string[] = []
 
     // También verificar desde los logs locales para respuesta más rápida
     const today = new Date()
@@ -395,21 +396,28 @@ export function WorkoutDashboardEnhanced() {
         continue
       }
 
-      // Si no está en local, verificar en el servidor
+      pendingServerDayIds.push(dayId)
+    }
+
+    if (pendingServerDayIds.length > 0) {
       try {
+        const params = new URLSearchParams()
+        pendingServerDayIds.forEach((dayId) => params.append('workout_day', dayId))
         const response = await authenticatedFetch(
-          `workout-logs/check_today/?workout_day=${dayId}`
+          `workout-logs/check_today_batch/?${params.toString()}`
         )
         if (response.ok) {
           const text = await response.text()
           if (text) {
             try {
               const data = JSON.parse(text)
-              completed[dayId] = data.is_completed || false
+              const results = data.results || {}
+              for (const dayId of pendingServerDayIds) {
+                completed[dayId] = results[dayId]?.is_completed || false
+              }
             } catch (parseError) {
             }
           }
-        } else {
         }
       } catch (error) {
       }
