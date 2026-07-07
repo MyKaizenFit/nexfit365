@@ -10,6 +10,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from django.db import DatabaseError
 import logging
+import uuid
 from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .models import (
@@ -329,6 +330,27 @@ class WorkoutDayViewSet(viewsets.ModelViewSet):
         return WorkoutDay.objects.none()
 
 
+def _parse_workout_day_ids(request):
+    raw_ids = list(request.query_params.getlist('workout_day'))
+    workout_days_param = request.query_params.get('workout_days', '')
+    if workout_days_param:
+        raw_ids.extend(workout_days_param.split(','))
+
+    parsed = []
+    seen = set()
+    for raw_id in raw_ids:
+        day_id = str(raw_id).strip()
+        if not day_id or day_id in seen:
+            continue
+        try:
+            uuid.UUID(day_id)
+        except (ValueError, TypeError, AttributeError):
+            continue
+        seen.add(day_id)
+        parsed.append(day_id)
+    return parsed
+
+
 class WorkoutLogViewSet(viewsets.ModelViewSet):
     """ViewSet para logs de entrenamiento"""
     serializer_class = WorkoutLogSerializer
@@ -484,6 +506,39 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             'workout_day_id': str(workout_day.id),
             'date': str(today),
             'log': WorkoutLogSerializer(existing_log).data if existing_log else None
+        })
+
+    @action(detail=False, methods=['get'], url_path='check_today_batch')
+    def check_today_batch(self, request):
+        """Verificar en una sola petición qué días de entrenamiento están completados hoy."""
+        from django.utils import timezone
+
+        workout_day_ids = _parse_workout_day_ids(request)
+        if not workout_day_ids:
+            return Response({'error': 'workout_day es requerido'}, status=400)
+
+        today = timezone.localdate()
+        completed_day_ids = {
+            str(day_id)
+            for day_id in WorkoutLog.objects.filter(
+                user=request.user,
+                workout_day_id__in=workout_day_ids,
+                date=today,
+                completed=True,
+            ).values_list('workout_day_id', flat=True)
+        }
+
+        results = {
+            day_id: {
+                'is_completed': day_id in completed_day_ids,
+                'workout_day_id': day_id,
+            }
+            for day_id in workout_day_ids
+        }
+
+        return Response({
+            'date': str(today),
+            'results': results,
         })
     
     @action(detail=False, methods=['get'])
