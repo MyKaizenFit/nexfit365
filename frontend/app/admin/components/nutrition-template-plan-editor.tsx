@@ -18,6 +18,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { mealMatchesDayAndWeek, planDurationWeeks, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
+import { weeksHaveDifferentStructure } from "@/lib/plan-meal-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -841,6 +842,17 @@ export const NutritionTemplatePlanEditor = forwardRef<
         return
       }
 
+      let syncWeeksFrom: number | undefined
+      if (
+        planDurationWeeksState > 1 &&
+        weeksHaveDifferentStructure(meals, planDurationWeeksState) &&
+        window.confirm(
+          `Las semanas del plan no tienen la misma estructura de comidas. ¿Copiar la semana ${activeWeek} al resto antes de guardar? Así los usuarios verán los mismos cambios en todo el ciclo.`,
+        )
+      ) {
+        syncWeeksFrom = activeWeek
+      }
+
       const mealsPayload = meals.map((m) => ({
         day_of_week: m.day_of_week,
         week_number: m.week_number ?? 1,
@@ -862,6 +874,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
       }))
 
       const patchBody: Record<string, unknown> = { meals: mealsPayload }
+      if (syncWeeksFrom) {
+        patchBody.sync_weeks_from = syncWeeksFrom
+      }
       const normalizedAssignedIds = assignedUserIds
         .map((id) => Number(id))
         .filter((id) => Number.isFinite(id) && id > 0)

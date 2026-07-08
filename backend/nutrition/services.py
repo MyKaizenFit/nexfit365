@@ -250,62 +250,21 @@ class PersonalizedNutritionService:
         return protein_pct, carbs_pct, fat_pct
 
     def _rebalance_plan_meal_calories(self, plan: NutritionPlan) -> None:
-        """Rebalancea comidas para que su suma coincida con plan.daily_calories."""
-        meals = list(plan.meals.all().order_by('order_index', 'id'))
-        if not meals:
-            return
+        """Rebalancea cada día del plan hacia plan.daily_calories (no suma global legacy)."""
+        from nutrition.plan_meal_utils import finalize_plan_after_meal_changes
 
-        target_total = int(plan.daily_calories or 0)
-        if target_total <= 0:
-            return
+        preserve_cal = int(plan.daily_calories or 0) or None
+        preserve_protein = int(plan.protein_grams) if plan.protein_grams is not None else None
+        preserve_carbs = int(plan.carbs_grams) if plan.carbs_grams is not None else None
+        preserve_fat = int(plan.fat_grams) if plan.fat_grams is not None else None
 
-        current_total = sum(int(meal.calories or 0) for meal in meals)
-        if current_total == target_total:
-            return
-
-        if current_total <= 0:
-            created = 0
-            for index, meal in enumerate(meals):
-                if index < len(meals) - 1:
-                    new_calories = int(round(target_total / len(meals)))
-                    created += new_calories
-                else:
-                    new_calories = max(0, target_total - created)
-
-                if meal.calories != new_calories:
-                    meal.calories = new_calories
-                    meal.save(update_fields=['calories'])
-            return
-
-        ratio = Decimal(str(target_total)) / Decimal(str(current_total))
-        created = 0
-        for index, meal in enumerate(meals):
-            old_calories = int(meal.calories or 0)
-            if index < len(meals) - 1:
-                new_calories = max(0, int((Decimal(str(old_calories)) * ratio).quantize(Decimal('1'), rounding=ROUND_HALF_UP)))
-                created += new_calories
-            else:
-                new_calories = max(0, target_total - created)
-
-            if old_calories == new_calories:
-                continue
-
-            update_fields = ['calories']
-            meal.calories = new_calories
-
-            if old_calories > 0:
-                macro_ratio = Decimal(str(new_calories)) / Decimal(str(old_calories))
-                if meal.protein is not None:
-                    meal.protein = (Decimal(meal.protein) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                    update_fields.append('protein')
-                if meal.carbs is not None:
-                    meal.carbs = (Decimal(meal.carbs) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                    update_fields.append('carbs')
-                if meal.fat is not None:
-                    meal.fat = (Decimal(meal.fat) * macro_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                    update_fields.append('fat')
-
-            meal.save(update_fields=update_fields)
+        finalize_plan_after_meal_changes(
+            plan,
+            preserve_daily_calories=preserve_cal,
+            preserve_protein=preserve_protein,
+            preserve_carbs=preserve_carbs,
+            preserve_fat=preserve_fat,
+        )
     
     def calculate_daily_calories(self, previous_calories: Optional[int] = None) -> int:
         """
@@ -906,6 +865,7 @@ class PersonalizedNutritionService:
             new_meal = PlanMeal.objects.create(
                 plan=user_plan,
                 day_of_week=default_meal.day_of_week,
+                week_number=max(1, int(getattr(default_meal, 'week_number', 1) or 1)),
                 name=default_meal.name,
                 meal_type=default_meal.meal_type,
                 time=default_meal.time,
@@ -1075,23 +1035,6 @@ class PersonalizedNutritionService:
         plan.updated_at = timezone.now()
         plan.save()
         
-        # Actualizar calorías de las comidas proporcionalmente
-        if plan.meals.exists():
-            total_old_calories = sum(meal.calories or 0 for meal in plan.meals.all())
-            if total_old_calories > 0:
-                calorie_ratio = Decimal(str(new_daily_calories)) / Decimal(str(total_old_calories))
-                
-                for meal in plan.meals.all():
-                    if meal.calories:
-                        meal.calories = int(Decimal(meal.calories) * calorie_ratio)
-                        if meal.protein is not None:
-                            meal.protein = (Decimal(meal.protein) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                        if meal.carbs is not None:
-                            meal.carbs = (Decimal(meal.carbs) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                        if meal.fat is not None:
-                            meal.fat = (Decimal(meal.fat) * calorie_ratio).quantize(Decimal('0.1'), rounding=ROUND_HALF_UP)
-                        meal.save()
-
         self._rebalance_plan_meal_calories(plan)
         
         # Crear nota descriptiva
