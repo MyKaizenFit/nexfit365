@@ -48,6 +48,7 @@ import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 // Importar componentes de progreso e historial
 import { UserProgressPanel } from "../../components/user-progress-panel"
 import { UserProgressOverview } from "../../components/user-progress-overview"
+import { UserRestWellnessPanel } from "../../components/user-rest-wellness-panel"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
 import { UserNotifications } from "../../components/user-notifications"
@@ -1568,6 +1569,8 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                 </div>
               </CardContent>
             </Card>
+
+            <UserRestWellnessPanel userId={String(user.id)} />
           </TabsContent>
 
           {/* ================================================================ */}

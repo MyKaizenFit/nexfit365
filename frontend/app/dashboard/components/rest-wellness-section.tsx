@@ -7,42 +7,20 @@ import { ChevronLeft, Loader2, Moon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { authenticatedFetch } from "@/lib/api"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import type { RestWellnessQuestion } from "@/lib/rest-wellness/types"
 import { OptionButton } from "./rest-wellness-priority-chart"
-import { RestWellnessCoachPanel } from "./rest-wellness-coach-panel"
 
 type WizardStep = "intro" | "questions" | "thanks"
 
-interface Props {
-  canCoach: boolean
-}
-
-export function RestWellnessSection({ canCoach }: Props) {
+export function RestWellnessSection() {
   const { user } = useAuth()
-  const [activeTab, setActiveTab] = useState<"form" | "coach">("form")
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
-      {canCoach ? (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "form" | "coach")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="form">Cuestionario</TabsTrigger>
-            <TabsTrigger value="coach">Panel coach</TabsTrigger>
-          </TabsList>
-          <TabsContent value="form" className="mt-4">
-            <RestWellnessWizard userName={user?.first_name || user?.email || ""} />
-          </TabsContent>
-          <TabsContent value="coach" className="mt-4">
-            <RestWellnessCoachPanel />
-          </TabsContent>
-        </Tabs>
-      ) : (
-        <RestWellnessWizard userName={user?.first_name || user?.email || ""} />
-      )}
+      <RestWellnessWizard userName={user?.first_name || user?.email || ""} />
     </div>
   )
 }
@@ -91,34 +69,13 @@ function RestWellnessWizard({ userName }: { userName: string }) {
     setStep("questions")
   }
 
-  const selectAnswer = (value: boolean) => {
-    setAnswers((prev) => {
-      const next = [...prev]
-      next[currentIndex] = value
-      return next
-    })
-  }
-
-  const goBack = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1)
-    }
-  }
-
-  const goNext = async () => {
-    if (currentAnswer === null) return
-
-    if (currentIndex < total - 1) {
-      setCurrentIndex((prev) => prev + 1)
-      return
-    }
-
+  const submitAnswers = async (finalAnswers: boolean[]) => {
     setSubmitting(true)
     try {
       const response = await authenticatedFetch("rest-wellness/", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers: finalAnswers }),
       })
       if (!response.ok) throw new Error("submit")
       setStep("thanks")
@@ -130,6 +87,27 @@ function RestWellnessWizard({ userName }: { userName: string }) {
       })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  const selectAnswer = (value: boolean) => {
+    if (submitting) return
+
+    const nextAnswers = [...answers]
+    nextAnswers[currentIndex] = value
+    setAnswers(nextAnswers)
+
+    if (currentIndex < total - 1) {
+      setCurrentIndex((prev) => prev + 1)
+      return
+    }
+
+    void submitAnswers(nextAnswers as boolean[])
+  }
+
+  const goBack = () => {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1)
     }
   }
 
@@ -176,7 +154,7 @@ function RestWellnessWizard({ userName }: { userName: string }) {
             {userName ? `¡Gracias, ${userName}!` : "¡Gracias!"}
           </CardTitle>
           <CardDescription className="text-base text-white/90">
-            Hemos recibido tu informe. Vamos a analizar tus resultados para enviarte un protocolo adaptado a ti para ayudarte a mejorar tu descanso.
+            Hemos recibido tu cuestionario. Lo revisaremos y te enviaremos un protocolo adaptado a ti para ayudarte a mejorar tu descanso.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -201,7 +179,7 @@ function RestWellnessWizard({ userName }: { userName: string }) {
           size="icon"
           className="rounded-full"
           onClick={goBack}
-          disabled={currentIndex === 0}
+          disabled={currentIndex === 0 || submitting}
         >
           <ChevronLeft className="h-5 w-5" />
         </Button>
@@ -221,34 +199,26 @@ function RestWellnessWizard({ userName }: { userName: string }) {
               selected={currentAnswer === true}
               emoji="🙂"
               label="Sí"
+              disabled={submitting}
               onClick={() => selectAnswer(true)}
             />
             <OptionButton
               selected={currentAnswer === false}
               emoji="😐"
               label="No"
+              disabled={submitting}
               onClick={() => selectAnswer(false)}
             />
           </div>
         </CardContent>
       </Card>
 
-      <Button
-        className="w-full"
-        disabled={currentAnswer === null || submitting}
-        onClick={() => void goNext()}
-      >
-        {submitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Enviando...
-          </>
-        ) : currentIndex === total - 1 ? (
-          "Finalizar"
-        ) : (
-          "Siguiente"
-        )}
-      </Button>
+      {submitting ? (
+        <div className="flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Enviando...
+        </div>
+      ) : null}
     </div>
   )
 }
