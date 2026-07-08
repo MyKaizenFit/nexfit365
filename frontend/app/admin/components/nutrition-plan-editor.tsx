@@ -15,7 +15,7 @@ import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { fixEncoding } from "@/lib/encoding-fix"
 import { useAdminNutritionPlans } from "@/hooks/use-admin-nutrition-plans"
-import { buildMealCountMismatchReport, computeMealsPerDay } from "@/lib/plan-meal-utils"
+import { buildMealCountMismatchReport, computeMealsPerDay, weeksHaveDifferentStructure } from "@/lib/plan-meal-utils"
 
 interface MealFood {
   food_id: string
@@ -76,6 +76,7 @@ interface NutritionPlan {
   }
   meals: Meal[]
   meals_per_day?: number
+  duration_weeks?: number
   is_active?: boolean
   start_date?: string
   end_date?: string
@@ -405,6 +406,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       },
       meals,
       meals_per_day: toNumber(detail.meals_per_day, 5),
+      duration_weeks: toNumber(detail.duration_weeks, 4),
       is_active: detail.is_active,
       start_date: detail.start_date,
       end_date: detail.end_date,
@@ -613,6 +615,21 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       setError(null)
       const headers = await getAuthHeaders()
 
+      const durationWeeks = Math.max(
+        toNumber(plan.duration_weeks, 1),
+        ...mealsArray.map((meal) => toNumber(meal.week_number, 1)),
+      )
+      let syncWeeksFrom: number | undefined
+      if (
+        durationWeeks > 1 &&
+        weeksHaveDifferentStructure(mealsArray, durationWeeks) &&
+        window.confirm(
+          "Las semanas del plan no tienen la misma estructura de comidas. ¿Copiar la semana 1 al resto antes de guardar?",
+        )
+      ) {
+        syncWeeksFrom = 1
+      }
+
       const planData = {
         user_id: userId,
         assigned_user_ids: [Number(userId)],
@@ -658,6 +675,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
               }))
             : [],
         })),
+        ...(syncWeeksFrom ? { sync_weeks_from: syncWeeksFrom } : {}),
       }
 
 

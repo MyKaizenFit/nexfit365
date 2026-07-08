@@ -1,4 +1,4 @@
-import { buildMealCountMismatchReport, computeMealsPerDay } from "@/lib/plan-meal-utils"
+import { buildMealCountMismatchReport, computeMealsPerDay, weeksHaveDifferentStructure } from "@/lib/plan-meal-utils"
 
 describe("plan-meal-utils", () => {
   it("computes max meals per specific day", () => {
@@ -30,5 +30,19 @@ describe("plan-meal-utils", () => {
     expect(report.should_warn).toBe(true)
     expect(report.mismatched_days).toHaveLength(1)
     expect(report.mismatched_days[0].meal_count).toBe(4)
+  })
+
+  it("detects different meal counts across weeks", () => {
+    const meals = [
+      { day_of_week: 1, week_number: 1, order_index: 1 },
+      { day_of_week: 1, week_number: 1, order_index: 2 },
+      { day_of_week: 1, week_number: 1, order_index: 3 },
+      { day_of_week: 1, week_number: 2, order_index: 1 },
+      { day_of_week: 1, week_number: 2, order_index: 2 },
+      { day_of_week: 1, week_number: 2, order_index: 3 },
+      { day_of_week: 1, week_number: 2, order_index: 4 },
+    ]
+
+    expect(weeksHaveDifferentStructure(meals, 4)).toBe(true)
   })
 })

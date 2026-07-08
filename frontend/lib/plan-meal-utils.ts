@@ -181,3 +181,25 @@ export function buildMealCountMismatchReport(
     duplicate_meal_types: duplicateMealTypes,
   }
 }
+
+export function weeksHaveDifferentStructure(
+  meals: PlanMealLike[],
+  durationWeeks: number,
+): boolean {
+  if (durationWeeks <= 1 || meals.length === 0) return false
+
+  for (let day = 1; day <= 7; day += 1) {
+    const counts = new Set<number>()
+    for (let week = 1; week <= durationWeeks; week += 1) {
+      const count = meals.filter(
+        (meal) =>
+          Math.max(1, Number(meal.week_number || 1)) === week &&
+          Number(meal.day_of_week || 0) === day,
+      ).length
+      if (count > 0) counts.add(count)
+    }
+    if (counts.size > 1) return true
+  }
+
+  return false
+}

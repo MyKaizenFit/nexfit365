@@ -1081,6 +1081,34 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             'assignments__user',
         ).select_related('user')
 
+    def _prepare_meals_payload(self, meals_payload, request_data, plan: NutritionPlan | None = None):
+        if meals_payload is None or not isinstance(meals_payload, list):
+            return meals_payload
+
+        sync_weeks_from = request_data.get('sync_weeks_from')
+        if sync_weeks_from is None:
+            return meals_payload
+
+        from nutrition.plan_week_utils import expand_meals_payload_sync_weeks, plan_duration_weeks
+
+        if plan is not None:
+            duration = plan_duration_weeks(plan)
+        else:
+            try:
+                duration = max(1, int(request_data.get('duration_weeks') or 4))
+            except (TypeError, ValueError):
+                duration = 4
+        try:
+            source_week = int(sync_weeks_from)
+        except (TypeError, ValueError):
+            return meals_payload
+
+        return expand_meals_payload_sync_weeks(
+            meals_payload,
+            source_week=source_week,
+            duration_weeks=duration,
+        )
+
     def _extract_assigned_user_ids(self, data):
         has_assigned = 'assigned_user_ids' in data or 'user_ids' in data or 'user_id' in data
         raw_ids = data.get('assigned_user_ids') or data.get('user_ids')
@@ -1595,6 +1623,96 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
 
     @transaction.atomic
+    @action(detail=True, methods=['post'], url_path='copy-weeks')
+    def copy_weeks(self, request, pk=None):
+        from nutrition.plan_week_utils import expand_meals_payload_sync_weeks, plan_duration_weeks
+
+        plan = self.get_object()
+        try:
+            source_week = int(request.data.get('source_week') or 1)
+        except (TypeError, ValueError):
+            return Response({'detail': 'source_week debe ser numérico.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        raw_targets = request.data.get('target_weeks')
+        duration = plan_duration_weeks(plan)
+        if raw_targets is None:
+            target_weeks = [week for week in range(1, duration + 1) if week != source_week]
+        else:
+            if not isinstance(raw_targets, list):
+                raw_targets = [raw_targets]
+            target_weeks = sorted({
+                int(week)
+                for week in raw_targets
+                if str(week).isdigit() and int(week) >= 1 and int(week) != source_week
+            })
+
+        if not target_weeks:
+            return Response({'detail': 'No hay semanas destino válidas.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        existing_meals = list(
+            plan.meals.prefetch_related('meal_recipes', 'suggested_recipes').order_by(
+                'week_number', 'day_of_week', 'order_index', 'created_at'
+            )
+        )
+        if not any(max(1, int(getattr(meal, 'week_number', 1) or 1)) == source_week for meal in existing_meals):
+            return Response(
+                {'detail': f'La semana origen {source_week} no tiene comidas configuradas.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        meals_payload = []
+        for meal in existing_meals:
+            meals_payload.append({
+                'day_of_week': meal.day_of_week,
+                'week_number': max(1, int(getattr(meal, 'week_number', 1) or 1)),
+                'name': meal.name,
+                'meal_type': meal.meal_type,
+                'time': meal.time.isoformat() if meal.time else None,
+                'description': meal.description or '',
+                'order_index': meal.order_index,
+                'suggested_recipes_ids': list(meal.suggested_recipes.values_list('id', flat=True)),
+                'meal_recipes': [
+                    {
+                        'recipe_id': str(meal_recipe.recipe_id),
+                        'servings': float(meal_recipe.servings or 1),
+                        'custom_calories': meal_recipe.custom_calories,
+                        'custom_protein': float(meal_recipe.custom_protein) if meal_recipe.custom_protein is not None else None,
+                        'custom_carbs': float(meal_recipe.custom_carbs) if meal_recipe.custom_carbs is not None else None,
+                        'custom_fat': float(meal_recipe.custom_fat) if meal_recipe.custom_fat is not None else None,
+                        'display_order': meal_recipe.display_order or 0,
+                    }
+                    for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'created_at')
+                ],
+            })
+
+        synced_payload = expand_meals_payload_sync_weeks(
+            meals_payload,
+            source_week=source_week,
+            duration_weeks=duration,
+        )
+        self._replace_plan_meals(plan, synced_payload)
+        self._finalize_plan_after_meals(plan, synced_payload)
+
+        from dashboard.plan_sync import sync_users_from_nutrition_plan
+        sync_users_from_nutrition_plan(plan)
+
+        plan.refresh_from_db()
+        plan = NutritionPlan.objects.prefetch_related(
+            'meals',
+            'meals__suggested_recipes',
+            'meals__meal_recipes',
+            'meals__meal_recipes__recipe',
+            'assignments__user',
+        ).get(pk=plan.pk)
+
+        return Response({
+            'message': 'Semanas sincronizadas',
+            'source_week': source_week,
+            'target_weeks': target_weeks,
+            'plan': self.get_serializer(plan).data,
+        }, status=status.HTTP_200_OK)
+
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         meals_payload = request.data.get('meals')
         assigned_user_ids = self._extract_assigned_user_ids(request.data)
@@ -1616,6 +1734,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.is_template = True
             plan.save(update_fields=['is_template'])
 
+        meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
         self._replace_plan_meals(plan, meals_payload)
         self._finalize_plan_after_meals(
             plan,
@@ -1674,6 +1793,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.is_template = True
             plan.save(update_fields=['is_template'])
 
+        meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
         self._replace_plan_meals(plan, meals_payload)
         self._finalize_plan_after_meals(
             plan,
@@ -4363,7 +4483,9 @@ def admin_user_plan(request, user_id: int):
     """
     user = get_object_or_404(User, pk=user_id)
 
-    plan = NutritionPlan.objects.filter(user=user).prefetch_related('meals__suggested_recipes').order_by('-is_active', '-created_at').first()
+    plan = get_active_plan_for_user(user)
+    if plan:
+        plan = NutritionPlan.objects.filter(pk=plan.pk).prefetch_related('meals__suggested_recipes').first()
 
     if request.method in ['PUT', 'PATCH']:
         if not plan:
