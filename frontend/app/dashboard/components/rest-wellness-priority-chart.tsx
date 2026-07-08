@@ -58,15 +58,18 @@ interface OptionButtonProps {
   emoji: string
   label: string
   onClick: () => void
+  disabled?: boolean
 }
 
-function OptionButton({ selected, emoji, label, onClick }: OptionButtonProps) {
+function OptionButton({ selected, emoji, label, onClick, disabled = false }: OptionButtonProps) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={cn(
         "rounded-2xl border-2 p-5 text-center transition-all",
+        disabled && "cursor-not-allowed opacity-60",
         selected
           ? "border-transparent bg-gradient-to-br from-violet-500 via-fuchsia-500 to-pink-500 text-white shadow-lg"
           : "border-transparent bg-muted hover:bg-muted/80",

@@ -64,7 +64,7 @@ jobs:
           DB_SSLMODE: disable
           REDIS_URL: redis://localhost:6379/0
         run: |
-          pytest accounts/tests/test_profile_plan_integration.py nutrition/tests/test_services.py progress/tests/test_views_extra.py workouts/test_workouts_models.py workouts/tests/test_workout_views.py nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes -q
+          pytest accounts/tests/test_profile_plan_integration.py nutrition/tests/test_services.py progress/tests/test_views_extra.py progress/tests/test_rest_wellness.py nutrition/tests/test_plan_week_sync_db.py workouts/test_workouts_models.py workouts/tests/test_workout_views.py nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes -q
 
   frontend:
     runs-on: ubuntu-latest

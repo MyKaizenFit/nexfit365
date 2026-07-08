@@ -16,6 +16,7 @@ from .serializers import (
     RestWellnessAssessmentCreateSerializer,
     RestWellnessAssessmentDetailSerializer,
     RestWellnessAssessmentListSerializer,
+    RestWellnessAssessmentSubmittedSerializer,
 )
 
 
@@ -35,7 +36,7 @@ class RestWellnessViewSet(viewsets.GenericViewSet):
         can_fill = can_access_rest_wellness(request.user)
         return Response({
             "can_fill": can_fill,
-            "can_coach": can_coach_rest_wellness(request.user) if can_fill else False,
+            "can_coach": can_coach_rest_wellness(request.user),
         })
 
     @action(detail=False, methods=["get"], url_path="questions")
@@ -80,6 +81,9 @@ class RestWellnessViewSet(viewsets.GenericViewSet):
         )
 
         return Response(
-            RestWellnessAssessmentDetailSerializer(assessment).data,
+            RestWellnessAssessmentSubmittedSerializer({
+                "id": assessment.id,
+                "message": "Hemos recibido tu cuestionario. Lo revisaremos y te enviaremos un protocolo adaptado.",
+            }).data,
             status=status.HTTP_201_CREATED,
         )
