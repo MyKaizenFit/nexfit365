@@ -9,6 +9,7 @@ from io import BytesIO
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -197,7 +198,7 @@ class TestProgressStatsViewSet:
         assert response.data["summary"]["sleep_vs_rating_correlation"] is None
 
     def test_sleep_performance_with_data(self, auth_client, user):
-        today = date.today()
+        today = timezone.now().date()
         DailyWellness.objects.create(
             user=user,
             date=today,
@@ -227,7 +228,7 @@ class TestProgressStatsViewSet:
         assert response.data["can_send"] is False
 
     def test_submit_quinzenal_review_creates_feedback_message(self, auth_client, user):
-        today = date.today()
+        today = timezone.now().date()
         ProgressPhoto.objects.create(
             user=user,
             photo=make_test_image("quinzenal.png"),
@@ -261,16 +262,17 @@ class TestDailyWellnessExtra:
         assert response.data["exists"] is False
 
     def test_today_with_entry(self, auth_client, user):
+        today = timezone.now().date()
         DailyWellness.objects.create(
             user=user,
-            date=date.today(),
+            date=today,
             sleep_hours=Decimal("7.5"),
             motivation_score=4,
             notes="bien",
         )
         response = auth_client.get(reverse("daily-wellness-today"))
         assert response.status_code == status.HTTP_200_OK
-        assert response.data["date"] == date.today().isoformat()
+        assert response.data["date"] == today.isoformat()
 
     def test_create_daily_wellness(self, auth_client):
         response = auth_client.post(
