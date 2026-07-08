@@ -36,7 +36,7 @@ class RestWellnessViewSet(viewsets.GenericViewSet):
         can_fill = can_access_rest_wellness(request.user)
         return Response({
             "can_fill": can_fill,
-            "can_coach": can_coach_rest_wellness(request.user) if can_fill else False,
+            "can_coach": can_coach_rest_wellness(request.user),
         })
 
     @action(detail=False, methods=["get"], url_path="questions")
