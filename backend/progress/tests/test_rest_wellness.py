@@ -69,6 +69,7 @@ def test_user():
     )
 
 
+@pytest.mark.django_db
 def test_can_access_pilot_and_test_users(pilot_user, coach_user, member_user, test_user, staff_user):
     assert can_access_rest_wellness(pilot_user) is True
     assert can_access_rest_wellness(coach_user) is True
@@ -77,6 +78,7 @@ def test_can_access_pilot_and_test_users(pilot_user, coach_user, member_user, te
     assert can_access_rest_wellness(staff_user) is False
 
 
+@pytest.mark.django_db
 def test_can_coach_only_staff_and_admin(pilot_user, coach_user, member_user, staff_user):
     from progress.rest_wellness_access import can_coach_rest_wellness
 
@@ -105,7 +107,7 @@ def test_build_script_for_all_yes():
 
 
 @pytest.mark.django_db
-def test_access_endpoint_for_pilot(api_client, pilot_user, member_user):
+def test_access_endpoint_for_pilot(api_client, pilot_user, member_user, staff_user):
     auth_client(api_client, pilot_user)
     response = api_client.get("/api/rest-wellness/access/")
     assert response.status_code == status.HTTP_200_OK
