@@ -422,7 +422,7 @@ function DashboardContent() {
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
               <Suspense fallback={<DashboardSectionFallback><WellnessSectionSkeleton /></DashboardSectionFallback>}>
-                <RestWellnessSection canCoach={restWellnessAccess.can_coach} />
+                <RestWellnessSection />
               </Suspense>
             </div>
           </div>

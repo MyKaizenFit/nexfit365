@@ -8,8 +8,14 @@ from rest_framework import permissions, viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import WeightEntry, DailyWellness, ProgressPhoto
-from .serializers import WeightEntrySerializer, DailyWellnessSerializer, ProgressPhotoSerializer
+from .models import WeightEntry, DailyWellness, ProgressPhoto, RestWellnessAssessment
+from .serializers import (
+    WeightEntrySerializer,
+    DailyWellnessSerializer,
+    ProgressPhotoSerializer,
+    RestWellnessAssessmentDetailSerializer,
+    RestWellnessAssessmentListSerializer,
+)
 from workouts.models import WorkoutLog
 
 User = get_user_model()
@@ -295,3 +301,31 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(user=self.get_user())
+
+
+class AdminRestWellnessAssessmentViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    Formularios de descanso de un usuario (solo admin/staff).
+    Prefijo: /api/admin/progress/users/<user_id>/rest-wellness/
+    """
+
+    permission_classes = [permissions.IsAdminUser]
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ["created_at"]
+    ordering = ["-created_at"]
+
+    def get_user(self):
+        if getattr(self, "swagger_fake_view", False):
+            return None
+        user_id = self.kwargs.get("user_id")
+        return get_object_or_404(User, pk=user_id)
+
+    def get_queryset(self):
+        if getattr(self, "swagger_fake_view", False):
+            return RestWellnessAssessment.objects.none()
+        return RestWellnessAssessment.objects.filter(user=self.get_user())
+
+    def get_serializer_class(self):
+        if self.action == "retrieve":
+            return RestWellnessAssessmentDetailSerializer
+        return RestWellnessAssessmentListSerializer

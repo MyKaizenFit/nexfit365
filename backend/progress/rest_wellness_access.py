@@ -20,4 +20,10 @@ def can_access_rest_wellness(user) -> bool:
 
 
 def can_coach_rest_wellness(user) -> bool:
-    return can_access_rest_wellness(user)
+    """Solo staff/admin: el análisis y guión van en el panel de administración."""
+    if not user or not getattr(user, "is_authenticated", False):
+        return False
+    if getattr(user, "is_staff", False) or getattr(user, "is_superuser", False):
+        return True
+    role = str(getattr(user, "role", "") or "").upper()
+    return role == "ADMIN"

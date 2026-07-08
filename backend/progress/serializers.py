@@ -293,6 +293,11 @@ class DailyWellnessSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
+class RestWellnessAssessmentSubmittedSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    message = serializers.CharField()
+
+
 class RestWellnessAssessmentCreateSerializer(serializers.Serializer):
     answers = serializers.ListField(
         child=serializers.BooleanField(allow_null=True),

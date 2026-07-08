@@ -16,6 +16,7 @@ from .serializers import (
     RestWellnessAssessmentCreateSerializer,
     RestWellnessAssessmentDetailSerializer,
     RestWellnessAssessmentListSerializer,
+    RestWellnessAssessmentSubmittedSerializer,
 )
 
 
@@ -80,6 +81,9 @@ class RestWellnessViewSet(viewsets.GenericViewSet):
         )
 
         return Response(
-            RestWellnessAssessmentDetailSerializer(assessment).data,
+            RestWellnessAssessmentSubmittedSerializer({
+                "id": assessment.id,
+                "message": "Hemos recibido tu cuestionario. Lo revisaremos y te enviaremos un protocolo adaptado.",
+            }).data,
             status=status.HTTP_201_CREATED,
         )

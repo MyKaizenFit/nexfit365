@@ -77,6 +77,15 @@ def test_can_access_pilot_and_test_users(pilot_user, coach_user, member_user, te
     assert can_access_rest_wellness(staff_user) is False
 
 
+def test_can_coach_only_staff_and_admin(pilot_user, coach_user, member_user, staff_user):
+    from progress.rest_wellness_access import can_coach_rest_wellness
+
+    assert can_coach_rest_wellness(pilot_user) is False
+    assert can_coach_rest_wellness(coach_user) is False
+    assert can_coach_rest_wellness(member_user) is False
+    assert can_coach_rest_wellness(staff_user) is True
+
+
 def test_shuffle_has_32_questions():
     assert TOTAL_QUESTIONS == 32
 
@@ -101,6 +110,12 @@ def test_access_endpoint_for_pilot(api_client, pilot_user, member_user):
     response = api_client.get("/api/rest-wellness/access/")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["can_fill"] is True
+    assert response.data["can_coach"] is False
+
+    auth_client(api_client, staff_user)
+    response = api_client.get("/api/rest-wellness/access/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["can_fill"] is False
     assert response.data["can_coach"] is True
 
     auth_client(api_client, member_user)
@@ -118,7 +133,7 @@ def test_member_cannot_get_questions(api_client, member_user):
 
 
 @pytest.mark.django_db
-def test_pilot_can_submit_and_coach_can_list(api_client, pilot_user, coach_user):
+def test_pilot_can_submit_staff_can_list(api_client, pilot_user, staff_user):
     auth_client(api_client, pilot_user)
 
     questions_response = api_client.get("/api/rest-wellness/questions/")
@@ -133,10 +148,14 @@ def test_pilot_can_submit_and_coach_can_list(api_client, pilot_user, coach_user)
         format="json",
     )
     assert create_response.status_code == status.HTTP_201_CREATED
-    assert create_response.data["script"]
-    assert len(create_response.data["top_categories"]) == 3
+    assert "message" in create_response.data
+    assert "script" not in create_response.data
 
-    auth_client(api_client, coach_user)
+    auth_client(api_client, pilot_user)
+    list_response = api_client.get("/api/rest-wellness/")
+    assert list_response.status_code == status.HTTP_403_FORBIDDEN
+
+    auth_client(api_client, staff_user)
     list_response = api_client.get("/api/rest-wellness/")
     assert list_response.status_code == status.HTTP_200_OK
     assert len(list_response.data) == 1
