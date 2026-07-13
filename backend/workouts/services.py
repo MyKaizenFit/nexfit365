@@ -617,29 +617,26 @@ class DefaultWorkoutAssignmentService:
             self.user.training_days_per_week = assigned_days_per_week
             self.user.save(update_fields=["training_days_per_week", "updated_at"])
 
-        for order, default_day in enumerate(default_program.days.all().order_by("day_number", "order_index"), start=1):
-            workout_day = WorkoutDay.objects.create(
-                program=program,
-                day_of_week=default_day.day_of_week or self.DAY_NUMBER_TO_NAME.get(default_day.day_number, "monday"),
-                name=default_day.name,
-                day_number=default_day.day_number or order,
-                duration_minutes=default_day.duration_minutes or default_program.estimated_duration_minutes,
-                is_rest_day=default_day.is_rest_day,
-                notes=default_day.notes or "",
-                order_index=order,
-            )
+        from accounts.services import (
+            copy_template_days_to_user_program,
+            get_template_training_days_with_exercises,
+            normalize_training_days,
+        )
 
-            for index, default_exercise in enumerate(default_day.exercises.all().order_by("order_index"), start=1):
-                WorkoutDayExercise.objects.create(
-                    workout_day=workout_day,
-                    exercise=default_exercise.exercise,
-                    sets=default_exercise.sets,
-                    reps=default_exercise.reps,
-                    weight=default_exercise.weight or "",
-                    rest_seconds=default_exercise.rest_seconds,
-                    notes=default_exercise.notes or "",
-                    order_index=index,
-                )
+        template_days = list(
+            default_program.days.all().order_by("day_number", "order_index")
+        )
+        explicit_training_days = normalize_training_days(
+            getattr(self.user, "training_days", None)
+        )
+        template_training_days = get_template_training_days_with_exercises(default_program)
+
+        copy_template_days_to_user_program(
+            template_days,
+            program,
+            user_training_days=explicit_training_days or None,
+            template_training_days=template_training_days,
+        )
 
         from dashboard.plan_sync import sync_user_from_active_plans
         sync_user_from_active_plans(self.user)

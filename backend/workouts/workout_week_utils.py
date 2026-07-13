@@ -28,8 +28,7 @@ def day_number_for_week_slot(week_number: int, slot_in_week: int) -> int:
 
 
 def day_of_week_for_day_number(day_number: int, explicit: str | None = None) -> str:
-    if explicit:
-        return explicit
+    """Deriva el día de la semana desde day_number; ignora valores legacy inconsistentes."""
     slot = slot_in_week_from_day_number(day_number)
     return DAY_OF_WEEK_BY_SLOT.get(slot, "monday")
 

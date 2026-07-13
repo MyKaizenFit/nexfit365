@@ -244,12 +244,14 @@ def copy_workout_program_template(source, *, label: str):
         created_by=None,
     )
 
+    from workouts.workout_week_utils import day_of_week_for_day_number
+
     for source_day in source.days.prefetch_related("exercises").order_by("day_number", "order_index"):
         copied_day = WorkoutDay.objects.create(
             program=copied,
             name=sanitize_workout_day_name(source_day.name),
             day_number=source_day.day_number,
-            day_of_week=source_day.day_of_week,
+            day_of_week=day_of_week_for_day_number(source_day.day_number or 1),
             is_rest_day=source_day.is_rest_day,
             notes=source_day.notes,
             duration_minutes=source_day.duration_minutes,
