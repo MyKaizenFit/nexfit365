@@ -129,6 +129,43 @@ class TestProgressPhotoViews:
         assert photo.user == member_user
         assert photo.photo_type == "front"
 
+    def test_create_progress_photo_with_weight_creates_weight_entry(self, auth_headers, member_user):
+        url = reverse("progress-photos-list")
+        data = {
+            "photo": make_test_image("weight_photo.png"),
+            "photo_type": "front",
+            "date": "2025-01-15",
+            "weight": "78.5",
+            "notes": "Con peso",
+        }
+        response = auth_headers.post(url, data, format="multipart")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        entry = WeightEntry.objects.get(user=member_user, date="2025-01-15")
+        assert entry.weight == Decimal("78.5")
+
+    def test_create_progress_photo_with_weight_updates_existing_entry(self, auth_headers, member_user):
+        WeightEntry.objects.create(
+            user=member_user,
+            weight=Decimal("80.0"),
+            date="2025-01-15",
+            notes="Peso manual",
+        )
+
+        url = reverse("progress-photos-list")
+        data = {
+            "photo": make_test_image("weight_update.png"),
+            "photo_type": "front",
+            "date": "2025-01-15",
+            "weight": "79.2",
+        }
+        response = auth_headers.post(url, data, format="multipart")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert WeightEntry.objects.filter(user=member_user, date="2025-01-15").count() == 1
+        entry = WeightEntry.objects.get(user=member_user, date="2025-01-15")
+        assert entry.weight == Decimal("79.2")
+
     def test_create_progress_photo_invalid_data(self, auth_headers):
         """Test de creación con datos inválidos"""
         url = reverse("progress-photos-list")

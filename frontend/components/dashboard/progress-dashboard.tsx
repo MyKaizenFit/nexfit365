@@ -281,21 +281,11 @@ export function ProgressDashboard() {
 
       await uploadPhoto(selectedFile, weight, newPhotoNotes, selectedPhotoType, newPhotoDate)
 
-      // Agregar automáticamente el peso al historial
-      try {
-        await addWeightEntry(weight, newPhotoDate, `Peso registrado al subir foto de progreso${newPhotoNotes ? `: ${newPhotoNotes}` : ''}`)
-        // Refrescar estadísticas de progreso
-        refreshStats()
-        toast({
-          title: "✅ ¡Foto y peso registrados!",
-          description: "Tu foto de progreso y peso han sido registrados correctamente.",
-        })
-      } catch (weightError) {
-        toast({
-          title: "✅ ¡Foto añadida!",
-          description: "Tu nueva foto de progreso ha sido guardada correctamente.",
-        })
-      }
+      refreshStats()
+      toast({
+        title: "✅ ¡Foto y peso registrados!",
+        description: "Tu foto de progreso y peso han sido registrados correctamente.",
+      })
 
       // Reset form
       setSelectedFile(null)

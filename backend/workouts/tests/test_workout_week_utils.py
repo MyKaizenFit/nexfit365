@@ -10,9 +10,21 @@ from workouts.workout_week_utils import (
     is_multi_week_program,
     week_number_from_day_number,
     day_number_for_week_slot,
+    day_of_week_for_day_number,
 )
 
 User = get_user_model()
+
+
+@pytest.mark.unit
+class TestDayOfWeekForDayNumber:
+    def test_derives_weekday_from_slot(self):
+        assert day_of_week_for_day_number(1) == "monday"
+        assert day_of_week_for_day_number(2) == "tuesday"
+        assert day_of_week_for_day_number(9) == "tuesday"
+
+    def test_ignores_legacy_explicit_monday_on_wrong_slot(self):
+        assert day_of_week_for_day_number(3, explicit="monday") == "wednesday"
 
 
 @pytest.fixture

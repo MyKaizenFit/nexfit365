@@ -13,7 +13,9 @@ from workouts.services import (
     build_assigned_program_tags,
     SOURCE_TEMPLATE_TAG_PREFIX,
     PersonalizedWorkoutService,
+    DefaultWorkoutAssignmentService,
 )
+from workouts.models import WorkoutProgram, WorkoutDay, WorkoutDayExercise, Exercise
 
 User = get_user_model()
 
@@ -208,3 +210,43 @@ class TestGetMusclGroupCategory:
     def test_legs_with_upper_is_full_body(self):
         svc = self._svc()
         assert svc._get_muscle_group_category(["piernas", "pecho"]) == "full_body"
+
+
+@pytest.mark.django_db
+class TestDefaultWorkoutAssignmentService:
+    def test_assign_from_default_spreads_legacy_monday_days(self, db):
+        user = User.objects.create_user(
+            email="assign-user@test.com",
+            password="testpass123",
+        )
+        template = WorkoutProgram.objects.create(
+            name="Rutina legacy",
+            is_template=True,
+            is_active=True,
+            days_per_week=3,
+            duration_weeks=1,
+        )
+        for day_number, name in [(1, "Pierna"), (3, "Torso"), (5, "Full body")]:
+            template_day = WorkoutDay.objects.create(
+                program=template,
+                name=name,
+                day_number=day_number,
+                day_of_week="monday",
+                order_index=day_number,
+            )
+            exercise = Exercise.objects.create(name=f"Ejercicio {day_number}", is_system=True)
+            WorkoutDayExercise.objects.create(
+                workout_day=template_day,
+                exercise=exercise,
+                sets=3,
+                reps="10",
+            )
+
+        assigned = DefaultWorkoutAssignmentService(user).assign_from_default(template)
+
+        assigned_days = list(assigned.days.order_by("day_number"))
+        assert [(day.day_number, day.day_of_week) for day in assigned_days] == [
+            (1, "monday"),
+            (3, "wednesday"),
+            (5, "friday"),
+        ]

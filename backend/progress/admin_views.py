@@ -297,7 +297,23 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
-        serializer.save(user=self.get_user())
+        user = self.get_user()
+        photo = serializer.save(user=user)
+
+        from progress.weight_sync import upsert_weight_entry
+
+        date = serializer.validated_data.get("date") or getattr(photo, "date", None)
+        weight = serializer.validated_data.get("weight")
+        if weight is None:
+            weight = getattr(photo, "weight", None)
+
+        if weight is not None and date is not None:
+            upsert_weight_entry(
+                user,
+                weight,
+                date,
+                notes="Auto desde foto de progreso (admin)",
+            )
 
     def perform_update(self, serializer):
         serializer.save(user=self.get_user())
