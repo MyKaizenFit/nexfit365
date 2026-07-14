@@ -4167,7 +4167,7 @@ class AdminFoodViewSet(viewsets.ModelViewSet):
                 continue
 
             try:
-                food = Food.objects.filter(name=name).first()
+                food = Food.objects.filter(name__iexact=name).first()
                 fields = {
                     'brand': get_best_value('brand', '') or '',
                     'calories': to_float(get_best_value('calories', 0, numeric=True), 'calories', name),
