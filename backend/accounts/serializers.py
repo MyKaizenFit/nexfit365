@@ -190,6 +190,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             # Calorías (override admin)
             'admin_calories_override', 'calculated_daily_calories',
+            # Descanso (cuestionario)
+            'rest_wellness_enabled',
             # Alertas premium para panel admin
             'premium_alerts', 'recent_change_sections'
         ]

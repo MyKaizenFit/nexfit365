@@ -552,6 +552,7 @@ export function RecipeManagement() {
     setSelectedImageFile(null)
     setImageUrlError('')
     setImageUrlSuccess(false)
+    void fetchFoods()
     setCreateDialogOpen(true)
   }
 
@@ -584,6 +585,7 @@ export function RecipeManagement() {
     setSelectedImageFile(null)
     setImageUrlError('')
     setImageUrlSuccess(false)
+    void fetchFoods()
     setEditDialogOpen(true)
   }
 
@@ -683,11 +685,11 @@ export function RecipeManagement() {
 
   const getAutocompleteSuggestions = (): Food[] => {
     if (!ingredientInputValue.trim()) return []
-    const query = ingredientInputValue.toLowerCase()
+    const query = normalizeFilterText(ingredientInputValue)
     return foods
       .filter(food =>
-        food.name.toLowerCase().includes(query) ||
-        (food.brand && food.brand.toLowerCase().includes(query))
+        normalizeFilterText(food.name).includes(query) ||
+        (food.brand && normalizeFilterText(food.brand).includes(query))
       )
       .slice(0, 8)
   }

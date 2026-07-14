@@ -26,6 +26,7 @@ import {
   Loader2,
   Bell,
   RefreshCw,
+  Moon,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +36,7 @@ import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "@/hooks/use-toast"
 import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl, authenticatedFetch } from "@/lib/api"
@@ -97,6 +99,7 @@ interface UserData {
   premium_alerts?: PremiumAlerts | null
   admin_calories_override?: number | null
   calculated_daily_calories?: number | null
+  rest_wellness_enabled?: boolean
 }
 
 interface PremiumAlerts {
@@ -191,6 +194,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   // Estado para override de calorías admin
   const [caloriesOverrideInput, setCaloriesOverrideInput] = useState<string>("")
   const [savingCalories, setSavingCalories] = useState(false)
+  const [savingRestWellness, setSavingRestWellness] = useState(false)
   const [nutritionPlanId, setNutritionPlanId] = useState<string | null>(null)
   const [nutritionPlanLoading, setNutritionPlanLoading] = useState(true)
   const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
@@ -398,6 +402,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
           : null,
         admin_calories_override: data.admin_calories_override != null ? safeNumber(data.admin_calories_override) : null,
         calculated_daily_calories: data.calculated_daily_calories != null ? safeNumber(data.calculated_daily_calories) : null,
+        rest_wellness_enabled: Boolean(data.rest_wellness_enabled),
       }
 
       setUser(normalized)
@@ -492,6 +497,38 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al guardar", variant: "destructive" })
     } finally {
       setSavingCalories(false)
+    }
+  }
+
+  const handleToggleRestWellness = async (enabled: boolean) => {
+    if (!userId) return
+    try {
+      setSavingRestWellness(true)
+      const headers = await getAuthHeaders()
+      const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({ rest_wellness_enabled: enabled }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.detail || `Error ${response.status}`)
+      }
+      await fetchUser()
+      toast({
+        title: enabled ? "✅ Descanso habilitado" : "✅ Descanso deshabilitado",
+        description: enabled
+          ? "La usuaria verá el apartado Descanso en su dashboard"
+          : "La usuaria ya no verá el apartado Descanso en su dashboard",
+      })
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: err instanceof Error ? err.message : "Error al guardar",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingRestWellness(false)
     }
   }
 
@@ -1566,6 +1603,37 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                       <p className="text-lg font-bold text-orange-900">{user.target_weight} kg</p>
                     </div>
                   )}
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-violet-200">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Moon className="h-4 w-4 text-violet-600" />
+                  Cuestionario de Descanso
+                </CardTitle>
+                <CardDescription>
+                  Por defecto está desactivado. Actívalo para que la usuaria vea el apartado Descanso en su dashboard y pueda completar el formulario.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between gap-4 rounded-lg border bg-slate-50 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-slate-900">
+                      {user.rest_wellness_enabled ? "Sección habilitada" : "Sección deshabilitada"}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {user.rest_wellness_enabled
+                        ? "La usuaria puede acceder al cuestionario desde su dashboard"
+                        : "La usuaria no verá el apartado Descanso en su menú"}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={Boolean(user.rest_wellness_enabled)}
+                    onCheckedChange={(checked) => void handleToggleRestWellness(checked)}
+                    disabled={savingRestWellness}
+                  />
                 </div>
               </CardContent>
             </Card>

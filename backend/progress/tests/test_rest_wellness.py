@@ -28,6 +28,7 @@ def pilot_user():
         password="PilotPass123!",
         role="MEMBER",
         first_name="Piloto",
+        rest_wellness_enabled=True,
     )
 
 
@@ -38,6 +39,7 @@ def coach_user():
         password="CoachPass123!",
         role="MEMBER",
         first_name="Sara",
+        rest_wellness_enabled=True,
     )
 
 
@@ -76,6 +78,14 @@ def test_can_access_pilot_and_test_users(pilot_user, coach_user, member_user, te
     assert can_access_rest_wellness(test_user) is True
     assert can_access_rest_wellness(member_user) is False
     assert can_access_rest_wellness(staff_user) is False
+
+
+@pytest.mark.django_db
+def test_can_access_when_admin_enables_flag(member_user):
+    assert can_access_rest_wellness(member_user) is False
+    member_user.rest_wellness_enabled = True
+    member_user.save(update_fields=["rest_wellness_enabled"])
+    assert can_access_rest_wellness(member_user) is True
 
 
 @pytest.mark.django_db

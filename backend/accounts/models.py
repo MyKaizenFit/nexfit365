@@ -294,6 +294,11 @@ class CustomUser(AbstractUser):
                   "Si se establece, tiene prioridad sobre el cálculo automático."
     )
 
+    rest_wellness_enabled = models.BooleanField(
+        default=False,
+        help_text="Permite acceder al cuestionario de descanso en el dashboard.",
+    )
+
     # ==========================================================================
     # TIMESTAMPS
     # ==========================================================================
