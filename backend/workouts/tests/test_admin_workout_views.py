@@ -432,20 +432,26 @@ class TestAdminWorkoutProgramViewSet:
         assert regular_user.training_days_per_week == 4
 
     def test_update_long_program_keeps_weekly_days_instead_of_total_sessions(self, admin_client, workout_program, exercise):
-        days = [
-            {
+        # 12 días (casi 2 semanas) con 4 entrenos/semana y rest days intercalados.
+        training_slots = {1, 2, 4, 5}
+        days = []
+        for day_number in range(1, 13):
+            slot = ((day_number - 1) % 7) + 1
+            is_rest = slot not in training_slots
+            days.append({
                 'day_number': day_number,
-                'name': f'Sesion {day_number}',
-                'is_rest_day': False,
-                'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
-            }
-            for day_number in range(1, 13)
-        ]
+                'name': f'Sesion {day_number}' if not is_rest else f'Descanso {day_number}',
+                'is_rest_day': is_rest,
+                'exercises': (
+                    [] if is_rest
+                    else [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}]
+                ),
+            })
 
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{workout_program.id}/',
             {
-                'days_per_week': 4,
+                'days_per_week': 7,  # metadata incorrecta; debe inferirse 4
                 'days': days,
             },
             format='json',
@@ -536,6 +542,66 @@ class TestAdminWorkoutProgramViewSet:
         fresh_day = workout_program.days.get()
         assert fresh_day.name == 'Día actualizado'
         assert fresh_day.exercises.get().sets == 4
+
+    def test_update_program_derives_day_of_week_from_day_number(self, admin_client, workout_program, exercise):
+        """Payload legacy con todo monday no debe corromper semanas 2+."""
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{workout_program.id}/',
+            {
+                'days_per_week': 7,
+                'duration_weeks': 2,
+                'days': [
+                    {
+                        'day_number': 1,
+                        'day_of_week': 'monday',
+                        'name': 'Pierna',
+                        'is_rest_day': False,
+                        'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                    },
+                    {
+                        'day_number': 2,
+                        'day_of_week': 'monday',
+                        'name': 'Descanso',
+                        'is_rest_day': True,
+                        'exercises': [],
+                    },
+                    {
+                        'day_number': 3,
+                        'day_of_week': 'monday',
+                        'name': 'Torso',
+                        'is_rest_day': False,
+                        'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                    },
+                    {
+                        'day_number': 8,
+                        'day_of_week': 'monday',
+                        'name': 'Pierna S2',
+                        'is_rest_day': False,
+                        'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                    },
+                    {
+                        'day_number': 10,
+                        'day_of_week': 'monday',
+                        'name': 'Torso S2',
+                        'is_rest_day': False,
+                        'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                    },
+                ],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        workout_program.refresh_from_db()
+        by_number = {
+            day.day_number: day.day_of_week
+            for day in workout_program.days.all()
+        }
+        assert by_number[1] == 'monday'
+        assert by_number[3] == 'wednesday'
+        assert by_number[8] == 'monday'
+        assert by_number[10] == 'wednesday'
+        assert workout_program.days_per_week == 2
 
     def test_update_program_accepts_manual_day_and_exercise_names(self, admin_client, workout_program):
         response = admin_client.patch(

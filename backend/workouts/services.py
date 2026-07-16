@@ -551,16 +551,16 @@ class DefaultWorkoutAssignmentService:
 
     @staticmethod
     def infer_weekly_training_days(program: WorkoutProgram) -> int:
-        """Infer weekly frequency without confusing long programs with weekly days."""
-        if program.days_per_week and 1 <= program.days_per_week <= 7:
-            return program.days_per_week
-
+        """Infer weekly frequency from week-1 sessions; ignore stale days_per_week metadata."""
         first_week_training = program.days.filter(
             day_number__lte=7,
             is_rest_day=False,
         ).count()
         if 1 <= first_week_training <= 7:
             return first_week_training
+
+        if program.days_per_week and 1 <= program.days_per_week <= 7:
+            return program.days_per_week
 
         training_days_count = program.days.filter(is_rest_day=False).count()
         if 1 <= training_days_count <= 7:

@@ -17,7 +17,7 @@ import { ArrowDown, ArrowUp, Loader2, Plus, Trash2, Search, ChevronLeft, Chevron
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
-import { mealMatchesDayAndWeek, planDurationWeeks, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
+import { mealMatchesDayAndWeek, planDurationWeeks, resolvePlanWeekNumber, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
 import { weeksHaveDifferentStructure } from "@/lib/plan-meal-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
@@ -243,6 +243,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const [activeDay, setActiveDay] = useState<DayKey>("1")
   const [activeWeek, setActiveWeek] = useState(1)
   const [planDurationWeeksState, setPlanDurationWeeksState] = useState(4)
+  const [planStartDate, setPlanStartDate] = useState<string | null>(null)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [loadedMealsCount, setLoadedMealsCount] = useState(0)
   const [calendarMonth, setCalendarMonth] = useState(() => new Date())
@@ -388,10 +389,19 @@ export const NutritionTemplatePlanEditor = forwardRef<
     )
   }
 
+  const resolveEditorWeekNumber = useCallback((date: Date) => {
+    // Misma lógica que la app del cliente cuando hay start_date.
+    // Sin start_date en plan de usuaria → semana 1 (lo único que ve la app).
+    if (planStartDate || ownerUserId) {
+      return resolvePlanWeekNumber(date, planDurationWeeksState, planStartDate)
+    }
+    return weekNumberFromCalendarDate(date, planDurationWeeksState)
+  }, [ownerUserId, planDurationWeeksState, planStartDate])
+
   const syncSelectionFromDate = (date: Date) => {
     setSelectedCalendarDate(date)
     setActiveDay(dayKeyFromDate(date))
-    setActiveWeek(weekNumberFromCalendarDate(date, planDurationWeeksState))
+    setActiveWeek(resolveEditorWeekNumber(date))
   }
 
   const calendarDays = getMonthCalendarDays(calendarMonth)
@@ -440,6 +450,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
 
       const incomingMeals = Array.isArray(data.meals) ? data.meals : []
       setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
+      setPlanStartDate(typeof data.start_date === "string" && data.start_date ? data.start_date.slice(0, 10) : null)
       const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => {
         return {
           id: m.id ? String(m.id) : undefined,
@@ -843,7 +854,11 @@ export const NutritionTemplatePlanEditor = forwardRef<
       }
 
       let syncWeeksFrom: number | undefined
-      if (
+      // En planes de usuaria, al editar una semana hay que propagar al ciclo completo:
+      // la app solo muestra la semana del ciclo (o semana 1 sin start_date).
+      if (ownerUserId && planDurationWeeksState > 1) {
+        syncWeeksFrom = activeWeek
+      } else if (
         planDurationWeeksState > 1 &&
         weeksHaveDifferentStructure(meals, planDurationWeeksState) &&
         window.confirm(
@@ -877,6 +892,14 @@ export const NutritionTemplatePlanEditor = forwardRef<
       if (syncWeeksFrom) {
         patchBody.sync_weeks_from = syncWeeksFrom
       }
+      // Sin start_date la app siempre lee semana 1: fijar inicio para alinear con el cliente.
+      if (ownerUserId && !planStartDate) {
+        const today = new Date()
+        const yyyy = today.getFullYear()
+        const mm = String(today.getMonth() + 1).padStart(2, "0")
+        const dd = String(today.getDate()).padStart(2, "0")
+        patchBody.start_date = `${yyyy}-${mm}-${dd}`
+      }
       const normalizedAssignedIds = assignedUserIds
         .map((id) => Number(id))
         .filter((id) => Number.isFinite(id) && id > 0)
@@ -897,6 +920,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
         const data = await fetchJsonWithAuth(`admin/nutrition/plans/${savedPlanId}/`)
         const incomingMeals = Array.isArray(data.meals) ? data.meals : []
         setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
+        setPlanStartDate(typeof data.start_date === "string" && data.start_date ? data.start_date.slice(0, 10) : null)
         const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => ({
           id: m.id ? String(m.id) : undefined,
           day_of_week: m.day_of_week ?? 1,
@@ -1068,7 +1092,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((date) => {
               const key = dayKeyFromDate(date)
-              const weekNumber = weekNumberFromCalendarDate(date, planDurationWeeksState)
+              const weekNumber = resolveEditorWeekNumber(date)
               const dayNum = Number(key)
               const dayMeals = meals.filter((meal) => mealMatchesDayAndWeek(meal, dayNum, weekNumber))
               const recipeCount = dayMeals.reduce((total, meal) => total + meal.meal_recipes.length, 0)
@@ -1115,7 +1139,9 @@ export const NutritionTemplatePlanEditor = forwardRef<
             Semana {activeWeek} · {selectedCalendarDate.toLocaleDateString("es-ES", { day: "numeric", month: "long" })}
           </div>
           <div className="text-xs text-muted-foreground">
-            Cada semana del calendario es independiente
+            {planStartDate || ownerUserId
+              ? "Semana del ciclo del plan (igual que ve la usuaria)"
+              : "Cada semana del calendario es independiente"}
           </div>
         </div>
         <TabsList className="grid grid-cols-7">
