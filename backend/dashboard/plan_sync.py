@@ -44,15 +44,18 @@ def infer_training_day_numbers(program) -> list[int]:
     if not program:
         return []
 
+    from workouts.workout_week_utils import slot_in_week_from_day_number
+
     numbers: list[int] = []
     for day in program.days.filter(is_rest_day=False).order_by("day_number", "order_index"):
-        weekday = None
+        day_number = int(day.day_number or 0)
+        if day_number >= 1:
+            numbers.append(slot_in_week_from_day_number(day_number))
+            continue
         if day.day_of_week:
             weekday = DAY_NAME_TO_NUMBER.get(str(day.day_of_week).lower())
-        if weekday is None and 1 <= int(day.day_number or 0) <= 7:
-            weekday = int(day.day_number)
-        if weekday:
-            numbers.append(weekday)
+            if weekday:
+                numbers.append(weekday)
 
     return sorted(set(numbers))
 

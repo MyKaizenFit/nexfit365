@@ -250,3 +250,26 @@ class TestDefaultWorkoutAssignmentService:
             (3, "wednesday"),
             (5, "friday"),
         ]
+
+    def test_infer_weekly_training_days_prefers_week1_count_over_stale_metadata(self, db):
+        program = WorkoutProgram.objects.create(
+            name="Plan con days_per_week incorrecto",
+            is_template=True,
+            is_active=True,
+            days_per_week=7,
+            duration_weeks=4,
+        )
+        for day_number, is_rest in [
+            (1, False), (2, True), (3, False), (4, True),
+            (5, False), (6, True), (7, True),
+        ]:
+            WorkoutDay.objects.create(
+                program=program,
+                name=f"Día {day_number}",
+                day_number=day_number,
+                day_of_week="monday",
+                is_rest_day=is_rest,
+                order_index=day_number,
+            )
+
+        assert DefaultWorkoutAssignmentService.infer_weekly_training_days(program) == 3

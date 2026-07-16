@@ -4,7 +4,30 @@ export function planDurationWeeks(value: unknown): number {
   return Math.floor(parsed)
 }
 
-/** Semana del mes en calendario admin (1-based), ciclando según duración del plan. */
+/**
+ * Semana del ciclo del plan (igual que el backend resolve_plan_week_number).
+ * Sin startDate → siempre semana 1 (menú base que se repite en la app).
+ */
+export function resolvePlanWeekNumber(
+  targetDate: Date,
+  durationWeeks = 4,
+  startDate?: Date | string | null,
+): number {
+  const duration = planDurationWeeks(durationWeeks)
+  if (!startDate) return 1
+
+  const start = typeof startDate === "string"
+    ? new Date(`${startDate.slice(0, 10)}T00:00:00`)
+    : new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate())
+  if (Number.isNaN(start.getTime())) return 1
+
+  const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate())
+  const days = Math.floor((target.getTime() - start.getTime()) / 86400000)
+  if (days < 0) return 1
+  return (Math.floor(days / 7) % duration) + 1
+}
+
+/** Semana del mes en calendario (solo plantillas sin start_date). */
 export function weekNumberFromCalendarDate(date: Date, durationWeeks = 4): number {
   const duration = planDurationWeeks(durationWeeks)
   const firstOfMonth = new Date(date.getFullYear(), date.getMonth(), 1)

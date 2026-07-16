@@ -1399,6 +1399,45 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
     def _scale_int(self, value, multiplier):
         return int((Decimal(str(value or 0)) * multiplier).quantize(Decimal('1'), rounding=ROUND_HALF_UP))
 
+    def _ensure_user_plan_start_date(self, plan: NutritionPlan, request_data=None):
+        """Sin start_date la app siempre lee semana 1; fijar inicio en planes de usuaria."""
+        if plan.start_date:
+            return
+        has_user = bool(plan.user_id) or plan.assignments.filter(is_active=True).exists()
+        if not has_user:
+            return
+        from django.utils import timezone
+        start = None
+        raw = (request_data or {}).get('start_date') if isinstance(request_data, dict) else None
+        if raw:
+            try:
+                from datetime import date as date_cls
+                if isinstance(raw, date_cls):
+                    start = raw
+                else:
+                    start = date_cls.fromisoformat(str(raw)[:10])
+            except (TypeError, ValueError):
+                start = None
+        if not start:
+            start = timezone.localdate()
+        plan.start_date = start
+        plan.save(update_fields=['start_date', 'updated_at'])
+
+    def _clear_future_meal_selections_for_plan(self, plan: NutritionPlan):
+        """Tras reemplazar comidas, limpiar selecciones futuras para que se vea la 1ª opción."""
+        from django.utils import timezone
+        from .models import MealLog
+
+        user_ids = set()
+        if plan.user_id:
+            user_ids.add(plan.user_id)
+        user_ids.update(
+            plan.assignments.filter(is_active=True).values_list('user_id', flat=True)
+        )
+        if not user_ids:
+            return
+        MealLog.objects.filter(user_id__in=user_ids, date__gte=timezone.localdate()).delete()
+
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
         Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
@@ -1795,6 +1834,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
         self._replace_plan_meals(plan, meals_payload)
+        self._ensure_user_plan_start_date(plan, request.data)
+        self._clear_future_meal_selections_for_plan(plan)
         self._finalize_plan_after_meals(
             plan,
             meals_payload,

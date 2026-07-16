@@ -837,13 +837,10 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
             # Mapear day_name a name si es necesario
             day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
             
-            # Determinar day_of_week basado en day_number
+            # Determinar day_of_week basado en day_number (soporta semanas 2+)
             day_number = day_data.get('day_number', day_index + 1)
-            day_of_week_map = {
-                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
-                5: 'friday', 6: 'saturday', 7: 'sunday'
-            }
-            day_of_week = day_of_week_map.get(day_number, 'monday')
+            from .workout_week_utils import day_of_week_for_day_number
+            day_of_week = day_of_week_for_day_number(day_number)
             
             workout_day = WorkoutDay.objects.create(
                 program=program,
