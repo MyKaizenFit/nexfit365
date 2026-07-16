@@ -23,6 +23,7 @@ import {
   getWorkoutWeekFromDay,
   normalizeWorkoutDayNumbers,
   programWeekFromAnchorDate,
+  slotInWeekFromDayNumber,
   workoutDayHasSlot,
   workoutDayInWeek,
   workoutDayMatchesSlot,
@@ -133,6 +134,18 @@ function getSpanishDayName(date: Date) {
 
 function isSameCalendarDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
+}
+
+/** Frecuencia semanal real: sesiones de entrenamiento en la semana 1 (no rest days). */
+function countWeekOneTrainingDays(schedule: WorkoutDay[]): number {
+  const slots = new Set<number>()
+  for (const day of schedule) {
+    if (day.isRestDay) continue
+    const dayNumber = Number(day.dayNumber)
+    if (!Number.isFinite(dayNumber) || dayNumber < 1 || dayNumber > 7) continue
+    slots.add(slotInWeekFromDayNumber(dayNumber))
+  }
+  return slots.size
 }
 
 function formatCalendarDateKey(date: Date) {
@@ -253,27 +266,33 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
 
   const sortedDays = [...(detailDays || [])].sort((a: any, b: any) => (a.day_number || 0) - (b.day_number || 0))
 
-  const mappedDays = sortedDays.map((day: any, index: number) => ({
-    id: day.id,
-    localId: createLocalId("day"),
-    day: dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
-    name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
-    duration: day.duration_minutes || 60,
-    isRestDay: !!day.is_rest_day,
-    dayNumber: day.day_number,
-    notes: day.notes || "",
-    exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
-      id: ex.id,
-      localId: createLocalId("exercise"),
-      exerciseId: ex.exercise?.id || ex.exercise_id,
-      name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
-      sets: ex.sets ?? 3,
-      reps: normalizeDateLikeWorkoutText(ex.reps || "10-12"),
-      weight: ex.weight || "",
-      rest: ex.rest_seconds ?? 60,
-      notes: ex.notes || "",
-    })),
-  }))
+  const mappedDays = sortedDays.map((day: any, index: number) => {
+    const dayNumber = Number(day.day_number) || index + 1
+    const slot = slotInWeekFromDayNumber(dayNumber)
+    const dayFromSlot = DAY_OPTIONS[slot - 1] || "Lunes"
+    return {
+      id: day.id,
+      localId: createLocalId("day"),
+      // Preferir el slot de day_number: day_of_week legacy puede estar corrupto (todo lunes).
+      day: dayFromSlot || dayOfWeekMap[day.day_of_week] || day.day_of_week || "Lunes",
+      name: fixEncoding(day.name || `Entrenamiento ${index + 1}`),
+      duration: day.duration_minutes || 60,
+      isRestDay: !!day.is_rest_day,
+      dayNumber,
+      notes: day.notes || "",
+      exercises: (day.exercises || []).map((ex: any, exIndex: number) => ({
+        id: ex.id,
+        localId: createLocalId("exercise"),
+        exerciseId: ex.exercise?.id || ex.exercise_id,
+        name: fixEncoding(ex.exercise?.name || ex.exercise_name || ex.name || `Ejercicio ${exIndex + 1}`),
+        sets: ex.sets ?? 3,
+        reps: normalizeDateLikeWorkoutText(ex.reps || "10-12"),
+        weight: ex.weight || "",
+        rest: ex.rest_seconds ?? 60,
+        notes: ex.notes || "",
+      })),
+    }
+  })
 
   return dedupeWorkoutScheduleBySlot(normalizeWorkoutDayNumbers(mappedDays))
 }
@@ -817,7 +836,7 @@ export function WorkoutProgramEditor({
     const weeklySchedule = normalizeWorkoutSchedule([...withoutTarget, clonedDay])
     setProgramDraft({
       ...program,
-      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, targetDayIndex + 1)),
+      daysPerWeek: Math.max(1, countWeekOneTrainingDays(weeklySchedule) || program.daysPerWeek || 1),
       durationWeeks: Math.max(program.durationWeeks || 1, targetWeek),
       weeklySchedule,
     })
@@ -840,7 +859,7 @@ export function WorkoutProgramEditor({
     ])
     setProgramDraft({
       ...program,
-      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, copiedDays.length)),
+      daysPerWeek: Math.max(1, countWeekOneTrainingDays(weeklySchedule) || program.daysPerWeek || 1),
       durationWeeks: Math.max(program.durationWeeks || 1, targetWeek),
       weeklySchedule,
     })
@@ -870,7 +889,7 @@ export function WorkoutProgramEditor({
     ])
     setProgramDraft({
       ...program,
-      daysPerWeek: Math.min(7, Math.max(program.daysPerWeek || 1, sourceDays.length)),
+      daysPerWeek: Math.max(1, countWeekOneTrainingDays(weeklySchedule) || program.daysPerWeek || 1),
       durationWeeks: Math.max(program.durationWeeks || 1, ...uniqueTargetWeeks),
       weeklySchedule,
     })
@@ -1187,6 +1206,7 @@ export function WorkoutProgramEditor({
       )
       const daysPayload = normalizedSchedule.map((day, index) => ({
         id: day.id,
+        // Backend deriva day_of_week desde day_number; enviarlo es opcional/legacy.
         day_of_week: dayToDayOfWeekMap[day.day] || day.day.toLowerCase() || "monday",
         name: day.name,
         day_number: day.dayNumber,
@@ -1209,6 +1229,8 @@ export function WorkoutProgramEditor({
             })),
       }))
 
+      const inferredDaysPerWeek = countWeekOneTrainingDays(normalizedSchedule)
+
       const payload: any = {
         user_id: parsedUserId,
         assigned_user_ids: [parsedUserId],
@@ -1216,7 +1238,7 @@ export function WorkoutProgramEditor({
         description: buildDescriptionWithRpe(program.description, program.targetRpe),
         difficulty: program.level, // El backend usa 'difficulty', no 'level'
         goal: program.goal,
-        days_per_week: program.daysPerWeek || program.weeklySchedule.length || 3,
+        days_per_week: inferredDaysPerWeek || program.daysPerWeek || 3,
         duration_weeks: program.durationWeeks || 4,
         is_active: program.isActive !== false,
         days: daysPayload,

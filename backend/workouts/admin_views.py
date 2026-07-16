@@ -202,12 +202,10 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
             day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
 
             day_number = day_data.get('day_number', day_index + 1)
-            day_of_week_map = {
-                1: 'monday', 2: 'tuesday', 3: 'wednesday', 4: 'thursday',
-                5: 'friday', 6: 'saturday', 7: 'sunday'
-            }
-            slot_in_week = ((int(day_number) - 1) % 7) + 1
-            day_of_week = day_data.get('day_of_week') or day_of_week_map.get(slot_in_week, 'monday')
+            from .workout_week_utils import day_of_week_for_day_number
+            # Siempre derivar del slot (day_number). Ignorar day_of_week del payload:
+            # valores legacy/incorrectos (todo "monday") corrompían semanas 2+.
+            day_of_week = day_of_week_for_day_number(day_number)
 
             workout_day = WorkoutDay.objects.create(
                 program=program,
