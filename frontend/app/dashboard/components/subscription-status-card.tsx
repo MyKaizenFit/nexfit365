@@ -139,11 +139,11 @@ export function SubscriptionStatusCard() {
                         <div className="grid gap-3 md:grid-cols-2">
                             <div className="rounded-xl border bg-muted/50 p-3">
                                 <p className="text-xs text-muted-foreground">Plan mensual</p>
-                                <p className="text-lg font-semibold">24,9€/mes</p>
+                                <p className="text-lg font-semibold">97€/mes</p>
                             </div>
                             <div className="rounded-xl border bg-muted/50 p-3">
                                 <p className="text-xs text-muted-foreground">Plan anual</p>
-                                <p className="text-lg font-semibold">197€/año</p>
+                                <p className="text-lg font-semibold">990€/año</p>
                             </div>
                         </div>
 

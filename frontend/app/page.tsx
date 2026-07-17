@@ -326,11 +326,11 @@ export default function HomePage() {
                     </div>
                     <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
                       <p className="text-sm uppercase tracking-wide text-green-100">Mensual</p>
-                      <p className="text-3xl font-extrabold">24,9€<span className="text-lg font-medium">/mes</span></p>
+                      <p className="text-3xl font-extrabold">97€<span className="text-lg font-medium">/mes</span></p>
                     </div>
                     <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
                       <p className="text-sm uppercase tracking-wide text-green-100">Anual</p>
-                      <p className="text-3xl font-extrabold">197€<span className="text-lg font-medium">/año</span></p>
+                      <p className="text-3xl font-extrabold">990€<span className="text-lg font-medium">/año</span></p>
                     </div>
                   </div>
                 </CardContent>

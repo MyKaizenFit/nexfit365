@@ -6,7 +6,6 @@ import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/toaster'
 import { NotificationContainer } from '@/components/ui/notification-toast'
-import { BetaBanner } from '@/components/beta-banner'
 import { RegisterServiceWorker } from './register-sw'
 import { ClientVersionGuard } from './client-version-guard'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -92,7 +91,6 @@ export default function RootLayout({
         ) : null}
         <RegisterServiceWorker />
         <ClientVersionGuard />
-        <BetaBanner />
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
