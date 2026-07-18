@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from './use-toast';
+import { authenticatedFetch, handleApiResponse } from '@/lib/api';
+import { getAuthService } from '@/lib/auth-service';
 
 interface ProfileData {
   id: number;
@@ -35,29 +37,22 @@ export function useProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
 
-  // Cargar perfil del usuario
   const loadProfile = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No hay token de autenticación');
+      if (!getAuthService().isAuthenticated()) {
+        throw new Error('No hay sesión de autenticación');
       }
 
-      const response = await fetch('/api/accounts/profile/', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+      const response = await authenticatedFetch('profile/', {
+        method: 'GET',
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        setProfile(data);
-        return data;
-      } else {
-        throw new Error('Error al cargar el perfil');
+      const result = await handleApiResponse<ProfileData>(response);
+      if (result.error || !result.data) {
+        throw new Error(result.error || 'Error al cargar el perfil');
       }
+      setProfile(result.data);
+      return result.data;
     } catch (error) {
       toast({
         title: 'Error',
@@ -70,36 +65,28 @@ export function useProfile() {
     }
   };
 
-  // Actualizar perfil del usuario
   const updateProfile = async (data: Partial<ProfileData>) => {
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('access_token');
-      if (!token) {
-        throw new Error('No hay token de autenticación');
+      if (!getAuthService().isAuthenticated()) {
+        throw new Error('No hay sesión de autenticación');
       }
 
-      const response = await fetch('/api/accounts/profile/', {
+      const response = await authenticatedFetch('profile/', {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
-
-      if (response.ok) {
-        const updatedProfile = await response.json();
-        setProfile(updatedProfile);
-        toast({
-          title: 'Perfil actualizado',
-          description: 'Tu perfil ha sido actualizado exitosamente.',
-        });
-        return updatedProfile;
-      } else {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Error al actualizar el perfil');
+      const result = await handleApiResponse<ProfileData>(response);
+      if (result.error || !result.data) {
+        throw new Error(result.error || 'Error al actualizar el perfil');
       }
+      setProfile(result.data);
+      toast({
+        title: 'Perfil actualizado',
+        description: 'Tu perfil ha sido actualizado exitosamente.',
+      });
+      return result.data;
     } catch (error) {
       toast({
         title: 'Error',
@@ -112,7 +99,6 @@ export function useProfile() {
     }
   };
 
-  // Cargar perfil al montar el componente
   useEffect(() => {
     loadProfile();
   }, []);
@@ -125,8 +111,3 @@ export function useProfile() {
     updateProfile,
   };
 }
-
-
-
-
-

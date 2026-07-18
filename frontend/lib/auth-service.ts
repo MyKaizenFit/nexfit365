@@ -523,10 +523,7 @@ export class AuthService {
 
         this.accessToken = mockTokens.access
         this.refreshToken = mockTokens.refresh
-
-        // Guardar en cookies
-        setCookie('accessToken', mockTokens.access, 7)
-        setCookie('refreshToken', mockTokens.refresh, 30)
+        setSessionMarkers(mockUser)
 
         return {
           user: mockUser,

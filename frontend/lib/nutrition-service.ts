@@ -261,11 +261,9 @@ class NutritionService {
 
   // Obtener el plan de nutrición activo del usuario
   async getCurrentPlan(): Promise<NutritionPlan | null> {
-    // Verificar si hay token de acceso disponible
     try {
-      const { authService } = require('./auth-service')
-      const token = authService.getAccessToken()
-      if (!token) {
+      const { getAuthService } = require('./auth-service')
+      if (!getAuthService().isAuthenticated()) {
         return null
       }
     } catch (error) {
@@ -284,6 +282,7 @@ class NutritionService {
       const result = await requestThrottler.throttle('current-plan', async () => {
         const headers = await getAuthHeaders()
         const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.CURRENT_PLAN), {
+        credentials: 'include',
           headers,
           method: 'GET',
         })
@@ -321,6 +320,7 @@ class NutritionService {
       const headers = await getAuthHeaders()
       
       const response = await fetch(buildApiUrl('nutrition/adjust-plan/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -364,6 +364,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.CHANGE_PLAN), {
+        credentials: 'include',
         headers: {
           ...headers,
           'Content-Type': 'application/json',
@@ -396,6 +397,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.SUITABLE_PLANS), {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -442,6 +444,7 @@ class NutritionService {
         ? `${NUTRITION_ENDPOINTS.PLAN_MEALS_FOR_SELECTION}?date=${date}`
         : NUTRITION_ENDPOINTS.PLAN_MEALS_FOR_SELECTION
       const response = await fetch(buildApiUrl(endpoint), {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -569,6 +572,7 @@ class NutritionService {
         // Intentar obtener el plan por defecto del backend
         const headers = await getAuthHeaders()
         const response = await fetch(`${buildApiUrl('nutrition/default-nutrition-plans/')}?is_default=true`, {
+        credentials: 'include',
           headers,
           method: 'GET',
         })
@@ -661,6 +665,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.PLANS)}`, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -692,6 +697,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLANS), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -719,6 +725,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -735,6 +742,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers,
       })
@@ -748,6 +756,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`${NUTRITION_ENDPOINTS.PLANS}${id}/activate/`), {
+        credentials: 'include',
         method: 'POST',
         headers,
       })
@@ -766,6 +775,7 @@ class NutritionService {
         : `${buildApiUrl(NUTRITION_ENDPOINTS.FOODS)}`
 
       const response = await fetch(url, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -786,6 +796,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}?date=${date}`, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -806,6 +817,7 @@ class NutritionService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
+        credentials: 'include',
         headers,
         method: 'POST',
         body: JSON.stringify({
@@ -846,6 +858,7 @@ class NutritionService {
         })
 
         response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
+        credentials: 'include',
           headers: {
             Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || ''
           },
@@ -854,6 +867,7 @@ class NutritionService {
         })
       } else {
         response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
+        credentials: 'include',
           headers,
           method: 'POST',
           body: JSON.stringify(mealData),
@@ -1027,6 +1041,7 @@ class NutritionService {
       const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/personalized/`)}?meal_type=${mealType}`
       
       const response = await fetch(url, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -1052,6 +1067,7 @@ class NutritionService {
       const url = `${buildApiUrl(`nutrition/recipes/${recipeId}/`)}`
       
       const response = await fetch(url, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })

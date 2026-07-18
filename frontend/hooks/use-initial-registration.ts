@@ -81,6 +81,7 @@ export function useInitialRegistration() {
           buildApiUrl(USER_ENDPOINTS.INITIAL_REGISTRATION_STATUS),
           {
             method: 'GET',
+            credentials: 'include',
             headers: getAuthHeaders(),
           }
         );
@@ -88,12 +89,14 @@ export function useInitialRegistration() {
         if (response.ok) {
           const data = await response.json();
           
-          // Obtener userId del token para validar
+          // Sin JWT en memoria (HttpOnly), confiar en el perfil del backend
           let currentUserId = null;
           try {
             const token = getAuthService().getAccessToken();
-            const payload = parseJwtPayload(token);
-            currentUserId = payload?.user_id || payload?.id || null;
+            if (token) {
+              const payload = parseJwtPayload(token);
+              currentUserId = payload?.user_id || payload?.id || null;
+            }
           } catch (e) {
           }
           

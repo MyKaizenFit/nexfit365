@@ -145,7 +145,7 @@ export function MealPlanEnhanced() {
 
   const createDefaultSelections = async (date: string) => {
     const authService = getAuthService()
-    if (!isAuthenticated || !authService.getAccessToken()) {
+    if (!isAuthenticated || !authService.isAuthenticated()) {
       return
     }
 
@@ -200,10 +200,9 @@ export function MealPlanEnhanced() {
       
       if (selection) {
         // Actualizar la selección existente
-        const response = await authenticatedFetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/`), {
+        const response = await authenticatedFetch(`nutrition/daily-meal-selections/${selection.id}/`, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -240,10 +239,9 @@ export function MealPlanEnhanced() {
 
   const handleMarkCompleted = async (selection: DailyMealSelection) => {
     try {
-      const response = await fetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`), {
+      const response = await authenticatedFetch(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
           'Content-Type': 'application/json'
         }
       })

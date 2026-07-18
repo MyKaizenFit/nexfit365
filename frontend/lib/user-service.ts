@@ -117,10 +117,6 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       // Si se fuerza la recarga, limpiar caché primero
       if (forceRefresh) {
@@ -131,10 +127,10 @@ export class UserService {
       }
 
       const response = await fetch(buildApiUrl('/me/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
           // Agregar header para evitar caché del navegador si se fuerza recarga
           ...(forceRefresh && { 'Cache-Control': 'no-cache' }),
         },
@@ -173,18 +169,13 @@ export class UserService {
         return null
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        // Retornar null en lugar de lanzar error si no hay token
-        return null
-      }
 
       const result = await requestThrottler.throttle('user-stats', async () => {
         const response = await fetch(buildApiUrl('/user-stats/'), {
+        credentials: 'include',
           method: 'GET',
           headers: {
             ...getAuthHeaders(),
-            'Authorization': `Bearer ${token}`,
           },
         })
 
@@ -222,16 +213,12 @@ export class UserService {
         return []
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        return []
-      }
 
       const response = await fetch(buildApiUrl('progress-photos/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -277,10 +264,6 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       // NO loguear tokens por seguridad
 
@@ -305,15 +288,14 @@ export class UserService {
       }
 
       // Preparar headers
-      const headers: Record<string, string> = {
-        'Authorization': `Bearer ${token}`,
-      }
+      const headers: Record<string, string> = {}
       if (idempotencyKey) {
         headers['Idempotency-Key'] = idempotencyKey
       }
 
 
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: formData,
@@ -391,16 +373,12 @@ export class UserService {
       throw new Error('Usuario no autenticado')
     }
 
-    const token = authService.getAccessToken()
-    if (!token) {
-      throw new Error('No hay token de acceso disponible')
-    }
 
     const response = await fetch(buildApiUrl(`progress-photos/${photoId}/`), {
+        credentials: 'include',
       method: 'DELETE',
       headers: {
         ...getAuthHeaders(),
-        'Authorization': `Bearer ${token}`,
       },
     })
 
@@ -417,16 +395,12 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       const response = await fetch(buildApiUrl('weight-history/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -466,16 +440,12 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       const response = await fetch(buildApiUrl('weight-history/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           weight,
@@ -508,16 +478,12 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       const response = await fetch(buildApiUrl('nutrition/current-plan/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -541,16 +507,12 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       const response = await fetch(buildApiUrl('/workout-programs/current/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
       })
 
@@ -574,10 +536,6 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       // Si hay un archivo de imagen, usar FormData
       const hasFile = (updates.profile_picture as any) instanceof File
@@ -606,18 +564,17 @@ export class UserService {
         
         body = formData
         headers = {
-          'Authorization': `Bearer ${token}`,
           // No establecer Content-Type, el navegador lo hará automáticamente con FormData
         }
       } else {
         body = JSON.stringify(updates)
         headers = {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         }
       }
 
       const response = await fetch(buildApiUrl('profile/'), {
+        credentials: 'include',
         method: 'PATCH',
         headers,
         body,
@@ -660,16 +617,12 @@ export class UserService {
         throw new Error('Usuario no autenticado')
       }
 
-      const token = authService.getAccessToken()
-      if (!token) {
-        throw new Error('No hay token de acceso disponible')
-      }
 
       const response = await fetch(buildApiUrl('/notifications/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
-          'Authorization': `Bearer ${token}`,
         },
       })
 

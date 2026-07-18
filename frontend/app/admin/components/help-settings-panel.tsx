@@ -269,11 +269,11 @@ export function HelpSettingsPanel() {
 
     try {
       setSaving(true)
-      const token = localStorage.getItem('access_token')
 
       // Obtener el ID de la configuración activa
       const response = await fetch(buildApiUrl('help-settings/'), {
         method: 'GET',
+        credentials: 'include',
         headers: {
           ...getAuthHeaders(),
         },
@@ -290,6 +290,7 @@ export function HelpSettingsPanel() {
 
       const updateResponse = await fetch(updateUrl, {
         method: activeSetting ? 'PUT' : 'POST',
+        credentials: 'include',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
