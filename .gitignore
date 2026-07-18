@@ -88,11 +88,10 @@ yarn-error.log*
 next-env.d.ts
 
 # ===== Cursor / Codex / agentes locales =====
-.cursor/*
-!.cursor/skills/
-!.cursor/skills/**
-!.cursor/rules/
-!.cursor/rules/**
+# Skills, rules y estado del agente: solo en disco del servidor (no GitHub).
+# Manuales de uso: .agents/README.md y .agents/manuals/
+# NO ignorar .github/ — ahí vive CI (workflows/quality.yml).
+.cursor/
 .codex/
 .agents/
 
