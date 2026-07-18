@@ -1,0 +1,2 @@
+ponytail: 16f2980
+https://github.com/DietrichGebert/ponytail (.cursor/rules/ponytail.mdc)
