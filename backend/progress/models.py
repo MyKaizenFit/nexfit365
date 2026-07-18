@@ -242,7 +242,7 @@ class DailyWellness(TimeStampedModel):
 
 
 class RestWellnessAssessment(TimeStampedModel):
-    """Evaluación puntual de hábitos de descanso (piloto)."""
+    """Evaluación puntual de hábitos de descanso."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

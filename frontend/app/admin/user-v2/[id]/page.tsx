@@ -27,6 +27,7 @@ import {
   Bell,
   RefreshCw,
   Moon,
+  Medal,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,6 +52,7 @@ import { handle401AndRefresh } from "@/lib/fetch-with-auth"
 import { UserProgressPanel } from "../../components/user-progress-panel"
 import { UserProgressOverview } from "../../components/user-progress-overview"
 import { UserRestWellnessPanel } from "../../components/user-rest-wellness-panel"
+import { UserAchievementsPanel } from "../../components/user-achievements-panel"
 import { WorkoutHistoryEnhanced } from "@/components/dashboard/workout-history-enhanced"
 import { useAdminUserWorkouts } from "@/hooks/use-admin-user-workouts"
 import { UserNotifications } from "../../components/user-notifications"
@@ -804,6 +806,10 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                 <Activity className="h-3 w-3" />
                 <span>Actividad</span>
               </TabsTrigger>
+              <TabsTrigger value="achievements" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
+                <Medal className="h-3 w-3" />
+                <span>Logros</span>
+              </TabsTrigger>
               <TabsTrigger value="notifications" className="flex items-center gap-1 px-2 py-1.5 text-[10px] whitespace-nowrap">
                 <Bell className="h-3 w-3" />
                 <span>Notif.</span>
@@ -813,7 +819,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
           </div>
           
           {/* Desktop: Grid tradicional */}
-          <TabsList className="hidden md:grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-1 h-auto p-1 bg-white rounded-lg shadow-sm">
+          <TabsList className="hidden md:grid w-full grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-1 h-auto p-1 bg-white rounded-lg shadow-sm">
             <TabsTrigger value="profile" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <User className="h-3 w-3 md:h-4 md:w-4" />
               <span>Perfil</span>
@@ -837,6 +843,10 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
             <TabsTrigger value="activity" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <Activity className="h-3 w-3 md:h-4 md:w-4" />
               <span>Actividad</span>
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="flex items-center gap-2 py-2 text-xs md:text-sm">
+              <Medal className="h-3 w-3 md:h-4 md:w-4" />
+              <span>Logros</span>
             </TabsTrigger>
             <TabsTrigger value="notifications" className="flex items-center gap-2 py-2 text-xs md:text-sm">
               <Bell className="h-3 w-3 md:h-4 md:w-4" />
@@ -1614,18 +1624,19 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                   Cuestionario de Descanso
                 </CardTitle>
                 <CardDescription>
-                  Por defecto está desactivado. Actívalo para que la usuaria vea el apartado Descanso en su dashboard y pueda completar el formulario.
+                  Disponible para todas las usuarias por defecto. Desactívalo solo si quieres ocultar
+                  el apartado Descanso en su dashboard. El análisis y guión siguen en este panel para el coach.
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center justify-between gap-4 rounded-lg border bg-slate-50 p-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-slate-900">
-                      {user.rest_wellness_enabled ? "Sección habilitada" : "Sección deshabilitada"}
+                      {user.rest_wellness_enabled ? "Sección visible" : "Sección oculta"}
                     </p>
                     <p className="text-xs text-slate-500">
                       {user.rest_wellness_enabled
-                        ? "La usuaria puede acceder al cuestionario desde su dashboard"
+                        ? "La usuaria puede completar el cuestionario desde su dashboard"
                         : "La usuaria no verá el apartado Descanso en su menú"}
                     </p>
                   </div>
@@ -1819,6 +1830,17 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* TAB: LOGROS */}
+          {/* ================================================================ */}
+          <TabsContent value="achievements" className="space-y-6">
+            {userId ? (
+              <UserAchievementsPanel userId={String(userId)} />
+            ) : (
+              <div className="text-center py-12 text-slate-500">Esperando ID de usuario...</div>
+            )}
           </TabsContent>
 
           {/* ================================================================ */}

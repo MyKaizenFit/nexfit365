@@ -49,6 +49,7 @@ def member_user():
         email="member@example.com",
         password="MemberPass123!",
         role="MEMBER",
+        rest_wellness_enabled=False,
     )
 
 
@@ -59,6 +60,7 @@ def staff_user():
         password="StaffPass123!",
         role="ADMIN",
         is_staff=True,
+        rest_wellness_enabled=False,
     )
 
 
@@ -72,12 +74,23 @@ def test_user():
 
 
 @pytest.mark.django_db
-def test_can_access_pilot_and_test_users(pilot_user, coach_user, member_user, test_user, staff_user):
+def test_can_access_enabled_flag_and_test_users(pilot_user, coach_user, member_user, test_user, staff_user):
     assert can_access_rest_wellness(pilot_user) is True
     assert can_access_rest_wellness(coach_user) is True
     assert can_access_rest_wellness(test_user) is True
     assert can_access_rest_wellness(member_user) is False
     assert can_access_rest_wellness(staff_user) is False
+
+
+@pytest.mark.django_db
+def test_can_access_default_enabled_for_new_members():
+    user = User.objects.create_user(
+        email="new-member@example.com",
+        password="MemberPass123!",
+        role="MEMBER",
+    )
+    assert user.rest_wellness_enabled is True
+    assert can_access_rest_wellness(user) is True
 
 
 @pytest.mark.django_db

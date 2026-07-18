@@ -231,9 +231,23 @@ class TestUserAchievementEndpoints:
         assert recent.status_code == status.HTTP_200_OK
         assert isinstance(recent.data, list)
 
+    def test_admin_can_list_and_revoke_other_user_achievements(
+        self, admin_client, member_user, sample_achievement
+    ):
+        ua = UserAchievement.objects.create(user=member_user, achievement=sample_achievement)
 
-@pytest.mark.django_db
-class TestCompleteDayStreak:
+        listed = admin_client.get(f"/api/user-achievements/?user={member_user.id}")
+        assert listed.status_code == status.HTTP_200_OK
+        results = listed.data["results"] if "results" in listed.data else listed.data
+        assert len(results) == 1
+
+        summary = admin_client.get(f"/api/user-achievements/summary/?user={member_user.id}")
+        assert summary.status_code == status.HTTP_200_OK
+        assert summary.data["unlocked_achievements"] == 1
+
+        deleted = admin_client.delete(f"/api/user-achievements/{ua.id}/")
+        assert deleted.status_code in (status.HTTP_204_NO_CONTENT, status.HTTP_200_OK)
+        assert not UserAchievement.objects.filter(id=ua.id).exists()
     def _create_daily_plan(self, user, target_date):
         plan = NutritionPlan.objects.create(
             user=user,
