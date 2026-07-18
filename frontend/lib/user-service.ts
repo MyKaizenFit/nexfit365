@@ -7,6 +7,7 @@ import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 import { normalizePhotoFile } from './image-upload'
 import type { ProgressPhotoType } from '@/lib/progress-photo-types'
+import { todayLocalDate } from './local-date'
 
 // Importar tipos desde el archivo centralizado
 import type { User, UserProfile, UserStats } from '@/types/user'
@@ -479,7 +480,7 @@ export class UserService {
         body: JSON.stringify({
           weight,
           notes,
-          date: new Date().toISOString().split('T')[0],
+          date: todayLocalDate(),
         }),
       })
 

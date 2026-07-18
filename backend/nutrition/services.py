@@ -508,7 +508,7 @@ class PersonalizedNutritionService:
             carbs_percentage=carbs_pct,
             fat_percentage=fat_pct,
             goal=self.user.main_goal or 'maintain',
-            start_date=timezone.now().date(),
+            start_date=timezone.localdate(),
             is_active=True
         )
         
@@ -927,7 +927,7 @@ class PersonalizedNutritionService:
         existing_active_plan = NutritionPlan.objects.filter(user=self.user, is_active=True).first()
         if existing_active_plan:
             existing_active_plan.is_active = False
-            existing_active_plan.end_date = timezone.now().date()
+            existing_active_plan.end_date = timezone.localdate()
             existing_active_plan.save()
 
         daily_calories = self.calculate_daily_calories()
@@ -961,7 +961,7 @@ class PersonalizedNutritionService:
             diet_type=best_plan.diet_type,
             meals_per_day=best_plan.meals_per_day,
             duration_weeks=best_plan.duration_weeks,
-            start_date=timezone.now().date(),
+            start_date=timezone.localdate(),
             is_active=True
         )
 

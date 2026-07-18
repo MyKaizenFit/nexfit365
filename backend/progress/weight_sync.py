@@ -54,7 +54,7 @@ def upsert_weight_entry(
         if created or not stats.starting_weight:
             stats.starting_weight = weight_decimal
             if not stats.transformation_start_date:
-                stats.transformation_start_date = date or timezone.now().date()
+                stats.transformation_start_date = date or timezone.localdate()
         stats.current_weight = weight_decimal
         stats.save()
     except Exception as exc:

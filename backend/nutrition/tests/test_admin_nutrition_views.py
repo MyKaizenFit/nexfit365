@@ -324,6 +324,59 @@ class TestAdminNutritionPlanViewSet:
         response = admin_client.patch(f'{PLANS_URL}{nutrition_plan.id}/', data, format='json')
         assert response.status_code == status.HTTP_200_OK
 
+    def test_update_plan_without_meals_preserves_today_meal_logs(
+        self, admin_client, nutrition_plan, regular_user
+    ):
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        log = MealLog.objects.create(
+            user=regular_user,
+            date=today,
+            meal_type='breakfast',
+            calories=500,
+            protein=Decimal('40.0'),
+        )
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            {'name': 'Plan sin tocar comidas'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert MealLog.objects.filter(id=log.id).exists()
+
+    def test_update_plan_with_meals_clears_today_meal_logs(
+        self, admin_client, nutrition_plan, regular_user
+    ):
+        from django.utils import timezone
+
+        today = timezone.localdate()
+        log = MealLog.objects.create(
+            user=regular_user,
+            date=today,
+            meal_type='breakfast',
+            calories=500,
+            protein=Decimal('40.0'),
+        )
+        payload = {
+            'meals': [
+                {
+                    'day_of_week': 1,
+                    'name': 'Comida mañana',
+                    'meal_type': 'breakfast',
+                    'time': '08:00',
+                    'order_index': 1,
+                },
+            ]
+        }
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            payload,
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert not MealLog.objects.filter(id=log.id).exists()
+
     def test_update_plan_daily_calories_scales_meals_and_recipes(self, admin_client, nutrition_plan, recipe):
         meal = PlanMeal.objects.create(
             plan=nutrition_plan,

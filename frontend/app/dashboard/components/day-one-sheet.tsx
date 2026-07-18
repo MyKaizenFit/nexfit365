@@ -29,6 +29,7 @@ import { getPhotoTypeLabel } from "@/lib/progress-photo-types"
 import { useWeightHistory } from "@/hooks/use-weight-history"
 import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 import { userService } from "@/lib/user-service"
+import { todayLocalDate } from "@/lib/local-date"
 import { format, differenceInDays, differenceInMonths, startOfMonth, subMonths } from "date-fns"
 import { es } from "date-fns/locale"
 
@@ -137,7 +138,7 @@ export function DayOneSheet() {
     try {
       setUploading(true)
       const weight = parseFloat(weightValue)
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       
       await addWeightEntry(weight, today, weightNotes || undefined)
       

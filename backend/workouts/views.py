@@ -24,6 +24,7 @@ from .serializers import (
     WorkoutLogSerializer, WorkoutLogExerciseSerializer, WorkoutLogSetSerializer
 )
 from accounts.streaks import get_user_activity_streak
+from accounts.permissions import IsAdminOrStaff
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,12 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'difficulty', 'is_system']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+
+    def get_permissions(self):
+        # Members may read the catalog; only staff may mutate it.
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAdminOrStaff()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):

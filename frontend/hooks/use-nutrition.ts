@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { nutritionService, NutritionPlan, Meal, MealLog, MealOption } from '@/lib/nutrition-service'
 import { useAuth } from '@/contexts/auth-context'
 import { toast } from '@/hooks/use-toast'
+import { todayLocalDate } from '@/lib/local-date'
 
 interface NutritionState {
   currentPlan: NutritionPlan | null
@@ -220,7 +221,7 @@ export function useNutrition(): UseNutritionReturn {
       loadCurrentPlan()
       
       // Cargar estadísticas del día actual
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       loadDailyStats(today)
     }
   }, [isAuthenticated, user, loadCurrentPlan, loadDailyStats])

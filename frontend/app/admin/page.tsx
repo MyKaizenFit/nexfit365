@@ -37,7 +37,6 @@ const AdminProfile = lazy(() => import("./components/admin-profile").then(module
 // Lazy loading de componentes pesados para code splitting
 const ExerciseManagement = lazy(() => import("./components/exercise-management").then(module => ({ default: module.ExerciseManagement })))
 const WorkoutPlanManagement = lazy(() => import("./components/workout-plan-management").then(module => ({ default: module.WorkoutPlanManagement })))
-const NutritionManagement = lazy(() => import("./components/nutrition-management").then(module => ({ default: module.NutritionManagement })))
 const RecipeManagement = lazy(() => import("./components/recipe-management").then(module => ({ default: module.RecipeManagement })))
 const FoodManagement = lazy(() => import("./components/food-management").then(module => ({ default: module.FoodManagement })))
 const EquivalenceManagement = lazy(() => import("./components/equivalence-management").then(module => ({ default: module.EquivalenceManagement })))

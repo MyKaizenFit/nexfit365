@@ -148,12 +148,12 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         # Estadísticas básicas
         total_photos = queryset.count()
         photos_this_month = queryset.filter(
-            date__gte=timezone.now().date().replace(day=1)
+            date__gte=timezone.localdate().replace(day=1)
         ).count()
         total_weight_entries = weight_queryset.count()
         total_measurements = measurement_queryset.count()
         weight_entries_this_month = weight_queryset.filter(
-            date__gte=timezone.now().date().replace(day=1)
+            date__gte=timezone.localdate().replace(day=1)
         ).count()
         
         # Última foto
@@ -222,7 +222,7 @@ class WeightEntryViewSet(viewsets.ModelViewSet):
         # Estadísticas básicas
         total_entries = queryset.count()
         entries_this_month = queryset.filter(
-            date__gte=timezone.now().date().replace(day=1)
+            date__gte=timezone.localdate().replace(day=1)
         ).count()
         
         # Última entrada
@@ -342,7 +342,7 @@ class ProgressStatsViewSet(viewsets.ViewSet):
         try:
             user = request.user
             
-            today = timezone.now().date()
+            today = timezone.localdate()
             week_start = today - timedelta(days=today.weekday())
             month_start = today.replace(day=1)
         
@@ -444,7 +444,7 @@ class ProgressStatsViewSet(viewsets.ViewSet):
         days = int(request.query_params.get("days", 30))
         days = max(7, min(days, 90))
 
-        end_date = timezone.now().date()
+        end_date = timezone.localdate()
         start_date = end_date - timedelta(days=days - 1)
 
         wellness_qs = DailyWellness.objects.filter(
@@ -664,7 +664,7 @@ class BodyMeasurementViewSet(viewsets.ModelViewSet):
         # Estadísticas básicas
         total_measurements = queryset.count()
         measurements_this_month = queryset.filter(
-            date__gte=timezone.now().date().replace(day=1)
+            date__gte=timezone.localdate().replace(day=1)
         ).count()
         
         # Última medición
@@ -712,7 +712,7 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
         Crear o actualizar el registro del dia.
         Evita errores si el frontend intenta crear dos veces el bienestar de la misma fecha.
         """
-        entry_date = request.data.get("date") or timezone.now().date().isoformat()
+        entry_date = request.data.get("date") or timezone.localdate().isoformat()
         existing = DailyWellness.objects.filter(user=request.user, date=entry_date).first()
 
         if existing:
@@ -726,7 +726,7 @@ class DailyWellnessViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def today(self, request):
         """Obtener registro de hoy"""
-        today = timezone.now().date()
+        today = timezone.localdate()
         entry = DailyWellness.objects.filter(user=request.user, date=today).first()
         
         if entry:

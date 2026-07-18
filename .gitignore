@@ -94,6 +94,8 @@ next-env.d.ts
 .cursor/
 .codex/
 .agents/
+# Advisor improve plans — local only (never publish to GitHub)
+plans/
 
 # ===== IDE y editores =====
 .idea/

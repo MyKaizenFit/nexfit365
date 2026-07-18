@@ -90,20 +90,21 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
                 f"El archivo es demasiado grande. Tamaño máximo: {settings.MAX_PROGRESS_PHOTO_SIZE // (1024*1024)}MB"
             )
 
-        allowed_types = [
-            "image/jpeg", "image/png", "image/jpg", "image/webp",
-            "image/heic", "image/heif", "application/octet-stream",
-        ]
+        allowed_types = {
+            "image/jpeg",
+            "image/png",
+            "image/jpg",
+            "image/webp",
+            "image/heic",
+            "image/heif",
+        }
 
-        if value.content_type not in allowed_types:
-            file_extension = value.name.lower().split(".")[-1] if "." in value.name else ""
-            allowed_extensions = ["jpg", "jpeg", "png", "webp", "heic", "heif"]
-
-            if file_extension not in allowed_extensions:
-                raise serializers.ValidationError(
-                    f"Tipo de archivo no permitido. Recibido: {value.content_type}, extensión: {file_extension}. "
-                    f"Tipos permitidos: {', '.join(allowed_types)}"
-                )
+        content_type = (value.content_type or "").lower().strip()
+        if content_type not in allowed_types:
+            raise serializers.ValidationError(
+                f"Tipo de archivo no permitido. Recibido: {value.content_type or 'desconocido'}. "
+                f"Tipos permitidos: {', '.join(sorted(allowed_types))}"
+            )
 
         return value
 
@@ -149,14 +150,14 @@ class WeightEntrySerializer(serializers.ModelSerializer):
                 defaults={
                     "starting_weight": validated_data["weight"],
                     "current_weight": validated_data["weight"],
-                    "transformation_start_date": validated_data.get("date", timezone.now().date()),
+                    "transformation_start_date": validated_data.get("date", timezone.localdate()),
                 },
             )
             if not created and not stats.starting_weight:
                 stats.starting_weight = validated_data["weight"]
                 stats.current_weight = validated_data["weight"]
                 if not stats.transformation_start_date:
-                    stats.transformation_start_date = validated_data.get("date", timezone.now().date())
+                    stats.transformation_start_date = validated_data.get("date", timezone.localdate())
                 stats.save()
         else:
             stats, _ = UserStats.objects.get_or_create(user=user)

@@ -498,6 +498,14 @@ class HelpSettingsSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
+    def validate_guides_content(self, value):
+        from .html_sanitize import sanitize_help_html
+        return sanitize_help_html(value)
+
+    def validate_faq_content(self, value):
+        from .html_sanitize import sanitize_help_html
+        return sanitize_help_html(value)
+
 
 class ProblemReportSerializer(serializers.ModelSerializer):
     """Serializer para reportes de problemas"""

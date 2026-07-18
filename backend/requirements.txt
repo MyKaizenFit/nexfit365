@@ -21,6 +21,7 @@ django-anymail[sendgrid]>=10.0
 
 Pillow>=10.0.0
 pillow-heif>=0.16.0
+bleach>=6.0.0
 
 # Excel/CSV
 xlsxwriter>=1.4.0

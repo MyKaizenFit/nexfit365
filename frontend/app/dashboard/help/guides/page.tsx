@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { helpService, HelpSettings } from "@/lib/help-service"
+import { sanitizeHelpHtml } from "@/lib/sanitize-help-html"
 import { toast } from "@/hooks/use-toast"
 
 export default function GuidesPage() {
@@ -172,7 +173,7 @@ export default function GuidesPage() {
             <CardContent>
               <div 
                 className="prose max-w-none"
-                dangerouslySetInnerHTML={{ __html: helpSettings.guides_content }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHelpHtml(helpSettings.guides_content || "") }}
               />
             </CardContent>
           </Card>

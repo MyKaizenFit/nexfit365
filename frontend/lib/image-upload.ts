@@ -168,9 +168,12 @@ export const normalizePhotoFile = async (
 
   if (typeof window !== "undefined" && isHeicFile(file)) {
     try {
-      const { default: heic2any } = await import("heic2any")
-      const result = await heic2any({ blob: file, toType: "image/jpeg", quality: options.quality ?? 0.85 })
-      const blob = Array.isArray(result) ? result[0] : result
+      const { heicTo } = await import("heic-to")
+      const blob = await heicTo({
+        blob: file,
+        type: "image/jpeg",
+        quality: options.quality ?? 0.85,
+      })
       if (blob instanceof Blob) {
         const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg")
         normalized = new File([blob], newName, { type: "image/jpeg" })

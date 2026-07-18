@@ -24,7 +24,7 @@ def reset_weekly_workout_plan_if_needed(program: WorkoutProgram) -> WorkoutProgr
 
     from .program_lifecycle import program_duration_weeks_from_plan
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     update_fields: list[str] = []
 
     if not program.start_date:
@@ -57,7 +57,7 @@ def prepare_user_program_activation(program: WorkoutProgram) -> WorkoutProgram:
 
     from .program_lifecycle import program_duration_weeks_from_plan
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     monday = today - timedelta(days=today.weekday())
     duration = program_duration_weeks_from_plan(program)
 
@@ -83,7 +83,7 @@ def rollover_program_cycle_if_completed(program: WorkoutProgram) -> WorkoutProgr
     if not is_program_completed(program):
         return program
 
-    today = timezone.now().date()
+    today = timezone.localdate()
     monday = today - timedelta(days=today.weekday())
     duration = program_duration_weeks_from_plan(program)
 
@@ -201,8 +201,8 @@ class PersonalizedWorkoutService:
             goal=workout_goal,
             days_per_week=self.user.training_days_per_week or 3,
             duration_weeks=duration_weeks,
-            start_date=timezone.now().date(),
-            end_date=timezone.now().date() + timedelta(weeks=duration_weeks),
+            start_date=timezone.localdate(),
+            end_date=timezone.localdate() + timedelta(weeks=duration_weeks),
             is_active=True
         )
         
@@ -586,12 +586,12 @@ class DefaultWorkoutAssignmentService:
         existing_active_program = WorkoutProgram.objects.filter(user=self.user, is_active=True).first()
         if existing_active_program:
             existing_active_program.is_active = False
-            existing_active_program.end_date = timezone.now().date()
+            existing_active_program.end_date = timezone.localdate()
             existing_active_program.save()
 
         from .program_lifecycle import program_duration_weeks_from_plan
 
-        today = timezone.now().date()
+        today = timezone.localdate()
         monday = today - timedelta(days=today.weekday())
         duration = program_duration_weeks_from_plan(default_program)
         end_date = monday + timedelta(weeks=duration)

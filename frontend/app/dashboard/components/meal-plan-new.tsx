@@ -17,6 +17,7 @@ import {
 import { Progress } from "@/components/ui/progress"
 import { useNutrition } from "@/hooks/use-nutrition"
 import { MealOption } from "@/lib/nutrition-service"
+import { todayLocalDate } from "@/lib/local-date"
 
 // Interfaz local para las comidas del día
 interface DailyMeal {
@@ -187,7 +188,7 @@ export function MealPlan() {
   const totalFat = dailyStats.totalFat
 
   const handleMarkMeal = async (mealId: string, mealName: string) => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     
     try {
       const success = await markMealCompleted(mealId, today)
@@ -200,7 +201,7 @@ export function MealPlan() {
   }
 
   const handleSelectMealOption = async (mealId: string, option: MealOption, mealName: string) => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     
     try {
       // Solo crear MealLog si la comida existe en el backend (no es un ID por defecto)

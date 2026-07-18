@@ -178,6 +178,27 @@ class TestExerciseViewSet:
         assert 'Ejercicio Activo' in names
         assert 'Ejercicio Inactivo' not in names
 
+    def test_create_exercise_forbidden_for_member(self, auth_client):
+        response = auth_client.post(
+            '/api/exercises/',
+            {'name': 'Hack Squats', 'category': 'strength', 'muscle_groups': []},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_exercise_forbidden_for_member(self, auth_client, exercise):
+        response = auth_client.patch(
+            f'/api/exercises/{exercise.id}/',
+            {'name': 'Sentadilla Modificada'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_destroy_exercise_forbidden_for_member(self, auth_client, exercise):
+        response = auth_client.delete(f'/api/exercises/{exercise.id}/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Exercise.objects.filter(id=exercise.id).exists()
+
     def test_search_exercises(self, auth_client, exercise):
         response = auth_client.get('/api/exercises/?search=Sentadilla')
         assert response.status_code == status.HTTP_200_OK

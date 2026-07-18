@@ -3128,9 +3128,10 @@ class CommunityRecipePostViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'El campo photo es requerido.'}, status=status.HTTP_400_BAD_REQUEST)
         allowed = {
             'image/jpeg', 'image/jpg', 'image/png', 'image/webp',
-            'image/heic', 'image/heif', 'application/octet-stream',
+            'image/heic', 'image/heif',
         }
-        if getattr(photo, 'content_type', '') not in allowed:
+        content_type = (getattr(photo, 'content_type', '') or '').lower().strip()
+        if content_type not in allowed:
             return Response(
                 {'detail': 'Formato no soportado. Usa JPG, PNG, WEBP o HEIC.'},
                 status=status.HTTP_400_BAD_REQUEST,

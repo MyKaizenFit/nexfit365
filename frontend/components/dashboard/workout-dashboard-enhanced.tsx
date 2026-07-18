@@ -21,6 +21,7 @@ import { useUserProfile } from "@/hooks/use-user-profile"
 import { useUserData } from "@/hooks/use-user-data"
 import { useAuth } from "@/contexts/auth-context"
 import { authenticatedFetch } from "@/lib/api"
+import { todayLocalDate } from "@/lib/local-date"
 import { type WorkoutDay } from "@/lib/workout-service"
 import { ActiveWorkoutSession } from "@/components/active-workout-session"
 import { ExerciseVideoPlayer } from "@/components/exercise-video-player"
@@ -568,7 +569,7 @@ export function WorkoutDashboardEnhanced() {
 
     try {
       const dayIdStr = String(dayId)
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
 
       // Primero intentar desde localStorage
       const saveKey = `workout_completed_${dayIdStr}_${today}`
@@ -582,7 +583,7 @@ export function WorkoutDashboardEnhanced() {
       // También buscar en workoutLogs del backend
       if (workoutLogs && Array.isArray(workoutLogs)) {
         const todayLog = workoutLogs.find((log: any) => {
-          const logDate = log.date ? new Date(log.date).toISOString().split('T')[0] : null
+          const logDate = typeof log.date === "string" ? log.date.slice(0, 10) : null
           const logDayId = log.workout_day?.id || log.workout_day
           return logDate === today && String(logDayId) === dayIdStr && log.completed
         })
@@ -675,7 +676,7 @@ export function WorkoutDashboardEnhanced() {
     }
 
     // Cargar ejercicios completados guardados desde localStorage
-    const savedKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
+    const savedKey = `workout_completed_${dayId}_${todayLocalDate()}`
     const saved = localStorage.getItem(savedKey)
     const savedExercises = saved ? JSON.parse(saved) : []
 
@@ -697,7 +698,7 @@ export function WorkoutDashboardEnhanced() {
       // Guardar en localStorage
       if (selectedDay) {
         const dayId = selectedDay.id || selectedDay.day_number || 'unknown'
-        const saveKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
+        const saveKey = `workout_completed_${dayId}_${todayLocalDate()}`
         localStorage.setItem(saveKey, JSON.stringify(Array.from(newSet)))
       }
 
@@ -722,7 +723,7 @@ export function WorkoutDashboardEnhanced() {
 
       // Limpiar datos guardados en localStorage después de completar
       const dayId = selectedDay.id || selectedDay.day_number || 'unknown'
-      const saveKey = `workout_completed_${dayId}_${new Date().toISOString().split('T')[0]}`
+      const saveKey = `workout_completed_${dayId}_${todayLocalDate()}`
       localStorage.removeItem(saveKey)
 
       setIsWorkoutDialogOpen(false)
@@ -1760,7 +1761,7 @@ export function WorkoutDashboardEnhanced() {
 
                 if (completedExerciseIds.length > 0) {
                   const dayId = selectedDay.id.toString()
-                  const today = new Date().toISOString().split('T')[0]
+                  const today = todayLocalDate()
                   const saveKey = `workout_completed_${dayId}_${today}`
 
                   try {

@@ -18,6 +18,7 @@ import { toast } from '@/hooks/use-toast'
 import { ExerciseVideoPlayer } from './exercise-video-player'
 import { ExerciseCoverThumbnail } from './exercise-cover-thumbnail'
 import { cn } from '@/lib/utils'
+import { formatLocalDate, todayLocalDate } from '@/lib/local-date'
 
 // =============================================
 // INPUT NUMÉRICO PARA MÓVIL
@@ -337,10 +338,10 @@ export function ActiveWorkoutSession({
 }: ActiveWorkoutSessionProps) {
   // Clave para localStorage basada en el día de entrenamiento
   const workoutStorageKey = workoutDay?.id
-    ? `active_workout_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
+    ? `active_workout_${workoutDay.id}_${todayLocalDate()}`
     : null
   const substituteStorageKey = workoutDay?.id
-    ? `workout_substitutes_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
+    ? `workout_substitutes_${workoutDay.id}_${todayLocalDate()}`
     : null
 
   // Función para guardar estado en localStorage
@@ -363,8 +364,8 @@ export function ActiveWorkoutSession({
       if (saved) {
         const state = JSON.parse(saved)
         // Solo cargar si es del mismo día
-        const savedDate = new Date(state.savedAt).toISOString().split('T')[0]
-        const today = new Date().toISOString().split('T')[0]
+        const savedDate = formatLocalDate(new Date(state.savedAt))
+        const today = todayLocalDate()
         if (savedDate === today) {
           return state
         }
@@ -671,7 +672,7 @@ export function ActiveWorkoutSession({
       ? String(selectedSubstitute.id)
       : baseExerciseId
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     for (const log of workoutLogs || []) {
       if (!log?.completed || log?.date === today || !Array.isArray(log?.exercises_data)) continue
       const match = log.exercises_data.find((entry: any) => {

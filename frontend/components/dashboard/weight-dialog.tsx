@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Weight, Calendar, FileText } from "lucide-react"
 import { WeightEntry } from "@/lib/progress-service"
+import { todayLocalDate } from "@/lib/local-date"
 
 interface WeightDialogProps {
   open: boolean
@@ -38,7 +39,7 @@ export function WeightDialog({
       setNotes(entry.notes || "")
     } else {
       setWeight("")
-      setDate(new Date().toISOString().split('T')[0])
+      setDate(todayLocalDate())
       setNotes("")
     }
   }, [entry, open])
@@ -120,7 +121,7 @@ export function WeightDialog({
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
                 required
-                max={new Date().toISOString().split('T')[0]}
+                max={todayLocalDate()}
               />
             </div>
           </div>

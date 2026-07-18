@@ -308,12 +308,10 @@ class RegisterView(APIView):
                     "access": str(refresh.access_token),
                     "refresh": str(refresh)
                 }, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                import traceback
-                error_trace = traceback.format_exc()
+            except Exception:
+                logger.exception("Error al crear usuario en registro público")
                 return Response({
                     "detail": "Error al crear usuario",
-                    "error": str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

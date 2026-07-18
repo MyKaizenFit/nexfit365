@@ -64,12 +64,41 @@ class TestUserRegistration:
         assert "user" in response.data
         assert response.data["user"]["email"] == user_data["email"]
         assert response.data["user"]["first_name"] == user_data["first_name"]
-        assert response.data["user"]["role"] == user_data["role"]
+        # RegisterView may echo "member" when requested; DB role is always basic.
+        assert response.data["user"]["role"] in ("member", "basic")
         
         # Verificar que el usuario se creó en la base de datos
         user = User.objects.get(email=user_data["email"])
         assert user.check_password(user_data["password"])
         assert user.is_active is True
+        assert user.role == "basic"
+
+    def test_register_cannot_self_assign_admin(self, api_client, user_data):
+        """Public registration must reject self-assigned admin role."""
+        user_data = {**user_data, "email": "evil-admin@example.com", "role": "admin"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
+
+    def test_register_cannot_self_assign_premium(self, api_client, user_data):
+        """Public registration must reject self-assigned premium role."""
+        user_data = {**user_data, "email": "evil-premium@example.com", "role": "premium"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
+
+    def test_register_cannot_self_assign_pro(self, api_client, user_data):
+        """Public registration must reject self-assigned pro role."""
+        user_data = {**user_data, "email": "evil-pro@example.com", "role": "pro"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
 
     def test_register_user_duplicate_email(self, api_client, user_data):
         """Test de registro con email duplicado"""
@@ -115,6 +144,25 @@ class TestUserRegistration:
         assert response.status_code == status.HTTP_400_BAD_REQUEST
         assert "email" in response.data
         assert "password" in response.data
+
+    def test_register_create_failure_does_not_leak_exception(self, api_client, user_data, monkeypatch):
+        """500 on create must not echo internal exception text to the client."""
+        from api import auth_serializers
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("SENSITIVE_INTERNAL_DETAIL_xyz")
+
+        monkeypatch.setattr(
+            auth_serializers.UserRegistrationSerializer,
+            "save",
+            boom,
+        )
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data.get("detail") == "Error al crear usuario"
+        assert "error" not in response.data
+        assert "SENSITIVE_INTERNAL_DETAIL_xyz" not in str(response.data)
 
 
 @pytest.mark.django_db

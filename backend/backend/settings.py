@@ -126,7 +126,11 @@ REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
         "rest_framework.renderers.JSONRenderer",  # Renderer estándar primero
         "api.renderers.UTF8JSONRenderer",  # Renderer UTF-8 personalizado
-        "rest_framework.renderers.BrowsableAPIRenderer",  # Para desarrollo y debugging
+        *(
+            ["rest_framework.renderers.BrowsableAPIRenderer"]
+            if DEBUG
+            else []
+        ),
     ],
     "UNICODE_JSON": True,  # Asegurar que JSON use Unicode (UTF-8)
     "DEFAULT_PARSER_CLASSES": [
