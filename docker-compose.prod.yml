@@ -75,13 +75,26 @@ services:
   # ============================================
   # REDIS (Cache y Colas) - PRODUCCIÓN
   # ============================================
+  # Password: REDIS_PASSWORD in docker/backend.env.production (never commit secrets).
+  # Clients must use REDIS_URL=redis://:PASSWORD@nexfit-pro-redis:6379/0 from that env file.
   redis:
     image: redis:7-alpine
     restart: unless-stopped
     mem_limit: 256m
     cpus: 0.25
     pids_limit: 150
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    env_file:
+      - ./docker/backend.env.production
+    # $$REDIS_PASSWORD expands inside the container (from env_file), not on the host.
+    command:
+      - sh
+      - -c
+      - |
+        if [ -z "$$REDIS_PASSWORD" ]; then
+          echo "REDIS_PASSWORD is required in docker/backend.env.production" >&2
+          exit 1
+        fi
+        exec redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru --requirepass "$$REDIS_PASSWORD"
     # Redis NO expone puerto externamente por seguridad
     volumes:
       - /srv/mykaizenfit/pro/data/redis:/data
@@ -92,7 +105,9 @@ services:
         max-size: "10m"
         max-file: "3"
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test:
+        - CMD-SHELL
+        - redis-cli -a "$$REDIS_PASSWORD" ping | grep -q PONG
       interval: 10s
       timeout: 5s
       retries: 5
@@ -117,7 +132,7 @@ services:
       - ./docker/backend.env.production
     environment:
       DB_HOST: nexfit-pro-db
-      REDIS_URL: redis://nexfit-pro-redis:6379/0
+      # REDIS_URL (with password) comes from env_file — do not override without auth.
       READ_DOTENV: "False"
     command: >
       sh -c "
@@ -249,7 +264,7 @@ services:
       - ./docker/backend.env.production
     environment:
       DB_HOST: nexfit-pro-db
-      REDIS_URL: redis://nexfit-pro-redis:6379/0
+      # REDIS_URL (with password) comes from env_file — do not override without auth.
       READ_DOTENV: "False"
     command: >
       sh -c "celery -A backend worker --loglevel=info --concurrency=2"
