@@ -70,7 +70,8 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
         
         const url = buildApiUrl(`admin/progress/users/${userId}/photos/`)
         
-        const response = await fetch(url, { headers })
+        const response = await fetch(url, {
+        credentials: 'include', headers })
         
         
         if (!response.ok) {

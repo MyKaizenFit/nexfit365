@@ -245,6 +245,7 @@ else:
         'x-client-path',
         'x-client-url',
         'x-csrftoken',
+        'x-auth-mode',
         'x-requested-with',
         'cache-control',
         'pragma',

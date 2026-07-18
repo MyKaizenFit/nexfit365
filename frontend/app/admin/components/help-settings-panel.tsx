@@ -62,7 +62,8 @@ function ProblemReportsPanel() {
     setLoading(true)
     try {
       const headers = await authHeaders()
-      const res = await fetch(buildApiUrl('problem-reports/?ordering=-created_at'), { headers: headers as HeadersInit })
+      const res = await fetch(buildApiUrl('problem-reports/?ordering=-created_at'), {
+        credentials: 'include', headers: headers as HeadersInit })
       if (res.ok) {
         const data = await res.json()
         setReports(data.results ?? data)
@@ -84,6 +85,7 @@ function ProblemReportsPanel() {
       if (adminNotes[id] !== undefined) body.admin_notes = adminNotes[id]
 
       const res = await fetch(buildApiUrl(`problem-reports/${id}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: { ...(headers as Record<string, string>), 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

@@ -28,6 +28,7 @@ export function useMotivationalTip() {
       setError(null)
 
       const response = await fetch(buildApiUrl('/motivational-tip/'), {
+        credentials: 'include',
         method: 'GET',
         headers: getAuthHeaders(),
       })

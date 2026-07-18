@@ -288,6 +288,7 @@ export class AuthService {
         method: 'POST',
         headers: {
           ...getAuthHeaders(),
+          'X-Auth-Mode': 'cookie',
           ...(getCookie('csrfToken') ? { 'X-CSRFToken': getCookie('csrfToken') as string } : {}),
         },
         credentials: 'include',
@@ -563,6 +564,7 @@ export class AuthService {
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
+          'X-Auth-Mode': 'cookie',
         },
         credentials: 'include',
         body: JSON.stringify(correctedCredentials),
@@ -858,13 +860,14 @@ export class AuthService {
         return
       }
 
-      if (!this.accessToken) {
-        throw new Error('No hay token de acceso')
+      if (!this.isAuthenticated()) {
+        throw new Error('No hay sesión de acceso disponible')
       }
 
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.CHANGE_PASSWORD), {
         method: 'POST',
-        headers: getAuthHeaders(this.accessToken),
+        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           current_password: currentPassword,
           new_password: newPassword,
@@ -901,13 +904,14 @@ export class AuthService {
         return mockUser
       }
 
-      if (!this.accessToken) {
-        throw new Error('No hay token de acceso')
+      if (!this.isAuthenticated()) {
+        throw new Error('No hay sesión de acceso disponible')
       }
 
       const response = await fetch(buildApiUrl('profile/'), {
         method: 'PUT',
-        headers: getAuthHeaders(this.accessToken),
+        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify(profileData),
       })
 
@@ -976,8 +980,8 @@ export class AuthService {
   // Cambiar contraseña después de usar contraseña temporal
   async changePasswordAfterTemporary(newPassword: string, newPasswordConfirm: string): Promise<void> {
     try {
-      if (!this.accessToken) {
-        throw new Error('No hay token de acceso')
+      if (!this.isAuthenticated()) {
+        throw new Error('No hay sesión de acceso disponible')
       }
 
       if (newPassword !== newPasswordConfirm) {
@@ -986,7 +990,8 @@ export class AuthService {
 
       const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.CHANGE_PASSWORD_AFTER_TEMPORARY), {
         method: 'POST',
-        headers: getAuthHeaders(this.accessToken),
+        credentials: 'include',
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           new_password: newPassword,
           new_password_confirm: newPasswordConfirm,
@@ -998,11 +1003,7 @@ export class AuthService {
         throw new Error(errorData.detail || 'Error al cambiar contraseña')
       }
 
-      // Limpiar tokens para forzar nuevo login
-      this.accessToken = null
-      this.refreshToken = null
-      deleteCookie('accessToken')
-      deleteCookie('refreshToken')
+      this.clearTokens()
 
       return
     } catch (error) {

@@ -228,6 +228,7 @@ export function FoodManagement() {
 
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params}`, {
+        credentials: 'include',
         headers
       })
 
@@ -254,6 +255,7 @@ export function FoodManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/stats/`, {
+        credentials: 'include',
         headers
       })
 
@@ -293,6 +295,7 @@ export function FoodManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/search_api/`, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -364,6 +367,7 @@ export function FoodManagement() {
       })
       
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/import_selected/`, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -530,7 +534,8 @@ export function FoodManagement() {
         ? `${getApiUrl()}/api/nutrition/foods/${editingFood.id}/`
         : `${getApiUrl()}/api/nutrition/foods/`
       const method = editingFood ? 'PATCH' : 'POST'
-      const response = await fetch(url, { method, headers, body: JSON.stringify(body) })
+      const response = await fetch(url, {
+        credentials: 'include', method, headers, body: JSON.stringify(body) })
       if (!response.ok) {
         const err = await response.json()
         throw new Error(err.detail || err.name?.[0] || 'Error al guardar')
@@ -570,6 +575,7 @@ export function FoodManagement() {
       const headers: Record<string, string> = {}
       if (authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization']
       const response = await fetch(`${getApiUrl()}${importPath}`, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: formData,
@@ -614,7 +620,8 @@ export function FoodManagement() {
   const handleDownloadTemplate = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/download-template/`, { headers })
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/download-template/`, {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error('Error al descargar')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
@@ -634,7 +641,8 @@ export function FoodManagement() {
   const handleExportExcel = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/export-excel/`, { headers })
+      const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/export-excel/`, {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error('Error al exportar')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
@@ -750,6 +758,7 @@ export function FoodManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/${foodId}/`, {
+        credentials: 'include',
         method: 'PATCH',
         headers,
         body: JSON.stringify({ is_verified: !currentStatus })
@@ -780,6 +789,7 @@ export function FoodManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/${foodId}/`, {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -807,6 +817,7 @@ export function FoodManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/nutrition/foods/bulk_verify/`, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: JSON.stringify({

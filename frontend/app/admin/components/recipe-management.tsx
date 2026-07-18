@@ -391,6 +391,7 @@ export function RecipeManagement() {
 
       while (nextUrl) {
         const response: Response = await fetch(nextUrl, {
+        credentials: 'include',
           method: 'GET',
           headers: headers,
         })
@@ -432,6 +433,7 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/admin/nutrition/foods/list-for-recipes/`, {
+        credentials: 'include',
         method: 'GET',
         headers: headers,
       })
@@ -469,7 +471,8 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const url = `${getApiUrl()}/api/admin/nutrition/recipes/export-${type}/?t=${Date.now()}`
-      const response = await fetch(url, { method: 'GET', headers: headers, cache: 'no-store' })
+      const response = await fetch(url, {
+        credentials: 'include', method: 'GET', headers: headers, cache: 'no-store' })
       if (!response.ok) throw new Error(`Error ${response.status}`)
 
       const contentType = response.headers.get('content-type') || ''
@@ -509,6 +512,7 @@ export function RecipeManagement() {
 
       const token = (headers as Record<string, string>)['Authorization']
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'POST',
         headers: { 'Authorization': token },
         body: formDataObj,
@@ -602,6 +606,7 @@ export function RecipeManagement() {
       const headers = await getAuthHeaders()
       const nextName = getNextCopyName(recipe.name, recipes.map((item) => item.name))
       const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/`, {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -781,6 +786,7 @@ export function RecipeManagement() {
       const method = editingRecipe ? 'PUT' : 'POST'
 
       const response = await fetch(url, {
+        credentials: 'include',
         method,
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -820,6 +826,7 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${recipe.id}/`, {
+        credentials: 'include',
         method: 'DELETE',
         headers: headers,
       })
@@ -844,6 +851,7 @@ export function RecipeManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${editingRecipe.id}/set-image-url/`, {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: imageUrlInput }),
@@ -902,6 +910,7 @@ export function RecipeManagement() {
       formDataFile.append('image', selectedImageFile)
 
       const response = await fetch(`${getApiUrl()}/api/admin/nutrition/recipes/${editingRecipe.id}/upload-image/`, {
+        credentials: 'include',
         method: 'POST',
         headers: authToken ? { Authorization: authToken } : undefined,
         body: formDataFile,

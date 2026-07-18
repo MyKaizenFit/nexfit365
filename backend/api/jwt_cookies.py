@@ -107,3 +107,15 @@ def clear_jwt_cookies(response):
             samesite="Lax",
         )
     return response
+
+
+def wants_cookie_session(request) -> bool:
+    """SPA sends X-Auth-Mode: cookie so JWTs stay out of the JSON body."""
+    return (request.META.get("HTTP_X_AUTH_MODE") or "").strip().lower() == "cookie"
+
+
+def strip_tokens_from_body(response) -> None:
+    data = getattr(response, "data", None)
+    if isinstance(data, dict):
+        data.pop("access", None)
+        data.pop("refresh", None)

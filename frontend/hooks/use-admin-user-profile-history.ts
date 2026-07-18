@@ -21,7 +21,8 @@ export function useAdminUserProfileHistory(userId: string | number) {
       setLoading(true)
       setError(null)
       const headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl(`admin/users/audit/profile/${userId}/`), { headers })
+      const res = await fetch(buildApiUrl(`admin/users/audit/profile/${userId}/`), {
+        credentials: 'include', headers })
       if (!res.ok) {
         // Si es un error 500 o similar, devolver array vacío en lugar de error
         if (res.status >= 500) {

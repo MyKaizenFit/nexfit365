@@ -101,6 +101,7 @@ export function useAdminNotifications() {
 
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/notifications/'), {
+        credentials: 'include',
         headers
       })
 
@@ -126,6 +127,7 @@ export function useAdminNotifications() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/notifications/stats/'), {
+        credentials: 'include',
         headers
       })
 
@@ -143,6 +145,7 @@ export function useAdminNotifications() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/notifications/automation-summary/'), {
+        credentials: 'include',
         headers
       })
 
@@ -164,6 +167,7 @@ export function useAdminNotifications() {
       }
 
       const response = await fetch(buildApiUrl('admin/notifications/send_bulk/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -198,6 +202,7 @@ export function useAdminNotifications() {
       }
 
       const response = await fetch(buildApiUrl('admin/notifications/send_single/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -234,6 +239,7 @@ export function useAdminNotifications() {
         : 'admin/notifications/send_to_all/'
 
       const response = await fetch(buildApiUrl(endpoint), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -262,6 +268,7 @@ export function useAdminNotifications() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/notifications/run-automation/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -289,6 +296,7 @@ export function useAdminNotifications() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -312,6 +320,7 @@ export function useAdminNotifications() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/mark_as_read/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers
@@ -348,6 +357,7 @@ export function useAdminNotifications() {
 
     const headers = await getAuthHeaders()
     const response = await fetch(buildApiUrl(`admin/notifications/${notificationId}/delivery-logs/`), {
+        credentials: 'include',
       headers,
     })
 

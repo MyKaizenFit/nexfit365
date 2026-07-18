@@ -131,7 +131,8 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       const headers = await getAuthHeaders()
       const url = buildApiUrl(CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS)
       
-      const response = await fetch(url, { headers })
+      const response = await fetch(url, {
+        credentials: 'include', headers })
 
 
       const contentType = response.headers.get("content-type") ?? ""
@@ -228,7 +229,8 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       // Cargar todos los planes con paginación
       while (hasMore) {
         const url = buildApiUrl(`${ALL_NUTRITION_PLANS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=${page}&page_size=${pageSize}`)
-        const response: Response = await fetch(url, { headers })
+        const response: Response = await fetch(url, {
+        credentials: 'include', headers })
         
         if (!response.ok) {
           break
@@ -280,7 +282,8 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
       // Intentar cargar todos de una vez con page_size grande
       const url = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=1&page_size=1000`)
       
-      const response: Response = await fetch(url, { headers })
+      const response: Response = await fetch(url, {
+        credentials: 'include', headers })
       
       if (!response.ok) {
         const errorText = await response.text()
@@ -319,7 +322,8 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
         
         while (hasMore && page <= 20) {
           const nextUrl = buildApiUrl(`${ALL_WORKOUT_PROGRAMS_ENDPOINT}?${ASSIGNABLE_ONLY_QUERY}&page=${page}&page_size=1000`)
-          const nextResponse: Response = await fetch(nextUrl, { headers })
+          const nextResponse: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
           
           if (!nextResponse.ok) {
             break
@@ -390,6 +394,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
             : buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}${id}/`)
 
         const response = await fetch(endpoint, {
+        credentials: 'include',
           method,
           headers: {
             ...headers,
@@ -438,6 +443,7 @@ export function useDefaultPlanConfigurations(): UseDefaultPlanConfigurationsResu
         const response = await fetch(
           buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}${id}/`),
           {
+        credentials: 'include',
             method: "DELETE",
             headers,
           },

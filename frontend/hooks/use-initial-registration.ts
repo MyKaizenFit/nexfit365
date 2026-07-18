@@ -187,6 +187,7 @@ export function useInitialRegistration() {
       let response: Response;
       try {
         response = await fetch(apiUrl, {
+        credentials: 'include',
           method: 'POST',
           headers: headers,
           body: JSON.stringify(processedData),

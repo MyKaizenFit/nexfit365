@@ -408,12 +408,14 @@ export const NutritionTemplatePlanEditor = forwardRef<
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
     let headers: HeadersInit = await getAuthHeaders()
-    let res = await fetch(buildApiUrl(url), { headers })
+    let res = await fetch(buildApiUrl(url), {
+        credentials: 'include', headers })
     if (res.status === 401) {
       const newHeaders = await handle401AndRefresh(async () => getAuthHeaders())
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
-      res = await fetch(buildApiUrl(url), { headers })
+      res = await fetch(buildApiUrl(url), {
+        credentials: 'include', headers })
     }
     if (!res.ok) throw new Error(`Error ${res.status}`)
     return await res.json()
@@ -422,6 +424,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
   const patchJsonWithAuth = useCallback(async (url: string, body: any) => {
     let headers: HeadersInit = await getAuthHeaders()
     let res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -431,6 +434,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),

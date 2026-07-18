@@ -436,6 +436,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       !authService.getOfflineMode()
     ) {
       void fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
+        credentials: 'include',
         method: 'POST',
         headers: buildAuthRequestHeaders(accessTokenToRevoke || undefined),
         body: JSON.stringify({ refresh: refreshTokenToRevoke }),

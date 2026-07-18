@@ -307,6 +307,13 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
     ...getAuthHeaders(authService.getAccessToken() || undefined),
   })
 
+  const resolveUrl = (pathOrUrl: string): string => {
+    if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
+      return pathOrUrl
+    }
+    return buildApiUrl(pathOrUrl)
+  }
+
   const executeRequest = async (): Promise<Response> => {
     const controller = uploadTimeoutMs ? new AbortController() : null
     const timeoutId = controller
@@ -314,7 +321,7 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
       : null
 
     try {
-      return await fetch(buildApiUrl(url), {
+      return await fetch(resolveUrl(url), {
         ...fetchOptions,
         credentials: 'include',
         signal: controller ? controller.signal : fetchOptions.signal,
@@ -376,4 +383,30 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
       throw error
     }
   }
+}
+
+/**
+ * Cookie-aware fetch for API calls that may not go through authenticatedFetch.
+ * Always sends credentials + CSRF/optional Bearer headers. Accepts relative
+ * endpoints or absolute API URLs.
+ */
+export const apiFetch = async (pathOrUrl: string, init: RequestInit = {}): Promise<Response> => {
+  const url =
+    pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')
+      ? pathOrUrl
+      : buildApiUrl(pathOrUrl)
+
+  const headers = new Headers(init.headers || {})
+  const authHeaders = getAuthHeaders()
+  for (const [key, value] of Object.entries(authHeaders)) {
+    if (!headers.has(key)) {
+      headers.set(key, value)
+    }
+  }
+
+  return fetch(url, {
+    ...init,
+    credentials: 'include',
+    headers,
+  })
 }

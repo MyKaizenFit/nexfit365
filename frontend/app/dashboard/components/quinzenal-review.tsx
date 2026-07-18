@@ -33,7 +33,8 @@ export function QuinzenalReview() {
     try {
       setLoading(true)
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/"), { headers })
+      const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/"), {
+        credentials: 'include', headers })
       if (response.status === 401 || response.status === 403) {
         setLoading(false)
         return
@@ -70,6 +71,7 @@ export function QuinzenalReview() {
       setSending(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/submit/"), {
+        credentials: 'include',
         method: "POST",
         headers,
         body: JSON.stringify({ notes }),

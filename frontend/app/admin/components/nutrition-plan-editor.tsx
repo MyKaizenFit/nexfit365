@@ -175,7 +175,8 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
   const loadDefaultPlans = async () => {
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl("admin/nutrition/default-plans/"), { headers })
+      const response = await fetch(buildApiUrl("admin/nutrition/default-plans/"), {
+        credentials: 'include', headers })
       if (!response.ok) return
       const data = await response.json()
       const plans = Array.isArray(data?.results) ? data.results : Array.isArray(data) ? data : []
@@ -204,7 +205,8 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       const headers = await getAuthHeaders()
       
       // Intentar usar endpoint de admin primero
-      let response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan/`), { headers })
+      let response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan/`), {
+        credentials: 'include', headers })
       
       if (response.ok) {
         const adminData = await response.json()
@@ -212,7 +214,8 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         
         if (planData) {
           // Obtener detalle completo del plan usando el ViewSet de admin
-          const detailResponse = await fetch(buildApiUrl(`admin/nutrition/plans/${planData.id}/`), { headers })
+          const detailResponse = await fetch(buildApiUrl(`admin/nutrition/plans/${planData.id}/`), {
+        credentials: 'include', headers })
           if (!detailResponse.ok) {
             throw new Error("Error al cargar detalle del plan")
           }
@@ -245,7 +248,8 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       }
       
       // Fallback: usar endpoint público
-      response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), { headers })
+      response = await fetch(buildApiUrl(`nutrition/plans/?user=${userId}`), {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error("Error al cargar el plan del usuario")
 
       const data = await response.json()
@@ -253,7 +257,8 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       const userPlan = pickBestPlan(plans)
 
       if (userPlan) {
-        const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), { headers })
+        const detailResponse = await fetch(buildApiUrl(`nutrition/plans/${userPlan.id}/`), {
+        credentials: 'include', headers })
         if (!detailResponse.ok) throw new Error("Error al cargar detalle del plan")
         const detail = await detailResponse.json()
         
@@ -527,12 +532,14 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       
       // Intentar cargar desde endpoint admin primero
       let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${foodId}/`), {
+        credentials: 'include',
         headers
       })
 
       if (!response.ok) {
         // Si falla, intentar endpoint público
         response = await fetch(buildApiUrl(`nutrition/recipes/${foodId}/`), {
+        credentials: 'include',
           headers
         })
       }
@@ -684,6 +691,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       if (plan.id) {
         // Actualizar plan existente usando admin endpoint
         response = await fetch(buildApiUrl(`admin/nutrition/plans/${plan.id}/`), {
+        credentials: 'include',
           method: "PATCH",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify(planData),
@@ -691,6 +699,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       } else {
         // Crear nuevo plan usando admin endpoint
         response = await fetch(buildApiUrl("admin/nutrition/plans/"), {
+        credentials: 'include',
           method: "POST",
           headers: { ...headers, "Content-Type": "application/json" },
           body: JSON.stringify(planData),
@@ -737,6 +746,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
       setAssigning(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl("admin/nutrition/change-user-plan/"), {
+        credentials: 'include',
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, default_plan_id: selectedPlan }),

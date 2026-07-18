@@ -89,6 +89,7 @@ export function useAdminUserNutrition(userId: string | number) {
       setState(prev => ({ ...prev, loading: true, error: null }))
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan/`), {
+        credentials: 'include',
         headers,
       })
       if (!response.ok) {
@@ -106,6 +107,7 @@ export function useAdminUserNutrition(userId: string | number) {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/plan-history/`), {
+        credentials: 'include',
         headers,
       })
       if (!response.ok) {
@@ -123,6 +125,7 @@ export function useAdminUserNutrition(userId: string | number) {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/meal-logs/?limit=25`), {
+        credentials: 'include',
         headers,
       })
       if (!response.ok) {
@@ -156,6 +159,7 @@ export function useAdminUserNutrition(userId: string | number) {
     updateLog: async (logId: string, payload: Partial<AdminMealLog>) => {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/nutrition/users/${userId}/meal-logs/${logId}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers: {
           ...headers,
@@ -172,6 +176,7 @@ export function useAdminUserNutrition(userId: string | number) {
     deleteLog: async (logId: string) => {
       const headers = await getAuthHeaders()
       await fetch(buildApiUrl(`admin/nutrition/users/${userId}/meal-logs/${logId}/`), {
+        credentials: 'include',
         method: "DELETE",
         headers,
       })

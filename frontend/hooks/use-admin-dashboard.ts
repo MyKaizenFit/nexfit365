@@ -61,6 +61,7 @@ export function useAdminDashboard() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/dashboard/stats/'), {
+        credentials: 'include',
         headers
       })
 
@@ -79,6 +80,7 @@ export function useAdminDashboard() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/dashboard/activity/'), {
+        credentials: 'include',
         headers
       })
 

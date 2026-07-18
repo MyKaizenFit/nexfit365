@@ -30,6 +30,8 @@ from .jwt_cookies import (
     REFRESH_COOKIE,
     clear_jwt_cookies,
     set_jwt_cookies,
+    strip_tokens_from_body,
+    wants_cookie_session,
 )
 
 User = get_user_model()
@@ -161,6 +163,8 @@ class LoginView(TokenObtainPairView):
                     remember=remember,
                 )
                 response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
 
         return response
 
@@ -217,6 +221,8 @@ class RefreshView(TokenRefreshView):
                     remember=True,
                 )
                 response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
         return response
 
 
@@ -372,6 +378,8 @@ class RegisterView(APIView):
                     remember=True,
                 )
                 response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
                 return response
             except Exception:
                 logger.exception("Error al crear usuario en registro público")

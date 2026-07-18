@@ -233,7 +233,8 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
     setNutritionPlanLoading(true)
     try {
       const headers = await getAuthHeaders()
-      const planResponse = await fetch(buildApiUrl(`admin/nutrition/users/${parsedId}/plan/`), { headers })
+      const planResponse = await fetch(buildApiUrl(`admin/nutrition/users/${parsedId}/plan/`), {
+        credentials: 'include', headers })
       if (planResponse.ok) {
         const planData = await planResponse.json()
         setNutritionPlanId(planData?.plan?.id ? String(planData.plan.id) : null)
@@ -245,12 +246,14 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       const recipes: AdminRecipe[] = []
       let authHeaders = headers
       while (nextUrl) {
-        let res: Response = await fetch(nextUrl, { headers: authHeaders })
+        let res: Response = await fetch(nextUrl, {
+        credentials: 'include', headers: authHeaders })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(async () => getAuthHeaders())
           if (!newHeaders) break
           authHeaders = newHeaders
-          res = await fetch(nextUrl, { headers: authHeaders })
+          res = await fetch(nextUrl, {
+        credentials: 'include', headers: authHeaders })
         }
         if (!res.ok) break
         const data = await res.json()
@@ -438,6 +441,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
 
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers: {
           ...headers,
@@ -484,6 +488,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       const headers = await getAuthHeaders()
       const body = clear ? { admin_calories_override: null } : { admin_calories_override: caloriesOverrideInput ? parseInt(caloriesOverrideInput) : null }
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -508,6 +513,7 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       setSavingRestWellness(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ rest_wellness_enabled: enabled }),

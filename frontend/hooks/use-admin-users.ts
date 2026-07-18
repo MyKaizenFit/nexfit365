@@ -111,6 +111,7 @@ export function useAdminUsers() {
 
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/'), {
+        credentials: 'include',
         headers
       })
 
@@ -138,6 +139,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/stats/'), {
+        credentials: 'include',
         headers
       })
 
@@ -166,6 +168,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -193,6 +196,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: {
           ...headers,
@@ -220,6 +224,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/bulk_action/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -253,6 +258,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/bulk_action/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -284,6 +290,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -306,6 +313,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/change_role/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -340,6 +348,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/toggle_verification/`), {
+        credentials: 'include',
         method: 'POST',
         headers
       })
@@ -370,6 +379,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/change_status/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -404,6 +414,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/reset_password/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -429,6 +440,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/bulk_change_role/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -466,6 +478,7 @@ export function useAdminUsers() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/bulk_toggle_verification/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,

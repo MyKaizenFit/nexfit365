@@ -78,12 +78,14 @@ export function useAdminMenuPlans() {
       const allUsers: AdminUserLite[] = []
 
       while (nextUrl) {
-        let res: Response = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) return
           headers = newHeaders
-          res = await fetch(nextUrl, { headers })
+          res = await fetch(nextUrl, {
+        credentials: 'include', headers })
         }
         if (!res.ok) return
         const data: Record<string, unknown> = await res.json()
@@ -132,12 +134,14 @@ export function useAdminMenuPlans() {
       const allPlans: MenuPlanListItem[] = []
 
       while (nextUrl) {
-        let res: Response = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) throw new Error("Sesión expirada")
           headers = newHeaders
-          res = await fetch(nextUrl, { headers })
+          res = await fetch(nextUrl, {
+        credentials: 'include', headers })
         }
         if (!res.ok) throw new Error(`Error ${res.status}`)
         const data: Record<string, unknown> = await res.json()
@@ -158,12 +162,14 @@ export function useAdminMenuPlans() {
   const fetchPlanDetail = useCallback(async (planId: string): Promise<MenuPlanDetail | null> => {
     try {
       let headers = await getAuthHeaders()
-      let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), { headers })
+      let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include', headers })
       if (res.status === 401) {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error("Sesión expirada")
         headers = newHeaders
-        res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), { headers })
+        res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include', headers })
       }
       if (!res.ok) throw new Error(`Error ${res.status}`)
       return await res.json()
@@ -197,6 +203,7 @@ export function useAdminMenuPlans() {
 
     let headers = await getAuthHeaders()
     let res = await fetch(buildApiUrl("admin/nutrition/plans/"), {
+        credentials: 'include',
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -206,6 +213,7 @@ export function useAdminMenuPlans() {
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl("admin/nutrition/plans/"), {
+        credentials: 'include',
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -221,6 +229,7 @@ export function useAdminMenuPlans() {
   const updatePlan = useCallback(async (planId: string, patch: any) => {
     let headers = await getAuthHeaders()
     let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(patch),
@@ -230,6 +239,7 @@ export function useAdminMenuPlans() {
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(patch),
@@ -244,12 +254,14 @@ export function useAdminMenuPlans() {
 
   const deletePlan = useCallback(async (planId: string) => {
     let headers = await getAuthHeaders()
-    let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), { method: "DELETE", headers })
+    let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include', method: "DELETE", headers })
     if (res.status === 401) {
       const newHeaders = await handle401AndRefresh(getAuthHeaders)
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
-      res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), { method: "DELETE", headers })
+      res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include', method: "DELETE", headers })
     }
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
@@ -264,6 +276,7 @@ export function useAdminMenuPlans() {
   const generateWeeklyProgression = useCallback(async (planId: string, payload: WeeklyProgressionPayload) => {
     let headers = await getAuthHeaders()
     let res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/generate-weekly-progression/`), {
+        credentials: 'include',
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -273,6 +286,7 @@ export function useAdminMenuPlans() {
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/generate-weekly-progression/`), {
+        credentials: 'include',
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -47,7 +47,8 @@ export function SubscriptionStatusCard() {
         try {
             setLoading(true)
             const headers = await getAuthHeaders()
-            const response = await fetch(buildApiUrl("subscription-status/"), { headers })
+            const response = await fetch(buildApiUrl("subscription-status/"), {
+        credentials: 'include', headers })
 
             // Silently ignore auth errors — token may be expired
             if (response.status === 401 || response.status === 403) {
@@ -77,6 +78,7 @@ export function SubscriptionStatusCard() {
             setActivating(true)
             const headers = await getAuthHeaders()
             const response = await fetch(buildApiUrl("start-free-trial/"), {
+        credentials: 'include',
                 method: "POST",
                 headers,
             })

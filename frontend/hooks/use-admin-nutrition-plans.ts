@@ -118,6 +118,7 @@ export const useAdminNutritionPlans = () => {
       
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/plans/?page_size=200'), {
+        credentials: 'include',
         headers
       })
 
@@ -129,6 +130,7 @@ export const useAdminNutritionPlans = () => {
         if (refreshResult.success && refreshResult.newToken) {
           headers = await getAuthHeaders()
           response = await fetch(buildApiUrl('admin/nutrition/plans/?page_size=200'), {
+        credentials: 'include',
             headers
           })
         } else {
@@ -221,6 +223,7 @@ export const useAdminNutritionPlans = () => {
       }
 
       const response = await fetch(buildApiUrl('admin/nutrition/plans/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -254,6 +257,7 @@ export const useAdminNutritionPlans = () => {
       }
 
       let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: {
           ...headers,
@@ -268,6 +272,7 @@ export const useAdminNutritionPlans = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
           method: 'PATCH',
           headers: {
             ...headers,
@@ -296,6 +301,7 @@ export const useAdminNutritionPlans = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -306,6 +312,7 @@ export const useAdminNutritionPlans = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
           method: 'DELETE',
           headers
         })
@@ -331,6 +338,7 @@ export const useAdminNutritionPlans = () => {
       const nextIsActive = !(currentPlan?.is_active ?? false)
 
       let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: {
           ...headers,
@@ -345,6 +353,7 @@ export const useAdminNutritionPlans = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
           method: 'PATCH',
           headers: {
             ...headers,
@@ -377,6 +386,7 @@ export const useAdminNutritionPlans = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/set_as_default/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -390,6 +400,7 @@ export const useAdminNutritionPlans = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/default-plans/${planId}/set_as_default/`), {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,
@@ -422,6 +433,7 @@ export const useAdminNutritionPlans = () => {
       await Promise.all(planIds.map(async (planId) => {
         let headers = await getAuthHeaders()
         let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
           method: 'PATCH',
           headers: {
             ...headers,
@@ -435,6 +447,7 @@ export const useAdminNutritionPlans = () => {
           if (!newHeaders) throw new Error('Sesión expirada')
           headers = newHeaders
           response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
             method: 'PATCH',
             headers: {
               ...headers,
@@ -468,6 +481,7 @@ export const useAdminNutritionPlans = () => {
       await Promise.all(planIds.map(async (planId) => {
         let headers = await getAuthHeaders()
         let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
           method: 'DELETE',
           headers,
         })
@@ -477,6 +491,7 @@ export const useAdminNutritionPlans = () => {
           if (!newHeaders) throw new Error('Sesión expirada')
           headers = newHeaders
           response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
             method: 'DELETE',
             headers,
           })
@@ -514,6 +529,7 @@ export const useAdminNutritionPlans = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
         headers
       })
 
@@ -525,6 +541,7 @@ export const useAdminNutritionPlans = () => {
         if (refreshResult.success && refreshResult.newToken) {
           headers = await getAuthHeaders()
           response = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/`), {
+        credentials: 'include',
             headers
           })
         } else {
@@ -548,6 +565,7 @@ export const useAdminNutritionPlans = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include',
         headers
       })
 
@@ -556,7 +574,8 @@ export const useAdminNutritionPlans = () => {
         const refreshResult = await authService.refreshAccessToken()
         if (refreshResult.success) {
           headers = await getAuthHeaders()
-          response = await fetch(buildApiUrl('admin/nutrition/recipes/'), { headers })
+          response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include', headers })
         }
       }
 

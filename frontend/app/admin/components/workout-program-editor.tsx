@@ -503,6 +503,7 @@ export function WorkoutProgramEditor({
       const headers = await getAuthHeaders()
 
       const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/program/`), {
+        credentials: 'include',
         headers,
         cache: "no-store",
       })
@@ -605,7 +606,8 @@ export function WorkoutProgramEditor({
       const allExercises: ExerciseOption[] = []
 
       while (nextUrl) {
-        const response: Response = await fetch(nextUrl, { headers })
+        const response: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (!response.ok) throw new Error("Error al cargar ejercicios")
         const data: any = await response.json()
         const results = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
@@ -634,6 +636,7 @@ export function WorkoutProgramEditor({
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/workout-logs/?limit=500`), {
+        credentials: 'include',
         headers,
         cache: "no-store",
       })
@@ -1004,6 +1007,7 @@ export function WorkoutProgramEditor({
       setCopyingWeeks(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/copy-weeks/`), {
+        credentials: 'include',
         method: "POST",
         headers: {
           ...headers,
@@ -1273,6 +1277,7 @@ export function WorkoutProgramEditor({
       if (program.id) {
         // Usar el endpoint de admin para actualizar programas de usuarios
         response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/`), {
+        credentials: 'include',
           method: "PATCH",
           headers: {
             ...headers,
@@ -1284,6 +1289,7 @@ export function WorkoutProgramEditor({
       } else {
         // Crear nuevo programa usando el endpoint de admin
         response = await fetch(buildApiUrl("admin/workouts/programs/"), {
+        credentials: 'include',
           method: "POST",
           headers: {
             ...headers,

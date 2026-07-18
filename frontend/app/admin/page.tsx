@@ -131,6 +131,7 @@ function AdminPageContent() {
     const checkBirthdayAlerts = async () => {
       try {
         await fetch(buildApiUrl("notifications/send_birthday_alerts/"), {
+        credentials: 'include',
           method: "POST",
           headers: getAuthHeaders(),
         })

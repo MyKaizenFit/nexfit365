@@ -305,6 +305,7 @@ export function MenuPlanManagementV2() {
       setCheckingAllergens(true)
       let headers = await getAuthHeaders()
       const res = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/allergen-check/`), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_ids: userIds.map(Number) }),
@@ -313,6 +314,7 @@ export function MenuPlanManagementV2() {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (newHeaders) {
           const retry = await fetch(buildApiUrl(`admin/nutrition/plans/${planId}/allergen-check/`), {
+        credentials: 'include',
             method: 'POST',
             headers: { ...newHeaders, 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_ids: userIds.map(Number) }),
@@ -377,7 +379,8 @@ export function MenuPlanManagementV2() {
       try {
         const headers = await getAuthHeaders()
         const url = `${buildApiUrl(`admin/nutrition/plans/export-${type}/`)}?t=${Date.now()}`
-        const response = await fetch(url, { method: 'GET', headers, cache: 'no-store' })
+        const response = await fetch(url, {
+        credentials: 'include', method: 'GET', headers, cache: 'no-store' })
         if (!response.ok) throw new Error(`Error ${response.status}`)
         const blob = await response.blob()
         const link = document.createElement('a')
@@ -405,6 +408,7 @@ export function MenuPlanManagementV2() {
         const url = buildApiUrl(`admin/nutrition/plans/import-${fileType}/`)
         const token = (headers as Record<string, string>)['Authorization']
         const response = await fetch(url, {
+        credentials: 'include',
           method: 'POST',
           headers: { 'Authorization': token },
           body: formDataObj,
@@ -437,12 +441,14 @@ export function MenuPlanManagementV2() {
       let nextUrl: string | null = buildApiUrl("admin/nutrition/recipes/?page_size=500")
       const allRecipes: AdminRecipe[] = []
       while (nextUrl) {
-        let res: Response = await fetch(nextUrl, { headers })
+        let res: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (res.status === 401) {
           const newHeaders = await handle401AndRefresh(getAuthHeaders)
           if (!newHeaders) return
           headers = newHeaders
-          res = await fetch(nextUrl, { headers })
+          res = await fetch(nextUrl, {
+        credentials: 'include', headers })
         }
         if (!res.ok) return
         const data: Record<string, unknown> = await res.json()

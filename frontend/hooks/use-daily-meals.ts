@@ -456,6 +456,7 @@ export function useDailyMeals() {
             
             
             const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
               headers: {
                 ...headers,
                 'Content-Type': 'application/json; charset=utf-8'
@@ -511,6 +512,7 @@ export function useDailyMeals() {
       }
 
       await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?${params.toString()}`, {
+        credentials: 'include',
         headers,
         method: 'DELETE',
       })
@@ -524,6 +526,7 @@ export function useDailyMeals() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -655,6 +658,7 @@ export function useDailyMeals() {
       if (mealType) {
         const headers = await getAuthHeaders()
         const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
           headers,
           method: 'POST',
           body: JSON.stringify({
@@ -680,6 +684,7 @@ export function useDailyMeals() {
             // Cargar estado de completado desde el backend
             const headers = await getAuthHeaders()
             const statusResponse = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
+        credentials: 'include',
               headers,
               method: 'GET',
             })
@@ -748,6 +753,7 @@ export function useDailyMeals() {
       try {
         const headers = await getAuthHeaders()
         const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        credentials: 'include',
           headers,
           method: 'GET',
         })
@@ -859,6 +865,7 @@ export function useDailyMeals() {
       formData.append('photo', photoFile)
 
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || '',
@@ -923,6 +930,7 @@ export function useDailyMeals() {
       }
 
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
         headers: {
           ...headers,
           'Content-Type': 'application/json; charset=utf-8'

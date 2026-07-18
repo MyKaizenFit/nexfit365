@@ -28,7 +28,8 @@ export function UserRestWellnessPanel({ userId }: Props) {
     setLoading(true)
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl(`admin/progress/users/${userId}/rest-wellness/`), { headers })
+      const response = await fetch(buildApiUrl(`admin/progress/users/${userId}/rest-wellness/`), {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error("list")
       const data = await response.json()
       const rows = Array.isArray(data)
@@ -58,7 +59,8 @@ export function UserRestWellnessPanel({ userId }: Props) {
       const headers = await getAuthHeaders()
       const response = await fetch(
         buildApiUrl(`admin/progress/users/${userId}/rest-wellness/${item.id}/`),
-        { headers },
+        {
+        credentials: 'include', headers },
       )
       if (!response.ok) throw new Error("detail")
       const data = (await response.json()) as RestWellnessAssessmentDetail

@@ -55,6 +55,7 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
         : 'tips/'
       
       const response = await fetch(buildApiUrl(url), {
+        credentials: 'include',
         headers: getAuthHeaders(),
       })
 
@@ -82,6 +83,7 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
   const createTip = async (payload: WellnessTipPayload) => {
     try {
       const response = await fetch(buildApiUrl('tips/'), {
+        credentials: 'include',
         method: 'POST',
         headers: getAuthHeaders(),
         body: JSON.stringify(payload),
@@ -113,6 +115,7 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
   const updateTip = async (id: string, updates: Partial<WellnessTipPayload>) => {
     try {
       const response = await fetch(buildApiUrl(`tips/${id}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: getAuthHeaders(),
         body: JSON.stringify(updates),
@@ -140,6 +143,7 @@ export function useWellnessTips(options: UseWellnessTipsOptions = {}) {
   const deleteTip = async (id: string) => {
     try {
       const response = await fetch(buildApiUrl(`tips/${id}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers: getAuthHeaders(),
       })

@@ -22,7 +22,8 @@ export function useAdminUserNotifications(userId: string | number) {
       setLoading(true)
       setError(null)
       const headers = await getAuthHeaders()
-      const res = await fetch(buildApiUrl(`admin/notifications/?user_id=${userId}`), { headers })
+      const res = await fetch(buildApiUrl(`admin/notifications/?user_id=${userId}`), {
+        credentials: 'include', headers })
       if (!res.ok) throw new Error(`Error ${res.status}`)
       const data = await res.json()
       setNotifications(data.results || data || [])
@@ -45,6 +46,7 @@ export function useAdminUserNotifications(userId: string | number) {
     send: async (payload: { title: string; message: string; type?: string; priority?: string }) => {
       const headers = await getAuthHeaders()
       const res = await fetch(buildApiUrl(`admin/notifications/send_single/`), {
+        credentials: 'include',
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: Number(userId), user_ids: [Number(userId)], ...payload }),

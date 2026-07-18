@@ -80,6 +80,8 @@ jobs:
             progress/tests/test_rest_wellness.py \
             progress/tests/test_local_calendar_date.py \
             progress/tests/test_photo_mime_validation.py \
+            progress/tests/test_protected_media.py \
+            achievements/tests/test_views.py \
             dashboard/tests/test_html_sanitize.py \
             workouts/test_workouts_models.py \
             workouts/tests/test_workout_views.py \

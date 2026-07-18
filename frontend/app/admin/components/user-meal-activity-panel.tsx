@@ -93,7 +93,8 @@ export function UserMealActivityPanel({ userId }: UserMealActivityPanelProps) {
       const headers = await getAuthHeaders()
       const response = await fetch(
         buildApiUrl(`admin/nutrition/users/${userId}/daily-meal-status/`),
-        { headers },
+        {
+        credentials: 'include', headers },
       )
       if (!response.ok) {
         throw new Error(`Error ${response.status}`)

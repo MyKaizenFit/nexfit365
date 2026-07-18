@@ -32,6 +32,7 @@ export function NutritionPlanHistoryUser() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(NUTRITION_ENDPOINTS.PLAN_HISTORY || 'nutrition/plan-history/'), {
+        credentials: 'include',
         headers
       })
       
