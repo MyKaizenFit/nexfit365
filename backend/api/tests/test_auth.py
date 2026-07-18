@@ -182,6 +182,64 @@ class TestUserLogin:
         assert "access" in response.data
         assert "refresh" in response.data
 
+    def test_login_sets_httponly_cookies(self, api_client, regular_user):
+        url = reverse("auth-login")
+        response = api_client.post(
+            url,
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "csrf" in response.data
+        assert "accessToken" in response.cookies
+        assert response.cookies["accessToken"]["httponly"] is True
+        assert "refreshToken" in response.cookies
+        assert response.cookies["refreshToken"]["httponly"] is True
+        assert "csrfToken" in response.cookies
+
+    def test_cookie_auth_authenticated_me(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        assert login.status_code == status.HTTP_200_OK
+        api_client.credentials()  # clear any forced auth
+        api_client.cookies = login.cookies
+        me = api_client.get(reverse("me"))
+        assert me.status_code == status.HTTP_200_OK
+
+    def test_refresh_from_cookie_without_body(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        api_client.cookies = login.cookies
+        csrf = login.data.get("csrf") or login.cookies.get("csrfToken").value
+        response = api_client.post(
+            reverse("auth-refresh"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+
+    def test_logout_clears_cookies(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        api_client.cookies = login.cookies
+        csrf = login.data.get("csrf") or login.cookies.get("csrfToken").value
+        response = api_client.post(
+            reverse("auth-logout"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+        assert response.status_code == status.HTTP_205_RESET_CONTENT
+        # Cleared cookies are typically max-age=0 / empty
+        assert "accessToken" in response.cookies
+
     def test_login_normalizes_email_case_and_spaces(self, api_client, regular_user):
         """Test de login tolerante a mayúsculas/autocapitalización móvil"""
         url = reverse("auth-login")

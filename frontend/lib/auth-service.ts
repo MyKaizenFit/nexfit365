@@ -123,6 +123,30 @@ const deleteCookie = (name: string) => {
   // NO loguear operaciones de cookies por seguridad
 }
 
+/** Non-sensitive session markers for Next middleware (no JWTs). */
+const setSessionMarkers = (user?: { is_staff?: boolean; is_superuser?: boolean; role?: string } | null) => {
+  const isAdmin = Boolean(
+    user?.is_staff || user?.is_superuser || String(user?.role || '').toLowerCase() === 'admin'
+  )
+  setCookie('nf_session', '1', 30)
+  setCookie('nf_is_admin', isAdmin ? '1' : '0', 30)
+}
+
+const clearSessionMarkers = () => {
+  deleteCookie('nf_session')
+  deleteCookie('nf_is_admin')
+  deleteCookie('csrfToken')
+  // Clear legacy JS-writable JWT cookies if still present.
+  deleteCookie('accessToken')
+  deleteCookie('refreshToken')
+}
+
+const storeCsrfFromResponse = (csrf?: string | null) => {
+  if (csrf) {
+    setCookie('csrfToken', csrf, 30)
+  }
+}
+
 // Clase principal del servicio de autenticación mejorado
 export class AuthService {
   private static instance: AuthService
@@ -133,16 +157,9 @@ export class AuthService {
   private isRefreshing: boolean = false // Flag para evitar múltiples renovaciones simultáneas
 
   private constructor() {
-    // Inicializar tokens desde cookies si existen
+    // Tokens live in HttpOnly cookies set by the API — not readable from JS.
+    // Keep in-memory only for offline mode / transition Bearer callers.
     if (typeof window !== 'undefined') {
-      this.accessToken = getCookie('accessToken')
-      this.refreshToken = getCookie('refreshToken')
-
-      // Solo loguear en modo desarrollo (sin información sensible)
-      if (process.env.NODE_ENV === 'development') {
-      }
-
-      // Verificar si estamos en modo offline (sin backend)
       this.checkOfflineMode()
     }
   }
@@ -189,31 +206,30 @@ export class AuthService {
     return this.isOfflineMode
   }
 
-  // Verificar si hay tokens válidos
+  // Verificar si hay sesión válida (HttpOnly cookies + marker, o offline tokens)
   hasValidTokens(): boolean {
-    // Verificar que existan los tokens
-    if (!this.accessToken || !this.refreshToken) {
-      return false
-    }
-
-    // Verificar que no sean tokens offline (para desarrollo)
-    if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
-      if (!this.allowOfflineMode) {
-        return false
-      }
+    if (typeof window !== 'undefined' && getCookie('nf_session') === '1') {
       return true
     }
 
-    // Verificar que el token de acceso tenga el formato correcto (JWT)
-    if (!this.accessToken.includes('.')) {
-      return false
+    if (this.accessToken && this.refreshToken) {
+      if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
+        return this.allowOfflineMode
+      }
+      if (this.accessToken.includes('.')) {
+        return true
+      }
     }
 
-    return true
+    return false
   }
 
   hasRefreshToken(): boolean {
-    return Boolean(this.getRefreshToken())
+    // Refresh JWT is HttpOnly — presence approximated via session marker / csrf.
+    if (typeof window !== 'undefined' && (getCookie('nf_session') === '1' || getCookie('csrfToken'))) {
+      return true
+    }
+    return Boolean(this.refreshToken)
   }
 
   // Verificar si el usuario está autenticado
@@ -249,13 +265,20 @@ export class AuthService {
 
   isAccessTokenExpired(): boolean {
     const token = this.getAccessToken()
-    if (!token || token.startsWith('offline_token_')) {
-      return true
+    if (!token) {
+      // HttpOnly cookie session — expiry is enforced by the API (401 → refresh).
+      return false
+    }
+    if (token.startsWith('offline_token_')) {
+      return false
     }
     return isJwtExpired(parseJwtPayload(token))
   }
 
   needsTokenRefresh(): boolean {
+    if (!this.getAccessToken() && this.hasValidTokens()) {
+      return false
+    }
     return this.isAccessTokenExpired() || this.isTokenExpiringSoon()
   }
 
@@ -263,7 +286,11 @@ export class AuthService {
     const doRequest = () =>
       fetch(url, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          ...getAuthHeaders(),
+          ...(getCookie('csrfToken') ? { 'X-CSRFToken': getCookie('csrfToken') as string } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify(body),
       })
 
@@ -309,10 +336,7 @@ export class AuthService {
 
         this.accessToken = mockTokens.access
         this.refreshToken = mockTokens.refresh
-
-        // Guardar en cookies
-        setCookie('accessToken', mockTokens.access, 7)
-        setCookie('refreshToken', mockTokens.refresh, 30)
+        setSessionMarkers(mockUser)
 
         return {
           user: mockUser,
@@ -340,7 +364,11 @@ export class AuthService {
 
       const response = await this.postAuthWithTransientRetry(
         buildApiUrl(AUTH_ENDPOINTS.LOGIN),
-        credentials,
+        {
+          email: credentials.email,
+          password: credentials.password,
+          remember_me: credentials.rememberMe !== false,
+        },
       )
 
       // Manejar diferentes códigos de respuesta
@@ -409,25 +437,20 @@ export class AuthService {
         throw new Error(`Error del servidor: ${response.status}`)
       }
 
-      // El backend devuelve { access, refresh, user } en la respuesta del login
+      // El backend setea cookies HttpOnly; el body puede seguir trayendo tokens (scripts).
       const responseData = await response.json()
 
-      if (!responseData.access || !responseData.refresh) {
-        throw new Error('No se recibieron tokens de autenticación')
+      if (!responseData.access && !responseData.csrf && response.status !== 200) {
+        throw new Error('No se pudo iniciar sesión')
       }
 
       const rememberSession = credentials.rememberMe !== false
-      const accessCookieDays = rememberSession ? 1 : undefined
-      const refreshCookieDays = rememberSession ? 30 : undefined
-
-      // Guardar tokens
-      this.accessToken = responseData.access
-      this.refreshToken = responseData.refresh
-
-      // Guardar en cookies
-      setCookie('accessToken', responseData.access, accessCookieDays)
-      setCookie('refreshToken', responseData.refresh, refreshCookieDays)
       setRememberedEmail(credentials.email.trim().toLowerCase(), rememberSession)
+      storeCsrfFromResponse(responseData.csrf)
+
+      // Do not persist JWTs in JS-readable storage. Keep memory only for offline/debug.
+      this.accessToken = null
+      this.refreshToken = null
 
       // Obtener información del usuario
       // Intentar usar el usuario de la respuesta del login si está disponible
@@ -452,11 +475,13 @@ export class AuthService {
         user = await this.getCurrentUser()
       }
 
+      setSessionMarkers(user)
+
       return {
         user,
         tokens: {
-          access: responseData.access,
-          refresh: responseData.refresh
+          access: responseData.access || '',
+          refresh: responseData.refresh || '',
         },
         must_change_password: responseData.must_change_password || user.must_change_password || false
       }
@@ -542,6 +567,7 @@ export class AuthService {
           ...getAuthHeaders(),
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify(correctedCredentials),
       })
 
@@ -597,33 +623,25 @@ export class AuthService {
         throw new Error('No se recibieron datos de registro')
       }
 
-      // El backend devuelve { user, tokens: { access, refresh } }
+      // El backend setea cookies HttpOnly; tokens en body son opcionales (scripts).
       const tokens = result.data.tokens || result.data
       const userData = result.data.user
+      storeCsrfFromResponse(result.data.csrf)
 
-      if (!tokens || !tokens.access || !tokens.refresh) {
-        throw new Error('No se recibieron tokens de autenticación')
-      }
+      this.accessToken = null
+      this.refreshToken = null
 
-      // Guardar tokens
-      this.accessToken = tokens.access
-      this.refreshToken = tokens.refresh
-
-      // Guardar en cookies
-      setCookie('accessToken', tokens.access, 1)
-      setCookie('refreshToken', tokens.refresh, 30)
-
-      // Usar el usuario de la respuesta o obtenerlo
       let user = userData
       if (!user) {
         user = await this.getCurrentUser()
       }
+      setSessionMarkers(user)
 
       return {
         user,
         tokens: {
-          access: tokens.access,
-          refresh: tokens.refresh
+          access: tokens?.access || '',
+          refresh: tokens?.refresh || '',
         }
       }
     } catch (error: any) {
@@ -643,33 +661,13 @@ export class AuthService {
     }
   }
 
-  // Obtener token de acceso actual
+  // Obtener token de acceso actual (solo memoria / offline — JWTs son HttpOnly)
   getAccessToken(): string | null {
-    // Si no hay token en memoria, intentar obtenerlo de las cookies
-    if (!this.accessToken && typeof window !== 'undefined') {
-      const cookieToken = getCookie('accessToken')
-      if (cookieToken) {
-        this.accessToken = cookieToken
-        // No loguear información sensible
-        if (process.env.NODE_ENV === 'development') {
-        }
-      }
-    }
     return this.accessToken
   }
 
-  // Obtener token de renovación
+  // Obtener token de renovación (solo memoria / offline — JWTs son HttpOnly)
   getRefreshToken(): string | null {
-    // Si no hay token en memoria, intentar obtenerlo de las cookies
-    if (!this.refreshToken && typeof window !== 'undefined') {
-      const cookieToken = getCookie('refreshToken')
-      if (cookieToken) {
-        this.refreshToken = cookieToken
-        // No loguear información sensible
-        if (process.env.NODE_ENV === 'development') {
-        }
-      }
-    }
     return this.refreshToken
   }
 
@@ -746,22 +744,23 @@ export class AuthService {
         // En modo offline, generar nuevo token
         const newToken = `offline_token_${Date.now()}`
         this.accessToken = newToken
-        setCookie('accessToken', newToken, 1)
         this.isRefreshing = false
         return { success: true, newToken }
       }
 
-      const refreshToken = this.getRefreshToken()
-      if (!refreshToken) {
+      // Browser refresh uses HttpOnly refresh cookie (credentials: include).
+      if (!this.hasRefreshToken() && !this.refreshToken) {
         this.isRefreshing = false
         return { success: false, error: 'No hay token de renovación' }
       }
 
       let response: Response
       try {
-        response = await this.postAuthWithTransientRetry(buildApiUrl(AUTH_ENDPOINTS.REFRESH), {
-          refresh: refreshToken,
-        })
+        const body: Record<string, string> = {}
+        if (this.refreshToken) {
+          body.refresh = this.refreshToken
+        }
+        response = await this.postAuthWithTransientRetry(buildApiUrl(AUTH_ENDPOINTS.REFRESH), body)
       } catch (fetchError) {
         // Manejar errores de red/CORS
         this.isRefreshing = false
@@ -789,7 +788,7 @@ export class AuthService {
         return { success: false, error: 'Timeout del servidor. El token se refrescará automáticamente cuando sea necesario.' }
       }
 
-      const result = await handleApiResponse<{ access: string; refresh?: string }>(response)
+      const result = await handleApiResponse<{ access?: string; refresh?: string; csrf?: string }>(response)
 
       if (result.error) {
         this.isRefreshing = false
@@ -807,23 +806,16 @@ export class AuthService {
         return { success: false, error: 'No se recibió nuevo token de acceso' }
       }
 
-      // Actualizar token de acceso
-      this.accessToken = result.data.access
-
-      // Si el backend devuelve un nuevo refresh token (ROTATE_REFRESH_TOKENS), actualizarlo también
-      if (result.data.refresh) {
-        this.refreshToken = result.data.refresh
-        setCookie('refreshToken', result.data.refresh, getRememberSessionPreference() ? 30 : undefined)
-        // No loguear información sensible
-        if (process.env.NODE_ENV === 'development') {
-        }
+      storeCsrfFromResponse(result.data.csrf)
+      // HttpOnly cookies updated by Set-Cookie; do not store JWTs in JS.
+      this.accessToken = null
+      this.refreshToken = null
+      if (getCookie('nf_session') !== '1') {
+        setCookie('nf_session', '1', 30)
       }
 
-      // Guardar en cookies
-      setCookie('accessToken', result.data.access, getRememberSessionPreference() ? 1 : undefined)
-
       this.isRefreshing = false
-      return { success: true, newToken: result.data.access }
+      return { success: true, newToken: result.data.access || 'cookie' }
     } catch (error) {
       this.isRefreshing = false
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido'
@@ -833,42 +825,24 @@ export class AuthService {
 
   // Logout
   async logout(): Promise<void> {
-    const accessTokenToRevoke = this.getAccessToken()
-    const refreshTokenToRevoke = this.getRefreshToken()
-    this.clearTokens()
-
     try {
-      if (!this.isOfflineMode && refreshTokenToRevoke) {
-        // Intentar invalidar el token en el backend
+      if (!this.isOfflineMode) {
         try {
-          // NO loguear tokens por seguridad
-          if (process.env.NODE_ENV === 'development') {
-          }
-
-          const response = await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
+          await fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
             method: 'POST',
-            headers: getAuthHeaders(accessTokenToRevoke || undefined),
-            body: JSON.stringify({ refresh: refreshTokenToRevoke }),
+            headers: {
+              ...getAuthHeaders(),
+              ...(getCookie('csrfToken') ? { 'X-CSRFToken': getCookie('csrfToken') as string } : {}),
+            },
+            credentials: 'include',
+            body: JSON.stringify({}),
           })
-
-          if (!response.ok) {
-            // Intentar obtener más detalles del error
-            try {
-              const errorData = await response.json()
-            } catch (parseError) {
-            }
-          } else {
-          }
-        } catch (error) {
+        } catch {
           // Si falla el logout en el backend, continuamos con la limpieza local
         }
-      } else {
       }
-
-    } catch (error) {
-      // Asegurar que se limpien los tokens incluso si hay error
+    } finally {
       this.clearTokens()
-      throw handleFetchError(error)
     }
   }
 
@@ -876,10 +850,7 @@ export class AuthService {
   public clearTokens() {
     this.accessToken = null
     this.refreshToken = null
-
-    // Limpiar cookies
-    deleteCookie('accessToken')
-    deleteCookie('refreshToken')
+    clearSessionMarkers()
   }
 
   // Cambiar contraseña

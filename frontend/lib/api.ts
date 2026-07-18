@@ -141,42 +141,35 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
   let authToken = token
 
-  // Si no se proporciona token, intentar obtenerlo del contexto de autenticación
+  // Optional Bearer for scripts/offline; browsers rely on HttpOnly cookies.
   if (!authToken && typeof window !== 'undefined') {
     try {
-      // Primero intentar obtener el token del servicio de autenticación
-      try {
-        const { getAuthService } = require('./auth-service')
-        const authService = getAuthService()
-        const serviceToken = authService.getAccessToken()
-        if (serviceToken) {
-          authToken = serviceToken
-          // NO loguear tokens por seguridad
-        }
-      } catch (serviceError) {
+      const { getAuthService } = require('./auth-service')
+      const authService = getAuthService()
+      const serviceToken = authService.getAccessToken()
+      if (serviceToken) {
+        authToken = serviceToken
       }
-
-      // Si no se obtuvo del servicio, intentar obtenerlo de las cookies
-      if (!authToken) {
-        const cookies = document.cookie.split(';').reduce((acc, cookie) => {
-          const [key, value] = cookie.trim().split('=')
-          acc[key] = value
-          return acc
-        }, {} as Record<string, string>)
-
-        authToken = cookies.accessToken
-
-        // NO loguear tokens ni cookies por seguridad
-      }
-    } catch (error) {
+    } catch {
+      // ignore
     }
   }
 
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`
-    // NO loguear headers con tokens por seguridad
-  } else {
-    if (process.env.NODE_ENV === 'development') {
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const csrf = document.cookie
+        .split(';')
+        .map((c) => c.trim())
+        .find((c) => c.startsWith('csrfToken='))
+      if (csrf) {
+        headers['X-CSRFToken'] = decodeURIComponent(csrf.substring('csrfToken='.length))
+      }
+    } catch {
+      // ignore
     }
   }
 
@@ -298,25 +291,23 @@ const getClientContextHeaders = (): Record<string, string> => {
 // Función para hacer requests con manejo automático de renovación de tokens
 export const authenticatedFetch = async (url: string, options: AuthenticatedFetchOptions = {}): Promise<Response> => {
   const authService = getAuthService()
-  const token = authService.getAccessToken()
   const method = (options.method || 'GET').toUpperCase()
   const { uploadTimeoutMs, networkRetries = 0, ...fetchOptions } = options
   const canRetryTransient = method === 'GET' || method === 'HEAD' || method === 'OPTIONS'
   const maxTransientRetries = canRetryTransient ? 2 : networkRetries
   let transientAttempt = 0
 
-  if (!token) {
-    throw new Error('No hay token de acceso disponible')
+  if (!authService.isAuthenticated() && !authService.getAccessToken()) {
+    throw new Error('No hay sesión de acceso disponible')
   }
 
-  // Agregar el token de autorización
-  const buildHeaders = (authToken: string): HeadersInit => ({
+  const buildHeaders = (): HeadersInit => ({
     ...options.headers,
     ...getClientContextHeaders(),
-    'Authorization': `Bearer ${authToken}`
+    ...getAuthHeaders(authService.getAccessToken() || undefined),
   })
 
-  const executeRequest = async (authToken: string): Promise<Response> => {
+  const executeRequest = async (): Promise<Response> => {
     const controller = uploadTimeoutMs ? new AbortController() : null
     const timeoutId = controller
       ? window.setTimeout(() => controller.abort(), uploadTimeoutMs)
@@ -325,8 +316,9 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
     try {
       return await fetch(buildApiUrl(url), {
         ...fetchOptions,
+        credentials: 'include',
         signal: controller ? controller.signal : fetchOptions.signal,
-        headers: buildHeaders(authToken),
+        headers: buildHeaders(),
       })
     } finally {
       if (timeoutId !== null) {
@@ -337,7 +329,7 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
 
   while (true) {
     try {
-      const response = await executeRequest(token)
+      const response = await executeRequest()
 
       // Si recibimos un 401, intentar refrescar el token
       if (response.status === 401) {
@@ -345,10 +337,10 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
         try {
           const refreshResult = await authService.refreshAccessTokenDeduped()
 
-          if (refreshResult && refreshResult.success && refreshResult.newToken) {
+          if (refreshResult && refreshResult.success) {
 
-            // Reintentar la request con el nuevo token
-            const retryResponse = await executeRequest(refreshResult.newToken!)
+            // Reintentar la request con cookies renovadas
+            const retryResponse = await executeRequest()
 
             // Si el retry también falla con 401, NO cerrar sesión automáticamente
             if (retryResponse.status === 401) {

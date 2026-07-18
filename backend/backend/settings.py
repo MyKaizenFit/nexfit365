@@ -107,6 +107,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "api.csrf_cookie_auth.CookieJWTCSRFMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "api.middleware.ErrorReportMiddleware",
@@ -118,6 +119,7 @@ MIDDLEWARE = [
 # ---------------------------------
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
+        "api.authentication.JWTCookieAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
     "DEFAULT_PERMISSION_CLASSES": (
@@ -271,6 +273,10 @@ def _get_frontend_url():
 
 
 FRONTEND_URL = _get_frontend_url()
+
+# JWT cookies (HttpOnly) for browser clients — Domain e.g. ".nexfit365.dpdns.org"
+# Leave empty for host-only cookies (local API on another port).
+JWT_COOKIE_DOMAIN = os.getenv("JWT_COOKIE_DOMAIN", "").strip() or None
 
 # ---------------------------------
 # URLs y WSGI
