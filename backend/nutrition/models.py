@@ -1458,6 +1458,18 @@ class MealLog(TimeStampedModel):
         ordering = ['-date', '-time']
         verbose_name = "Log de Comida"
         verbose_name_plural = "Logs de Comidas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'date', 'plan_meal'],
+                condition=models.Q(plan_meal__isnull=False),
+                name='unique_meallog_user_date_plan_meal',
+            ),
+            models.UniqueConstraint(
+                fields=['user', 'date', 'meal_type'],
+                condition=models.Q(plan_meal__isnull=True),
+                name='unique_meallog_user_date_meal_type',
+            ),
+        ]
     
     def __str__(self):
         return f"{self.user.email} - {self.get_meal_type_display()} - {self.date}"

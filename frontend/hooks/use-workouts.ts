@@ -658,7 +658,9 @@ export function useWorkouts() {
       body: JSON.stringify({
         workout_day: workoutDayId,
         notes: payload.notes || '',
-        completed: payload.completed ?? false,
+        // Omit completed on draft autosave so a delayed write cannot send false
+        // and race a just-finished session.
+        ...(payload.completed !== undefined ? { completed: payload.completed } : {}),
         date: todayLocalDate(),
         duration_minutes: payload.duration_minutes ?? null,
         rating: payload.rating || null,

@@ -474,6 +474,27 @@ class TestDailyMealSelections:
         assert response.data['deleted'] == 1
         assert not MealLog.objects.filter(user=user, date='2026-05-21', meal_type='lunch').exists()
 
+    def test_post_selection_upserts_same_meal_type(self, auth_client, user, recipe):
+        payload = {
+            'date': '2026-06-01',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+        }
+        first = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        second = auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {**payload, 'completed': True, 'calories': recipe.calories},
+            format='json',
+        )
+        assert first.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert second.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert MealLog.objects.filter(
+            user=user, date='2026-06-01', meal_type='lunch', plan_meal__isnull=True
+        ).count() == 1
+        log = MealLog.objects.get(user=user, date='2026-06-01', meal_type='lunch')
+        assert log.completed is True
+
 
 @pytest.mark.django_db
 class TestMealExclusionsManagement:

@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
-from django.db import DatabaseError
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
@@ -35,6 +35,16 @@ from rest_framework import serializers
 logger = logging.getLogger(__name__)
 
 RECIPE_EXCLUSION_TOKEN_PATTERN = re.compile(r'\[recipe:([0-9a-fA-F-]{36})\]')
+
+
+def _upsert_meal_log(lookup, defaults):
+    """Atomic update_or_create with one IntegrityError retry for races."""
+    try:
+        with transaction.atomic():
+            return MealLog.objects.update_or_create(**lookup, defaults=defaults)
+    except IntegrityError:
+        with transaction.atomic():
+            return MealLog.objects.update_or_create(**lookup, defaults=defaults)
 
 
 def _safe_recipe_payload(recipe: Recipe):
@@ -1074,6 +1084,7 @@ def daily_meal_selections(request):
             lookup['plan_meal_id'] = plan_meal_id
         else:
             lookup['meal_type'] = meal_type
+            lookup['plan_meal'] = None
 
         defaults = {
             'plan_meal': plan_meal,
@@ -1100,10 +1111,7 @@ def daily_meal_selections(request):
         if photo_file:
             defaults['photo'] = photo_file
 
-        meal_log, created = MealLog.objects.update_or_create(
-            **lookup,
-            defaults=defaults,
-        )
+        meal_log, created = _upsert_meal_log(lookup, defaults)
 
         if skip_meal and recipe and exclude_from_recommendations:
             try:
@@ -1681,11 +1689,14 @@ def monthly_meal_selections(request):
                 if isinstance(is_completed, str):
                     is_completed = is_completed.lower() in ('true', '1', 'yes')
                 
-                meal_log, created = MealLog.objects.update_or_create(
-                    user=user,
-                    date=selection_date,
-                    meal_type=meal_type,
-                    defaults={
+                meal_log, created = _upsert_meal_log(
+                    {
+                        'user': user,
+                        'date': selection_date,
+                        'meal_type': meal_type,
+                        'plan_meal': None,
+                    },
+                    {
                         'recipe_id': selection_data.get('recipe_id'),
                         'completed': is_completed,
                         # Solo contar calorías si está completada
@@ -1695,7 +1706,7 @@ def monthly_meal_selections(request):
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
                         'substitution_details': selection_data.get('substitution_details') or [],
-                    }
+                    },
                 )
                 
                 if created:
@@ -1845,10 +1856,11 @@ def weekly_meal_selections(request):
                     lookup['plan_meal_id'] = plan_meal_id
                 else:
                     lookup['meal_type'] = meal_type
+                    lookup['plan_meal'] = None
 
-                meal_log, created = MealLog.objects.update_or_create(
-                    **lookup,
-                    defaults={
+                meal_log, created = _upsert_meal_log(
+                    lookup,
+                    {
                         'plan_meal': plan_meal,
                         'recipe_id': selection_data.get('recipe_id'),
                         'completed': is_completed,
@@ -1859,7 +1871,7 @@ def weekly_meal_selections(request):
                         'fat': selection_data.get('fat', 0) if is_completed else 0,
                         'custom_description': selection_data.get('custom_description', ''),
                         'substitution_details': selection_data.get('substitution_details') or [],
-                    }
+                    },
                 )
                 
                 if created:

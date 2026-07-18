@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
+from django.db import models as django_db_models
 import logging
 import uuid
 from drf_spectacular.utils import extend_schema, OpenApiExample
@@ -451,31 +452,37 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Día de entrenamiento no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
 
         log_date = request.data.get('date') or timezone.localdate()
-        log, _created = WorkoutLog.objects.get_or_create(
-            user=request.user,
-            workout_day=workout_day,
-            date=log_date,
-            defaults={'completed': False},
-        )
-
         requested_completed = (
             self._parse_bool(request.data.get('completed'))
             if 'completed' in request.data
             else None
         )
-        if log.completed and requested_completed is False:
-            # Ignore a delayed draft autosave in full so it cannot replace the
-            # final duration, notes or exercise data either.
-            return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
-        for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
-            if field in request.data:
-                setattr(log, field, request.data.get(field))
+        with transaction.atomic():
+            log, _created = WorkoutLog.objects.get_or_create(
+                user=request.user,
+                workout_day=workout_day,
+                date=log_date,
+                defaults={'completed': False},
+            )
+            # Re-lock so a concurrent finish is visible before we write.
+            log = WorkoutLog.objects.select_for_update().get(pk=log.pk)
 
-        if requested_completed is not None:
-            log.completed = log.completed or requested_completed
+            if log.completed and requested_completed is not True:
+                # Ignore delayed draft autosaves (completed omitted or false) so they
+                # cannot replace the final duration, notes or exercise data.
+                return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
-        log.save()
+            for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
+                if field in request.data:
+                    setattr(log, field, request.data.get(field))
+
+            if requested_completed is not None:
+                # Never lower completed once true.
+                log.completed = log.completed or requested_completed
+
+            log.save()
+
         return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='check_today')

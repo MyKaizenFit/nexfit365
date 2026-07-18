@@ -133,46 +133,64 @@ class WeightEntrySerializer(serializers.ModelSerializer):
                 pass
         return representation
     
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        user = attrs.get("user") or (request.user if request else None)
+        entry_date = attrs.get("date")
+        if self.instance is None and user and entry_date:
+            if WeightEntry.objects.filter(user=user, date=entry_date).exists():
+                raise serializers.ValidationError(
+                    {"date": "Ya existe una entrada de peso para esta fecha."}
+                )
+        return attrs
+
     def create(self, validated_data):
         """Crear entrada de peso con usuario del request"""
         from decimal import Decimal
         from dashboard.models import UserStats
+        from django.db import transaction
         from django.utils import timezone
 
         request = self.context.get("request")
         user = validated_data.pop("user", None) or request.user
         validated_data["weight"] = Decimal(str(validated_data["weight"]))
 
-        existing_entries = WeightEntry.objects.filter(user=user).count()
-        if existing_entries == 0:
-            stats, created = UserStats.objects.get_or_create(
-                user=user,
-                defaults={
-                    "starting_weight": validated_data["weight"],
-                    "current_weight": validated_data["weight"],
-                    "transformation_start_date": validated_data.get("date", timezone.localdate()),
-                },
-            )
-            if not created and not stats.starting_weight:
-                stats.starting_weight = validated_data["weight"]
+        with transaction.atomic():
+            existing_entries = WeightEntry.objects.filter(user=user).count()
+            if existing_entries == 0:
+                stats, created = UserStats.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "starting_weight": validated_data["weight"],
+                        "current_weight": validated_data["weight"],
+                        "transformation_start_date": validated_data.get(
+                            "date", timezone.localdate()
+                        ),
+                    },
+                )
+                if not created and not stats.starting_weight:
+                    stats.starting_weight = validated_data["weight"]
+                    stats.current_weight = validated_data["weight"]
+                    if not stats.transformation_start_date:
+                        stats.transformation_start_date = validated_data.get(
+                            "date", timezone.localdate()
+                        )
+                    stats.save()
+            else:
+                stats, _ = UserStats.objects.get_or_create(user=user)
                 stats.current_weight = validated_data["weight"]
-                if not stats.transformation_start_date:
-                    stats.transformation_start_date = validated_data.get("date", timezone.localdate())
                 stats.save()
-        else:
-            stats, _ = UserStats.objects.get_or_create(user=user)
-            stats.current_weight = validated_data["weight"]
-            stats.save()
 
-        user.weight = validated_data["weight"]
-        user.save(update_fields=["weight"])
+            user.weight = validated_data["weight"]
+            user.save(update_fields=["weight"])
 
-        entry = WeightEntry.objects.create(
-            user=user,
-            weight=validated_data["weight"],
-            date=validated_data["date"],
-            notes=validated_data.get("notes", ""),
-        )
+            entry = WeightEntry.objects.create(
+                user=user,
+                weight=validated_data["weight"],
+                date=validated_data["date"],
+                notes=validated_data.get("notes", ""),
+            )
 
         try:
             from notifications.utils import notify_admins_user_change

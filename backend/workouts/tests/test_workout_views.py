@@ -406,6 +406,34 @@ class TestWorkoutLogViewSet:
         assert completed_log.duration_minutes == 35
         assert completed_log.notes == 'Completado'
 
+    def test_stale_autosave_omitting_completed_cannot_overwrite_finished_log(
+        self, auth_client, user, workout_day
+    ):
+        """Draft autosave no longer sends completed=false; must still be a no-op."""
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'a', 'sets': []}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'duration_minutes': 12,
+            'notes': 'Borrador tardío',
+            'exercises_data': [{'exercise_id': 'draft', 'sets': []}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.completed is True
+        assert completed_log.duration_minutes == 40
+        assert completed_log.notes == 'Final'
+        assert completed_log.exercises_data[0]['exercise_id'] == 'a'
+
     def test_today_draft_returns_incomplete_log(self, auth_client, user, workout_day):
         draft = WorkoutLog.objects.create(
             user=user,

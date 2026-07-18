@@ -282,6 +282,25 @@ class TestWeightEntryViews:
         assert entry.user == member_user
         assert entry.weight == Decimal("75.2")
 
+    def test_create_weight_entry_rejects_duplicate_date(self, auth_headers, member_user):
+        WeightEntry.objects.create(
+            user=member_user,
+            weight=Decimal("70.0"),
+            date="2025-01-01",
+        )
+        url = reverse("weight-history-list")
+        response = auth_headers.post(url, {
+            "weight": "75.2",
+            "date": "2025-01-01",
+            "notes": "Duplicado",
+        })
+        # Permission blocks early (403) or serializer validation (400).
+        assert response.status_code in (
+            status.HTTP_400_BAD_REQUEST,
+            status.HTTP_403_FORBIDDEN,
+        )
+        assert WeightEntry.objects.filter(user=member_user, date="2025-01-01").count() == 1
+
     def test_create_weight_entry_invalid_weight(self, auth_headers):
         """Test de creación con peso inválido"""
         url = reverse("weight-history-list")
