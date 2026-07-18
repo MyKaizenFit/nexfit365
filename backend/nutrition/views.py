@@ -12,7 +12,8 @@ from django.db import DatabaseError, IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion, CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike
+from django.db.models import Prefetch
+from .models import Recipe, NutritionPlan, PlanMeal, PlanMealRecipe, MealLog, Food, NutritionPlanHistory, RecipeIngredient, NutritionPlanAssignment, MealRecipeExclusion, MealIngredientExclusion, CommunityRecipePost, CommunityRecipeComment, CommunityRecipeLike
 from .serializers import (
     RecipeSerializer, RecipeMinimalSerializer,
     NutritionPlanSerializer, NutritionPlanMinimalSerializer,
@@ -491,9 +492,13 @@ def plan_meals_for_selection(request):
     user_plan = get_active_plan_for_user(user)
     if user_plan:
         user_plan = NutritionPlan.objects.filter(pk=user_plan.pk).prefetch_related(
+            Prefetch(
+                'meals__meal_recipes',
+                queryset=PlanMealRecipe.objects.select_related('recipe').order_by(
+                    'display_order', 'id'
+                ),
+            ),
             'meals__suggested_recipes',
-            'meals__meal_recipes',
-            'meals__meal_recipes__recipe',
         ).first()
 
     # Si el usuario tiene un plan activo con calorías definidas y no hay override manual del admin,
@@ -564,11 +569,12 @@ def plan_meals_for_selection(request):
             # Crear opciones basadas en la comida y sus recetas sugeridas
             meal_options = []
 
-            # Si hay recetas configuradas (PlanMealRecipe), crear una opción por receta
-            if meal.meal_recipes.exists():
+            # Prefer in-memory related caches (Prefetch); avoid .exists()/.order_by() bypass.
+            meal_recipes = list(meal.meal_recipes.all())
+            if meal_recipes:
                 used_recipe_ids = set()
                 meal_recipe_ratio = plan_target_ratio(user_plan)
-                for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
+                for meal_recipe in meal_recipes:
                     recipe = meal_recipe.recipe
                     selected_recipe = recipe
                     replacement = None
@@ -591,29 +597,31 @@ def plan_meals_for_selection(request):
                         'imageUrl': selected_recipe.image_url or (selected_recipe.image.url if selected_recipe.image else ''),
                     })
             # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
-            elif meal.suggested_recipes.exists():
-                used_recipe_ids = set()
-                for recipe in meal.suggested_recipes.all():
-                    selected_recipe = recipe
-                    if selected_recipe.id in used_recipe_ids:
-                        continue
-                    used_recipe_ids.add(selected_recipe.id)
-                    meal_options.append(build_recipe_option(selected_recipe, meal_type, meal, meal.id))
             else:
-                # Si no hay recetas, crear una opción genérica basada en la comida
-                personalized = personalize_meal(meal, meal_type)
-                meal_options.append({
-                    'id': f"meal-{meal.id}",
-                    'name': meal.name,
-                    'calories': personalized['calories'],
-                    'protein': personalized['protein'],
-                    'carbs': personalized['carbs'],
-                    'fat': personalized['fat'],
-                    'category': 'balanced',
-                    'icon': '🍽️',
-                    'description': meal.description,
-                    'cookTime': '15 min'
-                })
+                suggested_recipes = list(meal.suggested_recipes.all())
+                if suggested_recipes:
+                    used_recipe_ids = set()
+                    for recipe in suggested_recipes:
+                        selected_recipe = recipe
+                        if selected_recipe.id in used_recipe_ids:
+                            continue
+                        used_recipe_ids.add(selected_recipe.id)
+                        meal_options.append(build_recipe_option(selected_recipe, meal_type, meal, meal.id))
+                else:
+                    # Si no hay recetas, crear una opción genérica basada en la comida
+                    personalized = personalize_meal(meal, meal_type)
+                    meal_options.append({
+                        'id': f"meal-{meal.id}",
+                        'name': meal.name,
+                        'calories': personalized['calories'],
+                        'protein': personalized['protein'],
+                        'carbs': personalized['carbs'],
+                        'fat': personalized['fat'],
+                        'category': 'balanced',
+                        'icon': '🍽️',
+                        'description': meal.description,
+                        'cookTime': '15 min'
+                    })
 
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
@@ -639,13 +647,21 @@ def plan_meals_for_selection(request):
         is_system=True,
         is_active=True
     ).prefetch_related(
+        Prefetch(
+            'meals__meal_recipes',
+            queryset=PlanMealRecipe.objects.select_related('recipe').order_by(
+                'display_order', 'id'
+            ),
+        ),
         'meals__suggested_recipes',
-        'meals__meal_recipes',
-        'meals__meal_recipes__recipe',
     )
     
     for plan in system_plans:
-        for meal in plan.meals.all().order_by('order_index', 'id'):
+        plan_meals = sorted(
+            list(plan.meals.all()),
+            key=lambda m: (m.order_index or 0, str(m.id)),
+        )
+        for meal in plan_meals:
             meal_type = meal.meal_type
             if requested_meal_type and meal_type != requested_meal_type:
                 continue
@@ -654,9 +670,10 @@ def plan_meals_for_selection(request):
             
             # Crear opciones basadas en la comida y sus recetas sugeridas (sin límite)
             meal_options = []
-            if meal.meal_recipes.exists():
+            meal_recipes = list(meal.meal_recipes.all())
+            if meal_recipes:
                 meal_recipe_ratio = max(0.1, float(daily_calories) / float(plan.daily_calories)) if plan.daily_calories else 1.0
-                for meal_recipe in meal.meal_recipes.all().order_by('display_order', 'id'):
+                for meal_recipe in meal_recipes:
                     recipe = meal_recipe.recipe
                     if not recipe_allowed_for_user(recipe):
                         continue
@@ -675,39 +692,41 @@ def plan_meals_for_selection(request):
                         'recipeId': recipe.id,
                         'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
                     })
-            elif meal.suggested_recipes.exists():
-                for recipe in meal.suggested_recipes.all():
-                    if not recipe_allowed_for_user(recipe):
-                        continue
-                    personalized = personalize_recipe(recipe, meal_type, meal)
+            else:
+                suggested_recipes = list(meal.suggested_recipes.all())
+                if suggested_recipes:
+                    for recipe in suggested_recipes:
+                        if not recipe_allowed_for_user(recipe):
+                            continue
+                        personalized = personalize_recipe(recipe, meal_type, meal)
+                        meal_options.append({
+                            'id': f"meal-{meal.id}-recipe-{recipe.id}",
+                            'name': recipe.name,
+                            'calories': personalized['calories'],
+                            'protein': personalized['protein'],
+                            'carbs': personalized['carbs'],
+                            'fat': personalized['fat'],
+                            'category': 'balanced',
+                            'icon': '🍽️',
+                            'description': recipe.description or meal.description,
+                            'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
+                            'recipeId': recipe.id,
+                            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+                        })
+                else:
+                    personalized = personalize_meal(meal, meal_type)
                     meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
-                        'name': recipe.name,
+                        'id': f"meal-{meal.id}",
+                        'name': meal.name,
                         'calories': personalized['calories'],
                         'protein': personalized['protein'],
                         'carbs': personalized['carbs'],
                         'fat': personalized['fat'],
                         'category': 'balanced',
                         'icon': '🍽️',
-                        'description': recipe.description or meal.description,
-                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id,
-                        'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+                        'description': meal.description,
+                        'cookTime': '15 min'
                     })
-            else:
-                personalized = personalize_meal(meal, meal_type)
-                meal_options.append({
-                    'id': f"meal-{meal.id}",
-                    'name': meal.name,
-                    'calories': personalized['calories'],
-                    'protein': personalized['protein'],
-                    'carbs': personalized['carbs'],
-                    'fat': personalized['fat'],
-                    'category': 'balanced',
-                    'icon': '🍽️',
-                    'description': meal.description,
-                    'cookTime': '15 min'
-                })
 
             meals_by_type[meal_type].extend(meal_options)
 
@@ -771,6 +790,47 @@ def plan_meals_for_selection(request):
         'date': date_for_slots.isoformat(),
         'daily_calories_target': daily_calories,
         'daily_macros': daily_macros
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def plan_meals_for_selection_batch(request):
+    """
+    Batch of plan-meals-for-selection for a calendar week.
+    GET ?start_date=YYYY-MM-DD → results keyed by date (Mon–Sun).
+    """
+    from datetime import datetime, timedelta
+    from django.utils import timezone
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    start_date_str = request.query_params.get('start_date')
+    if start_date_str:
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            start_date = timezone.localdate()
+    else:
+        today = timezone.localdate()
+        start_date = today - timedelta(days=today.weekday())
+
+    factory = APIRequestFactory()
+    results = {}
+    for offset in range(7):
+        day = start_date + timedelta(days=offset)
+        params = {'date': day.isoformat()}
+        meal_type = request.query_params.get('meal_type')
+        if meal_type:
+            params['meal_type'] = meal_type
+        child = factory.get('/api/nutrition/plan-meals-for-selection/', params)
+        force_authenticate(child, user=request.user)
+        response = plan_meals_for_selection(child)
+        results[day.isoformat()] = response.data
+
+    return Response({
+        'start_date': start_date.isoformat(),
+        'end_date': (start_date + timedelta(days=6)).isoformat(),
+        'results': results,
     })
 
 

@@ -1,34 +1,11 @@
-from django.conf import settings
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rest_framework import serializers
 
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness, RestWellnessAssessment
+from .media_views import build_signed_progress_media_url
 from .photo_types import ALL_TYPE_KEYS
 
-
-def _build_public_media_url(request, media_path: str | None) -> str | None:
-    """Build absolute media URLs and keep production media HTTPS-safe."""
-    if not media_path:
-        return None
-
-    if not request:
-        return media_path
-
-    url = request.build_absolute_uri(media_path)
-    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
-    host = (request.get_host() or "").split(":")[0].lower()
-    is_local_host = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local")
-
-    should_force_https = (
-        forwarded_proto == "https"
-        or request.is_secure()
-        or (not settings.DEBUG and not is_local_host)
-    )
-
-    if should_force_https and url.startswith("http://"):
-        return "https://" + url[len("http://"):]
-    return url
 
 
 class ProgressPhotoSerializer(serializers.ModelSerializer):
@@ -66,13 +43,13 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
     def get_photo_url(self, obj) -> str | None:
         if obj.photo:
             request = self.context.get("request")
-            return _build_public_media_url(request, obj.photo.url)
+            return build_signed_progress_media_url(request, obj.photo)
         return None
     
     def get_thumbnail_url(self, obj) -> str | None:
         if obj.thumbnail:
             request = self.context.get("request")
-            return _build_public_media_url(request, obj.thumbnail.url)
+            return build_signed_progress_media_url(request, obj.thumbnail)
         return None
     
     def validate_photo(self, value):

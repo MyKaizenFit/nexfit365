@@ -297,6 +297,31 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
   return dedupeWorkoutScheduleBySlot(normalizeWorkoutDayNumbers(mappedDays))
 }
 
+/** Merge day/exercise PKs from a save response so silent autosave keeps stable ids. */
+function mergeScheduleIdsFromApiDays(schedule: WorkoutDay[], apiDays: any[]): WorkoutDay[] {
+  const byNumber = new Map(
+    (apiDays || []).map((day: any) => [Number(day.day_number) || 0, day]),
+  )
+  return schedule.map((day) => {
+    const apiDay = byNumber.get(day.dayNumber)
+    if (!apiDay) return day
+    const apiExercises = apiDay.exercises || []
+    return {
+      ...day,
+      id: apiDay.id ?? day.id,
+      exercises: day.exercises.map((ex, index) => {
+        const apiEx = apiExercises[index]
+        if (!apiEx) return ex
+        return {
+          ...ex,
+          id: apiEx.id ?? ex.id,
+          exerciseId: apiEx.exercise?.id || apiEx.exercise_id || ex.exerciseId,
+        }
+      }),
+    }
+  })
+}
+
 function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
   if (schedule.length === 0) return null
 
@@ -1276,7 +1301,17 @@ export function WorkoutProgramEditor({
 
       const savedProgram = await response.json().catch(() => null)
       if (savedProgram?.id) {
-        setProgram((current) => (current ? { ...current, id: savedProgram.id } : current))
+        setProgram((current) => {
+          if (!current) return current
+          const next = { ...current, id: savedProgram.id }
+          if (Array.isArray(savedProgram.days) && savedProgram.days.length > 0) {
+            next.weeklySchedule = mergeScheduleIdsFromApiDays(
+              current.weeklySchedule,
+              savedProgram.days,
+            )
+          }
+          return next
+        })
       }
       updateUnsavedChanges(false)
       if (silent) {

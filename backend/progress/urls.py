@@ -2,6 +2,7 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import ProgressPhotoViewSet, WeightEntryViewSet, BodyMeasurementViewSet, ProgressStatsViewSet, DailyWellnessViewSet
 from .rest_wellness_views import RestWellnessViewSet
+from .media_views import protected_progress_media
 
 router = DefaultRouter()
 router.register(r"progress-photos", ProgressPhotoViewSet, basename="progress-photos")
@@ -12,5 +13,6 @@ router.register(r"daily-wellness", DailyWellnessViewSet, basename="daily-wellnes
 router.register(r"rest-wellness", RestWellnessViewSet, basename="rest-wellness")
 
 urlpatterns = [
+    path("progress/protected-media/", protected_progress_media, name="progress-protected-media"),
     path("", include(router.urls)),
-] 
+]

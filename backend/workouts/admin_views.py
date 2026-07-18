@@ -192,31 +192,48 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
 
     def _apply_days_payload(self, program: WorkoutProgram, days_data):
         """
-        Reemplaza días+ejercicios del programa con la estructura enviada por el frontend.
-        Implementación simple: borrar y recrear.
+        Upsert días+ejercicios por day_number. Solo borra días ausentes del payload
+        para no orphanizar WorkoutLog (SET_NULL) en cada autosave.
         """
-        # Borrar días existentes (cascade borra WorkoutDayExercise)
-        program.days.all().delete()
+        from .models import WorkoutDayExercise
+        from .workout_week_utils import day_of_week_for_day_number
 
-        for day_index, day_data in enumerate(days_data or []):
+        days_data = days_data or []
+        existing_by_number = {day.day_number: day for day in program.days.all()}
+        incoming_numbers = set()
+
+        for day_index, day_data in enumerate(days_data):
             day_name = day_data.get('day_name') or day_data.get('name', f'Día {day_data.get("day_number", day_index + 1)}')
-
             day_number = day_data.get('day_number', day_index + 1)
-            from .workout_week_utils import day_of_week_for_day_number
+            incoming_numbers.add(day_number)
             # Siempre derivar del slot (day_number). Ignorar day_of_week del payload:
             # valores legacy/incorrectos (todo "monday") corrompían semanas 2+.
             day_of_week = day_of_week_for_day_number(day_number)
 
-            workout_day = WorkoutDay.objects.create(
-                program=program,
-                name=day_name,
-                day_number=day_number,
-                day_of_week=day_of_week,
-                is_rest_day=day_data.get('is_rest_day', False),
-                duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
-                notes=day_data.get('notes') or '',
-                order_index=day_index
-            )
+            workout_day = existing_by_number.get(day_number)
+            if workout_day is None:
+                workout_day = WorkoutDay.objects.create(
+                    program=program,
+                    name=day_name,
+                    day_number=day_number,
+                    day_of_week=day_of_week,
+                    is_rest_day=day_data.get('is_rest_day', False),
+                    duration_minutes=day_data.get('duration_minutes', program.estimated_duration_minutes or 60),
+                    notes=day_data.get('notes') or '',
+                    order_index=day_index,
+                )
+            else:
+                workout_day.name = day_name
+                workout_day.day_of_week = day_of_week
+                workout_day.is_rest_day = day_data.get('is_rest_day', False)
+                workout_day.duration_minutes = day_data.get(
+                    'duration_minutes', program.estimated_duration_minutes or 60
+                )
+                workout_day.notes = day_data.get('notes') or ''
+                workout_day.order_index = day_index
+                workout_day.save()
+                # Nested exercises are fully replaced; logs reference the day, not WDE rows.
+                workout_day.exercises.all().delete()
 
             exercises_data = day_data.get('exercises', []) or []
             for ex_index, exercise_data in enumerate(exercises_data):
@@ -253,7 +270,6 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                 if rest_seconds_value is None:
                     rest_seconds_value = exercise_data.get('rest_seconds')
 
-                from .models import WorkoutDayExercise
                 WorkoutDayExercise.objects.create(
                     workout_day=workout_day,
                     exercise=exercise,
@@ -263,8 +279,14 @@ class AdminWorkoutProgramViewSet(viewsets.ModelViewSet):
                     rest_seconds=rest_seconds_value if rest_seconds_value is not None else 60,
                     duration_seconds=exercise_data.get('duration') or None,
                     notes=exercise_data.get('notes') or '',
-                    order_index=ex_index
+                    order_index=ex_index,
                 )
+
+        # Remove days dropped from the payload (logs for those days become SET_NULL).
+        if incoming_numbers:
+            program.days.exclude(day_number__in=incoming_numbers).delete()
+        elif days_data == []:
+            program.days.all().delete()
 
         weekly_training_days = DefaultWorkoutAssignmentService.infer_weekly_training_days(program)
         if weekly_training_days and program.days_per_week != weekly_training_days:

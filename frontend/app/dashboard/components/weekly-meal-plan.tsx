@@ -183,59 +183,67 @@ export function WeeklyMealPlan() {
     loadWeeklySelections()
   }, [loadWeeklySelections])
 
-  // Cargar estructura y opciones del plan para cada día de la semana
+  // Cargar estructura y opciones del plan para la semana (1 request batch)
   useEffect(() => {
     const days = getWeekDays()
+    const startDateStr = format(days[0], 'yyyy-MM-dd')
     setPlanDataLoading(true)
-    Promise.all(
-      days.map(async (day) => {
-        const dateStr = format(day, 'yyyy-MM-dd')
-        try {
-          const response = await authenticatedFetch(
-            `nutrition/plan-meals-for-selection/?date=${dateStr}`,
-            { method: 'GET' }
-          )
-          if (!response.ok) {
-            return {
-              dateStr,
-              data: { slots: [], optionsByMealId: {}, mealsByType: {} } satisfies PlanDayData,
-            }
-          }
-          const data = await response.json()
-          return {
-            dateStr,
-            data: {
-              slots: (data.meal_slots || []) as MealSlot[],
-              optionsByMealId: (data.options_by_meal_id || {}) as Record<string, any[]>,
-              mealsByType: (data.meals_by_type || {}) as Record<string, any[]>,
-              source: data.source as string | undefined,
-              planName: data.plan_name as string | undefined,
-            },
-          }
-        } catch (error) {
-          if (isAuthSessionError(error)) {
-            setHasAuthError(true)
-          }
-          return {
-            dateStr,
-            data: { slots: [], optionsByMealId: {}, mealsByType: {} } satisfies PlanDayData,
-          }
-        }
-      })
-    )
-      .then((results) => {
+
+    const emptyDay = (): PlanDayData => ({
+      slots: [],
+      optionsByMealId: {},
+      mealsByType: {},
+    })
+
+    ;(async () => {
+      try {
+        const response = await authenticatedFetch(
+          `nutrition/plan-meals-for-selection-batch/?start_date=${startDateStr}`,
+          { method: 'GET' },
+        )
         const perDay: Record<string, PlanDayData> = {}
         const optionsCache: Record<string, Record<string, any[]>> = {}
-        results.forEach(({ dateStr, data }) => {
-          perDay[dateStr] = data
-          if (Object.keys(data.mealsByType).length > 0) {
-            optionsCache[dateStr] = data.mealsByType
+
+        if (!response.ok) {
+          days.forEach((day) => {
+            perDay[format(day, 'yyyy-MM-dd')] = emptyDay()
+          })
+          setPlanDataPerDay(perDay)
+          return
+        }
+
+        const payload = await response.json()
+        const results = (payload.results || {}) as Record<string, any>
+        days.forEach((day) => {
+          const dateStr = format(day, 'yyyy-MM-dd')
+          const data = results[dateStr] || {}
+          const dayData: PlanDayData = {
+            slots: (data.meal_slots || []) as MealSlot[],
+            optionsByMealId: (data.options_by_meal_id || {}) as Record<string, any[]>,
+            mealsByType: (data.meals_by_type || {}) as Record<string, any[]>,
+            source: data.source as string | undefined,
+            planName: data.plan_name as string | undefined,
+          }
+          perDay[dateStr] = dayData
+          if (Object.keys(dayData.mealsByType).length > 0) {
+            optionsCache[dateStr] = dayData.mealsByType
           }
         })
         setPlanDataPerDay(perDay)
         setOptionsByDateAndType((prev) => ({ ...prev, ...optionsCache }))
-      })
-      .finally(() => setPlanDataLoading(false))
+      } catch (error) {
+        if (isAuthSessionError(error)) {
+          setHasAuthError(true)
+        }
+        const perDay: Record<string, PlanDayData> = {}
+        days.forEach((day) => {
+          perDay[format(day, 'yyyy-MM-dd')] = emptyDay()
+        })
+        setPlanDataPerDay(perDay)
+      } finally {
+        setPlanDataLoading(false)
+      }
+    })()
   }, [getWeekDays, currentWeekStart])
 
   const hasUserPlan = useMemo(

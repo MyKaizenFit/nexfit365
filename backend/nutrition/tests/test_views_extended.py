@@ -399,6 +399,19 @@ class TestPlanMealsForSelection:
         profile_breakfast = int(2459 * 0.25)
         assert abs(int(recipe_option['calories']) - profile_breakfast) > 50
 
+    def test_batch_returns_seven_days(self, auth_client):
+        response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection-batch/?start_date=2026-06-01'
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['start_date'] == '2026-06-01'
+        assert response.data['end_date'] == '2026-06-07'
+        assert len(response.data['results']) == 7
+        for offset in range(7):
+            key = f'2026-06-0{offset + 1}'
+            assert key in response.data['results']
+            assert 'meals_by_type' in response.data['results'][key]
+
 
 # ---------------------------------------------------------------------------
 # daily_meal_selections endpoints
