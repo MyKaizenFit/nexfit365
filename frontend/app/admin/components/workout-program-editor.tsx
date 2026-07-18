@@ -303,7 +303,7 @@ function mergeScheduleIdsFromApiDays(schedule: WorkoutDay[], apiDays: any[]): Wo
     (apiDays || []).map((day: any) => [Number(day.day_number) || 0, day]),
   )
   return schedule.map((day) => {
-    const apiDay = byNumber.get(day.dayNumber)
+    const apiDay = byNumber.get(Number(day.dayNumber) || 0)
     if (!apiDay) return day
     const apiExercises = apiDay.exercises || []
     return {
