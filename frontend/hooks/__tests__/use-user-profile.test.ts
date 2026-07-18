@@ -82,7 +82,13 @@ describe('useUserProfile', () => {
     })
 
     expect(result.current.error).toBeTruthy()
-    expect(result.current.profile).toBeNull()
+    // Fallback to auth-context basics when the profile endpoint fails.
+    expect(result.current.profile).toEqual(
+      expect.objectContaining({
+        id: 1,
+        email: 'test@example.com',
+      }),
+    )
   })
 
   it('should update profile successfully', async () => {

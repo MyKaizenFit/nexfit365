@@ -1,15 +1,24 @@
 // lib/__tests__/api.test.ts
-import { buildApiUrl, getAuthHeaders } from '../api'
-import { authService } from '../auth-service'
+import { buildApiUrl, getAuthHeaders, API_CONFIG } from '../api'
+import { getAuthService } from '../auth-service'
 
-jest.mock('../auth-service')
+jest.mock('../auth-service', () => ({
+  getAuthService: jest.fn(),
+  authService: {
+    getAccessToken: jest.fn(),
+  },
+}))
 
-const mockAuthService = authService as jest.Mocked<typeof authService>
+const mockGetAuthService = getAuthService as jest.MockedFunction<typeof getAuthService>
 
 describe('API utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
+    Object.defineProperty(document, 'cookie', {
+      writable: true,
+      value: '',
+    })
   })
 
   describe('buildApiUrl', () => {
@@ -30,31 +39,44 @@ describe('API utilities', () => {
   })
 
   describe('getAuthHeaders', () => {
-    it('returns headers with token when authenticated', async () => {
-      mockAuthService.getAccessToken = jest.fn().mockResolvedValue('test-token')
+    it('returns headers with Bearer when memory token is available', () => {
+      mockGetAuthService.mockReturnValue({
+        getAccessToken: jest.fn().mockReturnValue('test-token'),
+      } as any)
 
-      const headers = await getAuthHeaders()
+      const headers = getAuthHeaders()
 
       expect(headers).toEqual({
-        'Authorization': 'Bearer test-token',
-        'Content-Type': 'application/json',
+        ...API_CONFIG.DEFAULT_HEADERS,
+        Authorization: 'Bearer test-token',
       })
     })
 
-    it('returns headers without token when not authenticated', async () => {
-      mockAuthService.getAccessToken = jest.fn().mockResolvedValue(null)
+    it('returns default headers without Bearer for cookie-only sessions', () => {
+      mockGetAuthService.mockReturnValue({
+        getAccessToken: jest.fn().mockReturnValue(null),
+      } as any)
 
-      const headers = await getAuthHeaders()
+      const headers = getAuthHeaders()
 
       expect(headers).toEqual({
-        'Content-Type': 'application/json',
+        ...API_CONFIG.DEFAULT_HEADERS,
       })
+      expect(headers.Authorization).toBeUndefined()
+    })
+
+    it('includes CSRF header when csrfToken cookie is present', () => {
+      mockGetAuthService.mockReturnValue({
+        getAccessToken: jest.fn().mockReturnValue(null),
+      } as any)
+      Object.defineProperty(document, 'cookie', {
+        writable: true,
+        value: 'csrfToken=abc123',
+      })
+
+      const headers = getAuthHeaders()
+
+      expect(headers['X-CSRFToken']).toBe('abc123')
     })
   })
 })
-
-
-
-
-
-
