@@ -141,7 +141,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           if (refreshResult.success) {
             hasValidTokens = true
           } else {
-            authService.clearTokens()
+            await authService.forceClearBrowserSession()
             hasValidTokens = false
             if (
               typeof window !== 'undefined' &&
@@ -150,7 +150,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 window.location.pathname.startsWith('/admin') ||
                 window.location.pathname.startsWith('/initial-registration'))
             ) {
-              window.location.replace('/auth')
+              window.location.replace('/auth?stale=1')
               return
             }
           }
@@ -189,7 +189,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 mustChangePassword: false,
               })
             } else {
-              authService.clearTokens()
+              await authService.forceClearBrowserSession()
               setState({
                 user: null,
                 isAuthenticated: false,
@@ -201,7 +201,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 typeof window !== 'undefined' &&
                 !window.location.pathname.startsWith('/auth')
               ) {
-                window.location.replace('/auth')
+                window.location.replace('/auth?stale=1')
                 return
               }
             }
@@ -220,13 +220,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             (window.location.pathname.startsWith('/dashboard') ||
               window.location.pathname.startsWith('/admin'))
           ) {
-            window.location.replace('/auth')
+            await authService.forceClearBrowserSession()
+            window.location.replace('/auth?stale=1')
             return
           }
         }
       } catch (error) {
         const authService = getAuthService()
-        authService.clearTokens()
+        await authService.forceClearBrowserSession()
         setState({
           user: null,
           isAuthenticated: false,

@@ -11,6 +11,8 @@ _CSRF_EXEMPT_PREFIXES = (
     "/api/auth/login",
     "/api/auth/register",
     "/api/register",
+    "/api/auth/clear-session",
+    "/api/auth/logout",
 )
 
 

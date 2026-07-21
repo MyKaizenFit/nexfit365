@@ -111,7 +111,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Si hay tokens y es una ruta pública (como login), redirigir según el rol
-  if (isPublicOnlyRoute && hasUsableAccessToken) {
+  // EXCEPTION: never bounce away from /auth — stale HttpOnly JWTs caused
+  // dashboard↔auth redirect loops that look like infinite loading.
+  if (isPublicOnlyRoute && hasUsableAccessToken && !pathname.startsWith('/auth')) {
     try {
       const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
       
