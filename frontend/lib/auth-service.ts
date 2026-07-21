@@ -449,8 +449,9 @@ export class AuthService {
       setRememberedEmail(credentials.email.trim().toLowerCase(), rememberSession)
       storeCsrfFromResponse(responseData.csrf)
 
-      // Do not persist JWTs in JS-readable storage. Keep memory only for offline/debug.
-      this.accessToken = null
+      // Prefer HttpOnly cookies; keep access in memory only (never document.cookie)
+      // so Bearer fallback works if cross-subdomain Set-Cookie is delayed/blocked.
+      this.accessToken = responseData.access || null
       this.refreshToken = null
 
       // Obtener información del usuario
@@ -627,7 +628,7 @@ export class AuthService {
       const userData = result.data.user
       storeCsrfFromResponse(result.data.csrf)
 
-      this.accessToken = null
+      this.accessToken = tokens?.access || result.data.access || null
       this.refreshToken = null
 
       let user = userData
@@ -806,8 +807,8 @@ export class AuthService {
       }
 
       storeCsrfFromResponse(result.data.csrf)
-      // HttpOnly cookies updated by Set-Cookie; do not store JWTs in JS.
-      this.accessToken = null
+      // HttpOnly cookies updated by Set-Cookie; keep access in memory for Bearer fallback.
+      this.accessToken = result.data.access || null
       this.refreshToken = null
       if (getCookie('nf_session') !== '1') {
         setCookie('nf_session', '1', 30)

@@ -46,15 +46,29 @@ def new_csrf_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def _cookie_samesite(*, domain: Optional[str], secure: bool) -> str:
+    """
+    SPA is on nexfit365.* while API is on api.nexfit365.* (cross-origin, same eTLD+1).
+    Chrome often rejects/ignores SameSite=Lax cookies set on cross-origin XHR responses;
+    use None when a shared Domain is configured (requires Secure).
+    """
+    if domain:
+        return "None" if secure else "Lax"
+    return "Lax"
+
+
 def set_jwt_cookies(response, *, access: str, refresh: str, remember: bool = True, csrf: str | None = None):
     """Attach HttpOnly access/refresh cookies and a readable CSRF cookie."""
     secure = _cookie_secure()
     domain = _cookie_domain()
+    # Cross-subdomain cookie Domain requires Secure when SameSite=None.
+    if domain and not secure:
+        secure = True
     csrf_value = csrf or new_csrf_token()
     common = {
         "domain": domain,
         "secure": secure,
-        "samesite": "Lax",
+        "samesite": _cookie_samesite(domain=domain, secure=secure),
         "path": "/",
     }
 
@@ -85,16 +99,20 @@ def set_jwt_cookies(response, *, access: str, refresh: str, remember: bool = Tru
 def clear_jwt_cookies(response):
     domain = _cookie_domain()
     secure = _cookie_secure()
+    if domain and not secure:
+        secure = True
+    samesite = _cookie_samesite(domain=domain, secure=secure)
     for name in (ACCESS_COOKIE, REFRESH_COOKIE, CSRF_COOKIE):
         response.delete_cookie(
             name,
             path="/",
             domain=domain,
-            samesite="Lax",
+            samesite=samesite,
         )
-        # Also clear host-only variants from older deploys / local DEBUG.
+        # Also clear host-only / Lax variants from older deploys / local DEBUG.
         if domain:
             response.delete_cookie(name, path="/", samesite="Lax")
+            response.delete_cookie(name, path="/", samesite=samesite)
         response.set_cookie(
             name,
             "",
@@ -104,7 +122,7 @@ def clear_jwt_cookies(response):
             domain=domain,
             secure=secure,
             httponly=(name != CSRF_COOKIE),
-            samesite="Lax",
+            samesite=samesite,
         )
     return response
 
@@ -115,7 +133,7 @@ def wants_cookie_session(request) -> bool:
 
 
 def strip_tokens_from_body(response) -> None:
+    """Omit refresh from JSON; keep short-lived access for in-memory Bearer fallback."""
     data = getattr(response, "data", None)
     if isinstance(data, dict):
-        data.pop("access", None)
         data.pop("refresh", None)
