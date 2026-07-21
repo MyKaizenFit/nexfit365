@@ -2,10 +2,15 @@
 """
 Fusiona registros que solo existen en pro-db-1 (172.19.0.5) hacia nexfit-pro-db-1 (172.19.0.3).
 Ejecutar solo con mantenimiento activo y backups previos.
+
+Requires NEXFIT_DB_PASSWORD (or POSTGRES_PASSWORD) in the environment.
+If this script ever contained a plaintext password, rotate the Postgres role
+password and update compose/secrets — treat any historical value as burned.
 """
 from __future__ import annotations
 
 import json
+import os
 import sys
 from datetime import date, datetime
 from decimal import Decimal
@@ -16,7 +21,16 @@ import psycopg2.extras
 
 SOURCE = "172.19.0.5"
 TARGET = "172.19.0.3"
-DB = dict(port=5432, dbname="mykaizenfit", user="postgres", password="vUX4*5nVXCkEh3VI0zDrUSYn")
+
+
+def _db_config() -> dict:
+    password = os.environ.get("NEXFIT_DB_PASSWORD") or os.environ.get("POSTGRES_PASSWORD")
+    if not password:
+        raise SystemExit(
+            "Set NEXFIT_DB_PASSWORD (or POSTGRES_PASSWORD) before running this script"
+        )
+    return dict(port=5432, dbname="mykaizenfit", user="postgres", password=password)
+
 
 NUTRITION_PLAN_IDS = [
     "55b1fe9b-32d3-47ee-b9ef-80990a232e94",  # Anaís - Dieta Flexible
@@ -33,7 +47,7 @@ WORKOUT_PROGRAM_IDS = [
 
 
 def connect(host: str):
-    return psycopg2.connect(host=host, **DB)
+    return psycopg2.connect(host=host, **_db_config())
 
 
 def exists(dst, table: str, pk_col: str, pk_val) -> bool:

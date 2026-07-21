@@ -195,7 +195,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
             # Alertas premium para panel admin
             'premium_alerts', 'recent_change_sections'
         ]
-        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age', 'calculated_daily_calories']
+        read_only_fields = [
+            'id', 'email', 'date_joined', 'created_at', 'updated_at',
+            'bmi', 'age', 'calculated_daily_calories',
+            # Privilege flags: escalate only via Django admin / dedicated superuser flows.
+            'is_staff', 'is_superuser', 'is_staff_display', 'is_superuser_display',
+        ]
     
     def update(self, instance, validated_data):
         """Mantener coherentes los días del perfil cuando lo edita administración."""

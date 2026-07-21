@@ -133,6 +133,36 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_system', 'is_template', 'is_active']
     ordering_fields = ['name', 'created_at']
     ordering = ['-created_at']
+
+    def _is_staff_user(self) -> bool:
+        user = self.request.user
+        role = str(getattr(user, "role", "") or "").lower()
+        return bool(user.is_staff or user.is_superuser or role == "admin")
+
+    def _can_mutate_program(self, program) -> bool:
+        if self._is_staff_user():
+            return True
+        if program.is_system or program.is_template:
+            return False
+        return program.user_id == self.request.user.id
+
+    def update(self, request, *args, **kwargs):
+        program = self.get_object()
+        if not self._can_mutate_program(program):
+            return Response(
+                {'detail': 'No tienes permiso para modificar este programa.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        program = self.get_object()
+        if not self._can_mutate_program(program):
+            return Response(
+                {'detail': 'No tienes permiso para eliminar este programa.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -447,9 +477,16 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            workout_day = WorkoutDay.objects.get(id=workout_day_id)
+            workout_day = WorkoutDay.objects.select_related('program').get(id=workout_day_id)
         except WorkoutDay.DoesNotExist:
             return Response({'error': 'Día de entrenamiento no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
+        program = workout_day.program
+        if program is None or program.user_id != request.user.id:
+            return Response(
+                {'detail': 'No tienes permiso para registrar este día de entrenamiento.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         log_date = request.data.get('date') or timezone.localdate()
         requested_completed = (
@@ -766,6 +803,11 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_active']
     ordering_fields = ['name', 'created_at']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAdminOrStaff()]
+        return [IsAuthenticated()]
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):

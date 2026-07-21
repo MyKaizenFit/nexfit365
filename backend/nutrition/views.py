@@ -5,6 +5,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from accounts.permissions import IsAdminOrStaff
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
@@ -1963,6 +1964,15 @@ class RecipeViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'difficulty', 'is_system', 'is_featured']
     ordering_fields = ['name', 'calories', 'prep_time_minutes', 'created_at']
     ordering = ['name']
+
+    def get_permissions(self):
+        # Catalog mutations and bulk export are staff-only; members may read.
+        if self.action in (
+            'create', 'update', 'partial_update', 'destroy',
+            'export_csv', 'export_excel',
+        ):
+            return [IsAdminOrStaff()]
+        return [IsAuthenticated()]
     
     def get_serializer_class(self):
         if self.action == 'list':
@@ -2346,7 +2356,8 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
             return NutritionPlan.objects.none()
         user = self.request.user
         role = str(getattr(user, "role", "") or "").lower()
-        if user.is_staff or user.is_superuser or role in {"admin", "trainer", "pro"}:
+        # `pro` is a paid membership tier, not staff/coach — never unscoped.
+        if user.is_staff or user.is_superuser or role == "admin":
             base_queryset = NutritionPlan.objects.all()
         else:
             base_queryset = NutritionPlan.objects.filter(
@@ -2358,6 +2369,33 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
             'meals__suggested_recipes',
             'assignments__user'
         )
+
+    def _can_mutate_plan(self, plan) -> bool:
+        user = self.request.user
+        role = str(getattr(user, "role", "") or "").lower()
+        if user.is_staff or user.is_superuser or role == "admin":
+            return True
+        if plan.is_system or plan.is_template:
+            return False
+        return plan.user_id == user.id
+
+    def update(self, request, *args, **kwargs):
+        plan = self.get_object()
+        if not self._can_mutate_plan(plan):
+            return Response(
+                {'detail': 'No tienes permiso para modificar este plan.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        plan = self.get_object()
+        if not self._can_mutate_plan(plan):
+            return Response(
+                {'detail': 'No tienes permiso para eliminar este plan.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     def get_serializer_class(self):
         if self.action == 'list':
