@@ -114,13 +114,34 @@ const getCookie = (name: string): string | null => {
   return null
 }
 
+const cookieDomainsToClear = (): Array<string | undefined> => {
+  if (typeof window === 'undefined') return [undefined]
+  const host = window.location.hostname
+  const domains: Array<string | undefined> = [undefined, host]
+  if (host === 'nexfit365.dpdns.org' || host.endsWith('.nexfit365.dpdns.org')) {
+    domains.push('.nexfit365.dpdns.org')
+  }
+  const firstDot = host.indexOf('.')
+  if (firstDot > 0) {
+    domains.push(`.${host.slice(firstDot + 1)}`)
+  }
+  return Array.from(new Set(domains))
+}
+
 const deleteCookie = (name: string) => {
   if (typeof window === 'undefined') return
 
-  // Eliminar con todos los posibles atributos
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;`
-  document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax`
-  // NO loguear operaciones de cookies por seguridad
+  const expires = 'Thu, 01 Jan 1970 00:00:00 UTC'
+  const secure = window.location.protocol === 'https:'
+  for (const domain of cookieDomainsToClear()) {
+    const domainPart = domain ? `;domain=${domain}` : ''
+    document.cookie = `${name}=;expires=${expires};path=/${domainPart}`
+    document.cookie = `${name}=;expires=${expires};path=/${domainPart};SameSite=Lax`
+    if (secure) {
+      document.cookie = `${name}=;expires=${expires};path=/${domainPart};SameSite=Lax;Secure`
+      document.cookie = `${name}=;expires=${expires};path=/${domainPart};SameSite=None;Secure`
+    }
+  }
 }
 
 /** Non-sensitive session markers for Next middleware (no JWTs). */
@@ -208,12 +229,9 @@ export class AuthService {
 
   // Verificar si hay sesión válida (HttpOnly cookies + marker, o offline tokens)
   hasValidTokens(): boolean {
-    if (typeof window !== 'undefined' && getCookie('nf_session') === '1') {
-      return true
-    }
-
-    if (this.accessToken && this.refreshToken) {
-      if (this.accessToken.startsWith('offline_token_') || this.refreshToken.startsWith('offline_refresh_')) {
+    // Memory access (post-login Bearer fallback) is authoritative.
+    if (this.accessToken) {
+      if (this.accessToken.startsWith('offline_token_')) {
         return this.allowOfflineMode
       }
       if (this.accessToken.includes('.')) {
@@ -221,15 +239,34 @@ export class AuthService {
       }
     }
 
+    if (this.refreshToken) {
+      if (this.refreshToken.startsWith('offline_refresh_')) {
+        return this.allowOfflineMode
+      }
+      if (this.refreshToken.includes('.')) {
+        return true
+      }
+    }
+
+    // Marker-only: treat as "maybe cookie session". Callers must prove via /me or refresh.
+    // Do NOT return true here alone — that leaves zombie tabs loading forever after cookie migrations.
     return false
   }
 
+  /** True when middleware markers suggest a prior browser session (may be stale). */
+  hasSessionMarker(): boolean {
+    return typeof window !== 'undefined' && getCookie('nf_session') === '1'
+  }
+
   hasRefreshToken(): boolean {
-    // Refresh JWT is HttpOnly — presence approximated via session marker / csrf.
+    if (this.refreshToken) {
+      return true
+    }
+    // Cookie session: refresh JWT is HttpOnly; csrf or session marker is a weak hint.
     if (typeof window !== 'undefined' && (getCookie('nf_session') === '1' || getCookie('csrfToken'))) {
       return true
     }
-    return Boolean(this.refreshToken)
+    return false
   }
 
   // Verificar si el usuario está autenticado
@@ -276,7 +313,8 @@ export class AuthService {
   }
 
   needsTokenRefresh(): boolean {
-    if (!this.getAccessToken() && this.hasValidTokens()) {
+    if (!this.getAccessToken()) {
+      // Cookie-only session: refresh on demand via 401 handler, not proactive loops.
       return false
     }
     return this.isAccessTokenExpired() || this.isTokenExpiringSoon()

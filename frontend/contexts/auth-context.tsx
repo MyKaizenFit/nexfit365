@@ -125,12 +125,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.removeItem('auth_logout_in_progress')
         }
 
-        // Verificar si hay tokens válidos. En móvil es frecuente volver a la app
-        // con el access caducado/perdido pero con refresh todavía vigente.
         const authService = getAuthService()
         let hasValidTokens = authService.hasValidTokens()
+        const maybeCookieSession = !hasValidTokens && authService.hasRefreshToken()
 
-        if (!hasValidTokens && authService.hasRefreshToken()) {
+        // Prove cookie/marker sessions after hard refresh (memory tokens are gone).
+        if (maybeCookieSession || authService.hasSessionMarker()) {
           let refreshResult = await authService.refreshAccessTokenDeduped()
 
           if (!refreshResult.success && isTransientAuthFailure(refreshResult.error)) {
@@ -138,7 +138,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             refreshResult = await authService.refreshAccessTokenDeduped()
           }
 
-          hasValidTokens = Boolean(refreshResult.success && refreshResult.newToken)
+          if (refreshResult.success) {
+            hasValidTokens = true
+          } else {
+            authService.clearTokens()
+            hasValidTokens = false
+            if (
+              typeof window !== 'undefined' &&
+              !window.location.pathname.startsWith('/auth') &&
+              (window.location.pathname.startsWith('/dashboard') ||
+                window.location.pathname.startsWith('/admin') ||
+                window.location.pathname.startsWith('/initial-registration'))
+            ) {
+              window.location.replace('/auth')
+              return
+            }
+          }
         }
 
         if (hasValidTokens) {
@@ -157,9 +172,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 throw userError
               }
             }
-            // NO loguear datos del usuario por seguridad
-            if (process.env.NODE_ENV === 'development') {
-            }
             setState({
               user,
               isAuthenticated: true,
@@ -168,29 +180,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               mustChangePassword: user.must_change_password || false,
             })
           } catch (userError: any) {
-            // NO limpiar tokens si es un error de rate limiting (429)
             if (userError.message?.includes('Demasiadas solicitudes') || userError.message?.includes('Too Many Requests')) {
               setState({
                 user: null,
-                isAuthenticated: true, // Mantener como autenticado
+                isAuthenticated: false,
                 isLoading: false,
                 error: 'Has alcanzado el límite de intentos. Por favor, espera un momento.',
                 mustChangePassword: false,
               })
-            } else if (userError.message !== 'Sesión expirada. Por favor, inicia sesión nuevamente.') {
-              // Si no se puede obtener el usuario, limpiar tokens y marcar como no autenticado
-              const authService = getAuthService()
-              authService.clearTokens()
-              setState({
-                user: null,
-                isAuthenticated: false,
-                isLoading: false,
-                error: null,
-                mustChangePassword: false,
-              })
             } else {
-              // Error de sesión expirada, limpiar
-              const authService = getAuthService()
               authService.clearTokens()
               setState({
                 user: null,
@@ -199,10 +197,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
                 error: null,
                 mustChangePassword: false,
               })
+              if (
+                typeof window !== 'undefined' &&
+                !window.location.pathname.startsWith('/auth')
+              ) {
+                window.location.replace('/auth')
+                return
+              }
             }
           }
         } else {
-          // No hay tokens válidos, marcar como no autenticado silenciosamente
           setState({
             user: null,
             isAuthenticated: false,
@@ -213,17 +217,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           if (
             typeof window !== 'undefined' &&
-            authService.hasRefreshToken() &&
-            window.location.pathname.startsWith('/dashboard')
+            (window.location.pathname.startsWith('/dashboard') ||
+              window.location.pathname.startsWith('/admin'))
           ) {
             window.location.replace('/auth')
+            return
           }
         }
       } catch (error) {
-        // Solo mostrar warning si no es un error de autenticación esperado
-        if (error instanceof Error && !error.message.includes('Sesión expirada')) {
-        }
-        // En lugar de hacer logout, simplemente marcar como no autenticado
+        const authService = getAuthService()
+        authService.clearTokens()
         setState({
           user: null,
           isAuthenticated: false,
