@@ -42,6 +42,24 @@ function AuthPageContent() {
   const router = useRouter()
 
   useEffect(() => {
+    // Wipe HttpOnly JWT cookies that JS cannot delete — required for browsers
+    // that still have pre-migration cookies (dashboard↔auth redirect loops).
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { getAuthService } = await import('@/lib/auth-service')
+        await getAuthService().forceClearBrowserSession()
+      } catch {
+        // ignore
+      }
+      if (cancelled) return
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     const savedRememberSession = localStorage.getItem('remember_session')
     const savedEmail = localStorage.getItem('remembered_email')
 

@@ -4,6 +4,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from api.auth_views import (
     LoginView,
     LogoutView,
+    ClearSessionView,
     RefreshView,
     RegisterView,
     ForgotPasswordView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path('auth/refresh/', RefreshView.as_view(), name='auth-refresh'),
     path('auth/logout/', LogoutView.as_view(), name='auth_logout'),  # Logout endpoint
     path('auth/logout/', LogoutView.as_view(), name='auth-logout'),
+    path('auth/clear-session/', ClearSessionView.as_view(), name='auth-clear-session'),
     path('auth/forgot-password/', ForgotPasswordView.as_view(), name='auth-forgot-password'),
     path('auth/reset-password/', ResetPasswordView.as_view(), name='auth-reset-password'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='auth-change-password'),

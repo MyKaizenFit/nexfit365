@@ -97,33 +97,44 @@ def set_jwt_cookies(response, *, access: str, refresh: str, remember: bool = Tru
 
 
 def clear_jwt_cookies(response):
+    """Expire JWT/CSRF cookies for all Domain/SameSite/Secure variants we may have set."""
     domain = _cookie_domain()
     secure = _cookie_secure()
     if domain and not secure:
         secure = True
-    samesite = _cookie_samesite(domain=domain, secure=secure)
+
+    domains: list[Optional[str]] = [None]
+    if domain:
+        domains.append(domain)
+
+    samesites = ("Lax", "None")
     for name in (ACCESS_COOKIE, REFRESH_COOKIE, CSRF_COOKIE):
-        response.delete_cookie(
-            name,
-            path="/",
-            domain=domain,
-            samesite=samesite,
-        )
-        # Also clear host-only / Lax variants from older deploys / local DEBUG.
-        if domain:
-            response.delete_cookie(name, path="/", samesite="Lax")
-            response.delete_cookie(name, path="/", samesite=samesite)
-        response.set_cookie(
-            name,
-            "",
-            max_age=0,
-            expires=0,
-            path="/",
-            domain=domain,
-            secure=secure,
-            httponly=(name != CSRF_COOKIE),
-            samesite=samesite,
-        )
+        httponly = name != CSRF_COOKIE
+        for dom in domains:
+            for samesite in samesites:
+                # delete_cookie must match attributes used when the cookie was set
+                try:
+                    response.delete_cookie(
+                        name,
+                        path="/",
+                        domain=dom,
+                        samesite=samesite,
+                    )
+                except TypeError:
+                    response.delete_cookie(name, path="/", domain=dom)
+                # Force expire via Set-Cookie (browsers honor this for HttpOnly too)
+                use_secure = secure or samesite == "None"
+                response.set_cookie(
+                    name,
+                    "",
+                    max_age=0,
+                    expires=0,
+                    path="/",
+                    domain=dom,
+                    secure=use_secure,
+                    httponly=httponly,
+                    samesite=samesite,
+                )
     return response
 
 

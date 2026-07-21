@@ -884,6 +884,28 @@ export class AuthService {
     }
   }
 
+  /**
+   * Wipe HttpOnly JWT cookies via API (JS cannot delete them) + local markers.
+   * Breaks stale-browser sessions that spin forever after cookie-auth migrations.
+   */
+  async forceClearBrowserSession(): Promise<void> {
+    try {
+      await fetch(buildApiUrl(AUTH_ENDPOINTS.CLEAR_SESSION), {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Auth-Mode': 'cookie',
+        },
+        body: '{}',
+      })
+    } catch {
+      // Still clear local state even if network fails.
+    } finally {
+      this.clearTokens()
+    }
+  }
+
   // Limpiar tokens
   public clearTokens() {
     this.accessToken = null

@@ -279,6 +279,27 @@ class LogoutView(APIView):
 
 @extend_schema(
     tags=["Auth"],
+    summary="Clear browser auth cookies",
+    description=(
+        "Always clears JWT/CSRF cookies (HttpOnly included). "
+        "Used to break stale sessions that JS cannot delete."
+    ),
+)
+class ClearSessionView(APIView):
+    permission_classes = (AllowAny,)
+    authentication_classes = ()
+
+    def post(self, request):
+        response = Response({"detail": "session cleared"}, status=status.HTTP_200_OK)
+        clear_jwt_cookies(response)
+        return response
+
+    def get(self, request):
+        return self.post(request)
+
+
+@extend_schema(
+    tags=["Auth"],
     summary="Registro de usuario",
     description="Crea un nuevo usuario con email y password.",
     examples=[
