@@ -191,13 +191,27 @@ class TestUserLogin:
         )
         assert response.status_code == status.HTTP_200_OK
         assert "csrf" in response.data
-        assert "access" not in response.data
+        # Short-lived access kept for in-memory Bearer fallback; refresh stays cookie-only.
+        assert "access" in response.data
         assert "refresh" not in response.data
         assert "accessToken" in response.cookies
         assert response.cookies["accessToken"]["httponly"] is True
         assert "refreshToken" in response.cookies
         assert response.cookies["refreshToken"]["httponly"] is True
         assert "csrfToken" in response.cookies
+
+    def test_clear_session_expires_auth_cookies(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+            HTTP_X_AUTH_MODE="cookie",
+        )
+        assert login.status_code == status.HTTP_200_OK
+        api_client.cookies = login.cookies
+        response = api_client.post(reverse("auth-clear-session"), {})
+        assert response.status_code == status.HTTP_200_OK
+        assert "accessToken" in response.cookies
+        assert "refreshToken" in response.cookies
 
     def test_login_without_cookie_mode_keeps_tokens_in_body(self, api_client, regular_user):
         url = reverse("auth-login")
