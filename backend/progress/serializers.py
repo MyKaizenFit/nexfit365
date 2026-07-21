@@ -4,6 +4,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from rest_framework import serializers
 
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness, RestWellnessAssessment
+from .photo_types import ALL_TYPE_KEYS
 
 
 def _build_public_media_url(request, media_path: str | None) -> str | None:
@@ -49,11 +50,10 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
     
     def validate_photo_type(self, value):
-        """Validar que el tipo de foto sea válido"""
-        valid_types = ['front', 'back', 'side', 'other']
-        if value not in valid_types:
+        """Validar que el tipo de foto sea válido (incluye legado side/other)."""
+        if value not in ALL_TYPE_KEYS:
             raise serializers.ValidationError(
-                f"Tipo de foto inválido. Valores permitidos: {', '.join(valid_types)}"
+                f"Tipo de foto inválido. Valores permitidos: {', '.join(sorted(ALL_TYPE_KEYS))}"
             )
         return value
     
@@ -213,9 +213,9 @@ class WeightEntrySerializer(serializers.ModelSerializer):
         return value
     
     def validate_date(self, value):
-        """Validar que la fecha no sea en el futuro"""
+        """Validar que la fecha no sea en el futuro (día local del servidor)."""
         from django.utils import timezone
-        if value > timezone.now().date():
+        if value > timezone.localdate():
             raise serializers.ValidationError("La fecha no puede ser en el futuro")
         return value
 

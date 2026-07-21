@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useUserData } from "@/hooks/use-user-data"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAuth } from "@/contexts/auth-context"
+import type { ProgressPhotoType } from "@/lib/progress-photo-types"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useWeightHistory } from "@/hooks/use-weight-history"
@@ -69,7 +70,7 @@ interface WorkoutSession {
 
 export function ProgressDashboard() {
   const { userStats, loading: statsLoading, refreshStats: refreshUserStats } = useUserData()
-  const { photos, loading: photosLoading, error: photosError, uploadPhoto, deletePhoto, refreshPhotos } = useProgressPhotos()
+  const { photos, loading: photosLoading, uploading, error: photosError, uploadPhoto, deletePhoto, refreshPhotos } = useProgressPhotos()
   const { user } = useAuth()
   const { meals: dailyMeals, macros } = useDailyMeals()
   const { stats: progressStats, loading: progressStatsLoading, refreshStats } = useProgressStats()
@@ -91,7 +92,7 @@ export function ProgressDashboard() {
   const [isMeasurementDialogOpen, setIsMeasurementDialogOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
+  const [selectedPhotoType, setSelectedPhotoType] = useState<ProgressPhotoType>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
   const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
@@ -260,6 +261,7 @@ export function ProgressDashboard() {
   }
 
   const handleUploadPhoto = async () => {
+    if (uploading) return
     if (!selectedFile || !newPhotoWeight.trim()) {
       toast({
         title: "❌ Error",
@@ -713,9 +715,9 @@ export function ProgressDashboard() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="front">Frontal</SelectItem>
-                  <SelectItem value="side">Lateral</SelectItem>
                   <SelectItem value="back">Espalda</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
+                  <SelectItem value="left_side">Lateral izquierdo</SelectItem>
+                  <SelectItem value="right_side">Lateral derecho</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -803,10 +805,10 @@ export function ProgressDashboard() {
               <Button
                 type="button"
                 onClick={handleUploadPhoto}
-                disabled={!selectedFile || !newPhotoWeight.trim()}
+                disabled={uploading || !selectedFile || !newPhotoWeight.trim()}
                 className="flex-1"
               >
-                Subir Foto
+                {uploading ? "Subiendo…" : "Subir Foto"}
               </Button>
             </div>
           </div>

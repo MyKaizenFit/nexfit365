@@ -25,9 +25,14 @@ class AdminProgressService {
   async listWeightEntries(userId: string | number, headers: HeadersInit): Promise<AdminWeightEntry[]> {
     const res = await fetch(buildApiUrl(`admin/progress/users/${userId}/weight-history/`), {
       headers,
+      credentials: "include",
     })
     if (!res.ok) throw new Error(`Error ${res.status} al cargar historial de peso`)
-    return res.json()
+    const data = await res.json()
+    // DRF PageNumberPagination → { count, next, previous, results }
+    if (Array.isArray(data)) return data
+    if (data && Array.isArray(data.results)) return data.results
+    return []
   }
 
   async summary(userId: string | number, headers: HeadersInit): Promise<AdminWeightSummary> {

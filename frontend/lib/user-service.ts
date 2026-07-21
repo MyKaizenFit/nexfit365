@@ -6,6 +6,7 @@ import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 import { normalizePhotoFile } from './image-upload'
+import type { ProgressPhotoType } from '@/lib/progress-photo-types'
 
 // Importar tipos desde el archivo centralizado
 import type { User, UserProfile, UserStats } from '@/types/user'
@@ -18,7 +19,7 @@ export interface ProgressPhoto {
   thumbnail_url?: string  // El backend también devuelve 'thumbnail_url'
   weight?: number
   notes?: string
-  photo_type: 'front' | 'side' | 'back' | 'other'  // El backend usa 'other' en lugar de 'detail'
+  photo_type: ProgressPhotoType
   measurements?: any
   created_at: string
 }
@@ -265,8 +266,9 @@ export class UserService {
     file: File,
     weight?: number,
     notes?: string,
-    photoType: 'front' | 'back' | 'side' | 'other' = 'front',
-    date?: string
+    photoType: ProgressPhotoType = 'front',
+    date?: string,
+    idempotencyKey?: string,
   ): Promise<ProgressPhoto> {
     try {
       const authService = getAuthService()
@@ -301,16 +303,12 @@ export class UserService {
         formData.append('notes', notes.trim())
       }
 
-      // Log del FormData
-      for (let [key, value] of formData.entries()) {
-        if (value instanceof File) {
-        } else {
-        }
-      }
-
       // Preparar headers
-      const headers = {
+      const headers: Record<string, string> = {
         'Authorization': `Bearer ${token}`,
+      }
+      if (idempotencyKey) {
+        headers['Idempotency-Key'] = idempotencyKey
       }
 
 
@@ -364,12 +362,24 @@ export class UserService {
     files: File[],
     weight?: number,
     notes?: string,
-    photoType: 'front' | 'back' | 'side' | 'other' = 'front',
+    photoType: ProgressPhotoType = 'front',
     date?: string
   ): Promise<ProgressPhoto[]> {
+    const batchKey = typeof crypto !== 'undefined' && crypto.randomUUID
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random()}`
     const uploaded: ProgressPhoto[] = []
-    for (const file of files) {
-      uploaded.push(await this.uploadProgressPhoto(file, weight, notes, photoType, date))
+    for (let i = 0; i < files.length; i++) {
+      uploaded.push(
+        await this.uploadProgressPhoto(
+          files[i],
+          weight,
+          notes,
+          photoType,
+          date,
+          `${batchKey}-${i}`,
+        ),
+      )
     }
     return uploaded
   }

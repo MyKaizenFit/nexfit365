@@ -23,7 +23,7 @@ interface ProgressPhoto {
   id: string
   date: string
   url: string
-  type: "front" | "side" | "back" | "detail"
+  type: "front" | "back" | "left_side" | "right_side" | "side" | "other" | "detail"
   weight?: number
   notes?: string
   measurements?: {
@@ -120,12 +120,16 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
     switch (type) {
       case "front":
         return "Frontal"
-      case "side":
-        return "Lateral"
       case "back":
         return "Espalda"
+      case "left_side":
+        return "Lateral izquierdo"
+      case "right_side":
+        return "Lateral derecho"
+      case "side":
+      case "other":
       case "detail":
-        return "Detalle"
+        return "Sin clasificar"
       default:
         return type
     }
@@ -445,9 +449,9 @@ export function ProgressPhotosCarousel({ userId }: { userId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="front">Frontal</SelectItem>
-                  <SelectItem value="side">Lateral</SelectItem>
                   <SelectItem value="back">Espalda</SelectItem>
-                  <SelectItem value="detail">Detalle</SelectItem>
+                  <SelectItem value="left_side">Lateral izquierdo</SelectItem>
+                  <SelectItem value="right_side">Lateral derecho</SelectItem>
                 </SelectContent>
               </Select>
             </div>
