@@ -113,20 +113,21 @@ class WeightEntryModelTest(TestCase):
             )
             entry.full_clean()
     
-    def test_duplicates_same_date_are_allowed(self):
-        """El modelo actual permite entradas duplicadas en la misma fecha"""
+    def test_duplicates_same_date_are_rejected(self):
+        """UniqueConstraint: un solo peso por usuario y fecha"""
         WeightEntry.objects.create(
             user=self.user,
             weight=Decimal("75.0"),
             date=self.today
         )
-        WeightEntry.objects.create(
-            user=self.user,
-            weight=Decimal("74.8"),
-            date=self.today
-        )
+        with self.assertRaises(ValidationError):
+            WeightEntry.objects.create(
+                user=self.user,
+                weight=Decimal("74.8"),
+                date=self.today
+            )
 
-        self.assertEqual(WeightEntry.objects.filter(user=self.user, date=self.today).count(), 2)
+        self.assertEqual(WeightEntry.objects.filter(user=self.user, date=self.today).count(), 1)
     
     def test_str_representation(self):
         """Test la representación string del modelo"""

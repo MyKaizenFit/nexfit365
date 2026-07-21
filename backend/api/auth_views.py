@@ -26,6 +26,13 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiExample
 
 from .auth_serializers import EmailTokenObtainPairSerializer, UserRegistrationSerializer, PasswordChangeSerializer
+from .jwt_cookies import (
+    REFRESH_COOKIE,
+    clear_jwt_cookies,
+    set_jwt_cookies,
+    strip_tokens_from_body,
+    wants_cookie_session,
+)
 
 User = get_user_model()
 
@@ -143,7 +150,22 @@ class LoginView(TokenObtainPairView):
                     traceback.print_exc()
             else:
                 pass
-        
+
+            # HttpOnly cookies for browser clients (tokens also remain in JSON for scripts).
+            access = response.data.get("access")
+            refresh = response.data.get("refresh")
+            if access and refresh:
+                remember = bool(request.data.get("remember_me", True))
+                csrf = set_jwt_cookies(
+                    response,
+                    access=access,
+                    refresh=refresh,
+                    remember=remember,
+                )
+                response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
+
         return response
 
 
@@ -171,10 +193,37 @@ class RefreshView(TokenRefreshView):
     def post(self, request, *args, **kwargs):
         from .jwt_blacklist_recovery import call_with_jwt_blacklist_recovery
 
+        payload = {}
+        try:
+            payload = dict(request.data)
+        except Exception:
+            payload = {}
+        refresh = payload.get("refresh") or request.COOKIES.get(REFRESH_COOKIE)
+        if not refresh:
+            return Response(
+                {"detail": "No refresh token provided.", "code": "token_not_provided"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        request._full_data = {**payload, "refresh": refresh}
+
         def execute_refresh():
             return super(RefreshView, self).post(request, *args, **kwargs)
 
-        return call_with_jwt_blacklist_recovery(execute_refresh)
+        response = call_with_jwt_blacklist_recovery(execute_refresh)
+        if getattr(response, "status_code", None) == 200 and hasattr(response, "data"):
+            access = response.data.get("access")
+            new_refresh = response.data.get("refresh") or refresh
+            if access and new_refresh:
+                csrf = set_jwt_cookies(
+                    response,
+                    access=access,
+                    refresh=new_refresh,
+                    remember=True,
+                )
+                response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
+        return response
 
 
 @extend_schema(
@@ -204,16 +253,28 @@ class LogoutView(APIView):
     authentication_classes = ()
 
     def post(self, request):
-        refresh = request.data.get("refresh")
+        refresh = request.data.get("refresh") or request.COOKIES.get(REFRESH_COOKIE)
         if not refresh:
-            return Response({"detail": "refresh token requerido"}, status=status.HTTP_400_BAD_REQUEST)
+            response = Response(
+                {"detail": "refresh token requerido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            clear_jwt_cookies(response)
+            return response
         try:
             token = RefreshToken(refresh)
             token.blacklist()
         except Exception:
-            return Response({"detail": "token inválido"}, status=status.HTTP_400_BAD_REQUEST)
+            response = Response(
+                {"detail": "token inválido"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+            clear_jwt_cookies(response)
+            return response
         # 205 Reset Content: indica al cliente que restablezca el estado de la vista
-        return Response(status=status.HTTP_205_RESET_CONTENT)
+        response = Response(status=status.HTTP_205_RESET_CONTENT)
+        clear_jwt_cookies(response)
+        return response
 
 
 @extend_schema(
@@ -295,7 +356,9 @@ class RegisterView(APIView):
                 requested_role = str(request.data.get("role", "")).lower()
                 response_role = "member" if requested_role == "member" else user.role
 
-                return Response({
+                access = str(refresh.access_token)
+                refresh_str = str(refresh)
+                response = Response({
                     "detail": "Usuario registrado exitosamente",
                     "user": {
                         "id": str(user.id),
@@ -305,15 +368,23 @@ class RegisterView(APIView):
                         "role": response_role,
                         "is_active": user.is_active,
                     },
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh)
+                    "access": access,
+                    "refresh": refresh_str,
                 }, status=status.HTTP_201_CREATED)
-            except Exception as e:
-                import traceback
-                error_trace = traceback.format_exc()
+                csrf = set_jwt_cookies(
+                    response,
+                    access=access,
+                    refresh=refresh_str,
+                    remember=True,
+                )
+                response.data["csrf"] = csrf
+                if wants_cookie_session(request):
+                    strip_tokens_from_body(response)
+                return response
+            except Exception:
+                logger.exception("Error al crear usuario en registro público")
                 return Response({
                     "detail": "Error al crear usuario",
-                    "error": str(e)
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db import DatabaseError
+from django.db import DatabaseError, transaction
+from django.db import models as django_db_models
 import logging
 import uuid
 from drf_spectacular.utils import extend_schema, OpenApiExample
@@ -24,6 +25,7 @@ from .serializers import (
     WorkoutLogSerializer, WorkoutLogExerciseSerializer, WorkoutLogSetSerializer
 )
 from accounts.streaks import get_user_activity_streak
+from accounts.permissions import IsAdminOrStaff
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +41,12 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     filterset_fields = ['category', 'difficulty', 'is_system']
     ordering_fields = ['name', 'created_at']
     ordering = ['name']
+
+    def get_permissions(self):
+        # Members may read the catalog; only staff may mutate it.
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAdminOrStaff()]
+        return [IsAuthenticated()]
 
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -125,6 +133,36 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_system', 'is_template', 'is_active']
     ordering_fields = ['name', 'created_at']
     ordering = ['-created_at']
+
+    def _is_staff_user(self) -> bool:
+        user = self.request.user
+        role = str(getattr(user, "role", "") or "").lower()
+        return bool(user.is_staff or user.is_superuser or role == "admin")
+
+    def _can_mutate_program(self, program) -> bool:
+        if self._is_staff_user():
+            return True
+        if program.is_system or program.is_template:
+            return False
+        return program.user_id == self.request.user.id
+
+    def update(self, request, *args, **kwargs):
+        program = self.get_object()
+        if not self._can_mutate_program(program):
+            return Response(
+                {'detail': 'No tienes permiso para modificar este programa.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        program = self.get_object()
+        if not self._can_mutate_program(program):
+            return Response(
+                {'detail': 'No tienes permiso para eliminar este programa.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):
@@ -439,36 +477,49 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
             return Response({'error': 'workout_day es requerido'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            workout_day = WorkoutDay.objects.get(id=workout_day_id)
+            workout_day = WorkoutDay.objects.select_related('program').get(id=workout_day_id)
         except WorkoutDay.DoesNotExist:
             return Response({'error': 'Día de entrenamiento no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
 
-        log_date = request.data.get('date') or timezone.localdate()
-        log, _created = WorkoutLog.objects.get_or_create(
-            user=request.user,
-            workout_day=workout_day,
-            date=log_date,
-            defaults={'completed': False},
-        )
+        program = workout_day.program
+        if program is None or program.user_id != request.user.id:
+            return Response(
+                {'detail': 'No tienes permiso para registrar este día de entrenamiento.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
+        log_date = request.data.get('date') or timezone.localdate()
         requested_completed = (
             self._parse_bool(request.data.get('completed'))
             if 'completed' in request.data
             else None
         )
-        if log.completed and requested_completed is False:
-            # Ignore a delayed draft autosave in full so it cannot replace the
-            # final duration, notes or exercise data either.
-            return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
-        for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
-            if field in request.data:
-                setattr(log, field, request.data.get(field))
+        with transaction.atomic():
+            log, _created = WorkoutLog.objects.get_or_create(
+                user=request.user,
+                workout_day=workout_day,
+                date=log_date,
+                defaults={'completed': False},
+            )
+            # Re-lock so a concurrent finish is visible before we write.
+            log = WorkoutLog.objects.select_for_update().get(pk=log.pk)
 
-        if requested_completed is not None:
-            log.completed = log.completed or requested_completed
+            if log.completed and requested_completed is not True:
+                # Ignore delayed draft autosaves (completed omitted or false) so they
+                # cannot replace the final duration, notes or exercise data.
+                return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
-        log.save()
+            for field in ['notes', 'duration_minutes', 'rating', 'exercises_data', 'calories_burned', 'average_heart_rate']:
+                if field in request.data:
+                    setattr(log, field, request.data.get(field))
+
+            if requested_completed is not None:
+                # Never lower completed once true.
+                log.completed = log.completed or requested_completed
+
+            log.save()
+
         return Response({'log': WorkoutLogSerializer(log).data}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=['get'], url_path='check_today')
@@ -752,6 +803,11 @@ class WorkoutPlanTemplateViewSet(viewsets.ModelViewSet):
     filterset_fields = ['difficulty', 'goal', 'location', 'is_active']
     ordering_fields = ['name', 'created_at']
     ordering = ['-created_at']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAdminOrStaff()]
+        return [IsAuthenticated()]
     
     def get_queryset(self):
         if getattr(self, "swagger_fake_view", False):

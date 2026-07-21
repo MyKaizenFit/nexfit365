@@ -341,7 +341,8 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
     try {
       const url = buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}export-csv/`)
       const headers = getAuthHeaders()
-      const response = await fetch(url, { method: 'GET', headers })
+      const response = await fetch(url, {
+        credentials: 'include', method: 'GET', headers })
       if (!response.ok) throw new Error('Error al exportar')
       const blob = await response.blob()
       const objectUrl = URL.createObjectURL(blob)
@@ -360,7 +361,8 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
     try {
       const url = buildApiUrl(`${CONFIGURATION_ENDPOINTS.DEFAULT_PLAN_CONFIGURATIONS}export-excel/`)
       const headers = getAuthHeaders()
-      const response = await fetch(url, { method: 'GET', headers })
+      const response = await fetch(url, {
+        credentials: 'include', method: 'GET', headers })
       if (!response.ok) throw new Error('Error al exportar')
       const blob = await response.blob()
       const objectUrl = URL.createObjectURL(blob)
@@ -384,7 +386,8 @@ export function DefaultPlanConfigurationsPanelV2(): JSX.Element {
       const headers = getAuthHeaders()
       const formData = new FormData()
       formData.append('file', importFile)
-      const response = await fetch(url, { method: 'POST', headers, body: formData })
+      const response = await fetch(url, {
+        credentials: 'include', method: 'POST', headers, body: formData })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Error al importar')
       toast({ title: data.message || 'Importación completada' })

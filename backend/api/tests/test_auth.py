@@ -64,12 +64,41 @@ class TestUserRegistration:
         assert "user" in response.data
         assert response.data["user"]["email"] == user_data["email"]
         assert response.data["user"]["first_name"] == user_data["first_name"]
-        assert response.data["user"]["role"] == user_data["role"]
+        # RegisterView may echo "member" when requested; DB role is always basic.
+        assert response.data["user"]["role"] in ("member", "basic")
         
         # Verificar que el usuario se creó en la base de datos
         user = User.objects.get(email=user_data["email"])
         assert user.check_password(user_data["password"])
         assert user.is_active is True
+        assert user.role == "basic"
+
+    def test_register_cannot_self_assign_admin(self, api_client, user_data):
+        """Public registration must reject self-assigned admin role."""
+        user_data = {**user_data, "email": "evil-admin@example.com", "role": "admin"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
+
+    def test_register_cannot_self_assign_premium(self, api_client, user_data):
+        """Public registration must reject self-assigned premium role."""
+        user_data = {**user_data, "email": "evil-premium@example.com", "role": "premium"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
+
+    def test_register_cannot_self_assign_pro(self, api_client, user_data):
+        """Public registration must reject self-assigned pro role."""
+        user_data = {**user_data, "email": "evil-pro@example.com", "role": "pro"}
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "role" in response.data
+        assert not User.objects.filter(email=user_data["email"]).exists()
 
     def test_register_user_duplicate_email(self, api_client, user_data):
         """Test de registro con email duplicado"""
@@ -116,6 +145,25 @@ class TestUserRegistration:
         assert "email" in response.data
         assert "password" in response.data
 
+    def test_register_create_failure_does_not_leak_exception(self, api_client, user_data, monkeypatch):
+        """500 on create must not echo internal exception text to the client."""
+        from api import auth_serializers
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("SENSITIVE_INTERNAL_DETAIL_xyz")
+
+        monkeypatch.setattr(
+            auth_serializers.UserRegistrationSerializer,
+            "save",
+            boom,
+        )
+        url = reverse("auth-register")
+        response = api_client.post(url, user_data)
+        assert response.status_code == status.HTTP_500_INTERNAL_SERVER_ERROR
+        assert response.data.get("detail") == "Error al crear usuario"
+        assert "error" not in response.data
+        assert "SENSITIVE_INTERNAL_DETAIL_xyz" not in str(response.data)
+
 
 @pytest.mark.django_db
 class TestUserLogin:
@@ -133,6 +181,78 @@ class TestUserLogin:
         assert response.status_code == status.HTTP_200_OK
         assert "access" in response.data
         assert "refresh" in response.data
+
+    def test_login_sets_httponly_cookies(self, api_client, regular_user):
+        url = reverse("auth-login")
+        response = api_client.post(
+            url,
+            {"email": "user@example.com", "password": "UserPass123!"},
+            HTTP_X_AUTH_MODE="cookie",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "csrf" in response.data
+        assert "access" not in response.data
+        assert "refresh" not in response.data
+        assert "accessToken" in response.cookies
+        assert response.cookies["accessToken"]["httponly"] is True
+        assert "refreshToken" in response.cookies
+        assert response.cookies["refreshToken"]["httponly"] is True
+        assert "csrfToken" in response.cookies
+
+    def test_login_without_cookie_mode_keeps_tokens_in_body(self, api_client, regular_user):
+        url = reverse("auth-login")
+        response = api_client.post(
+            url,
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        assert "refresh" in response.data
+        assert "accessToken" in response.cookies
+
+    def test_cookie_auth_authenticated_me(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        assert login.status_code == status.HTTP_200_OK
+        api_client.credentials()  # clear any forced auth
+        api_client.cookies = login.cookies
+        me = api_client.get(reverse("me"))
+        assert me.status_code == status.HTTP_200_OK
+
+    def test_refresh_from_cookie_without_body(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        api_client.cookies = login.cookies
+        csrf = login.data.get("csrf") or login.cookies.get("csrfToken").value
+        response = api_client.post(
+            reverse("auth-refresh"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+
+    def test_logout_clears_cookies(self, api_client, regular_user):
+        login = api_client.post(
+            reverse("auth-login"),
+            {"email": "user@example.com", "password": "UserPass123!"},
+        )
+        api_client.cookies = login.cookies
+        csrf = login.data.get("csrf") or login.cookies.get("csrfToken").value
+        response = api_client.post(
+            reverse("auth-logout"),
+            {},
+            format="json",
+            HTTP_X_CSRFTOKEN=csrf,
+        )
+        assert response.status_code == status.HTTP_205_RESET_CONTENT
+        # Cleared cookies are typically max-age=0 / empty
+        assert "accessToken" in response.cookies
 
     def test_login_normalizes_email_case_and_spaces(self, api_client, regular_user):
         """Test de login tolerante a mayúsculas/autocapitalización móvil"""

@@ -91,6 +91,7 @@ export function UserNutritionPlanManagement() {
       setLoading(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/users/'), {
+        credentials: 'include',
         headers
       })
       
@@ -113,6 +114,7 @@ export function UserNutritionPlanManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/nutrition/default-plans/'), {
+        credentials: 'include',
         headers
       })
       
@@ -130,6 +132,7 @@ export function UserNutritionPlanManagement() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('admin/nutrition/change-user-plan/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -197,6 +200,7 @@ export function UserNutritionPlanManagement() {
       }
 
       const response = await fetch(buildApiUrl('admin/nutrition/bulk-change-plans/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,

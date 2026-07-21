@@ -56,12 +56,13 @@ const setInitialRegistrationCookie = (completed: boolean) => {
   }
 }
 
-const syncInitialRegistrationStatus = async (accessToken: string): Promise<boolean> => {
+const syncInitialRegistrationStatus = async (): Promise<boolean> => {
   const response = await fetch(buildApiUrl(USER_ENDPOINTS.INITIAL_REGISTRATION_STATUS), {
     method: 'GET',
+    credentials: 'include',
     headers: {
       'Accept': 'application/json; charset=utf-8',
-      'Authorization': `Bearer ${accessToken}`,
+      ...buildAuthRequestHeaders(),
     },
   })
 
@@ -299,9 +300,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 100))
         window.location.href = '/admin'
       } else {
-        const accessToken = authService.getAccessToken()
-        const formCompleted = accessToken
-          ? await syncInitialRegistrationStatus(accessToken)
+        const formCompleted = authService.isAuthenticated()
+          ? await syncInitialRegistrationStatus()
           : localStorage.getItem('initial_form_completed') === 'true'
 
         if (!formCompleted) {
@@ -436,6 +436,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       !authService.getOfflineMode()
     ) {
       void fetch(buildApiUrl(AUTH_ENDPOINTS.LOGOUT), {
+        credentials: 'include',
         method: 'POST',
         headers: buildAuthRequestHeaders(accessTokenToRevoke || undefined),
         body: JSON.stringify({ refresh: refreshTokenToRevoke }),
@@ -605,20 +606,25 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
-  // Obtener headers de autenticación
+  // Headers para callers legacy: cookies HttpOnly + CSRF (Bearer solo si hay token en memoria)
   const getAuthHeaders = async (): Promise<HeadersInit> => {
     try {
       const authService = getAuthService()
-      let accessToken = authService.getAccessToken()
-      if (!accessToken) {
-        const refreshResult = authService.hasRefreshToken()
-          ? await authService.refreshAccessTokenDeduped()
-          : { success: false }
-
-        if (refreshResult.success && refreshResult.newToken) {
-          accessToken = refreshResult.newToken
+      if (!authService.isAuthenticated() && !authService.getAccessToken()) {
+        if (authService.hasRefreshToken()) {
+          const refreshResult = await authService.refreshAccessTokenDeduped()
+          if (!refreshResult.success) {
+            setState({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: null,
+              mustChangePassword: false,
+            })
+            router.push('/auth')
+            throw new Error('No hay sesión de acceso disponible')
+          }
         } else {
-          // Si no hay token, no dejar al usuario en un estado inconsistente (pantallas protegidas sin sesión real)
           setState({
             user: null,
             isAuthenticated: false,
@@ -627,20 +633,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             mustChangePassword: false,
           })
           router.push('/auth')
-          throw new Error('No hay token de acceso disponible')
+          throw new Error('No hay sesión de acceso disponible')
         }
       }
 
-      // Si el token está expirado o próximo a expirar, refrescarlo antes de usarlo
       if (authService.needsTokenRefresh()) {
-        const result = await authService.refreshAccessTokenDeduped()
-        if (result.success && result.newToken) {
-          accessToken = result.newToken
-        }
+        await authService.refreshAccessTokenDeduped()
       }
 
       return {
-        'Authorization': `Bearer ${accessToken}`,
+        ...buildAuthRequestHeaders(authService.getAccessToken() || undefined),
         'Content-Type': 'application/json',
       }
     } catch (error) {

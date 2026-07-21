@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { ExerciseVideoPlayer } from './exercise-video-player'
 import { getExerciseCoverUrl } from '@/lib/exercise-media'
+import { todayLocalDate } from '@/lib/local-date'
 import { ActiveWorkoutSession } from './active-workout-session'
 import { toast } from '@/hooks/use-toast'
 import { useWorkouts } from '@/hooks/use-workouts'
@@ -55,7 +56,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
   // Verificar si es día de descanso
   const isRestDay = !isTrainingDay || (todaysWorkout?.is_rest_day ?? false)
 
-  const todayIso = useMemo(() => new Date().toISOString().split('T')[0], [])
+  const todayIso = useMemo(() => todayLocalDate(), [])
   const substituteStorageKey = todaysWorkout?.id
     ? `workout_substitutes_${todaysWorkout.id}_${todayIso}`
     : null

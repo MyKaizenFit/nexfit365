@@ -386,12 +386,14 @@ export const WorkoutTemplatePlanEditor = forwardRef<
 
   const fetchJsonWithAuth = useCallback(async (url: string) => {
     let headers = await getAuthHeaders()
-    let res = await fetch(buildApiUrl(url), { headers, cache: 'no-store' })
+    let res = await fetch(buildApiUrl(url), {
+        credentials: 'include', headers, cache: 'no-store' })
     if (res.status === 401) {
       const newHeaders = await handle401AndRefresh(getAuthHeaders)
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
-      res = await fetch(buildApiUrl(url), { headers, cache: 'no-store' })
+      res = await fetch(buildApiUrl(url), {
+        credentials: 'include', headers, cache: 'no-store' })
     }
     if (!res.ok) throw new Error(`Error ${res.status}`)
     return await res.json()
@@ -400,6 +402,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const patchJsonWithAuth = useCallback(async (url: string, body: any) => {
     let headers = await getAuthHeaders()
     let res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
       method: "PATCH",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -410,6 +413,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -426,6 +430,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
   const postJsonWithAuth = useCallback(async (url: string, body: any) => {
     let headers = await getAuthHeaders()
     let res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
       method: "POST",
       headers: { ...headers, "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -435,6 +440,7 @@ export const WorkoutTemplatePlanEditor = forwardRef<
       if (!newHeaders) throw new Error("Sesión expirada")
       headers = newHeaders
       res = await fetch(buildApiUrl(url), {
+        credentials: 'include',
         method: "POST",
         headers: { ...headers, "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -40,6 +40,7 @@ export function useFeedback() {
       setError(null)
 
       const response = await fetch(buildApiUrl('/feedback/'), {
+        credentials: 'include',
         method: 'GET',
         headers: {
           ...getAuthHeaders(),
@@ -76,6 +77,7 @@ export function useFeedback() {
       setSuccess(null)
 
       const response = await fetch(buildApiUrl('/feedback/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...getAuthHeaders(),

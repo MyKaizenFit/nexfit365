@@ -84,16 +84,18 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate_role(self, value):
+        # Public registration must not accept elevated roles.
+        # Only basic/member aliases are allowed; create() always forces basic.
         normalized = str(value or "").strip().lower()
         role_map = {
             "member": "basic",
             "basic": "basic",
-            "pro": "pro",
-            "premium": "premium",
-            "admin": "admin",
+            "": "basic",
         }
         if normalized not in role_map:
-            raise serializers.ValidationError("Rol inválido")
+            raise serializers.ValidationError(
+                "No se puede asignar este rol en el registro público"
+            )
         return role_map[normalized]
 
     def validate(self, attrs):
@@ -105,18 +107,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        """Crear el usuario"""
+        """Crear el usuario — siempre con role basic (registro público)."""
         validated_data.pop("password_confirm")
         validated_data["email"] = validated_data["email"].lower()
-        
+        # Defense in depth: ignore any client-supplied role.
+        validated_data.pop("role", None)
+
         user = User.objects.create_user(
             email=validated_data["email"],
             password=validated_data["password"],
             first_name=validated_data.get("first_name", ""),
             last_name=validated_data.get("last_name", ""),
-            role=validated_data.get("role", "basic")
+            role="basic",
         )
-        
+
         return user
 
 

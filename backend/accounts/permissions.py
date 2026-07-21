@@ -57,8 +57,8 @@ class IsOwnerOrTrainer(permissions.BasePermission):
             if obj.user == request.user:
                 return True
         
-        # Los entrenadores pueden acceder a usuarios asignados
-        if request.user.role in ['TRAINER', 'trainer', 'pro']:
+        # Coach/trainer roles only — never treat paid tier `pro` as staff.
+        if request.user.role in ['TRAINER', 'trainer']:
             # Por ahora, permitimos acceso a usuarios con rol 'basic' (antes 'MEMBER')
             if hasattr(obj, 'user') and obj.user.role in ['basic', 'MEMBER', 'member']:
                 return True
@@ -141,7 +141,7 @@ class UserProfilePermission(permissions.BasePermission):
             return True
         
         # Los entrenadores pueden ver perfiles de usuarios asignados
-        if request.user.role in ['TRAINER', 'trainer', 'pro'] and obj.role in ['basic', 'MEMBER', 'member']:
+        if request.user.role in ['TRAINER', 'trainer'] and obj.role in ['basic', 'MEMBER', 'member']:
             return True
         
         return False

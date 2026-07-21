@@ -358,6 +358,29 @@ class TestAdminUsersEndpoints:
         assert member_user.training_days == [1, 2, 5]
         assert member_user.training_days_per_week == 3
 
+    def test_admin_users_cannot_self_elevate_superuser(self, api_client, admin_user, member_user):
+        """Staff PATCH must not flip is_superuser / is_staff via AdminUserSerializer."""
+        staff_only = User.objects.create_user(
+            email="staffonly@test.com",
+            password="testpass123",
+            role="admin",
+            is_staff=True,
+            is_superuser=False,
+        )
+        api_client.force_authenticate(user=staff_only)
+        url = reverse("admin-users-detail", kwargs={"pk": staff_only.pk})
+
+        response = api_client.patch(
+            url,
+            {"is_superuser": True, "is_staff": True, "first_name": "Escalated"},
+            format="json",
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        staff_only.refresh_from_db()
+        assert staff_only.is_superuser is False
+        assert staff_only.first_name == "Escalated"
+
     def test_admin_users_stats(self, api_client, admin_user):
         api_client.force_authenticate(user=admin_user)
         url = reverse("admin-users-stats")

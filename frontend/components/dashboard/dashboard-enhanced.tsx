@@ -109,6 +109,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     const checkBirthday = async () => {
       try {
         const response = await fetch(buildApiUrl("notifications/birthday_status/"), {
+        credentials: 'include',
           headers: getAuthHeaders(),
         })
         if (!response.ok) return

@@ -278,7 +278,8 @@ export const ProfilePanel = memo(function ProfilePanel() {
     setGdprLoading(true)
     try {
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl('gdpr/export/'), { headers })
+      const response = await fetch(buildApiUrl('gdpr/export/'), {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error('Error exportando datos')
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
@@ -301,6 +302,7 @@ export const ProfilePanel = memo(function ProfilePanel() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl('gdpr/delete/'), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: '' }),

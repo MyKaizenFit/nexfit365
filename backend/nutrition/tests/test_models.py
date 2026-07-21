@@ -348,8 +348,60 @@ class MealLogModelTest(TestCase):
         self.assertEqual(meal_log.meal_type, "breakfast")
         self.assertEqual(meal_log.calories, 500)
 
+    def test_unique_free_log_per_user_date_meal_type(self):
+        from django.db import IntegrityError, transaction
 
-class NutritionPlanHistoryTest(TestCase):
+        MealLog.objects.create(
+            user=self.user,
+            date=date.today(),
+            meal_type="breakfast",
+            calories=400,
+        )
+        with self.assertRaises(IntegrityError):
+            with transaction.atomic():
+                MealLog.objects.create(
+                    user=self.user,
+                    date=date.today(),
+                    meal_type="breakfast",
+                    calories=450,
+                )
+        self.assertEqual(
+            MealLog.objects.filter(
+                user=self.user, date=date.today(), meal_type="breakfast", plan_meal__isnull=True
+            ).count(),
+            1,
+        )
+
+    def test_plan_meal_slots_can_share_meal_type(self):
+        plan = NutritionPlan.objects.create(
+            user=self.user,
+            name="Plan test",
+            daily_calories=2000,
+        )
+        slot_a = PlanMeal.objects.create(
+            plan=plan, meal_type="breakfast", name="Desayuno", order_index=1
+        )
+        slot_b = PlanMeal.objects.create(
+            plan=plan, meal_type="breakfast", name="Bebida", order_index=2
+        )
+        MealLog.objects.create(
+            user=self.user,
+            date=date.today(),
+            meal_type="breakfast",
+            plan_meal=slot_a,
+            calories=300,
+        )
+        MealLog.objects.create(
+            user=self.user,
+            date=date.today(),
+            meal_type="breakfast",
+            plan_meal=slot_b,
+            calories=50,
+        )
+        self.assertEqual(
+            MealLog.objects.filter(user=self.user, date=date.today(), meal_type="breakfast").count(),
+            2,
+        )
     """Tests para el modelo NutritionPlanHistory"""
     
     def setUp(self):

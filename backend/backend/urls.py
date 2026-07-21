@@ -6,7 +6,7 @@ from api.views import health, public_health
 from nutrition.views import list_recipes
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.static import serve
+from progress.media_views import serve_media_with_progress_guard
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -45,13 +45,11 @@ urlpatterns = [
     path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="docs"),
 ]
 
-# Servir archivos media (funciona tanto en DEBUG como en producción)
-# En producción sin nginx, Django sirve los archivos media directamente
-# Si tienes nginx configurado como proxy reverso, nginx debería interceptar estas rutas
+# Servir archivos media (funciona tanto en DEBUG como en producción).
+# progress_photos/* requiere URL firmada (/api/progress/protected-media/).
+# exercises/videos y resto de media no-PII siguen públicos.
 urlpatterns += [
-    re_path(r'^media/(?P<path>.*)$', serve, {
-        'document_root': settings.MEDIA_ROOT,
-    }),
+    re_path(r'^media/(?P<path>.*)$', serve_media_with_progress_guard),
 ]
 
 # Servir archivos estáticos en DEBUG

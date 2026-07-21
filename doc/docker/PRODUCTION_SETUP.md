@@ -147,10 +147,10 @@ REDIS_PASSWORD=TU_CONTRASEÑA_REDIS_AQUI
 ```
 
 **⚠️ IMPORTANTE:** Este archivo es **CRÍTICO** porque:
-- Docker Compose resuelve `${POSTGRES_PASSWORD}` y `${REDIS_PASSWORD}` **ANTES** de arrancar contenedores
-- Se lee desde la raíz del proyecto, NO desde `env_file` de otros servicios
-- Los servicios `db`, `db-backup` y `redis` dependen de estas variables
-- **DEBE existir** antes de ejecutar `docker compose`
+- Docker Compose puede resolver `${POSTGRES_PASSWORD}` del `.env` / `.env.production` del host
+- El servicio `redis` de prod lee `REDIS_PASSWORD` desde `docker/backend.env.production` (`env_file`) y arranca con `--requirepass`
+- Django/Celery deben usar `REDIS_URL=redis://:PASSWORD@nexfit-pro-redis:6379/0` en el mismo env file (compose ya no sobrescribe `REDIS_URL` sin password)
+- **DEBE existir** `docker/backend.env.production` con `REDIS_PASSWORD` antes de `docker compose up`
 
 #### 1.2. Configurar `docker/backend.env.production`:
 ```bash

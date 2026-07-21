@@ -75,6 +75,7 @@ export function useAdminUserDetail(userId: string | number) {
       
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         headers
       })
 
@@ -112,6 +113,7 @@ export function useAdminUserDetail(userId: string | number) {
       
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: {
           ...headers,

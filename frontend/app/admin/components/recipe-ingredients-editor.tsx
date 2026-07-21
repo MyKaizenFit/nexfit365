@@ -170,7 +170,8 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const headers = await getAuthHeaders()
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/`,
-        { headers }
+        {
+        credentials: 'include', headers }
       )
       
       if (response.ok) {
@@ -212,7 +213,8 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const headers = await getAuthHeaders()
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/foods/?search=${encodeURIComponent(query)}&page_size=20`,
-        { headers }
+        {
+        credentials: 'include', headers }
       )
       
       if (response.ok) {
@@ -244,6 +246,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/`,
         {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,
@@ -281,6 +284,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/${ingredientId}/`,
         {
+        credentials: 'include',
           method: 'PATCH',
           headers: {
             ...headers,
@@ -305,6 +309,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/${ingredientId}/`,
         {
+        credentials: 'include',
           method: 'PATCH',
           headers: {
             ...headers,
@@ -331,6 +336,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
           fetch(
             `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/${ingredient.id}/`,
             {
+        credentials: 'include',
               method: 'PATCH',
               headers: {
                 ...headers,
@@ -353,6 +359,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/ingredients/${ingredientId}/`,
         {
+        credentials: 'include',
           method: 'DELETE',
           headers
         }
@@ -376,6 +383,7 @@ export function RecipeIngredientsEditor({ recipe, isOpen, onClose, onUpdate }: R
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/recipes/${recipe.id}/recalculate_macros/`,
         {
+        credentials: 'include',
           method: 'POST',
           headers
         }

@@ -6,6 +6,7 @@ import { nutritionService, MealOption, MealLog } from '@/lib/nutrition-service'
 import { dailyMealSelectionsService } from '@/lib/daily-meal-selections-service'
 import { useNutrition } from '@/hooks/use-nutrition'
 import { getAuthHeaders, buildApiUrl } from '@/lib/api'
+import { todayLocalDate } from '@/lib/local-date'
 
 interface DailyMeal {
   id: string
@@ -334,7 +335,7 @@ export function useDailyMeals() {
   // Guardar selecciones en localStorage como backup
   const saveSelectionsToStorage = useCallback((meals: DailyMeal[]) => {
     if (typeof window !== 'undefined') {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const selections = meals.reduce((acc, meal) => {
         if (meal.selectedOption) {
           acc[meal.id] = {
@@ -353,7 +354,7 @@ export function useDailyMeals() {
   // Cargar selecciones desde localStorage como backup
   const loadSelectionsFromStorage = useCallback((meals: DailyMeal[]) => {
     if (typeof window !== 'undefined') {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const stored = localStorage.getItem(`meal-selections-${today}`)
       
       if (stored) {
@@ -416,7 +417,7 @@ export function useDailyMeals() {
     setTimeout(async () => {
       try {
         setSyncing(true)
-        const today = new Date().toISOString().split('T')[0]
+        const today = todayLocalDate()
 
         // Encontrar la comida seleccionada (dinámico: viene del plan)
         const meal = meals.find(m => m.id === mealId)
@@ -455,6 +456,7 @@ export function useDailyMeals() {
             
             
             const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
               headers: {
                 ...headers,
                 'Content-Type': 'application/json; charset=utf-8'
@@ -500,7 +502,7 @@ export function useDailyMeals() {
 
     try {
       setSyncing(true)
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const headers = await getAuthHeaders()
       const params = new URLSearchParams({ date: today })
       if (meal.id && !String(meal.id).startsWith('meal-')) {
@@ -510,6 +512,7 @@ export function useDailyMeals() {
       }
 
       await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?${params.toString()}`, {
+        credentials: 'include',
         headers,
         method: 'DELETE',
       })
@@ -523,6 +526,7 @@ export function useDailyMeals() {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })
@@ -649,11 +653,12 @@ export function useDailyMeals() {
 
     // Actualizar en el backend
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const mealType = meal.mealType
       if (mealType) {
         const headers = await getAuthHeaders()
         const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
           headers,
           method: 'POST',
           body: JSON.stringify({
@@ -679,6 +684,7 @@ export function useDailyMeals() {
             // Cargar estado de completado desde el backend
             const headers = await getAuthHeaders()
             const statusResponse = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${today}`, {
+        credentials: 'include',
               headers,
               method: 'GET',
             })
@@ -747,6 +753,7 @@ export function useDailyMeals() {
       try {
         const headers = await getAuthHeaders()
         const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        credentials: 'include',
           headers,
           method: 'GET',
         })
@@ -820,7 +827,7 @@ export function useDailyMeals() {
     if (!meal || !meal.mealType) return false
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const headers = await getAuthHeaders()
       const formData = new FormData()
 
@@ -858,6 +865,7 @@ export function useDailyMeals() {
       formData.append('photo', photoFile)
 
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || '',
@@ -898,7 +906,7 @@ export function useDailyMeals() {
     if (!meal || !meal.mealType || !meal.selectedOption) return false
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const headers = await getAuthHeaders()
       const payload: Record<string, any> = {
         date: today,
@@ -922,6 +930,7 @@ export function useDailyMeals() {
       }
 
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+        credentials: 'include',
         headers: {
           ...headers,
           'Content-Type': 'application/json; charset=utf-8'
@@ -1034,7 +1043,7 @@ export function useDailyMeals() {
     
     const loadData = async () => {
       try {
-        const today = new Date().toISOString().split('T')[0]
+        const today = todayLocalDate()
         // Primero cargar opciones del plan (solo slots del día)
         const loadedSlots = await loadPlanMealOptions(today)
         
@@ -1134,7 +1143,7 @@ export function useDailyMeals() {
     if (isAuthenticated) {
       setLoading(true)
       try {
-        const today = new Date().toISOString().split('T')[0]
+        const today = todayLocalDate()
         const loadedSlots = await loadPlanMealOptions(today)
         const dailyMeals = generateDailyMeals(loadedSlots)
         
@@ -1155,7 +1164,7 @@ export function useDailyMeals() {
         // Sincronizar localStorage
         saveSelectionsToStorage(mealsWithSelections)
       } catch (error) {
-        const today = new Date().toISOString().split('T')[0]
+        const today = todayLocalDate()
         const loadedSlots = await loadPlanMealOptions(today).catch(() => planMealSlots)
         const dailyMeals = generateDailyMeals(loadedSlots)
         const mealsWithLocalSelections = loadSelectionsFromStorage(dailyMeals)

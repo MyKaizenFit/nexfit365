@@ -51,8 +51,12 @@ export default function HomePage() {
     try {
       const authService = getAuthService()
       const accessToken = authService.getAccessToken()
-      const payload = parseJwtPayload(accessToken)
-      isAdmin = isAdminJwtPayload(payload)
+      if (accessToken) {
+        const payload = parseJwtPayload(accessToken)
+        isAdmin = isAdminJwtPayload(payload)
+      } else if (typeof document !== 'undefined') {
+        isAdmin = document.cookie.split(';').some((c) => c.trim() === 'nf_is_admin=1')
+      }
     } catch {
       // Ignorar: si falla token, caemos al chequeo por user
     }

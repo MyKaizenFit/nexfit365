@@ -33,17 +33,21 @@ const adminOnlyRoutes = [
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Obtener token de autenticación desde cookies
+  // Prefer JWT cookie (HttpOnly, readable by middleware). Fall back to session markers.
   const accessToken = request.cookies.get('accessToken')?.value
   const refreshToken = request.cookies.get('refreshToken')?.value
+  const sessionMarker = request.cookies.get('nf_session')?.value === '1'
   const accessPayload = parseJwtPayload(accessToken)
-  const hasUsableAccessToken = Boolean(accessToken && accessPayload && !isJwtExpired(accessPayload))
+  const hasUsableAccessToken = Boolean(
+    (accessToken && accessPayload && !isJwtExpired(accessPayload)) || sessionMarker
+  )
+  const adminFromMarker = request.cookies.get('nf_is_admin')?.value === '1'
 
   // Si el usuario ya está autenticado, no permitir acceso a la home (/)
   // y redirigir según su rol (admin -> /admin, usuario -> /dashboard o /initial-registration).
   if (pathname === '/' && hasUsableAccessToken) {
     try {
-      const isAdmin = isAdminJwtPayload(accessPayload)
+      const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
 
       if (isAdmin) {
         return NextResponse.redirect(new URL('/admin', request.url))
@@ -78,7 +82,7 @@ export function middleware(request: NextRequest) {
 
   // Si no hay tokens y es una ruta protegida, redirigir al login
   if (isProtectedRoute && !hasUsableAccessToken) {
-    if (refreshToken) {
+    if (refreshToken || sessionMarker) {
       return NextResponse.next()
     }
 
@@ -90,7 +94,7 @@ export function middleware(request: NextRequest) {
   // Si hay tokens y es una ruta protegida (excepto el formulario inicial), verificar si el formulario está completo
   if (isProtectedRoute && hasUsableAccessToken && pathname !== '/initial-registration') {
     try {
-      const isAdmin = isAdminJwtPayload(accessPayload)
+      const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
       
       // Los administradores no necesitan completar el formulario
       if (!isAdmin) {
@@ -109,7 +113,7 @@ export function middleware(request: NextRequest) {
   // Si hay tokens y es una ruta pública (como login), redirigir según el rol
   if (isPublicOnlyRoute && hasUsableAccessToken) {
     try {
-      const isAdmin = isAdminJwtPayload(accessPayload)
+      const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
       
       if (isAdmin) {
         // Si es admin, redirigir al panel de administrador
@@ -134,7 +138,7 @@ export function middleware(request: NextRequest) {
   // Para rutas de administrador, verificar si el usuario es admin
   if (isAdminOnlyRoute && hasUsableAccessToken) {
     try {
-      const isAdmin = isAdminJwtPayload(accessPayload)
+      const isAdmin = isAdminJwtPayload(accessPayload) || adminFromMarker
       
       if (!isAdmin) {
         // Si no es admin, redirigir al dashboard

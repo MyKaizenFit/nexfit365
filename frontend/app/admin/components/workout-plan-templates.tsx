@@ -87,7 +87,7 @@ export function WorkoutPlanTemplates() {
       if (filterDifficulty && filterDifficulty !== 'all') params.append('difficulty', filterDifficulty)
       if (filterGoal && filterGoal !== 'all') params.append('goal', filterGoal)
       
-      const response = await fetch(`/api/workout-plan-templates/?${params}`)
+      const response = await fetch(`/api/workout-plan-templates/?${params}`, { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setTemplates(data.results || data)
@@ -111,6 +111,7 @@ export function WorkoutPlanTemplates() {
   const handleCreateTemplate = async () => {
     try {
       const response = await fetch('/api/workout-plan-templates/', {
+        credentials: 'include',
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -142,6 +143,7 @@ export function WorkoutPlanTemplates() {
   const handleDuplicateTemplate = async (template: WorkoutPlanTemplate) => {
     try {
       const response = await fetch(`/api/workout-plan-templates/${template.id}/duplicate/`, {
+        credentials: 'include',
         method: 'POST'
       })
 
@@ -171,6 +173,7 @@ export function WorkoutPlanTemplates() {
 
     try {
       const response = await fetch(`/api/workout-plan-templates/${template.id}/`, {
+        credentials: 'include',
         method: 'DELETE'
       })
 

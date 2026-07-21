@@ -1,6 +1,6 @@
 # Dockerfile para MyKaizenFit Frontend
-# CAMBIADO DE alpine A slim (Debian) por seguridad
-FROM node:18-slim AS base
+# Node 22 (CI + LTS); Debian slim por compatibilidad nativa
+FROM node:22-bookworm-slim AS base
 
 # Instalar dependencias solo cuando sea necesario
 FROM base AS deps

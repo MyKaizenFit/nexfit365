@@ -55,7 +55,8 @@ export function NutritionPlanHistory() {
         url += '?limit=100'
       }
       
-      const response = await fetch(url, { headers })
+      const response = await fetch(url, {
+        credentials: 'include', headers })
       
       if (response.ok) {
         const data = await response.json()

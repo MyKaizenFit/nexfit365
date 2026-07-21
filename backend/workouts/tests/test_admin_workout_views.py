@@ -543,6 +543,63 @@ class TestAdminWorkoutProgramViewSet:
         assert fresh_day.name == 'Día actualizado'
         assert fresh_day.exercises.get().sets == 4
 
+    def test_update_program_preserves_day_id_and_log_link(
+        self, admin_client, workout_program, exercise, regular_user
+    ):
+        """Autosave upsert must not orphan WorkoutLog via delete-recreate."""
+        old_day = WorkoutDay.objects.create(
+            program=workout_program,
+            name='Día estable',
+            day_number=1,
+            day_of_week='monday',
+            order_index=0,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=old_day,
+            exercise=exercise,
+            sets=2,
+            reps='10',
+            rest_seconds=60,
+            order_index=0,
+        )
+        log = WorkoutLog.objects.create(
+            user=regular_user,
+            workout_day=old_day,
+            date='2026-06-01',
+            completed=True,
+            duration_minutes=40,
+        )
+        old_day_id = old_day.id
+
+        response = admin_client.patch(
+            f'/api/admin/workouts/programs/{workout_program.id}/',
+            {
+                'days': [
+                    {
+                        'day_number': 1,
+                        'day_of_week': 'monday',
+                        'name': 'Día estable v2',
+                        'exercises': [
+                            {
+                                'exercise_id': str(exercise.id),
+                                'sets': 3,
+                                'reps': '8-10',
+                                'rest_seconds': 90,
+                            }
+                        ],
+                    }
+                ],
+            },
+            format='json',
+        )
+
+        assert response.status_code == status.HTTP_200_OK
+        fresh_day = workout_program.days.get(day_number=1)
+        assert fresh_day.id == old_day_id
+        assert fresh_day.name == 'Día estable v2'
+        log.refresh_from_db()
+        assert log.workout_day_id == old_day_id
+
     def test_update_program_derives_day_of_week_from_day_number(self, admin_client, workout_program, exercise):
         """Payload legacy con todo monday no debe corromper semanas 2+."""
         response = admin_client.patch(

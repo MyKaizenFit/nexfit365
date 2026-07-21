@@ -31,7 +31,7 @@ describe('ExerciseCard', () => {
 
   it('shows video badge when exercise has video', () => {
     render(<ExerciseCard exercise={mockExercise} />)
-    expect(screen.getByText('Video')).toBeInTheDocument()
+    expect(screen.getByText('📹 Video')).toBeInTheDocument()
   })
 
   it('does not show video badge when exercise has no video', () => {

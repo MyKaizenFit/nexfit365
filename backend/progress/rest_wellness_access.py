@@ -6,10 +6,12 @@ def _normalize_email(email: str) -> str:
 
 
 def can_access_rest_wellness(user) -> bool:
+    """GA: available to members by default; admin can opt out via rest_wellness_enabled."""
     if not user or not getattr(user, "is_authenticated", False):
         return False
-    if getattr(user, "rest_wellness_enabled", False):
+    if getattr(user, "rest_wellness_enabled", True):
         return True
+    # Test accounts keep access even if the flag was turned off.
     return is_test_user(_normalize_email(user.email))
 
 

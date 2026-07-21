@@ -276,7 +276,8 @@ export function EquivalenceManagement() {
       const headers = await getAuthHeaders()
       const res = await fetch(
         `${getApiUrl()}/api/admin/nutrition/equivalence-categories/?page_size=200`,
-        { headers }
+        {
+        credentials: 'include', headers }
       )
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -299,7 +300,8 @@ export function EquivalenceManagement() {
       if (categoryFilter !== "all") params.set("equivalence_category", categoryFilter)
       if (verifiedFilter !== "all") params.set("is_verified", verifiedFilter)
       const headers = await getAuthHeaders()
-      const res = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params.toString()}`, { headers })
+      const res = await fetch(`${getApiUrl()}/api/nutrition/foods/?${params.toString()}`, {
+        credentials: 'include', headers })
       if (!res.ok) throw new Error()
       const data = await res.json()
       setFoods(Array.isArray(data) ? data : data.results || [])
@@ -336,6 +338,7 @@ export function EquivalenceManagement() {
     try {
       const headers = await getAuthHeaders()
       const res = await fetch(`${getApiUrl()}/api/nutrition/foods/${foodId}/`, {
+        credentials: 'include',
         method: "PATCH",
         headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify({
@@ -372,6 +375,7 @@ export function EquivalenceManagement() {
           const merged = Array.from(new Set([...current, ...bulkCategories]))
           const headers = await getAuthHeaders()
           const res = await fetch(`${getApiUrl()}/api/nutrition/foods/${id}/`, {
+        credentials: 'include',
             method: "PATCH",
             headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
             body: JSON.stringify({ equivalence_categories: merged, equivalence_category: merged[0] ?? "" }),
@@ -405,6 +409,7 @@ export function EquivalenceManagement() {
         ? `${getApiUrl()}/api/admin/nutrition/equivalence-categories/${editingCat!.slug}/`
         : `${getApiUrl()}/api/admin/nutrition/equivalence-categories/`
       const res = await fetch(url, {
+        credentials: 'include',
         method: isEdit ? "PATCH" : "POST",
         headers: { ...headers, "Content-Type": "application/json; charset=utf-8" },
         body: JSON.stringify(data),
@@ -434,7 +439,8 @@ export function EquivalenceManagement() {
       const headers = await getAuthHeaders()
       const res = await fetch(
         `${getApiUrl()}/api/admin/nutrition/equivalence-categories/${cat.slug}/`,
-        { method: "DELETE", headers }
+        {
+        credentials: 'include', method: "DELETE", headers }
       )
       if (!res.ok) throw new Error()
       toast({ title: "Categoría eliminada", description: cat.name })

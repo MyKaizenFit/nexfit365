@@ -195,7 +195,12 @@ class AdminUserSerializer(serializers.ModelSerializer):
             # Alertas premium para panel admin
             'premium_alerts', 'recent_change_sections'
         ]
-        read_only_fields = ['id', 'email', 'date_joined', 'created_at', 'updated_at', 'bmi', 'age', 'calculated_daily_calories']
+        read_only_fields = [
+            'id', 'email', 'date_joined', 'created_at', 'updated_at',
+            'bmi', 'age', 'calculated_daily_calories',
+            # Privilege flags: escalate only via Django admin / dedicated superuser flows.
+            'is_staff', 'is_superuser', 'is_staff_display', 'is_superuser_display',
+        ]
     
     def update(self, instance, validated_data):
         """Mantener coherentes los días del perfil cuando lo edita administración."""
@@ -501,38 +506,47 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
         # Verificar si viene desde admin (request.user es staff)
         request = self.context.get('request')
-        is_from_admin = request and (request.user.is_staff or request.user.is_superuser)
-        
+        is_from_admin = bool(
+            request
+            and getattr(request, 'user', None)
+            and request.user.is_authenticated
+            and (request.user.is_staff or request.user.is_superuser)
+        )
+
         # Obtener el rol de los datos validados (viene del formulario)
         role = validated_data.pop('role', None)
-        # Si no viene role o está vacío, establecer 'basic' por defecto
-        if not role or role == '':
-            role = 'basic'  # Rol por defecto para todos los usuarios
-        
-        # El modelo ahora acepta directamente basic, pro, premium, admin
-        # Mapear valores antiguos y variantes para compatibilidad
-        role_mapping = {
-            'MEMBER': 'basic',  # Compatibilidad con datos antiguos
-            'member': 'basic',  # Variante en minúsculas
-            'TRAINER': 'pro',
-            'trainer': 'pro',
-            'ADMIN': 'admin',
-            'admin': 'admin',
-        }
-        
-        # Normalizar el rol
-        role_lower = role.lower() if role else ''
-        if role_lower in role_mapping:
-            validated_data['role'] = role_mapping[role_lower]
-        elif role in ['basic', 'pro', 'premium', 'admin']:
-            validated_data['role'] = role
-        else:
+
+        if not is_from_admin:
+            # Public / non-admin callers cannot self-assign elevated roles.
             validated_data['role'] = 'basic'
-        
-        # Cuando se crea desde admin, asegurar que el usuario esté activo
-        if is_from_admin:
+        else:
+            # Si no viene role o está vacío, establecer 'basic' por defecto
+            if not role or role == '':
+                role = 'basic'
+
+            # El modelo ahora acepta directamente basic, pro, premium, admin
+            # Mapear valores antiguos y variantes para compatibilidad
+            role_mapping = {
+                'MEMBER': 'basic',  # Compatibilidad con datos antiguos
+                'member': 'basic',  # Variante en minúsculas
+                'TRAINER': 'pro',
+                'trainer': 'pro',
+                'ADMIN': 'admin',
+                'admin': 'admin',
+            }
+
+            # Normalizar el rol
+            role_lower = role.lower() if role else ''
+            if role_lower in role_mapping:
+                validated_data['role'] = role_mapping[role_lower]
+            elif role in ['basic', 'pro', 'premium', 'admin']:
+                validated_data['role'] = role
+            else:
+                validated_data['role'] = 'basic'
+
+            # Cuando se crea desde admin, asegurar que el usuario esté activo
             validated_data['is_active'] = True
-        
+
         user = CustomUser.objects.create_user(**validated_data)
         user.set_password(password)
         user.save()

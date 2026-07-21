@@ -157,6 +157,7 @@ export function MacroPercentageEditor({ plan, isOpen, onClose, onUpdate }: Macro
       const response = await fetch(
         `${getApiUrl()}/api/nutrition/plans/${plan.id}/update_macros/`,
         {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,

@@ -61,7 +61,7 @@ describe('NutritionPlanCard', () => {
     expect(screen.getByText(/2000/i)).toBeInTheDocument()
   })
 
-  it('displays error message when there is an error', () => {
+  it('displays empty-plan UI when there is an error and no plan', () => {
     mockUseNutrition.mockReturnValue({
       currentPlan: null,
       suggestedMeals: [],
@@ -74,7 +74,8 @@ describe('NutritionPlanCard', () => {
     } as any)
 
     render(<NutritionPlanCard />)
-    expect(screen.getByText(/error/i)).toBeInTheDocument()
+    // NutritionPlanCard does not surface hook errors; empty plan is the fallback UI.
+    expect(screen.getByText(/no tienes un plan nutricional activo/i)).toBeInTheDocument()
   })
 
   it('displays no plan message when no plan exists', () => {

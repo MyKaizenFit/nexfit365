@@ -31,25 +31,22 @@ class UserAchievementPermission(permissions.BasePermission):
     """
     Permisos para logros de usuario:
     - Usuarios pueden ver solo sus propios logros
-    - Solo staff puede asignar logros manualmente
+    - Solo staff puede asignar/revocar logros manualmente
     """
     
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
         
-        # Para asignar logros, solo staff
-        if request.method == "POST":
+        if request.method not in permissions.SAFE_METHODS:
             return request.user.is_staff
         
         return True
     
     def has_object_permission(self, request, view, obj):
-        # Staff puede acceder a todo
         if request.user.is_staff:
             return True
         
-        # Usuarios solo pueden ver sus propios logros
         return obj.user == request.user and request.method in permissions.SAFE_METHODS
 
 

@@ -132,6 +132,7 @@ export function NutritionPlanStats() {
       
       // Cargar estadísticas de planes de usuarios
       const statsResponse = await fetch(buildApiUrl('admin/nutrition/user-plans/stats/'), {
+        credentials: 'include',
         headers
       })
       
@@ -142,6 +143,7 @@ export function NutritionPlanStats() {
       
       // Cargar estadísticas de uso de planes por defecto
       const usageResponse = await fetch(buildApiUrl('admin/nutrition/user-plans/usage_stats/'), {
+        credentials: 'include',
         headers
       })
       

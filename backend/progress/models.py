@@ -77,13 +77,12 @@ class WeightEntry(TimeStampedModel):
     
     class Meta:
         ordering = ["-date", "-created_at"]
-        # Comentamos temporalmente la restricción única para debugging
-        # constraints = [
-        #     models.UniqueConstraint(
-        #         fields=["user", "date"], 
-        #         name="unique_weight_entry_per_user_date"
-        #     )
-        # ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "date"],
+                name="unique_weight_entry_per_user_date",
+            )
+        ]
     
     def __str__(self):
         return f"{self.user.email} - {self.weight}kg - {self.date}"
@@ -93,8 +92,7 @@ class WeightEntry(TimeStampedModel):
             raise ValidationError("La fecha no puede ser en el futuro")
     
     def save(self, *args, **kwargs):
-        # Comentamos temporalmente full_clean para debugging
-        # self.full_clean()
+        self.full_clean()
         super().save(*args, **kwargs)
 
 
@@ -244,7 +242,7 @@ class DailyWellness(TimeStampedModel):
 
 
 class RestWellnessAssessment(TimeStampedModel):
-    """Evaluación puntual de hábitos de descanso (piloto)."""
+    """Evaluación puntual de hábitos de descanso."""
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

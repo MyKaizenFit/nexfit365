@@ -58,7 +58,8 @@ export function CoachingManagement() {
     try {
       setLoading(true)
       const headers = await getAuthHeaders()
-      const response = await fetch(buildApiUrl("coaching/inquiries/"), { headers })
+      const response = await fetch(buildApiUrl("coaching/inquiries/"), {
+        credentials: 'include', headers })
       if (!response.ok) throw new Error("No se pudieron cargar las solicitudes")
       const data = await response.json()
       setInquiries(data.results || data)
@@ -170,6 +171,7 @@ export function CoachingManagement() {
       setSavingId(id)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`coaching/inquiries/${id}/`), {
+        credentials: 'include',
         method: "PATCH",
         headers,
         body: JSON.stringify({ status }),

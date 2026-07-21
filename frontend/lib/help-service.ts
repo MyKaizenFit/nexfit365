@@ -2,7 +2,6 @@
 // Servicio para gestionar configuración de ayuda y reportes de problemas
 
 import { buildApiUrl, getAuthHeaders, handleApiResponse } from './api'
-import { getAuthService } from './auth-service'
 
 export interface HelpSettings {
   id: string
@@ -128,15 +127,13 @@ class HelpService {
    */
   async createProblemReport(data: CreateProblemReportData): Promise<ProblemReport> {
     try {
-      const authService = getAuthService()
-      const token = authService.getAccessToken()
-      
       const response = await fetch(buildApiUrl('problem-reports/'), {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` }),
+          ...getAuthHeaders(),
         },
         body: JSON.stringify(data),
       })

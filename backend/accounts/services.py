@@ -800,7 +800,7 @@ class DefaultPlanAssignmentService:
 
             deactivated_count = NutritionPlan.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
-                end_date=timezone.now().date(),
+                end_date=timezone.localdate(),
             )
             
             # Crear plan personalizado para el usuario
@@ -823,8 +823,8 @@ class DefaultPlanAssignmentService:
                 is_template=False,
                 is_system=False,
                 is_active=True,
-                start_date=timezone.now().date(),
-                end_date=timezone.now().date() + timedelta(weeks=template.duration_weeks) if template.duration_weeks else None,
+                start_date=timezone.localdate(),
+                end_date=timezone.localdate() + timedelta(weeks=template.duration_weeks) if template.duration_weeks else None,
                 tags=template.tags if hasattr(template, 'tags') else [],
                 created_by=self.user
             )
@@ -903,7 +903,7 @@ class DefaultPlanAssignmentService:
 
             deactivated_count = WorkoutProgram.objects.filter(user=self.user, is_active=True).update(
                 is_active=False,
-                end_date=timezone.now().date(),
+                end_date=timezone.localdate(),
             )
             
             # La configuración del perfil administrado manda sobre los días de la plantilla.
@@ -927,8 +927,8 @@ class DefaultPlanAssignmentService:
                 is_template=False,
                 is_system=False,
                 is_active=True,
-                start_date=timezone.now().date(),
-                end_date=timezone.now().date() + timedelta(weeks=template_program.duration_weeks or 4),
+                start_date=timezone.localdate(),
+                end_date=timezone.localdate() + timedelta(weeks=template_program.duration_weeks or 4),
                 created_by=None
             )
             

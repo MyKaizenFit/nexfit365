@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { buildApiUrl, authenticatedFetch } from '@/lib/api'
+import { todayLocalDate } from '@/lib/local-date'
 import { getTodaysPlanDay } from '@/lib/workout-plan-utils'
 
 const getErrorMessage = (error: unknown): string => {
@@ -345,7 +346,7 @@ export function useWorkouts() {
         },
         body: JSON.stringify({
           user_id: userId,
-          start_date: startDate || new Date().toISOString().split('T')[0]
+          start_date: startDate || todayLocalDate()
         })
       })
 
@@ -417,7 +418,7 @@ export function useWorkouts() {
           workout_day: workoutDayId,
           notes: notes || '',
           completed: true,
-          date: new Date().toISOString().split('T')[0],
+          date: todayLocalDate(),
           duration_minutes: duration_minutes || null,
           rating: rating || null,
           exercises_data: exercises_data || []
@@ -657,8 +658,10 @@ export function useWorkouts() {
       body: JSON.stringify({
         workout_day: workoutDayId,
         notes: payload.notes || '',
-        completed: payload.completed ?? false,
-        date: new Date().toISOString().split('T')[0],
+        // Omit completed on draft autosave so a delayed write cannot send false
+        // and race a just-finished session.
+        ...(payload.completed !== undefined ? { completed: payload.completed } : {}),
+        date: todayLocalDate(),
         duration_minutes: payload.duration_minutes ?? null,
         rating: payload.rating || null,
         exercises_data: payload.exercises_data || []

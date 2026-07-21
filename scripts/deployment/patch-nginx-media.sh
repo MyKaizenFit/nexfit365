@@ -22,6 +22,10 @@ text = conf.read_text()
 needle = "    client_max_body_size 300M;\n\n    location / {"
 block = f"""    client_max_body_size 300M;
 
+    location /media/progress_photos/ {{
+        return 403;
+    }}
+
     location /media/ {{
         alias {media_root}/;
         expires 30d;

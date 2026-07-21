@@ -55,13 +55,13 @@ class WeightEntryPermission(ProgressPermission):
         if request.method == "POST":
             from .models import WeightEntry
             
-            # Verificar límite de entradas por día
+            # One weight entry per user/date (matches UniqueConstraint).
             today_entries = WeightEntry.objects.filter(
                 user=request.user,
                 date=request.data.get("date")
             ).count()
             
-            if today_entries >= 3:  # Máximo 3 entradas por día
+            if today_entries >= 1:
                 return False
         
         return True

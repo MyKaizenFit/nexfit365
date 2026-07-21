@@ -162,6 +162,7 @@ export function ExerciseManagement() {
       const url = buildApiUrl('admin/exercises/auto-link-videos/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -199,6 +200,7 @@ export function ExerciseManagement() {
       const headers: Record<string, string> = {};
       if (authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization'];
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'POST',
         headers,
         body: formData,
@@ -244,6 +246,7 @@ export function ExerciseManagement() {
       const url = buildApiUrl('admin/exercises/export-csv/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'GET',
         headers,
       });
@@ -271,6 +274,7 @@ export function ExerciseManagement() {
       const url = buildApiUrl('admin/exercises/export-excel/');
       const headers = await getAuthHeaders();
       const response = await fetch(url, {
+        credentials: 'include',
         method: 'GET',
         headers,
       });

@@ -62,7 +62,8 @@ function ProblemReportsPanel() {
     setLoading(true)
     try {
       const headers = await authHeaders()
-      const res = await fetch(buildApiUrl('problem-reports/?ordering=-created_at'), { headers: headers as HeadersInit })
+      const res = await fetch(buildApiUrl('problem-reports/?ordering=-created_at'), {
+        credentials: 'include', headers: headers as HeadersInit })
       if (res.ok) {
         const data = await res.json()
         setReports(data.results ?? data)
@@ -84,6 +85,7 @@ function ProblemReportsPanel() {
       if (adminNotes[id] !== undefined) body.admin_notes = adminNotes[id]
 
       const res = await fetch(buildApiUrl(`problem-reports/${id}/`), {
+        credentials: 'include',
         method: 'PATCH',
         headers: { ...(headers as Record<string, string>), 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -269,11 +271,11 @@ export function HelpSettingsPanel() {
 
     try {
       setSaving(true)
-      const token = localStorage.getItem('access_token')
 
       // Obtener el ID de la configuración activa
       const response = await fetch(buildApiUrl('help-settings/'), {
         method: 'GET',
+        credentials: 'include',
         headers: {
           ...getAuthHeaders(),
         },
@@ -290,6 +292,7 @@ export function HelpSettingsPanel() {
 
       const updateResponse = await fetch(updateUrl, {
         method: activeSetting ? 'PUT' : 'POST',
+        credentials: 'include',
         headers: {
           ...getAuthHeaders(),
           'Content-Type': 'application/json',

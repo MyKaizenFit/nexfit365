@@ -295,8 +295,11 @@ class CustomUser(AbstractUser):
     )
 
     rest_wellness_enabled = models.BooleanField(
-        default=False,
-        help_text="Permite acceder al cuestionario de descanso en el dashboard.",
+        default=True,
+        help_text=(
+            "Si está activo, el usuario ve el cuestionario de descanso en el dashboard. "
+            "Desactivar para ocultarlo (opt-out)."
+        ),
     )
 
     # ==========================================================================

@@ -14,6 +14,7 @@ import { buildApiUrl, authenticatedFetch } from "@/lib/api"
 import { useAuth } from "@/contexts/auth-context"
 import { getAuthService } from "@/lib/auth-service"
 import { formatMacro } from "@/lib/utils"
+import { todayLocalDate } from "@/lib/local-date"
 
 // Estructura de las 5 comidas fijas
 const MEAL_STRUCTURE = [
@@ -105,7 +106,7 @@ export function MealPlanEnhanced() {
 
     try {
       setIsLoading(true)
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       
       const response = await authenticatedFetch('nutrition/daily-meal-selections/today/', {
         method: 'GET',
@@ -134,7 +135,7 @@ export function MealPlanEnhanced() {
       // Solo crear selecciones por defecto si no es un error de autenticación
       const errorMessage = error instanceof Error ? error.message : ''
       if (errorMessage && !errorMessage.includes('Sesión expirada')) {
-        const today = new Date().toISOString().split('T')[0]
+        const today = todayLocalDate()
         createDefaultSelections(today)
       }
     } finally {
@@ -144,7 +145,7 @@ export function MealPlanEnhanced() {
 
   const createDefaultSelections = async (date: string) => {
     const authService = getAuthService()
-    if (!isAuthenticated || !authService.getAccessToken()) {
+    if (!isAuthenticated || !authService.isAuthenticated()) {
       return
     }
 
@@ -194,15 +195,14 @@ export function MealPlanEnhanced() {
     if (!selectedMeal) return
 
     try {
-      const today = new Date().toISOString().split('T')[0]
+      const today = todayLocalDate()
       const selection = dailySelections.find(s => s.meal_type === selectedMeal && s.date === today)
       
       if (selection) {
         // Actualizar la selección existente
-        const response = await authenticatedFetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/`), {
+        const response = await authenticatedFetch(`nutrition/daily-meal-selections/${selection.id}/`, {
           method: 'PATCH',
           headers: {
-            'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
@@ -239,10 +239,9 @@ export function MealPlanEnhanced() {
 
   const handleMarkCompleted = async (selection: DailyMealSelection) => {
     try {
-      const response = await fetch(buildApiUrl(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`), {
+      const response = await authenticatedFetch(`nutrition/daily-meal-selections/${selection.id}/mark_completed/`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${getAuthService().getAccessToken()}`,
           'Content-Type': 'application/json'
         }
       })

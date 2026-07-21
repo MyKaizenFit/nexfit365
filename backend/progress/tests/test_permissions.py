@@ -146,9 +146,6 @@ class TestWeightEntryPermission:
         request.user = user
         request.data = {"date": "2026-03-18"}
 
-        WeightEntry.objects.create(user=user, weight=Decimal("70.0"), date=date(2026, 3, 18))
-        WeightEntry.objects.create(user=user, weight=Decimal("70.5"), date=date(2026, 3, 18))
-
         permission = WeightEntryPermission()
         assert permission.has_permission(request, view=None) is True
 
@@ -158,8 +155,6 @@ class TestWeightEntryPermission:
         request.data = {"date": "2026-03-18"}
 
         WeightEntry.objects.create(user=user, weight=Decimal("70.0"), date=date(2026, 3, 18))
-        WeightEntry.objects.create(user=user, weight=Decimal("70.5"), date=date(2026, 3, 18))
-        WeightEntry.objects.create(user=user, weight=Decimal("71.0"), date=date(2026, 3, 18))
 
         permission = WeightEntryPermission()
         assert permission.has_permission(request, view=None) is False

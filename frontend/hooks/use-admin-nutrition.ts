@@ -64,6 +64,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include',
         headers
       })
 
@@ -73,6 +74,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) return // Ya redirigió al login
         headers = newHeaders
         response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include',
           headers
         })
       }
@@ -102,6 +104,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/recipes/stats/'), {
+        credentials: 'include',
         headers
       })
 
@@ -113,6 +116,7 @@ export const useAdminNutrition = () => {
         if (refreshResult.success && refreshResult.newToken) {
           headers = await getAuthHeaders()
           response = await fetch(buildApiUrl('admin/nutrition/recipes/stats/'), {
+        credentials: 'include',
             headers
           })
         } else {
@@ -166,6 +170,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -180,6 +185,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl('admin/nutrition/recipes/'), {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,
@@ -212,6 +218,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${id}/`), {
+        credentials: 'include',
         method: 'PUT',
         headers: {
           ...headers,
@@ -226,6 +233,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/recipes/${id}/`), {
+        credentials: 'include',
           method: 'PUT',
           headers: {
             ...headers,
@@ -260,6 +268,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${id}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -270,6 +279,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/recipes/${id}/`), {
+        credentials: 'include',
           method: 'DELETE',
           headers
         })
@@ -293,6 +303,7 @@ export const useAdminNutrition = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/nutrition/recipes/bulk_delete/'), {
+        credentials: 'include',
         method: 'DELETE',
         headers: {
           ...headers,
@@ -307,6 +318,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl('admin/nutrition/recipes/bulk_delete/'), {
+        credentials: 'include',
           method: 'DELETE',
           headers: {
             ...headers,
@@ -337,6 +349,7 @@ export const useAdminNutrition = () => {
       formData.append('image', imageFile)
 
       let response = await fetch(buildApiUrl(`admin/nutrition/recipes/${recipeId}/upload-image/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -349,6 +362,7 @@ export const useAdminNutrition = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/nutrition/recipes/${recipeId}/upload-image/`), {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,

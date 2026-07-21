@@ -58,11 +58,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
         role = str(getattr(self.request.user, "role", "") or "").lower()
         is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
-        can_view_members = is_admin or role in {"trainer", "pro"}
+        # Membership tier `pro` is not coach/staff — do not grant cross-user access.
 
         if user_id:
-            scoped = queryset.filter(user_id=user_id)
-        elif can_view_members:
+            if not is_admin and str(user_id) != str(self.request.user.id):
+                scoped = queryset.none()
+            else:
+                scoped = queryset.filter(user_id=user_id)
+        elif is_admin:
             scoped = queryset
         else:
             scoped = queryset.filter(user=self.request.user)

@@ -95,7 +95,7 @@ const menuItems = [
   { title: "Team SK", icon: Camera, url: "recipe-community" },
   { title: "Entrenamientos", icon: Dumbbell, url: "workouts-3" },
   { title: "Bienestar", icon: Moon, url: "wellness" },
-  { title: "Descanso", icon: CloudMoon, url: "rest-wellness", pilotOnly: true },
+  { title: "Descanso", icon: CloudMoon, url: "rest-wellness" },
   { title: "Peso y Medidas", icon: TrendingUp, url: "measurements" },
   { title: "Mi Perfil", icon: User, url: "profile" },
   { title: "Logros", icon: Medal, url: "achievements" },
@@ -103,7 +103,7 @@ const menuItems = [
 ]
 
 const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
-const PILOT_ONLY_SECTIONS = new Set(["rest-wellness"])
+const REST_WELLNESS_SECTION = "rest-wellness"
 
 function DashboardSectionSync({
   selectedSection,
@@ -128,7 +128,7 @@ function DashboardSectionSync({
       return
     }
 
-    if (sectionParam && PILOT_ONLY_SECTIONS.has(sectionParam) && !canAccessRestWellness) {
+    if (sectionParam && sectionParam === REST_WELLNESS_SECTION && !canAccessRestWellness) {
       onSectionChange("dashboard")
       router.replace("/dashboard", { scroll: false })
       return
@@ -155,7 +155,7 @@ function DashboardContent() {
   const isPremiumUser = userRole === "premium"
   const canAccessRestWellness = restWellnessAccess.can_fill
   const visibleMenuItems = menuItems.filter((item) => {
-    if ("pilotOnly" in item && item.pilotOnly && !canAccessRestWellness) return false
+    if (item.url === REST_WELLNESS_SECTION && !canAccessRestWellness) return false
     if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
     return true
   })
@@ -183,7 +183,7 @@ function DashboardContent() {
       return
     }
 
-    if (PILOT_ONLY_SECTIONS.has(section) && !canAccessRestWellness) {
+    if (section === REST_WELLNESS_SECTION && !canAccessRestWellness) {
       setSelectedSection("dashboard")
       router.push("/dashboard", { scroll: false })
       return

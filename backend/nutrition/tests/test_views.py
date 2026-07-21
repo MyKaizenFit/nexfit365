@@ -184,6 +184,18 @@ class TestNutritionPlanViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data['results']) == 1
 
+    def test_list_nutrition_plans_pro_role_not_unscoped(self, api_client, member_user, nutrition_plan):
+        """Paid tier `pro` must not see other users' private plans."""
+        pro_user = baker.make(User, email='pro@test.com', role='pro', is_staff=False)
+        api_client.force_authenticate(user=pro_user)
+        url = reverse('nutrition-plans-list')
+
+        response = api_client.get(url)
+
+        assert response.status_code == status.HTTP_200_OK
+        names = [p['name'] for p in response.data['results']]
+        assert 'Test Plan' not in names
+
     def test_create_nutrition_plan_authenticated_access(self, api_client, member_user):
         """Usuarios autenticados pueden crear planes"""
         api_client.force_authenticate(user=member_user)

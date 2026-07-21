@@ -19,6 +19,7 @@ export function usePersonalizedRecommendations() {
 
       // Cargar perfil del usuario
       const profileResponse = await fetch(buildApiUrl('me/'), {
+        credentials: 'include',
         headers: getAuthHeaders(),
       })
 
@@ -30,6 +31,7 @@ export function usePersonalizedRecommendations() {
 
       // Cargar recetas según objetivo
       const recipesResponse = await fetch(buildApiUrl('nutrition/recipes/?page_size=6&page=1'), {
+        credentials: 'include',
         headers: getAuthHeaders(),
       })
 
@@ -41,6 +43,7 @@ export function usePersonalizedRecommendations() {
 
       // Cargar programas de entrenamiento
       const workoutResponse = await fetch(buildApiUrl('workout-programs/?limit=6'), {
+        credentials: 'include',
         headers: getAuthHeaders(),
       })
 
@@ -52,6 +55,7 @@ export function usePersonalizedRecommendations() {
 
       // Cargar wellness tips destacados
       const tipsResponse = await fetch(buildApiUrl('tips/?limit=3'), {
+        credentials: 'include',
         headers: getAuthHeaders(),
       })
 

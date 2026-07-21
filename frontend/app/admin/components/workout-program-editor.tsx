@@ -297,6 +297,31 @@ function mapApiDaysToSchedule(detailDays: any[]): WorkoutDay[] {
   return dedupeWorkoutScheduleBySlot(normalizeWorkoutDayNumbers(mappedDays))
 }
 
+/** Merge day/exercise PKs from a save response so silent autosave keeps stable ids. */
+function mergeScheduleIdsFromApiDays(schedule: WorkoutDay[], apiDays: any[]): WorkoutDay[] {
+  const byNumber = new Map(
+    (apiDays || []).map((day: any) => [Number(day.day_number) || 0, day]),
+  )
+  return schedule.map((day) => {
+    const apiDay = byNumber.get(Number(day.dayNumber) || 0)
+    if (!apiDay) return day
+    const apiExercises = apiDay.exercises || []
+    return {
+      ...day,
+      id: apiDay.id ?? day.id,
+      exercises: day.exercises.map((ex, index) => {
+        const apiEx = apiExercises[index]
+        if (!apiEx) return ex
+        return {
+          ...ex,
+          id: apiEx.id ?? ex.id,
+          exerciseId: apiEx.exercise?.id || apiEx.exercise_id || ex.exerciseId,
+        }
+      }),
+    }
+  })
+}
+
 function getReferenceDayForSlot(schedule: WorkoutDay[], targetWeek: number, targetDayName: string) {
   if (schedule.length === 0) return null
 
@@ -478,6 +503,7 @@ export function WorkoutProgramEditor({
       const headers = await getAuthHeaders()
 
       const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/program/`), {
+        credentials: 'include',
         headers,
         cache: "no-store",
       })
@@ -580,7 +606,8 @@ export function WorkoutProgramEditor({
       const allExercises: ExerciseOption[] = []
 
       while (nextUrl) {
-        const response: Response = await fetch(nextUrl, { headers })
+        const response: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (!response.ok) throw new Error("Error al cargar ejercicios")
         const data: any = await response.json()
         const results = Array.isArray(data.results) ? data.results : (Array.isArray(data) ? data : [])
@@ -609,6 +636,7 @@ export function WorkoutProgramEditor({
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/workouts/users/${parsedUserId}/workout-logs/?limit=500`), {
+        credentials: 'include',
         headers,
         cache: "no-store",
       })
@@ -979,6 +1007,7 @@ export function WorkoutProgramEditor({
       setCopyingWeeks(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/copy-weeks/`), {
+        credentials: 'include',
         method: "POST",
         headers: {
           ...headers,
@@ -1248,6 +1277,7 @@ export function WorkoutProgramEditor({
       if (program.id) {
         // Usar el endpoint de admin para actualizar programas de usuarios
         response = await fetch(buildApiUrl(`admin/workouts/programs/${program.id}/`), {
+        credentials: 'include',
           method: "PATCH",
           headers: {
             ...headers,
@@ -1259,6 +1289,7 @@ export function WorkoutProgramEditor({
       } else {
         // Crear nuevo programa usando el endpoint de admin
         response = await fetch(buildApiUrl("admin/workouts/programs/"), {
+        credentials: 'include',
           method: "POST",
           headers: {
             ...headers,
@@ -1276,7 +1307,17 @@ export function WorkoutProgramEditor({
 
       const savedProgram = await response.json().catch(() => null)
       if (savedProgram?.id) {
-        setProgram((current) => (current ? { ...current, id: savedProgram.id } : current))
+        setProgram((current) => {
+          if (!current) return current
+          const next = { ...current, id: savedProgram.id }
+          if (Array.isArray(savedProgram.days) && savedProgram.days.length > 0) {
+            next.weeklySchedule = mergeScheduleIdsFromApiDays(
+              current.weeklySchedule,
+              savedProgram.days,
+            )
+          }
+          return next
+        })
       }
       updateUnsavedChanges(false)
       if (silent) {

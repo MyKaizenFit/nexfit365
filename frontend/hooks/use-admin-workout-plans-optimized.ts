@@ -223,11 +223,13 @@ export const useAdminWorkoutPlansOptimized = (initialFilters: WorkoutPlanFilters
       const allExercises: Exercise[] = []
 
       while (nextUrl) {
-        let response: Response = await fetch(nextUrl, { headers })
+        let response: Response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         if (response.status === 401) {
           const refreshedHeaders = await getAuthHeaders()
           headers = refreshedHeaders
-          response = await fetch(nextUrl, { headers })
+          response = await fetch(nextUrl, {
+        credentials: 'include', headers })
         }
 
         if (!response.ok) {

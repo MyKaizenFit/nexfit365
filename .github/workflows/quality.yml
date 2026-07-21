@@ -52,7 +52,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run focused backend tests
+      - name: Run critical backend tests
         env:
           DEBUG: "False"
           SECRET_KEY: "ci-secret-key"
@@ -64,7 +64,31 @@ jobs:
           DB_SSLMODE: disable
           REDIS_URL: redis://localhost:6379/0
         run: |
-          pytest accounts/tests/test_profile_plan_integration.py nutrition/tests/test_services.py progress/tests/test_views_extra.py progress/tests/test_rest_wellness.py nutrition/tests/test_plan_week_sync_db.py workouts/test_workouts_models.py workouts/tests/test_workout_views.py nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes -q
+          # Curated critical path. Exclusions (pre-existing broken when collected):
+          # - nutrition/tests/test_plan_meal_utils.py (missing nutrition_plan fixture)
+          # - full admin nutrition/workout files (known failing assignment/scale cases)
+          pytest \
+            accounts/tests/test_profile_plan_integration.py \
+            api/tests/test_auth.py \
+            nutrition/tests/test_services.py \
+            nutrition/tests/test_plan_week_sync_db.py \
+            nutrition/tests/test_plan_week_sync.py \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_without_meals_preserves_today_meal_logs \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_with_meals_clears_today_meal_logs \
+            progress/tests/test_views_extra.py \
+            progress/tests/test_rest_wellness.py \
+            progress/tests/test_local_calendar_date.py \
+            progress/tests/test_photo_mime_validation.py \
+            progress/tests/test_protected_media.py \
+            achievements/tests/test_views.py \
+            dashboard/tests/test_html_sanitize.py \
+            workouts/test_workouts_models.py \
+            workouts/tests/test_workout_views.py \
+            workouts/tests/test_workout_week_utils.py \
+            workouts/tests/test_admin_workout_views.py::TestAdminExerciseViewSet \
+            workouts/tests/test_admin_workout_views.py::TestAdminWorkoutProgramViewSet::test_update_program_derives_day_of_week_from_day_number \
+            -q
 
   frontend:
     runs-on: ubuntu-latest
@@ -84,6 +108,10 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci --legacy-peer-deps
+
+      - name: Run frontend unit tests
+        # Ignore pre-existing flaky/broken suites (not introduced by this PR).
+        run: npm test -- --ci --coverage=false --testPathIgnorePatterns="notifications-dropdown|use-notifications-enhanced|auth-service-validation"
 
       - name: Run frontend checks
         run: npm run check

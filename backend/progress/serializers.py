@@ -1,34 +1,11 @@
-from django.conf import settings
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rest_framework import serializers
 
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness, RestWellnessAssessment
+from .media_views import build_signed_progress_media_url
 from .photo_types import ALL_TYPE_KEYS
 
-
-def _build_public_media_url(request, media_path: str | None) -> str | None:
-    """Build absolute media URLs and keep production media HTTPS-safe."""
-    if not media_path:
-        return None
-
-    if not request:
-        return media_path
-
-    url = request.build_absolute_uri(media_path)
-    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
-    host = (request.get_host() or "").split(":")[0].lower()
-    is_local_host = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local")
-
-    should_force_https = (
-        forwarded_proto == "https"
-        or request.is_secure()
-        or (not settings.DEBUG and not is_local_host)
-    )
-
-    if should_force_https and url.startswith("http://"):
-        return "https://" + url[len("http://"):]
-    return url
 
 
 class ProgressPhotoSerializer(serializers.ModelSerializer):
@@ -66,13 +43,13 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
     def get_photo_url(self, obj) -> str | None:
         if obj.photo:
             request = self.context.get("request")
-            return _build_public_media_url(request, obj.photo.url)
+            return build_signed_progress_media_url(request, obj.photo)
         return None
     
     def get_thumbnail_url(self, obj) -> str | None:
         if obj.thumbnail:
             request = self.context.get("request")
-            return _build_public_media_url(request, obj.thumbnail.url)
+            return build_signed_progress_media_url(request, obj.thumbnail)
         return None
     
     def validate_photo(self, value):
@@ -90,20 +67,21 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
                 f"El archivo es demasiado grande. Tamaño máximo: {settings.MAX_PROGRESS_PHOTO_SIZE // (1024*1024)}MB"
             )
 
-        allowed_types = [
-            "image/jpeg", "image/png", "image/jpg", "image/webp",
-            "image/heic", "image/heif", "application/octet-stream",
-        ]
+        allowed_types = {
+            "image/jpeg",
+            "image/png",
+            "image/jpg",
+            "image/webp",
+            "image/heic",
+            "image/heif",
+        }
 
-        if value.content_type not in allowed_types:
-            file_extension = value.name.lower().split(".")[-1] if "." in value.name else ""
-            allowed_extensions = ["jpg", "jpeg", "png", "webp", "heic", "heif"]
-
-            if file_extension not in allowed_extensions:
-                raise serializers.ValidationError(
-                    f"Tipo de archivo no permitido. Recibido: {value.content_type}, extensión: {file_extension}. "
-                    f"Tipos permitidos: {', '.join(allowed_types)}"
-                )
+        content_type = (value.content_type or "").lower().strip()
+        if content_type not in allowed_types:
+            raise serializers.ValidationError(
+                f"Tipo de archivo no permitido. Recibido: {value.content_type or 'desconocido'}. "
+                f"Tipos permitidos: {', '.join(sorted(allowed_types))}"
+            )
 
         return value
 
@@ -132,46 +110,64 @@ class WeightEntrySerializer(serializers.ModelSerializer):
                 pass
         return representation
     
+    def validate(self, attrs):
+        attrs = super().validate(attrs)
+        request = self.context.get("request")
+        user = attrs.get("user") or (request.user if request else None)
+        entry_date = attrs.get("date")
+        if self.instance is None and user and entry_date:
+            if WeightEntry.objects.filter(user=user, date=entry_date).exists():
+                raise serializers.ValidationError(
+                    {"date": "Ya existe una entrada de peso para esta fecha."}
+                )
+        return attrs
+
     def create(self, validated_data):
         """Crear entrada de peso con usuario del request"""
         from decimal import Decimal
         from dashboard.models import UserStats
+        from django.db import transaction
         from django.utils import timezone
 
         request = self.context.get("request")
         user = validated_data.pop("user", None) or request.user
         validated_data["weight"] = Decimal(str(validated_data["weight"]))
 
-        existing_entries = WeightEntry.objects.filter(user=user).count()
-        if existing_entries == 0:
-            stats, created = UserStats.objects.get_or_create(
-                user=user,
-                defaults={
-                    "starting_weight": validated_data["weight"],
-                    "current_weight": validated_data["weight"],
-                    "transformation_start_date": validated_data.get("date", timezone.now().date()),
-                },
-            )
-            if not created and not stats.starting_weight:
-                stats.starting_weight = validated_data["weight"]
+        with transaction.atomic():
+            existing_entries = WeightEntry.objects.filter(user=user).count()
+            if existing_entries == 0:
+                stats, created = UserStats.objects.get_or_create(
+                    user=user,
+                    defaults={
+                        "starting_weight": validated_data["weight"],
+                        "current_weight": validated_data["weight"],
+                        "transformation_start_date": validated_data.get(
+                            "date", timezone.localdate()
+                        ),
+                    },
+                )
+                if not created and not stats.starting_weight:
+                    stats.starting_weight = validated_data["weight"]
+                    stats.current_weight = validated_data["weight"]
+                    if not stats.transformation_start_date:
+                        stats.transformation_start_date = validated_data.get(
+                            "date", timezone.localdate()
+                        )
+                    stats.save()
+            else:
+                stats, _ = UserStats.objects.get_or_create(user=user)
                 stats.current_weight = validated_data["weight"]
-                if not stats.transformation_start_date:
-                    stats.transformation_start_date = validated_data.get("date", timezone.now().date())
                 stats.save()
-        else:
-            stats, _ = UserStats.objects.get_or_create(user=user)
-            stats.current_weight = validated_data["weight"]
-            stats.save()
 
-        user.weight = validated_data["weight"]
-        user.save(update_fields=["weight"])
+            user.weight = validated_data["weight"]
+            user.save(update_fields=["weight"])
 
-        entry = WeightEntry.objects.create(
-            user=user,
-            weight=validated_data["weight"],
-            date=validated_data["date"],
-            notes=validated_data.get("notes", ""),
-        )
+            entry = WeightEntry.objects.create(
+                user=user,
+                weight=validated_data["weight"],
+                date=validated_data["date"],
+                notes=validated_data.get("notes", ""),
+            )
 
         try:
             from notifications.utils import notify_admins_user_change

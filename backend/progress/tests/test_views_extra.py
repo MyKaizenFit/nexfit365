@@ -262,7 +262,7 @@ class TestDailyWellnessExtra:
         assert response.data["exists"] is False
 
     def test_today_with_entry(self, auth_client, user):
-        today = timezone.now().date()
+        today = timezone.localdate()
         DailyWellness.objects.create(
             user=user,
             date=today,

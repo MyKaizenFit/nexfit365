@@ -160,7 +160,8 @@ export const useAdminExercises = () => {
       while (hasMore && page <= maxPages) {
         let response = await fetch(
           buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`),
-          { headers }
+          {
+        credentials: 'include', headers }
         )
 
         // Si recibimos 401, intentar refrescar el token
@@ -170,7 +171,8 @@ export const useAdminExercises = () => {
           headers = newHeaders
           response = await fetch(
             buildApiUrl(`admin/exercises/?page=${page}&page_size=${pageSize}`),
-            { headers }
+            {
+        credentials: 'include', headers }
           )
         }
 
@@ -238,6 +240,7 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`exercises/categories/`), {
+        credentials: 'include',
         headers
       })
 
@@ -247,6 +250,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) return // Ya redirigió al login
         headers = newHeaders
         response = await fetch(buildApiUrl(`exercises/categories/`), {
+        credentials: 'include',
           headers
         })
       }
@@ -286,6 +290,7 @@ export const useAdminExercises = () => {
       // Obtener stats del backend
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/stats/`), {
+        credentials: 'include',
         headers
       })
 
@@ -295,6 +300,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) return // Ya redirigió al login
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/stats/`), {
+        credentials: 'include',
           headers
         })
       }
@@ -327,6 +333,7 @@ export const useAdminExercises = () => {
       let headers = await getAuthHeaders()
       const requestBody = JSON.stringify(exerciseData)
       let response = await fetch(buildApiUrl(`admin/exercises/`), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -341,6 +348,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/`), {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,
@@ -395,6 +403,7 @@ export const useAdminExercises = () => {
       let headers = await getAuthHeaders()
       const requestBody = JSON.stringify(exerciseData)
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/`), {
+        credentials: 'include',
         method: 'PUT',
         headers: {
           ...headers,
@@ -409,6 +418,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/`), {
+        credentials: 'include',
           method: 'PUT',
           headers: {
             ...headers,
@@ -444,6 +454,7 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers
       })
@@ -454,6 +465,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/`), {
+        credentials: 'include',
           method: 'DELETE',
           headers
         })
@@ -482,6 +494,7 @@ export const useAdminExercises = () => {
       let headers = await getAuthHeaders()
       const requestBody = JSON.stringify({ exercise_ids: exerciseIds })
       let response = await fetch(buildApiUrl(`admin/exercises/bulk_delete/`), {
+        credentials: 'include',
         method: 'DELETE',
         headers: {
           ...headers,
@@ -496,6 +509,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/bulk_delete/`), {
+        credentials: 'include',
           method: 'DELETE',
           headers: {
             ...headers,
@@ -550,6 +564,7 @@ export const useAdminExercises = () => {
       formData.append('video_file', videoFile)
 
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
+        credentials: 'include',
         method: 'POST',
         headers: getMultipartHeaders(headers),
         body: formData
@@ -560,6 +575,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
+        credentials: 'include',
           method: 'POST',
           headers: getMultipartHeaders(headers),
           body: formData
@@ -593,6 +609,7 @@ export const useAdminExercises = () => {
       formData.append('thumbnail', thumbnailFile)
 
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
+        credentials: 'include',
         method: 'POST',
         headers: getMultipartHeaders(headers),
         body: formData
@@ -603,6 +620,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
+        credentials: 'include',
           method: 'POST',
           headers: getMultipartHeaders(headers),
           body: formData
@@ -629,6 +647,7 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/set-cover-url/`), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ image_url: imageUrl }),
@@ -639,6 +658,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/set-cover-url/`), {
+        credentials: 'include',
           method: 'POST',
           headers: { ...headers, 'Content-Type': 'application/json' },
           body: JSON.stringify({ image_url: imageUrl }),
@@ -662,6 +682,7 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove-cover/`), {
+        credentials: 'include',
         method: 'POST',
         headers,
       })
@@ -671,6 +692,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove-cover/`), {
+        credentials: 'include',
           method: 'POST',
           headers,
         })
@@ -693,6 +715,7 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl('admin/exercises/bulk_create/'), {
+        credentials: 'include',
         method: 'POST',
         headers: {
           ...headers,
@@ -707,6 +730,7 @@ export const useAdminExercises = () => {
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
         response = await fetch(buildApiUrl('admin/exercises/bulk_create/'), {
+        credentials: 'include',
           method: 'POST',
           headers: {
             ...headers,
@@ -740,13 +764,15 @@ export const useAdminExercises = () => {
     try {
       let headers = await getAuthHeaders()
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/substitutes/`), {
+        credentials: 'include',
         headers
       })
       if (response.status === 401) {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/substitutes/`), { headers })
+        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/substitutes/`), {
+        credentials: 'include', headers })
       }
       if (!response.ok) throw new Error('Error al obtener sustitutos')
       return await response.json()
@@ -759,6 +785,7 @@ export const useAdminExercises = () => {
   const addExerciseSubstitute = async (exerciseId: number | string, substituteId: number | string, priority = 1, notes = ''): Promise<any> => {
     let headers = await getAuthHeaders()
     let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/add_substitute/`), {
+        credentials: 'include',
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ substitute_id: substituteId, priority, notes })
@@ -768,6 +795,7 @@ export const useAdminExercises = () => {
       if (!newHeaders) throw new Error('Sesión expirada')
       headers = newHeaders
       response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/add_substitute/`), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ substitute_id: substituteId, priority, notes })
@@ -783,6 +811,7 @@ export const useAdminExercises = () => {
   const removeExerciseSubstitute = async (exerciseId: number | string, substituteId: number | string): Promise<boolean> => {
     let headers = await getAuthHeaders()
     let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove_substitute/`), {
+        credentials: 'include',
       method: 'POST',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({ substitute_id: substituteId })
@@ -792,6 +821,7 @@ export const useAdminExercises = () => {
       if (!newHeaders) throw new Error('Sesión expirada')
       headers = newHeaders
       response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/remove_substitute/`), {
+        credentials: 'include',
         method: 'POST',
         headers: { ...headers, 'Content-Type': 'application/json' },
         body: JSON.stringify({ substitute_id: substituteId })

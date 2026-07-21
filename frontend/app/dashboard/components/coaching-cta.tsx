@@ -159,8 +159,10 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
         const headers = await getAuthHeaders()
 
         const [plansResult, historyResult] = await Promise.allSettled([
-          fetch(buildApiUrl("coaching/plans/"), { headers }),
-          fetch(buildApiUrl("coaching/inquiries/mine/"), { headers }),
+          fetch(buildApiUrl("coaching/plans/"), {
+        credentials: 'include', headers }),
+          fetch(buildApiUrl("coaching/inquiries/mine/"), {
+        credentials: 'include', headers }),
         ])
 
         if (plansResult.status === "fulfilled") {
@@ -278,6 +280,7 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
       setSubmitting(true)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl("coaching/inquiries/"), {
+        credentials: 'include',
         method: "POST",
         headers,
         body: JSON.stringify({

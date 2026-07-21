@@ -33,11 +33,9 @@ class DailyMealSelectionsService {
 
   // Obtener selecciones del día
   async getDailySelections(date: string): Promise<DailyMealSelection[]> {
-    // Verificar si hay token de acceso disponible
     try {
-      const { authService } = require('./auth-service')
-      const token = authService.getAccessToken()
-      if (!token) {
+      const { getAuthService } = require('./auth-service')
+      if (!getAuthService().isAuthenticated()) {
         return []
       }
     } catch (error) {
@@ -56,6 +54,7 @@ class DailyMealSelectionsService {
       const result = await requestThrottler.throttle('daily-meal-selections', async () => {
         const headers = await getAuthHeaders()
         const response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}?date=${date}`, {
+        credentials: 'include',
           headers,
           method: 'GET',
         })
@@ -82,11 +81,9 @@ class DailyMealSelectionsService {
 
   // Crear o actualizar selección de comida
   async saveMealSelection(selection: Partial<DailyMealSelection>): Promise<DailyMealSelection | null> {
-    // Verificar si hay token de acceso disponible
     try {
-      const { authService } = require('./auth-service')
-      const token = authService.getAccessToken()
-      if (!token) {
+      const { getAuthService } = require('./auth-service')
+      if (!getAuthService().isAuthenticated()) {
         return null
       }
     } catch (error) {
@@ -132,6 +129,7 @@ class DailyMealSelectionsService {
       if (existingSelection) {
         // Actualizar selección existente
         response = await fetch(`${buildApiUrl(`nutrition/daily-meal-selections/${existingSelection.id}/`)}`, {
+          credentials: 'include',
           headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -142,6 +140,7 @@ class DailyMealSelectionsService {
       } else {
         // Crear nueva selección
         response = await fetch(`${buildApiUrl('nutrition/daily-meal-selections/')}`, {
+          credentials: 'include',
           headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -172,11 +171,9 @@ class DailyMealSelectionsService {
 
   // Eliminar selección de comida
   async deleteMealSelection(selectionId: string): Promise<boolean> {
-    // Verificar si hay token de acceso disponible
     try {
-      const { authService } = require('./auth-service')
-      const token = authService.getAccessToken()
-      if (!token) {
+      const { getAuthService } = require('./auth-service')
+      if (!getAuthService().isAuthenticated()) {
         return false
       }
     } catch (error) {
@@ -186,6 +183,7 @@ class DailyMealSelectionsService {
     try {
       const headers = await getAuthHeaders()
       const response = await fetch(`${buildApiUrl(`nutrition/daily-meal-selections/${selectionId}/`)}`, {
+        credentials: 'include',
         headers,
         method: 'DELETE',
       })
@@ -202,11 +200,9 @@ class DailyMealSelectionsService {
 
   // Obtener todas las selecciones de un usuario
   async getUserSelections(userId?: string): Promise<DailyMealSelection[]> {
-    // Verificar si hay token de acceso disponible
     try {
-      const { authService } = require('./auth-service')
-      const token = authService.getAccessToken()
-      if (!token) {
+      const { getAuthService } = require('./auth-service')
+      if (!getAuthService().isAuthenticated()) {
         return []
       }
     } catch (error) {
@@ -220,6 +216,7 @@ class DailyMealSelectionsService {
         : `${buildApiUrl('nutrition/daily-meal-selections/')}`
       
       const response = await fetch(url, {
+        credentials: 'include',
         headers,
         method: 'GET',
       })

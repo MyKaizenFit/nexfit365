@@ -1157,7 +1157,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
                 NutritionPlan.objects.filter(
                     user_id__in=incoming_ids,
                     is_active=True,
-                ).exclude(pk=plan.pk).update(is_active=False, end_date=timezone.now().date())
+                ).exclude(pk=plan.pk).update(is_active=False, end_date=timezone.localdate())
 
         if len(user_ids) == 1:
             if plan.user_id != user_ids[0]:
@@ -1173,7 +1173,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         NutritionPlanAssignment.objects.filter(user=user, is_active=True).update(is_active=False)
         NutritionPlan.objects.filter(user=user, is_active=True).update(
             is_active=False,
-            end_date=timezone.now().date(),
+            end_date=timezone.localdate(),
         )
 
         copied_plan = NutritionPlan.objects.create(
@@ -1196,7 +1196,7 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             is_template=False,
             is_system=False,
             is_active=True,
-            start_date=timezone.now().date(),
+            start_date=timezone.localdate(),
             end_date=source_plan.end_date,
             tags=source_plan.tags,
             image_url=source_plan.image_url,
@@ -1424,7 +1424,10 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         plan.save(update_fields=['start_date', 'updated_at'])
 
     def _clear_future_meal_selections_for_plan(self, plan: NutritionPlan):
-        """Tras reemplazar comidas, limpiar selecciones futuras para que se vea la 1ª opción."""
+        """Tras reemplazar comidas de verdad, limpiar selecciones ≥ hoy para ver la 1ª opción.
+
+        Solo debe invocarse cuando `_replace_plan_meals` recibió una lista (replace real).
+        """
         from django.utils import timezone
         from .models import MealLog
 
@@ -1835,7 +1838,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
         meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
         self._replace_plan_meals(plan, meals_payload)
         self._ensure_user_plan_start_date(plan, request.data)
-        self._clear_future_meal_selections_for_plan(plan)
+        # Only wipe selections when meals were actually replaced (list payload).
+        if isinstance(meals_payload, list):
+            self._clear_future_meal_selections_for_plan(plan)
         self._finalize_plan_after_meals(
             plan,
             meals_payload,

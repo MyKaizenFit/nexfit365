@@ -427,19 +427,44 @@ class TestNotificationPermissions:
         
         assert response.status_code == status.HTTP_200_OK
 
-    def test_trainer_can_view_member_notifications(self, trainer_headers, member_user):
-        """Test de que trainer puede ver notificaciones de miembros"""
+    def test_trainer_cannot_view_member_notifications(self, trainer_headers, member_user):
+        """Trainer/pro membership is not staff — no cross-user notification access."""
         notification = Notification.objects.create(
             user=member_user,
             type="meal_reminder",
-            title="Trainer can see this",
-            message="Trainer has access"
+            title="Trainer cannot see this",
+            message="No cross-user access"
         )
         
         url = reverse("notification-detail", args=[notification.id])
         response = trainer_headers.get(url)
         
+        assert response.status_code in (
+            status.HTTP_403_FORBIDDEN,
+            status.HTTP_404_NOT_FOUND,
+        )
+
+    def test_pro_member_cannot_list_others_notifications(self, api_client, member_user):
+        pro_user = User.objects.create_user(
+            email="pro@example.com",
+            password="ProPass123!",
+            role="pro",
+            is_staff=False,
+        )
+        Notification.objects.create(
+            user=member_user,
+            type="achievement",
+            title="Foreign",
+            message="Not for pro",
+        )
+        refresh = RefreshToken.for_user(pro_user)
+        api_client.credentials(HTTP_AUTHORIZATION=f"Bearer {refresh.access_token}")
+        url = reverse("notification-list")
+        response = api_client.get(url)
         assert response.status_code == status.HTTP_200_OK
+        results = response.data.get("results", response.data)
+        titles = [n["title"] for n in results]
+        assert "Foreign" not in titles
 
     def test_member_cannot_view_other_notifications(self, auth_headers, member_user):
         """Test de que miembro no puede ver notificaciones de otros"""

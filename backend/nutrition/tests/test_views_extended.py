@@ -399,6 +399,19 @@ class TestPlanMealsForSelection:
         profile_breakfast = int(2459 * 0.25)
         assert abs(int(recipe_option['calories']) - profile_breakfast) > 50
 
+    def test_batch_returns_seven_days(self, auth_client):
+        response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection-batch/?start_date=2026-06-01'
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['start_date'] == '2026-06-01'
+        assert response.data['end_date'] == '2026-06-07'
+        assert len(response.data['results']) == 7
+        for offset in range(7):
+            key = f'2026-06-0{offset + 1}'
+            assert key in response.data['results']
+            assert 'meals_by_type' in response.data['results'][key]
+
 
 # ---------------------------------------------------------------------------
 # daily_meal_selections endpoints
@@ -473,6 +486,27 @@ class TestDailyMealSelections:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['deleted'] == 1
         assert not MealLog.objects.filter(user=user, date='2026-05-21', meal_type='lunch').exists()
+
+    def test_post_selection_upserts_same_meal_type(self, auth_client, user, recipe):
+        payload = {
+            'date': '2026-06-01',
+            'meal_type': 'lunch',
+            'recipe_id': str(recipe.id),
+            'completed': False,
+        }
+        first = auth_client.post('/api/nutrition/daily-meal-selections/', payload, format='json')
+        second = auth_client.post(
+            '/api/nutrition/daily-meal-selections/',
+            {**payload, 'completed': True, 'calories': recipe.calories},
+            format='json',
+        )
+        assert first.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert second.status_code in [status.HTTP_200_OK, status.HTTP_201_CREATED]
+        assert MealLog.objects.filter(
+            user=user, date='2026-06-01', meal_type='lunch', plan_meal__isnull=True
+        ).count() == 1
+        log = MealLog.objects.get(user=user, date='2026-06-01', meal_type='lunch')
+        assert log.completed is True
 
 
 @pytest.mark.django_db

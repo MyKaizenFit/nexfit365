@@ -13,14 +13,10 @@ class NotificationPermission(permissions.BasePermission):
     
     def has_object_permission(self, request, view, obj):
         role = str(getattr(request.user, "role", "") or "").lower()
-        target_role = str(getattr(obj.user, "role", "") or "").lower()
 
         if request.user.is_staff or request.user.is_superuser or role == "admin":
             return True
 
-        if role in {"trainer", "pro"} and target_role in {"basic", "member", "premium"}:
-            return True
-        
         return obj.user == request.user
 
 

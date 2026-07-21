@@ -18,6 +18,7 @@ import { toast } from '@/hooks/use-toast'
 import { ExerciseVideoPlayer } from './exercise-video-player'
 import { ExerciseCoverThumbnail } from './exercise-cover-thumbnail'
 import { cn } from '@/lib/utils'
+import { formatLocalDate, todayLocalDate } from '@/lib/local-date'
 
 // =============================================
 // INPUT NUMÉRICO PARA MÓVIL
@@ -337,10 +338,10 @@ export function ActiveWorkoutSession({
 }: ActiveWorkoutSessionProps) {
   // Clave para localStorage basada en el día de entrenamiento
   const workoutStorageKey = workoutDay?.id
-    ? `active_workout_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
+    ? `active_workout_${workoutDay.id}_${todayLocalDate()}`
     : null
   const substituteStorageKey = workoutDay?.id
-    ? `workout_substitutes_${workoutDay.id}_${new Date().toISOString().split('T')[0]}`
+    ? `workout_substitutes_${workoutDay.id}_${todayLocalDate()}`
     : null
 
   // Función para guardar estado en localStorage
@@ -363,8 +364,8 @@ export function ActiveWorkoutSession({
       if (saved) {
         const state = JSON.parse(saved)
         // Solo cargar si es del mismo día
-        const savedDate = new Date(state.savedAt).toISOString().split('T')[0]
-        const today = new Date().toISOString().split('T')[0]
+        const savedDate = formatLocalDate(new Date(state.savedAt))
+        const today = todayLocalDate()
         if (savedDate === today) {
           return state
         }
@@ -395,6 +396,7 @@ export function ActiveWorkoutSession({
   const [showFinishDialog, setShowFinishDialog] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const isFinishingRef = useRef(false)
+  const autosaveInFlightRef = useRef<Promise<void> | null>(null)
   const [autosaveState, setAutosaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [confirmMissingExercises, setConfirmMissingExercises] = useState(false)
   const [substituteSelections, setSubstituteSelections] = useState<Record<string, any>>(initialSubstituteSelections || {})
@@ -671,7 +673,7 @@ export function ActiveWorkoutSession({
       ? String(selectedSubstitute.id)
       : baseExerciseId
 
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayLocalDate()
     for (const log of workoutLogs || []) {
       if (!log?.completed || log?.date === today || !Array.isArray(log?.exercises_data)) continue
       const match = log.exercises_data.find((entry: any) => {
@@ -897,17 +899,37 @@ export function ActiveWorkoutSession({
     if (!hasProgress) return
 
     setAutosaveState('saving')
+    const run = (async () => {
+      try {
+        const payload: {
+          duration_minutes: number
+          rating: number
+          notes: string
+          exercises_data: ReturnType<typeof buildExercisesData>
+          completed?: boolean
+        } = {
+          duration_minutes: Math.ceil(getCurrentElapsedSecondsRef.current() / 60),
+          rating,
+          notes,
+          exercises_data: buildExercisesData(),
+        }
+        // Only send completed when editing an already-finished workout.
+        if (isEditingCompletedWorkout) {
+          payload.completed = true
+        }
+        await onSaveProgress(payload)
+        if (!isFinishingRef.current) setAutosaveState('saved')
+      } catch {
+        if (!isFinishingRef.current) setAutosaveState('error')
+      }
+    })()
+    autosaveInFlightRef.current = run
     try {
-      await onSaveProgress({
-        duration_minutes: Math.ceil(getCurrentElapsedSecondsRef.current() / 60),
-        rating,
-        notes,
-        exercises_data: buildExercisesData(),
-        completed: isEditingCompletedWorkout,
-      })
-      setAutosaveState('saved')
-    } catch {
-      setAutosaveState('error')
+      await run
+    } finally {
+      if (autosaveInFlightRef.current === run) {
+        autosaveInFlightRef.current = null
+      }
     }
   }, [
     buildExercisesData,
@@ -1325,9 +1347,16 @@ export function ActiveWorkoutSession({
     const finalElapsedSeconds = syncElapsedFromClock()
 
     try {
-      const exercisesData = buildExercisesData()
+      // Wait for any in-flight draft autosave before the final complete write.
+      if (autosaveInFlightRef.current) {
+        try {
+          await autosaveInFlightRef.current
+        } catch {
+          // Final onComplete is authoritative; ignore draft autosave failure.
+        }
+      }
 
-      // Log para depuración
+      const exercisesData = buildExercisesData()
 
       await onComplete({
         duration_minutes: Math.ceil(finalElapsedSeconds / 60),

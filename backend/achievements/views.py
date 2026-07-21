@@ -65,11 +65,26 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
     filterset_fields = ["achievement__category"]
     ordering_fields = ["unlocked_at", "achievement__name", "achievement__points"]
     ordering = ["-unlocked_at"]
+
+    def _resolve_user_id(self, request, user_id=None):
+        if user_id:
+            return user_id
+        query_user = request.query_params.get("user")
+        if query_user and (request.user.is_staff or request.user.is_superuser):
+            return query_user
+        return request.user.id
     
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
         if user_id:
             return UserAchievement.objects.filter(user_id=user_id).select_related("achievement")
+        # Staff detail/update/delete must see any row; list/summary use ?user= filter.
+        if self.request.user.is_staff or self.request.user.is_superuser:
+            query_user = self.request.query_params.get("user")
+            if query_user:
+                return UserAchievement.objects.filter(user_id=query_user).select_related("achievement")
+            if getattr(self, "action", None) in {"retrieve", "update", "partial_update", "destroy"}:
+                return UserAchievement.objects.all().select_related("achievement")
         return UserAchievement.objects.filter(user=self.request.user).select_related("achievement")
     
     def get_serializer_class(self):
@@ -87,8 +102,8 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def summary(self, request, user_id=None):
         """Obtener resumen de logros del usuario"""
-        user_id = user_id or request.user.id
-        queryset = self.get_queryset()
+        user_id = self._resolve_user_id(request, user_id)
+        queryset = UserAchievement.objects.filter(user_id=user_id).select_related("achievement")
         
         # Estadísticas básicas
         total_achievements = Achievement.objects.filter(is_active=True).count()
@@ -127,7 +142,7 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def progress(self, request, user_id=None):
         """Obtener progreso hacia logros disponibles"""
-        user_id = user_id or request.user.id
+        user_id = self._resolve_user_id(request, user_id)
         
         # Obtener todos los logros activos
         all_achievements = Achievement.objects.filter(is_active=True)
@@ -172,8 +187,12 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=["get"])
     def recent(self, request, user_id=None):
         """Obtener logros recientes (últimos 10)"""
-        user_id = user_id or request.user.id
-        queryset = self.get_queryset()[:10]
+        user_id = self._resolve_user_id(request, user_id)
+        queryset = (
+            UserAchievement.objects.filter(user_id=user_id)
+            .select_related("achievement")
+            .order_by("-unlocked_at")[:10]
+        )
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -188,8 +207,11 @@ class UserAchievementViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        user_id = user_id or request.user.id
-        queryset = self.get_queryset().filter(achievement__category=category)
+        user_id = self._resolve_user_id(request, user_id)
+        queryset = UserAchievement.objects.filter(
+            user_id=user_id,
+            achievement__category=category,
+        ).select_related("achievement")
         
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)

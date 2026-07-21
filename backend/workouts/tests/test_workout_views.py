@@ -178,6 +178,27 @@ class TestExerciseViewSet:
         assert 'Ejercicio Activo' in names
         assert 'Ejercicio Inactivo' not in names
 
+    def test_create_exercise_forbidden_for_member(self, auth_client):
+        response = auth_client.post(
+            '/api/exercises/',
+            {'name': 'Hack Squats', 'category': 'strength', 'muscle_groups': []},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_update_exercise_forbidden_for_member(self, auth_client, exercise):
+        response = auth_client.patch(
+            f'/api/exercises/{exercise.id}/',
+            {'name': 'Sentadilla Modificada'},
+            format='json',
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_destroy_exercise_forbidden_for_member(self, auth_client, exercise):
+        response = auth_client.delete(f'/api/exercises/{exercise.id}/')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert Exercise.objects.filter(id=exercise.id).exists()
+
     def test_search_exercises(self, auth_client, exercise):
         response = auth_client.get('/api/exercises/?search=Sentadilla')
         assert response.status_code == status.HTTP_200_OK
@@ -385,6 +406,61 @@ class TestWorkoutLogViewSet:
         assert completed_log.duration_minutes == 35
         assert completed_log.notes == 'Completado'
 
+    def test_stale_autosave_omitting_completed_cannot_overwrite_finished_log(
+        self, auth_client, user, workout_day
+    ):
+        """Draft autosave no longer sends completed=false; must still be a no-op."""
+        completed_log = WorkoutLog.objects.create(
+            user=user,
+            workout_day=workout_day,
+            date=timezone.localdate(),
+            duration_minutes=40,
+            completed=True,
+            notes='Final',
+            exercises_data=[{'exercise_id': 'a', 'sets': []}],
+        )
+
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(workout_day.id),
+            'duration_minutes': 12,
+            'notes': 'Borrador tardío',
+            'exercises_data': [{'exercise_id': 'draft', 'sets': []}],
+        }, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        completed_log.refresh_from_db()
+        assert completed_log.completed is True
+        assert completed_log.duration_minutes == 40
+        assert completed_log.notes == 'Final'
+        assert completed_log.exercises_data[0]['exercise_id'] == 'a'
+
+    def test_upsert_today_rejects_other_users_workout_day(
+        self, auth_client, user2, exercise
+    ):
+        other_program = WorkoutProgram.objects.create(
+            name='Programa Ajeno',
+            user=user2,
+            difficulty='beginner',
+            goal='general_fitness',
+            days_per_week=3,
+            duration_weeks=4,
+            is_active=True,
+        )
+        other_day = WorkoutDay.objects.create(
+            program=other_program,
+            name='Día Ajeno',
+            day_number=1,
+            day_of_week='monday',
+            order_index=1,
+        )
+        response = auth_client.post('/api/workout-logs/upsert_today/', {
+            'workout_day': str(other_day.id),
+            'completed': False,
+            'duration_minutes': 10,
+        }, format='json')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert not WorkoutLog.objects.filter(user__email='userviews@test.com', workout_day=other_day).exists()
+
     def test_today_draft_returns_incomplete_log(self, auth_client, user, workout_day):
         draft = WorkoutLog.objects.create(
             user=user,
@@ -529,7 +605,7 @@ class TestWorkoutPlanTemplateViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['name'] == template_program.name
 
-    def test_create_template_authenticated(self, auth_client, exercise):
+    def test_create_template_member_forbidden(self, auth_client, exercise):
         data = {
             'name': 'Nueva Plantilla',
             'difficulty': 'beginner',
@@ -538,11 +614,27 @@ class TestWorkoutPlanTemplateViewSet:
             'duration_weeks': 4,
         }
         response = auth_client.post('/api/workout-plan-templates/', data, format='json')
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert not WorkoutProgram.objects.filter(name='Nueva Plantilla').exists()
+
+    def test_create_template_staff_ok(self, admin_user, exercise):
+        client = APIClient()
+        client.force_authenticate(user=admin_user)
+        data = {
+            'name': 'Nueva Plantilla',
+            'difficulty': 'beginner',
+            'goal': 'general_fitness',
+            'days_per_week': 3,
+            'duration_weeks': 4,
+        }
+        response = client.post('/api/workout-plan-templates/', data, format='json')
         assert response.status_code == status.HTTP_201_CREATED
         program = WorkoutProgram.objects.get(name='Nueva Plantilla')
         assert program.is_template is True
 
-    def test_create_template_with_days(self, auth_client, exercise):
+    def test_create_template_with_days_staff(self, admin_user, exercise):
+        client = APIClient()
+        client.force_authenticate(user=admin_user)
         data = {
             'name': 'Plantilla Con Días',
             'difficulty': 'intermediate',
@@ -565,7 +657,7 @@ class TestWorkoutPlanTemplateViewSet:
                 },
             ],
         }
-        response = auth_client.post('/api/workout-plan-templates/', data, format='json')
+        response = client.post('/api/workout-plan-templates/', data, format='json')
         assert response.status_code == status.HTTP_201_CREATED
         program = WorkoutProgram.objects.get(name='Plantilla Con Días')
         assert program.days.count() == 2
