@@ -12,15 +12,19 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
+import { getPhotoTypeLabel, PHOTO_TYPE_OPTIONS, type ProgressPhotoType } from "@/lib/progress-photo-types"
+import { buildComparisonsByType } from "@/lib/progress-photo-compare"
+
 export function ProgressPhotos() {
   const [currentPhoto, setCurrentPhoto] = useState(0)
-  const { photos, loading, error, uploadPhotos, deletePhoto, refreshPhotos } = useProgressPhotos()
+  const { photos, loading, uploading, error, uploadPhotos, deletePhoto, refreshPhotos } = useProgressPhotos()
 
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false)
   const [zoomPhoto, setZoomPhoto] = useState<string | null>(null)
   const [compareOpen, setCompareOpen] = useState(false)
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoDate, setNewPhotoDate] = useState(() => new Date().toLocaleDateString('en-CA'))
+  const [selectedPhotoType, setSelectedPhotoType] = useState<ProgressPhotoType>('front')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -54,6 +58,7 @@ export function ProgressPhotos() {
   }
 
   const handleUploadPhoto = async () => {
+    if (uploading) return
     if (selectedFiles.length === 0 || !newPhotoWeight.trim()) {
       toast({
         title: "❌ Error",
@@ -65,11 +70,12 @@ export function ProgressPhotos() {
     try {
       const weight = parseFloat(newPhotoWeight)
 
-      await uploadPhotos(selectedFiles, weight, `Peso: ${newPhotoWeight} kg`, 'front', newPhotoDate)
+      await uploadPhotos(selectedFiles, weight, `Peso: ${newPhotoWeight} kg`, selectedPhotoType, newPhotoDate)
 
       // Reset form
       setSelectedFiles([])
       setNewPhotoWeight("")
+      setSelectedPhotoType('front')
       setIsUploadDialogOpen(false)
       previewUrls.forEach((url) => URL.revokeObjectURL(url))
       setPreviewUrls([])
@@ -100,6 +106,7 @@ export function ProgressPhotos() {
     previewUrls.forEach((url) => URL.revokeObjectURL(url))
     setPreviewUrls([])
     setNewPhotoWeight("")
+    setSelectedPhotoType('front')
     setNewPhotoDate(new Date().toLocaleDateString('en-CA'))
   }
 
@@ -127,9 +134,7 @@ export function ProgressPhotos() {
     if (photo) {
       toast({
         title: `Foto del ${photo.date}`,
-        description: `${photo.photo_type === 'front' ? 'Frontal' :
-          photo.photo_type === 'side' ? 'Lateral' :
-            photo.photo_type === 'back' ? 'Espalda' : 'Detalle'} - ${photo.weight ? `${photo.weight} kg` : 'Sin peso'}`,
+        description: `${getPhotoTypeLabel(photo.photo_type)} - ${photo.weight ? `${photo.weight} kg` : 'Sin peso'}`,
       })
     }
   }
@@ -203,9 +208,7 @@ export function ProgressPhotos() {
                   <div className="absolute bottom-2 left-2 right-2 bg-black/60 backdrop-blur-sm rounded-md p-2 transform transition-all duration-500 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100">
                     <div className="text-white text-xs text-center">
                       <div className="font-medium animate-in slide-in-from-bottom-2 duration-300">
-                        {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' :
-                          photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' :
-                            photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
+                        {getPhotoTypeLabel(photos[currentPhoto]?.photo_type)}
                       </div>
                       <div className="text-white/80 animate-in slide-in-from-bottom-2 duration-300 delay-100">
                         {photos[currentPhoto]?.weight ? `${photos[currentPhoto].weight} kg` : 'Sin peso'}
@@ -247,9 +250,7 @@ export function ProgressPhotos() {
                   <Calendar className="h-3 w-3 sm:h-4 sm:w-4 text-muted-foreground" />
                   <span className="text-xs sm:text-sm font-medium">{photos[currentPhoto]?.date || 'Sin fecha'}</span>
                   <Badge variant="outline" className="text-xs">
-                    {photos[currentPhoto]?.photo_type === 'front' ? 'Frontal' :
-                      photos[currentPhoto]?.photo_type === 'side' ? 'Lateral' :
-                        photos[currentPhoto]?.photo_type === 'back' ? 'Espalda' : 'Detalle'}
+                    {getPhotoTypeLabel(photos[currentPhoto]?.photo_type)}
                   </Badge>
                 </div>
                 <span className="text-xs sm:text-sm text-muted-foreground">
@@ -374,6 +375,25 @@ export function ProgressPhotos() {
                     />
                   </div>
 
+                  <div>
+                    <Label htmlFor="photo-type">Postura</Label>
+                    <select
+                      id="photo-type"
+                      value={selectedPhotoType}
+                      onChange={(e) => setSelectedPhotoType(e.target.value as ProgressPhotoType)}
+                      className="mt-2 w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    >
+                      {PHOTO_TYPE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Sube una postura por lote. Repite para frontal, espalda y laterales.
+                    </p>
+                  </div>
+
                   {/* Campo de peso */}
                   <div>
                     <Label htmlFor="weight">Peso Actual (kg)</Label>
@@ -404,10 +424,14 @@ export function ProgressPhotos() {
                     <Button
                       type="button"
                       onClick={handleUploadPhoto}
-                      disabled={selectedFiles.length === 0 || !newPhotoWeight.trim()}
+                      disabled={uploading || selectedFiles.length === 0 || !newPhotoWeight.trim()}
                       className="flex-1"
                     >
-                      {selectedFiles.length > 1 ? "Subir fotos" : "Subir foto"}
+                      {uploading
+                        ? "Subiendo…"
+                        : selectedFiles.length > 1
+                          ? "Subir fotos"
+                          : "Subir foto"}
                     </Button>
                   </div>
                 </div>
@@ -488,57 +512,40 @@ export function ProgressPhotos() {
               <GitCompare className="h-5 w-5 text-green-600" />
               Comparación de progreso
             </DialogTitle>
-            <DialogDescription>Primera foto vs. foto más reciente</DialogDescription>
+            <DialogDescription>Primera vs última foto por cada postura</DialogDescription>
           </DialogHeader>
-          {photos.length > 1 ? (
-            <div className="grid grid-cols-2 gap-4 mt-2">
-              {/* Primera foto */}
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Inicio</span>
-                <Image
-                  src={photos[photos.length - 1]?.photo_url || "/placeholder.svg"}
-                  alt="Primera foto"
-                  width={260}
-                  height={340}
-                  className="rounded-lg object-cover w-full max-h-72 shadow"
-                />
-                <p className="text-sm text-center text-muted-foreground">
-                  {photos[photos.length - 1]?.date
-                    ? new Date(photos[photos.length - 1].date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
-                    : "Sin fecha"}
-                  {photos[photos.length - 1]?.weight ? ` · ${photos[photos.length - 1].weight} kg` : ""}
-                </p>
-              </div>
-              {/* Foto más reciente */}
-              <div className="flex flex-col items-center gap-2">
-                <span className="text-xs font-semibold text-green-600 uppercase tracking-wide">Ahora</span>
-                <Image
-                  src={photos[0]?.photo_url || "/placeholder.svg"}
-                  alt="Foto reciente"
-                  width={260}
-                  height={340}
-                  className="rounded-lg object-cover w-full max-h-72 shadow ring-2 ring-green-400"
-                />
-                <p className="text-sm text-center text-muted-foreground">
-                  {photos[0]?.date
-                    ? new Date(photos[0].date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" })
-                    : "Sin fecha"}
-                  {photos[0]?.weight ? ` · ${photos[0].weight} kg` : ""}
-                </p>
-              </div>
+          {photos.length > 0 ? (
+            <div className="grid gap-3 sm:grid-cols-2 max-h-[70vh] overflow-y-auto">
+              {buildComparisonsByType(photos).map((cmp) => (
+                <div key={cmp.type} className="rounded-lg border p-2">
+                  <p className="mb-2 text-xs font-semibold">{cmp.label}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[cmp.first, cmp.last].map((photo, idx) => (
+                      <div key={`${cmp.type}-${idx}`} className="flex flex-col items-center gap-1">
+                        <span className="text-[10px] font-medium text-muted-foreground">
+                          {idx === 0 ? "Primera" : "Última"}
+                        </span>
+                        {photo?.photo_url ? (
+                          <Image
+                            src={photo.photo_url}
+                            alt={`${cmp.label} ${idx === 0 ? "primera" : "última"}`}
+                            width={140}
+                            height={180}
+                            className="rounded-md object-cover aspect-[3/4] w-full"
+                          />
+                        ) : (
+                          <div className="flex aspect-[3/4] w-full items-center justify-center rounded-md border border-dashed text-[10px] text-muted-foreground">
+                            Foto no disponible
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
-            <p className="text-center text-muted-foreground py-8">Necesitas al menos 2 fotos para comparar</p>
-          )}
-          {photos.length > 1 && photos[0]?.weight && photos[photos.length - 1]?.weight && (
-            <div className="mt-3 p-3 bg-green-50 rounded-lg text-center">
-              <p className="text-green-700 font-semibold text-sm">
-                Diferencia de peso:{" "}
-                <span className="text-green-600 font-bold text-base">
-                  {(photos[photos.length - 1].weight! - photos[0].weight!).toFixed(1)} kg
-                </span>
-              </p>
-            </div>
+            <p className="text-sm text-muted-foreground">No hay fotos para comparar.</p>
           )}
         </DialogContent>
       </Dialog>

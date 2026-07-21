@@ -44,6 +44,7 @@ import { useAutoRefresh } from "@/hooks/use-auto-refresh"
 import { toast } from "@/hooks/use-toast"
 import { buildApiUrl, getAuthHeaders } from "@/lib/api"
 import { userService } from "@/lib/user-service"
+import type { ProgressPhotoType } from "@/lib/progress-photo-types"
 import {
   ContentReveal,
   DashboardHeroShell,
@@ -73,10 +74,11 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   // Estados para subida de fotos
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
+  const [selectedPhotoType, setSelectedPhotoType] = useState<ProgressPhotoType>('front')
   const [newPhotoWeight, setNewPhotoWeight] = useState("")
   const [newPhotoNotes, setNewPhotoNotes] = useState("")
   const [newPhotoDate, setNewPhotoDate] = useState("")
+  const [photoUploading, setPhotoUploading] = useState(false)
 
   useEffect(() => {
     const now = new Date()
@@ -238,6 +240,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
   }
 
   const handleUploadPhoto = async () => {
+    if (photoUploading) return
     if (!selectedFile || !newPhotoWeight.trim()) {
       toast({
         title: "❌ Error",
@@ -248,13 +251,19 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
     }
 
     try {
+      setPhotoUploading(true)
       const weight = parseFloat(newPhotoWeight)
+      const idemKey =
+        typeof crypto !== "undefined" && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
       await userService.uploadProgressPhoto(
         selectedFile,
         weight,
         newPhotoNotes,
         selectedPhotoType,
-        newPhotoDate
+        newPhotoDate,
+        idemKey,
       )
       await refreshProgressStats()
       if (weight !== undefined && !isNaN(weight)) {
@@ -264,6 +273,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
       setSelectedFile(null)
       setNewPhotoWeight("")
       setNewPhotoNotes("")
+      setSelectedPhotoType('front')
       setNewPhotoDate(todayDate)
       setIsPhotoDialogOpen(false)
       if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -274,6 +284,8 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
         description: `No se pudo subir la foto: ${error instanceof Error ? error.message : 'Error'}`,
         variant: "destructive",
       })
+    } finally {
+      setPhotoUploading(false)
     }
   }
 
@@ -633,13 +645,13 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <select
                 id="photo-type"
                 value={selectedPhotoType}
-                onChange={(e) => setSelectedPhotoType(e.target.value as 'front' | 'side' | 'back' | 'other')}
+                onChange={(e) => setSelectedPhotoType(e.target.value as ProgressPhotoType)}
                 className="w-full p-2.5 border border-border rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               >
                 <option value="front">Frontal</option>
-                <option value="side">Lateral</option>
-                <option value="back">Posterior</option>
-                <option value="other">Otra</option>
+                <option value="back">Espalda</option>
+                <option value="left_side">Lateral izquierdo</option>
+                <option value="right_side">Lateral derecho</option>
               </select>
             </div>
 
@@ -698,11 +710,11 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
             </Button>
             <Button
               onClick={handleUploadPhoto}
-              disabled={!selectedFile || !newPhotoWeight.trim()}
+              disabled={photoUploading || !selectedFile || !newPhotoWeight.trim()}
               className="flex-1 sm:flex-none bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600"
             >
               <Camera className="h-4 w-4 mr-2" />
-              Subir
+              {photoUploading ? "Subiendo…" : "Subir"}
             </Button>
           </DialogFooter>
         </DialogContent>

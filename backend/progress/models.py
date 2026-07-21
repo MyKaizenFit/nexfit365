@@ -5,6 +5,8 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
+from .photo_types import PHOTO_TYPES
+
 
 class TimeStampedModel(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -16,13 +18,8 @@ class TimeStampedModel(models.Model):
 
 
 class ProgressPhoto(TimeStampedModel):
-    PHOTO_TYPES = [
-        ("front", "Frontal"),
-        ("back", "Espalda"),
-        ("side", "Lateral"),
-        ("other", "Otro"),
-    ]
-    
+    PHOTO_TYPES = PHOTO_TYPES
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, 
         on_delete=models.CASCADE, 
@@ -56,7 +53,7 @@ class ProgressPhoto(TimeStampedModel):
         return f"{self.user.email} - {self.photo_type} - {self.date}"
     
     def clean(self):
-        if self.date > timezone.now().date():
+        if self.date > timezone.localdate():
             raise ValidationError("La fecha no puede ser en el futuro")
     
     def save(self, *args, **kwargs):
@@ -92,7 +89,7 @@ class WeightEntry(TimeStampedModel):
         return f"{self.user.email} - {self.weight}kg - {self.date}"
     
     def clean(self):
-        if self.date > timezone.now().date():
+        if self.date > timezone.localdate():
             raise ValidationError("La fecha no puede ser en el futuro")
     
     def save(self, *args, **kwargs):
@@ -134,7 +131,7 @@ class BodyMeasurement(TimeStampedModel):
         return f"{self.user.email} - {self.date}"
     
     def clean(self):
-        if self.date > timezone.now().date():
+        if self.date > timezone.localdate():
             raise ValidationError("La fecha no puede ser en el futuro")
         
         # Al menos una medida debe estar presente
@@ -238,7 +235,7 @@ class DailyWellness(TimeStampedModel):
         return f"{self.user.email} - {self.date} (Sueño: {self.sleep_hours}h, Motivación: {self.motivation_score})"
     
     def clean(self):
-        if self.date > timezone.now().date():
+        if self.date > timezone.localdate():
             raise ValidationError("La fecha no puede ser en el futuro")
     
     def save(self, *args, **kwargs):

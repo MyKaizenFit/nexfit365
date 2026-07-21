@@ -8,6 +8,7 @@ import { Camera, Plus, ChevronLeft, ChevronRight, RefreshCw, Calendar, Weight, X
 import Image from "next/image"
 import { ProgressPhoto } from "@/lib/user-service"
 import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
+import { getPhotoTypeLabel } from "@/lib/progress-photo-types"
 
 interface PhotoCarouselProps {
   photos: ProgressPhoto[]
@@ -82,16 +83,6 @@ export function PhotoCarousel({
 
   const toggleAutoPlay = () => {
     setIsAutoPlaying(!isAutoPlaying)
-  }
-
-  const getPhotoTypeLabel = (type: string) => {
-    switch (type) {
-      case 'front': return 'Frontal'
-      case 'side': return 'Lateral'
-      case 'back': return 'Espalda'
-      case 'other': return 'Otro'
-      default: return type
-    }
   }
 
   const formatDate = (dateString: string) => {

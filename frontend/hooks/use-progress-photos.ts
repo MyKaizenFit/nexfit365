@@ -1,16 +1,19 @@
 // hooks/use-progress-photos.ts
 // Hook para manejar fotos de progreso con datos reales del backend
 
-import { useState, useEffect } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { userService, ProgressPhoto } from '@/lib/user-service'
 import { getAuthService } from '@/lib/auth-service'
+import type { ProgressPhotoType } from '@/lib/progress-photo-types'
 
 export function useProgressPhotos() {
   const { isAuthenticated, user } = useAuth()
   const [photos, setPhotos] = useState<ProgressPhoto[]>([])
   const [loading, setLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const uploadLock = useRef(false)
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -43,10 +46,15 @@ export function useProgressPhotos() {
     file: File, 
     weight?: number, 
     notes?: string, 
-    photoType: 'front' | 'side' | 'back' | 'other' = 'front',
+    photoType: ProgressPhotoType = 'front',
     date?: string
   ) => {
+    if (uploadLock.current) {
+      throw new Error('Ya hay una subida en curso')
+    }
     try {
+      uploadLock.current = true
+      setUploading(true)
       setError(null)
       
       // Verificar autenticación antes de subir
@@ -59,8 +67,20 @@ export function useProgressPhotos() {
       if (!user) {
         throw new Error('No se pudo obtener información del usuario')
       }
+
+      const idemKey =
+        typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`
       
-      const newPhoto = await userService.uploadProgressPhoto(file, weight, notes, photoType, date)
+      const newPhoto = await userService.uploadProgressPhoto(
+        file,
+        weight,
+        notes,
+        photoType,
+        date,
+        idemKey,
+      )
       
       // Agregar la nueva foto al estado inmediatamente
       setPhotos(prev => {
@@ -80,6 +100,9 @@ export function useProgressPhotos() {
       const errorMessage = err instanceof Error ? err.message : 'Error al subir foto'
       setError(errorMessage)
       throw new Error(errorMessage)
+    } finally {
+      uploadLock.current = false
+      setUploading(false)
     }
   }
 
@@ -99,10 +122,15 @@ export function useProgressPhotos() {
     files: File[],
     weight?: number,
     notes?: string,
-    photoType: 'front' | 'side' | 'back' | 'other' = 'front',
+    photoType: ProgressPhotoType = 'front',
     date?: string
   ) => {
+    if (uploadLock.current) {
+      throw new Error('Ya hay una subida en curso')
+    }
     try {
+      uploadLock.current = true
+      setUploading(true)
       setError(null)
 
       if (!isAuthenticated) {
@@ -125,6 +153,9 @@ export function useProgressPhotos() {
       const errorMessage = err instanceof Error ? err.message : 'Error al subir fotos'
       setError(errorMessage)
       throw new Error(errorMessage)
+    } finally {
+      uploadLock.current = false
+      setUploading(false)
     }
   }
 
@@ -135,6 +166,7 @@ export function useProgressPhotos() {
   return {
     photos,
     loading,
+    uploading,
     error,
     uploadPhoto,
     uploadPhotos,

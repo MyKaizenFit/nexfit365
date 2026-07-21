@@ -24,6 +24,8 @@ import { toast } from "@/hooks/use-toast"
 import { useUserProfile } from "@/hooks/use-user-profile"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
+import type { ProgressPhotoType } from "@/lib/progress-photo-types"
+import { getPhotoTypeLabel } from "@/lib/progress-photo-types"
 import { useWeightHistory } from "@/hooks/use-weight-history"
 import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 import { userService } from "@/lib/user-service"
@@ -43,7 +45,7 @@ export function DayOneSheet() {
   // Estados para formularios
   const [weightValue, setWeightValue] = useState("")
   const [weightNotes, setWeightNotes] = useState("")
-  const [selectedPhotoType, setSelectedPhotoType] = useState<'front' | 'side' | 'back' | 'other'>('front')
+  const [selectedPhotoType, setSelectedPhotoType] = useState<ProgressPhotoType>('front')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
   const [photoWeight, setPhotoWeight] = useState("")
@@ -362,9 +364,9 @@ export function DayOneSheet() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="front">Frontal</SelectItem>
-                            <SelectItem value="side">Lateral</SelectItem>
                             <SelectItem value="back">Espalda</SelectItem>
-                            <SelectItem value="other">Otro</SelectItem>
+                            <SelectItem value="left_side">Lateral izquierdo</SelectItem>
+                            <SelectItem value="right_side">Lateral derecho</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -472,9 +474,7 @@ export function DayOneSheet() {
                               {format(new Date(sortedPhotos[currentPhotoIndex]?.date || new Date()), "dd MMM yyyy", { locale: es })}
                             </div>
                             <div className="text-white/80 text-xs">
-                              {sortedPhotos[currentPhotoIndex]?.photo_type === 'front' ? 'Frontal' : 
-                               sortedPhotos[currentPhotoIndex]?.photo_type === 'side' ? 'Lateral' : 
-                               sortedPhotos[currentPhotoIndex]?.photo_type === 'back' ? 'Espalda' : 'Otro'}
+                              {getPhotoTypeLabel(sortedPhotos[currentPhotoIndex]?.photo_type)}
                               {sortedPhotos[currentPhotoIndex]?.weight && ` • ${sortedPhotos[currentPhotoIndex].weight} kg`}
                             </div>
                           </div>

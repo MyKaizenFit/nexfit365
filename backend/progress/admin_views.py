@@ -16,6 +16,9 @@ from .serializers import (
     RestWellnessAssessmentDetailSerializer,
     RestWellnessAssessmentListSerializer,
 )
+from .timeline import build_progress_timeline, first_last_by_type
+from .photo_idempotency import get_cached_photo_id, get_idempotency_key, set_cached_photo_id
+from rest_framework import status
 from workouts.models import WorkoutLog
 
 User = get_user_model()
@@ -296,6 +299,27 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
         context['request'] = self.request
         return context
 
+    def create(self, request, *args, **kwargs):
+        idem_key = get_idempotency_key(request)
+        user = self.get_user()
+        if idem_key:
+            cached_id = get_cached_photo_id(user.id, idem_key)
+            if cached_id:
+                existing = self.get_queryset().filter(pk=cached_id).first()
+                if existing:
+                    serializer = self.get_serializer(existing)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        if idem_key:
+            set_cached_photo_id(user.id, idem_key, serializer.instance.id)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
     def perform_create(self, serializer):
         user = self.get_user()
         photo = serializer.save(user=user)
@@ -317,6 +341,24 @@ class AdminProgressPhotoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(user=self.get_user())
+
+    @action(detail=False, methods=["get"], url_path="timeline")
+    def timeline(self, request, user_id=None):
+        user = self.get_user()
+        return Response({
+            "timeline": build_progress_timeline(user, request),
+            "comparison_by_type": first_last_by_type(user, request),
+            "weight_history": [
+                {
+                    "id": str(e.id),
+                    "date": e.date.isoformat(),
+                    "weight": float(e.weight),
+                    "notes": e.notes or "",
+                    "source": "weight_entry",
+                }
+                for e in WeightEntry.objects.filter(user=user).order_by("date", "created_at")
+            ],
+        })
 
 
 class AdminRestWellnessAssessmentViewSet(viewsets.ReadOnlyModelViewSet):

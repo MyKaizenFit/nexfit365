@@ -107,7 +107,7 @@ export function UserProgressPanel({ userId }: Props) {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Último peso</span>
-                  <span className="font-semibold">{weightSummary.latest?.weight ?? "—"} kg</span>
+                  <span className="font-semibold">{weightSummary.current?.weight ?? weightSummary.latest?.weight ?? "—"} kg</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Cambio reciente</span>

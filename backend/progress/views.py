@@ -5,20 +5,21 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db.models import Q, Count, Avg, Max, Min
+from django.db.models import Q, Count, Avg, Max, Min, Sum
 from django.utils import timezone
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness
 from .serializers import (
     ProgressPhotoSerializer, WeightEntrySerializer, BodyMeasurementSerializer,
     ProgressSummarySerializer, DailyWellnessSerializer
 )
+from .photo_types import ALL_TYPE_KEYS, COMPARABLE_TYPE_KEYS
+from .photo_idempotency import get_cached_photo_id, get_idempotency_key, set_cached_photo_id
+from .timeline import build_progress_timeline, first_last_by_type
 from notifications.models import FeedbackMessage
 from workouts.models import WorkoutLog
 from nutrition.models import MealLog  # Modelo eliminado
-from django.db.models import Sum, Avg, Count, Q
-from datetime import datetime, timedelta
 
 
 def calculate_weight_goal_progress(user, weight_entries):
@@ -77,6 +78,26 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         context = super().get_serializer_context()
         context['request'] = self.request
         return context
+
+    def create(self, request, *args, **kwargs):
+        idem_key = get_idempotency_key(request)
+        if idem_key:
+            cached_id = get_cached_photo_id(request.user.id, idem_key)
+            if cached_id:
+                existing = self.get_queryset().filter(pk=cached_id).first()
+                if existing:
+                    serializer = self.get_serializer(existing)
+                    return Response(serializer.data, status=status.HTTP_200_OK)
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        headers = self.get_success_headers(serializer.data)
+
+        if idem_key:
+            set_cached_photo_id(request.user.id, idem_key, serializer.instance.id)
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
     
     def perform_create(self, serializer):
         """Crear foto con usuario autenticado"""
@@ -111,7 +132,8 @@ class ProgressPhotoViewSet(viewsets.ModelViewSet):
         return Response({
             "status": "ok",
             "message": "ProgressPhoto endpoint funcionando",
-            "photo_types": ["front", "back", "side", "other"],
+            "photo_types": sorted(ALL_TYPE_KEYS),
+            "comparable_types": sorted(COMPARABLE_TYPE_KEYS),
             "max_file_size_mb": 5
         })
     
@@ -236,14 +258,19 @@ class ProgressStatsViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
 
     def _get_quinzenal_review_status(self, user):
-        today = timezone.now().date()
+        today = timezone.localdate()
         window_start = today - timedelta(days=14)
 
-        photos_last_15_days = ProgressPhoto.objects.filter(
-            user=user,
-            date__gte=window_start,
-            date__lte=today,
-        ).count()
+        # Fecha etiquetada O día real de subida — mismo criterio que debe usar el frontend.
+        photos_last_15_days = (
+            ProgressPhoto.objects.filter(user=user)
+            .filter(
+                Q(date__gte=window_start, date__lte=today)
+                | Q(created_at__date__gte=window_start, created_at__date__lte=today)
+            )
+            .distinct()
+            .count()
+        )
 
         measurements_last_15_days = BodyMeasurement.objects.filter(
             user=user,
@@ -526,6 +553,24 @@ class ProgressStatsViewSet(viewsets.ViewSet):
             "can_send": status_data["can_send"],
             "window_start": status_data["window_start"].isoformat(),
             "window_end": status_data["today"].isoformat(),
+        })
+
+    @action(detail=False, methods=["get"], url_path="progress-timeline")
+    def progress_timeline(self, request):
+        """Línea temporal: fecha, peso, fotos por tipo (antigua → reciente)."""
+        return Response({
+            "timeline": build_progress_timeline(request.user, request),
+            "comparison_by_type": first_last_by_type(request.user, request),
+            "weight_history": [
+                {
+                    "id": str(e.id),
+                    "date": e.date.isoformat(),
+                    "weight": float(e.weight),
+                    "notes": e.notes or "",
+                    "source": "weight_entry",
+                }
+                for e in WeightEntry.objects.filter(user=request.user).order_by("date", "created_at")
+            ],
         })
 
     @action(detail=False, methods=["post"], url_path="quinzenal-review/submit")
