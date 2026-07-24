@@ -5,8 +5,11 @@
 ## 🚀 Inicio Rápido
 
 ```bash
-# Instalar dependencias
+# Dependencias de desarrollo / CI (incluye runtime + pytest/lint)
 pip install -r requirements.txt
+
+# Solo runtime (imagen Docker de producción usa este fichero)
+# pip install -r requirements-prod.txt
 
 # Ejecutar migraciones
 python manage.py migrate
@@ -17,6 +20,8 @@ python manage.py createsuperuser
 # Ejecutar servidor
 python manage.py runserver
 ```
+
+**Requirements:** `requirements-prod.txt` = runtime; `requirements.txt` = `-r requirements-prod.txt` + tooling de test/lint.
 
 ## 📚 Documentación
 

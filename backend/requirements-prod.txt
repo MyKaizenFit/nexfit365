@@ -19,9 +19,10 @@ django-redis>=5.4.0
 # Emails
 django-anymail[sendgrid]>=10.0
 
-# Media, Excel/CSV y utilidades
+# Media, Excel/CSV, HTML sanitize y utilidades
 Pillow>=10.0.0
 pillow-heif>=0.16.0
+bleach>=6.0.0
 xlsxwriter>=1.4.0
 openpyxl>=3.0.0
 python-dotenv==1.2.2
