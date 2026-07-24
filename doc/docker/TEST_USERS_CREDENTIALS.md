@@ -9,8 +9,8 @@ Se han creado **3 usuarios de prueba** con diferentes perfiles y planes asignado
 ## 👥 Usuarios de Prueba
 
 ### **Usuario 1: María García**
-- **📧 Email:** `usuario1@test.com`
-- **🔒 Contraseña:** `Test1234!`
+- **📧 Email:** `usuario1@example.invalid`
+- **🔒 Contraseña:** `ChangeMeTest123!`
 - **👤 Nombre completo:** María García
 - **📅 Fecha de nacimiento:** 15/05/1995 (28 años)
 - **⚧️ Género:** Femenino
@@ -27,8 +27,8 @@ Se han creado **3 usuarios de prueba** con diferentes perfiles y planes asignado
 ---
 
 ### **Usuario 2: Carlos Rodríguez**
-- **📧 Email:** `usuario2@test.com`
-- **🔒 Contraseña:** `Test1234!`
+- **📧 Email:** `usuario2@example.invalid`
+- **🔒 Contraseña:** `ChangeMeTest123!`
 - **👤 Nombre completo:** Carlos Rodríguez
 - **📅 Fecha de nacimiento:** 20/08/1990 (33 años)
 - **⚧️ Género:** Masculino
@@ -45,8 +45,8 @@ Se han creado **3 usuarios de prueba** con diferentes perfiles y planes asignado
 ---
 
 ### **Usuario 3: Ana Martínez**
-- **📧 Email:** `usuario3@test.com`
-- **🔒 Contraseña:** `Test1234!`
+- **📧 Email:** `usuario3@example.invalid`
+- **🔒 Contraseña:** `ChangeMeTest123!`
 - **👤 Nombre completo:** Ana Martínez
 - **📅 Fecha de nacimiento:** 10/03/1992 (31 años)
 - **⚧️ Género:** Femenino
@@ -198,8 +198,8 @@ Los administradores pueden:
 
 1. **Iniciar sesión con cualquiera de los usuarios:**
    ```
-   Email: usuario1@test.com
-   Contraseña: Test1234!
+   Email: usuario1@example.invalid
+   Contraseña: ChangeMeTest123!
    ```
 
 2. **Verificar que el plan se asignó correctamente:**

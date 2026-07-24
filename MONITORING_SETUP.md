@@ -17,7 +17,7 @@ Este sistema garantiza que tu aplicación Nex-Fit PRO se mantenga funcionando 24
 ### Paso 1: Ejecutar el script de instalación
 
 ```bash
-cd /srv/mykaizenfit/pro
+cd ${REPO_ROOT}
 sudo ./scripts/install-monitoring.sh
 ```
 
@@ -30,7 +30,7 @@ Este script automáticamente:
 ### Paso 2: Aplicar cambios a los contenedores
 
 ```bash
-cd /srv/mykaizenfit/pro
+cd ${REPO_ROOT}
 COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml down
 COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d --build
 ```
@@ -42,7 +42,7 @@ COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d 
 ### 1. Instalar Servicio Systemd
 
 ```bash
-sudo cp /srv/mykaizenfit/pro/nexfit-pro.service /etc/systemd/system/
+sudo cp ${REPO_ROOT}/nexfit-pro.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable nexfit-pro.service
 sudo systemctl start nexfit-pro.service
@@ -64,7 +64,7 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
 
 # Verificar servicios cada 5 minutos
-*/5 * * * * root /srv/mykaizenfit/pro/scripts/check-services.sh >> /var/log/nexfit-check.log 2>&1
+*/5 * * * * root ${REPO_ROOT}/scripts/check-services.sh >> /var/log/nexfit-check.log 2>&1
 ```
 
 ### 3. Crear archivo de logs
@@ -107,10 +107,10 @@ sudo journalctl -u nexfit-pro --since today
 tail -f /var/log/nexfit-check.log
 
 # Verificación rápida de servicios
-/srv/mykaizenfit/pro/scripts/quick-check.sh
+${REPO_ROOT}/scripts/quick-check.sh
 
 # Ejecutar monitoreo manualmente
-/srv/mykaizenfit/pro/scripts/check-services.sh
+${REPO_ROOT}/scripts/check-services.sh
 
 # Ver últimas 100 líneas de logs
 tail -100 /var/log/nexfit-check.log
@@ -119,7 +119,7 @@ tail -100 /var/log/nexfit-check.log
 ### Docker Compose (Gestión Manual)
 
 ```bash
-cd /srv/mykaizenfit/pro
+cd ${REPO_ROOT}
 
 # Ver estado de contenedores
 COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml ps
@@ -223,11 +223,11 @@ sudo systemctl start nexfit-pro
 
 ```bash
 # Ver logs de Docker
-cd /srv/mykaizenfit/pro
+cd ${REPO_ROOT}
 COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs
 
 # Verificar variables de entorno
-cat /srv/mykaizenfit/pro/docker/backend.env.production
+cat ${REPO_ROOT}/docker/backend.env.production
 ```
 
 ### El monitoreo no funciona
@@ -240,7 +240,7 @@ sudo cat /etc/cron.d/nexfit-pro-monitoring
 sudo grep CRON /var/log/syslog | grep nexfit
 
 # Ejecutar script manualmente para ver errores
-sudo /srv/mykaizenfit/pro/scripts/check-services.sh
+sudo ${REPO_ROOT}/scripts/check-services.sh
 ```
 
 ### Alto uso de CPU/RAM
@@ -277,7 +277,7 @@ sudo truncate -s 0 /var/log/nexfit-check.log
 
 El servicio `db-backup` ya hace backups automáticos diarios a las 3 AM.
 
-Ubicación: `/srv/mykaizenfit/pro/data/backups/`
+Ubicación: `${REPO_ROOT}/data/backups/`
 
 ---
 
