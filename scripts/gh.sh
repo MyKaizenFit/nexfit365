@@ -28,9 +28,8 @@ if ! curl -fsS --connect-timeout 1 --unix-socket "$SOCK" http://localhost/health
   exit 1
 fi
 
-ARGS_JSON="$(python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))' -- "$@")"
+ARGS_JSON="$(python3 -c 'import json,sys; a=sys.argv[1:]; print(json.dumps(a[1:] if a[:1]==["--"] else a))' -- "$@")"
 PAYLOAD="$(python3 -c 'import json,sys; print(json.dumps({"args": json.loads(sys.argv[1]), "cwd": sys.argv[2]}))' "$ARGS_JSON" "$ROOT")"
-
 RESP="$(curl -fsS \
   --unix-socket "$SOCK" \
   -H "Authorization: Bearer ${TOKEN}" \
