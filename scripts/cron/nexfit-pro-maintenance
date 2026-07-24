@@ -5,7 +5,7 @@
 #   02:00  auto-backup.sh        dump canónico + SHA256
 #   03:00  db-backup container   SQL daily (docker-compose)
 #   04:30  optimize-database.sh  domingos, DESPUÉS de backups (sin REINDEX DATABASE)
-#   04:00  domingos verify-backup.sh
+#   05:00  domingos verify-backup.sh
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
