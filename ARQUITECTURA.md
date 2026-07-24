@@ -37,52 +37,60 @@
 
 ## 🔐 Flujo de Autenticación
 
+La SPA (Next.js) y la API (Django) usan **JWT en cookies HttpOnly** (no `localStorage` para access/refresh). Implementación: `backend/api/jwt_cookies.py` + `credentials: 'include'` en el cliente.
+
+Cookies relevantes:
+
+| Cookie | HttpOnly | Rol |
+|--------|----------|-----|
+| `accessToken` | sí | Access JWT (TTL vía `JWT_ACCESS_TTL`, default ~120m) |
+| `refreshToken` | sí | Refresh JWT (TTL vía `JWT_REFRESH_TTL`, default 30d; más corto si no “remember”) |
+| `csrfToken` | no | CSRF legible por JS para mutaciones cross-site |
+
+Flags típicos: `Secure` en prod, `Path=/`, `Domain` opcional (`JWT_COOKIE_DOMAIN`) para subdominios `app`/`api`; con Domain compartido se usa `SameSite=None` (requiere Secure).
+
 ### 1. **Login (POST /api/auth/login/)**
 ```
 Usuario → Credenciales (email/password) → Backend
     ↓
 Backend valida en BD
     ↓
-Si válido → Genera JWT (access + refresh tokens)
+Si válido → Genera JWT (access + refresh) y Set-Cookie HttpOnly
 Si inválido → Retorna 401
     ↓
-Cliente almacena tokens en localStorage
+Cliente NO guarda JWT en localStorage (solo preferencias UI: remember email, etc.)
 ```
 
-**Tokens:**
-- `access`: Válido 5 minutos (configurable)
-- `refresh`: Válido 24 horas (configurable)
+**Tokens (SimpleJWT):**
+- `access`: vida corta configurable (`JWT_ACCESS_TTL`)
+- `refresh`: vida larga configurable (`JWT_REFRESH_TTL`); rotación + blacklist según settings
 
 ### 2. **Requests Autenticados**
 ```
-Cliente → Header: "Authorization: Bearer <access_token>"
+Cliente → fetch/XHR con credentials: 'include' (cookies)
     ↓
-Backend verifica firma JWT
+Backend lee accessToken (cookie) y/o Authorization Bearer (clientes no-browser / tests)
     ↓
 Si válido → Ejecuta endpoint
-Si inválido → Retorna 401 Unauthorized
+Si inválido → 401; el cliente intenta refresh
 ```
 
 ### 3. **Token Refresh (POST /api/auth/refresh/)**
 ```
-Cliente envía: { refresh: "<refresh_token>" }
+Cliente llama refresh con credentials: 'include' (refreshToken en cookie)
     ↓
-Backend valida refresh token
+Backend valida refresh, rota si está configurado
     ↓
-Genera nuevo access token
-    ↓
-Cliente actualiza localStorage
+Set-Cookie con nuevo access (y refresh si rotación)
 ```
 
 ### 4. **Logout (POST /api/auth/logout/)**
 ```
-Cliente envía: { refresh: "<refresh_token>" }
+Cliente llama logout con credentials: 'include'
     ↓
-Backend agrega token a blacklist (Redis)
+Backend invalida refresh (blacklist) y expira cookies JWT/CSRF
     ↓
-Token se invalida inmediatamente
-    ↓
-Cliente borra localStorage
+Cliente limpia estado en memoria / markers de UI (no JWT en localStorage)
 ```
 
 ---
@@ -182,10 +190,11 @@ original = enc.decrypt(encrypted)
 ## 🛡️ Seguridad
 
 ### 1. **Autenticación**
-- ✅ JWT tokens con firma cryptográfica
-- ✅ Refresh tokens con validación en BD
-- ✅ Token blacklist para logout inmediato
+- ✅ JWT firmados (SimpleJWT)
+- ✅ Access/refresh en cookies **HttpOnly** (+ CSRF cookie legible)
+- ✅ Rotación de refresh y blacklist tras logout/rotación
 - ✅ Password hashing con algoritmo seguro
+- ⚠️ CSP estricta: mejora pendiente (no sustituye HttpOnly)
 
 ### 2. **Encriptación**
 - ✅ Fernet AES-128-CBC para datos sensibles
