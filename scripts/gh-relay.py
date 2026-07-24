@@ -1,26 +1,31 @@
 #!/usr/bin/env python3
-"""Localhost-only GitHub CLI relay for Cursor agent sandbox.
+"""Filesystem Unix-socket GitHub CLI relay for Cursor agent sandbox.
 
-Why: Cursor agent shells force HTTP(S)_PROXY to a sandbox proxy that returns
-CONNECT 403 for api.github.com. Your interactive terminal can reach GitHub;
-this process must be started from THAT environment so subprocess `gh` works.
+TCP 127.0.0.1 does NOT work across Cursor agent vs host terminal network
+namespaces. A Unix socket on the shared repo filesystem does.
 
-Security: binds 127.0.0.1 only; requires shared token from .agents/gh-relay.token
+Start from a normal terminal (working `gh`):
+  bash scripts/start-gh-relay.sh
+
+Agent calls:
+  scripts/gh.sh pr list
 """
 from __future__ import annotations
 
 import json
 import os
 import secrets
+import socket
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from socketserver import ThreadingMixIn
 
 ROOT = Path(os.environ.get("NEXFIT_ROOT", "/srv/mykaizenfit/pro"))
 TOKEN_PATH = ROOT / ".agents" / "gh-relay.token"
-HOST = "127.0.0.1"
-PORT = int(os.environ.get("GH_RELAY_PORT", "8787"))
+SOCK_PATH = Path(os.environ.get("GH_RELAY_SOCK", str(ROOT / ".agents" / "gh-relay.sock")))
 GH_BIN = os.environ.get("GH_BIN", "gh")
 
 
@@ -62,8 +67,7 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         if self.path in ("/health", "/"):
-            # health is unauthenticated so the agent can probe
-            self._send(200, {"ok": True, "service": "gh-relay", "port": PORT})
+            self._send(200, {"ok": True, "service": "gh-relay", "sock": str(SOCK_PATH)})
             return
         self._send(404, {"ok": False, "error": "not found"})
 
@@ -88,7 +92,6 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, {"ok": False, "error": "args too large"})
             return
 
-        # Strip agent sandbox proxy so gh uses real network of this process.
         env = os.environ.copy()
         for k in (
             "HTTP_PROXY",
@@ -99,6 +102,10 @@ class Handler(BaseHTTPRequestHandler):
             "all_proxy",
             "GIT_HTTP_PROXY",
             "GIT_HTTPS_PROXY",
+            "SOCKS_PROXY",
+            "SOCKS5_PROXY",
+            "socks_proxy",
+            "socks5_proxy",
         ):
             env.pop(k, None)
 
@@ -130,25 +137,58 @@ class Handler(BaseHTTPRequestHandler):
         )
 
 
+class ThreadingUnixHTTPServer(ThreadingMixIn, HTTPServer):
+    address_family = socket.AF_UNIX
+    daemon_threads = True
+
+    def server_bind(self) -> None:
+        if os.path.exists(self.server_address):
+            os.unlink(self.server_address)
+        HTTPServer.server_bind(self)
+        os.chmod(self.server_address, 0o660)
+
+
 def main() -> None:
-    # Fail fast if gh cannot talk to GitHub in THIS environment.
+    # Clear proxy for the probe too (Cursor integrated terminal may inject it).
+    clean = os.environ.copy()
+    for k in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+        "GIT_HTTP_PROXY",
+        "GIT_HTTPS_PROXY",
+        "SOCKS_PROXY",
+        "SOCKS5_PROXY",
+        "socks_proxy",
+        "socks5_proxy",
+    ):
+        clean.pop(k, None)
+
     probe = subprocess.run(
         [GH_BIN, "auth", "status"],
         capture_output=True,
         text=True,
         timeout=30,
+        env=clean,
     )
     if probe.returncode != 0:
         sys.stderr.write(probe.stdout + probe.stderr)
         sys.stderr.write(
-            "\ngh-relay: refuse to start — `gh auth status` failed in this shell.\n"
-            "Run this script from your normal terminal (not the agent sandbox).\n"
+            "\ngh-relay: refuse to start — `gh auth status` failed (even without proxy).\n"
+            "Fix: gh auth login -h github.com\n"
         )
         sys.exit(1)
 
-    httpd = ThreadingHTTPServer((HOST, PORT), Handler)
+    SOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    if SOCK_PATH.exists():
+        SOCK_PATH.unlink()
+
+    httpd = ThreadingUnixHTTPServer(str(SOCK_PATH), Handler)
     sys.stderr.write(
-        f"gh-relay listening on http://{HOST}:{PORT}\n"
+        f"gh-relay listening on unix:{SOCK_PATH}\n"
         f"token file: {TOKEN_PATH}\n"
         f"agent wrapper: scripts/gh.sh\n"
     )
@@ -156,6 +196,13 @@ def main() -> None:
         httpd.serve_forever()
     except KeyboardInterrupt:
         sys.stderr.write("\ngh-relay stopped\n")
+    finally:
+        try:
+            httpd.server_close()
+        except Exception:
+            pass
+        if SOCK_PATH.exists():
+            SOCK_PATH.unlink()
 
 
 if __name__ == "__main__":
