@@ -203,12 +203,12 @@ original = enc.decrypt(encrypted)
 - ✅ Detección automática de datos ya encriptados
 
 ### 3. **Backup Automático**
-- ✅ Cron diario a las 2:00 AM
-- ✅ Fallback a `docker cp` si `pg_dump` falla
-- ✅ Compresión automática
-- ✅ Retención de 7 días
+- ✅ Cron diario (`scripts/auto-backup.sh`) — `pg_dump --format=custom` + SHA256
+- ✅ Verificación semanal (`scripts/verify-backup.sh` → restore a DB temporal)
+- ✅ Retención inteligente (días / semanal / mensual) en el script de backup
+- 📄 Procedimiento: [`doc/operations/backup-restore.md`](doc/operations/backup-restore.md)
 
-**Ubicación:** `/scripts/auto-backup.sh`
+**Ubicación:** `scripts/auto-backup.sh`
 
 ### 4. **Logging**
 - ✅ Logs estructurados (JSON)
