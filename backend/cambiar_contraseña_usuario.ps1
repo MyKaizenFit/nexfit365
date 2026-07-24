@@ -7,10 +7,13 @@ Write-Host "============================================================" -Foreg
 Write-Host ""
 
 $PostgresPath = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
-$NewPassword = "gFMpSumu3XrOH6S6zHkH"
+$NewPassword = $env:NEXFIT_DB_NEW_PASSWORD
+if ([string]::IsNullOrWhiteSpace($NewPassword)) {
+    Write-Host "[ERROR] Define NEXFIT_DB_NEW_PASSWORD en el entorno. No hardcodear secretos." -ForegroundColor Red
+    exit 1
+}
 
-Write-Host "[INFO] Nueva contraseña: $NewPassword" -ForegroundColor Yellow
-Write-Host "[INFO] Esta contraseña no tiene caracteres especiales" -ForegroundColor Yellow
+Write-Host "[INFO] Nueva contraseña: (desde NEXFIT_DB_NEW_PASSWORD)" -ForegroundColor Yellow
 Write-Host ""
 
 # Solicitar usuario administrador
