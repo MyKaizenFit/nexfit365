@@ -30,3 +30,16 @@ Use this checklist before publishing this repository publicly.
 - Documentation must use placeholders such as `CHANGE_ME_*` and `example.invalid`.
 - Production incident notes must not include real users, emails, phones, tokens,
   passwords, host credentials, or encryption keys.
+
+## Last secret scan
+
+- **Date:** 2026-07-24
+- **Tool:** Gitleaks 8.24.3 (full history)
+- **Result:** findings in history (see redacted report); tip scrub of hardcoded DB
+  passwords in PowerShell change-password scripts
+- **Report:** [`doc/security/secret-scan-2026-07-24.md`](doc/security/secret-scan-2026-07-24.md)
+- **Rotation:** operator must still rotate any secret that matched historical findings
+  (DB password from those scripts, VAPID if old keys were real, etc.)
+- **History rewrite:** not performed; choose option A/B/C in the report before a
+  public marketing push
+

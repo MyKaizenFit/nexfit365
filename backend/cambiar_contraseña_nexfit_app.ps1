@@ -8,12 +8,15 @@ Write-Host ""
 
 $PostgresPath = "C:\Program Files\PostgreSQL\17\bin\psql.exe"
 $CurrentUser = "nexfit_app"
-$CurrentPassword = 'CHANGE_ME_DB_PASSWORD'  # Contraseña actual con caracteres especiales
-$NewPassword = "gFMpSumu3XrOH6S6zHkH"  # Nueva contraseña sin caracteres especiales
+$CurrentPassword = $env:NEXFIT_DB_CURRENT_PASSWORD
+$NewPassword = $env:NEXFIT_DB_NEW_PASSWORD
+if ([string]::IsNullOrWhiteSpace($CurrentPassword) -or [string]::IsNullOrWhiteSpace($NewPassword)) {
+    Write-Host "[ERROR] Define NEXFIT_DB_CURRENT_PASSWORD y NEXFIT_DB_NEW_PASSWORD en el entorno. No hardcodear secretos." -ForegroundColor Red
+    exit 1
+}
 
 Write-Host "[INFO] Usuario: $CurrentUser" -ForegroundColor Yellow
-Write-Host "[INFO] Nueva contraseña: $NewPassword" -ForegroundColor Yellow
-Write-Host "[INFO] Esta contraseña no tiene caracteres especiales" -ForegroundColor Yellow
+Write-Host "[INFO] Nueva contraseña: (desde NEXFIT_DB_NEW_PASSWORD)" -ForegroundColor Yellow
 Write-Host ""
 
 # Intentar cambiar la contraseña usando nexfit_app con su contraseña actual
