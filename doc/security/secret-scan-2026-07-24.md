@@ -40,7 +40,7 @@
 
 Do **not** paste new values into git.
 
-- [ ] PostgreSQL role password(s) that ever matched the scrubbed PowerShell scripts
+- [x] PostgreSQL role password(s) from scrubbed PowerShell / manual docs — **2026-07-24:** live `DB_PASSWORD` / `POSTGRES_PASSWORD` do **not** match the leaked tip values (compared without logging secrets). Remaining tip doc `cambiar_contraseña_manual.md` removed. History may still contain the old value → prefer option A (already distinct live secrets) or B/C before a public marketing push.
 - [ ] Django `SECRET_KEY` / `JWT_SECRET` / `JWT_REFRESH_SECRET` (if ever committed historically — verify with scan links)
 - [ ] `ENCRYPTION_KEY` — **STOP and plan re-encrypt** before rotating if data is encrypted at rest with it
 - [ ] Redis password
