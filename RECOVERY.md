@@ -1,7 +1,7 @@
 # Nex-Fit Recovery & Ops
 
 ## Estado actual
-- Stack Docker Compose en /srv/mykaizenfit/pro
+- Stack Docker Compose en ${REPO_ROOT}
 - Backend, frontend, db y redis levantados por pasos con bajo paralelismo
 - Autenticación verificada (admin y usuario de prueba)
 
@@ -17,7 +17,7 @@
 4. Contar tablas clave en DB
 
 ## Backups
-- Backup inmediato con pg_dump a /srv/mykaizenfit/pro/backups
+- Backup inmediato con pg_dump a ${REPO_ROOT}/backups
 - Servicio db-backup programado (03:00)
 
 ## Seguridad

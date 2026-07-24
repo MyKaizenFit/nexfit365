@@ -75,18 +75,18 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 # XxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxAA
 
 # Guardar en .env:
-echo "ENCRYPTION_KEY=XxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxAA" >> /srv/mykaizenfit/pro/backend/.env
+echo "ENCRYPTION_KEY=XxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxAA" >> ${REPO_ROOT}/backend/.env
 ```
 
 ### 4. Ejecutar script de migración
 
 ```bash
 # En DESARROLLO (para probar):
-cd /srv/mykaizenfit/pro/backend
+cd ${REPO_ROOT}/backend
 python scripts/encrypt_sensitive_data.py
 
 # En PRODUCCIÓN (cuidado):
-COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f /srv/mykaizenfit/pro/docker-compose.prod.yml exec -T app python scripts/encrypt_sensitive_data.py
+COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f ${REPO_ROOT}/docker-compose.prod.yml exec -T app python scripts/encrypt_sensitive_data.py
 ```
 
 ---
@@ -161,7 +161,7 @@ phone = user.phone_number_decrypted  # Automáticamente desencriptado
 
 ```bash
 # Probar encriptación/desencriptación
-cd /srv/mykaizenfit/pro/backend
+cd ${REPO_ROOT}/backend
 
 python manage.py shell
 >>> from utils.encryption import encrypt_sensitive_field, decrypt_sensitive_field
@@ -212,6 +212,6 @@ POST-IMPLEMENTACIÓN:
 ## 📞 Soporte
 
 Si hay problemas:
-1. Revisar `/srv/mykaizenfit/pro/backend/logs/` para errores
+1. Revisar `${REPO_ROOT}/backend/logs/` para errores
 2. Asegurar que ENCRYPTION_KEY está en .env
 3. Verificar que cryptography está instalada: `pip show cryptography`

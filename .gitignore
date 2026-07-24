@@ -143,3 +143,9 @@ coverage.xml
 *.sqlite
 output.txt
 pg_hba.conf.modificado.txt
+
+# Accidental dumps / HTML snapshots
+admin.html
+root.html
+recetas_sin_imagen.csv
+*_export.csv
