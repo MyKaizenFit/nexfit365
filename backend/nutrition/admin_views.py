@@ -1815,6 +1815,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             instance = self._resolve_plan_for_user_edit(instance, edit_owner)
             prev_is_active = instance.is_active
 
+        # Capture before serializer.save() — save already writes daily_calories.
+        calories_before_save = int(instance.daily_calories or 0)
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         plan = serializer.save()
@@ -1858,12 +1861,16 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             calorie_owner = active_assignment.user if active_assignment else None
 
         if requested_daily_calories and calorie_owner and requested_daily_calories > 0:
-            current_calories = int(plan.daily_calories or 0)
-            if current_calories != requested_daily_calories:
+            if calories_before_save != requested_daily_calories:
+                # serializer.save() already wrote the target kcal; restore baseline
+                # so adjust_plan_calories can scale meals old→new correctly.
+                if int(plan.daily_calories or 0) != calories_before_save:
+                    plan.daily_calories = calories_before_save
+                    plan.save(update_fields=['daily_calories'])
                 service = PersonalizedNutritionService(calorie_owner)
                 plan = service.adjust_plan_calories(
                     plan,
-                    requested_daily_calories - current_calories,
+                    requested_daily_calories - calories_before_save,
                     reason='admin_manual_update',
                     notes=f'Ajuste manual desde admin a {requested_daily_calories} kcal',
                 )

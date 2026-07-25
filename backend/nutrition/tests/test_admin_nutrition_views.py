@@ -411,9 +411,11 @@ class TestAdminNutritionPlanViewSet:
         meal_recipe.refresh_from_db()
 
         assert nutrition_plan.daily_calories == 2400
-        assert meal.calories > 1000
+        # Recipe-backed meals take macros from scaled PlanMealRecipe (not the stale meal row).
         assert meal_recipe.custom_calories and meal_recipe.custom_calories > 500
         assert float(meal_recipe.servings) > 1.0
+        assert meal.calories == meal_recipe.custom_calories
+        assert meal.calories > 500
 
     def test_update_plan_preserves_meal_order_indexes(self, admin_client, nutrition_plan):
         payload = {
