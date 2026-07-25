@@ -154,7 +154,10 @@ def _scale_meal_recipes(meal: PlanMeal, ratio: Decimal) -> None:
             (Decimal(str(display_fat)) * ratio).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP),
             MAX_CUSTOM_MACRO,
         )
-        meal_recipe.servings = Decimal('1.00')
+        # Keep portion scale in sync with macros (custom_* is display source when set).
+        meal_recipe.servings = Decimal(
+            str(max(0.10, round(float(meal_recipe.servings or 1) * float(ratio), 2)))
+        )
         meal_recipe.save(update_fields=[
             'custom_calories', 'custom_protein', 'custom_carbs', 'custom_fat', 'servings',
         ])

@@ -64,8 +64,8 @@ jobs:
           DB_SSLMODE: disable
           REDIS_URL: redis://localhost:6379/0
         run: |
-          # Curated critical path. Exclusions (pre-existing broken when collected):
-          # - full admin nutrition/workout files (known failing assignment/scale cases)
+          # Curated critical path. Remaining exclusions: full admin nutrition/workout
+          # files still have other failures; scale/assignment cases below are green.
           pytest \
             accounts/tests/test_profile_plan_integration.py \
             api/tests/test_auth.py \
@@ -76,6 +76,9 @@ jobs:
             nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes \
             nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_without_meals_preserves_today_meal_logs \
             nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_with_meals_clears_today_meal_logs \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_daily_calories_scales_meals_and_recipes \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminPlanAssignments::test_change_user_plan_preserves_and_scales_custom_recipe_portions \
+            nutrition/tests/test_admin_nutrition_views.py::TestAdminPlanAssignments::test_update_shared_assigned_plan_creates_user_copy_before_scaling \
             progress/tests/test_views_extra.py \
             progress/tests/test_rest_wellness.py \
             progress/tests/test_local_calendar_date.py \
