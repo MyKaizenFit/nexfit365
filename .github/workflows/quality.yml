@@ -65,12 +65,12 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
         run: |
           # Curated critical path. Exclusions (pre-existing broken when collected):
-          # - nutrition/tests/test_plan_meal_utils.py (missing nutrition_plan fixture)
           # - full admin nutrition/workout files (known failing assignment/scale cases)
           pytest \
             accounts/tests/test_profile_plan_integration.py \
             api/tests/test_auth.py \
             nutrition/tests/test_services.py \
+            nutrition/tests/test_plan_meal_utils.py \
             nutrition/tests/test_plan_week_sync_db.py \
             nutrition/tests/test_plan_week_sync.py \
             nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes \
