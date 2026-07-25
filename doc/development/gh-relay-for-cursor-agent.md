@@ -1,32 +1,19 @@
 # GitHub CLI from the Cursor agent
 
-The Cursor **agent sandbox** forces traffic through a local HTTP proxy that
-returns `CONNECT 403` for `api.github.com`. Your normal SSH/terminal session
-can use `gh` fine; the agent cannot call GitHub’s API directly.
+**Superseded by** [host-relay-for-cursor-agent.md](./host-relay-for-cursor-agent.md).
 
-TCP `127.0.0.1` also fails across agent vs terminal **network namespaces**.
-This relay uses a **Unix socket** on the shared filesystem instead.
+The old `gh`-only relay is replaced by **host-relay**, which also covers
+`docker`, `deploy`, `maintenance`, and nginx reload over the same Unix socket.
 
-## Fix (Unix-socket relay)
-
-1. In **your** terminal (where `gh auth status` works), once per reboot:
+Start once per reboot from your normal terminal:
 
 ```bash
-bash /srv/mykaizenfit/pro/scripts/start-gh-relay.sh
+bash /srv/mykaizenfit/pro/scripts/start-host-relay.sh
 ```
 
-2. Agent uses:
+Agent wrappers (unchanged names still work):
 
 ```bash
-/srv/mykaizenfit/pro/scripts/gh.sh auth status
 /srv/mykaizenfit/pro/scripts/gh.sh pr list
-```
-
-Socket: `.agents/gh-relay.sock` (gitignored). Token: `.agents/gh-relay.token`.
-
-## Stop
-
-```bash
-kill "$(cat /srv/mykaizenfit/pro/.agents/gh-relay.pid)"
-rm -f /srv/mykaizenfit/pro/.agents/gh-relay.sock
+/srv/mykaizenfit/pro/scripts/host.sh docker ps
 ```
