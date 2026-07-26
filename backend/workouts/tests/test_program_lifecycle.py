@@ -1,7 +1,8 @@
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from workouts.models import WorkoutDay, WorkoutProgram
 from workouts.program_lifecycle import (
@@ -38,6 +39,7 @@ def test_duration_uses_max_of_field_and_day_numbers(user):
 
 @pytest.mark.django_db
 def test_completed_plan_rolls_over_to_week_one(user):
+    # Completed relative to a fixed calendar day; rollover anchors to current local Monday.
     program = WorkoutProgram.objects.create(
         user=user,
         name="Plan 4 semanas",
@@ -59,9 +61,12 @@ def test_completed_plan_rolls_over_to_week_one(user):
     updated = rollover_program_cycle_if_completed(program)
     updated.refresh_from_db()
 
+    today = timezone.localdate()
+    monday = today - timedelta(days=today.weekday())
+
     assert updated.is_active is True
-    assert updated.start_date == date(2026, 6, 16)  # lunes de la semana del 22-jun-2026
-    assert get_program_lifecycle_status(updated, date(2026, 6, 22)) == "active"
+    assert updated.start_date == monday
+    assert get_program_lifecycle_status(updated, today) == "active"
 
 
 @pytest.mark.django_db
@@ -81,7 +86,11 @@ def test_prepare_user_program_activation_resets_completed_plan(user):
     updated = prepare_user_program_activation(program)
     updated.refresh_from_db()
 
+    today = timezone.localdate()
+    monday = today - timedelta(days=today.weekday())
+    duration = program_duration_weeks_from_plan(updated)
+
     assert updated.is_active is True
-    assert updated.start_date == date(2026, 6, 16)
-    assert updated.end_date == date(2026, 7, 14)
-    assert get_program_lifecycle_status(updated, date(2026, 6, 22)) == "active"
+    assert updated.start_date == monday
+    assert updated.end_date == monday + timedelta(weeks=duration)
+    assert get_program_lifecycle_status(updated, today) == "active"
