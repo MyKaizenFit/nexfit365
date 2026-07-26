@@ -21,6 +21,7 @@ describe('NotificationsDropdown', () => {
       trackClick: jest.fn(),
       deleteNotification: jest.fn(),
       markAllAsRead: jest.fn(),
+      markAllAsReadSilently: jest.fn(),
       clearAll: jest.fn(),
     } as any)
   })
