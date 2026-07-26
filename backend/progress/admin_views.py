@@ -27,7 +27,7 @@ User = get_user_model()
 def build_sleep_performance_payload(user, days):
     days = max(7, min(days, 90))
 
-    end_date = timezone.now().date()
+    end_date = timezone.localdate()
     start_date = end_date - timedelta(days=days - 1)
 
     wellness_qs = DailyWellness.objects.filter(
