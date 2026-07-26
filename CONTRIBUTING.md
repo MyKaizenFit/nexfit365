@@ -23,3 +23,7 @@ Thanks for helping improve the project. Keep changes small, reviewable, and free
 ## Security
 
 Report vulnerabilities privately — see [SECURITY.md](./SECURITY.md). Do not file public issues for exploitable bugs.
+
+## License
+
+This project is proprietary — see [LICENSE](./LICENSE). Contributions are accepted only under the same terms (copyright assigned to / licensed exclusively for the copyright holders unless otherwise agreed in writing).
