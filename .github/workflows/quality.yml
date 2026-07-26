@@ -68,6 +68,9 @@ jobs:
           # Remaining work (audit 006): expand toward `pytest -q` for the whole suite.
           pytest \
             accounts/tests/test_profile_plan_integration.py \
+            accounts/tests/test_copy_preserves_source_plans.py \
+            accounts/tests/test_default_plan_auto_provision.py \
+            accounts/tests/test_default_plan_display_names.py \
             api/tests/test_auth.py \
             nutrition/tests/test_services.py \
             nutrition/tests/test_plan_meal_utils.py \
