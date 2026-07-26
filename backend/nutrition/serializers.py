@@ -138,6 +138,18 @@ class CommunityRecipeCommentSerializer(serializers.ModelSerializer):
         return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
 
 
+class BoundedImageField(serializers.ImageField):
+    """Reject oversized uploads before Pillow/ImageField parses bytes."""
+
+    max_bytes = 6 * 1024 * 1024
+
+    def to_internal_value(self, data):
+        size = getattr(data, "size", None)
+        if size is not None and size > self.max_bytes:
+            raise serializers.ValidationError("La foto no puede superar 6MB.")
+        return super().to_internal_value(data)
+
+
 class CommunityRecipePostSerializer(serializers.ModelSerializer):
     author_name = serializers.SerializerMethodField()
     comments = CommunityRecipeCommentSerializer(many=True, read_only=True)
@@ -147,6 +159,7 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
     can_delete = serializers.SerializerMethodField()
     can_edit = serializers.SerializerMethodField()
     photo_url = serializers.SerializerMethodField()
+    photo = BoundedImageField(required=False, allow_null=True)
 
     class Meta:
         model = CommunityRecipePost

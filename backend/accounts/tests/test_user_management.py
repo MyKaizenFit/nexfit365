@@ -88,10 +88,16 @@ class TestProfileEndpoints:
         ).exists()
 
     def test_profile_patch_reassigns_nutrition_plan_when_food_preferences_change(self, api_client, member_user):
+        from dashboard.models import DefaultPlanConfiguration
+
+        member_user.main_goal = "maintain"
+        member_user.save(update_fields=["main_goal"])
+
         template_plan = baker.make(
             NutritionPlan,
             name="Plantilla base",
-            is_system=True,
+            is_system=False,
+            is_template=True,
             is_active=True,
             goal="maintain",
             user=None,
@@ -122,6 +128,13 @@ class TestProfileEndpoints:
             ingredients=[{"name": "Avena", "amount": "60", "unit": "g"}],
         )
         template_meal.suggested_recipes.set([blocked_recipe, safe_recipe])
+        DefaultPlanConfiguration.objects.create(
+            name="Config maintain test",
+            priority=1,
+            is_active=True,
+            main_goal="maintain",
+            default_nutrition_plan=template_plan,
+        )
         previous_plan = baker.make(
             NutritionPlan,
             user=member_user,

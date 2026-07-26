@@ -141,7 +141,7 @@ class TestCommunityPosts:
         response = community_client.get(f'{self.url}?post_type=question')
 
         assert response.status_code == status.HTTP_200_OK
-        items = response.data.get('results', response.data)
+        items = response.data if isinstance(response.data, list) else response.data.get('results', [])
         assert len(items) == 1
         assert items[0]['post_type'] == 'question'
 
@@ -157,7 +157,7 @@ class TestCommunityPosts:
         response = community_client.get(self.url)
 
         assert response.status_code == status.HTTP_200_OK
-        items = response.data.get('results', response.data)
+        items = response.data if isinstance(response.data, list) else response.data.get('results', [])
         assert [item['id'] for item in items] == [str(post.id)]
 
     def test_legacy_purge_task_does_not_delete_posts(self, community_user):
