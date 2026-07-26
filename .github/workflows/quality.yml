@@ -52,7 +52,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run critical backend tests
+      - name: Run backend tests
         env:
           DEBUG: "False"
           SECRET_KEY: "ci-secret-key"
@@ -64,37 +64,8 @@ jobs:
           DB_SSLMODE: disable
           REDIS_URL: redis://localhost:6379/0
         run: |
-          # Curated critical path. Admin nutrition + admin workout files fully green.
-          # Remaining work (audit 006): expand toward `pytest -q` for the whole suite.
-          pytest \
-            accounts/tests/test_profile_plan_integration.py \
-            accounts/tests/test_copy_preserves_source_plans.py \
-            accounts/tests/test_default_plan_auto_provision.py \
-            accounts/tests/test_default_plan_display_names.py \
-            api/tests/test_auth.py \
-            nutrition/tests/test_services.py \
-            nutrition/tests/test_plan_meal_utils.py \
-            nutrition/tests/test_plan_week_sync_db.py \
-            nutrition/tests/test_plan_week_sync.py \
-            nutrition/tests/test_admin_nutrition_views.py \
-            nutrition/tests/test_community_posts.py \
-            nutrition/tests/test_shopping_list_service.py \
-            accounts/tests/test_user_management.py \
-            progress/tests/test_views_extra.py \
-            progress/tests/test_views.py \
-            progress/tests/test_rest_wellness.py \
-            progress/tests/test_local_calendar_date.py \
-            progress/tests/test_photo_mime_validation.py \
-            progress/tests/test_protected_media.py \
-            achievements/tests/test_views.py \
-            dashboard/tests/test_html_sanitize.py \
-            workouts/test_workouts_models.py \
-            workouts/tests/test_workout_views.py \
-            workouts/tests/test_workout_week_utils.py \
-            workouts/tests/test_admin_workout_views.py \
-            workouts/tests/test_program_lifecycle.py \
-            progress/tests/test_models.py \
-            -q
+          # Full suite (audit 006 / P1.3). Local inventory post-#63: 853 passed.
+          pytest -q --maxfail=20
 
   frontend:
     runs-on: ubuntu-latest
