@@ -4,41 +4,50 @@ import { useNotificationsEnhanced } from '../use-notifications-enhanced'
 import { useAuth } from '@/contexts/auth-context'
 import { notificationService } from '@/lib/notification-service'
 
-// Mock dependencies
 jest.mock('@/contexts/auth-context')
 jest.mock('@/lib/notification-service')
+jest.mock('@/hooks/use-toast', () => ({
+  toast: jest.fn(),
+}))
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>
 const mockNotificationService = notificationService as jest.Mocked<typeof notificationService>
 
+const authStub = () =>
+  ({
+    isAuthenticated: true,
+    user: { id: 1, email: 'test@example.com' },
+    refreshUser: jest.fn(),
+    logout: jest.fn(),
+    getAuthHeaders: jest.fn().mockResolvedValue({}),
+  }) as any
+
+const defaultSettings = {
+  email: true,
+  push: true,
+  meals: true,
+  workouts: true,
+  achievements: true,
+  reminders: true,
+  marketing: false,
+  admin: true,
+}
+
 describe('useNotificationsEnhanced', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    mockNotificationService.getSettings = jest.fn().mockResolvedValue(defaultSettings)
   })
 
-  it('should return initial state', () => {
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: true,
-      user: { id: 1, email: 'test@example.com' },
-      refreshUser: jest.fn(),
-      logout: jest.fn(),
-    } as any)
-
+  it('should return initial state', async () => {
+    mockUseAuth.mockReturnValue(authStub())
     mockNotificationService.getNotifications = jest.fn().mockResolvedValue([])
-    mockNotificationService.getSettings = jest.fn().mockResolvedValue({
-      email: true,
-      push: true,
-      meals: true,
-      workouts: true,
-      achievements: true,
-      reminders: true,
-      marketing: false,
-      admin: true,
-    })
 
     const { result } = renderHook(() => useNotificationsEnhanced())
 
-    expect(result.current.loading).toBe(false)
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false)
+    })
     expect(result.current.notifications).toEqual([])
     expect(result.current.unreadCount).toBe(0)
   })
@@ -55,24 +64,8 @@ describe('useNotificationsEnhanced', () => {
       },
     ]
 
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: true,
-      user: { id: 1, email: 'test@example.com' },
-      refreshUser: jest.fn(),
-      logout: jest.fn(),
-    } as any)
-
+    mockUseAuth.mockReturnValue(authStub())
     mockNotificationService.getNotifications = jest.fn().mockResolvedValue(mockNotifications)
-    mockNotificationService.getSettings = jest.fn().mockResolvedValue({
-      email: true,
-      push: true,
-      meals: true,
-      workouts: true,
-      achievements: true,
-      reminders: true,
-      marketing: false,
-      admin: true,
-    })
 
     const { result } = renderHook(() => useNotificationsEnhanced())
 
@@ -111,24 +104,8 @@ describe('useNotificationsEnhanced', () => {
       },
     ]
 
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: true,
-      user: { id: 1, email: 'test@example.com' },
-      refreshUser: jest.fn(),
-      logout: jest.fn(),
-    } as any)
-
+    mockUseAuth.mockReturnValue(authStub())
     mockNotificationService.getNotifications = jest.fn().mockResolvedValue(mockNotifications)
-    mockNotificationService.getSettings = jest.fn().mockResolvedValue({
-      email: true,
-      push: true,
-      meals: true,
-      workouts: true,
-      achievements: true,
-      reminders: true,
-      marketing: false,
-      admin: true,
-    })
 
     const { result } = renderHook(() => useNotificationsEnhanced())
 
@@ -147,27 +124,12 @@ describe('useNotificationsEnhanced', () => {
       created_at: new Date().toISOString(),
     }
 
-    mockUseAuth.mockReturnValue({
-      isAuthenticated: true,
-      user: { id: 1, email: 'test@example.com' },
-      refreshUser: jest.fn(),
-      logout: jest.fn(),
-    } as any)
-
+    mockUseAuth.mockReturnValue(authStub())
     mockNotificationService.getNotifications = jest.fn().mockResolvedValue([mockNotification])
-    mockNotificationService.getSettings = jest.fn().mockResolvedValue({
-      email: true,
-      push: true,
-      meals: true,
-      workouts: true,
-      achievements: true,
-      reminders: true,
-      marketing: false,
-      admin: true,
-    })
     mockNotificationService.markAsRead = jest.fn().mockResolvedValue({
       ...mockNotification,
       is_read: true,
+      read: true,
     })
 
     const { result } = renderHook(() => useNotificationsEnhanced())
@@ -178,12 +140,6 @@ describe('useNotificationsEnhanced', () => {
 
     await result.current.markAsRead('1')
 
-    expect(mockNotificationService.markAsRead).toHaveBeenCalledWith('1')
+    expect(mockNotificationService.markAsRead).toHaveBeenCalledWith('1', {})
   })
 })
-
-
-
-
-
-

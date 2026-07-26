@@ -113,8 +113,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: Run frontend unit tests
-        # Ignore pre-existing flaky/broken suites (not introduced by this PR).
-        run: npm test -- --ci --coverage=false --testPathIgnorePatterns="notifications-dropdown|use-notifications-enhanced|auth-service-validation"
+        run: npm test -- --ci --coverage=false
 
       - name: Run frontend checks
         run: npm run check

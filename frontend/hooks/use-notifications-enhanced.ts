@@ -77,7 +77,7 @@ export function useNotificationsEnhanced() {
 
   // Actualizar contador cuando cambien las notificaciones
   useEffect(() => {
-    const unreadCount = notifications.filter(n => !n.read).length
+    const unreadCount = notifications.filter((n) => !(n.read || n.is_read)).length
     setUnreadCount(unreadCount)
   }, [notifications])
 
@@ -203,7 +203,7 @@ export function useNotificationsEnhanced() {
       setNotifications(prev => prev.filter(n => n.id !== notificationId))
       
       // Actualizar contador si no estaba leída
-      if (notification && !notification.read) {
+      if (notification && !(notification.read || notification.is_read)) {
         setUnreadCount(prev => Math.max(0, prev - 1))
       }
       
@@ -276,7 +276,7 @@ export function useNotificationsEnhanced() {
 
   // Obtener notificaciones no leídas
   const getUnreadNotifications = useCallback(() => {
-    return notifications.filter(n => !n.read)
+    return notifications.filter((n) => !(n.read || n.is_read))
   }, [notifications])
 
   // Obtener notificaciones por prioridad
