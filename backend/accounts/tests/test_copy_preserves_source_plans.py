@@ -50,7 +50,8 @@ class TestCopyPreservesUserSourcePlans:
         assert original.is_active is True
         assert original.name == before["name"]
         assert original.meals.count() == before["meal_count"]
-        assert "auto_default_source_nutrition_id:" in " ".join(copied.tags)
+        assert "auto_default_nutrition" in (copied.tags or [])
+        assert "auto_default" in (copied.tags or [])
 
     def test_copy_workout_from_user_plan_preserves_original(self, user):
         exercise = Exercise.objects.create(name="Sentadilla preservar", is_system=True)
