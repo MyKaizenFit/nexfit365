@@ -17,6 +17,11 @@ def user(db):
 
 
 @pytest.fixture
+def regular_user(user):
+    return user
+
+
+@pytest.fixture
 def nutrition_plan(db, user):
     return NutritionPlan.objects.create(
         name="Plan de Prueba",

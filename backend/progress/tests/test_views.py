@@ -4,6 +4,7 @@ Tests para las vistas del módulo de progreso
 import pytest
 from datetime import date
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 from django.contrib.auth import get_user_model
@@ -487,7 +488,7 @@ class TestAdminDailyWellnessViews:
         assert response.data["summary"]["sleep_vs_rating_correlation"] is None
 
     def test_admin_sleep_performance_with_data(self, admin_headers, member_user):
-        today = date.today()
+        today = timezone.localdate()
         DailyWellness.objects.create(
             user=member_user,
             date=today,
