@@ -363,7 +363,7 @@ class TestAdminWorkoutProgramViewSet:
         assert copy.days.count() == 1
         assert copy.days.get().exercises.count() == 1
 
-    def test_create_template_and_assign_to_multiple_users(self, admin_client, regular_user):
+    def test_create_template_and_assign_to_multiple_users(self, admin_client, regular_user, exercise):
         other_user = User.objects.create_user(
             email='other-user@test.com',
             password='testpass123',
@@ -376,10 +376,19 @@ class TestAdminWorkoutProgramViewSet:
             'days_per_week': 3,
             'duration_weeks': 4,
             'assigned_user_ids': [regular_user.id, other_user.id],
+            # Assignment rejects empty templates (no training days with exercises).
+            'days': [
+                {
+                    'day_number': 1,
+                    'name': 'Dia 1',
+                    'is_rest_day': False,
+                    'exercises': [{'exercise_id': str(exercise.id), 'sets': 3, 'reps': '10'}],
+                }
+            ],
         }
 
         response = admin_client.post('/api/admin/workouts/programs/', data, format='json')
-        assert response.status_code == status.HTTP_201_CREATED
+        assert response.status_code == status.HTTP_201_CREATED, response.data
         assert response.data.get('assigned_user_ids') == [regular_user.id, other_user.id]
         assert len(response.data.get('created_user_program_ids', [])) == 2
 
@@ -693,7 +702,7 @@ class TestAdminWorkoutProgramViewSet:
         assert day_exercise.exercise.name == 'Hip thrust manual'
         assert day_exercise.reps == '8-12'
 
-    def test_update_program_and_assign_to_multiple_users(self, admin_client):
+    def test_update_program_and_assign_to_multiple_users(self, admin_client, exercise):
         user_a = User.objects.create_user(
             email='assign-a@test.com',
             password='testpass123',
@@ -711,6 +720,19 @@ class TestAdminWorkoutProgramViewSet:
             duration_weeks=4,
             is_template=True,
         )
+        day = WorkoutDay.objects.create(
+            program=program,
+            day_number=1,
+            name='Dia 1',
+            is_rest_day=False,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=day,
+            exercise=exercise,
+            sets=3,
+            reps='10',
+            order_index=1,
+        )
 
         response = admin_client.patch(
             f'/api/admin/workouts/programs/{program.id}/',
@@ -721,7 +743,7 @@ class TestAdminWorkoutProgramViewSet:
             format='json',
         )
 
-        assert response.status_code == status.HTTP_200_OK
+        assert response.status_code == status.HTTP_200_OK, response.data
         assert response.data.get('assigned_user_ids') == [user_a.id, user_b.id]
         assert len(response.data.get('created_user_program_ids', [])) == 2
 

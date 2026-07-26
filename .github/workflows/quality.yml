@@ -64,8 +64,8 @@ jobs:
           DB_SSLMODE: disable
           REDIS_URL: redis://localhost:6379/0
         run: |
-          # Curated critical path. Remaining exclusions: full admin nutrition/workout
-          # files still have other failures; scale/assignment cases below are green.
+          # Curated critical path. Admin nutrition + admin workout files fully green.
+          # Remaining work (audit 006): expand toward `pytest -q` for the whole suite.
           pytest \
             accounts/tests/test_profile_plan_integration.py \
             api/tests/test_auth.py \
@@ -73,12 +73,7 @@ jobs:
             nutrition/tests/test_plan_meal_utils.py \
             nutrition/tests/test_plan_week_sync_db.py \
             nutrition/tests/test_plan_week_sync.py \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_preserves_meal_order_indexes \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_without_meals_preserves_today_meal_logs \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_with_meals_clears_today_meal_logs \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminNutritionPlanViewSet::test_update_plan_daily_calories_scales_meals_and_recipes \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminPlanAssignments::test_change_user_plan_preserves_and_scales_custom_recipe_portions \
-            nutrition/tests/test_admin_nutrition_views.py::TestAdminPlanAssignments::test_update_shared_assigned_plan_creates_user_copy_before_scaling \
+            nutrition/tests/test_admin_nutrition_views.py \
             progress/tests/test_views_extra.py \
             progress/tests/test_rest_wellness.py \
             progress/tests/test_local_calendar_date.py \
@@ -89,8 +84,7 @@ jobs:
             workouts/test_workouts_models.py \
             workouts/tests/test_workout_views.py \
             workouts/tests/test_workout_week_utils.py \
-            workouts/tests/test_admin_workout_views.py::TestAdminExerciseViewSet \
-            workouts/tests/test_admin_workout_views.py::TestAdminWorkoutProgramViewSet::test_update_program_derives_day_of_week_from_day_number \
+            workouts/tests/test_admin_workout_views.py \
             -q
 
   frontend:
