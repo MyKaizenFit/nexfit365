@@ -17,7 +17,7 @@ class ProgressPhotoModelTest(TestCase):
             email="test@example.com",
             password="testpass123"
         )
-        self.today = timezone.now().date()
+        self.today = timezone.localdate()
     
     def test_create_progress_photo(self):
         """Test crear una foto de progreso válida"""
@@ -85,7 +85,7 @@ class WeightEntryModelTest(TestCase):
             email="test@example.com",
             password="testpass123"
         )
-        self.today = timezone.now().date()
+        self.today = timezone.localdate()
     
     def test_create_weight_entry(self):
         """Test crear una entrada de peso válida"""
@@ -148,7 +148,7 @@ class BodyMeasurementModelTest(TestCase):
             email="test@example.com",
             password="testpass123"
         )
-        self.today = timezone.now().date()
+        self.today = timezone.localdate()
     
     def test_create_body_measurement(self):
         """Test crear medidas corporales válidas"""
