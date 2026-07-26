@@ -12,7 +12,7 @@ WORKDIR /app
 # Instalar dependencias usando npm (lockfile oficial del proyecto)
 # Usar --prefer-offline para usar caché local si existe
 COPY package.json package-lock.json ./
-RUN npm ci --legacy-peer-deps --prefer-offline --no-audit --progress=false
+RUN npm ci --prefer-offline --no-audit --progress=false
 
 # Rebuild del código fuente solo cuando sea necesario
 FROM base AS builder
