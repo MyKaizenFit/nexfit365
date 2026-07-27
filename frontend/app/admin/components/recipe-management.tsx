@@ -1679,15 +1679,16 @@ export function RecipeManagement() {
             <DialogDescription>Crea o edita tu receta de forma sencilla</DialogDescription>
           </DialogHeader>
 
-          {/* TABS para PC / Acordeones para Móvil */}
-          <div className="flex-1 overflow-y-auto">
-            <Tabs defaultValue="basicos" className="w-full">
-              <TabsList className="grid w-full grid-cols-4 mb-4">
-                <TabsTrigger value="basicos" className="text-xs sm:text-sm">📝 Básicos</TabsTrigger>
-                <TabsTrigger value="ingredientes" className="text-xs sm:text-sm">🥘 Ingredientes</TabsTrigger>
-                <TabsTrigger value="instrucciones" className="text-xs sm:text-sm">📖 Pasos</TabsTrigger>
-                <TabsTrigger value="preview" className="text-xs sm:text-sm">👁️ Vista Previa</TabsTrigger>
-              </TabsList>
+          {/* Tabs fijos; solo el contenido hace scroll (si no, el menú desaparece al bajar) */}
+          <Tabs defaultValue="basicos" className="flex w-full flex-1 flex-col min-h-0 overflow-hidden">
+            <TabsList className="mb-4 grid w-full flex-shrink-0 grid-cols-4">
+              <TabsTrigger value="basicos" className="text-xs sm:text-sm">📝 Básicos</TabsTrigger>
+              <TabsTrigger value="ingredientes" className="text-xs sm:text-sm">🥘 Ingredientes</TabsTrigger>
+              <TabsTrigger value="instrucciones" className="text-xs sm:text-sm">📖 Pasos</TabsTrigger>
+              <TabsTrigger value="preview" className="text-xs sm:text-sm">👁️ Vista Previa</TabsTrigger>
+            </TabsList>
+
+            <div className="min-h-0 flex-1 overflow-y-auto">
 
               {/* TAB 1: Datos Básicos */}
               <TabsContent value="basicos" className="space-y-4 px-1">
@@ -1978,12 +1979,16 @@ export function RecipeManagement() {
                         className="pl-10"
                       />
 
-                      {/* DROPDOWN CON SUGERENCIAS */}
+                      {/* DROPDOWN CON SUGERENCIAS — mousedown preventDefault evita que el blur cierre al scrollear */}
                       {showSuggestions && getAutocompleteSuggestions().length > 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-50">
+                        <div
+                          className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white border border-gray-300 rounded-md shadow-lg z-50"
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
                           {getAutocompleteSuggestions().map((food) => (
                             <button
                               key={food.id}
+                              type="button"
                               onClick={() => {
                                 handleAddIngredient(food)
                               }}
@@ -2003,7 +2008,10 @@ export function RecipeManagement() {
                       )}
 
                       {showSuggestions && ingredientInputValue && getAutocompleteSuggestions().length === 0 && (
-                        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 z-50 text-center text-sm text-gray-500">
+                        <div
+                          className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 z-50 text-center text-sm text-gray-500"
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
                           Sin resultados
                         </div>
                       )}
@@ -2198,8 +2206,8 @@ export function RecipeManagement() {
                   </CardContent>
                 </Card>
               </TabsContent>
-            </Tabs>
-          </div>
+            </div>
+          </Tabs>
 
           {/* Footer con botones */}
           <DialogFooter className="flex-shrink-0 pt-4 border-t mt-4 gap-2">

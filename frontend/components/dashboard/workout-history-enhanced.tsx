@@ -15,22 +15,11 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "rec
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import type { WorkoutLog } from "@/hooks/use-workouts"
+import { computeExercisePrStats, getExercisesFromLog } from "@/lib/workout-pr-stats"
 
 interface WorkoutHistoryEnhancedProps {
   workoutLogs: WorkoutLog[]
   showAdminDetails?: boolean
-}
-
-interface ExerciseStats {
-  exercise_id: string
-  exercise_name: string
-  rm: number // RM: carga máxima (1 repetición, o mayor carga si no hay singles)
-  pr_weight: number // PR: peso de la serie que da el mayor 1RM estimado
-  pr_reps: number // PR: repeticiones de la serie que da el mayor 1RM estimado
-  pr_estimated_1rm: number // PR: 1RM estimado máximo histórico
-  totalVolume: number // Tonelaje total
-  lastDate: string
-  occurrences: number
 }
 
 interface TonnageData {
@@ -96,36 +85,6 @@ export function WorkoutHistoryEnhanced({ workoutLogs, showAdminDetails = false }
   const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set())
   const [selectedTimeRange, setSelectedTimeRange] = useState<'week' | 'month' | 'all'>('month')
 
-  const estimateOneRepMax = (weight: number, reps: number) => {
-    if (!Number.isFinite(weight) || !Number.isFinite(reps) || weight <= 0 || reps <= 0) return 0
-    return weight * (1 + reps / 30)
-  }
-
-  // Función auxiliar para extraer ejercicios de un log (soporta ambos formatos)
-  const getExercisesFromLog = (log: any) => {
-    // Caso 1: log_exercises (WorkoutLogExercise con WorkoutLogSet)
-    if (log.log_exercises && log.log_exercises.length > 0) {
-      return log.log_exercises.map((logEx: any) => ({
-        exercise_id: logEx.exercise || logEx.id,
-        exercise_name: logEx.exercise_name,
-        sets: (logEx.sets || []).map((s: any) => ({
-          completed: s.completed !== false,
-          weight: s.weight,
-          reps: s.reps,
-          set_number: s.set_number,
-          duration_seconds: s.duration_seconds
-        }))
-      }))
-    }
-
-    // Caso 2: exercises_data (snapshot JSON - entrenamientos desde la app)
-    if (log.exercises_data && log.exercises_data.length > 0) {
-      return log.exercises_data
-    }
-
-    return []
-  }
-
   // Filtrar logs completados y ordenar por fecha
   const completedLogs = useMemo(() => {
     const logs = workoutLogs
@@ -136,92 +95,10 @@ export function WorkoutHistoryEnhanced({ workoutLogs, showAdminDetails = false }
   }, [workoutLogs])
 
   // Calcular PR y RM por ejercicio
-  const exerciseStats = useMemo(() => {
-    const stats: Record<string, ExerciseStats> = {}
-
-    completedLogs.forEach(log => {
-      // Obtener ejercicios usando la función auxiliar (soporta ambos formatos)
-      const exercisesData = getExercisesFromLog(log)
-
-      if (exercisesData.length === 0) {
-        return
-      }
-
-      exercisesData.forEach((exerciseData: any) => {
-        const exerciseId = exerciseData.exercise_id || exerciseData.exercise?.id || exerciseData.id || 'unknown'
-        const exerciseName = exerciseData.exercise_name || exerciseData.exercise?.name || exerciseData.name || 'Ejercicio desconocido'
-        const sets = exerciseData.sets || []
-
-        if (!stats[exerciseId]) {
-          stats[exerciseId] = {
-            exercise_id: exerciseId,
-            exercise_name: exerciseName,
-            rm: 0,
-            pr_weight: 0,
-            pr_reps: 0,
-            pr_estimated_1rm: 0,
-            totalVolume: 0,
-            lastDate: log.date,
-            occurrences: 0
-          }
-        }
-
-        // RM: si existe serie de 1 rep, usar la mayor carga entre esas series.
-        // Si no existe ninguna, usar la mayor carga histórica.
-        let maxOneRepWeight = 0
-        let maxWeightAnyReps = stats[exerciseId].rm
-
-        // PR: serie con mayor 1RM estimado histórico (Epley).
-        let bestEstimatedOneRM = stats[exerciseId].pr_estimated_1rm
-        let bestEstimatedWeight = stats[exerciseId].pr_weight
-        let bestEstimatedReps = stats[exerciseId].pr_reps
-        let volume = 0
-
-        sets.forEach((set: any) => {
-          // Aceptar sets completados con weight y reps (pueden ser números o strings)
-          const weight = set.weight !== null && set.weight !== undefined ? parseFloat(String(set.weight)) : null
-          const reps = set.reps !== null && set.reps !== undefined ? parseInt(String(set.reps)) : null
-
-          if (set.completed && weight !== null && reps !== null && !isNaN(weight) && !isNaN(reps) && weight > 0 && reps > 0) {
-            if (reps === 1 && weight > maxOneRepWeight) {
-              maxOneRepWeight = weight
-            }
-
-            if (weight > maxWeightAnyReps) {
-              maxWeightAnyReps = weight
-            }
-
-            const estimatedOneRM = estimateOneRepMax(weight, reps)
-            if (estimatedOneRM > bestEstimatedOneRM) {
-              bestEstimatedOneRM = estimatedOneRM
-              bestEstimatedWeight = weight
-              bestEstimatedReps = reps
-            }
-
-            // Tonelaje = Peso * Repeticiones (por serie)
-            volume += weight * reps
-          }
-        })
-
-        const rm = maxOneRepWeight > 0 ? maxOneRepWeight : maxWeightAnyReps
-
-        if (rm > 0 || bestEstimatedOneRM > 0 || volume > 0) {
-          stats[exerciseId].rm = rm
-          stats[exerciseId].pr_estimated_1rm = bestEstimatedOneRM
-          stats[exerciseId].pr_weight = bestEstimatedWeight
-          stats[exerciseId].pr_reps = bestEstimatedReps
-          stats[exerciseId].totalVolume += volume
-          stats[exerciseId].occurrences += 1
-          if (new Date(log.date) > new Date(stats[exerciseId].lastDate)) {
-            stats[exerciseId].lastDate = log.date
-          }
-        }
-      })
-    })
-
-    const result = Object.values(stats).sort((a, b) => b.totalVolume - a.totalVolume)
-    return result
-  }, [completedLogs])
+  const exerciseStats = useMemo(
+    () => computeExercisePrStats(completedLogs),
+    [completedLogs]
+  )
 
   // Calcular datos de tonelaje para gráficas
   const tonnageData = useMemo(() => {
