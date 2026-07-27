@@ -447,8 +447,10 @@ export function MealSelectionModal({
   }
 
   const handleSelectOption = (option: MealOption) => {
-    if (isOptionCurrentSelection(option) && onDeselectOption) {
-      onDeselectOption()
+    // "Cambiar" must not toggle-off the current recipe on card tap — that made the
+    // meal fall back to the first suggested option (looked like a redirect to another recipe).
+    // Explicit deselection stays on the "Quitar" button.
+    if (isOptionCurrentSelection(option)) {
       onClose()
       return
     }
@@ -770,7 +772,7 @@ export function MealSelectionModal({
           onSelectRecipe={async (recipe: Recipe) => {
             try {
               setLoadingRecipe(true)
-              const mealType = mealTypeMap[mealName] || "lunch"
+              const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
               
               // Cerrar el modal de todas las recetas PRIMERO
               setShowAllRecipes(false)
@@ -781,7 +783,7 @@ export function MealSelectionModal({
               // Intentar obtener receta personalizada
               let data = null
               try {
-                data = await nutritionService.getPersonalizedRecipe(recipe.id, mealType)
+                data = await nutritionService.getPersonalizedRecipe(recipe.id, resolvedMealType)
               } catch (error: any) {
                 // Si es 404, usar la receta básica directamente
                 if (error?.message?.includes('404') || error?.message?.includes('Not Found')) {
