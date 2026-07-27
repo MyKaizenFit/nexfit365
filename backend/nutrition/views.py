@@ -1149,6 +1149,8 @@ def daily_meal_selections(request):
 
         defaults = {
             'plan_meal': plan_meal,
+            # Sin esto el create usa default='other' y rompe uniques al detach de slots
+            'meal_type': (plan_meal.meal_type if plan_meal else meal_type) or meal_type,
             'recipe': recipe,
             'completed': is_completed,
             'is_skipped': bool(skip_meal),
@@ -1758,6 +1760,7 @@ def monthly_meal_selections(request):
                         'plan_meal': None,
                     },
                     {
+                        'meal_type': meal_type,
                         'recipe_id': selection_data.get('recipe_id'),
                         'completed': is_completed,
                         # Solo contar calorías si está completada
@@ -1923,6 +1926,7 @@ def weekly_meal_selections(request):
                     lookup,
                     {
                         'plan_meal': plan_meal,
+                        'meal_type': (plan_meal.meal_type if plan_meal else meal_type) or meal_type,
                         'recipe_id': selection_data.get('recipe_id'),
                         'completed': is_completed,
                         # Solo contar calorías si está completada

@@ -1441,6 +1441,48 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return
         MealLog.objects.filter(user_id__in=user_ids, date__gte=timezone.localdate()).delete()
 
+    def _detach_meal_logs_before_replacing_meals(self, plan: NutritionPlan):
+        """Evita IntegrityError al borrar PlanMeal (SET_NULL en MealLog.plan_meal).
+
+        Varios logs del mismo (user, date, meal_type) pueden coexistir mientras
+        tengan plan_meal distinto. Al poner plan_meal=NULL chocan con
+        unique_meallog_user_date_meal_type. Dejamos como máximo un log por
+        grupo y borramos el resto antes del delete de comidas.
+        """
+        meal_ids = list(plan.meals.values_list('id', flat=True))
+        if not meal_ids:
+            return
+
+        linked = list(
+            MealLog.objects.filter(plan_meal_id__in=meal_ids)
+            .order_by('-updated_at', '-created_at', '-id')
+            .values_list('id', 'user_id', 'date', 'meal_type')
+        )
+        if not linked:
+            return
+
+        from collections import defaultdict
+
+        groups: dict[tuple, list] = defaultdict(list)
+        for log_id, user_id, day, meal_type in linked:
+            groups[(user_id, day, meal_type)].append(log_id)
+
+        delete_ids: list = []
+        for (user_id, day, meal_type), ids in groups.items():
+            already_null = MealLog.objects.filter(
+                user_id=user_id,
+                date=day,
+                meal_type=meal_type,
+                plan_meal__isnull=True,
+            ).exclude(id__in=ids).exists()
+            if already_null:
+                delete_ids.extend(ids)
+            else:
+                delete_ids.extend(ids[1:])
+
+        if delete_ids:
+            MealLog.objects.filter(id__in=delete_ids).delete()
+
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
         Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
@@ -1454,6 +1496,9 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return
 
         recipe_map = self._build_recipe_map(meals_payload)
+
+        # Detach logs antes del SET_NULL implícito al borrar slots
+        self._detach_meal_logs_before_replacing_meals(plan)
 
         # Eliminar comidas anteriores (cascade elimina PlanMealRecipe)
         plan.meals.all().delete()
@@ -1839,11 +1884,12 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.save(update_fields=['is_template'])
 
         meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
-        self._replace_plan_meals(plan, meals_payload)
-        self._ensure_user_plan_start_date(plan, request.data)
-        # Only wipe selections when meals were actually replaced (list payload).
+        # Wipe ≥hoy antes de reemplazar slots (si no, el SET_NULL al borrar PlanMeal
+        # puede chocar con unique_meallog_user_date_meal_type).
         if isinstance(meals_payload, list):
             self._clear_future_meal_selections_for_plan(plan)
+        self._replace_plan_meals(plan, meals_payload)
+        self._ensure_user_plan_start_date(plan, request.data)
         self._finalize_plan_after_meals(
             plan,
             meals_payload,

@@ -377,6 +377,60 @@ class TestAdminNutritionPlanViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert not MealLog.objects.filter(id=log.id).exists()
 
+    def test_update_plan_with_duplicate_other_meal_logs_does_not_500(
+        self, admin_client, nutrition_plan, regular_user
+    ):
+        """Regression: several MealLogs with meal_type=other + distinct plan_meal
+        used to IntegrityError on PlanMeal.delete() SET_NULL."""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        day = timezone.localdate() - timedelta(days=2)
+        slots = []
+        for idx in range(4):
+            slots.append(
+                PlanMeal.objects.create(
+                    plan=nutrition_plan,
+                    day_of_week=1,
+                    name=f'Slot {idx}',
+                    meal_type='breakfast' if idx == 0 else 'lunch' if idx == 1 else 'snack' if idx == 2 else 'dinner',
+                    order_index=idx + 1,
+                )
+            )
+        for slot in slots:
+            MealLog.objects.create(
+                user=regular_user,
+                date=day,
+                meal_type='other',  # historical bug: default ignored real slot type
+                plan_meal=slot,
+                completed=True,
+                calories=200,
+            )
+
+        payload = {
+            'meals': [
+                {
+                    'day_of_week': 1,
+                    'name': 'Desayuno nuevo',
+                    'meal_type': 'breakfast',
+                    'order_index': 1,
+                },
+            ]
+        }
+        response = admin_client.patch(
+            f'{PLANS_URL}{nutrition_plan.id}/',
+            payload,
+            format='json',
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert nutrition_plan.meals.count() == 1
+        # At most one free (plan_meal=NULL) log per (user, date, meal_type)
+        assert (
+            MealLog.objects.filter(
+                user=regular_user, date=day, meal_type='other', plan_meal__isnull=True
+            ).count()
+            <= 1
+        )
     def test_update_plan_daily_calories_scales_meals_and_recipes(self, admin_client, nutrition_plan, recipe):
         meal = PlanMeal.objects.create(
             plan=nutrition_plan,
