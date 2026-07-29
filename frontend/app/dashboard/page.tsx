@@ -150,10 +150,12 @@ function DashboardContent() {
   const { user, logout, isAuthenticated, isLoading } = useAuth()
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
-  const { access: restWellnessAccess } = useRestWellnessAccess()
+  const { access: restWellnessAccess, loading: restWellnessAccessLoading } = useRestWellnessAccess()
   const userRole = (user?.role || "").toLowerCase()
   const isPremiumUser = userRole === "premium"
-  const canAccessRestWellness = restWellnessAccess.can_fill
+  // While access is loading, keep the menu entry visible so a late/failed early
+  // fetch does not permanently hide Descanso (GA default is enabled).
+  const canAccessRestWellness = restWellnessAccessLoading || restWellnessAccess.can_fill
   const visibleMenuItems = menuItems.filter((item) => {
     if (item.url === REST_WELLNESS_SECTION && !canAccessRestWellness) return false
     if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
