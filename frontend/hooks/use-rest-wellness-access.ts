@@ -2,14 +2,19 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { authenticatedFetch } from "@/lib/api"
+import { useAuth } from "@/contexts/auth-context"
 import type { RestWellnessAccess } from "@/lib/rest-wellness/types"
+import { shouldQueryRestWellnessAccess } from "./rest-wellness-access-gate"
 
 const DEFAULT_ACCESS: RestWellnessAccess = {
   can_fill: false,
   can_coach: false,
 }
 
+export { shouldQueryRestWellnessAccess }
+
 export function useRestWellnessAccess() {
+  const { isAuthenticated, isLoading: authLoading } = useAuth()
   const [access, setAccess] = useState<RestWellnessAccess>(DEFAULT_ACCESS)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -36,8 +41,15 @@ export function useRestWellnessAccess() {
   }, [])
 
   useEffect(() => {
+    if (!shouldQueryRestWellnessAccess(authLoading, isAuthenticated)) {
+      if (!authLoading && !isAuthenticated) {
+        setAccess(DEFAULT_ACCESS)
+        setLoading(false)
+      }
+      return
+    }
     void refetch()
-  }, [refetch])
+  }, [authLoading, isAuthenticated, refetch])
 
   return { access, loading, error, refetch }
 }
