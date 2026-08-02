@@ -24,6 +24,10 @@ def dedupe_workout_logs(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
+    # Postgres cannot CREATE INDEX in the same transaction as the deletes above
+    # ("pending trigger events").
+    atomic = False
+
     dependencies = [
         ("workouts", "0006_exercise_category_open"),
     ]

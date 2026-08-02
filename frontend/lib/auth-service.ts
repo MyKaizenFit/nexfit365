@@ -162,10 +162,35 @@ const clearSessionMarkers = () => {
   deleteCookie('refreshToken')
 }
 
-const storeCsrfFromResponse = (csrf?: string | null) => {
-  if (csrf) {
-    setCookie('csrfToken', csrf, 30)
+const sharedAuthCookieDomain = (): string | undefined => {
+  if (typeof window === 'undefined') return undefined
+  const host = window.location.hostname
+  if (host === 'nexfit365.dpdns.org' || host.endsWith('.nexfit365.dpdns.org')) {
+    return '.nexfit365.dpdns.org'
   }
+  return undefined
+}
+
+/** Align readable csrfToken with API Set-Cookie (Domain + SameSite=None on prod). */
+const storeCsrfFromResponse = (csrf?: string | null) => {
+  if (typeof window === 'undefined' || !csrf) return
+
+  // Drop host-only duplicates that diverge from the API Domain cookie and break CSRF checks.
+  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/'
+  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=Lax'
+  document.cookie = 'csrfToken=;expires=Thu, 01 Jan 1970 00:00:00 UTC;path=/;SameSite=None;Secure'
+
+  const maxAge = 30 * 24 * 60 * 60
+  const domain = sharedAuthCookieDomain()
+  let cookie = `csrfToken=${encodeURIComponent(csrf)};path=/;max-age=${maxAge}`
+  if (domain) {
+    // Must match api.jwt_cookies.set_jwt_cookies for cross-subdomain POSTs.
+    cookie += `;domain=${domain};SameSite=None;Secure`
+  } else {
+    const secure = window.location.protocol === 'https:'
+    cookie += `;SameSite=Lax${secure ? ';Secure' : ''}`
+  }
+  document.cookie = cookie
 }
 
 // Clase principal del servicio de autenticación mejorado
@@ -397,9 +422,6 @@ export class AuthService {
       // NO loguear credenciales por seguridad
       if (process.env.NODE_ENV === 'development') {
       }
-
-      // Agregar un pequeño delay para evitar rate limiting
-      await new Promise(resolve => setTimeout(resolve, 1000))
 
       const response = await this.postAuthWithTransientRetry(
         buildApiUrl(AUTH_ENDPOINTS.LOGIN),
