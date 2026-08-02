@@ -300,6 +300,31 @@ export class UserService {
         body: formData,
       })
 
+      if (response.status === 403) {
+        // Stale/mismatched csrfToken cookie is a common cause; refresh session and retry once.
+        try {
+          await authService.refreshAccessTokenDeduped()
+          const retryHeaders: Record<string, string> = { ...getMultipartAuthHeaders() }
+          if (idempotencyKey) {
+            retryHeaders['Idempotency-Key'] = idempotencyKey
+          }
+          const retry = await fetch(url, {
+            credentials: 'include',
+            method: 'POST',
+            headers: retryHeaders,
+            body: formData,
+          })
+          if (retry.ok) {
+            const result = await handleApiResponse<ProgressPhoto>(retry)
+            if (result.error) throw new Error(result.error)
+            if (!result.data) throw new Error('No se recibieron datos de la foto subida')
+            return result.data
+          }
+        } catch {
+          // fall through to normal error handling using original response
+        }
+      }
+
       if (!response.ok) {
         let detail = `Error ${response.status}: ${response.statusText}`
         try {
