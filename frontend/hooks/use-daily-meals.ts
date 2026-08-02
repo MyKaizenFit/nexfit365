@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { nutritionService, MealOption, MealLog } from '@/lib/nutrition-service'
 import { dailyMealSelectionsService } from '@/lib/daily-meal-selections-service'
 import { useNutrition } from '@/hooks/use-nutrition'
-import { getAuthHeaders, buildApiUrl } from '@/lib/api'
+import { getAuthHeaders, getMultipartAuthHeaders, buildApiUrl } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
 
 interface DailyMeal {
@@ -828,7 +828,6 @@ export function useDailyMeals() {
 
     try {
       const today = todayLocalDate()
-      const headers = await getAuthHeaders()
       const formData = new FormData()
 
       formData.append('date', today)
@@ -867,9 +866,7 @@ export function useDailyMeals() {
       const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
         credentials: 'include',
         method: 'POST',
-        headers: {
-          Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || '',
-        },
+        headers: getMultipartAuthHeaders(),
         body: formData,
       })
 

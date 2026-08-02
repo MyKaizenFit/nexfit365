@@ -1392,7 +1392,7 @@ export function ActiveWorkoutSession({
       isFinishingRef.current = false
       toast({
         title: "Error",
-        description: "No se pudo guardar el entrenamiento",
+        description: error instanceof Error ? error.message : "No se pudo guardar el entrenamiento",
         variant: "destructive"
       })
     } finally {

@@ -308,11 +308,22 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
     throw new Error('No hay sesión de acceso disponible')
   }
 
-  const buildHeaders = (): HeadersInit => ({
-    ...options.headers,
-    ...getClientContextHeaders(),
-    ...getAuthHeaders(authService.getAccessToken() || undefined),
-  })
+  const buildHeaders = (): HeadersInit => {
+    const headers = new Headers(options.headers || {})
+    for (const [key, value] of Object.entries(getClientContextHeaders())) {
+      headers.set(key, value)
+    }
+    for (const [key, value] of Object.entries(
+      getAuthHeaders(authService.getAccessToken() || undefined),
+    )) {
+      headers.set(key, value)
+    }
+    // FormData must not force JSON Content-Type (breaks multipart boundary).
+    if (typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData) {
+      headers.delete('Content-Type')
+    }
+    return headers
+  }
 
   const resolveUrl = (pathOrUrl: string): string => {
     if (pathOrUrl.startsWith('http://') || pathOrUrl.startsWith('https://')) {
@@ -321,10 +332,14 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
     return buildApiUrl(pathOrUrl)
   }
 
+  const defaultTimeoutMs =
+    uploadTimeoutMs ??
+    (method === 'GET' || method === 'HEAD' || method === 'OPTIONS' ? undefined : API_CONFIG.TIMEOUT)
+
   const executeRequest = async (): Promise<Response> => {
-    const controller = uploadTimeoutMs ? new AbortController() : null
+    const controller = defaultTimeoutMs ? new AbortController() : null
     const timeoutId = controller
-      ? window.setTimeout(() => controller.abort(), uploadTimeoutMs)
+      ? window.setTimeout(() => controller.abort(), defaultTimeoutMs)
       : null
 
     try {
@@ -381,6 +396,12 @@ export const authenticatedFetch = async (url: string, options: AuthenticatedFetc
 
       return response
     } catch (error) {
+      if (
+        (error instanceof DOMException || error instanceof Error) &&
+        error.name === 'AbortError'
+      ) {
+        throw new Error('La petición tardó demasiado. Inténtalo de nuevo.')
+      }
       if (canRetryTransient && isRetryableNetworkError(error) && transientAttempt < maxTransientRetries) {
         transientAttempt += 1
         await delay(250 * transientAttempt)
