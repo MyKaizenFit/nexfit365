@@ -1,7 +1,7 @@
 // lib/user-service.ts
 // Servicio para obtener datos reales del usuario desde el backend
 
-import { buildApiUrl, getAuthHeaders, handleApiResponse, handleFetchError, AUTH_ENDPOINTS } from './api'
+import { buildApiUrl, getAuthHeaders, getMultipartAuthHeaders, handleApiResponse, handleFetchError, AUTH_ENDPOINTS } from './api'
 import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
@@ -287,12 +287,11 @@ export class UserService {
         formData.append('notes', notes.trim())
       }
 
-      // Preparar headers
-      const headers: Record<string, string> = {}
+      // CSRF/Bearer required for cookie sessions; never set Content-Type on FormData.
+      const headers: Record<string, string> = { ...getMultipartAuthHeaders() }
       if (idempotencyKey) {
         headers['Idempotency-Key'] = idempotencyKey
       }
-
 
       const response = await fetch(url, {
         credentials: 'include',
@@ -301,27 +300,21 @@ export class UserService {
         body: formData,
       })
 
-
       if (!response.ok) {
-        
-        // Log detallado del error
+        let detail = `Error ${response.status}: ${response.statusText}`
         try {
           const errorData = await response.json()
-        } catch (parseError) {
-        }
-
-        // Log de headers de respuesta
-        for (let [key, value] of response.headers.entries()) {
-        }
-
-        // Log de la petición
-        for (let [key, value] of formData.entries()) {
-          if (value instanceof File) {
-          } else {
+          if (typeof errorData?.detail === 'string') {
+            detail = errorData.detail
+          } else if (typeof errorData?.error === 'string') {
+            detail = errorData.error
+          } else if (errorData?.photo) {
+            detail = Array.isArray(errorData.photo) ? errorData.photo[0] : String(errorData.photo)
           }
+        } catch {
+          // keep status text
         }
-
-        throw new Error(`Error ${response.status}: ${response.statusText}`)
+        throw new Error(detail)
       }
 
       const result = await handleApiResponse<ProgressPhoto>(response)
@@ -563,9 +556,8 @@ export class UserService {
         formData.append('profile_picture', updates.profile_picture as File)
         
         body = formData
-        headers = {
-          // No establecer Content-Type, el navegador lo hará automáticamente con FormData
-        }
+        // CSRF/Bearer without Content-Type (browser sets multipart boundary)
+        headers = getMultipartAuthHeaders()
       } else {
         body = JSON.stringify(updates)
         headers = {
