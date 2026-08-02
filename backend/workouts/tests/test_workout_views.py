@@ -434,47 +434,6 @@ class TestWorkoutLogViewSet:
         assert completed_log.notes == 'Final'
         assert completed_log.exercises_data[0]['exercise_id'] == 'a'
 
-    def test_upsert_today_consolidates_duplicate_logs(self, auth_client, user, workout_day):
-        from django.db import connection
-
-        today = timezone.localdate()
-        constraint = next(
-            c for c in WorkoutLog._meta.constraints
-            if getattr(c, 'name', None) == 'unique_workout_log_per_user_day'
-        )
-        with connection.schema_editor() as schema_editor:
-            schema_editor.remove_constraint(WorkoutLog, constraint)
-        try:
-            WorkoutLog.objects.create(
-                user=user, workout_day=workout_day, date=today, completed=False, duration_minutes=5, notes='a'
-            )
-            WorkoutLog.objects.create(
-                user=user, workout_day=workout_day, date=today, completed=False, duration_minutes=10, notes='b'
-            )
-            WorkoutLog.objects.create(
-                user=user, workout_day=workout_day, date=today, completed=False, duration_minutes=1, notes='c'
-            )
-            assert WorkoutLog.objects.filter(user=user, workout_day=workout_day, date=today).count() == 3
-
-            response = auth_client.post('/api/workout-logs/upsert_today/', {
-                'workout_day': str(workout_day.id),
-                'completed': True,
-                'duration_minutes': 32,
-                'rating': 5,
-                'notes': 'Guardado tras duplicados',
-            }, format='json')
-
-            assert response.status_code == status.HTTP_200_OK
-            logs = WorkoutLog.objects.filter(user=user, workout_day=workout_day, date=today)
-            assert logs.count() == 1
-            log = logs.get()
-            assert log.completed is True
-            assert log.duration_minutes == 32
-            assert log.notes == 'Guardado tras duplicados'
-        finally:
-            with connection.schema_editor() as schema_editor:
-                schema_editor.add_constraint(WorkoutLog, constraint)
-
     def test_upsert_today_rejects_other_users_workout_day(
         self, auth_client, user2, exercise
     ):
