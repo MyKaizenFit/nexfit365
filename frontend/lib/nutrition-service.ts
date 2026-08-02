@@ -1,7 +1,7 @@
 // lib/nutrition-service.ts
 // Servicio para gestionar planes de nutrición y comidas
 
-import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, buildApiUrl, authenticatedFetch, handleApiResponse, handleFetchError } from './api'
+import { API_CONFIG, NUTRITION_ENDPOINTS, getAuthHeaders, getMultipartAuthHeaders, buildApiUrl, authenticatedFetch, handleApiResponse, handleFetchError } from './api'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 
@@ -859,9 +859,7 @@ class NutritionService {
 
         response = await fetch(`${buildApiUrl(NUTRITION_ENDPOINTS.MEALS)}`, {
         credentials: 'include',
-          headers: {
-            Authorization: headers.Authorization || headers.authorization || headers['Authorization'] || ''
-          },
+          headers: getMultipartAuthHeaders(),
           method: 'POST',
           body: formData,
         })

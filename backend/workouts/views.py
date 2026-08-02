@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, IntegrityError, transaction
 from django.db import models as django_db_models
 import logging
 import uuid
@@ -496,14 +496,35 @@ class WorkoutLogViewSet(viewsets.ModelViewSet):
         )
 
         with transaction.atomic():
-            log, _created = WorkoutLog.objects.get_or_create(
-                user=request.user,
-                workout_day=workout_day,
-                date=log_date,
-                defaults={'completed': False},
+            # Concurrent autosaves raced before the unique index existed and left
+            # duplicate (user, date, workout_day) rows; get_or_create then 500s.
+            existing = list(
+                WorkoutLog.objects.select_for_update()
+                .filter(user=request.user, workout_day=workout_day, date=log_date)
+                .order_by('-completed', '-duration_minutes', '-updated_at', '-created_at')
             )
-            # Re-lock so a concurrent finish is visible before we write.
-            log = WorkoutLog.objects.select_for_update().get(pk=log.pk)
+            if existing:
+                log = existing[0]
+                extra_ids = [row.pk for row in existing[1:]]
+                if extra_ids:
+                    WorkoutLog.objects.filter(pk__in=extra_ids).delete()
+            else:
+                try:
+                    log = WorkoutLog.objects.create(
+                        user=request.user,
+                        workout_day=workout_day,
+                        date=log_date,
+                        completed=False,
+                    )
+                except IntegrityError:
+                    log = (
+                        WorkoutLog.objects.select_for_update()
+                        .filter(user=request.user, workout_day=workout_day, date=log_date)
+                        .order_by('-completed', '-duration_minutes', '-updated_at', '-created_at')
+                        .first()
+                    )
+                    if log is None:
+                        raise
 
             if log.completed and requested_completed is not True:
                 # Ignore delayed draft autosaves (completed omitted or false) so they
