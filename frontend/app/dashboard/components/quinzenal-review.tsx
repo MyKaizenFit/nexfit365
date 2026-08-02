@@ -28,21 +28,26 @@ export function QuinzenalReview() {
   const [sending, setSending] = useState(false)
   const [notes, setNotes] = useState("")
   const [status, setStatus] = useState<QuinzenalStatus | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const loadStatus = async () => {
     try {
       setLoading(true)
+      setLoadError(null)
       const headers = await getAuthHeaders()
       const response = await fetch(buildApiUrl("progress-stats/quinzenal-review/"), {
         credentials: 'include', headers })
       if (response.status === 401 || response.status === 403) {
-        setLoading(false)
+        setStatus(null)
+        setLoadError("Sesión expirada. Vuelve a iniciar sesión.")
         return
       }
       if (!response.ok) throw new Error("No se pudo cargar la revisión")
       const data = await response.json()
       setStatus(data)
     } catch (error) {
+      setStatus(null)
+      setLoadError("No se pudo cargar tu revisión quincenal.")
       toast({
         title: "Error",
         description: "No se pudo cargar tu revisión quincenal.",
@@ -76,7 +81,12 @@ export function QuinzenalReview() {
         headers,
         body: JSON.stringify({ notes }),
       })
-      const data = await response.json()
+      let data: { detail?: string } = {}
+      try {
+        data = await response.json()
+      } catch {
+        // non-JSON error body
+      }
       if (!response.ok) throw new Error(data.detail || "No se pudo enviar la revisión")
 
       toast({
@@ -116,9 +126,14 @@ export function QuinzenalReview() {
         <CardDescription>Estado real de tu próxima evaluación con el equipo</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {loading || !status ? (
+        {loading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-teal-600" />
+          </div>
+        ) : loadError || !status ? (
+          <div className="space-y-3 py-4 text-center">
+            <p className="text-sm text-muted-foreground">{loadError || "No se pudo cargar tu revisión quincenal."}</p>
+            <Button variant="outline" onClick={loadStatus}>Reintentar</Button>
           </div>
         ) : (
           <>

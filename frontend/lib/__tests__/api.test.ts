@@ -1,5 +1,5 @@
 // lib/__tests__/api.test.ts
-import { buildApiUrl, getAuthHeaders, API_CONFIG } from '../api'
+import { buildApiUrl, getAuthHeaders, getMultipartAuthHeaders, API_CONFIG } from '../api'
 import { getAuthService } from '../auth-service'
 
 jest.mock('../auth-service', () => ({
@@ -77,6 +77,25 @@ describe('API utilities', () => {
       const headers = getAuthHeaders()
 
       expect(headers['X-CSRFToken']).toBe('abc123')
+    })
+  })
+
+  describe('getMultipartAuthHeaders', () => {
+    it('keeps CSRF and Bearer but omits Content-Type for FormData', () => {
+      mockGetAuthService.mockReturnValue({
+        getAccessToken: jest.fn().mockReturnValue('tok'),
+      } as any)
+      Object.defineProperty(document, 'cookie', {
+        writable: true,
+        value: 'csrfToken=csrf-xyz',
+      })
+
+      const headers = getMultipartAuthHeaders()
+
+      expect(headers.Authorization).toBe('Bearer tok')
+      expect(headers['X-CSRFToken']).toBe('csrf-xyz')
+      expect(headers['Content-Type']).toBeUndefined()
+      expect(headers.Accept).toBe(API_CONFIG.DEFAULT_HEADERS.Accept)
     })
   })
 })

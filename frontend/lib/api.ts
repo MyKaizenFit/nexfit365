@@ -177,6 +177,12 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
   return headers
 }
 
+/** Auth headers for FormData uploads: keep CSRF/Bearer, drop Content-Type so the browser sets the multipart boundary. */
+export const getMultipartAuthHeaders = (): Record<string, string> => {
+  const { 'Content-Type': _omit, ...headers } = getAuthHeaders()
+  return headers
+}
+
 // Función helper para parsear JSON con UTF-8 correctamente
 const parseJsonWithUTF8 = async <T>(response: Response): Promise<T> => {
   const text = await response.text()
