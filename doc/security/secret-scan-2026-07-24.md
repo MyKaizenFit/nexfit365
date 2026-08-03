@@ -41,13 +41,15 @@
 Do **not** paste new values into git.
 
 - [x] PostgreSQL role password(s) from scrubbed PowerShell / manual docs — **2026-07-24:** live `DB_PASSWORD` / `POSTGRES_PASSWORD` do **not** match the leaked tip values (compared without logging secrets). Remaining tip doc `cambiar_contraseña_manual.md` removed. History may still contain the old value → prefer option A (already distinct live secrets) or B/C before a public marketing push.
-- [ ] Django `SECRET_KEY` / `JWT_SECRET` / `JWT_REFRESH_SECRET` (if ever committed historically — verify with scan links)
-- [ ] `ENCRYPTION_KEY` — **STOP and plan re-encrypt** before rotating if data is encrypted at rest with it
-- [ ] Redis password
-- [ ] SMTP / SendGrid
-- [ ] VAPID key pair (regenerate + update clients)
-- [ ] FatSecret / other third-party API secrets
-- [ ] Restart services after rotation (`deploy.sh` when operator requests)
+- [x] Django `SECRET_KEY` / `JWT_SECRET` / `JWT_REFRESH_SECRET` — **rotated 2026-08-03** via `scripts/ops/rotate-prod-secrets.py` (fingerprints changed; backups under `data/secret-rotation-backups/`). Invalidates sessions/JWTs until users re-login.
+- [~] `ENCRYPTION_KEY` — **STOP**: Fernet ciphertext present on live user PII columns; do **not** rotate without dual-key re-encrypt. Left unchanged 2026-08-03.
+- [x] Redis password — **rotated 2026-08-03** (`REDIS_PASSWORD` + `REDIS_URL`).
+- [~] SMTP / SendGrid — SMTP only (no SendGrid keys). Not in tip; rotate at provider if a historical dump ever matched prod. Left unchanged 2026-08-03.
+- [x] VAPID key pair — **rotated 2026-08-03** (backend + `NEXT_PUBLIC_VAPID_PUBLIC_KEY`). Existing push subscriptions must re-subscribe (prod had 0 active at rotation).
+- [~] FatSecret / other third-party API secrets — rotate at FatSecret console when convenient; left unchanged 2026-08-03.
+- [x] Restart services after rotation — deploy after this checklist update.
+
+Helper: `python3 scripts/ops/rotate-prod-secrets.py --apply` (never prints values).
 
 ## History rewrite decision (NOT done in this plan)
 
