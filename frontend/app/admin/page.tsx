@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X, Utensils, Camera, Shuffle } from "lucide-react"
+import { Users, Search, MoreHorizontal, Edit, Trash2, UserX, UserCheck, Download, Plus, ArrowLeft, ArrowRight, User, Settings, Dumbbell, Loader2, AlertCircle, Shield, Key, Crown, Star, Apple, Bell, LogOut, HelpCircle, Eye, Menu, X, Utensils, Camera, Shuffle, Lightbulb } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -48,6 +48,7 @@ const HelpSettingsPanel = lazy(() => import("./components/help-settings-panel").
 const CoachingManagement = lazy(() => import("./components/coaching-management").then(module => ({ default: module.CoachingManagement })))
 const AdminDashboard = lazy(() => import("@/components/admin/admin-dashboard").then(module => ({ default: module.AdminDashboard })))
 const CommunityRecipesManagement = lazy(() => import("./components/community-recipes-management").then(module => ({ default: module.CommunityRecipesManagement })))
+const TipsBoard = lazy(() => import("@/components/tips/tips-board").then(module => ({ default: module.TipsBoard })))
 
 import { useAdminUsers, AdminUser } from "@/hooks/use-admin-users"
 import { fixEncoding } from "@/lib/encoding-fix"
@@ -171,6 +172,7 @@ function AdminPageContent() {
     | 'community-recipes'
     | 'coaching'
     | 'help-settings'
+    | 'tips'
   >('dashboard')
   const [isLoading, setIsLoading] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
@@ -777,6 +779,7 @@ function AdminPageContent() {
                 { id: 'default-plan-configurations', label: 'Config. por defecto', icon: Crown, gradient: 'from-teal-500 to-cyan-500' },
                 { id: 'notifications', label: 'Notificaciones', icon: Bell, gradient: 'from-indigo-500 to-blue-500' },
                 { id: 'coaching', label: 'Coaching 1:1', icon: Crown, gradient: 'from-violet-500 to-fuchsia-500' },
+                { id: 'tips', label: 'Consejos', icon: Lightbulb, gradient: 'from-yellow-500 to-amber-500' },
                 { id: 'help-settings', label: 'Config. Ayuda', icon: HelpCircle, gradient: 'from-blue-500 to-indigo-500' },
               ].map((item) => {
                 const IconComponent = item.icon
@@ -1004,6 +1007,17 @@ function AdminPageContent() {
                       Coaching 1:1
                     </Button>
                     <Button
+                      variant={activeSection === 'tips' ? 'default' : 'ghost'}
+                      onClick={() => setActiveSection('tips')}
+                      className={`flex items-center gap-2 ${activeSection === 'tips'
+                          ? 'bg-gradient-to-r from-yellow-500 to-amber-500 text-white'
+                          : 'hover:bg-gray-100 dark:hover:bg-slate-800'
+                        }`}
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Consejos
+                    </Button>
+                    <Button
                       variant={activeSection === 'help-settings' ? 'default' : 'ghost'}
                       onClick={() => setActiveSection('help-settings')}
                       className={`flex items-center gap-2 ${activeSection === 'help-settings'
@@ -1067,6 +1081,8 @@ function AdminPageContent() {
             <NotificationsPanel />
           ) : activeSection === 'coaching' ? (
             <CoachingManagement />
+          ) : activeSection === 'tips' ? (
+            <TipsBoard showCreateForm={true} />
           ) : activeSection === 'help-settings' ? (
             <HelpSettingsPanel />
           ) : (

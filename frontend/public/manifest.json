@@ -47,7 +47,7 @@
       "name": "Entrenamientos",
       "short_name": "Entrenar",
       "description": "Ver tus entrenamientos",
-      "url": "/dashboard?section=workouts",
+      "url": "/dashboard?section=workouts-3",
       "icons": [{ "src": "/icono.png", "sizes": "192x192" }]
     },
     {

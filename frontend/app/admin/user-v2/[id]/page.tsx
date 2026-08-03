@@ -102,6 +102,13 @@ interface UserData {
   admin_calories_override?: number | null
   calculated_daily_calories?: number | null
   rest_wellness_enabled?: boolean
+  subscription_status?: string
+  subscription_plan?: string
+  trial_started_at?: string | null
+  trial_ends_at?: string | null
+  subscription_started_at?: string | null
+  subscription_ends_at?: string | null
+  has_active_membership?: boolean
 }
 
 interface PremiumAlerts {
@@ -197,6 +204,15 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
   const [caloriesOverrideInput, setCaloriesOverrideInput] = useState<string>("")
   const [savingCalories, setSavingCalories] = useState(false)
   const [savingRestWellness, setSavingRestWellness] = useState(false)
+  const [savingMembership, setSavingMembership] = useState(false)
+
+  const toDatetimeLocal = (value?: string | null) => {
+    if (!value) return ""
+    const d = new Date(value)
+    if (Number.isNaN(d.getTime())) return String(value).slice(0, 16)
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+  }
   const [nutritionPlanId, setNutritionPlanId] = useState<string | null>(null)
   const [nutritionPlanLoading, setNutritionPlanLoading] = useState(true)
   const [availableRecipes, setAvailableRecipes] = useState<AdminRecipe[]>([])
@@ -408,6 +424,13 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
         admin_calories_override: data.admin_calories_override != null ? safeNumber(data.admin_calories_override) : null,
         calculated_daily_calories: data.calculated_daily_calories != null ? safeNumber(data.calculated_daily_calories) : null,
         rest_wellness_enabled: Boolean(data.rest_wellness_enabled),
+        subscription_status: safeString(data.subscription_status) || "none",
+        subscription_plan: safeString(data.subscription_plan) || "none",
+        trial_started_at: data.trial_started_at ?? null,
+        trial_ends_at: data.trial_ends_at ?? null,
+        subscription_started_at: data.subscription_started_at ?? null,
+        subscription_ends_at: data.subscription_ends_at ?? null,
+        has_active_membership: Boolean(data.has_active_membership),
       }
 
       setUser(normalized)
@@ -504,6 +527,50 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
       toast({ title: "❌ Error", description: err instanceof Error ? err.message : "Error al guardar", variant: "destructive" })
     } finally {
       setSavingCalories(false)
+    }
+  }
+
+  const handleSaveMembership = async () => {
+    if (!userId) return
+    try {
+      setSavingMembership(true)
+      const headers = await getAuthHeaders()
+      const toIsoOrNull = (value?: string | null) => {
+        const trimmed = (value || "").trim()
+        if (!trimmed) return null
+        // datetime-local → ISO; keep trailing Z-less local as-is for Django
+        return trimmed.length === 16 ? `${trimmed}:00` : trimmed
+      }
+      const response = await fetch(buildApiUrl(`admin/users/${userId}/`), {
+        credentials: "include",
+        method: "PATCH",
+        headers: { ...headers, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscription_status: localData.subscription_status || "none",
+          subscription_plan: localData.subscription_plan || "none",
+          trial_started_at: toIsoOrNull(localData.trial_started_at),
+          trial_ends_at: toIsoOrNull(localData.trial_ends_at),
+          subscription_started_at: toIsoOrNull(localData.subscription_started_at),
+          subscription_ends_at: toIsoOrNull(localData.subscription_ends_at),
+        }),
+      })
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}))
+        throw new Error(err.detail || JSON.stringify(err) || `Error ${response.status}`)
+      }
+      await fetchUser()
+      toast({
+        title: "✅ Membresía actualizada",
+        description: "Estado de suscripción/prueba guardado",
+      })
+    } catch (err) {
+      toast({
+        title: "❌ Error",
+        description: err instanceof Error ? err.message : "Error al guardar membresía",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingMembership(false)
     }
   }
 
@@ -1807,6 +1874,91 @@ export default function UserDetailPageV2({ params }: { params: Promise<{ id: str
                         {user.is_active ? "Activa" : "Inactiva"}
                       </Badge>
                     </div>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/60 p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-amber-900">Membresía / prueba</p>
+                      {user.has_active_membership ? (
+                        <Badge className="bg-emerald-100 text-emerald-800 border-0">Activa</Badge>
+                      ) : (
+                        <Badge variant="secondary">Sin membresía</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-xs">Estado</Label>
+                        <Select
+                          value={localData.subscription_status || "none"}
+                          onValueChange={(v) => setLocalData({ ...localData, subscription_status: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin suscripción</SelectItem>
+                            <SelectItem value="trial">Prueba gratuita</SelectItem>
+                            <SelectItem value="active">Suscripción activa</SelectItem>
+                            <SelectItem value="expired">Expirada</SelectItem>
+                            <SelectItem value="cancelled">Cancelada</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Plan</Label>
+                        <Select
+                          value={localData.subscription_plan || "none"}
+                          onValueChange={(v) => setLocalData({ ...localData, subscription_plan: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sin plan</SelectItem>
+                            <SelectItem value="trial">Prueba 7 días</SelectItem>
+                            <SelectItem value="monthly">Mensual</SelectItem>
+                            <SelectItem value="yearly">Anual</SelectItem>
+                            <SelectItem value="coaching">Coaching 1:1</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Inicio prueba</Label>
+                        <Input
+                          type="datetime-local"
+                          value={toDatetimeLocal(localData.trial_started_at)}
+                          onChange={(e) => setLocalData({ ...localData, trial_started_at: e.target.value || null })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fin prueba</Label>
+                        <Input
+                          type="datetime-local"
+                          value={toDatetimeLocal(localData.trial_ends_at)}
+                          onChange={(e) => setLocalData({ ...localData, trial_ends_at: e.target.value || null })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Inicio suscripción</Label>
+                        <Input
+                          type="datetime-local"
+                          value={toDatetimeLocal(localData.subscription_started_at)}
+                          onChange={(e) => setLocalData({ ...localData, subscription_started_at: e.target.value || null })}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Fin suscripción</Label>
+                        <Input
+                          type="datetime-local"
+                          value={toDatetimeLocal(localData.subscription_ends_at)}
+                          onChange={(e) => setLocalData({ ...localData, subscription_ends_at: e.target.value || null })}
+                        />
+                      </div>
+                    </div>
+                    <Button size="sm" onClick={handleSaveMembership} disabled={savingMembership}>
+                      {savingMembership ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                      Guardar membresía
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
