@@ -1,6 +1,15 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
-from .models import CustomUser
+from .models import CustomUser, AccountDeletionRequest
+
+
+@admin.register(AccountDeletionRequest)
+class AccountDeletionRequestAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "status", "created_at", "processed_at")
+    list_filter = ("status", "created_at")
+    search_fields = ("user__email", "reason")
+    readonly_fields = ("created_at",)
+    raw_id_fields = ("user",)
 
 
 @admin.register(CustomUser)

@@ -1,9 +1,8 @@
 # 📊 ESTADO DE APARTADOS SOLICITADOS - VALIDACIÓN CLIENTE
 
-> **SNAPSHOT Abril 2026 — STALE.** Verificar contra el código y
-> `plans/README.md` (lote producto final 2026-08). Monetización/Stripe sigue
-> fuera de alcance. Precios en UI actual: **97€/mes · 990€/año (próximamente)**;
-> no usar 24,9€/197€ de este documento.
+> **SNAPSHOT Abril 2026 — parcialmente actualizado 2026-08-03.** Verificar contra
+> el código. Monetización/Stripe = fase siguiente. Precios UI: **97€/mes · 990€/año
+> (próximamente)**.
 
 **Fecha original**: 15 Abril 2026  
 **Estado General**: Core no-pago entregable; pagos = fase siguiente  
@@ -33,7 +32,7 @@
 ### Estado global estimado
 | Bloque | Prioridad | Avance | Faltante | Estado |
 |---|---:|---:|---:|---|
-| Monetización (suscripción + pagos) | P0 | 30% | 70% | 🔴 Crítico |
+| Monetización (suscripción + pagos) | P0 fase pagos | 35% | 65% | 🟡 Fase siguiente |
 | Servicio 1 a 1 (planes + funnel) | P0 | 100% | 0% | ✅ Cerrado |
 | Captación en app (CTAs + redirección) | P0 | 100% | 0% | ✅ Cerrado |
 | Formulario + contacto automático | P0 | 100% | 0% | ✅ Cerrado |
@@ -44,20 +43,20 @@
 
 ---
 
-## 🔴 Bloque P0 — Lo que el cliente pidió y falta cerrar sí o sí
+## 🔴 Bloque P0 — Monetización (fase siguiente; no bloquea producto no-pago)
 
 ### 1) Monetización en App
-Progreso visual: ███░░░░░░░ 30%
+Progreso visual: ███░░░░░░░ ~35% (trial + UI; sin checkout)
 
 - [x] Prueba gratuita de 7 días para todos
 - [x] Activación y consulta del estado de suscripción desde la app
-- [x] Visual comercial del plan mensual (24,9 €/mes)
-- [x] Visual comercial del plan anual (197 €/año)
-- [ ] Checkout y cobro real (Stripe u otro)
-- [ ] Renovación, cancelación y gestión avanzada de suscripción
-- [ ] Bloqueo/desbloqueo real de funciones por estado de pago
+- [x] Visual comercial del plan mensual (**97€/mes**, marcado “próximamente”)
+- [x] Visual comercial del plan anual (**990€/año**, marcado “próximamente”)
+- [ ] Checkout y cobro real (Stripe u otro) — **fase siguiente**
+- [ ] Renovación, cancelación y gestión avanzada de suscripción — fase siguiente
+- [ ] Bloqueo/desbloqueo real de funciones por estado de pago — fase siguiente (core actual sigue usable en `basic`)
 
-Prioridad de tareas:
+Prioridad de tareas (fase pagos):
 - Alta: checkout, cobro real y gating por membresía
 - Media: cancelaciones, upgrades y renovaciones
 

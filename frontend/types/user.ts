@@ -56,6 +56,11 @@ export interface User {
   longest_streak?: number
   last_completed_day?: string
   
+  // Membresía (trial / paid)
+  subscription_status?: 'none' | 'trial' | 'active' | 'expired' | 'cancelled' | string
+  subscription_plan?: string
+  has_active_membership?: boolean
+
   // Metadatos
   is_verified: boolean
   date_joined: string
