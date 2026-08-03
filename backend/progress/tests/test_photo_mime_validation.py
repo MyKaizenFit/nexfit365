@@ -8,7 +8,7 @@ from progress.serializers import ProgressPhotoSerializer
 
 
 @pytest.mark.django_db
-def test_progress_photo_rejects_octet_stream():
+def test_progress_photo_rejects_invalid_octet_stream():
     upload = SimpleUploadedFile(
         "evil.bin",
         b"\x00\x01\x02not-an-image",
@@ -17,6 +17,21 @@ def test_progress_photo_rejects_octet_stream():
     serializer = ProgressPhotoSerializer()
     with pytest.raises(ValidationError):
         serializer.validate_photo(upload)
+
+
+@pytest.mark.django_db
+def test_progress_photo_accepts_real_image_with_octet_stream_content_type():
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (1, 1), color=(255, 0, 0)).save(buffer, format="PNG")
+    upload = SimpleUploadedFile(
+        "ios-upload.bin",
+        buffer.getvalue(),
+        content_type="application/octet-stream",
+    )
+    serializer = ProgressPhotoSerializer()
+    assert serializer.validate_photo(upload) is upload
 
 
 @pytest.mark.django_db

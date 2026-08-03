@@ -51,6 +51,31 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
             request = self.context.get("request")
             return build_signed_progress_media_url(request, obj.thumbnail)
         return None
+
+    def _detect_image_content_type(self, value) -> str | None:
+        from PIL import Image, UnidentifiedImageError
+
+        position = None
+        try:
+            if hasattr(value, "tell"):
+                position = value.tell()
+            image = Image.open(value)
+            image.verify()
+            format_name = (image.format or "").upper()
+        except (UnidentifiedImageError, OSError, SyntaxError, ValueError):
+            return None
+        finally:
+            if position is not None and hasattr(value, "seek"):
+                value.seek(position)
+
+        format_to_content_type = {
+            "JPEG": "image/jpeg",
+            "PNG": "image/png",
+            "WEBP": "image/webp",
+            "HEIF": "image/heif",
+            "HEIC": "image/heic",
+        }
+        return format_to_content_type.get(format_name)
     
     def validate_photo(self, value):
         if isinstance(value, list):
@@ -71,12 +96,16 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
             "image/jpeg",
             "image/png",
             "image/jpg",
+            "image/pjpeg",
             "image/webp",
             "image/heic",
             "image/heif",
         }
 
         content_type = (value.content_type or "").lower().strip()
+        if content_type in {"", "application/octet-stream"}:
+            content_type = self._detect_image_content_type(value) or content_type
+
         if content_type not in allowed_types:
             raise serializers.ValidationError(
                 f"Tipo de archivo no permitido. Recibido: {value.content_type or 'desconocido'}. "
