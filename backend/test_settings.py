@@ -80,6 +80,8 @@ REST_FRAMEWORK = {
         'admin_notifications_send': '30/min',
         'register': '3/min',
         'login': '5/min',
+        'coaching_inquiry_create': '3/min',
+        'problem_report_create': '3/min',
     },
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
