@@ -329,11 +329,11 @@ export default function HomePage() {
                       <p className="text-3xl font-extrabold">7 días gratis</p>
                     </div>
                     <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
-                      <p className="text-sm uppercase tracking-wide text-green-100">Mensual</p>
+                      <p className="text-sm uppercase tracking-wide text-green-100">Mensual (próximamente)</p>
                       <p className="text-3xl font-extrabold">97€<span className="text-lg font-medium">/mes</span></p>
                     </div>
                     <div className="rounded-2xl bg-white/10 p-4 border border-white/20">
-                      <p className="text-sm uppercase tracking-wide text-green-100">Anual</p>
+                      <p className="text-sm uppercase tracking-wide text-green-100">Anual (próximamente)</p>
                       <p className="text-3xl font-extrabold">990€<span className="text-lg font-medium">/año</span></p>
                     </div>
                   </div>

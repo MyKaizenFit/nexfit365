@@ -11,7 +11,10 @@ import {
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
 import { isJwtExpired, parseJwtPayload } from './jwt'
+import { shouldUseOfflineAuthFallback } from './auth-offline'
 import type { User } from '@/types/user'
+
+export { shouldUseOfflineAuthFallback } from './auth-offline'
 
 let refreshAccessTokenPromise: Promise<{ success: boolean; newToken?: string; error?: string }> | null = null
 
@@ -379,7 +382,7 @@ export class AuthService {
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
       // Verificar si el backend está disponible
-      if (this.allowOfflineMode && this.isOfflineMode) {
+      if (shouldUseOfflineAuthFallback(this.allowOfflineMode, this.isOfflineMode)) {
         // Modo offline: simular login exitoso
         const mockUser: User = {
           id: 1,
@@ -549,10 +552,15 @@ export class AuthService {
       }
     } catch (error) {
 
-      // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
-      if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
+      // Offline retry only in non-production (allowOfflineMode)
+      if (
+        this.allowOfflineMode &&
+        !this.isOfflineMode &&
+        error instanceof TypeError &&
+        error.message.includes('fetch')
+      ) {
         this.isOfflineMode = true
-        return this.login(credentials) // Reintentar en modo offline
+        return this.login(credentials)
       }
 
       // Re-lanzar el error para que se maneje en el contexto
@@ -564,7 +572,7 @@ export class AuthService {
   async register(credentials: RegisterCredentials): Promise<AuthResponse> {
     try {
       // Verificar si el backend está disponible
-      if (this.isOfflineMode) {
+      if (shouldUseOfflineAuthFallback(this.allowOfflineMode, this.isOfflineMode)) {
         // Modo offline: simular registro exitoso
         const mockUser: User = {
           id: Date.now(),
@@ -706,10 +714,14 @@ export class AuthService {
       }
     } catch (error: any) {
 
-      // Si falla la conexión al backend, activar modo offline solo si no estamos ya en modo offline
-      if (!this.isOfflineMode && error instanceof TypeError && error.message.includes('fetch')) {
+      if (
+        this.allowOfflineMode &&
+        !this.isOfflineMode &&
+        error instanceof TypeError &&
+        error.message.includes('fetch')
+      ) {
         this.isOfflineMode = true
-        return this.register(credentials) // Reintentar en modo offline
+        return this.register(credentials)
       }
 
       // Asegurar que el error tenga un mensaje

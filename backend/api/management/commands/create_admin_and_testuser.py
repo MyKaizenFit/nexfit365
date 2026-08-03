@@ -1,38 +1,47 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from accounts.models import CustomUser
+import os
+
 
 class Command(BaseCommand):
-    help = 'Crea el usuario administrador y el usuario de prueba con los datos solicitados'
+    help = (
+        "Crea/actualiza admin y usuario de prueba. "
+        "Requiere BOOTSTRAP_ADMIN_PASSWORD y BOOTSTRAP_MEMBER_PASSWORD en el entorno."
+    )
 
     def handle(self, *args, **kwargs):
-        # Crear o actualizar admin
-        admin_email = "admin@example.invalid"
-        admin_password = "AdminNex-Fit123!"
-        admin, created = CustomUser.objects.update_or_create(
+        admin_email = os.environ.get("BOOTSTRAP_ADMIN_EMAIL", "admin@example.invalid")
+        admin_password = os.environ.get("BOOTSTRAP_ADMIN_PASSWORD")
+        if not admin_password:
+            raise CommandError("Set BOOTSTRAP_ADMIN_PASSWORD (no default password in repo)")
+
+        admin, _created = CustomUser.objects.update_or_create(
             email=admin_email,
             defaults={
                 "is_staff": True,
                 "is_superuser": True,
                 "first_name": "Admin",
-                "last_name": "NexFit"
-            }
+                "last_name": "NexFit",
+            },
         )
         admin.set_password(admin_password)
         admin.save()
-        self.stdout.write(self.style.SUCCESS(f'Usuario ADMIN actualizado/creado: {admin_email}'))
+        self.stdout.write(self.style.SUCCESS(f"Usuario ADMIN actualizado/creado: {admin_email}"))
 
-        # Crear o actualizar usuario de prueba
-        test_email = "member@example.invalid"
-        test_password = "Test123!"
-        test_user, created = CustomUser.objects.update_or_create(
+        test_email = os.environ.get("BOOTSTRAP_MEMBER_EMAIL", "member@example.invalid")
+        test_password = os.environ.get("BOOTSTRAP_MEMBER_PASSWORD")
+        if not test_password:
+            raise CommandError("Set BOOTSTRAP_MEMBER_PASSWORD (no default password in repo)")
+
+        test_user, _created = CustomUser.objects.update_or_create(
             email=test_email,
             defaults={
                 "is_staff": False,
                 "is_superuser": False,
-                "first_name": "María",
-                "last_name": "García López"
-            }
+                "first_name": "Test",
+                "last_name": "Member",
+            },
         )
         test_user.set_password(test_password)
         test_user.save()
-        self.stdout.write(self.style.SUCCESS(f'Usuario de prueba actualizado/creado: {test_email}'))
+        self.stdout.write(self.style.SUCCESS(f"Usuario TEST actualizado/creado: {test_email}"))

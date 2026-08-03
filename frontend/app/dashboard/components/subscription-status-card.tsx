@@ -140,11 +140,11 @@ export function SubscriptionStatusCard() {
                     <>
                         <div className="grid gap-3 md:grid-cols-2">
                             <div className="rounded-xl border bg-muted/50 p-3">
-                                <p className="text-xs text-muted-foreground">Plan mensual</p>
+                                <p className="text-xs text-muted-foreground">Plan mensual (próximamente)</p>
                                 <p className="text-lg font-semibold">97€/mes</p>
                             </div>
                             <div className="rounded-xl border bg-muted/50 p-3">
-                                <p className="text-xs text-muted-foreground">Plan anual</p>
+                                <p className="text-xs text-muted-foreground">Plan anual (próximamente)</p>
                                 <p className="text-lg font-semibold">990€/año</p>
                             </div>
                         </div>
@@ -161,7 +161,8 @@ export function SubscriptionStatusCard() {
                             </div>
                         ) : status?.status === "expired" ? (
                             <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-400">
-                                Tu prueba ya terminó. Puedes pasar a plan mensual o anual para mantener el acceso premium.
+                                Tu periodo de prueba ha terminado. El cobro dentro de la app llegará en una próxima fase;
+                                puedes seguir usando las funciones básicas o contactar para el servicio personalizado 1:1.
                             </div>
                         ) : (
                             <div className="rounded-xl border bg-muted/50 p-3 text-sm text-slate-700">
