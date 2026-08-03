@@ -471,3 +471,35 @@ class ProfileAuditLog(models.Model):
 
     def __str__(self):
         return f"Perfil {self.user.email} cambiado por {self.changed_by.email if self.changed_by else 'sistema'}"
+
+
+class AccountDeletionRequest(models.Model):
+    """Durable GDPR account-deletion requests (email alone is not enough)."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        PROCESSING = "processing", "En proceso"
+        COMPLETED = "completed", "Completada"
+        CANCELLED = "cancelled", "Cancelada"
+
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="deletion_requests",
+    )
+    reason = models.TextField(blank=True, default="")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    processed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Solicitud de eliminación"
+        verbose_name_plural = "Solicitudes de eliminación"
+
+    def __str__(self):
+        return f"Eliminación {self.user.email} ({self.status})"

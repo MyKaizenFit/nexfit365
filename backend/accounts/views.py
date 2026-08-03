@@ -451,9 +451,16 @@ def gdpr_request_deletion(request):
     from django.conf import settings
     from django.core.mail import send_mail
     from django.utils import timezone
+    from .models import AccountDeletionRequest
 
     user = request.user
     reason = request.data.get('reason', '')
+
+    deletion_request = AccountDeletionRequest.objects.create(
+        user=user,
+        reason=reason or '',
+        status=AccountDeletionRequest.Status.PENDING,
+    )
 
     try:
         admin_emails = list(
@@ -467,6 +474,7 @@ def gdpr_request_deletion(request):
             f"Un usuario ha solicitado la eliminación de su cuenta y datos personales.\n\n"
             f"Usuario: {user.email}\n"
             f"ID: {user.id}\n"
+            f"Solicitud ID: {deletion_request.id}\n"
             f"Fecha de solicitud: {timezone.now().isoformat()}\n"
             f"Motivo: {reason or 'No especificado'}\n\n"
             f"De acuerdo con el RGPD, debes procesar esta solicitud en un plazo máximo de 30 días.\n"

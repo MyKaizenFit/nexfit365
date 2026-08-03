@@ -128,6 +128,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'email', 'role', 'is_staff', 'is_superuser', 'is_active', 'is_verified', 'created_at', 'updated_at']
+
+    def to_representation(self, instance):
+        # Persist demotion before role/status fields are read (field order is load-bearing).
+        instance.refresh_membership_state(commit=True)
+        return super().to_representation(instance)
     
     def get_profile_picture_url(self, obj) -> str | None:
         if obj.profile_picture:
@@ -201,6 +206,10 @@ class AdminUserSerializer(serializers.ModelSerializer):
             # Privilege flags: escalate only via Django admin / dedicated superuser flows.
             'is_staff', 'is_superuser', 'is_staff_display', 'is_superuser_display',
         ]
+
+    def to_representation(self, instance):
+        instance.refresh_membership_state(commit=True)
+        return super().to_representation(instance)
     
     def update(self, instance, validated_data):
         """Mantener coherentes los días del perfil cuando lo edita administración."""

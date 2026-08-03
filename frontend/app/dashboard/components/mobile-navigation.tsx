@@ -28,19 +28,19 @@ const moreMenuItems = [
 interface MobileNavigationProps {
   selectedSection: string
   onSectionChange: (section: string, title: string) => void
-  isPremiumUser?: boolean
+  hideUpsellSections?: boolean
   canAccessRestWellness?: boolean
 }
 
 export function MobileNavigation({
   selectedSection,
   onSectionChange,
-  isPremiumUser = false,
+  hideUpsellSections = false,
   canAccessRestWellness = false,
 }: MobileNavigationProps) {
   const visibleMoreItems = moreMenuItems.filter((item) => {
     if (item.url === "rest-wellness" && !canAccessRestWellness) return false
-    if (isPremiumUser && item.premiumBlocked) return false
+    if (hideUpsellSections && item.premiumBlocked) return false
     return true
   })
   const [showMore, setShowMore] = useState(false)

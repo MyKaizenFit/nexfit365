@@ -107,12 +107,12 @@ const REST_WELLNESS_SECTION = "rest-wellness"
 
 function DashboardSectionSync({
   selectedSection,
-  isPremiumUser,
+  hideUpsellSections,
   canAccessRestWellness,
   onSectionChange,
 }: {
   selectedSection: string
-  isPremiumUser: boolean
+  hideUpsellSections: boolean
   canAccessRestWellness: boolean
   onSectionChange: (section: string) => void
 }) {
@@ -122,7 +122,7 @@ function DashboardSectionSync({
   useEffect(() => {
     const sectionParam = searchParams?.get("section")
 
-    if (sectionParam && isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
+    if (sectionParam && hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
       onSectionChange("dashboard")
       router.replace("/dashboard", { scroll: false })
       return
@@ -139,7 +139,7 @@ function DashboardSectionSync({
     } else if (!sectionParam && selectedSection !== "dashboard") {
       onSectionChange("dashboard")
     }
-  }, [searchParams, selectedSection, isPremiumUser, canAccessRestWellness, router, onSectionChange])
+  }, [searchParams, selectedSection, hideUpsellSections, canAccessRestWellness, router, onSectionChange])
 
   return null
 }
@@ -151,14 +151,14 @@ function DashboardContent() {
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
   const { access: restWellnessAccess, loading: restWellnessAccessLoading } = useRestWellnessAccess()
-  const userRole = (user?.role || "").toLowerCase()
-  const isPremiumUser = userRole === "premium"
+  // Hide 1:1 / recommendations upsell only for paying members — not during trial.
+  const hideUpsellSections = (user?.subscription_status || "").toLowerCase() === "active"
   // While access is loading, keep the menu entry visible so a late/failed early
   // fetch does not permanently hide Descanso (GA default is enabled).
   const canAccessRestWellness = restWellnessAccessLoading || restWellnessAccess.can_fill
   const visibleMenuItems = menuItems.filter((item) => {
     if (item.url === REST_WELLNESS_SECTION && !canAccessRestWellness) return false
-    if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
+    if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
     return true
   })
 
@@ -179,7 +179,7 @@ function DashboardContent() {
   }, [isLoading, isAuthenticated])
 
   const handleMenuClick = useCallback((section: string, title: string) => {
-    if (isPremiumUser && PREMIUM_BLOCKED_SECTIONS.has(section)) {
+    if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(section)) {
       setSelectedSection("dashboard")
       router.push("/dashboard", { scroll: false })
       return
@@ -197,7 +197,7 @@ function DashboardContent() {
     } else {
       router.push(`/dashboard?section=${section}`, { scroll: false })
     }
-  }, [router, isPremiumUser, canAccessRestWellness])
+  }, [router, hideUpsellSections, canAccessRestWellness])
 
   useEffect(() => {
     const handleSectionChange = (event: Event) => {
@@ -246,7 +246,7 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                {!isPremiumUser ? (
+                {!hideUpsellSections ? (
                   <Suspense fallback={null}>
                     <SubscriptionStatusCard />
                   </Suspense>
@@ -254,12 +254,12 @@ function DashboardContent() {
                 <Suspense fallback={null}>
                   <QuinzenalReview />
                 </Suspense>
-                {!isPremiumUser ? (
+                {!hideUpsellSections ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="dashboard-home" cooldownHours={48} />
                   </Suspense>
                 ) : null}
-                {!isPremiumUser ? (
+                {!hideUpsellSections ? (
                   <Suspense fallback={null}>
                     <RecommendationsSection />
                   </Suspense>
@@ -277,7 +277,7 @@ function DashboardContent() {
 
 
       case "recommendations":
-        if (isPremiumUser) {
+        if (hideUpsellSections) {
           return (
             <div className="fade-in-stagger scroll-area h-full w-full relative">
               <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
@@ -301,7 +301,7 @@ function DashboardContent() {
         )
 
       case "coaching":
-        if (isPremiumUser) {
+        if (hideUpsellSections) {
           return (
             <div className="fade-in-stagger scroll-area h-full w-full relative">
               <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
@@ -365,7 +365,7 @@ function DashboardContent() {
                 <Suspense fallback={<DashboardSectionFallback><MealsSectionSkeleton /></DashboardSectionFallback>}>
                   <MealDashboard />
                 </Suspense>
-                {!isPremiumUser ? (
+                {!hideUpsellSections ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="meals" cooldownHours={48} />
                   </Suspense>
@@ -387,7 +387,7 @@ function DashboardContent() {
                 <Suspense fallback={<DashboardSectionFallback><WorkoutsSectionSkeleton /></DashboardSectionFallback>}>
                   <WorkoutDashboardEnhanced />
                 </Suspense>
-                {!isPremiumUser ? (
+                {!hideUpsellSections ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="workouts" cooldownHours={48} />
                   </Suspense>
@@ -441,7 +441,7 @@ function DashboardContent() {
               <Suspense fallback={<MeasurementsSectionSkeleton />}>
                 <BodyMeasurements />
               </Suspense>
-              {!isPremiumUser ? (
+              {!hideUpsellSections ? (
                 <Suspense fallback={null}>
                   <CoachingCTA placement="measurements" cooldownHours={48} />
                 </Suspense>
@@ -557,7 +557,7 @@ function DashboardContent() {
       <Suspense fallback={null}>
         <DashboardSectionSync
           selectedSection={selectedSection}
-          isPremiumUser={isPremiumUser}
+          hideUpsellSections={hideUpsellSections}
           canAccessRestWellness={canAccessRestWellness}
           onSectionChange={setSelectedSection}
         />
@@ -776,7 +776,7 @@ function DashboardContent() {
           <MobileNavigation
             selectedSection={selectedSection}
             onSectionChange={handleMenuClick}
-            isPremiumUser={isPremiumUser}
+            hideUpsellSections={hideUpsellSections}
             canAccessRestWellness={canAccessRestWellness}
           />
         </Suspense>
