@@ -334,13 +334,12 @@ def copy_template_days_to_user_program(
             training_days_in_week = [day for day in week_days if not day.is_rest_day]
             assigned_slots = set()
 
-            for training_index, template_day in enumerate(training_days_in_week):
+            source_days = training_days_in_week or week_days
+            for training_index, user_slot in enumerate(user_training_days_sorted):
+                template_day = source_days[training_index % len(source_days)]
                 if not template_day.is_rest_day and template_day.exercises.count() == 0:
                     continue
 
-                user_slot = user_training_days_sorted[
-                    training_index % len(user_training_days_sorted)
-                ]
                 new_day_number = day_number_for_week_slot(week_num, user_slot)
                 assigned_slots.add(user_slot)
 
