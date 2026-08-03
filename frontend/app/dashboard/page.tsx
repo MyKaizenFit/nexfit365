@@ -461,6 +461,9 @@ function DashboardContent() {
               <Suspense fallback={<AchievementsSectionSkeleton />}>
                 <AchievementsDuolingo />
               </Suspense>
+              <Suspense fallback={<AchievementsSectionSkeleton />}>
+                <Achievements />
+              </Suspense>
             </div>
           </div>
         )

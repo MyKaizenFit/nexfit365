@@ -162,6 +162,8 @@ REST_FRAMEWORK = {
         "reset_password": "10/min",  # límite para resetear contraseña
         "change_password": "20/min",  # límite para cambiar contraseña
         "admin_notifications_send": "60/hour" if DEBUG else "20/hour",
+        "coaching_inquiry_create": "30/hour" if DEBUG else "5/hour",
+        "problem_report_create": "30/hour" if DEBUG else "5/hour",
     },
     "EXCEPTION_HANDLER": "api.utils.custom_exception_handler",
 }

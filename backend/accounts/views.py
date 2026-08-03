@@ -5,12 +5,15 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+import logging
 from .models import CustomUser
 from .serializers import (
     UserProfileSerializer, UserProfileUpdateSerializer, 
     UserRegistrationSerializer, UserGoalsSerializer, InitialRegistrationSerializer
 )
 from notifications.utils import notify_admins_user_change
+
+logger = logging.getLogger(__name__)
 
 @api_view(['POST'])
 @authentication_classes([])  # Deshabilitar autenticación para registro
@@ -422,11 +425,18 @@ def gdpr_export_data(request):
     try:
         from notifications.models import Notification
 
-        notifications = Notification.objects.filter(user=user).values(
-            'id', 'title', 'message', 'type', 'is_read', 'created_at'
+        rows = list(
+            Notification.objects.filter(user=user).values(
+                'id', 'title', 'message', 'type', 'read_at', 'created_at'
+            )
         )
-        data['notifications'] = list(notifications)
+        for row in rows:
+            row['is_read'] = row['read_at'] is not None
+        data['notifications'] = rows
     except Exception:
+        logger.exception(
+            'GDPR export: failed to load notifications for user_id=%s', user.id
+        )
         data['notifications'] = []
 
     response = JsonResponse(data, json_dumps_params={'ensure_ascii': False, 'indent': 2})

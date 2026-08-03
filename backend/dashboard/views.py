@@ -3,6 +3,7 @@ from rest_framework.decorators import action, api_view, permission_classes, pars
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.throttling import ScopedRateThrottle
 from django.shortcuts import get_object_or_404
 from django.db.models import Q, Count, Avg, Sum, Max, Min
 from django.utils import timezone
@@ -708,6 +709,12 @@ class CoachingInquiryViewSet(viewsets.ModelViewSet):
     queryset = CoachingInquiry.objects.select_related("user", "plan").all()
     http_method_names = ["get", "post", "patch", "head", "options"]
 
+    def get_throttles(self):
+        if self.action == "create":
+            self.throttle_scope = "coaching_inquiry_create"
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
+
     def get_serializer_class(self):
         if self.action == "create":
             return CoachingInquiryCreateSerializer
@@ -1380,6 +1387,12 @@ class ProblemReportViewSet(viewsets.ModelViewSet):
             return []
         # Solo admin puede ver/editar reportes
         return [IsAdminUser()]
+
+    def get_throttles(self):
+        if self.action == 'create':
+            self.throttle_scope = 'problem_report_create'
+            return [ScopedRateThrottle()]
+        return super().get_throttles()
     
     def perform_create(self, serializer):
         # Asignar usuario si está autenticado
