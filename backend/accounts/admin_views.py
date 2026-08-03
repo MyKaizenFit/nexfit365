@@ -427,8 +427,18 @@ Equipo Nex-Fit
                 {'error': 'Rol inválido. Debe ser: basic, pro, premium o admin'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        updated_count = User.objects.filter(id__in=user_ids).update(role=new_role)
+
+        # role=admin must carry is_staff; demotions clear staff (not superuser).
+        users = list(User.objects.filter(id__in=user_ids))
+        updated_count = 0
+        for user in users:
+            user.role = new_role
+            if new_role == 'admin':
+                user.is_staff = True
+            else:
+                user.is_staff = False
+            user.save(update_fields=['role', 'is_staff', 'updated_at'])
+            updated_count += 1
         
         return Response({
             'message': f'{updated_count} usuarios actualizados con rol {new_role}',

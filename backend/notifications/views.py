@@ -24,6 +24,7 @@ from .permissions import (
     NotificationPermission, NotificationCreatePermission, NotificationBulkPermission
 )
 from .birthdays import ensure_birthday_notifications_for_user, ensure_today_birthday_notifications
+from accounts.permissions import user_has_staff_access
 
 
 IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
@@ -57,7 +58,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         )
 
         role = str(getattr(self.request.user, "role", "") or "").lower()
-        is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
+        is_admin = user_has_staff_access(self.request.user)
         # Membership tier `pro` is not coach/staff — do not grant cross-user access.
 
         if user_id:
@@ -340,7 +341,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def send_birthday_alerts(self, request, user_id=None):
         """Crear avisos de cumpleaños del día para administradores."""
         role = str(getattr(request.user, "role", "") or "").lower()
-        is_admin = request.user.is_staff or request.user.is_superuser or role == "admin"
+        is_admin = user_has_staff_access(request.user)
         if not is_admin:
             return Response({"detail": "No autorizado."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -391,7 +392,7 @@ class AdminMessageViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user_id = self.kwargs.get("user_id")
         role = str(getattr(self.request.user, "role", "") or "").lower()
-        is_admin = self.request.user.is_staff or self.request.user.is_superuser or role == "admin"
+        is_admin = user_has_staff_access(self.request.user)
 
         if user_id:
             return AdminMessage.objects.filter(user_id=user_id).select_related("user", "sent_by")

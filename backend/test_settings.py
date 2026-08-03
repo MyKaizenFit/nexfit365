@@ -53,6 +53,10 @@ SECURE_HSTS_SECONDS = 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = False
 SECURE_HSTS_PRELOAD = False
 
+# Stable Fernet key for encrypted field tests (required when DEBUG is False).
+from cryptography.fernet import Fernet
+ENCRYPTION_KEY = Fernet.generate_key().decode()
+
 # Configuración de JWT para pruebas
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),

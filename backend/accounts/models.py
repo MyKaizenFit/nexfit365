@@ -1,6 +1,7 @@
 # accounts/models.py
 # Modelo de usuario - Versión simplificada
 
+import hashlib
 import secrets
 import uuid
 from datetime import timedelta
@@ -318,7 +319,7 @@ class CustomUser(AbstractUser):
 
     def generate_password_reset_token(self):
         token = secrets.token_urlsafe(32)
-        self.password_reset_token = token
+        self.password_reset_token = hashlib.sha256(token.encode("utf-8")).hexdigest()
         self.password_reset_expires = timezone.now() + timedelta(hours=24)
         self.save(update_fields=["password_reset_token", "password_reset_expires", "updated_at"])
         return token

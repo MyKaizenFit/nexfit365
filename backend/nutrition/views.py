@@ -5,7 +5,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from accounts.permissions import IsAdminOrStaff
+from accounts.permissions import IsAdminOrStaff, user_has_staff_access
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import models
@@ -2361,7 +2361,7 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
         user = self.request.user
         role = str(getattr(user, "role", "") or "").lower()
         # `pro` is a paid membership tier, not staff/coach — never unscoped.
-        if user.is_staff or user.is_superuser or role == "admin":
+        if user_has_staff_access(user):
             base_queryset = NutritionPlan.objects.all()
         else:
             base_queryset = NutritionPlan.objects.filter(
@@ -2377,7 +2377,7 @@ class NutritionPlanViewSet(viewsets.ModelViewSet):
     def _can_mutate_plan(self, plan) -> bool:
         user = self.request.user
         role = str(getattr(user, "role", "") or "").lower()
-        if user.is_staff or user.is_superuser or role == "admin":
+        if user_has_staff_access(user):
             return True
         if plan.is_system or plan.is_template:
             return False
@@ -2679,7 +2679,7 @@ class FoodViewSet(viewsets.ModelViewSet):
         if self.request.method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             user = self.request.user
             role = str(getattr(user, 'role', '') or '').lower()
-            if not (user.is_staff or user.is_superuser or role == 'admin'):
+            if not (user_has_staff_access(user)):
                 self.permission_denied(
                     self.request,
                     message='Solo administradores pueden modificar alimentos.',

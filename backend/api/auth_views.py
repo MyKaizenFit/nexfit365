@@ -498,9 +498,9 @@ Equipo NexFit365
             }, status=status.HTTP_200_OK)
             
         except Exception as e:
+            logger.exception("Error procesando forgot-password: %s", e)
             return Response({
                 "detail": "Error procesando la solicitud",
-                "error": str(e)
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -552,10 +552,12 @@ class ResetPasswordView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         try:
-            # Buscar usuario por token
+            # Buscar usuario por hash del token (nunca se guarda el token en claro)
+            import hashlib
+            token_hash = hashlib.sha256(str(token).encode("utf-8")).hexdigest()
             try:
                 user = User.objects.get(
-                    password_reset_token=token,
+                    password_reset_token=token_hash,
                     password_reset_expires__gt=timezone.now()
                 )
             except User.DoesNotExist:
