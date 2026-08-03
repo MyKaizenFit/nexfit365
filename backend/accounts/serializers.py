@@ -137,7 +137,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     def get_profile_picture_url(self, obj) -> str | None:
         if obj.profile_picture:
             request = self.context.get('request')
-            return _build_public_media_url(request, obj.profile_picture.url)
+            from progress.media_views import build_signed_profile_media_url
+            return build_signed_profile_media_url(request, obj.profile_picture)
         return None
 
 class AdminUserSerializer(serializers.ModelSerializer):
@@ -276,7 +277,8 @@ class AdminUserSerializer(serializers.ModelSerializer):
     def get_profile_picture_url(self, obj) -> str | None:
         if obj.profile_picture:
             request = self.context.get('request')
-            return _build_public_media_url(request, obj.profile_picture.url)
+            from progress.media_views import build_signed_profile_media_url
+            return build_signed_profile_media_url(request, obj.profile_picture)
         return None
 
     def get_premium_alerts(self, obj) -> dict | None:

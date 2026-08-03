@@ -8,8 +8,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from PIL import Image
 from rest_framework.test import APIClient
 
-from progress.media_views import build_signed_progress_media_url, sign_progress_media_path
+from progress.media_views import (
+    build_signed_profile_media_url,
+    build_signed_progress_media_url,
+    sign_progress_media_path,
+)
 from progress.models import ProgressPhoto
+from accounts.serializers import UserProfileSerializer
 
 User = get_user_model()
 
@@ -71,3 +76,31 @@ class TestProtectedProgressMedia:
         url = build_signed_progress_media_url(request, photo.photo)
         assert url is not None
         assert "/api/progress/protected-media/?token=" in url
+
+
+@pytest.mark.django_db
+class TestProtectedProfileMedia:
+    def test_raw_profile_path_forbidden(self, user):
+        user.profile_picture = _png("avatar.png")
+        user.save(update_fields=["profile_picture"])
+
+        client = APIClient()
+        response = client.get(f"/media/{user.profile_picture.name}")
+        assert response.status_code == 403
+
+    def test_signed_profile_url_serves_file(self, user):
+        user.profile_picture = _png("avatar2.png")
+        user.save(update_fields=["profile_picture"])
+
+        token = sign_progress_media_path(user.profile_picture.name)
+        client = APIClient()
+        response = client.get(f"/api/progress/protected-media/?token={token}")
+        assert response.status_code == 200
+
+    def test_profile_serializer_returns_signed_url(self, user, rf):
+        user.profile_picture = _png("avatar3.png")
+        user.save(update_fields=["profile_picture"])
+        request = rf.get("/")
+        data = UserProfileSerializer(user, context={"request": request}).data
+        assert data["profile_picture_url"]
+        assert "/api/progress/protected-media/?token=" in data["profile_picture_url"]

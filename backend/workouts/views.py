@@ -25,7 +25,7 @@ from .serializers import (
     WorkoutLogSerializer, WorkoutLogExerciseSerializer, WorkoutLogSetSerializer
 )
 from accounts.streaks import get_user_activity_streak
-from accounts.permissions import IsAdminOrStaff
+from accounts.permissions import IsAdminOrStaff, user_has_staff_access
 
 
 logger = logging.getLogger(__name__)
@@ -137,7 +137,7 @@ class WorkoutProgramViewSet(viewsets.ModelViewSet):
     def _is_staff_user(self) -> bool:
         user = self.request.user
         role = str(getattr(user, "role", "") or "").lower()
-        return bool(user.is_staff or user.is_superuser or role == "admin")
+        return bool(user_has_staff_access(user))
 
     def _can_mutate_program(self, program) -> bool:
         if self._is_staff_user():

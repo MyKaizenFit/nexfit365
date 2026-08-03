@@ -4,6 +4,15 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+def user_has_staff_access(user) -> bool:
+    """Elevated API access: Django staff/superuser only (not role=admin alone)."""
+    return bool(
+        user
+        and getattr(user, "is_authenticated", False)
+        and (user.is_staff or user.is_superuser)
+    )
+
+
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
     Permite acceso solo al propietario del objeto o a administradores.
@@ -190,16 +199,27 @@ class RoleBasedPermission(permissions.BasePermission):
 
 
 # Permisos predefinidos para roles específicos
-class IsAdminOnly(RoleBasedPermission):
-    """Solo administradores"""
-    def __init__(self):
-        super().__init__(allowed_roles=['admin'])
+class IsAdminOnly(permissions.BasePermission):
+    """Solo staff/superuser (role=admin sin is_staff no basta)."""
+
+    def has_permission(self, request, view):
+        return user_has_staff_access(request.user)
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
 
 
-class IsTrainerOrAdmin(RoleBasedPermission):
-    """Entrenadores y administradores"""
-    def __init__(self):
-        super().__init__(allowed_roles=['admin', 'trainer'])
+class IsTrainerOrAdmin(permissions.BasePermission):
+    """Entrenadores (role) o staff."""
+
+    def has_permission(self, request, view):
+        if user_has_staff_access(request.user):
+            return True
+        role = str(getattr(request.user, "role", "") or "").lower()
+        return role == "trainer"
+
+    def has_object_permission(self, request, view, obj):
+        return self.has_permission(request, view)
 
 
 class IsMemberOrStaff(RoleBasedPermission):
@@ -209,19 +229,10 @@ class IsMemberOrStaff(RoleBasedPermission):
 
 
 class IsAdminOrStaff(permissions.BasePermission):
-    """
-    Permite acceso solo a administradores o staff.
-    """
-    
+    """Permite acceso solo a staff / superuser."""
+
     def has_permission(self, request, view):
-        # Solo administradores o staff pueden acceder
-        if not request.user.is_authenticated:
-            return False
-        role = getattr(request.user, "role", "")
-        if isinstance(role, str):
-            role = role.upper()
-        return request.user.is_staff or request.user.is_superuser or role == "ADMIN"
-    
+        return user_has_staff_access(request.user)
+
     def has_object_permission(self, request, view, obj):
-        # Aplicar la misma lógica de permisos
-        return self.has_permission(request, view) 
+        return self.has_permission(request, view)

@@ -1,4 +1,5 @@
 from rest_framework import permissions
+from accounts.permissions import user_has_staff_access
 
 
 class NotificationPermission(permissions.BasePermission):
@@ -12,9 +13,7 @@ class NotificationPermission(permissions.BasePermission):
         return request.user.is_authenticated
     
     def has_object_permission(self, request, view, obj):
-        role = str(getattr(request.user, "role", "") or "").lower()
-
-        if request.user.is_staff or request.user.is_superuser or role == "admin":
+        if user_has_staff_access(request.user):
             return True
 
         return obj.user == request.user

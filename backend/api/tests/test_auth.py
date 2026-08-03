@@ -380,6 +380,9 @@ class TestForgotPassword:
         EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     )
     def test_forgot_password_email_uses_frontend_url(self, api_client, regular_user):
+        import hashlib
+        import re
+
         url = reverse("auth-forgot-password")
 
         response = api_client.post(url, {"email": "user@example.com"})
@@ -387,8 +390,16 @@ class TestForgotPassword:
         assert response.status_code == status.HTTP_200_OK
         assert len(mail.outbox) == 1
         regular_user.refresh_from_db()
-        expected_url = f"https://nexfit365.dpdns.org/auth/reset-password?token={regular_user.password_reset_token}"
-        assert expected_url in mail.outbox[0].body
+        match = re.search(r"token=([^\s&]+)", mail.outbox[0].body)
+        assert match, "reset token missing from email body"
+        plain_token = match.group(1)
+        assert (
+            f"https://nexfit365.dpdns.org/auth/reset-password?token={plain_token}"
+            in mail.outbox[0].body
+        )
+        assert regular_user.password_reset_token == hashlib.sha256(
+            plain_token.encode("utf-8")
+        ).hexdigest()
 
     def test_forgot_password_nonexistent_email(self, api_client):
         """Test de solicitud con email inexistente"""
