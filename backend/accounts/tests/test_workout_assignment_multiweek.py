@@ -69,3 +69,48 @@ def test_copy_multi_week_template_preserves_all_weeks_with_user_training_days(us
 
     week2_monday = user_program.days.get(day_number=8)
     assert week2_monday.exercises.first().sets == 5
+
+
+@pytest.mark.django_db
+def test_copy_multi_week_template_does_not_duplicate_day_numbers_when_user_has_fewer_days(user):
+    exercise = Exercise.objects.create(name="Bench Press", is_system=True)
+    template = WorkoutProgram.objects.create(
+        name="Dense multiweek plan",
+        is_template=True,
+        is_active=True,
+        duration_weeks=2,
+        days_per_week=3,
+    )
+    user_program = WorkoutProgram.objects.create(
+        user=user,
+        name="User single day plan",
+        duration_weeks=2,
+        days_per_week=1,
+        is_active=True,
+    )
+
+    template_days = []
+    for day_number, label in ((1, "Mon"), (3, "Wed"), (5, "Fri"), (8, "Mon 2")):
+        day = WorkoutDay.objects.create(
+            program=template,
+            name=label,
+            day_number=day_number,
+            order_index=day_number,
+        )
+        WorkoutDayExercise.objects.create(
+            workout_day=day,
+            exercise=exercise,
+            sets=day_number,
+            reps="8",
+        )
+        template_days.append(day)
+
+    copied_days, copied_exercises = copy_template_days_to_user_program(
+        template_days,
+        user_program,
+        user_training_days=[1],
+    )
+
+    assert copied_days == 2
+    assert copied_exercises == 2
+    assert sorted(user_program.days.values_list("day_number", flat=True)) == [1, 8]
