@@ -68,6 +68,11 @@ const DEFAULT_SETTINGS: NotificationSettings = {
 
 const SETTINGS_STORAGE_KEY = 'nexfit_notification_settings'
 
+function mergeSettings(raw: unknown): NotificationSettings {
+  if (!raw || typeof raw !== 'object') return { ...DEFAULT_SETTINGS }
+  return { ...DEFAULT_SETTINGS, ...(raw as Partial<NotificationSettings>) }
+}
+
 const mapApiNotification = (item: ApiNotification): Notification => {
   const metadata = item.data || {}
   return {
@@ -179,19 +184,49 @@ export const notificationService = {
   },
 
   async getSettings(): Promise<NotificationSettings> {
-    if (typeof window === 'undefined') return DEFAULT_SETTINGS
+    try {
+      const response = await fetch(buildApiUrl('me/'), {
+        method: 'GET',
+        credentials: 'include',
+        headers: getAuthHeaders(),
+      })
+      if (response.ok) {
+        const data = await response.json()
+        const merged = mergeSettings(data?.notification_preferences)
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(merged))
+        }
+        return merged
+      }
+    } catch {
+      // fall through to local cache
+    }
+
+    if (typeof window === 'undefined') return { ...DEFAULT_SETTINGS }
     try {
       const raw = localStorage.getItem(SETTINGS_STORAGE_KEY)
-      if (!raw) return DEFAULT_SETTINGS
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+      if (!raw) return { ...DEFAULT_SETTINGS }
+      return mergeSettings(JSON.parse(raw))
     } catch {
-      return DEFAULT_SETTINGS
+      return { ...DEFAULT_SETTINGS }
     }
   },
 
   async updateSettings(settings: Partial<NotificationSettings>): Promise<NotificationSettings> {
     const current = await this.getSettings()
     const next = { ...current, ...settings }
+
+    const response = await fetch(buildApiUrl('profile/'), {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ notification_preferences: next }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Error ${response.status}: no se pudieron guardar las preferencias`)
+    }
+
     if (typeof window !== 'undefined') {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next))
     }

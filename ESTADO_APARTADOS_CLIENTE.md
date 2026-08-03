@@ -1,8 +1,13 @@
 # 📊 ESTADO DE APARTADOS SOLICITADOS - VALIDACIÓN CLIENTE
 
-**Fecha**: 15 Abril 2026  
-**Estado General**: � **99% FUNCIONAL - NO-PAGO PRÁCTICAMENTE CERRADO**  
-**Última actualización**: Analítica, reporting y automatizaciones ya funcionan con segmentación real, reporte interno y ejecución programable
+> **SNAPSHOT Abril 2026 — STALE.** Verificar contra el código y
+> `plans/README.md` (lote producto final 2026-08). Monetización/Stripe sigue
+> fuera de alcance. Precios en UI actual: **97€/mes · 990€/año (próximamente)**;
+> no usar 24,9€/197€ de este documento.
+
+**Fecha original**: 15 Abril 2026  
+**Estado General**: Core no-pago entregable; pagos = fase siguiente  
+**Última revisión de aviso**: 2026-08-03
 
 ---
 

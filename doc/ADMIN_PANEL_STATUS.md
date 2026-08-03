@@ -1,7 +1,11 @@
 # 📊 Estado del Panel de Administración - Gestión de Usuarios
 
-**Última actualización**: 24 de Diciembre, 2024  
-**Base de datos**: ✅ PostgreSQL `mykaizenfit_dev` - Funcionando correctamente
+> **STALE (Dic 2024).** El panel vivo está en `frontend/app/admin/` con
+> `user-v2`, logros, rest wellness, coaching, etc. Usar el código como fuente
+> de verdad; este archivo es histórico.
+
+**Última actualización original**: 24 de Diciembre, 2024  
+**Base de datos**: PostgreSQL (nombre de entorno según deploy)
 
 ---
 
