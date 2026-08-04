@@ -20,6 +20,7 @@ import { MenuPlanTypeFilter, useAdminMenuPlans } from "@/hooks/use-admin-menu-pl
 import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl } from "@/lib/api"
 import { handle401AndRefresh } from "@/lib/fetch-with-auth"
+import { hydratePlanMealsFromApi, serializePlanMealsForApi } from "@/lib/nutrition-plan-editor-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -45,7 +46,9 @@ interface MealRecipeOption {
 }
 
 interface PlanMealDraft {
+  id?: string
   day_of_week: number
+  week_number?: number
   name: string
   meal_type: string
   time: string
@@ -848,6 +851,15 @@ export function MenuPlanManagementV2() {
         carbs: Number((detail as any).carbs_grams ?? detail.carbs_grams ?? 0) || 0,
         fat: Number((detail as any).fat_grams ?? detail.fat_grams ?? 0) || 0,
       })
+      // Option 4: hydrate weekly structure into draftMeals (ids, weeks, recipes).
+      const incomingMeals = Array.isArray(detail.meals) ? detail.meals : []
+      setDraftMeals(
+        hydratePlanMealsFromApi(incomingMeals).map((m) => ({
+          ...m,
+          name: fixEncoding(m.name),
+          description: fixEncoding(m.description || ""),
+        })),
+      )
       setShowCreateDialog(true)
     } catch (e) {
       toast({ title: "❌ Error", description: e instanceof Error ? e.message : "No se pudo abrir", variant: "destructive" })
@@ -858,16 +870,33 @@ export function MenuPlanManagementV2() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editingPlanId) return
+    if (!editingPlanId || saving) return
     try {
       setSaving(true)
       const userIds = form.assigned_user_ids.map((id) => Number(id)).filter((id) => Number.isFinite(id))
-      await updatePlan(editingPlanId, {
+      const mealsPayload = serializePlanMealsForApi(
+        draftMeals.map((m) => ({
+          ...m,
+          week_number: m.week_number ?? 1,
+        })),
+      )
+      const saved = await updatePlan(editingPlanId, {
         name: form.name.trim(),
         description: form.description || "",
         assigned_user_ids: userIds,
         portion_multiplier: form.portion_multiplier,
+        // Persist structure when draftMeals was hydrated/edited in this dialog.
+        ...(mealsPayload.length > 0 ? { meals: mealsPayload } : {}),
       })
+      if (saved?.meals) {
+        setDraftMeals(
+          hydratePlanMealsFromApi(saved.meals).map((m) => ({
+            ...m,
+            name: fixEncoding(m.name),
+            description: fixEncoding(m.description || ""),
+          })),
+        )
+      }
       toast({ title: "✅ Plan actualizado" })
       setShowCreateDialog(false)
       setHasUnsavedNutritionEditorChanges(false)
@@ -2026,6 +2055,15 @@ export function MenuPlanManagementV2() {
                   onSaved={async (saved) => {
                     if (saved?.id) {
                       setEditingPlanId(String(saved.id))
+                    }
+                    if (Array.isArray((saved as any)?.meals)) {
+                      setDraftMeals(
+                        hydratePlanMealsFromApi((saved as any).meals).map((m) => ({
+                          ...m,
+                          name: fixEncoding(m.name),
+                          description: fixEncoding(m.description || ""),
+                        })),
+                      )
                     }
                     setHasUnsavedNutritionEditorChanges(false)
                     await fetchPlans({ search: searchTerm, type: typeFilter, userId: userFilter })

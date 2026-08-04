@@ -649,6 +649,7 @@ export function NutritionPlanEditor({ userId, onSave, reloadKey = 0 }: { userId:
         meals_per_day: computeMealsPerDay(mealsArray) || toNumber(plan.meals_per_day, 5),
         is_active: plan.is_active !== false,
         meals: mealsArray.map((meal, index) => ({
+          ...(meal.id ? { id: String(meal.id) } : {}),
           day_of_week: meal.day_of_week ?? null,
           week_number: meal.week_number ?? 1,
           name: meal.name,

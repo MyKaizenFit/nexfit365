@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/auth-context"
 import { mealMatchesDayAndWeek, planDurationWeeks, resolvePlanWeekNumber, weekNumberFromCalendarDate } from "@/lib/nutrition-week-utils"
 import { weeksHaveDifferentStructure } from "@/lib/plan-meal-utils"
+import { hydratePlanMealsFromApi, serializePlanMealsForApi } from "@/lib/nutrition-plan-editor-utils"
 
 type DayKey = "1" | "2" | "3" | "4" | "5" | "6" | "7"
 
@@ -455,23 +456,11 @@ export const NutritionTemplatePlanEditor = forwardRef<
       const incomingMeals = Array.isArray(data.meals) ? data.meals : []
       setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
       setPlanStartDate(typeof data.start_date === "string" && data.start_date ? data.start_date.slice(0, 10) : null)
-      const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => {
-        return {
-          id: m.id ? String(m.id) : undefined,
-          day_of_week: m.day_of_week ?? 1,
-          week_number: m.week_number ?? 1,
-          name: fixEncoding(m.name || `Comida ${idx + 1}`),
-          meal_type: m.meal_type || "lunch",
-          time: m.time || "12:00",
-          calories: toNumber(m.calories),
-          protein: toNumber(m.protein),
-          carbs: toNumber(m.carbs),
-          fat: toNumber(m.fat),
-          description: fixEncoding(m.description || ""),
-          order_index: toNumber(m.order_index, idx + 1),
-          meal_recipes: mapMealRecipeOptions(m),
-        }
-      })
+      const mapped: PlanMealDraft[] = hydratePlanMealsFromApi(incomingMeals).map((m) => ({
+        ...m,
+        name: fixEncoding(m.name),
+        description: fixEncoding(m.description || ""),
+      }))
 
       setMeals(mapped)
       setLoadedMealsCount(mapped.length)
@@ -847,6 +836,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
   }
 
   const handleSave = async () => {
+    if (saving) return
     try {
       setSaving(true)
 
@@ -858,11 +848,8 @@ export const NutritionTemplatePlanEditor = forwardRef<
       }
 
       let syncWeeksFrom: number | undefined
-      // En planes de usuaria, al editar una semana hay que propagar al ciclo completo:
-      // la app solo muestra la semana del ciclo (o semana 1 sin start_date).
-      if (ownerUserId && planDurationWeeksState > 1) {
-        syncWeeksFrom = activeWeek
-      } else if (
+      // Option 4: never auto-propagate week edits. Only sync when the admin confirms.
+      if (
         planDurationWeeksState > 1 &&
         weeksHaveDifferentStructure(meals, planDurationWeeksState) &&
         window.confirm(
@@ -872,26 +859,7 @@ export const NutritionTemplatePlanEditor = forwardRef<
         syncWeeksFrom = activeWeek
       }
 
-      const mealsPayload = meals.map((m) => ({
-        day_of_week: m.day_of_week,
-        week_number: m.week_number ?? 1,
-        name: m.name,
-        meal_type: m.meal_type,
-        time: m.time,
-        description: m.description,
-        order_index: toNumber(m.order_index, 1),
-        suggested_recipes_ids: m.meal_recipes.map((r) => r.recipe_id),
-        meal_recipes: m.meal_recipes.map((r) => ({
-          recipe_id: r.recipe_id,
-          servings: r.servings ?? 1,
-          custom_calories: r.custom_calories,
-          custom_protein: r.custom_protein,
-          custom_carbs: r.custom_carbs,
-          custom_fat: r.custom_fat,
-          display_order: r.display_order ?? 0,
-        })),
-      }))
-
+      const mealsPayload = serializePlanMealsForApi(meals)
       const patchBody: Record<string, unknown> = { meals: mealsPayload }
       if (syncWeeksFrom) {
         patchBody.sync_weeks_from = syncWeeksFrom
@@ -925,20 +893,10 @@ export const NutritionTemplatePlanEditor = forwardRef<
         const incomingMeals = Array.isArray(data.meals) ? data.meals : []
         setPlanDurationWeeksState(planDurationWeeks(data.duration_weeks))
         setPlanStartDate(typeof data.start_date === "string" && data.start_date ? data.start_date.slice(0, 10) : null)
-        const mapped: PlanMealDraft[] = incomingMeals.map((m: any, idx: number) => ({
-          id: m.id ? String(m.id) : undefined,
-          day_of_week: m.day_of_week ?? 1,
-          week_number: m.week_number ?? 1,
-          name: fixEncoding(m.name || `Comida ${idx + 1}`),
-          meal_type: m.meal_type || "lunch",
-          time: m.time || "12:00",
-          calories: toNumber(m.calories),
-          protein: toNumber(m.protein),
-          carbs: toNumber(m.carbs),
-          fat: toNumber(m.fat),
+        const mapped: PlanMealDraft[] = hydratePlanMealsFromApi(incomingMeals).map((m) => ({
+          ...m,
+          name: fixEncoding(m.name),
           description: fixEncoding(m.description || ""),
-          order_index: toNumber(m.order_index, idx + 1),
-          meal_recipes: mapMealRecipeOptions(m),
         }))
         setMeals(mapped)
         setLoadedMealsCount(mapped.length)
