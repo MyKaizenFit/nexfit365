@@ -81,6 +81,7 @@ export const NUTRITION_ENDPOINTS = {
   SUITABLE_PLANS: 'nutrition/personalized/suitable-plans/',
   PLAN_MEALS_FOR_SELECTION: 'nutrition/plan-meals-for-selection/',
   PLAN_MEALS_FOR_SELECTION_BATCH: 'nutrition/plan-meals-for-selection-batch/',
+  MEAL_ALTERNATIVES_RECOMMENDATION: 'nutrition/meal-alternatives-recommendation/',
   SHOPPING_LIST: 'nutrition/shopping-list/',
   PLAN_HISTORY: 'nutrition/plan-history/',
   RECIPES: 'nutrition/recipes/',
