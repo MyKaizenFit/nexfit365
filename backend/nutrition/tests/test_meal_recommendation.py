@@ -13,12 +13,16 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from nutrition.meal_recommendation import (
+    LEVEL_COST_THRESHOLDS,
     MealLogSnapshot,
     NutrientVector,
+    OVERAGE_THRESHOLD,
     SlotInfo,
     SCORE_WEIGHTS,
+    compute_remaining,
     compute_slot_budget,
     compute_slot_weights,
+    level_from_cost,
     rank_alternatives,
     score_alternative,
     sum_completed_intake,
@@ -122,6 +126,79 @@ class TestSlotBudgetReservation:
 class TestScoring:
     def test_weights_sum_to_one(self):
         assert abs(sum(SCORE_WEIGHTS.values()) - 1.0) < 1e-9
+
+    def test_level_thresholds_boundaries(self):
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['ideal']) == 'ideal'
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['ideal'] + 0.0001) == 'good'
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['good']) == 'good'
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['good'] + 0.0001) == 'acceptable'
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['acceptable']) == 'acceptable'
+        assert level_from_cost(LEVEL_COST_THRESHOLDS['acceptable'] + 0.0001) == 'outside_target'
+
+    def test_overage_threshold_115_applies_penalty(self):
+        budget = NutrientVector(calories=400, protein=30, carbs=40, fat=12)
+        just_under = NutrientVector(
+            calories=400 * OVERAGE_THRESHOLD - 0.01,
+            protein=30,
+            carbs=40,
+            fat=12,
+        )
+        just_over = NutrientVector(
+            calories=400 * OVERAGE_THRESHOLD + 0.01,
+            protein=30,
+            carbs=40,
+            fat=12,
+        )
+        score_under, cost_under = score_alternative(just_under, budget)
+        score_over, cost_over = score_alternative(just_over, budget)
+        assert score_under > score_over
+        assert cost_over > cost_under
+
+    def test_null_or_zero_goals_do_not_divide_by_zero(self):
+        score, cost = score_alternative(
+            NutrientVector(calories=200, protein=10, carbs=10, fat=5),
+            NutrientVector(calories=0, protein=0, carbs=0, fat=0),
+        )
+        assert score > 0
+        assert cost >= 0
+        assert score == 1.0 / (1.0 + cost)
+
+    def test_negative_remaining_preserved_in_context(self):
+        result = rank_alternatives(
+            date='2026-08-04',
+            current_slot=SlotInfo('d', 'dinner', 1, calories=300),
+            day_slots=[SlotInfo('d', 'dinner', 1, calories=300)],
+            logs=[MealLogSnapshot('b', 'breakfast', True, False, calories=1800)],
+            daily_goals=NutrientVector(1500, 120, 150, 50),
+            alternatives=[
+                {'id': 'a', 'name': 'A', 'calories': 200, 'protein': 20, 'carbs': 20, 'fat': 8, 'recipeId': '1'},
+            ],
+        )
+        assert result.context.remaining.calories == -300
+        assert result.context.goals_exceeded['calories'] is True
+        remaining = compute_remaining(
+            NutrientVector(1500, 120, 150, 50),
+            NutrientVector(1800, 0, 0, 0),
+        )
+        assert remaining.calories == -300
+
+    def test_current_selection_never_dropped(self):
+        slot = SlotInfo('d', 'dinner', 1, calories=400)
+        result = rank_alternatives(
+            date='2026-08-04',
+            current_slot=slot,
+            day_slots=[slot],
+            logs=[],
+            daily_goals=NutrientVector(1500, 120, 150, 50),
+            alternatives=[
+                {'id': 'best', 'name': 'Best', 'calories': 400, 'protein': 35, 'carbs': 40, 'fat': 12, 'recipeId': '1'},
+                {'id': 'current', 'name': 'Current', 'calories': 900, 'protein': 10, 'carbs': 10, 'fat': 40, 'recipeId': '9'},
+            ],
+            current_recipe_id='9',
+        )
+        ids = [a.option['recipeId'] for a in result.alternatives]
+        assert '9' in ids
+        assert any(a.is_current_selection for a in result.alternatives)
 
     def test_calories_dominate_but_macros_matter(self):
         budget = NutrientVector(calories=500, protein=40, carbs=50, fat=15)
