@@ -837,6 +837,258 @@ def plan_meals_for_selection_batch(request):
 
 @extend_schema(
     tags=['Nutrition'],
+    summary='Recomendación de alternativas según macros restantes del día',
+)
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def meal_alternatives_recommendation(request):
+    """
+    Ordena las alternativas del slot del plan por encaje con el presupuesto
+    nutricional restante del día. Fuente de verdad: plan + MealLogs del usuario.
+    GET /api/nutrition/meal-alternatives-recommendation/?date=YYYY-MM-DD&plan_meal_id=UUID
+    """
+    from datetime import datetime
+    from nutrition.meal_recommendation import (
+        MealLogSnapshot,
+        NutrientVector,
+        SlotInfo,
+        rank_alternatives,
+    )
+    from nutrition.plan_meal_utils import resolve_meals_for_calendar_day
+    from nutrition.plan_week_utils import resolve_plan_week_number
+
+    user = request.user
+    plan_meal_id = request.query_params.get('plan_meal_id')
+    if not plan_meal_id:
+        return Response(
+            {'error': 'plan_meal_id_required', 'detail': 'Se requiere plan_meal_id.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    date_param = request.query_params.get('date')
+    if date_param:
+        try:
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+        except ValueError:
+            return Response(
+                {'error': 'invalid_date', 'detail': 'Formato de fecha inválido. Usa YYYY-MM-DD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+    else:
+        target_date = timezone.localdate()
+
+    user_plan = get_active_plan_for_user(user)
+    if not user_plan:
+        return Response(
+            {'error': 'no_active_plan', 'detail': 'No hay plan nutricional activo.'},
+            status=status.HTTP_404_NOT_FOUND,
+        )
+
+    user_plan = NutritionPlan.objects.filter(pk=user_plan.pk).prefetch_related(
+        Prefetch(
+            'meals__meal_recipes',
+            queryset=PlanMealRecipe.objects.select_related('recipe').order_by('display_order', 'id'),
+        ),
+        'meals__suggested_recipes',
+    ).first()
+
+    plan_week = resolve_plan_week_number(user_plan, target_date)
+    dow = target_date.isoweekday()
+    all_meals = list(user_plan.meals.all())
+    day_meals = resolve_meals_for_calendar_day(all_meals, dow, plan_week)
+    if not day_meals and plan_week != 1:
+        day_meals = resolve_meals_for_calendar_day(all_meals, dow, 1)
+
+    current_meal = next((m for m in day_meals if str(m.id) == str(plan_meal_id)), None)
+    if current_meal is None:
+        # Permitir plan_meal_id del plan aunque no caiga en el día (respuesta clara).
+        current_meal = next((m for m in all_meals if str(m.id) == str(plan_meal_id)), None)
+        if current_meal is None:
+            return Response(
+                {'error': 'plan_meal_not_found', 'detail': 'Slot de comida no encontrado en el plan.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        if current_meal not in day_meals:
+            day_meals = list(day_meals) + [current_meal]
+
+    service = PersonalizedNutritionService(user)
+    has_admin_calorie_override = bool(getattr(user, 'admin_calories_override', None))
+    if user_plan.daily_calories and not has_admin_calorie_override:
+        daily_calories = float(user_plan.daily_calories)
+        daily_macros = {
+            'protein': float(user_plan.protein_grams or 0),
+            'carbs': float(user_plan.carbs_grams or 0),
+            'fat': float(user_plan.fat_grams or 0),
+        }
+    else:
+        daily_calories = float(service.calculate_daily_calories() or 0)
+        calc_macros = service.calculate_macros(daily_calories) or {}
+        daily_macros = {
+            'protein': float(calc_macros.get('protein') or 0),
+            'carbs': float(calc_macros.get('carbs') or 0),
+            'fat': float(calc_macros.get('fat') or 0),
+        }
+
+    daily_goals = NutrientVector(
+        calories=daily_calories,
+        protein=daily_macros['protein'],
+        carbs=daily_macros['carbs'],
+        fat=daily_macros['fat'],
+    )
+
+    ratio = 1.0
+    if user_plan.daily_calories:
+        ratio = max(0.1, daily_calories / float(user_plan.daily_calories))
+
+    def scaled_meal_recipe_macros(meal_recipe):
+        return {
+            'calories': int(round(meal_recipe.get_display_calories() * ratio)),
+            'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
+            'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
+            'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
+        }
+
+    def build_option_from_recipe(recipe, meal, macros=None):
+        if macros is None:
+            macros = {
+                'calories': int(round(float(recipe.calories or 0) * ratio)),
+                'protein': round(float(recipe.protein or 0) * ratio, 1),
+                'carbs': round(float(recipe.carbs or 0) * ratio, 1),
+                'fat': round(float(recipe.fat or 0) * ratio, 1),
+            }
+        return {
+            'id': f"meal-{meal.id}-recipe-{recipe.id}",
+            'name': recipe.name,
+            'calories': macros['calories'],
+            'protein': macros['protein'],
+            'carbs': macros['carbs'],
+            'fat': macros['fat'],
+            'category': 'balanced',
+            'icon': '🍽️',
+            'description': recipe.description or meal.description or '',
+            'cookTime': f"{(recipe.prep_time_minutes or 0) + (recipe.cook_time_minutes or 0)} min",
+            'recipeId': str(recipe.id),
+            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'meal_types': recipe.meal_types or [],
+        }
+
+    excluded_recipe_ids = _get_excluded_recipe_ids(user)
+    user_allergens = set(getattr(user, 'allergies', None) or [])
+
+    def recipe_blocked(recipe: Recipe) -> bool:
+        if str(recipe.id).lower() in excluded_recipe_ids:
+            return True
+        recipe_allergens = set(getattr(recipe, 'allergens', None) or [])
+        if user_allergens and recipe_allergens.intersection(user_allergens):
+            return True
+        return not recipe_is_compatible_for_user(recipe, user)
+
+    # Logs del día (usuario autenticado) — una query.
+    day_logs = list(
+        MealLog.objects.filter(user=user, date=target_date)
+        .select_related('recipe', 'plan_meal')
+    )
+    log_snapshots = [
+        MealLogSnapshot(
+            plan_meal_id=str(log.plan_meal_id) if log.plan_meal_id else None,
+            meal_type=str(log.meal_type or ''),
+            completed=bool(log.completed),
+            is_skipped=bool(log.is_skipped),
+            calories=float(log.calories or 0),
+            protein=float(log.protein or 0),
+            carbs=float(log.carbs or 0),
+            fat=float(log.fat or 0),
+            recipe_id=str(log.recipe_id) if log.recipe_id else None,
+        )
+        for log in day_logs
+    ]
+
+    current_log = next(
+        (log for log in day_logs if log.plan_meal_id and str(log.plan_meal_id) == str(current_meal.id)),
+        None,
+    )
+    if current_log is None:
+        current_log = next(
+            (
+                log for log in day_logs
+                if not log.plan_meal_id and str(log.meal_type) == str(current_meal.meal_type)
+            ),
+            None,
+        )
+
+    replacing_completed = bool(
+        current_log and current_log.completed and not current_log.is_skipped
+    )
+    current_recipe_id = str(current_log.recipe_id) if current_log and current_log.recipe_id else None
+
+    # Alternativas del coach para este slot (sin N+1: prefetch ya cargado).
+    alternatives = []
+    seen_recipe_ids = set()
+    meal_recipes = list(current_meal.meal_recipes.all())
+    if meal_recipes:
+        for meal_recipe in meal_recipes:
+            recipe = meal_recipe.recipe
+            if not recipe or not recipe.is_active:
+                continue
+            rid = str(recipe.id)
+            if rid in seen_recipe_ids:
+                continue
+            seen_recipe_ids.add(rid)
+            is_current = current_recipe_id and rid == current_recipe_id
+            if recipe_blocked(recipe) and not is_current:
+                continue
+            alternatives.append(build_option_from_recipe(recipe, current_meal, scaled_meal_recipe_macros(meal_recipe)))
+    else:
+        for recipe in current_meal.suggested_recipes.all():
+            if not recipe.is_active:
+                continue
+            rid = str(recipe.id)
+            if rid in seen_recipe_ids:
+                continue
+            seen_recipe_ids.add(rid)
+            is_current = current_recipe_id and rid == current_recipe_id
+            if recipe_blocked(recipe) and not is_current:
+                continue
+            alternatives.append(build_option_from_recipe(recipe, current_meal))
+
+    # Conservar opción actual aunque no esté en la lista de alternativas del coach.
+    if current_log and current_log.recipe and current_recipe_id not in seen_recipe_ids:
+        alternatives.append(build_option_from_recipe(current_log.recipe, current_meal))
+
+    day_slots = [
+        SlotInfo(
+            id=str(meal.id),
+            meal_type=str(meal.meal_type or ''),
+            order_index=int(meal.order_index or 0),
+            calories=float(meal.calories or 0),
+            protein=float(meal.protein or 0),
+            carbs=float(meal.carbs or 0),
+            fat=float(meal.fat or 0),
+        )
+        for meal in day_meals
+    ]
+    current_slot = next(s for s in day_slots if s.id == str(current_meal.id))
+
+    result = rank_alternatives(
+        date=target_date.isoformat(),
+        current_slot=current_slot,
+        day_slots=day_slots,
+        logs=log_snapshots,
+        daily_goals=daily_goals,
+        alternatives=alternatives,
+        current_recipe_id=current_recipe_id,
+        replacing_completed_slot=replacing_completed,
+    )
+
+    payload = result.as_dict()
+    payload['date'] = target_date.isoformat()
+    payload['plan_meal_id'] = str(current_meal.id)
+    payload['meal_type'] = current_meal.meal_type
+    return Response(payload, status=status.HTTP_200_OK)
+
+
+@extend_schema(
+    tags=['Nutrition'],
     summary='Selecciones de comidas de hoy',
     responses=inline_serializer(
         name='DailyMealSelectionsTodayResponse',
