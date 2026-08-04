@@ -887,6 +887,8 @@ export function WeeklyMealPlan() {
           mealName={selectedMeal.meal_name || FALLBACK_MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.name || selectedMeal.meal_type}
           mealTime={(selectedMeal.meal_time || FALLBACK_MEAL_TYPES.find(m => m.type === selectedMeal.meal_type)?.time || "").slice(0,5)}
           mealType={selectedMeal.meal_type}
+          planMealId={selectedMeal.plan_meal_id}
+          date={selectedMeal.date}
           options={mealOptions}
           currentSelection={selectedMeal.currentSelection}
           onSelectOption={handleSaveSelection}

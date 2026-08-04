@@ -1,6 +1,13 @@
 // Learn more: https://github.com/testing-library/jest-dom
 import '@testing-library/jest-dom'
 
+// jsdom no implementa scrollTo; el modal de comidas lo usa al cerrar.
+if (typeof window !== 'undefined' && !window.scrollTo) {
+  window.scrollTo = jest.fn()
+} else if (typeof window !== 'undefined') {
+  window.scrollTo = jest.fn()
+}
+
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
   useRouter() {

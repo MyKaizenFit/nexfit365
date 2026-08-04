@@ -59,6 +59,7 @@ const MEAL_TYPES = [
 interface MonthlyMealSelection {
   date: string
   meal_type: string
+  plan_meal_id?: string | null
   recipe?: {
     id: string
     name: string
@@ -75,6 +76,18 @@ interface MonthlyMealSelection {
   protein?: number
   carbs?: number
   fat?: number
+}
+
+type MonthlySelectedMeal = {
+  date: string
+  meal_type: string
+  plan_meal_id?: string | null
+  meal_name?: string
+  meal_time?: string | null
+  currentSelection?: {
+    optionId?: string | null
+    recipeId?: string | null
+  }
 }
 
 type MealClipboard = {
@@ -110,7 +123,7 @@ export function MonthlyMealPlan() {
   const [monthlySelections, setMonthlySelections] = useState<Record<string, MonthlyMealSelection[]>>({})
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [selectedMeal, setSelectedMeal] = useState<{ date: string; meal_type: string } | null>(null)
+  const [selectedMeal, setSelectedMeal] = useState<MonthlySelectedMeal | null>(null)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [mealOptions, setMealOptions] = useState<any[]>([])
   const [remoteSelections, setRemoteSelections] = useState<Record<string, MonthlyMealSelection[]>>({})
@@ -153,28 +166,77 @@ export function MonthlyMealPlan() {
     return weekDates(anchorDate).some((dateStr) => getSelectionsForDate(dateStr).length > 0)
   }, [getSelectionsForDate])
 
+  const resolvePlanMealSlot = (
+    data: {
+      meal_slots?: Array<{
+        id?: string | null
+        meal_type?: string
+        name?: string
+        time?: string | null
+        order_index?: number
+      }>
+      options_by_meal_id?: Record<string, any[]>
+      meals_by_type?: Record<string, any[]>
+    },
+    date: string,
+    mealType: string,
+  ) => {
+    const slots = (data.meal_slots || [])
+      .filter((slot) => String(slot.meal_type || "") === mealType && slot.id)
+      .sort((a, b) => (a.order_index || 0) - (b.order_index || 0))
+
+    const existing = getSelectionForMeal(date, mealType)
+    const existingPlanMealId = existing?.plan_meal_id ? String(existing.plan_meal_id) : null
+    const matched =
+      (existingPlanMealId && slots.find((slot) => String(slot.id) === existingPlanMealId)) ||
+      slots[0] ||
+      null
+
+    const planMealId = matched?.id ? String(matched.id) : null
+    const optionsFromSlot =
+      planMealId && data.options_by_meal_id?.[planMealId]?.length
+        ? data.options_by_meal_id[planMealId]
+        : data.meals_by_type?.[mealType] || []
+
+    return {
+      planMealId,
+      options: optionsFromSlot,
+      mealName: matched?.name || MEAL_TYPES.find((m) => m.type === mealType)?.name || mealType,
+      mealTime: matched?.time || MEAL_TYPES.find((m) => m.type === mealType)?.time || null,
+      currentSelection: existing
+        ? {
+            optionId: existing.recipe?.id ? String(existing.recipe.id) : null,
+            recipeId: existing.recipe?.id ? String(existing.recipe.id) : null,
+          }
+        : undefined,
+    }
+  }
+
   const handleSelectMeal = async (date: string, mealType: string) => {
     if (clipboard) return
-    setSelectedMeal({ date, meal_type: mealType })
     try {
-      const response = await authenticatedFetch(`nutrition/plan-meals-for-selection/?meal_type=${mealType}`, {
-        method: "GET",
-      })
-      if (response.ok) {
-        const data = await response.json()
-        const mealTypeKey =
-          mealType === "breakfast"
-            ? "breakfast"
-            : mealType === "lunch"
-              ? "lunch"
-              : mealType === "dinner"
-                ? "dinner"
-                : mealType === "morning_snack"
-                  ? "morning_snack"
-                  : "afternoon_snack"
-        setMealOptions(data.meals_by_type?.[mealTypeKey] || [])
-        setIsModalOpen(true)
+      // Fecha exacta del día seleccionado (no hoy) + slots del plan para evitar ambigüedad por meal_type.
+      const response = await authenticatedFetch(
+        `nutrition/plan-meals-for-selection/?date=${encodeURIComponent(date)}&meal_type=${encodeURIComponent(mealType)}`,
+        { method: "GET" },
+      )
+      if (!response.ok) {
+        toast({ title: "Error", description: "No se pudieron cargar las opciones de comida", variant: "destructive" })
+        return
       }
+
+      const data = await response.json()
+      const resolved = resolvePlanMealSlot(data, date, mealType)
+      setMealOptions(resolved.options)
+      setSelectedMeal({
+        date,
+        meal_type: mealType,
+        plan_meal_id: resolved.planMealId,
+        meal_name: resolved.mealName,
+        meal_time: resolved.mealTime,
+        currentSelection: resolved.currentSelection,
+      })
+      setIsModalOpen(true)
     } catch {
       toast({ title: "Error", description: "No se pudieron cargar las opciones de comida", variant: "destructive" })
     }
@@ -195,6 +257,7 @@ export function MonthlyMealPlan() {
         {
           date: selectedMeal.date,
           meal_type: selectedMeal.meal_type,
+          plan_meal_id: selectedMeal.plan_meal_id || undefined,
           recipe_id: recipeId,
           calories: option.calories || 0,
           protein: option.protein || 0,
@@ -231,6 +294,7 @@ export function MonthlyMealPlan() {
     return src.map((s) => ({
       date: targetDateStr,
       meal_type: s.meal_type,
+      plan_meal_id: s.plan_meal_id || undefined,
       recipe_id: s.recipe?.id || (s as any).recipe_id,
       calories: s.recipe?.calories || s.calories || 0,
       protein: s.recipe?.protein || s.protein || 0,
@@ -860,10 +924,13 @@ export function MonthlyMealPlan() {
             setIsModalOpen(false)
             setSelectedMeal(null)
           }}
-          mealName={MEAL_TYPES.find((m) => m.type === selectedMeal.meal_type)?.name || ""}
-          mealTime={MEAL_TYPES.find((m) => m.type === selectedMeal.meal_type)?.time || ""}
+          mealName={selectedMeal.meal_name || MEAL_TYPES.find((m) => m.type === selectedMeal.meal_type)?.name || ""}
+          mealTime={(selectedMeal.meal_time || MEAL_TYPES.find((m) => m.type === selectedMeal.meal_type)?.time || "").slice(0, 5)}
           mealType={selectedMeal.meal_type}
+          planMealId={selectedMeal.plan_meal_id}
+          date={selectedMeal.date}
           options={mealOptions}
+          currentSelection={selectedMeal.currentSelection}
           onSelectOption={handleSaveSelection}
         />
       )}

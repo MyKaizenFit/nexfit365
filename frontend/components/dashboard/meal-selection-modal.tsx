@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
+import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, MealRecommendationContext, MealRecommendationLevel, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { API_CONFIG } from '@/lib/api'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
+import { todayLocalDate } from '@/lib/local-date'
 
 interface MealSelectionModalProps {
   isOpen: boolean
@@ -15,6 +16,8 @@ interface MealSelectionModalProps {
   mealTime: string
   mealType?: string
   options: MealOption[]
+  planMealId?: string | null
+  date?: string
   currentSelection?: {
     optionId?: string | null
     recipeId?: string | null
@@ -23,6 +26,13 @@ interface MealSelectionModalProps {
   onSelectOption: (option: MealOption) => void
   onDeselectOption?: () => void
   initialView?: 'recipe' | 'equivalencias' | 'recetas-equivalencias'
+}
+
+const LEVEL_LABELS: Record<MealRecommendationLevel, string> = {
+  ideal: 'Mejor encaje',
+  good: 'Buen encaje',
+  acceptable: 'Aceptable',
+  outside_target: 'Fuera del objetivo',
 }
 
 const resolveRecipeImageSrc = (src?: string | null) => {
@@ -44,6 +54,8 @@ export function MealSelectionModal({
   mealTime,
   mealType,
   options,
+  planMealId,
+  date,
   currentSelection,
   initialOption,
   onSelectOption,
@@ -55,6 +67,10 @@ export function MealSelectionModal({
   const [showAllRecipes, setShowAllRecipes] = useState(false)
   const [allRecipes, setAllRecipes] = useState<Recipe[]>([])
   const [loadingRecipes, setLoadingRecipes] = useState(false)
+  const [rankedOptions, setRankedOptions] = useState<MealOption[] | null>(null)
+  const [recommendationContext, setRecommendationContext] = useState<MealRecommendationContext | null>(null)
+  const [loadingRecommendations, setLoadingRecommendations] = useState(false)
+  const [recommendationError, setRecommendationError] = useState(false)
   const [autoOpenEquivalenceRecipeId, setAutoOpenEquivalenceRecipeId] = useState<string | null>(null)
   const [equivalenceOnlyMode, setEquivalenceOnlyMode] = useState(false)
   const [recipeData, setRecipeData] = useState<{
@@ -316,12 +332,65 @@ export function MealSelectionModal({
     }
   }, [isOpen])
 
+  useEffect(() => {
+    if (!isOpen) {
+      setRankedOptions(null)
+      setRecommendationContext(null)
+      setRecommendationError(false)
+      setLoadingRecommendations(false)
+      return
+    }
+
+    const slotId = planMealId && !String(planMealId).startsWith('meal-') ? String(planMealId) : null
+    if (!slotId) {
+      setRankedOptions(null)
+      setRecommendationContext(null)
+      setRecommendationError(false)
+      return
+    }
+
+    let cancelled = false
+    setLoadingRecommendations(true)
+    setRecommendationError(false)
+
+    nutritionService
+      .getMealAlternativesRecommendation(slotId, date || todayLocalDate())
+      .then((result) => {
+        if (cancelled) return
+        if (!result?.alternatives?.length) {
+          setRankedOptions(null)
+          setRecommendationContext(null)
+          setRecommendationError(true)
+          return
+        }
+        setRankedOptions(result.alternatives)
+        setRecommendationContext(result.context)
+        setRecommendationError(false)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setRankedOptions(null)
+        setRecommendationContext(null)
+        setRecommendationError(true)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingRecommendations(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, planMealId, date])
+
+  const displayOptions = rankedOptions && rankedOptions.length > 0 ? rankedOptions : options
+
   const visibleOptions = useMemo(() => {
-    return options.filter((option) => {
+    return displayOptions.filter((option) => {
+      if (option.is_current_selection) return true
       if (!option.recipeId) return true
       return !excludedRecipeIds.has(String(option.recipeId))
     })
-  }, [options, excludedRecipeIds])
+  }, [displayOptions, excludedRecipeIds])
 
   const visibleRecipeIds = useMemo(() => {
     const ids = visibleOptions
@@ -511,6 +580,37 @@ export function MealSelectionModal({
 
             {/* Content - Scrollable */}
             <div className="p-5 md:p-4 space-y-4 md:space-y-3 overflow-y-auto flex-1 min-h-0">
+              {recommendationContext ? (
+                <div
+                  className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs text-orange-900 space-y-1"
+                  aria-live="polite"
+                >
+                  <p className="font-bold text-sm">Presupuesto orientativo para {mealName.toLowerCase()}</p>
+                  <p>
+                    Objetivo día: {Math.round(recommendationContext.daily_goals.calories)} kcal ·
+                    Consumido: {Math.round(recommendationContext.consumed.calories)} ·
+                    Restante: {Math.round(recommendationContext.remaining.calories)} ·
+                    Presupuesto slot: {Math.round(recommendationContext.slot_budget.calories)} kcal
+                  </p>
+                  <p>
+                    Comidas pendientes después de esta: {recommendationContext.pending_meals_count}
+                    {Object.values(recommendationContext.goals_exceeded).some(Boolean)
+                      ? ' · Ya has superado algún objetivo del día'
+                      : ''}
+                  </p>
+                </div>
+              ) : null}
+              {loadingRecommendations ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <span>Ordenando alternativas según tus macros restantes…</span>
+                </div>
+              ) : null}
+              {recommendationError && !loadingRecommendations ? (
+                <p className="text-xs text-muted-foreground" role="status">
+                  No se pudieron cargar las recomendaciones; se muestran las alternativas del plan sin reordenar.
+                </p>
+              ) : null}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 mb-5 md:mb-4">
                 <p className="text-base md:text-sm font-medium md:font-normal text-gray-700 md:text-muted-foreground">
                   Selecciona una opción para {mealName.toLowerCase()}:
@@ -547,9 +647,11 @@ export function MealSelectionModal({
 
               {visibleOptions.map((option) => (
                 (() => {
-                  const isCurrentSelection = isOptionCurrentSelection(option)
+                  const isCurrentSelection = isOptionCurrentSelection(option) || option.is_current_selection === true
                   const imageSrc = resolveRecipeImageSrc(option.imageUrl)
                   const hasImage = Boolean(option.imageUrl)
+                  const level = option.recommendation_level
+                  const levelLabel = level ? LEVEL_LABELS[level] : null
 
                   return (
                 <div
@@ -558,6 +660,8 @@ export function MealSelectionModal({
                   className={`group overflow-hidden cursor-pointer rounded-2xl border bg-white shadow-sm transition-all touch-manipulation active:scale-[0.98] hover:-translate-y-0.5 hover:shadow-xl ${
                     isCurrentSelection
                       ? 'border-emerald-500 shadow-emerald-100 ring-4 ring-emerald-100'
+                      : option.is_recommended
+                      ? 'border-orange-400 hover:border-orange-500'
                       : option.recipeId 
                       ? 'border-orange-200 hover:border-orange-400' 
                       : 'border-gray-200 hover:border-blue-300'
@@ -580,6 +684,16 @@ export function MealSelectionModal({
                         <span className="rounded-full bg-lime-400 px-2.5 py-1 text-[11px] font-black text-lime-950 shadow">
                           {mealName}
                         </span>
+                        {option.is_recommended && (
+                          <span className="rounded-full bg-orange-500 px-2.5 py-1 text-[11px] font-bold text-white shadow">
+                            Mejor encaje
+                          </span>
+                        )}
+                        {!option.is_recommended && levelLabel && (
+                          <span className="rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-bold text-slate-800 shadow">
+                            {levelLabel}
+                          </span>
+                        )}
                         {isCurrentSelection && (
                           <span className="rounded-full bg-emerald-500 px-2.5 py-1 text-[11px] font-bold text-white shadow">
                             Seleccionada
@@ -620,6 +734,22 @@ export function MealSelectionModal({
                           <span className="block text-[9px] font-semibold text-yellow-500">grasa</span>
                         </span>
                       </div>
+
+                      {option.recommendation_reason || option.projected_daily_calories != null ? (
+                        <div className="rounded-xl border border-slate-100 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-700 space-y-0.5">
+                          {option.recommendation_reason ? (
+                            <p className="font-semibold">{option.recommendation_reason}</p>
+                          ) : null}
+                          {option.projected_daily_calories != null ? (
+                            <p>
+                              Día proyectado: {Math.round(option.projected_daily_calories)} kcal
+                              {option.projected_daily_macros
+                                ? ` · P ${formatMacro(option.projected_daily_macros.protein)}g · C ${formatMacro(option.projected_daily_macros.carbs)}g · G ${formatMacro(option.projected_daily_macros.fat)}g`
+                                : ''}
+                            </p>
+                          ) : null}
+                        </div>
+                      ) : null}
 
                       <div className="grid grid-cols-2 gap-2 text-[11px]">
                         <button
@@ -673,7 +803,7 @@ export function MealSelectionModal({
                         )}
                         {!isCurrentSelection && (
                           <span className="flex items-center justify-center rounded-xl bg-lime-50 px-2 py-2 font-bold text-lime-700">
-                            Recom.
+                            {option.is_recommended ? 'Mejor encaje' : levelLabel || 'Elegir'}
                           </span>
                         )}
                         <button

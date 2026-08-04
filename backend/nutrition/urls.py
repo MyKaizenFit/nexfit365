@@ -3,7 +3,8 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     RecipeViewSet, NutritionPlanViewSet, MealLogViewSet, FoodViewSet, 
-    current_plan, plan_meals_for_selection, plan_meals_for_selection_batch, daily_meal_selections, daily_meal_selections_today,
+    current_plan, plan_meals_for_selection, plan_meals_for_selection_batch,
+    meal_alternatives_recommendation, daily_meal_selections, daily_meal_selections_today,
     weekly_meal_selections, monthly_meal_selections, default_nutrition_plans, list_recipes,
     adjust_plan, plan_history, meal_exclusions, meal_exclusion_detail,
     ingredient_exclusions, ingredient_exclusion_detail, shopping_list,
@@ -34,6 +35,11 @@ urlpatterns = [
         'plan-meals-for-selection-batch/',
         plan_meals_for_selection_batch,
         name='plan-meals-for-selection-batch',
+    ),
+    path(
+        'meal-alternatives-recommendation/',
+        meal_alternatives_recommendation,
+        name='meal-alternatives-recommendation',
     ),
     path('shopping-list/', shopping_list, name='shopping-list'),
     path('daily-meal-selections/today/', daily_meal_selections_today, name='daily-meal-selections-today'),

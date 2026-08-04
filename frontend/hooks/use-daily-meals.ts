@@ -341,7 +341,9 @@ export function useDailyMeals() {
           acc[meal.id] = {
             mealId: meal.id,
             optionId: meal.selectedOption.id,
-            option: meal.selectedOption
+            option: meal.selectedOption,
+            isCompleted: meal.isCompleted === true,
+            isSkipped: meal.isSkipped === true,
           }
         }
         return acc
@@ -373,7 +375,13 @@ export function useDailyMeals() {
             if (selection && selection.option && typeof selection.option === 'object') {
               // Validar que la opción tenga la estructura correcta
               if (selection.option.id && selection.option.name) {
-                return { ...meal, selectedOption: selection.option, isCompleted: true }
+                // Selección ≠ completada. Compatibilidad: datos viejos sin isCompleted no fuerzan true.
+                const storedCompleted = selection.isCompleted === true
+                return {
+                  ...meal,
+                  selectedOption: selection.option,
+                  isCompleted: storedCompleted,
+                }
               }
             }
             return meal
@@ -390,99 +398,77 @@ export function useDailyMeals() {
     return meals
   }, [])
 
-  // Seleccionar opción de comida (solo planificación, no completada)
+  // Seleccionar/cambiar plato = planificación. Solo conserva completed si ya estaba consumida.
   const selectMealOption = useCallback(async (mealId: string, option: MealOption) => {
-    
-    // Actualizar estado inmediatamente (marcar como no completada por defecto)
+    let mealTypeForSync: string | null = null
+    let keepCompleted = false
+    let planMealId: string | undefined
+
     setMeals(prevMeals => {
-      
-      const updatedMeals = prevMeals.map(meal => 
-        meal.id === mealId 
-          ? { ...meal, selectedOption: option, isCompleted: true, isSkipped: false, skipReason: null } // Seleccionar = completar
+      const current = prevMeals.find(meal => meal.id === mealId)
+      keepCompleted = Boolean(current?.isCompleted && !current?.isSkipped)
+      mealTypeForSync = current?.mealType || null
+      planMealId = current?.id && !String(current.id).startsWith('meal-') ? current.id : undefined
+
+      const updatedMeals = prevMeals.map(meal =>
+        meal.id === mealId
+          ? {
+              ...meal,
+              selectedOption: option,
+              isCompleted: keepCompleted,
+              isSkipped: false,
+              skipReason: null,
+            }
           : meal
       )
-      
-      
-      // Guardar en localStorage como backup
+
       saveSelectionsToStorage(updatedMeals)
-      
-      // Actualizar macros (comidas completadas al seleccionar)
-      const newMacros = calculateTotalMacros(updatedMeals)
-      setMacros(newMacros)
-      
+      setMacros(calculateTotalMacros(updatedMeals))
       return updatedMeals
     })
 
-    // Sincronizar con el backend (en segundo plano)
     setTimeout(async () => {
       try {
         setSyncing(true)
         const today = todayLocalDate()
+        if (!mealTypeForSync) return
 
-        // Encontrar la comida seleccionada (dinámico: viene del plan)
-        const meal = meals.find(m => m.id === mealId)
-        if (meal) {
-          const mealType = meal.mealType
-          if (mealType) {
-            
-            // Guardar como MealLog con completed=False
-            const headers = await getAuthHeaders()
-            
-            // Preparar datos para enviar
-            const requestData: any = {
-              date: today,
-              meal_type: mealType,
-              // Si el id de la comida viene del plan (UUID), enviarlo para identificar el slot
-              plan_meal_id: meal.id && !String(meal.id).startsWith('meal-') ? meal.id : undefined,
-              calories: option.calories || 0,
-              protein: option.protein || 0,
-              carbs: option.carbs || 0,
-              fat: option.fat || 0,
-              skip_meal: false,
-              completed: true, // Seleccionar = marcar como completada directamente
-              custom_description: option.customDescription || option.name || 'Comida seleccionada',
-              substitution_details: option.substitution_details || []
-            }
-            
-            // Preferir recipeId (viene explícito del backend). Evita enviar IDs compuestos tipo "meal-...-recipe-...".
-            if (option.recipeId) {
-              requestData.recipe_id = String(option.recipeId)
-            } else if (option.id && String(option.id).includes('recipe-')) {
-              requestData.recipe_id = String(option.id).split('recipe-').pop()
-            } else {
-              // Si no hay recipe_id, usar custom_description
-              requestData.custom_description = option.customDescription || option.name || 'Comida seleccionada'
-            }
-            
-            
-            const response = await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
-        credentials: 'include',
-              headers: {
-                ...headers,
-                'Content-Type': 'application/json; charset=utf-8'
-              },
-              method: 'POST',
-              body: JSON.stringify(requestData)
-            })
-
-            if (response.ok) {
-            } else {
-              const errorText = await response.text()
-              try {
-                const errorData = JSON.parse(errorText)
-              } catch (e) {
-              }
-            }
-          }
+        const headers = await getAuthHeaders()
+        const requestData: any = {
+          date: today,
+          meal_type: mealTypeForSync,
+          plan_meal_id: planMealId,
+          calories: option.calories || 0,
+          protein: option.protein || 0,
+          carbs: option.carbs || 0,
+          fat: option.fat || 0,
+          skip_meal: false,
+          completed: keepCompleted,
+          custom_description: option.customDescription || option.name || 'Comida seleccionada',
+          substitution_details: option.substitution_details || [],
         }
 
+        if (option.recipeId) {
+          requestData.recipe_id = String(option.recipeId)
+        } else if (option.id && String(option.id).includes('recipe-')) {
+          requestData.recipe_id = String(option.id).split('recipe-').pop()
+        }
+
+        await fetch(buildApiUrl('nutrition/daily-meal-selections/'), {
+          credentials: 'include',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json; charset=utf-8',
+          },
+          method: 'POST',
+          body: JSON.stringify(requestData),
+        })
       } catch (error) {
       } finally {
         setSyncing(false)
       }
     }, 100)
-
-  }, [calculateTotalMacros, saveSelectionsToStorage, meals])
+  }, [calculateTotalMacros, saveSelectionsToStorage])
 
   const deselectMealOption = useCallback(async (mealId: string) => {
     const meal = meals.find(m => m.id === mealId)

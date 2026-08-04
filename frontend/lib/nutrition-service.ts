@@ -76,6 +76,8 @@ export interface MealLog {
   photo?: File | string | null
 }
 
+export type MealRecommendationLevel = 'ideal' | 'good' | 'acceptable' | 'outside_target'
+
 export interface MealOption {
   id: string
   name: string
@@ -91,6 +93,43 @@ export interface MealOption {
   recipeId?: number | string  // ID de la receta si está asociada (puede ser número o UUID)
   customDescription?: string
   substitution_details?: MealIngredientSubstitution[]
+  recommendation_score?: number
+  recommendation_level?: MealRecommendationLevel
+  is_recommended?: boolean
+  projected_daily_calories?: number
+  projected_daily_macros?: {
+    calories: number
+    protein: number
+    carbs: number
+    fat: number
+  }
+  calorie_difference?: number
+  macro_differences?: {
+    protein: number
+    carbs: number
+    fat: number
+  }
+  recommendation_reason?: string
+  is_current_selection?: boolean
+}
+
+export interface MealRecommendationContext {
+  daily_goals: { calories: number; protein: number; carbs: number; fat: number }
+  consumed: { calories: number; protein: number; carbs: number; fat: number }
+  remaining: { calories: number; protein: number; carbs: number; fat: number }
+  slot_budget: { calories: number; protein: number; carbs: number; fat: number }
+  pending_meals_count: number
+  goals_exceeded: { calories: boolean; protein: boolean; carbs: boolean; fat: boolean }
+  current_slot_id: string
+  date: string
+}
+
+export interface MealAlternativesRecommendation {
+  date: string
+  plan_meal_id: string
+  meal_type?: string
+  context: MealRecommendationContext
+  alternatives: MealOption[]
 }
 
 export interface RecipeExclusionItem {
@@ -467,6 +506,26 @@ class NutritionService {
         daily_macros: data.daily_macros
       }
     } catch (error) {
+      return null
+    }
+  }
+
+  /** Alternativas del slot ordenadas por encaje con macros restantes del día (backend). */
+  async getMealAlternativesRecommendation(
+    planMealId: string,
+    date?: string,
+  ): Promise<MealAlternativesRecommendation | null> {
+    try {
+      const headers = await getAuthHeaders()
+      const params = new URLSearchParams({ plan_meal_id: planMealId })
+      if (date) params.set('date', date)
+      const response = await fetch(
+        buildApiUrl(`${NUTRITION_ENDPOINTS.MEAL_ALTERNATIVES_RECOMMENDATION}?${params.toString()}`),
+        { credentials: 'include', headers, method: 'GET' },
+      )
+      if (!response.ok) return null
+      return await response.json()
+    } catch {
       return null
     }
   }
