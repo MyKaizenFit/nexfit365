@@ -4,6 +4,7 @@ from rest_framework.decorators import action, api_view, permission_classes as pe
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.exceptions import ValidationError
 from django.db import transaction
 from django.db import DatabaseError
 from django.db.models import Count, Avg, Sum, Min, Max, Q, Exists, OuterRef
@@ -1441,15 +1442,15 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return
         MealLog.objects.filter(user_id__in=user_ids, date__gte=timezone.localdate()).delete()
 
-    def _detach_meal_logs_before_replacing_meals(self, plan: NutritionPlan):
-        """Evita IntegrityError al borrar PlanMeal (SET_NULL en MealLog.plan_meal).
+    def _detach_meal_logs_for_meal_ids(self, meal_ids):
+        """Detach MealLogs from PlanMeal IDs without wiping unrelated history.
 
-        Varios logs del mismo (user, date, meal_type) pueden coexistir mientras
-        tengan plan_meal distinto. Al poner plan_meal=NULL chocan con
-        unique_meallog_user_date_meal_type. Dejamos como máximo un log por
-        grupo y borramos el resto antes del delete de comidas.
+        Avoids IntegrityError when SET_NULL would collide with
+        unique_meallog_user_date_meal_type. At most one null plan_meal log
+        remains per (user, date, meal_type); surplus linked rows are deleted.
+        Surviving rows keep completed/macros (plan_meal set to NULL).
         """
-        meal_ids = list(plan.meals.values_list('id', flat=True))
+        meal_ids = list(meal_ids)
         if not meal_ids:
             return
 
@@ -1482,13 +1483,89 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
 
         if delete_ids:
             MealLog.objects.filter(id__in=delete_ids).delete()
+        MealLog.objects.filter(plan_meal_id__in=meal_ids).update(plan_meal=None)
+
+    def _detach_meal_logs_before_replacing_meals(self, plan: NutritionPlan):
+        """Detach logs for every meal of the plan (legacy full-replace helper)."""
+        self._detach_meal_logs_for_meal_ids(plan.meals.values_list('id', flat=True))
+
+    def _sync_meal_recipes(self, meal: PlanMeal, meal_data: dict, recipe_map: dict):
+        """Replace recipe options for one meal and recompute averaged macros."""
+        suggested_ids = meal_data.get('suggested_recipes_ids')
+        meal_recipes = meal_data.get('meal_recipes')
+
+        if isinstance(suggested_ids, list) and suggested_ids:
+            meal.suggested_recipes.set(Recipe.objects.filter(id__in=suggested_ids))
+        else:
+            meal.suggested_recipes.clear()
+
+        meal.meal_recipes.all().delete()
+        effective_meal_recipes = []
+
+        if isinstance(meal_recipes, list) and meal_recipes:
+            for mr in meal_recipes:
+                if not isinstance(mr, dict):
+                    continue
+                recipe_id = mr.get('recipe_id') or (mr.get('recipe') or {}).get('id')
+                if not recipe_id:
+                    continue
+                recipe = recipe_map.get(str(recipe_id))
+                if recipe is None:
+                    try:
+                        recipe = Recipe.objects.get(id=recipe_id)
+                    except Recipe.DoesNotExist:
+                        continue
+                    recipe_map[str(recipe.id)] = recipe
+
+                PlanMealRecipe.objects.create(
+                    meal=meal,
+                    recipe=recipe,
+                    servings=mr.get('servings') or 1.0,
+                    display_order=mr.get('display_order') or 0,
+                    custom_calories=mr.get('custom_calories', None),
+                    custom_protein=mr.get('custom_protein', None),
+                    custom_carbs=mr.get('custom_carbs', None),
+                    custom_fat=mr.get('custom_fat', None),
+                )
+                effective_meal_recipes.append(mr)
+
+        if not effective_meal_recipes and isinstance(suggested_ids, list) and suggested_ids:
+            for idx_s, recipe_id in enumerate(suggested_ids):
+                recipe = recipe_map.get(str(recipe_id))
+                if recipe is None:
+                    try:
+                        recipe = Recipe.objects.get(id=recipe_id)
+                    except Recipe.DoesNotExist:
+                        continue
+                    recipe_map[str(recipe.id)] = recipe
+                PlanMealRecipe.objects.create(
+                    meal=meal,
+                    recipe=recipe,
+                    servings=1.0,
+                    display_order=idx_s,
+                )
+                effective_meal_recipes.append(
+                    {'recipe_id': recipe_id, 'servings': 1.0, 'display_order': idx_s}
+                )
+
+        computed = self._compute_meal_macros(effective_meal_recipes, recipe_map)
+        PlanMeal.objects.filter(pk=meal.pk).update(
+            calories=int(round(computed['calories'])),
+            protein=round(computed['protein'], 2),
+            carbs=round(computed['carbs'], 2),
+            fat=round(computed['fat'], 2),
+        )
 
     def _replace_plan_meals(self, plan: NutritionPlan, meals_payload):
         """
-        Reemplaza TODAS las comidas del plan por las proporcionadas (enfoque robusto).
-        Espera una lista de objetos con campos de PlanMeal y opcionalmente:
-          - suggested_recipes_ids: [recipe_id,...]
-          - meal_recipes: [{recipe_id, servings, custom_*, display_order}, ...]
+        Reconcile plan meals by ID (Option 4).
+
+        - Payload item with `id` belonging to this plan → update in place
+        - Payload item without `id` → create
+        - Existing meals missing from payload → delete (detach MealLogs first)
+        - Foreign meal IDs → ValidationError (atomic rollback)
+
+        Does not create MealLogs and does not delete historical MealLogs.
         """
         if meals_payload is None:
             return
@@ -1496,89 +1573,53 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             return
 
         recipe_map = self._build_recipe_map(meals_payload)
-
-        # Detach logs antes del SET_NULL implícito al borrar slots
-        self._detach_meal_logs_before_replacing_meals(plan)
-
-        # Eliminar comidas anteriores (cascade elimina PlanMealRecipe)
-        plan.meals.all().delete()
+        existing = {str(m.id): m for m in plan.meals.all()}
+        keep_ids: set[str] = set()
 
         for idx, meal_data in enumerate(meals_payload):
             if not isinstance(meal_data, dict):
                 continue
 
-            suggested_ids = meal_data.get('suggested_recipes_ids')
-            meal_recipes = meal_data.get('meal_recipes')
+            raw_id = meal_data.get('id')
+            meal_id = str(raw_id) if raw_id not in (None, '') else None
+            week_number = max(1, int(meal_data.get('week_number') or 1))
+            order_index = meal_data.get('order_index') or (idx + 1)
+            fields = {
+                'day_of_week': meal_data.get('day_of_week') or None,
+                'week_number': week_number,
+                'name': meal_data.get('name') or f'Comida {idx + 1}',
+                'meal_type': meal_data.get('meal_type') or 'lunch',
+                'time': meal_data.get('time') or None,
+                'description': meal_data.get('description') or '',
+                'order_index': order_index,
+            }
 
-            meal = PlanMeal.objects.create(
-                plan=plan,
-                day_of_week=meal_data.get('day_of_week') or None,
-                week_number=max(1, int(meal_data.get('week_number') or 1)),
-                name=meal_data.get('name') or f'Comida {idx + 1}',
-                meal_type=meal_data.get('meal_type') or 'lunch',
-                time=meal_data.get('time') or None,
-                calories=0,
-                protein=0,
-                carbs=0,
-                fat=0,
-                description=meal_data.get('description') or '',
-                order_index=meal_data.get('order_index') or (idx + 1),
-            )
-
-            # ManyToMany simple
-            if isinstance(suggested_ids, list) and suggested_ids:
-                meal.suggested_recipes.set(Recipe.objects.filter(id__in=suggested_ids))
-
-            effective_meal_recipes = []
-
-            # Cantidades personalizadas por receta
-            if isinstance(meal_recipes, list) and meal_recipes:
-                for mr in meal_recipes:
-                    if not isinstance(mr, dict):
-                        continue
-                    recipe_id = mr.get('recipe_id') or (mr.get('recipe') or {}).get('id')
-                    if not recipe_id:
-                        continue
-                    try:
-                        recipe = Recipe.objects.get(id=recipe_id)
-                    except Recipe.DoesNotExist:
-                        continue
-
-                    payload = {
-                        'meal': meal,
-                        'recipe': recipe,
-                        'servings': mr.get('servings') or 1.0,
-                        'display_order': mr.get('display_order') or 0,
-                        'custom_calories': mr.get('custom_calories', None),
-                        'custom_protein': mr.get('custom_protein', None),
-                        'custom_carbs': mr.get('custom_carbs', None),
-                        'custom_fat': mr.get('custom_fat', None),
-                    }
-                    PlanMealRecipe.objects.create(**payload)
-                    effective_meal_recipes.append(mr)
-
-            # Compatibilidad: si no hay meal_recipes, crear desde suggested_ids
-            if not effective_meal_recipes and isinstance(suggested_ids, list) and suggested_ids:
-                for idx_s, recipe_id in enumerate(suggested_ids):
-                    try:
-                        recipe = Recipe.objects.get(id=recipe_id)
-                    except Recipe.DoesNotExist:
-                        continue
-                    PlanMealRecipe.objects.create(
-                        meal=meal,
-                        recipe=recipe,
-                        servings=1.0,
-                        display_order=idx_s,
+            if meal_id:
+                meal = existing.get(meal_id)
+                if meal is None:
+                    raise ValidationError(
+                        {'meals': [f'El slot {meal_id} no pertenece a este plan.']}
                     )
-                    effective_meal_recipes.append({'recipe_id': recipe_id, 'servings': 1.0, 'display_order': idx_s})
+                keep_ids.add(meal_id)
+                for attr, value in fields.items():
+                    setattr(meal, attr, value)
+                meal.save(update_fields=list(fields.keys()) + ['updated_at'])
+            else:
+                meal = PlanMeal.objects.create(plan=plan, **fields)
 
-            computed = self._compute_meal_macros(effective_meal_recipes, recipe_map)
-            PlanMeal.objects.filter(pk=meal.pk).update(
-                calories=int(round(computed['calories'])),
-                protein=round(computed['protein'], 2),
-                carbs=round(computed['carbs'], 2),
-                fat=round(computed['fat'], 2),
-            )
+            self._sync_meal_recipes(meal, meal_data, recipe_map)
+
+        remove_ids = [mid for mid in existing.keys() if mid not in keep_ids]
+        if remove_ids:
+            self._detach_meal_logs_for_meal_ids(remove_ids)
+            PlanMeal.objects.filter(id__in=remove_ids, plan=plan).delete()
+
+        # Drop stale prefetch so finalize/rebalance sees the reconciled meals.
+        cache = getattr(plan, '_prefetched_objects_cache', None)
+        if isinstance(cache, dict):
+            for key in list(cache.keys()):
+                if key == 'meals' or key.startswith('meals__'):
+                    cache.pop(key, None)
 
     @transaction.atomic
     @action(detail=True, methods=['post'], url_path='generate-weekly-progression')
@@ -1884,10 +1925,8 @@ class AdminNutritionPlanViewSet(viewsets.ModelViewSet):
             plan.save(update_fields=['is_template'])
 
         meals_payload = self._prepare_meals_payload(meals_payload, request.data, plan)
-        # Wipe ≥hoy antes de reemplazar slots (si no, el SET_NULL al borrar PlanMeal
-        # puede chocar con unique_meallog_user_date_meal_type).
-        if isinstance(meals_payload, list):
-            self._clear_future_meal_selections_for_plan(plan)
+        # Option 4: reconcile by ID. Do not wipe MealLogs for kept/updated slots.
+        # Removed slots detach logs via _detach_meal_logs_for_meal_ids.
         self._replace_plan_meals(plan, meals_payload)
         self._ensure_user_plan_start_date(plan, request.data)
         self._finalize_plan_after_meals(
