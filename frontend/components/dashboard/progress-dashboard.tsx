@@ -44,6 +44,7 @@ import { useUserData } from "@/hooks/use-user-data"
 import { useProgressPhotos } from "@/hooks/use-progress-photos"
 import { useAuth } from "@/contexts/auth-context"
 import type { ProgressPhotoType } from "@/lib/progress-photo-types"
+import { formatPhotoUploadError, isLikelyImageFile } from "@/lib/image-upload"
 import { useDailyMeals } from "@/hooks/use-daily-meals"
 import { useProgressStats } from "@/hooks/use-progress-stats"
 import { useWeightHistory } from "@/hooks/use-weight-history"
@@ -247,7 +248,7 @@ export function ProgressDashboard() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      if (file.type.startsWith('image/')) {
+      if (isLikelyImageFile(file)) {
         setSelectedFile(file)
         const url = URL.createObjectURL(file)
         setPreviewUrl(url)
@@ -300,7 +301,7 @@ export function ProgressDashboard() {
     } catch (error) {
       toast({
         title: "❌ Error",
-        description: `No se pudo subir la foto: ${error instanceof Error ? error.message : 'Error desconocido'}`,
+        description: formatPhotoUploadError(error),
         variant: "destructive",
       })
     }
@@ -688,7 +689,7 @@ export function ProgressDashboard() {
                 <input
                   id="photo-upload"
                   type="file"
-                  accept="image/*"
+                  accept="image/*,.heic,.heif"
                   onChange={handleFileSelect}
                   className="hidden"
                   title="Seleccionar foto de progreso"

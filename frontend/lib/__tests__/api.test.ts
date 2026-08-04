@@ -78,6 +78,20 @@ describe('API utilities', () => {
 
       expect(headers['X-CSRFToken']).toBe('abc123')
     })
+
+    it('prefers the last csrfToken when duplicates exist', () => {
+      mockGetAuthService.mockReturnValue({
+        getAccessToken: jest.fn().mockReturnValue(null),
+      } as any)
+      Object.defineProperty(document, 'cookie', {
+        writable: true,
+        value: 'csrfToken=stale-host-only; other=1; csrfToken=fresh-shared',
+      })
+
+      const headers = getAuthHeaders()
+
+      expect(headers['X-CSRFToken']).toBe('fresh-shared')
+    })
   })
 
   describe('getMultipartAuthHeaders', () => {

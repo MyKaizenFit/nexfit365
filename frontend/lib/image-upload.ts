@@ -2,6 +2,8 @@
 
 export const MAX_PHOTO_UPLOAD_BYTES = 5 * 1024 * 1024
 
+const IMAGE_NAME_RE = /\.(jpe?g|png|webp|heic|heif)$/i
+
 export const isHeicFile = (file: File): boolean => {
   const name = file.name.toLowerCase()
   return (
@@ -10,6 +12,14 @@ export const isHeicFile = (file: File): boolean => {
     || name.endsWith(".heic")
     || name.endsWith(".heif")
   )
+}
+
+/** Accept camera/gallery picks even when browsers leave File.type empty (common for iOS HEIC). */
+export const isLikelyImageFile = (file: File): boolean => {
+  const type = (file.type || "").toLowerCase().trim()
+  if (type.startsWith("image/")) return true
+  if (isHeicFile(file)) return true
+  return IMAGE_NAME_RE.test(file.name)
 }
 
 export const formatPhotoUploadError = (error: unknown): string => {
@@ -165,8 +175,9 @@ export const normalizePhotoFile = async (
   } = {},
 ): Promise<File> => {
   let normalized = file
+  const startedAsHeic = isHeicFile(file)
 
-  if (typeof window !== "undefined" && isHeicFile(file)) {
+  if (typeof window !== "undefined" && startedAsHeic) {
     try {
       const { heicTo } = await import("heic-to")
       const blob = await heicTo({
@@ -175,15 +186,25 @@ export const normalizePhotoFile = async (
         quality: options.quality ?? 0.85,
       })
       if (blob instanceof Blob) {
-        const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg")
-        normalized = new File([blob], newName, { type: "image/jpeg" })
+        const newName = file.name.replace(/\.(heic|heif)$/i, ".jpg") || "photo.jpg"
+        normalized = new File([blob], newName.endsWith(".jpg") ? newName : `${newName}.jpg`, {
+          type: "image/jpeg",
+        })
       }
     } catch {
       // Seguiremos con compresión/canvas como fallback.
     }
   }
 
-  return compressImageIfNeeded(normalized, options)
+  normalized = await compressImageIfNeeded(normalized, options)
+
+  if (startedAsHeic && isHeicFile(normalized)) {
+    throw new Error(
+      "No se pudo convertir la foto HEIC. Prueba a exportarla como JPG desde Fotos o usa otra imagen.",
+    )
+  }
+
+  return normalized
 }
 
 export const assertPhotoWithinUploadLimit = (file: File, maxBytes = MAX_PHOTO_UPLOAD_BYTES): void => {

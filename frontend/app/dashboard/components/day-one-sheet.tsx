@@ -168,16 +168,7 @@ export function DayOneSheet() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     if (files.length > 0) {
-      const oversized = files.find((file) => file.size > 10 * 1024 * 1024)
-      if (oversized) {
-        toast({
-          title: "❌ Error",
-          description: "La imagen es demasiado grande. Máximo 10MB",
-          variant: "destructive"
-        })
-        return
-      }
-
+      // Size is enforced after normalizePhotoFile (HEIC often exceeds 5MB before convert).
       photoPreviews.forEach((preview) => URL.revokeObjectURL(preview))
       setSelectedFiles(files)
       setPhotoPreviews(files.map((file) => URL.createObjectURL(file)))
@@ -377,7 +368,7 @@ export function DayOneSheet() {
                           ref={fileInputRef}
                           id="photo-file"
                           type="file"
-                          accept="image/*"
+                          accept="image/*,.heic,.heif"
                           multiple
                           onChange={handleFileSelect}
                           className="hidden"
