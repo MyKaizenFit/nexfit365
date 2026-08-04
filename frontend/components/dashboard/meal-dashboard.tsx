@@ -20,7 +20,7 @@ const WeeklyMealPlan = lazy(() => import('@/app/dashboard/components/weekly-meal
 const MonthlyMealPlan = lazy(() => import('@/app/dashboard/components/monthly-meal-plan').then(module => ({ default: module.MonthlyMealPlan })))
 
 export function MealDashboard() {
-  const { meals, macros, loading, hasUserPlan, syncing, selectMealOption, deselectMealOption, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
+  const { meals, macros, loading, hasUserPlan, syncing, selectMealOption, deselectMealOption, markMealCompleted, markMealAsNotEaten, getMealOptions, refreshData } = useDailyMeals()
   const { userStats, refreshStats } = useUserData()
   const [selectedMeal, setSelectedMeal] = useState<{
     id: string
@@ -397,9 +397,20 @@ export function MealDashboard() {
                           <Plus className="h-3.5 w-3.5" />
                           <span>Seleccionar</span>
                         </button>
+                      ) : meal.selectedOption && !meal.isCompleted && !meal.isSkipped ? (
+                        <button
+                          type="button"
+                          onClick={async () => { await markMealCompleted(meal.id) }}
+                          className="flex items-center justify-center gap-1 rounded-xl bg-emerald-100 px-2 py-2 text-xs font-bold text-emerald-800 transition-colors hover:bg-emerald-200 disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={syncing}
+                          aria-label={`Marcar ${meal.name} como consumida`}
+                        >
+                          <Target className="h-3.5 w-3.5" />
+                          <span>Consumida</span>
+                        </button>
                       ) : (
                         <span className="flex items-center justify-center gap-1 rounded-xl bg-emerald-50 px-2 py-2 text-xs font-bold text-emerald-700">
-                          Seleccionada
+                          {meal.isCompleted ? 'Consumida' : 'Seleccionada'}
                         </span>
                       )}
                       {!meal.isSkipped ? (
@@ -459,6 +470,7 @@ export function MealDashboard() {
               mealName={selectedMeal.name}
               mealTime={selectedMeal.time}
               mealType={selectedMeal.mealType}
+              planMealId={selectedMeal.id}
               options={getMealOptions(selectedMeal.id)}
               currentSelection={selectedMeal.currentSelection}
               initialOption={selectedMeal.initialOption}
