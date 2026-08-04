@@ -629,7 +629,7 @@ export function DashboardEnhanced({ className }: DashboardEnhancedProps) {
               <Input
                 id="photo-upload"
                 type="file"
-                accept="image/*"
+                accept="image/*,.heic,.heif"
                 onChange={handleFileSelect}
                 className="cursor-pointer text-sm"
               />

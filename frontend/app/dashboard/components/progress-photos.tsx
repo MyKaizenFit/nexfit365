@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ProgressPhotoPackages } from "@/components/progress-photo-packages"
 import { getPhotoTypeLabel, PHOTO_TYPE_OPTIONS, type ProgressPhotoType } from "@/lib/progress-photo-types"
 import { buildComparisonsByType } from "@/lib/progress-photo-compare"
+import { formatPhotoUploadError, isLikelyImageFile } from "@/lib/image-upload"
 
 export function ProgressPhotos() {
   const [currentPhoto, setCurrentPhoto] = useState(0)
@@ -44,7 +45,7 @@ export function ProgressPhotos() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || [])
     if (files.length > 0) {
-      if (files.every((file) => file.type.startsWith('image/'))) {
+      if (files.every((file) => isLikelyImageFile(file))) {
         previewUrls.forEach((url) => URL.revokeObjectURL(url))
         setSelectedFiles(files)
         setPreviewUrls(files.map((file) => URL.createObjectURL(file)))
@@ -94,7 +95,7 @@ export function ProgressPhotos() {
     } catch (error) {
       toast({
         title: "❌ Error",
-        description: "No se pudo subir la foto. Inténtalo de nuevo.",
+        description: formatPhotoUploadError(error),
         variant: "destructive",
       })
     }
@@ -312,7 +313,7 @@ export function ProgressPhotos() {
                         ref={fileInputRef}
                         id="photo-upload"
                         type="file"
-                        accept="image/*"
+                        accept="image/*,.heic,.heif"
                         multiple
                         onChange={handleFileSelect}
                         className="hidden"

@@ -45,3 +45,18 @@ def test_progress_photo_accepts_png():
     upload = SimpleUploadedFile("ok.png", png, content_type="image/png")
     serializer = ProgressPhotoSerializer()
     assert serializer.validate_photo(upload) is upload
+
+
+@pytest.mark.django_db
+def test_progress_photo_accepts_real_image_with_wrong_mime_label():
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (1, 1), color=(0, 128, 255)).save(buffer, format="JPEG")
+    upload = SimpleUploadedFile(
+        "camera.jpg",
+        buffer.getvalue(),
+        content_type="text/plain",
+    )
+    serializer = ProgressPhotoSerializer()
+    assert serializer.validate_photo(upload) is upload

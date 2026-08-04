@@ -162,10 +162,12 @@ export const getAuthHeaders = (token?: string): Record<string, string> => {
 
   if (typeof window !== 'undefined') {
     try {
+      // Prefer the last csrfToken if duplicates exist (stale host-only often sorts first).
       const csrf = document.cookie
         .split(';')
         .map((c) => c.trim())
-        .find((c) => c.startsWith('csrfToken='))
+        .filter((c) => c.startsWith('csrfToken='))
+        .pop()
       if (csrf) {
         headers['X-CSRFToken'] = decodeURIComponent(csrf.substring('csrfToken='.length))
       }

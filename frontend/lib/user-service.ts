@@ -5,7 +5,7 @@ import { buildApiUrl, getAuthHeaders, getMultipartAuthHeaders, handleApiResponse
 import { getAuthService } from './auth-service'
 import { requestThrottler } from './request-throttle'
 import { apiCache, generateCacheKey } from './api-cache'
-import { normalizePhotoFile } from './image-upload'
+import { assertPhotoWithinUploadLimit, normalizePhotoFile } from './image-upload'
 import type { ProgressPhotoType } from '@/lib/progress-photo-types'
 import { todayLocalDate } from './local-date'
 
@@ -270,6 +270,7 @@ export class UserService {
       const url = buildApiUrl('progress-photos/')
 
       const normalizedFile = await normalizeProgressPhotoFile(file)
+      assertPhotoWithinUploadLimit(normalizedFile)
 
       // Crear FormData
       const formData = new FormData()

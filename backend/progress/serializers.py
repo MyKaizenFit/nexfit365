@@ -103,8 +103,11 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         }
 
         content_type = (value.content_type or "").lower().strip()
-        if content_type in {"", "application/octet-stream"}:
-            content_type = self._detect_image_content_type(value) or content_type
+        if content_type not in allowed_types:
+            # Mobile clients often send empty, octet-stream, or odd MIME labels for real images.
+            detected = self._detect_image_content_type(value)
+            if detected in allowed_types:
+                content_type = detected
 
         if content_type not in allowed_types:
             raise serializers.ValidationError(
