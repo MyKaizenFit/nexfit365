@@ -47,6 +47,47 @@ const resolveRecipeImageSrc = (src?: string | null) => {
   return value
 }
 
+export function alignPersonalizedQuantitiesWithOption(
+  personalized: PersonalizedRecipeQuantities,
+  option: MealOption,
+  recipeServings = 1,
+): PersonalizedRecipeQuantities {
+  const optionCalories = option.calories ?? 0
+  const originalCalories = personalized.original_calories ?? 0
+  if (optionCalories <= 0 || originalCalories <= 0) {
+    return personalized
+  }
+
+  const scaleFactor = optionCalories / originalCalories
+  const existingScale = personalized.scale_factor > 0 ? personalized.scale_factor : 1
+  const ingredients = personalized.ingredients.map((ingredient) => {
+    if (ingredient.amount === null || ingredient.amount === undefined || ingredient.amount === '') {
+      return ingredient
+    }
+    const amount = Number(ingredient.amount)
+    if (!Number.isFinite(amount)) {
+      return ingredient
+    }
+    const originalAmount = amount / existingScale
+    return { ...ingredient, amount: Math.round(originalAmount * scaleFactor * 10) / 10 }
+  })
+
+  return {
+    ...personalized,
+    scale_factor: scaleFactor,
+    servings: Math.max(1, Math.round((recipeServings || personalized.servings || 1) * scaleFactor)),
+    target_calories: optionCalories,
+    macros: {
+      calories: optionCalories,
+      protein: option.protein ?? personalized.macros.protein,
+      carbs: option.carbs ?? personalized.macros.carbs,
+      fat: option.fat ?? personalized.macros.fat,
+      fiber: personalized.macros.fiber,
+    },
+    ingredients,
+  }
+}
+
 export function MealSelectionModal({
   isOpen,
   onClose,
@@ -138,7 +179,6 @@ export function MealSelectionModal({
     setLoadingRecipe(true)
     try {
       const resolvedMealType = mealType || mealTypeMap[mealName] || "lunch"
-      let recipe: Recipe | null = null
       let recipeId: number | string | null = null
 
       // Validar y obtener recipeId
@@ -175,14 +215,6 @@ export function MealSelectionModal({
         })
         return
       }
-      const recipeInfo = {
-        recipeId, 
-        mealType: resolvedMealType, 
-        mealName,
-        optionName: option.name,
-        optionId: option.id
-      }
-      
       const data = await nutritionService.getPersonalizedRecipe(recipeId!, resolvedMealType)
       
       // Validar que la receta cargada corresponde a la opción seleccionada
@@ -202,31 +234,11 @@ export function MealSelectionModal({
       }
 
       if (data && data.recipe) {
-        // Rescale ingredients to match the option's pre-computed macros (avoid plan vs personalized discrepancy)
-        let personalized = data.personalized_quantities
-        const optionCalories = option.calories ?? 0
-        const originalCalories = personalized?.original_calories ?? 0
-        if (optionCalories > 0 && originalCalories > 0 && personalized) {
-          const correctScale = optionCalories / originalCalories
-          const existingScale = personalized.scale_factor > 0 ? personalized.scale_factor : 1
-          const rescaledIngredients = personalized.ingredients.map(ing => {
-            const amount = ing.amount != null ? Number(ing.amount) : 0
-            const originalAmount = amount / existingScale
-            return { ...ing, amount: Math.round(originalAmount * correctScale * 10) / 10 }
-          })
-          personalized = {
-            ...personalized,
-            scale_factor: correctScale,
-            macros: {
-              calories: optionCalories,
-              protein: option.protein ?? personalized.macros.protein,
-              carbs: option.carbs ?? personalized.macros.carbs,
-              fat: option.fat ?? personalized.macros.fat,
-              fiber: personalized.macros.fiber,
-            },
-            ingredients: rescaledIngredients,
-          }
-        }
+        const personalized = alignPersonalizedQuantitiesWithOption(
+          data.personalized_quantities,
+          option,
+          data.recipe.servings || 1,
+        )
         setRecipeData({
           recipe: data.recipe,
           personalized,

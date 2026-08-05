@@ -1,6 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react'
-import { MealSelectionModal } from '@/components/dashboard/meal-selection-modal'
-import { nutritionService, MealOption } from '@/lib/nutrition-service'
+import {
+  alignPersonalizedQuantitiesWithOption,
+  MealSelectionModal,
+} from '@/components/dashboard/meal-selection-modal'
+import { nutritionService, MealOption, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 
 jest.mock('@/lib/nutrition-service', () => {
   const actual = jest.requireActual('@/lib/nutrition-service')
@@ -129,5 +132,39 @@ describe('MealSelectionModal recommendations', () => {
     })
     expect(screen.getByText('Cena pesada')).toBeInTheDocument()
     expect(screen.getByText('Cena ligera')).toBeInTheDocument()
+  })
+
+  it('aligns recipe detail quantities with persisted plan option macros once', () => {
+    const personalized: PersonalizedRecipeQuantities = {
+      scale_factor: 1.5,
+      ingredients: [
+        { name: 'Arroz', amount: 150, unit: 'g' },
+        { name: 'Sal', amount: null, unit: null, note: 'al gusto' },
+      ],
+      macros: { calories: 600, protein: 30, carbs: 75, fat: 15 },
+      servings: 2,
+      target_calories: 600,
+      original_calories: 400,
+      meal_type: 'lunch',
+      meal_percentage: 25,
+    }
+    const option: MealOption = {
+      id: 'meal-slot-recipe-1',
+      name: 'Arroz plan',
+      calories: 500,
+      protein: 35,
+      carbs: 60,
+      fat: 14,
+      description: 'Persistida por la coach',
+      recipeId: 'recipe-1',
+    }
+
+    const aligned = alignPersonalizedQuantitiesWithOption(personalized, option, 1)
+
+    expect(aligned.scale_factor).toBe(1.25)
+    expect(aligned.target_calories).toBe(500)
+    expect(aligned.macros).toMatchObject({ calories: 500, protein: 35, carbs: 60, fat: 14 })
+    expect(aligned.ingredients[0].amount).toBe(125)
+    expect(aligned.ingredients[1]).toEqual(personalized.ingredients[1])
   })
 })
