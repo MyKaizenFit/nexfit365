@@ -272,20 +272,23 @@ export class UserService {
       const normalizedFile = await normalizeProgressPhotoFile(file)
       assertPhotoWithinUploadLimit(normalizedFile)
 
-      // Crear FormData
-      const formData = new FormData()
-      formData.append('photo', normalizedFile, normalizedFile.name)
-      formData.append('photo_type', photoType)
-      formData.append('date', date || new Date().toLocaleDateString('en-CA'))
-      
-      // Asegurar que el peso se envíe como número
-      if (weight !== undefined && weight !== null) {
-        formData.append('weight', weight.toString())
-      }
-      
-      // Asegurar que las notas se envíen como string
-      if (notes && notes.trim()) {
-        formData.append('notes', notes.trim())
+      const buildProgressPhotoFormData = () => {
+        const formData = new FormData()
+        formData.append('photo', normalizedFile, normalizedFile.name)
+        formData.append('photo_type', photoType)
+        formData.append('date', date || new Date().toLocaleDateString('en-CA'))
+
+        // Asegurar que el peso se envíe como número
+        if (weight !== undefined && weight !== null) {
+          formData.append('weight', weight.toString())
+        }
+
+        // Asegurar que las notas se envíen como string
+        if (notes && notes.trim()) {
+          formData.append('notes', notes.trim())
+        }
+
+        return formData
       }
 
       // CSRF/Bearer required for cookie sessions; never set Content-Type on FormData.
@@ -298,11 +301,11 @@ export class UserService {
         credentials: 'include',
         method: 'POST',
         headers,
-        body: formData,
+        body: buildProgressPhotoFormData(),
       })
 
-      if (response.status === 403) {
-        // Stale/mismatched csrfToken cookie is a common cause; refresh session and retry once.
+      if (response.status === 401 || response.status === 403) {
+        // Stale auth/csrf can fail after file selection; refresh and retry once with a fresh multipart body.
         try {
           await authService.refreshAccessTokenDeduped()
           const retryHeaders: Record<string, string> = { ...getMultipartAuthHeaders() }
@@ -313,7 +316,7 @@ export class UserService {
             credentials: 'include',
             method: 'POST',
             headers: retryHeaders,
-            body: formData,
+            body: buildProgressPhotoFormData(),
           })
           if (retry.ok) {
             const result = await handleApiResponse<ProgressPhoto>(retry)

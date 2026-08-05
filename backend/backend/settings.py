@@ -17,9 +17,11 @@ import logging
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Soporte opcional para HEIC/HEIF (fotos iOS)
+PILLOW_HEIF_ENABLED = False
 try:
     import pillow_heif
     pillow_heif.register_heif_opener()
+    PILLOW_HEIF_ENABLED = True
 except Exception:
     pass
 

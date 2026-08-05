@@ -1,14 +1,35 @@
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from rest_framework import serializers
+from django.conf import settings
 
 from .models import ProgressPhoto, WeightEntry, BodyMeasurement, DailyWellness, RestWellnessAssessment
 from .media_views import build_signed_progress_media_url
 from .photo_types import ALL_TYPE_KEYS
 
 
+HEIC_CONTENT_TYPES = {"image/heic", "image/heif"}
+HEIC_EXTENSIONS = (".heic", ".heif")
+HEIC_UNSUPPORTED_MESSAGE = (
+    "Las fotos HEIC/HEIF no están disponibles en este entorno. "
+    "Convierte la imagen a JPG o PNG antes de subirla."
+)
+
+
+class ProgressPhotoImageField(serializers.ImageField):
+    def to_internal_value(self, data):
+        content_type = (getattr(data, "content_type", "") or "").lower().strip()
+        name = (getattr(data, "name", "") or "").lower()
+        is_heic = content_type in HEIC_CONTENT_TYPES or name.endswith(HEIC_EXTENSIONS)
+
+        if is_heic and not getattr(settings, "PILLOW_HEIF_ENABLED", False):
+            raise serializers.ValidationError(HEIC_UNSUPPORTED_MESSAGE)
+
+        return super().to_internal_value(data)
+
 
 class ProgressPhotoSerializer(serializers.ModelSerializer):
+    photo = ProgressPhotoImageField()
     user = serializers.ReadOnlyField(source="user.email")
     photo_url = serializers.SerializerMethodField()
     thumbnail_url = serializers.SerializerMethodField()
@@ -86,7 +107,6 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
         if not hasattr(value, "size") or not hasattr(value, "content_type"):
             raise serializers.ValidationError("El campo photo debe ser un archivo válido")
 
-        from django.conf import settings
         if value.size > settings.MAX_PROGRESS_PHOTO_SIZE:
             raise serializers.ValidationError(
                 f"El archivo es demasiado grande. Tamaño máximo: {settings.MAX_PROGRESS_PHOTO_SIZE // (1024*1024)}MB"
@@ -98,16 +118,20 @@ class ProgressPhotoSerializer(serializers.ModelSerializer):
             "image/jpg",
             "image/pjpeg",
             "image/webp",
-            "image/heic",
-            "image/heif",
         }
+        if getattr(settings, "PILLOW_HEIF_ENABLED", False):
+            allowed_types |= HEIC_CONTENT_TYPES
 
         content_type = (value.content_type or "").lower().strip()
         if content_type not in allowed_types:
-            # Mobile clients often send empty, octet-stream, or odd MIME labels for real images.
+            # Mobile clients often send odd MIME labels for real images.
             detected = self._detect_image_content_type(value)
             if detected in allowed_types:
                 content_type = detected
+
+        heif_enabled = getattr(settings, "PILLOW_HEIF_ENABLED", False)
+        if content_type in HEIC_CONTENT_TYPES and not heif_enabled:
+            raise serializers.ValidationError(HEIC_UNSUPPORTED_MESSAGE)
 
         if content_type not in allowed_types:
             raise serializers.ValidationError(
