@@ -365,11 +365,6 @@ function DashboardContent() {
                 <Suspense fallback={<DashboardSectionFallback><MealsSectionSkeleton /></DashboardSectionFallback>}>
                   <MealDashboard />
                 </Suspense>
-                {!hideUpsellSections ? (
-                  <Suspense fallback={null}>
-                    <CoachingCTA placement="meals" cooldownHours={48} />
-                  </Suspense>
-                ) : null}
               </div>
             </div>
           </div>
