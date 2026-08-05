@@ -324,6 +324,60 @@ class TestMealLogViewSet:
         assert response.status_code == status.HTTP_201_CREATED
         assert MealLog.objects.filter(date='2025-01-16').exists()
 
+    def test_create_uncompleted_meal_log_zeros_macros(self, api_client, member_user, meal):
+        """Una seleccion no completada no debe contar kcal ni macros."""
+        api_client.force_authenticate(user=member_user)
+        url = reverse('meallog-list')
+        data = {
+            'plan_meal': str(meal.id),
+            'meal_type': meal.meal_type,
+            'date': '2026-08-06',
+            'completed': False,
+            'calories': 707,
+            'protein': 50.69,
+            'carbs': 83.2,
+            'fat': 22.02,
+        }
+
+        response = api_client.post(url, data, format='json')
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert int(response.data['calories']) == 0
+        assert float(response.data['protein']) == 0
+        log = MealLog.objects.get(id=response.data['id'])
+        assert log.completed is False
+        assert log.calories == 0
+        assert log.protein == 0
+        assert log.carbs == 0
+        assert log.fat == 0
+
+    def test_marking_meal_log_uncompleted_zeros_existing_macros(self, api_client, member_user, meal):
+        """Al desmarcar una comida, los macros persistidos dejan de contar."""
+        meal_log = baker.make(
+            MealLog,
+            user=member_user,
+            plan_meal=meal,
+            meal_type=meal.meal_type,
+            date='2026-08-07',
+            completed=True,
+            calories=500,
+            protein=30,
+            carbs=45,
+            fat=15,
+        )
+        api_client.force_authenticate(user=member_user)
+        url = reverse('meallog-detail', kwargs={'pk': meal_log.id})
+
+        response = api_client.patch(url, {'completed': False}, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        meal_log.refresh_from_db()
+        assert meal_log.completed is False
+        assert meal_log.calories == 0
+        assert meal_log.protein == 0
+        assert meal_log.carbs == 0
+        assert meal_log.fat == 0
+
     def test_meal_log_unique_constraint(self, api_client, member_user, meal):
         """No se pueden crear logs duplicados para la misma fecha y comida"""
         # Crear primer log

@@ -422,6 +422,14 @@ class MealLogSerializer(serializers.ModelSerializer):
                     'meal': 'Ya existe un log para esta comida en la fecha indicada.'
                 })
 
+        completed = attrs.get('completed', getattr(self.instance, 'completed', False))
+        is_skipped = attrs.get('is_skipped', getattr(self.instance, 'is_skipped', False))
+        if not completed or is_skipped:
+            attrs['calories'] = 0
+            attrs['protein'] = 0
+            attrs['carbs'] = 0
+            attrs['fat'] = 0
+
         return attrs
 
 
