@@ -45,7 +45,12 @@ def should_send_push(notification) -> bool:
 
 
 def should_send_email(notification) -> bool:
-    if not bool(_notification_data(notification).get("send_email", True)):
+    data = _notification_data(notification)
+    if not bool(data.get("send_email", False)):
+        return False
+    if not bool(data.get("created_by_admin", False)):
+        return False
+    if bool(data.get("created_by_automation", False)):
         return False
     prefs = _user_prefs(notification)
     if not _pref_enabled(prefs, "email", default=True):

@@ -239,7 +239,7 @@ def _run_automation_for_key(automation_key, actor):
         raise ValueError('Automatización no soportada')
 
     snapshot = _collect_automation_snapshot()
-    target_qs = snapshot['querysets'][automation_key]
+    target_qs = snapshot['querysets'][automation_key].exclude(role='premium')
     target_ids = list(target_qs.values_list('id', flat=True))
     normalized_type = _normalize_notification_type(config['type'])
     expires_at = _default_expiration_for_type(normalized_type)

@@ -12,6 +12,10 @@ from nutrition.models import NutritionPlan
 logger = logging.getLogger(__name__)
 
 
+def _should_create_automatic_user_notification(user) -> bool:
+    return str(getattr(user, 'role', '') or '').lower() != 'premium'
+
+
 @receiver(pre_save, sender=CustomUser)
 def store_user_previous_values(sender, instance, **kwargs):
     """
@@ -114,6 +118,29 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
                     notes=f"Actualización automática: {update_reason}",
                     old_weight=old_weight
                 )
+
+                if _should_create_automatic_user_notification(instance):
+                    try:
+                        from notifications.models import Notification
+                        Notification.objects.create(
+                            user=instance,
+                            type='nutrition',
+                            title='Plan nutricional actualizado',
+                            message=(
+                                f'Tu plan nutricional se ha ajustado automáticamente: {update_reason}. '
+                                f'Nuevas calorías: {updated_plan.daily_calories} kcal.'
+                            ),
+                            data={
+                                'old_calories': active_plan.daily_calories,
+                                'new_calories': updated_plan.daily_calories,
+                                'reason': update_reason,
+                                'created_by_automation': True,
+                                'source': 'nutrition_plan_auto_update',
+                                'send_email': False,
+                            }
+                        )
+                    except Exception as notif_error:
+                        logger.warning(f"No se pudo crear notificación: {notif_error}")
                 
                 logger.info(f"✅ Plan actualizado automáticamente para {instance.email}: {update_reason}")
         else:
@@ -160,6 +187,29 @@ def update_plan_on_weight_entry(sender, instance, created, **kwargs):
                     notes=f"Actualización automática tras registro de peso: {update_reason}",
                     old_weight=old_weight
                 )
+
+                if _should_create_automatic_user_notification(user):
+                    try:
+                        from notifications.models import Notification
+                        Notification.objects.create(
+                            user=user,
+                            type='nutrition',
+                            title='Plan nutricional actualizado',
+                            message=(
+                                f'Tu plan nutricional se ha ajustado automáticamente tras registrar tu peso: '
+                                f'{update_reason}. Nuevas calorías: {updated_plan.daily_calories} kcal.'
+                            ),
+                            data={
+                                'old_calories': active_plan.daily_calories,
+                                'new_calories': updated_plan.daily_calories,
+                                'reason': update_reason,
+                                'created_by_automation': True,
+                                'source': 'nutrition_plan_auto_update',
+                                'send_email': False,
+                            }
+                        )
+                    except Exception as notif_error:
+                        logger.warning(f"No se pudo crear notificación: {notif_error}")
                 
                 logger.info(f"✅ Plan actualizado automáticamente para {user.email} tras entrada de peso: {update_reason}")
             
