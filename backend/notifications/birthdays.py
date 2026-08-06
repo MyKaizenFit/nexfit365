@@ -28,9 +28,15 @@ def get_admin_users():
     ).distinct()
 
 
+def is_premium_user(user) -> bool:
+    return str(getattr(user, "role", "") or "").lower() == "premium"
+
+
 def ensure_user_birthday_notification(user, today=None) -> bool:
     today = today or timezone.localdate()
     if not is_birthday_today(user, today):
+        return False
+    if is_premium_user(user):
         return False
 
     exists = Notification.objects.filter(

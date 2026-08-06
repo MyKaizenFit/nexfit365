@@ -5,6 +5,7 @@
 
 # next.js
 /.next/
+/.next-e2e/
 /out/
 
 # production
@@ -41,3 +42,4 @@ public/videos/
 *.MKV
 
 .next-local/
+test-results/

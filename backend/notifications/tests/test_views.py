@@ -395,6 +395,17 @@ class TestAdminNotificationViews:
         fresh_user.last_login = timezone.now() - timedelta(days=2)
         fresh_user.save(update_fields=["last_login"])
 
+        premium_stale_user = User.objects.create_user(
+            email="reactivation-premium@example.com",
+            password="PremiumPass123!",
+            first_name="Premium",
+            last_name="User",
+            role="premium",
+            is_active=True,
+        )
+        premium_stale_user.last_login = timezone.now() - timedelta(days=20)
+        premium_stale_user.save(update_fields=["last_login"])
+
         url = reverse("admin-notifications-run-automation")
         response = admin_headers.post(url, {"automation_key": "reactivation"}, format="json")
 
@@ -402,6 +413,7 @@ class TestAdminNotificationViews:
         assert response.data["notifications_created"] == 1
         assert Notification.objects.filter(user=stale_user, title__icontains="Volvamos").exists()
         assert not Notification.objects.filter(user=fresh_user, title__icontains="Volvamos").exists()
+        assert not Notification.objects.filter(user=premium_stale_user, title__icontains="Volvamos").exists()
         assert Notification.objects.filter(
             user=admin_user,
             data__created_by_automation=True,
