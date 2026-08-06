@@ -15,6 +15,7 @@ from django.core.validators import FileExtensionValidator
 import logging
 from datetime import timedelta
 from django.db import IntegrityError
+from uuid import uuid4
 
 from .models import Exercise, ExerciseSubstitution
 from .serializers import ExerciseSerializer
@@ -63,6 +64,31 @@ def validate_uploaded_file(uploaded_file, *, max_size, allowed_extensions, label
         return f"Formato de {label.lower()} no permitido. Usa: {', '.join(allowed_extensions)}"
 
     return None
+
+
+def _get_upload_id(request) -> str:
+    raw_upload_id = str(request.headers.get('X-Upload-ID') or '').strip()
+    if raw_upload_id and len(raw_upload_id) <= 80 and all(
+        char.isalnum() or char in {'-', '_'} for char in raw_upload_id
+    ):
+        return raw_upload_id
+    return str(uuid4())
+
+
+def _upload_file_metadata(uploaded_file):
+    if not uploaded_file:
+        return {
+            'size': 0,
+            'content_type': '',
+            'extension': '',
+        }
+    name = str(getattr(uploaded_file, 'name', '') or '')
+    extension = name.rsplit('.', 1)[-1].lower() if '.' in name else ''
+    return {
+        'size': int(getattr(uploaded_file, 'size', 0) or 0),
+        'content_type': str(getattr(uploaded_file, 'content_type', '') or ''),
+        'extension': extension,
+    }
 
 
 class LargeResultsSetPagination(PageNumberPagination):
@@ -793,8 +819,18 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='upload-video')
     def upload_video(self, request, pk=None):
+        upload_id = _get_upload_id(request)
         exercise = self.get_object()
         video_file = request.FILES.get('video_file')
+        metadata = _upload_file_metadata(video_file)
+        logger.info(
+            "exercise_video_upload_start upload_id=%s exercise_id=%s size=%s content_type=%s extension=%s",
+            upload_id,
+            exercise.id,
+            metadata['size'],
+            metadata['content_type'],
+            metadata['extension'],
+        )
         error = validate_uploaded_file(
             video_file,
             max_size=MAX_EXERCISE_VIDEO_SIZE,
@@ -802,40 +838,95 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             label='Video',
         )
         if error:
-            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(
+                "exercise_video_upload_rejected upload_id=%s exercise_id=%s reason=validation detail=%s",
+                upload_id,
+                exercise.id,
+                error,
+            )
+            response = Response({'detail': error, 'upload_id': upload_id}, status=status.HTTP_400_BAD_REQUEST)
+            response['X-Upload-ID'] = upload_id
+            return response
 
-        previous_file_name = exercise.video_file.name if exercise.video_file else ''
+        previous_state = {
+            'video_file': exercise.video_file.name if exercise.video_file else '',
+            'video_url': exercise.video_url,
+            'google_drive_file_id': exercise.google_drive_file_id,
+        }
         try:
             exercise.video_file = video_file
             exercise.video_url = ''
             exercise.google_drive_file_id = ''
             exercise.save(update_fields=['video_file', 'video_url', 'google_drive_file_id', 'updated_at'])
         except Exception as exc:
-            logger.exception("Error al guardar video del ejercicio %s", exercise.id)
-            return Response(
-                {'detail': f'Error al guardar el video: {exc}'},
+            logger.exception(
+                "exercise_video_upload_error upload_id=%s exercise_id=%s phase=storage_save",
+                upload_id,
+                exercise.id,
+            )
+            response = Response(
+                {
+                    'detail': 'Error temporal al guardar el video. Inténtalo de nuevo.',
+                    'upload_id': upload_id,
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+            response['X-Upload-ID'] = upload_id
+            return response
 
         saved_name = exercise.video_file.name if exercise.video_file else ''
         if not saved_name or not _storage_file_exists(saved_name):
-            exercise.video_file = previous_file_name or ''
-            exercise.save(update_fields=['video_file', 'updated_at'])
-            return Response(
-                {'detail': 'El video no se guardó en el servidor. Comprueba tamaño/formato e inténtalo de nuevo.'},
+            exercise.video_file = previous_state['video_file'] or ''
+            exercise.video_url = previous_state['video_url']
+            exercise.google_drive_file_id = previous_state['google_drive_file_id']
+            exercise.save(update_fields=['video_file', 'video_url', 'google_drive_file_id', 'updated_at'])
+            logger.error(
+                "exercise_video_upload_error upload_id=%s exercise_id=%s phase=storage_verify saved_name_present=%s previous_video_restored=%s",
+                upload_id,
+                exercise.id,
+                bool(saved_name),
+                bool(previous_state['video_file'] or previous_state['video_url'] or previous_state['google_drive_file_id']),
+            )
+            response = Response(
+                {
+                    'detail': 'El video no se guardó en el servidor. Comprueba tamaño/formato e inténtalo de nuevo.',
+                    'upload_id': upload_id,
+                },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+            response['X-Upload-ID'] = upload_id
+            return response
 
-        if previous_file_name and previous_file_name != saved_name:
-            _delete_stored_file(previous_file_name)
+        if previous_state['video_file'] and previous_state['video_file'] != saved_name:
+            _delete_stored_file(previous_state['video_file'])
 
         serializer = self.get_serializer(exercise)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        logger.info(
+            "exercise_video_upload_success upload_id=%s exercise_id=%s size=%s extension=%s previous_video_replaced=%s",
+            upload_id,
+            exercise.id,
+            metadata['size'],
+            metadata['extension'],
+            bool(previous_state['video_file']),
+        )
+        response = Response({**serializer.data, 'upload_id': upload_id}, status=status.HTTP_200_OK)
+        response['X-Upload-ID'] = upload_id
+        return response
 
     @action(detail=True, methods=['post'], url_path='upload-thumbnail')
     def upload_thumbnail(self, request, pk=None):
+        upload_id = _get_upload_id(request)
         exercise = self.get_object()
         thumbnail = request.FILES.get('thumbnail')
+        metadata = _upload_file_metadata(thumbnail)
+        logger.info(
+            "exercise_thumbnail_upload_start upload_id=%s exercise_id=%s size=%s content_type=%s extension=%s",
+            upload_id,
+            exercise.id,
+            metadata['size'],
+            metadata['content_type'],
+            metadata['extension'],
+        )
         error = validate_uploaded_file(
             thumbnail,
             max_size=MAX_EXERCISE_THUMBNAIL_SIZE,
@@ -843,12 +934,29 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             label='Miniatura',
         )
         if error:
-            return Response({'detail': error}, status=status.HTTP_400_BAD_REQUEST)
+            logger.warning(
+                "exercise_thumbnail_upload_rejected upload_id=%s exercise_id=%s reason=validation detail=%s",
+                upload_id,
+                exercise.id,
+                error,
+            )
+            response = Response({'detail': error, 'upload_id': upload_id}, status=status.HTTP_400_BAD_REQUEST)
+            response['X-Upload-ID'] = upload_id
+            return response
 
         exercise.thumbnail = thumbnail
         exercise.save(update_fields=['thumbnail', 'updated_at'])
         serializer = self.get_serializer(exercise)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        logger.info(
+            "exercise_thumbnail_upload_success upload_id=%s exercise_id=%s size=%s extension=%s",
+            upload_id,
+            exercise.id,
+            metadata['size'],
+            metadata['extension'],
+        )
+        response = Response({**serializer.data, 'upload_id': upload_id}, status=status.HTTP_200_OK)
+        response['X-Upload-ID'] = upload_id
+        return response
 
     @action(detail=True, methods=['post'], url_path='set-cover-url')
     def set_cover_url(self, request, pk=None):
@@ -1174,7 +1282,6 @@ class AdminExerciseViewSet(viewsets.ModelViewSet):
             'priority': s.priority,
             'notes': s.notes
         } for s in subs])
-
 
 
 
