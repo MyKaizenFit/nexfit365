@@ -59,9 +59,22 @@ export interface CategoryOption {
 const MAX_VIDEO_UPLOAD_BYTES = 300 * 1024 * 1024
 const MAX_THUMBNAIL_UPLOAD_BYTES = 10 * 1024 * 1024
 
+const createUploadId = () => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `upload-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+}
+
 const getMultipartHeaders = (headers: HeadersInit): HeadersInit => {
   const nextHeaders = new Headers(headers)
   nextHeaders.delete('Content-Type')
+  return nextHeaders
+}
+
+const withUploadIdHeader = (headers: HeadersInit, uploadId: string): HeadersInit => {
+  const nextHeaders = new Headers(getMultipartHeaders(headers))
+  nextHeaders.set('X-Upload-ID', uploadId)
   return nextHeaders
 }
 
@@ -554,20 +567,25 @@ export const useAdminExercises = () => {
   }, [])
 
   const uploadExerciseVideo = async (exerciseId: number | string, videoFile: File): Promise<Exercise> => {
+    const uploadId = createUploadId()
+    const createVideoFormData = () => {
+      const formData = new FormData()
+      formData.append('video_file', videoFile)
+      return formData
+    }
+
     try {
       if (videoFile.size > MAX_VIDEO_UPLOAD_BYTES) {
         throw new Error('El video supera 300MB. Súbelo comprimido o usa Google Drive.')
       }
 
       let headers = await getAuthHeaders()
-      const formData = new FormData()
-      formData.append('video_file', videoFile)
 
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
         credentials: 'include',
         method: 'POST',
-        headers: getMultipartHeaders(headers),
-        body: formData
+        headers: withUploadIdHeader(headers, uploadId),
+        body: createVideoFormData()
       })
 
       if (response.status === 401) {
@@ -577,8 +595,8 @@ export const useAdminExercises = () => {
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
         credentials: 'include',
           method: 'POST',
-          headers: getMultipartHeaders(headers),
-          body: formData
+          headers: withUploadIdHeader(headers, uploadId),
+          body: createVideoFormData()
         })
       }
 
@@ -599,20 +617,25 @@ export const useAdminExercises = () => {
   }
 
   const uploadExerciseThumbnail = async (exerciseId: number | string, thumbnailFile: File): Promise<Exercise> => {
+    const uploadId = createUploadId()
+    const createThumbnailFormData = () => {
+      const formData = new FormData()
+      formData.append('thumbnail', thumbnailFile)
+      return formData
+    }
+
     try {
       if (thumbnailFile.size > MAX_THUMBNAIL_UPLOAD_BYTES) {
         throw new Error('La miniatura supera 10MB. Reduce el tamaño de la imagen.')
       }
 
       let headers = await getAuthHeaders()
-      const formData = new FormData()
-      formData.append('thumbnail', thumbnailFile)
 
       let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
         credentials: 'include',
         method: 'POST',
-        headers: getMultipartHeaders(headers),
-        body: formData
+        headers: withUploadIdHeader(headers, uploadId),
+        body: createThumbnailFormData()
       })
 
       if (response.status === 401) {
@@ -622,8 +645,8 @@ export const useAdminExercises = () => {
         response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-thumbnail/`), {
         credentials: 'include',
           method: 'POST',
-          headers: getMultipartHeaders(headers),
-          body: formData
+          headers: withUploadIdHeader(headers, uploadId),
+          body: createThumbnailFormData()
         })
       }
 
