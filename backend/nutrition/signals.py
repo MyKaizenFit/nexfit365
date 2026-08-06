@@ -115,23 +115,6 @@ def update_plan_on_user_change(sender, instance, created, **kwargs):
                     old_weight=old_weight
                 )
                 
-                # Crear notificación informativa (no requiere acción)
-                try:
-                    from notifications.models import Notification
-                    Notification.objects.create(
-                        user=instance,
-                        type='nutrition',
-                        title='Plan nutricional actualizado',
-                        message=f'Tu plan nutricional se ha ajustado automáticamente: {update_reason}. Nuevas calorías: {updated_plan.daily_calories} kcal.',
-                        data={
-                            'old_calories': active_plan.daily_calories,
-                            'new_calories': updated_plan.daily_calories,
-                            'reason': update_reason
-                        }
-                    )
-                except Exception as notif_error:
-                    logger.warning(f"No se pudo crear notificación: {notif_error}")
-                
                 logger.info(f"✅ Plan actualizado automáticamente para {instance.email}: {update_reason}")
         else:
             logger.debug(f"No se requirió actualización de plan para {instance.email}")
@@ -178,23 +161,6 @@ def update_plan_on_weight_entry(sender, instance, created, **kwargs):
                     old_weight=old_weight
                 )
                 
-                # Crear notificación informativa
-                try:
-                    from notifications.models import Notification
-                    Notification.objects.create(
-                        user=user,
-                        type='nutrition',
-                        title='Plan nutricional actualizado',
-                        message=f'Tu plan nutricional se ha ajustado automáticamente tras registrar tu peso: {update_reason}. Nuevas calorías: {updated_plan.daily_calories} kcal.',
-                        data={
-                            'old_calories': active_plan.daily_calories,
-                            'new_calories': updated_plan.daily_calories,
-                            'reason': update_reason
-                        }
-                    )
-                except Exception as notif_error:
-                    logger.warning(f"No se pudo crear notificación: {notif_error}")
-                
                 logger.info(f"✅ Plan actualizado automáticamente para {user.email} tras entrada de peso: {update_reason}")
             
     except Exception as e:
@@ -202,4 +168,3 @@ def update_plan_on_weight_entry(sender, instance, created, **kwargs):
         import traceback
         logger.error(traceback.format_exc())
         # No fallar la operación principal si hay error en la actualización
-
