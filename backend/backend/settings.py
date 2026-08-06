@@ -244,6 +244,7 @@ else:
         'authorization',
         'content-type',
         'dnt',
+        'idempotency-key',
         'origin',
         'user-agent',
         'x-client-path',
