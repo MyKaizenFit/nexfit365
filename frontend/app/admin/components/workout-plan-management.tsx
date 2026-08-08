@@ -136,11 +136,18 @@ async function readImportError(response: Response): Promise<string> {
   return `Error al importar (HTTP ${response.status})`
 }
 
-function formatImportRequestError(error: unknown): string {
+function formatImportRequestError(error: unknown, isExcel: boolean): string {
   if (error instanceof Error) {
     const message = error.message || ""
     if (message.toLowerCase().includes("failed to fetch")) {
-      return "No se pudo conectar con el servidor durante la subida. Si el Excel es grande, probablemente se superó el límite o el tiempo máximo de importación."
+      const fileType = isExcel ? "Excel" : "CSV"
+      return (
+        `No se pudo mantener la conexión con el servidor durante la importación del ${fileType}. ` +
+        `La importación puede no haberse completado. Comprueba los planes antes de volver a intentarlo.`
+      )
+    }
+    if (message.toLowerCase().includes("la petici") && message.toLowerCase().includes("tard")) {
+      return message
     }
     return message
   }
@@ -777,20 +784,23 @@ export function WorkoutPlanManagement() {
 
     setImporting(true);
 
+    const isExcel = file.name.toLowerCase().endsWith('.xlsx') || file.name.toLowerCase().endsWith('.xls')
+    const endpoint = isExcel
+      ? 'admin/workouts/workouts/import_excel/'
+      : 'admin/workouts/workouts/import_csv/';
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    // No enviar Content-Type manualmente: el navegador añade el boundary multipart
+    const importEndpoint = `${endpoint}?allow_user_plan_updates=${updateAssignedUserPlans ? 'true' : 'false'}`
+
     try {
-      const endpoint = (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))
-        ? 'admin/workouts/workouts/import_excel/'
-        : 'admin/workouts/workouts/import_csv/';
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // No enviar Content-Type manualmente: el navegador añade el boundary multipart
-      const importEndpoint = `${endpoint}?allow_user_plan_updates=${updateAssignedUserPlans ? 'true' : 'false'}`
       const response = await authenticatedFetch(importEndpoint, {
         method: 'POST',
         body: formData,
         cache: 'no-store',
+        uploadTimeoutMs: 300000,
       });
 
       if (!response.ok) {
@@ -825,7 +835,7 @@ export function WorkoutPlanManagement() {
       setImportResult(null)
       toast({
         title: '❌ Error',
-        description: formatImportRequestError(error),
+        description: formatImportRequestError(error, isExcel),
         variant: 'destructive'
       });
     } finally {
