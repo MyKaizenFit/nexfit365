@@ -1,5 +1,22 @@
+export const WORKOUT_IMPORT_TIMEOUT_MS = 300_000
+
 export function isExcelFile(fileName: string): boolean {
   return fileName.toLowerCase().endsWith('.xlsx') || fileName.toLowerCase().endsWith('.xls')
+}
+
+export function getWorkoutImportConfig(fileName: string): {
+  isExcel: boolean
+  endpoint: string
+  uploadTimeoutMs: number
+} {
+  const isExcel = isExcelFile(fileName)
+  return {
+    isExcel,
+    endpoint: isExcel
+      ? 'admin/workouts/workouts/import_excel/'
+      : 'admin/workouts/workouts/import_csv/',
+    uploadTimeoutMs: WORKOUT_IMPORT_TIMEOUT_MS,
+  }
 }
 
 export function formatImportRequestError(error: unknown, isExcel: boolean): string {

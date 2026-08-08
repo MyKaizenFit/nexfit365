@@ -1,6 +1,12 @@
-import { isExcelFile, formatImportRequestError } from "@/lib/workout-import-errors"
+import { isExcelFile, formatImportRequestError, getWorkoutImportConfig, WORKOUT_IMPORT_TIMEOUT_MS } from "@/lib/workout-import-errors"
 
 describe("workout-import-errors", () => {
+  describe("WORKOUT_IMPORT_TIMEOUT_MS", () => {
+    it("is 300000 (5 minutes)", () => {
+      expect(WORKOUT_IMPORT_TIMEOUT_MS).toBe(300_000)
+    })
+  })
+
   describe("isExcelFile", () => {
     it("returns true for .xlsx files", () => {
       expect(isExcelFile("plan.xlsx")).toBe(true)
@@ -25,6 +31,50 @@ describe("workout-import-errors", () => {
       expect(isExcelFile("plan.pdf")).toBe(false)
       expect(isExcelFile("plan")).toBe(false)
       expect(isExcelFile("")).toBe(false)
+    })
+  })
+
+  describe("getWorkoutImportConfig", () => {
+    it("returns CSV config for .csv files", () => {
+      const config = getWorkoutImportConfig("planes.csv")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_csv/")
+      expect(config.isExcel).toBe(false)
+      expect(config.uploadTimeoutMs).toBe(300_000)
+    })
+
+    it("returns CSV config for .CSV files (uppercase)", () => {
+      const config = getWorkoutImportConfig("PLANES.CSV")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_csv/")
+      expect(config.isExcel).toBe(false)
+      expect(config.uploadTimeoutMs).toBe(300_000)
+    })
+
+    it("returns Excel config for .xlsx files", () => {
+      const config = getWorkoutImportConfig("planes.xlsx")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_excel/")
+      expect(config.isExcel).toBe(true)
+      expect(config.uploadTimeoutMs).toBe(300_000)
+    })
+
+    it("returns Excel config for .XLSX files (uppercase)", () => {
+      const config = getWorkoutImportConfig("PLANES.XLSX")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_excel/")
+      expect(config.isExcel).toBe(true)
+      expect(config.uploadTimeoutMs).toBe(300_000)
+    })
+
+    it("returns Excel config for .xls files", () => {
+      const config = getWorkoutImportConfig("planes.xls")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_excel/")
+      expect(config.isExcel).toBe(true)
+      expect(config.uploadTimeoutMs).toBe(300_000)
+    })
+
+    it("returns Excel config for .XLS files (uppercase)", () => {
+      const config = getWorkoutImportConfig("PLANES.XLS")
+      expect(config.endpoint).toBe("admin/workouts/workouts/import_excel/")
+      expect(config.isExcel).toBe(true)
+      expect(config.uploadTimeoutMs).toBe(300_000)
     })
   })
 

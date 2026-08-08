@@ -11,7 +11,7 @@ import { useAdminWorkoutPlans, WorkoutPlan, Exercise, WorkoutDay } from "@/hooks
 import { authenticatedFetch } from "@/lib/api"
 import { groupDaysByWeek, slotInWeekFromDayNumber, weekNumberFromDayNumber } from "@/lib/workout-plan-utils"
 import { formatInvalidIdMessage, isValidWorkoutPlanId } from "@/lib/admin-id-utils"
-import { isExcelFile, formatImportRequestError } from "@/lib/workout-import-errors"
+import { isExcelFile, formatImportRequestError, getWorkoutImportConfig } from "@/lib/workout-import-errors"
 import {
   Dumbbell,
   Plus,
@@ -766,10 +766,7 @@ export function WorkoutPlanManagement() {
 
     setImporting(true);
 
-    const isExcel = isExcelFile(file.name)
-    const endpoint = isExcel
-      ? 'admin/workouts/workouts/import_excel/'
-      : 'admin/workouts/workouts/import_csv/';
+    const { isExcel, endpoint, uploadTimeoutMs } = getWorkoutImportConfig(file.name)
 
     const formData = new FormData();
     formData.append('file', file);
@@ -782,7 +779,7 @@ export function WorkoutPlanManagement() {
         method: 'POST',
         body: formData,
         cache: 'no-store',
-        uploadTimeoutMs: 300000,
+        uploadTimeoutMs,
       });
 
       if (!response.ok) {
