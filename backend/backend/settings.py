@@ -237,23 +237,18 @@ if DEBUG:
 else:
     # En producción, usar solo los orígenes permitidos
     CORS_ALLOW_ALL_ORIGINS = False
-    CORS_ALLOW_HEADERS = [
-        'accept',
-        'accept-encoding',
-        'accept-language',
-        'authorization',
-        'content-type',
-        'dnt',
-        'origin',
-        'user-agent',
+    from corsheaders.defaults import default_headers
+    # default_headers already includes: accept, authorization, content-type, user-agent, x-csrftoken, x-requested-with
+    CORS_ALLOW_HEADERS = (
+        *default_headers,
         'x-client-path',
         'x-client-url',
-        'x-csrftoken',
         'x-auth-mode',
-        'x-requested-with',
         'cache-control',
         'pragma',
-    ]
+        'idempotency-key',
+        'x-upload-id',
+    )
     CORS_ALLOW_METHODS = [
         'DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT',
     ]
