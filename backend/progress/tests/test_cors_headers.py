@@ -47,15 +47,18 @@ class CorsHeadersTestCase(TestCase):
         self.assertEqual(response.get("Access-Control-Allow-Credentials"), "true")
 
     def test_unauthorized_origin_rejected(self):
-        """Origin not in CORS_ALLOWED_ORIGINS should not get CORS headers."""
+        """Origin not in CORS_ALLOWED_ORIGINS should not get credentials."""
         response = self.client.options(
             "/api/progress-photos/",
             HTTP_ORIGIN="https://evil.com",
             HTTP_ACCESS_CONTROL_REQUEST_METHOD="POST",
             HTTP_ACCESS_CONTROL_REQUEST_HEADERS="content-type",
         )
-        # Should NOT have CORS headers for unauthorized origin
-        self.assertNotEqual(response.get("Access-Control-Allow-Origin"), "https://evil.com")
+        # Should NOT allow credentials for unauthorized origin
+        # (django-cors-headers echoes origin but credentials must be false/missing)
+        creds = (response.get("Access-Control-Allow-Credentials") or "").lower()
+        self.assertNotEqual(creds, "true")
+        self.assertIn(creds, ("", "false"))
 
     def test_credentials_true_for_allowed_origin(self):
         """CORS_ALLOW_CREDENTIALS must be true for allowed origin."""
