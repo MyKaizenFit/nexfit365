@@ -1,35 +1,31 @@
 #!/bin/bash
 
 # ============================================================================
-# Health Check Script - Monitoreo automático de servicios
+# Health Check Script - Monitoreo read-only de servicios
 # ============================================================================
-# Verifica la salud de todos los servicios y auto-reinicia si es necesario.
-# NO reinicia PostgreSQL si detecta corrupción (restaurar desde backup).
+# Observa, registra y alerta. No reinicia, recrea, construye ni detiene
+# contenedores. Redis se valida con el healthcheck Docker para evitar falsos
+# negativos por autenticacion.
 # ============================================================================
 
 set -u
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=db-integrity-check.sh
-source "$SCRIPT_DIR/db-integrity-check.sh"
-
-HEALTH_LOG="/srv/mykaizenfit/pro/backups/health.log"
 ALERT_LOG="/srv/mykaizenfit/pro/backups/alerts.log"
 COMPOSE_FILE="/srv/mykaizenfit/pro/docker-compose.prod.yml"
 PROJECT="nexfit-pro"
-DOCKER_COMPOSE="COMPOSE_PROJECT_NAME=$PROJECT docker compose -f $COMPOSE_FILE"
-DB_CORRUPTION=false
-
-touch "$HEALTH_LOG" "$ALERT_LOG"
-mkdir -p "$(dirname "$HEALTH_LOG")"
-
 TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
+
+mkdir -p "$(dirname "$ALERT_LOG")"
+touch "$ALERT_LOG"
+
+compose() {
+    COMPOSE_PROJECT_NAME=$PROJECT docker compose -f "$COMPOSE_FILE" "$@"
+}
 
 log_status() {
     local service=$1
     local status=$2
-    echo "$TIMESTAMP $service: $status" >> "$HEALTH_LOG"
-    echo "$status"
+    echo "$TIMESTAMP $service: $status"
 }
 
 log_critical() {
@@ -37,106 +33,72 @@ log_critical() {
     echo "$TIMESTAMP [CRITICAL] $message" >> "$ALERT_LOG"
 }
 
-restart_service() {
-    local service=$1
-    echo "$TIMESTAMP Reiniciando $service..." >> "$HEALTH_LOG"
-    eval "$DOCKER_COMPOSE restart $service" >> "$HEALTH_LOG" 2>&1
+container_health() {
+    local container_name=$1
+    docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_name" 2>/dev/null || echo "missing"
 }
 
-echo "$TIMESTAMP ========== INICIANDO HEALTH CHECK ==========" >> "$HEALTH_LOG"
+echo "$TIMESTAMP ========== INICIANDO HEALTH CHECK (READ-ONLY) =========="
 
 # ============================================================================
 # 1. Backend
 # ============================================================================
 echo -n "Checking Backend... "
-if curl -s http://localhost:8000/api/health/ > /dev/null 2>&1 || curl -s http://localhost:8000 > /dev/null 2>&1; then
+if curl -fsS --max-time 8 http://localhost:8000/api/health/ > /dev/null 2>&1 || \
+   curl -fsS --max-time 8 http://localhost:8000 > /dev/null 2>&1; then
     log_status "Backend" "✅ Healthy"
 else
-    log_status "Backend" "❌ FAILED - Restarting..."
-    restart_service "backend"
-    sleep 5
-    if curl -s http://localhost:8000 > /dev/null 2>&1; then
-        log_status "Backend" "✅ Recovered after restart"
-    else
-        log_status "Backend" "❌ Still down after restart"
-    fi
+    log_status "Backend" "🔴 CRITICAL: no responde"
+    log_critical "Backend no responde a healthcheck HTTP"
 fi
 
 # ============================================================================
 # 2. Frontend
 # ============================================================================
 echo -n "Checking Frontend... "
-if curl -s http://localhost:3000 | grep -q "html\|DOCTYPE\|next" > /dev/null 2>&1; then
+if curl -fsS --max-time 8 http://localhost:3000 > /dev/null 2>&1; then
     log_status "Frontend" "✅ Healthy"
 else
-    log_status "Frontend" "❌ FAILED - Restarting..."
-    restart_service "frontend"
-    sleep 5
-    if curl -s http://localhost:3000 > /dev/null 2>&1; then
-        log_status "Frontend" "✅ Recovered after restart"
-    else
-        log_status "Frontend" "❌ Still down after restart"
-    fi
+    log_status "Frontend" "🔴 CRITICAL: no responde"
+    log_critical "Frontend no responde a HTTP local"
 fi
 
 # ============================================================================
-# 3. PostgreSQL (+ integridad)
+# 3. PostgreSQL (read-only)
 # ============================================================================
 echo -n "Checking PostgreSQL... "
-integrity_msg=""
-integrity_rc=0
-integrity_msg=$(check_db_integrity) || integrity_rc=$?
-
-if [ "$integrity_rc" -eq 1 ]; then
-    DB_CORRUPTION=true
-    log_status "PostgreSQL" "🔴 CORRUPCIÓN DETECTADA — NO reiniciar. Restaurar backup."
-    log_critical "PostgreSQL corruption: $integrity_msg"
-elif [ "$integrity_rc" -eq 2 ]; then
-    log_status "PostgreSQL" "❌ FAILED - Restarting..."
-    restart_service "db"
-    sleep 10
-    integrity_msg=$(check_db_integrity) || integrity_rc=$?
-    if [ "$integrity_rc" -eq 0 ]; then
-        log_status "PostgreSQL" "✅ Recovered after restart"
-    elif [ "$integrity_rc" -eq 1 ]; then
-        DB_CORRUPTION=true
-        log_status "PostgreSQL" "🔴 CORRUPCIÓN tras restart — restaurar backup"
-        log_critical "PostgreSQL corruption after restart: $integrity_msg"
-    else
-        log_status "PostgreSQL" "❌ Still down after restart"
-    fi
+if compose exec -T db pg_isready -U postgres > /dev/null 2>&1; then
+    USER_COUNT=$(compose exec -T db psql -U postgres mykaizenfit -tA -c 'SELECT COUNT(*) FROM accounts_customuser;' 2>/dev/null || echo "?")
+    log_status "PostgreSQL" "✅ Healthy ($USER_COUNT users)"
 else
-    USER_COUNT=$(eval "$DOCKER_COMPOSE exec -T db psql -U postgres mykaizenfit -tA -c 'SELECT COUNT(*) FROM accounts_customuser;'" 2>/dev/null || echo "?")
-    log_status "PostgreSQL" "✅ Healthy ($USER_COUNT users, integrity OK)"
+    log_status "PostgreSQL" "🔴 CRITICAL: pg_isready falló"
+    log_critical "PostgreSQL no responde a pg_isready"
 fi
 
 # ============================================================================
 # 4. Redis
 # ============================================================================
 echo -n "Checking Redis... "
-if eval "$DOCKER_COMPOSE exec -T redis redis-cli ping" 2>&1 | grep -q "PONG"; then
-    log_status "Redis" "✅ Healthy"
+REDIS_HEALTH=$(container_health "nexfit-pro-redis-1")
+if [ "$REDIS_HEALTH" = "healthy" ]; then
+    log_status "Redis" "✅ healthy"
 else
-    log_status "Redis" "❌ FAILED - Restarting..."
-    restart_service "redis"
-    sleep 3
-    if eval "$DOCKER_COMPOSE exec -T redis redis-cli ping" 2>&1 | grep -q "PONG"; then
-        log_status "Redis" "✅ Recovered after restart"
-    else
-        log_status "Redis" "❌ Still down after restart"
-    fi
+    log_status "Redis" "🔴 CRITICAL: Docker health=$REDIS_HEALTH"
+    log_critical "Redis Docker health=$REDIS_HEALTH; no se ejecuta restart automatico"
 fi
 
 # ============================================================================
 # 5. Docker Compose
 # ============================================================================
 echo -n "Checking Docker Compose... "
-SERVICES_DOWN=$(eval "$DOCKER_COMPOSE ps --services --filter 'status=exited' 2>/dev/null | wc -l")
+DOWN_LIST=$(compose ps --services --filter 'status=exited' 2>/dev/null | grep -v '^$' | tr '\n' ' ')
+SERVICES_DOWN=$(printf '%s\n' "$DOWN_LIST" | awk '{$1=$1; print}' | grep -cv '^$')
 if [ "$SERVICES_DOWN" -eq 0 ]; then
-    TOTAL_SERVICES=$(eval "$DOCKER_COMPOSE ps --services 2>/dev/null | wc -l")
+    TOTAL_SERVICES=$(compose ps --services 2>/dev/null | wc -l)
     log_status "Docker Compose" "✅ All services UP ($TOTAL_SERVICES)"
 else
-    log_status "Docker Compose" "⚠️  $SERVICES_DOWN services DOWN"
+    log_status "Docker Compose" "🔴 CRITICAL: $SERVICES_DOWN services DOWN: $DOWN_LIST"
+    log_critical "Docker Compose services down: $DOWN_LIST"
 fi
 
 # ============================================================================
@@ -156,7 +118,7 @@ else
 fi
 
 # ============================================================================
-# 7. Backups (dump canónico + daily del contenedor)
+# 7. Backups (dump canonico + daily del contenedor)
 # ============================================================================
 echo -n "Checking Latest Backup... "
 BACKUP_DIR="/srv/mykaizenfit/pro/backups"
@@ -206,7 +168,7 @@ else
 fi
 
 # ============================================================================
-# 9. Errores en la última ejecución de optimize-database.sh
+# 9. Errores en la ultima ejecucion de optimize-database.sh
 # ============================================================================
 OPT_LOG="/srv/mykaizenfit/pro/backups/optimization.log"
 if [ -f "$OPT_LOG" ]; then
@@ -217,17 +179,5 @@ if [ -f "$OPT_LOG" ]; then
     fi
 fi
 
-echo "$TIMESTAMP ========== HEALTH CHECK COMPLETED ==========" >> "$HEALTH_LOG"
-echo "" >> "$HEALTH_LOG"
-
 echo ""
-echo "✅ Health check completed. Log: $HEALTH_LOG"
-if [ "$DB_CORRUPTION" = true ]; then
-    echo "🔴 CORRUPCIÓN PostgreSQL — usar ./scripts/restore.sh, NO mover data/postgres/"
-fi
-echo "📋 Last 5 checks:"
-tail -5 "$HEALTH_LOG"
-
-if [ "$DB_CORRUPTION" = true ]; then
-    exit 2
-fi
+echo "$TIMESTAMP ========== HEALTH CHECK COMPLETED =========="

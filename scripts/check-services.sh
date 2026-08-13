@@ -2,29 +2,30 @@
 #
 # Script de Monitoreo Automático - Nex-Fit PRO
 # =============================================
-# Este script verifica que todos los servicios críticos estén corriendo
-# y los reinicia automáticamente si se detecta algún problema.
+# Verifica servicios críticos en modo read-only.
+# No reinicia, recrea, construye, detiene ni levanta contenedores.
 #
 # Uso: ./check-services.sh
 # Crontab: */5 * * * * /srv/mykaizenfit/pro/scripts/check-services.sh
 
 set -u
 
-# Configuración
 PROJECT_DIR="/srv/mykaizenfit/pro"
-SCRIPT_DIR="$PROJECT_DIR/scripts"
-# shellcheck source=db-integrity-check.sh
-source "$SCRIPT_DIR/db-integrity-check.sh"
-DB_CORRUPTION=false
-LOG_FILE="/var/log/nexfit-check.log"
 COMPOSE_PROJECT_NAME="nexfit-pro"
 COMPOSE_FILE="docker-compose.prod.yml"
 LOCK_FILE="/tmp/nexfit-check.lock"
 BACKEND_HEALTH_URL="http://localhost:8000/api/health/"
+FRONTEND_URL="http://localhost:3000"
+ALERT_LOG="/srv/mykaizenfit/pro/backups/alerts.log"
 
-# Función para logging
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
+
+alert() {
+    local message=$1
+    mkdir -p "$(dirname "$ALERT_LOG")"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [CRITICAL] $message" >> "$ALERT_LOG"
 }
 
 compose() {
@@ -37,100 +38,58 @@ get_container_id() {
     compose ps -q "$service_name" 2>/dev/null
 }
 
-is_container_running() {
+container_running() {
     local container_id=$1
     [ -n "$container_id" ] && [ "$(docker inspect -f '{{.State.Running}}' "$container_id" 2>/dev/null)" = "true" ]
 }
 
-is_container_healthy_or_nohc() {
+container_health() {
     local container_id=$1
-    local has_health
+    docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' "$container_id" 2>/dev/null || echo "missing"
+}
+
+check_service() {
+    local service=$1
+    local container_id
     local health_status
 
-    has_health=$(docker inspect -f '{{if .State.Health}}yes{{else}}no{{end}}' "$container_id" 2>/dev/null)
-    if [ "$has_health" = "no" ]; then
-        return 0
+    container_id=$(get_container_id "$service")
+    if [ -z "$container_id" ]; then
+        log "🔴 CRITICAL: servicio $service no tiene contenedor asociado"
+        alert "Servicio $service sin contenedor asociado"
+        return 1
     fi
 
-    health_status=$(docker inspect -f '{{.State.Health.Status}}' "$container_id" 2>/dev/null)
-    [ "$health_status" = "healthy" ]
+    if ! container_running "$container_id"; then
+        log "🔴 CRITICAL: servicio $service no está corriendo"
+        alert "Servicio $service no esta corriendo"
+        return 1
+    fi
+
+    health_status=$(container_health "$container_id")
+    if [ "$health_status" != "healthy" ] && [ "$health_status" != "no-healthcheck" ]; then
+        log "🔴 CRITICAL: servicio $service health=$health_status"
+        alert "Servicio $service health=$health_status"
+        return 1
+    fi
+
+    if [ "$health_status" = "no-healthcheck" ]; then
+        log "✅ $service está corriendo (sin healthcheck)"
+    else
+        log "✅ $service está corriendo y saludable"
+    fi
+    return 0
 }
 
 backend_http_ok() {
     curl -fsS --max-time 8 "$BACKEND_HEALTH_URL" > /dev/null 2>&1
 }
 
-# Función para verificar si un servicio está corriendo
-# Función para reiniciar un servicio
-restart_service() {
-    local service_name=$1
-    log "⚠️  Reiniciando servicio: $service_name"
-    compose up -d "$service_name" 2>&1 | tee -a "$LOG_FILE"
-    
-    if [ $? -eq 0 ]; then
-        log "✅ Servicio $service_name reiniciado correctamente"
-        return 0
-    else
-        log "❌ ERROR: No se pudo reiniciar $service_name"
-        return 1
-    fi
+frontend_http_ok() {
+    curl -fsS --max-time 8 "$FRONTEND_URL" > /dev/null 2>&1
 }
 
-rebuild_backend() {
-    log "🛠️  Backend sigue inestable, iniciando rebuild + recreate automático"
-    if compose build backend 2>&1 | tee -a "$LOG_FILE"; then
-        if compose up -d --force-recreate backend 2>&1 | tee -a "$LOG_FILE"; then
-            log "✅ Backend reconstruido y recreado"
-            return 0
-        fi
-    fi
-
-    log "❌ ERROR: Falló rebuild/recreate del backend"
-    return 1
-}
-
-check_backend_and_heal() {
-    local container_id
-    container_id=$(get_container_id "backend")
-
-    if [ -n "$container_id" ] && is_container_running "$container_id" && is_container_healthy_or_nohc "$container_id" && backend_http_ok; then
-        log "✅ backend está corriendo y saludable"
-        return 0
-    fi
-
-    log "⚠️  backend con fallo detectado (estado/health/http), intentando restart"
-    restart_service "backend"
-    sleep 12
-
-    container_id=$(get_container_id "backend")
-    if [ -n "$container_id" ] && is_container_running "$container_id" && is_container_healthy_or_nohc "$container_id" && backend_http_ok; then
-        log "✅ backend recuperado tras restart"
-        return 0
-    fi
-
-    if rebuild_backend; then
-        sleep 18
-        container_id=$(get_container_id "backend")
-        if [ -n "$container_id" ] && is_container_running "$container_id" && is_container_healthy_or_nohc "$container_id" && backend_http_ok; then
-            log "✅ backend recuperado tras rebuild+recreate"
-            return 0
-        fi
-    fi
-
-    log "❌ CRÍTICO: backend no se recuperó automáticamente"
-    return 1
-}
-
-# =============================================
-# INICIO DEL MONITOREO
-# =============================================
-
-mkdir -p "$(dirname "$LOG_FILE")"
-if ! touch "$LOG_FILE" 2>/dev/null; then
-    LOG_FILE="/srv/mykaizenfit/pro/backups/nexfit-check.log"
-    mkdir -p "$(dirname "$LOG_FILE")"
-    touch "$LOG_FILE"
-fi
+mkdir -p "$(dirname "$ALERT_LOG")"
 
 exec 9>"$LOCK_FILE"
 if ! flock -n 9; then
@@ -138,55 +97,34 @@ if ! flock -n 9; then
     exit 0
 fi
 
-log "🔍 Iniciando verificación de servicios..."
+log "🔍 Iniciando verificación read-only de servicios..."
 
-integrity_msg=""
-integrity_rc=0
-integrity_msg=$(check_db_integrity) || integrity_rc=$?
-if [ "$integrity_rc" -eq 1 ]; then
-    DB_CORRUPTION=true
-    log "🔴 CRÍTICO: corrupción PostgreSQL detectada — NO reiniciar db"
-    log "   Detalle: $integrity_msg"
-    log "   Acción: ./scripts/restore.sh (NO mover data/postgres/)"
+if check_service "backend" && backend_http_ok; then
+    log "✅ backend HTTP responde correctamente"
+else
+    log "🔴 CRITICAL: backend con fallo detectado (estado/health/http). No se ejecuta autorecovery."
+    alert "Backend con fallo detectado; autorecovery deshabilitado"
 fi
 
-if check_legacy_pro_stack; then
-    log "⚠️  Stack Docker legacy 'pro' activo — riesgo split-brain en PostgreSQL"
-    log "   Acción: ./scripts/deployment/disable-legacy-pro-stack.sh"
+if check_service "frontend" && frontend_http_ok; then
+    log "✅ frontend HTTP responde correctamente"
+else
+    log "🔴 CRITICAL: frontend con fallo detectado (estado/health/http). No se ejecuta autorecovery."
+    alert "Frontend con fallo detectado; autorecovery deshabilitado"
 fi
 
-# Backend con auto-heal avanzado
-check_backend_and_heal || true
-
-# Lista de servicios restantes
-SERVICES=("frontend" "db" "redis" "celery_worker")
-
-for service in "${SERVICES[@]}"; do
-    if [ "$service" = "db" ] && [ "$DB_CORRUPTION" = true ]; then
-        log "⚠️  db: omitiendo restart por corrupción detectada"
-        continue
-    fi
-
-    container_id=$(get_container_id "$service")
-    if [ -z "$container_id" ] || ! is_container_running "$container_id"; then
-        log "❌ $service no está corriendo, intentando restart"
-        restart_service "$service" || true
-        continue
-    fi
-
-    if ! is_container_healthy_or_nohc "$container_id"; then
-        log "⚠️  $service está running pero unhealthy, intentando restart"
-        restart_service "$service" || true
-        continue
-    fi
-
-    log "✅ $service está corriendo y saludable"
+for service in db redis celery_worker; do
+    check_service "$service" || log "ℹ️  Acción recomendada: revisar manualmente $service"
 done
 
-# Verificar uso de recursos
-log "📊 Uso de recursos:"
-docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" | grep nexfit-pro | tee -a "$LOG_FILE"
+if docker ps --format '{{.Names}}' | grep -Eq '^pro-(db|db-backup|celery_worker)-1$'; then
+    log "⚠️  Stack Docker legacy 'pro' activo — riesgo split-brain en PostgreSQL"
+    log "   Acción recomendada: revisar scripts/deployment/disable-legacy-pro-stack.sh"
+fi
 
-log "✅ Verificación completada\n"
+log "📊 Uso de recursos:"
+docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" | grep nexfit-pro || true
+
+log "✅ Verificación read-only completada"
 
 exit 0
