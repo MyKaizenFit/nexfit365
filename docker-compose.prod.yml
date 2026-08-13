@@ -6,11 +6,11 @@
 # ⚠️ IMPORTANTE: Usar SIEMPRE con COMPOSE_PROJECT_NAME para volúmenes estables
 # 
 # COMANDOS:
-#   Iniciar:  COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml up -d
-#   Detener:  COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml down
-#   Logs:     COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs -f
-#   Estado:   COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml ps
-#   Build:    COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml build --no-cache
+#   Deploy normal: ./deploy.sh
+#   Bootstrap:     ./deploy.sh --bootstrap
+#   Dry-run:       ./deploy.sh --dry-run
+#   Logs:          COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml logs -f
+#   Estado:        COMPOSE_PROJECT_NAME=nexfit-pro docker compose -f docker-compose.prod.yml ps
 #
 # PUERTOS DE PRODUCCIÓN:
 #   - Frontend: 3000
@@ -136,11 +136,7 @@ services:
       READ_DOTENV: "False"
     command: >
       sh -c "
-        echo '� Aplicando migraciones...' &&
-        python manage.py migrate --noinput &&
-        echo '�📦 Recolectando archivos estáticos...' &&
-        python manage.py collectstatic --noinput &&
-        echo '🚀 Iniciando Gunicorn...' &&
+        echo 'Iniciando Gunicorn...' &&
         gunicorn backend.wsgi:application --bind 0.0.0.0:8000 --workers 2 --threads 2 --timeout 300 --worker-class gthread --max-requests 800 --max-requests-jitter 50 --access-logfile - --error-logfile - --log-level info
       "
     ports:

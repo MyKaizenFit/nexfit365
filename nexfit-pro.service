@@ -1,5 +1,5 @@
 [Unit]
-Description=Nex-Fit PRO Application - Fitness & Nutrition Platform
+Description=Nex-Fit PRO Application - safe bootstrap
 Documentation=https://nexfit365.dpdns.org
 Requires=docker.service
 After=docker.service network-online.target
@@ -11,28 +11,22 @@ RemainAfterExit=yes
 WorkingDirectory=/srv/mykaizenfit/pro
 Environment="COMPOSE_PROJECT_NAME=nexfit-pro"
 Environment="COMPOSE_FILE=docker-compose.prod.yml"
-
-# Cargar variables de entorno si existen
 EnvironmentFile=-/srv/mykaizenfit/pro/.env.production
 
-# Iniciar servicios
-ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d
+# Bootstrap only. Routine deployments must use /srv/mykaizenfit/pro/deploy.sh.
+ExecStart=/usr/bin/docker compose -f docker-compose.prod.yml up -d db redis db-backup backend celery_worker frontend
 
-# Detener servicios (sin eliminar volúmenes)
-ExecStop=/usr/bin/docker compose -f docker-compose.prod.yml down
+# A systemd stop must not destroy the Docker network/stack.
+ExecStop=/bin/true
 
-# Recargar configuración
-ExecReload=/usr/bin/docker compose -f docker-compose.prod.yml up -d --force-recreate
+# A systemd reload must not force-recreate production containers.
+ExecReload=/bin/true
 
-# Tiempo de espera para inicio (importante para builds)
 TimeoutStartSec=600
-TimeoutStopSec=120
-
-# Reiniciar en caso de fallo
+TimeoutStopSec=30
 Restart=on-failure
 RestartSec=10s
-
-# Límites de recursos
+KillMode=process
 LimitNOFILE=65536
 
 [Install]
