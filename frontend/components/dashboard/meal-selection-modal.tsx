@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, MealRecommendationContext, MealRecommendationLevel, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
+import { IngredientSubstitution, IngredientSubstitutionResponse, MealIngredientSubstitution, MealOption, MealRecommendationLevel, nutritionService, Recipe, PersonalizedRecipeQuantities } from '@/lib/nutrition-service'
 import { API_CONFIG } from '@/lib/api'
 import { X, Clock, Zap, Leaf, ChefHat, Target, Users, BookOpen, Loader2, Shuffle, ArrowLeft, ChevronRight } from 'lucide-react'
 import { formatMacro } from '@/lib/utils'
@@ -109,7 +109,6 @@ export function MealSelectionModal({
   const [allRecipes, setAllRecipes] = useState<Recipe[]>([])
   const [loadingRecipes, setLoadingRecipes] = useState(false)
   const [rankedOptions, setRankedOptions] = useState<MealOption[] | null>(null)
-  const [recommendationContext, setRecommendationContext] = useState<MealRecommendationContext | null>(null)
   const [loadingRecommendations, setLoadingRecommendations] = useState(false)
   const [recommendationError, setRecommendationError] = useState(false)
   const [autoOpenEquivalenceRecipeId, setAutoOpenEquivalenceRecipeId] = useState<string | null>(null)
@@ -347,7 +346,6 @@ export function MealSelectionModal({
   useEffect(() => {
     if (!isOpen) {
       setRankedOptions(null)
-      setRecommendationContext(null)
       setRecommendationError(false)
       setLoadingRecommendations(false)
       return
@@ -356,7 +354,6 @@ export function MealSelectionModal({
     const slotId = planMealId && !String(planMealId).startsWith('meal-') ? String(planMealId) : null
     if (!slotId) {
       setRankedOptions(null)
-      setRecommendationContext(null)
       setRecommendationError(false)
       return
     }
@@ -371,18 +368,15 @@ export function MealSelectionModal({
         if (cancelled) return
         if (!result?.alternatives?.length) {
           setRankedOptions(null)
-          setRecommendationContext(null)
           setRecommendationError(true)
           return
         }
         setRankedOptions(result.alternatives)
-        setRecommendationContext(result.context)
         setRecommendationError(false)
       })
       .catch(() => {
         if (cancelled) return
         setRankedOptions(null)
-        setRecommendationContext(null)
         setRecommendationError(true)
       })
       .finally(() => {
@@ -592,26 +586,6 @@ export function MealSelectionModal({
 
             {/* Content - Scrollable */}
             <div className="p-5 md:p-4 space-y-4 md:space-y-3 overflow-y-auto flex-1 min-h-0">
-              {recommendationContext ? (
-                <div
-                  className="rounded-xl border border-orange-200 bg-orange-50/80 p-3 text-xs text-orange-900 space-y-1"
-                  aria-live="polite"
-                >
-                  <p className="font-bold text-sm">Presupuesto orientativo para {mealName.toLowerCase()}</p>
-                  <p>
-                    Objetivo día: {Math.round(recommendationContext.daily_goals.calories)} kcal ·
-                    Consumido: {Math.round(recommendationContext.consumed.calories)} ·
-                    Restante: {Math.round(recommendationContext.remaining.calories)} ·
-                    Presupuesto slot: {Math.round(recommendationContext.slot_budget.calories)} kcal
-                  </p>
-                  <p>
-                    Comidas pendientes después de esta: {recommendationContext.pending_meals_count}
-                    {Object.values(recommendationContext.goals_exceeded).some(Boolean)
-                      ? ' · Ya has superado algún objetivo del día'
-                      : ''}
-                  </p>
-                </div>
-              ) : null}
               {loadingRecommendations ? (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground" role="status">
                   <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
