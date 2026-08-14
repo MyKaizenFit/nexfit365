@@ -473,3 +473,55 @@ def rank_alternatives(
             )
 
     return RecommendationResult(context=context, alternatives=ranked)
+
+
+def rank_slot_option_lists(
+    *,
+    date: str,
+    slots: Sequence[SlotInfo],
+    logs: Sequence[MealLogSnapshot],
+    daily_goals: NutrientVector,
+    options_by_slot_id: Mapping[str, Sequence[Mapping[str, Any]]],
+    current_recipe_by_slot: Optional[Mapping[str, Optional[str]]] = None,
+    replacing_completed_by_slot: Optional[Mapping[str, bool]] = None,
+    skip_recipe_ids: Optional[set[str]] = None,
+) -> dict[str, list[dict[str, Any]]]:
+    """
+    Ordena las alternativas de cada slot con el mismo motor que Cambiar.
+
+    Las recetas en skip_recipe_ids se aplazan al final (siguen visibles si el
+    coach las asignó) para que la opción inicial coincida con Mejor encaje.
+    """
+    skip = {str(rid).lower() for rid in (skip_recipe_ids or set())}
+    current_recipes = current_recipe_by_slot or {}
+    replacing = replacing_completed_by_slot or {}
+    ranked_out: dict[str, list[dict[str, Any]]] = {}
+
+    for slot in slots:
+        options = [dict(opt) for opt in (options_by_slot_id.get(slot.id) or [])]
+        current_rid = current_recipes.get(slot.id)
+        current_rid_str = str(current_rid) if current_rid else None
+        rankable: list[dict[str, Any]] = []
+        deferred: list[dict[str, Any]] = []
+        for opt in options:
+            rid = str(opt.get('recipeId') or opt.get('recipe_id') or '').lower()
+            is_current = bool(current_rid_str and rid == str(current_rid_str).lower())
+            if rid and rid in skip and not is_current:
+                deferred.append(opt)
+            else:
+                rankable.append(opt)
+        if not rankable:
+            ranked_out[slot.id] = options
+            continue
+        result = rank_alternatives(
+            date=date,
+            current_slot=slot,
+            day_slots=slots,
+            logs=logs,
+            daily_goals=daily_goals,
+            alternatives=rankable,
+            current_recipe_id=current_rid_str,
+            replacing_completed_slot=bool(replacing.get(slot.id)),
+        )
+        ranked_out[slot.id] = [alt.to_option_dict() for alt in result.alternatives] + deferred
+    return ranked_out

@@ -7,6 +7,7 @@ import { dailyMealSelectionsService } from '@/lib/daily-meal-selections-service'
 import { useNutrition } from '@/hooks/use-nutrition'
 import { getAuthHeaders, getMultipartAuthHeaders, buildApiUrl } from '@/lib/api'
 import { todayLocalDate } from '@/lib/local-date'
+import { lookupMealOptionsById, pickCanonicalMacro } from '@/lib/meal-preview'
 
 interface DailyMeal {
   id: string
@@ -538,7 +539,7 @@ export function useDailyMeals() {
         const mealType = String(log.meal_type || '')
         const key = String(log.plan_meal_id || mealType)
         if (key) {
-          const optionsForMeal = (planOptionsByMealId[key] || planMealOptions[mealType] || []) as MealOption[]
+          const optionsForMeal = (lookupMealOptionsById(key, planOptionsByMealId) || planMealOptions[mealType] || []) as MealOption[]
           const fallbackOption = optionsForMeal.find((opt) => {
             const optRecipeId = opt?.recipeId != null ? String(opt.recipeId) : null
             const logRecipeId = log?.recipe?.id != null ? String(log.recipe.id) : (log?.recipe ? String(log.recipe) : null)
@@ -575,10 +576,10 @@ export function useDailyMeals() {
           
           // Crear MealOption con el nombre correcto
           // Asegurar que los valores nutricionales sean números, no null/undefined
-          const calories = Number(log.calories) || Number(log.recipe?.calories) || Number(fallbackOption?.calories) || 0
-          const protein = Number(log.protein) || Number(log.recipe?.protein) || Number(fallbackOption?.protein) || 0
-          const carbs = Number(log.carbs) || Number(log.recipe?.carbs) || Number(fallbackOption?.carbs) || 0
-          const fat = Number(log.fat) || Number(log.recipe?.fat) || Number(fallbackOption?.fat) || 0
+          const calories = pickCanonicalMacro(log.calories, fallbackOption?.calories, log.recipe?.calories)
+          const protein = pickCanonicalMacro(log.protein, fallbackOption?.protein, log.recipe?.protein)
+          const carbs = pickCanonicalMacro(log.carbs, fallbackOption?.carbs, log.recipe?.carbs)
+          const fat = pickCanonicalMacro(log.fat, fallbackOption?.fat, log.recipe?.fat)
           
           selectionsMap[key] = {
             id: (log.recipe?.id || log.recipe || `custom-${log.id}`).toString(),
@@ -958,7 +959,11 @@ export function useDailyMeals() {
         setPlanMealOptions(planMeals.meals_by_type)
 
         if (planMeals.options_by_meal_id && typeof planMeals.options_by_meal_id === "object") {
-          setPlanOptionsByMealId(planMeals.options_by_meal_id as any)
+          const normalized: Record<string, MealOption[]> = {}
+          for (const [slotId, slotOptions] of Object.entries(planMeals.options_by_meal_id)) {
+            normalized[String(slotId)] = slotOptions as MealOption[]
+          }
+          setPlanOptionsByMealId(normalized)
         } else {
           setPlanOptionsByMealId({})
         }
@@ -1101,9 +1106,8 @@ export function useDailyMeals() {
 
   // Obtener opciones para una comida específica
   const getMealOptions = useCallback((mealId: string): MealOption[] => {
-    // Preferir opciones por slot (permite nº variable de comidas/día)
-    const byId = planOptionsByMealId[mealId]
-    if (Array.isArray(byId) && byId.length > 0) return byId
+    const byId = lookupMealOptionsById(mealId, planOptionsByMealId)
+    if (byId) return byId
 
     // Fallback: buscar el slot y usar options por tipo
     const slot = meals.find((m) => m.id === mealId)

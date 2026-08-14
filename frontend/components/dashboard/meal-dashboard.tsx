@@ -5,6 +5,7 @@ import { useDailyMeals } from '@/hooks/use-daily-meals'
 import { DailyMacroTrackerSimple } from './daily-macro-tracker-simple'
 import { MealSelectionModal } from './meal-selection-modal'
 import { MealOption } from '@/lib/nutrition-service'
+import { resolveDisplayedMealOption } from '@/lib/meal-preview'
 import { Clock, Plus, Utensils, Cloud, Target, ChefHat, RefreshCw, Flame, Calendar, CalendarDays, SkipForward, Pencil, Shuffle, BookOpen } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -267,9 +268,10 @@ export function MealDashboard() {
             </Card>
           ) : null}
           {meals.map((meal) => {
-            const previewOption = meal.selectedOption ? null : getMealOptions(meal.id)[0] || null
-            const displayOption = meal.selectedOption || previewOption
-            const isPreview = !meal.selectedOption && !!previewOption
+            const { displayOption, isPreview } = resolveDisplayedMealOption(
+              meal.selectedOption,
+              getMealOptions(meal.id),
+            )
 
             return (
             <div

@@ -6,7 +6,7 @@ from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Optional
 
-from nutrition.models import NutritionPlan, PlanMeal, PlanMealRecipe
+from nutrition.models import NutritionPlan, PlanMeal, PlanMealRecipe, Recipe
 
 
 MAX_CUSTOM_MACRO = Decimal('9999.99')
@@ -130,6 +130,46 @@ def meal_calorie_fraction(meals_for_day: list[PlanMeal], meal: PlanMeal) -> floa
     if not meals_for_day:
         return 0.25
     return 1.0 / len(meals_for_day)
+
+
+def meal_recipe_scaled_macros(meal_recipe: PlanMealRecipe, ratio: float = 1.0) -> dict:
+    """Macros canónicos de una opción del plan: custom_* o receta × raciones, por ratio del usuario."""
+    scale = float(ratio)
+    return {
+        'calories': int(round(float(meal_recipe.get_display_calories()) * scale)),
+        'protein': round(float(meal_recipe.get_display_protein()) * scale, 1),
+        'carbs': round(float(meal_recipe.get_display_carbs()) * scale, 1),
+        'fat': round(float(meal_recipe.get_display_fat()) * scale, 1),
+    }
+
+
+def recipe_option_payload(recipe: Recipe, meal: PlanMeal, macros: dict) -> dict:
+    """Payload de alternativa compartido por plan-meals y recomendaciones."""
+    image_url = ''
+    if getattr(recipe, 'image_url', None):
+        image_url = recipe.image_url
+    elif getattr(recipe, 'image', None):
+        try:
+            image_url = recipe.image.url
+        except (ValueError, OSError):
+            image_url = ''
+    prep = int(getattr(recipe, 'prep_time_minutes', 0) or 0)
+    cook = int(getattr(recipe, 'cook_time_minutes', 0) or 0)
+    return {
+        'id': f'meal-{meal.id}-recipe-{recipe.id}',
+        'name': recipe.name,
+        'calories': macros['calories'],
+        'protein': macros['protein'],
+        'carbs': macros['carbs'],
+        'fat': macros['fat'],
+        'category': 'balanced',
+        'icon': '🍽️',
+        'description': recipe.description or meal.description or '',
+        'cookTime': f'{prep + cook} min',
+        'recipeId': str(recipe.id),
+        'imageUrl': image_url,
+        'meal_types': list(recipe.meal_types or []),
+    }
 
 
 def _scale_meal_recipes(meal: PlanMeal, ratio: Decimal) -> None:

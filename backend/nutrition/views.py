@@ -277,6 +277,7 @@ def plan_meals_for_selection(request):
     logger.info(f"🍽️ Personalizando comidas para usuario: {user.email} (ID: {user.id})")
     logger.info(f"📊 Perfil del usuario: peso={user.weight}kg, altura={user.height}cm, edad={user.age}, género={user.gender}, objetivo={user.main_goal}, actividad={user.activity_level}")
     service = PersonalizedNutritionService(user)
+    from nutrition.plan_meal_utils import meal_recipe_scaled_macros, recipe_option_payload
     
     # Calcular calorías y macros diarios personalizados
     daily_calories = service.calculate_daily_calories()
@@ -306,8 +307,9 @@ def plan_meals_for_selection(request):
             'icon': '🍽️',
             'description': recipe.description or (meal_base.description if meal_base else ''),
             'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-            'recipeId': recipe.id,
+            'recipeId': str(recipe.id),
             'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'meal_types': list(recipe.meal_types or []),
         }
 
     def replacement_candidates(meal_type: str, used_ids=None):
@@ -521,14 +523,6 @@ def plan_meals_for_selection(request):
         if not plan or not plan.daily_calories:
             return 1.0
         return max(0.1, float(daily_calories) / float(plan.daily_calories))
-
-    def scaled_meal_recipe_macros(meal_recipe, ratio=1.0):
-        return {
-            'calories': int(round(meal_recipe.get_display_calories() * ratio)),
-            'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
-            'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
-            'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
-        }
     
     meals_by_type = {}
     # Nuevo: devolver slots (comidas del día) y opciones por slot
@@ -537,7 +531,12 @@ def plan_meals_for_selection(request):
     
     if user_plan:
         from nutrition.plan_week_utils import resolve_plan_week_number
-        from nutrition.plan_meal_utils import meal_calorie_fraction, resolve_meals_for_calendar_day
+        from nutrition.plan_meal_utils import (
+            meal_calorie_fraction,
+            meal_recipe_scaled_macros,
+            recipe_option_payload,
+            resolve_meals_for_calendar_day,
+        )
 
         # Comidas del día y semana del ciclo del plan (semanas independientes).
         today_dow = date_for_slots.isoweekday()
@@ -577,26 +576,14 @@ def plan_meals_for_selection(request):
                 meal_recipe_ratio = plan_target_ratio(user_plan)
                 for meal_recipe in meal_recipes:
                     recipe = meal_recipe.recipe
-                    selected_recipe = recipe
-                    replacement = None
-                    if selected_recipe.id in used_recipe_ids:
+                    if recipe.id in used_recipe_ids:
                         continue
-                    used_recipe_ids.add(selected_recipe.id)
-                    scaled_macros = scaled_meal_recipe_macros(meal_recipe, meal_recipe_ratio)
-                    meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{selected_recipe.id}",
-                        'name': selected_recipe.name,
-                        'calories': scaled_macros['calories'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['calories'],
-                        'protein': scaled_macros['protein'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['protein'],
-                        'carbs': scaled_macros['carbs'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['carbs'],
-                        'fat': scaled_macros['fat'] if not replacement else build_recipe_option(selected_recipe, meal_type, meal, meal.id)['fat'],
-                        'category': 'balanced',
-                        'icon': '🍽️',
-                        'description': selected_recipe.description or meal.description,
-                        'cookTime': f"{selected_recipe.prep_time_minutes + selected_recipe.cook_time_minutes} min",
-                        'recipeId': selected_recipe.id,
-                        'imageUrl': selected_recipe.image_url or (selected_recipe.image.url if selected_recipe.image else ''),
-                    })
+                    used_recipe_ids.add(recipe.id)
+                    meal_options.append(recipe_option_payload(
+                        recipe,
+                        meal,
+                        meal_recipe_scaled_macros(meal_recipe, meal_recipe_ratio),
+                    ))
             # Si hay recetas sugeridas, crear una opción por cada receta (sin límite)
             else:
                 suggested_recipes = list(meal.suggested_recipes.all())
@@ -626,6 +613,97 @@ def plan_meals_for_selection(request):
 
             meals_by_type[meal_type].extend(meal_options)
             options_by_meal_id[str(meal.id)] = meal_options
+
+        # Misma ordenación que Cambiar: mejor encaje primero, sin persistir ni completar.
+        from nutrition.meal_recommendation import (
+            MealLogSnapshot,
+            NutrientVector,
+            SlotInfo,
+            rank_slot_option_lists,
+        )
+
+        day_logs = list(
+            MealLog.objects.filter(user=user, date=date_for_slots).select_related('recipe', 'plan_meal')
+        )
+        log_snapshots = [
+            MealLogSnapshot(
+                plan_meal_id=str(log.plan_meal_id) if log.plan_meal_id else None,
+                meal_type=str(log.meal_type or ''),
+                completed=bool(log.completed),
+                is_skipped=bool(log.is_skipped),
+                calories=float(log.calories or 0),
+                protein=float(log.protein or 0),
+                carbs=float(log.carbs or 0),
+                fat=float(log.fat or 0),
+                recipe_id=str(log.recipe_id) if log.recipe_id else None,
+            )
+            for log in day_logs
+        ]
+        current_recipe_by_slot = {}
+        replacing_completed_by_slot = {}
+        for log in day_logs:
+            if not log.plan_meal_id:
+                continue
+            slot_id = str(log.plan_meal_id)
+            if log.recipe_id:
+                current_recipe_by_slot[slot_id] = str(log.recipe_id)
+            replacing_completed_by_slot[slot_id] = bool(log.completed and not log.is_skipped)
+
+        skip_recipe_ids = set(excluded_recipe_ids)
+        user_allergens = set(getattr(user, 'allergies', None) or [])
+        for meal in meals:
+            for meal_recipe in list(meal.meal_recipes.all()):
+                recipe = meal_recipe.recipe
+                if not recipe:
+                    continue
+                rid = str(recipe.id).lower()
+                if not recipe_allowed_for_user(recipe):
+                    skip_recipe_ids.add(rid)
+                recipe_allergens = set(getattr(recipe, 'allergens', None) or [])
+                if user_allergens and recipe_allergens.intersection(user_allergens):
+                    skip_recipe_ids.add(rid)
+            for recipe in list(meal.suggested_recipes.all()):
+                rid = str(recipe.id).lower()
+                if not recipe_allowed_for_user(recipe):
+                    skip_recipe_ids.add(rid)
+                recipe_allergens = set(getattr(recipe, 'allergens', None) or [])
+                if user_allergens and recipe_allergens.intersection(user_allergens):
+                    skip_recipe_ids.add(rid)
+
+        day_slots = [
+            SlotInfo(
+                id=str(meal.id),
+                meal_type=str(meal.meal_type or ''),
+                order_index=int(meal.order_index or 0),
+                calories=float(meal.calories or 0),
+                protein=float(meal.protein or 0),
+                carbs=float(meal.carbs or 0),
+                fat=float(meal.fat or 0),
+            )
+            for meal in meals
+        ]
+        daily_goals = NutrientVector(
+            calories=float(daily_calories or 0),
+            protein=float(daily_macros.get('protein') or 0),
+            carbs=float(daily_macros.get('carbs') or 0),
+            fat=float(daily_macros.get('fat') or 0),
+        )
+        ranked_by_slot = rank_slot_option_lists(
+            date=date_for_slots.isoformat(),
+            slots=day_slots,
+            logs=log_snapshots,
+            daily_goals=daily_goals,
+            options_by_slot_id=options_by_meal_id,
+            current_recipe_by_slot=current_recipe_by_slot,
+            replacing_completed_by_slot=replacing_completed_by_slot,
+            skip_recipe_ids=skip_recipe_ids,
+        )
+        options_by_meal_id = ranked_by_slot
+        meals_by_type = {}
+        for meal in meals:
+            meal_type = meal.meal_type
+            meals_by_type.setdefault(meal_type, [])
+            meals_by_type[meal_type].extend(options_by_meal_id.get(str(meal.id), []))
         
         # Plan asignado: solo lo configurado por la coach. Sin plantillas del sistema ni recetas aleatorias.
         return Response({
@@ -678,21 +756,11 @@ def plan_meals_for_selection(request):
                     recipe = meal_recipe.recipe
                     if not recipe_allowed_for_user(recipe):
                         continue
-                    scaled_macros = scaled_meal_recipe_macros(meal_recipe, meal_recipe_ratio)
-                    meal_options.append({
-                        'id': f"meal-{meal.id}-recipe-{recipe.id}",
-                        'name': recipe.name,
-                        'calories': scaled_macros['calories'],
-                        'protein': scaled_macros['protein'],
-                        'carbs': scaled_macros['carbs'],
-                        'fat': scaled_macros['fat'],
-                        'category': 'balanced',
-                        'icon': '🍽️',
-                        'description': recipe.description or meal.description,
-                        'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
-                        'recipeId': recipe.id,
-                        'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
-                    })
+                    meal_options.append(recipe_option_payload(
+                        recipe,
+                        meal,
+                        meal_recipe_scaled_macros(meal_recipe, meal_recipe_ratio),
+                    ))
             else:
                 suggested_recipes = list(meal.suggested_recipes.all())
                 if suggested_recipes:
@@ -854,7 +922,11 @@ def meal_alternatives_recommendation(request):
         SlotInfo,
         rank_alternatives,
     )
-    from nutrition.plan_meal_utils import resolve_meals_for_calendar_day
+    from nutrition.plan_meal_utils import (
+        meal_recipe_scaled_macros,
+        recipe_option_payload,
+        resolve_meals_for_calendar_day,
+    )
     from nutrition.plan_week_utils import resolve_plan_week_number
 
     user = request.user
@@ -940,14 +1012,6 @@ def meal_alternatives_recommendation(request):
     if user_plan.daily_calories:
         ratio = max(0.1, daily_calories / float(user_plan.daily_calories))
 
-    def scaled_meal_recipe_macros(meal_recipe):
-        return {
-            'calories': int(round(meal_recipe.get_display_calories() * ratio)),
-            'protein': round(float(meal_recipe.get_display_protein()) * ratio, 1),
-            'carbs': round(float(meal_recipe.get_display_carbs()) * ratio, 1),
-            'fat': round(float(meal_recipe.get_display_fat()) * ratio, 1),
-        }
-
     def build_option_from_recipe(recipe, meal, macros=None):
         if macros is None:
             macros = {
@@ -956,21 +1020,7 @@ def meal_alternatives_recommendation(request):
                 'carbs': round(float(recipe.carbs or 0) * ratio, 1),
                 'fat': round(float(recipe.fat or 0) * ratio, 1),
             }
-        return {
-            'id': f"meal-{meal.id}-recipe-{recipe.id}",
-            'name': recipe.name,
-            'calories': macros['calories'],
-            'protein': macros['protein'],
-            'carbs': macros['carbs'],
-            'fat': macros['fat'],
-            'category': 'balanced',
-            'icon': '🍽️',
-            'description': recipe.description or meal.description or '',
-            'cookTime': f"{(recipe.prep_time_minutes or 0) + (recipe.cook_time_minutes or 0)} min",
-            'recipeId': str(recipe.id),
-            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
-            'meal_types': recipe.meal_types or [],
-        }
+        return recipe_option_payload(recipe, meal, macros)
 
     excluded_recipe_ids = _get_excluded_recipe_ids(user)
     user_allergens = set(getattr(user, 'allergies', None) or [])
@@ -1037,7 +1087,9 @@ def meal_alternatives_recommendation(request):
             is_current = current_recipe_id and rid == current_recipe_id
             if recipe_blocked(recipe) and not is_current:
                 continue
-            alternatives.append(build_option_from_recipe(recipe, current_meal, scaled_meal_recipe_macros(meal_recipe)))
+            alternatives.append(build_option_from_recipe(
+                recipe, current_meal, meal_recipe_scaled_macros(meal_recipe, ratio),
+            ))
     else:
         for recipe in current_meal.suggested_recipes.all():
             if not recipe.is_active:
