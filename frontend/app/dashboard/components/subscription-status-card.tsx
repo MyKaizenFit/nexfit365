@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { buildApiUrl } from "@/lib/api"
-import { Loader2, Sparkles, Crown, CalendarDays } from "lucide-react"
+import { canShowPremiumCTA } from "@/lib/premium-cta"
+import { Loader2, Sparkles, Crown } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
 import { toast } from "@/hooks/use-toast"
 
@@ -41,18 +42,21 @@ export function SubscriptionStatusCard() {
     const { getAuthHeaders } = useAuth()
     const [status, setStatus] = useState<MembershipStatus | null>(null)
     const [loading, setLoading] = useState(true)
+    const [loadFailed, setLoadFailed] = useState(false)
     const [activating, setActivating] = useState(false)
 
     const loadStatus = async () => {
         try {
             setLoading(true)
+            setLoadFailed(false)
             const headers = await getAuthHeaders()
             const response = await fetch(buildApiUrl("subscription-status/"), {
         credentials: 'include', headers })
 
             // Silently ignore auth errors — token may be expired
             if (response.status === 401 || response.status === 403) {
-                setLoading(false)
+                setStatus(null)
+                setLoadFailed(true)
                 return
             }
 
@@ -62,8 +66,9 @@ export function SubscriptionStatusCard() {
 
             const data = await response.json()
             setStatus(data)
-        } catch (error) {
-            // Don't show destructive toast for this non-critical widget
+        } catch {
+            setStatus(null)
+            setLoadFailed(true)
         } finally {
             setLoading(false)
         }
@@ -112,6 +117,19 @@ export function SubscriptionStatusCard() {
         }
     }
 
+    const showPremiumCta = canShowPremiumCTA({
+        loaded: !loading,
+        error: loadFailed,
+        status: status?.status,
+        isActive: status?.is_active,
+        hasActiveMembership: status?.is_active,
+        role: status?.role,
+    })
+
+    if (!showPremiumCta || !status) {
+        return null
+    }
+
     return (
         <Card className="border shadow-lg">
             <CardHeader>
@@ -125,67 +143,48 @@ export function SubscriptionStatusCard() {
                             Activa tus 7 días gratis o revisa el estado de tu membresía actual.
                         </p>
                     </div>
-                    <Badge className={status ? statusStyles[status.status] || statusStyles.none : statusStyles.none}>
-                        {status ? statusLabels[status.status] || "Sin membresía" : "Cargando"}
+                    <Badge className={statusStyles[status.status] || statusStyles.none}>
+                        {statusLabels[status.status] || "Sin membresía"}
                     </Badge>
                 </div>
             </CardHeader>
             <CardContent className="space-y-4">
-                {loading ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Comprobando tu acceso...
+                <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-xl border bg-muted/50 p-3">
+                        <p className="text-xs text-muted-foreground">Plan mensual (próximamente)</p>
+                        <p className="text-lg font-semibold">97€/mes</p>
+                    </div>
+                    <div className="rounded-xl border bg-muted/50 p-3">
+                        <p className="text-xs text-muted-foreground">Plan anual (próximamente)</p>
+                        <p className="text-lg font-semibold">990€/año</p>
+                    </div>
+                </div>
+
+                {status.status === "expired" ? (
+                    <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-400">
+                        Tu periodo de prueba ha terminado. El cobro dentro de la app llegará en una próxima fase;
+                        puedes seguir usando las funciones básicas o contactar para el servicio personalizado 1:1.
                     </div>
                 ) : (
-                    <>
-                        <div className="grid gap-3 md:grid-cols-2">
-                            <div className="rounded-xl border bg-muted/50 p-3">
-                                <p className="text-xs text-muted-foreground">Plan mensual (próximamente)</p>
-                                <p className="text-lg font-semibold">97€/mes</p>
-                            </div>
-                            <div className="rounded-xl border bg-muted/50 p-3">
-                                <p className="text-xs text-muted-foreground">Plan anual (próximamente)</p>
-                                <p className="text-lg font-semibold">990€/año</p>
-                            </div>
-                        </div>
+                    <div className="rounded-xl border bg-muted/50 p-3 text-sm text-slate-700">
+                        Incluye seguimiento del progreso, comunicación más cercana y una experiencia premium dentro de la app.
+                    </div>
+                )}
 
-                        {status?.status === "trial" ? (
-                            <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-3 text-sm text-emerald-900 dark:text-emerald-400">
-                                <div className="flex items-center gap-2 font-medium">
-                                    <CalendarDays className="h-4 w-4" />
-                                    Te quedan {status.days_remaining} día(s) de prueba.
-                                </div>
-                                <p className="mt-1 text-emerald-800">
-                                    Aprovecha estos días para usar el seguimiento, la revisión quincenal y la ayuda personalizada.
-                                </p>
-                            </div>
-                        ) : status?.status === "expired" ? (
-                            <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-sm text-amber-900 dark:text-amber-400">
-                                Tu periodo de prueba ha terminado. El cobro dentro de la app llegará en una próxima fase;
-                                puedes seguir usando las funciones básicas o contactar para el servicio personalizado 1:1.
-                            </div>
+                {status.can_start_trial && (
+                    <Button onClick={handleStartTrial} disabled={activating} className="w-full bg-emerald-600 hover:bg-emerald-700">
+                        {activating ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Activando prueba...
+                            </>
                         ) : (
-                            <div className="rounded-xl border bg-muted/50 p-3 text-sm text-slate-700">
-                                Incluye seguimiento del progreso, comunicación más cercana y una experiencia premium dentro de la app.
-                            </div>
+                            <>
+                                <Sparkles className="mr-2 h-4 w-4" />
+                                Activar 7 días gratis
+                            </>
                         )}
-
-                        {status?.can_start_trial && (
-                            <Button onClick={handleStartTrial} disabled={activating} className="w-full bg-emerald-600 hover:bg-emerald-700">
-                                {activating ? (
-                                    <>
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                        Activando prueba...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Sparkles className="mr-2 h-4 w-4" />
-                                        Activar 7 días gratis
-                                    </>
-                                )}
-                            </Button>
-                        )}
-                    </>
+                    </Button>
                 )}
             </CardContent>
         </Card>

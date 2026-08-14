@@ -82,6 +82,8 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { useRestWellnessAccess } from "@/hooks/use-rest-wellness-access"
+import { canShowPremiumCTAForUser } from "@/lib/premium-cta"
+import { filterUserNavItems, shouldRedirectHiddenDashboardSection } from "@/lib/dashboard-navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
@@ -128,6 +130,12 @@ function DashboardSectionSync({
       return
     }
 
+    if (sectionParam && shouldRedirectHiddenDashboardSection(sectionParam)) {
+      onSectionChange("dashboard")
+      router.replace("/dashboard", { scroll: false })
+      return
+    }
+
     if (sectionParam && sectionParam === REST_WELLNESS_SECTION && !canAccessRestWellness) {
       onSectionChange("dashboard")
       router.replace("/dashboard", { scroll: false })
@@ -153,10 +161,11 @@ function DashboardContent() {
   const { access: restWellnessAccess, loading: restWellnessAccessLoading } = useRestWellnessAccess()
   // Hide 1:1 / recommendations upsell only for paying members — not during trial.
   const hideUpsellSections = (user?.subscription_status || "").toLowerCase() === "active"
+  const showPremiumCta = canShowPremiumCTAForUser(user, !isLoading)
   // While access is loading, keep the menu entry visible so a late/failed early
   // fetch does not permanently hide Descanso (GA default is enabled).
   const canAccessRestWellness = restWellnessAccessLoading || restWellnessAccess.can_fill
-  const visibleMenuItems = menuItems.filter((item) => {
+  const visibleMenuItems = filterUserNavItems(menuItems).filter((item) => {
     if (item.url === REST_WELLNESS_SECTION && !canAccessRestWellness) return false
     if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
     return true
@@ -180,6 +189,12 @@ function DashboardContent() {
 
   const handleMenuClick = useCallback((section: string, title: string) => {
     if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(section)) {
+      setSelectedSection("dashboard")
+      router.push("/dashboard", { scroll: false })
+      return
+    }
+
+    if (shouldRedirectHiddenDashboardSection(section)) {
       setSelectedSection("dashboard")
       router.push("/dashboard", { scroll: false })
       return
@@ -225,7 +240,11 @@ function DashboardContent() {
   }
 
   const renderContent = () => {
-    switch (selectedSection) {
+    const sectionToRender = shouldRedirectHiddenDashboardSection(selectedSection)
+      ? "dashboard"
+      : selectedSection
+
+    switch (sectionToRender) {
       case "dashboard":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
@@ -246,7 +265,7 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                {!hideUpsellSections ? (
+                {showPremiumCta ? (
                   <Suspense fallback={null}>
                     <SubscriptionStatusCard />
                   </Suspense>
@@ -317,9 +336,11 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <Suspense fallback={null}>
-                <SubscriptionStatusCard />
-              </Suspense>
+              {showPremiumCta ? (
+                <Suspense fallback={null}>
+                  <SubscriptionStatusCard />
+                </Suspense>
+              ) : null}
               <Suspense fallback={null}>
                 <CoachingCTA fullPage placement="coaching-page" />
               </Suspense>
