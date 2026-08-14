@@ -32,6 +32,7 @@ def send_push_notification_task(self, notification_id: int):
         from .delivery_tracking import update_delivery_log
         from .models import Notification, NotificationDeliveryLog
         from .push_service import push_service
+        from backend.frontend_urls import build_frontend_url
         from .delivery_options import should_send_push
 
         notification = Notification.objects.get(id=notification_id)
@@ -84,7 +85,7 @@ def send_push_notification_task(self, notification_id: int):
             title=notification.title,
             body=notification.message,
             notification_type=notification.type,
-            url=notification.action_url or "/dashboard",
+            url=build_frontend_url(notification.action_url or "/dashboard"),
             data=notification.data or {},
             create_notification=False,
         )

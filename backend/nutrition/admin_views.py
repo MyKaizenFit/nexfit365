@@ -33,6 +33,7 @@ from .serializers import MealLogSerializer, NutritionPlanHistorySerializer
 from .serializers import AdminCommunityRecipePostSerializer
 from .services import PersonalizedNutritionService
 from .views import get_active_plan_for_user
+from backend.frontend_urls import build_frontend_url
 from notifications.models import Notification
 
 User = get_user_model()
@@ -84,7 +85,7 @@ class AdminCommunityRecipePostViewSet(viewsets.ReadOnlyModelViewSet):
                 'post_title': title,
                 'reason': reason,
             },
-            action_url='/dashboard?section=recipe-community',
+            action_url=build_frontend_url('/dashboard?section=recipe-community'),
             expires_at=timezone.now() + timedelta(days=14),
         )
         post.delete()

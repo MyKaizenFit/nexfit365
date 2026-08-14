@@ -7,6 +7,7 @@ from .models import (
     Exercise, WorkoutProgram, WorkoutDay, WorkoutDayExercise,
     WorkoutLog, WorkoutLogExercise, WorkoutLogSet
 )
+from backend.media_urls import build_public_media_url
 from backend.utils.encoding_fix import fix_mojibake
 
 
@@ -28,9 +29,7 @@ def build_absolute_file_url(serializer, file_field) -> str | None:
         return None
 
     request = serializer.context.get("request") if hasattr(serializer, "context") else None
-    if request:
-        return request.build_absolute_uri(url)
-    return url
+    return build_public_media_url(request, url) or url
 
 
 def build_exercise_video_display_url(serializer, exercise) -> str | None:

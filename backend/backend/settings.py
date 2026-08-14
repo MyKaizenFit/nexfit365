@@ -142,7 +142,8 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
         "rest_framework.parsers.FormParser",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    # next/previous usan PUBLIC_API_BASE_URL (no FORCE_SCRIPT_NAME).
+    "DEFAULT_PAGINATION_CLASS": "backend.pagination.PublicApiPageNumberPagination",
     "PAGE_SIZE": 100,  # Aumentado de 20 a 100 para mostrar más elementos
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",

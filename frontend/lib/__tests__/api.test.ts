@@ -1,5 +1,14 @@
 // lib/__tests__/api.test.ts
-import { buildApiUrl, getAuthHeaders, getMultipartAuthHeaders, API_CONFIG } from '../api'
+import {
+  buildApiUrl,
+  buildMediaUrl,
+  buildUploadApiUrl,
+  getApiBaseUrl,
+  getAuthHeaders,
+  getMultipartAuthHeaders,
+  getUploadApiBaseUrl,
+  API_CONFIG,
+} from '../api'
 import { getAuthService } from '../auth-service'
 
 jest.mock('../auth-service', () => ({
@@ -15,6 +24,7 @@ describe('API utilities', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     process.env.NEXT_PUBLIC_API_URL = 'http://localhost:8000'
+    delete process.env.NEXT_PUBLIC_UPLOAD_API_URL
     Object.defineProperty(document, 'cookie', {
       writable: true,
       value: '',
@@ -35,6 +45,69 @@ describe('API utilities', () => {
     it('handles endpoint with leading slash', () => {
       const url = buildApiUrl('/profile')
       expect(url).toBe('http://localhost:8000/api/profile')
+    })
+
+    it('builds metodosk.com/nexfit/api URLs', () => {
+      process.env.NEXT_PUBLIC_API_URL = 'https://metodosk.com/nexfit/api'
+      expect(buildApiUrl('users/')).toBe('https://metodosk.com/nexfit/api/users/')
+    })
+  })
+
+  describe('getApiBaseUrl', () => {
+    it('falls back to localhost in development when env is missing', () => {
+      delete process.env.NEXT_PUBLIC_API_URL
+      expect(getApiBaseUrl()).toBe('http://localhost:8000')
+    })
+
+    it('throws in production when NEXT_PUBLIC_API_URL is missing', () => {
+      const previousNodeEnv = process.env.NODE_ENV
+      delete process.env.NEXT_PUBLIC_API_URL
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        configurable: true,
+        writable: true,
+        value: 'production',
+      })
+      try {
+        expect(() => getApiBaseUrl()).toThrow(/NEXT_PUBLIC_API_URL/)
+      } finally {
+        Object.defineProperty(process.env, 'NODE_ENV', {
+          configurable: true,
+          writable: true,
+          value: previousNodeEnv,
+        })
+      }
+    })
+  })
+
+  describe('upload API helpers', () => {
+    it('uses NEXT_PUBLIC_UPLOAD_API_URL when set', () => {
+      process.env.NEXT_PUBLIC_API_URL = 'https://metodosk.com/nexfit/api'
+      process.env.NEXT_PUBLIC_UPLOAD_API_URL = 'https://uploads.metodosk.com/nexfit/api'
+      expect(getUploadApiBaseUrl()).toBe('https://uploads.metodosk.com/nexfit')
+      expect(buildUploadApiUrl('admin/exercises/1/upload-video/')).toBe(
+        'https://uploads.metodosk.com/nexfit/api/admin/exercises/1/upload-video/'
+      )
+    })
+
+    it('falls back to the normal API when upload URL is missing', () => {
+      process.env.NEXT_PUBLIC_API_URL = 'https://metodosk.com/nexfit/api'
+      expect(buildUploadApiUrl('admin/exercises/1/upload-video/')).toBe(
+        'https://metodosk.com/nexfit/api/admin/exercises/1/upload-video/'
+      )
+    })
+  })
+
+  describe('buildMediaUrl', () => {
+    it('keeps historical absolute media URLs', () => {
+      const historical = 'https://api.nexfit365.dpdns.org/media/exercises/videos/demo.mp4'
+      expect(buildMediaUrl(historical)).toBe(historical)
+    })
+
+    it('builds media URLs under the API origin including /nexfit', () => {
+      process.env.NEXT_PUBLIC_API_URL = 'https://metodosk.com/nexfit/api'
+      expect(buildMediaUrl('/media/exercises/videos/demo.mp4')).toBe(
+        'https://metodosk.com/nexfit/media/exercises/videos/demo.mp4'
+      )
     })
   })
 

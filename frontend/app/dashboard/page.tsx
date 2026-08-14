@@ -1,5 +1,6 @@
 "use client"
 
+import { appPath } from '@/lib/app-path'
 import { useState, useEffect, useCallback, lazy, Suspense } from "react"
 import Image from "next/image"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -182,7 +183,7 @@ function DashboardContent() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      window.location.replace('/auth')
+      window.location.replace(appPath('/auth'))
     }
   }, [isLoading, isAuthenticated])
 

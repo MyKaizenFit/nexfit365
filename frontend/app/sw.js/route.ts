@@ -4,6 +4,10 @@
 
 import { NextResponse } from 'next/server'
 
+const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || '').trim()
+const APP_BASE_PATH = rawBasePath.replace(/\/+$/, '')
+const APP_SCOPE = APP_BASE_PATH ? `${APP_BASE_PATH}/` : '/'
+
 const KILL_SW_CONTENT = `// NexFit365 service worker cleanup
 self.addEventListener('install', (event) => {
   self.skipWaiting()
@@ -12,7 +16,11 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
     const keys = await caches.keys()
-    await Promise.all(keys.map((key) => caches.delete(key)))
+    await Promise.all(
+      keys
+        .filter((key) => key.startsWith('nexfit365-'))
+        .map((key) => caches.delete(key))
+    )
     const clientsList = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     for (const client of clientsList) {
       client.postMessage({ type: 'SW_DISABLED' })
@@ -31,18 +39,51 @@ self.addEventListener('fetch', () => {})
 
 // Contenido del Service Worker embebido
 const SW_CONTENT = `// Service Worker para NexFit365 PWA
-// Versión: 1.7.0 - icono actualizado, limpieza de caches viejos
+// Versión: 1.8.0 - soporte seguro para despliegue bajo basePath
 
-const CACHE_NAME = 'nexfit365-v1.7'
-const RUNTIME_CACHE = 'nexfit365-runtime-v1.7'
-const IMAGE_CACHE = 'nexfit365-images-v1.7'
+const APP_BASE_PATH = ${JSON.stringify(APP_BASE_PATH)}
+const APP_SCOPE = ${JSON.stringify(APP_SCOPE)}
+
+function appPath(path = '/') {
+  if (/^https?:\/\//i.test(path)) {
+    return path
+  }
+
+  const normalized = path.startsWith('/') ? path : '/' + path
+
+  if (
+    APP_BASE_PATH &&
+    (
+      normalized === APP_BASE_PATH ||
+      normalized.startsWith(APP_BASE_PATH + '/') ||
+      normalized.startsWith(APP_BASE_PATH + '?') ||
+      normalized.startsWith(APP_BASE_PATH + '#')
+    )
+  ) {
+    return normalized
+  }
+
+  if (!APP_BASE_PATH) {
+    return normalized
+  }
+
+  if (normalized === '/') {
+    return APP_SCOPE
+  }
+
+  return APP_BASE_PATH + normalized
+}
+
+const CACHE_NAME = 'nexfit365-v1.8'
+const RUNTIME_CACHE = 'nexfit365-runtime-v1.8'
+const IMAGE_CACHE = 'nexfit365-images-v1.8'
 const MAX_CACHE_SIZE = 50 * 1024 * 1024 // 50MB máximo
 
 // Archivos estáticos críticos para cachear (solo lo esencial)
 const STATIC_ASSETS = [
-  '/',
-  '/icono.png',
-  '/manifest.json'
+  APP_SCOPE,
+  appPath('/icono.png'),
+  appPath('/manifest.webmanifest')
 ]
 
 // Estrategias de cache
@@ -70,7 +111,8 @@ self.addEventListener('activate', (event) => {
       // Eliminar solo caches viejos para mantener recursos offline válidos
       return Promise.all(
         cacheNames.map((name) => {
-          if (!cacheAllowList.includes(name)) {
+          // Cache Storage es por origen: no tocar caches de la landing u otras apps.
+          if (name.startsWith('nexfit365-') && !cacheAllowList.includes(name)) {
             return caches.delete(name)
           }
           return Promise.resolve(false)
@@ -80,7 +122,7 @@ self.addEventListener('activate', (event) => {
       return self.clients.claim().then(() => {
         return self.clients.matchAll().then((clients) => {
           clients.forEach((client) => {
-            client.postMessage({ type: 'SW_UPDATED', version: '1.7' })
+            client.postMessage({ type: 'SW_UPDATED', version: '1.8' })
           })
         })
       })
@@ -93,27 +135,45 @@ self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
+  // No gestionar recursos de otros orígenes ni de la landing fuera de /nexfit.
+  if (url.origin !== self.location.origin) {
+    return
+  }
+
+  if (
+    APP_BASE_PATH &&
+    url.pathname !== APP_BASE_PATH &&
+    !url.pathname.startsWith(APP_BASE_PATH + '/')
+  ) {
+    return
+  }
+
+  const pathname =
+    APP_BASE_PATH && url.pathname.startsWith(APP_BASE_PATH)
+      ? url.pathname.slice(APP_BASE_PATH.length) || '/'
+      : url.pathname
+
   if (request.method !== 'GET') {
     return
   }
 
   // NO INTERCEPTAR archivos JS - dejar que pasen directamente sin cache del SW
   // Los chunks de Next.js tienen hashes únicos y Next.js maneja su propio cache
-  if (url.pathname.startsWith('/api/') || 
-      url.pathname.startsWith('/auth/') ||
-      url.pathname.startsWith('/admin/') ||
-      url.pathname.startsWith('/_next/') ||
-      url.pathname.includes('/_next/static/') ||
-      url.pathname.match(/\/\d+-[a-f0-9]+\.js/) || // Chunks de Next.js con hash (ej: 8836-abc123.js)
-      url.pathname.endsWith('.js') || // TODOS los archivos JS
-      url.pathname.includes('.js')) { // Cualquier ruta que contenga .js
+  if (pathname.startsWith('/api/') ||
+      pathname.startsWith('/auth/') ||
+      pathname.startsWith('/admin/') ||
+      pathname.startsWith('/_next/') ||
+      pathname.includes('/_next/static/') ||
+      pathname.match(/\/\d+-[a-f0-9]+\.js/) || // Chunks de Next.js con hash (ej: 8836-abc123.js)
+      pathname.endsWith('.js') || // TODOS los archivos JS
+      pathname.includes('.js')) { // Cualquier ruta que contenga .js
     // NO interceptar - dejar que el navegador maneje estos requests directamente
     // Esto evita cualquier interferencia del Service Worker
     return
   }
 
   // Service Worker no debe cachearse a sí mismo
-  if (url.pathname === '/sw.js') {
+  if (pathname === '/sw.js') {
     return
   }
 
@@ -125,7 +185,7 @@ self.addEventListener('fetch', (event) => {
 
   // Solo cachear CSS y fuentes con Cache First
   // Los archivos JS ya fueron excluidos arriba y NO se cachean
-  if (url.pathname.match(/\\.(css|woff|woff2|ttf|eot)$/)) {
+  if (pathname.match(/\\.(css|woff|woff2|ttf|eot)$/)) {
     event.respondWith(cacheFirstStrategy(request))
     return
   }
@@ -155,7 +215,7 @@ async function networkFirstStrategy(request) {
       return cachedResponse
     }
     if (request.mode === 'navigate') {
-      const fallback = await caches.match('/')
+      const fallback = await caches.match(APP_SCOPE)
       if (fallback) {
         return fallback
       }
@@ -186,7 +246,7 @@ async function cacheFirstStrategy(request) {
 async function staleWhileRevalidateStrategy(request) {
   const cache = await caches.open(IMAGE_CACHE)
   const cachedResponse = await caches.match(request)
-  
+
   const fetchPromise = fetch(request).then((networkResponse) => {
     if (networkResponse.ok) {
       cache.put(request, networkResponse.clone())
@@ -203,9 +263,9 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'NEXFIT'
   const options = {
     body: data.body || 'Tienes una nueva notificación',
-    icon: '/icono.png',
-    badge: '/icono.png',
-    data: data.url || '/',
+    icon: appPath('/icono.png'),
+    badge: appPath('/icono.png'),
+    data: appPath(data.url || '/'),
     tag: data.tag || 'notification',
     requireInteraction: false
   }
@@ -219,17 +279,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
 
-  const urlToOpen = event.notification.data || '/'
+  const urlToOpen = appPath(event.notification.data || '/')
+  const absoluteUrlToOpen = new URL(urlToOpen, self.location.origin).href
+
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (let i = 0; i < clientList.length; i++) {
         const client = clientList[i]
-        if (client.url === urlToOpen && 'focus' in client) {
+        if (client.url === absoluteUrlToOpen && 'focus' in client) {
           return client.focus()
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(urlToOpen)
+        return clients.openWindow(absoluteUrlToOpen)
       }
     })
   )
@@ -255,7 +317,7 @@ export async function GET() {
     status: 200,
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
-      'Service-Worker-Allowed': '/',
+      'Service-Worker-Allowed': APP_SCOPE,
       'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
       'Pragma': 'no-cache',
       'Expires': '0',

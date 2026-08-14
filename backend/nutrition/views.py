@@ -23,6 +23,7 @@ from .serializers import (
     CommunityRecipePostSerializer, CommunityRecipeCommentSerializer,
 )
 from .services import PersonalizedNutritionService, recipe_is_compatible_for_user
+from backend.media_urls import recipe_image_display_url
 from django.shortcuts import get_object_or_404
 from django.http import JsonResponse
 import logging
@@ -71,7 +72,7 @@ def _safe_recipe_payload(recipe: Recipe):
             'fiber': float(recipe.fiber or 0),
             'ingredients': recipe.ingredients or [],
             'instructions': recipe.instructions or '',
-            'image_url': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'image_url': recipe_image_display_url(recipe),
             'meal_types': recipe.meal_types or [],
             'diet_types': recipe.diet_types or [],
             'allergens': recipe.allergens or [],
@@ -308,7 +309,7 @@ def plan_meals_for_selection(request):
             'description': recipe.description or (meal_base.description if meal_base else ''),
             'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
             'recipeId': str(recipe.id),
-            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'imageUrl': recipe_image_display_url(recipe, request),
             'meal_types': list(recipe.meal_types or []),
         }
 
@@ -787,7 +788,7 @@ def plan_meals_for_selection(request):
                             'description': recipe.description or meal.description,
                             'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
                             'recipeId': recipe.id,
-                            'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+                            'imageUrl': recipe_image_display_url(recipe, request),
                         })
                 else:
                     personalized = personalize_meal(meal, meal_type)
@@ -855,7 +856,7 @@ def plan_meals_for_selection(request):
                 'description': recipe.description or '',
                 'cookTime': f"{recipe.prep_time_minutes + recipe.cook_time_minutes} min",
                 'recipeId': recipe.id,
-                'imageUrl': recipe.image_url or (recipe.image.url if recipe.image else ''),
+                'imageUrl': recipe_image_display_url(recipe, request),
             })
 
         meals_by_type[meal_type] = meal_options
@@ -1575,7 +1576,7 @@ def meal_exclusions(request):
                     'id': str(exclusion.id),
                     'recipe_id': str(exclusion.recipe_id),
                     'recipe_name': exclusion.recipe.name,
-                    'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+                    'image_url': recipe_image_display_url(exclusion.recipe, request),
                     'reason': exclusion.reason,
                 }
                 for exclusion in exclusions
@@ -1593,10 +1594,7 @@ def meal_exclusions(request):
                         'id': f"fallback-{recipe_id}",
                         'recipe_id': recipe_id,
                         'recipe_name': recipe_map[recipe_id].name if recipe_id in recipe_map else 'Receta excluida',
-                        'image_url': (
-                            recipe_map[recipe_id].image_url
-                            or (recipe_map[recipe_id].image.url if recipe_id in recipe_map and recipe_map[recipe_id].image else '')
-                        ) if recipe_id in recipe_map else '',
+                        'image_url': recipe_image_display_url(recipe_map.get(recipe_id), request) if recipe_id in recipe_map else '',
                         'reason': 'No me gusta esta comida',
                     }
                     for recipe_id in fallback_ids
@@ -1626,7 +1624,7 @@ def meal_exclusions(request):
             'id': str(exclusion.id),
             'recipe_id': str(exclusion.recipe_id),
             'recipe_name': exclusion.recipe.name,
-            'image_url': exclusion.recipe.image_url or (exclusion.recipe.image.url if exclusion.recipe.image else ''),
+            'image_url': recipe_image_display_url(exclusion.recipe, request),
             'reason': exclusion.reason,
         }
     except DatabaseError as exc:
@@ -1636,7 +1634,7 @@ def meal_exclusions(request):
             'id': f"fallback-{recipe.id}",
             'recipe_id': str(recipe.id),
             'recipe_name': recipe.name,
-            'image_url': recipe.image_url or (recipe.image.url if recipe.image else ''),
+            'image_url': recipe_image_display_url(recipe, request),
             'reason': reason or 'No me gusta esta comida',
         }
 

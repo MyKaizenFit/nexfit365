@@ -21,6 +21,8 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/frontend-health-path.sh
+. "$SCRIPT_DIR/scripts/lib/frontend-health-path.sh"
 DEPLOY_LOG_DIR="$SCRIPT_DIR/data/logs"
 DEPLOY_PID_FILE="$DEPLOY_LOG_DIR/deploy.pid"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/deploy-latest.log"
@@ -445,8 +447,9 @@ run_full_healthchecks() {
     print_info "Verificando estado Docker Compose..."
     run_compose ps
 
+    frontend_health_url="$(frontend_local_health_url "$(read_named_env_value "$SCRIPT_DIR/frontend/docker.env.production" "NEXT_PUBLIC_BASE_PATH")")"
     wait_http_ok "Backend" "http://localhost:8000/api/health/" 20 5
-    wait_http_ok "Frontend" "http://localhost:3000/" 12 5
+    wait_http_ok "Frontend" "$frontend_health_url" 12 5
 
     validate_service_state backend true
     validate_service_state frontend true

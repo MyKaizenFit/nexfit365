@@ -8,6 +8,7 @@ from .models import (
     Recipe, NutritionPlan, PlanMeal, MealLog, Food, NutritionPlanHistory,
     RecipeIngredient, CommunityRecipePost, CommunityRecipeComment
 )
+from backend.media_urls import PublicMediaImageField, build_public_media_url, recipe_image_display_url
 
 
 def user_display_name(user) -> str:
@@ -77,6 +78,7 @@ class RecipeSerializer(serializers.ModelSerializer):
     recipe_ingredients = RecipeIngredientSerializer(many=True, read_only=True)
     ingredients_count = serializers.SerializerMethodField()
     adjusted_macros = serializers.SerializerMethodField()
+    image = PublicMediaImageField(required=False, allow_null=True)
     
     class Meta:
         model = Recipe
@@ -108,6 +110,7 @@ class RecipeSerializer(serializers.ModelSerializer):
 
 class RecipeMinimalSerializer(serializers.ModelSerializer):
     """Serializer minimal para listas"""
+    image = PublicMediaImageField(required=False, allow_null=True)
     class Meta:
         model = Recipe
         fields = [
@@ -138,7 +141,7 @@ class CommunityRecipeCommentSerializer(serializers.ModelSerializer):
         return obj.author_id == user.id or user.is_staff or user.is_superuser or getattr(user, 'role', '') == 'admin'
 
 
-class BoundedImageField(serializers.ImageField):
+class BoundedImageField(PublicMediaImageField):
     """Reject oversized uploads before Pillow/ImageField parses bytes."""
 
     max_bytes = 6 * 1024 * 1024
@@ -201,14 +204,7 @@ class CommunityRecipePostSerializer(serializers.ModelSerializer):
     def get_photo_url(self, obj) -> str:
         if not obj.photo:
             return ""
-        request = self.context.get('request')
-        if not request:
-            return obj.photo.url
-        url = request.build_absolute_uri(obj.photo.url)
-        forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip()
-        if forwarded_proto == "https" and url.startswith("http://"):
-            url = "https://" + url[len("http://"):]
-        return url
+        return build_public_media_url(self.context.get("request"), obj.photo.url) or obj.photo.url
 
     def get_can_delete(self, obj) -> bool:
         request = self.context.get('request')
@@ -354,6 +350,7 @@ class MealLogSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
+    photo = PublicMediaImageField(required=False, allow_null=True)
     
     class Meta:
         model = MealLog
@@ -373,7 +370,7 @@ class MealLogSerializer(serializers.ModelSerializer):
             return {
                 'id': str(obj.recipe.id),
                 'name': obj.recipe.name,
-                'image_url': obj.recipe.image_url or (obj.recipe.image.url if obj.recipe.image else None),
+                'image_url': recipe_image_display_url(obj.recipe, self.context.get("request")) or None,
                 'calories': obj.recipe.calories,
                 'protein': float(obj.recipe.protein),
                 'carbs': float(obj.recipe.carbs),

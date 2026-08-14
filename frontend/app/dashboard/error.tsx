@@ -1,5 +1,6 @@
 'use client'
 
+import { appPath } from '@/lib/app-path'
 import { useEffect } from 'react'
 import { dismissBlockingOverlays } from '@/lib/dismiss-blocking-overlays'
 
@@ -31,7 +32,7 @@ export default function DashboardError({
       localStorage.getItem('auth_logout_in_progress') === 'true'
 
     if (logoutInProgress) {
-      window.location.replace('/auth')
+      window.location.replace(appPath('/auth'))
       return
     }
 
@@ -59,7 +60,7 @@ export default function DashboardError({
     } catch {
       // ignore
     }
-    window.location.href = '/dashboard'
+    window.location.href = appPath('/dashboard')
   }
 
   return (

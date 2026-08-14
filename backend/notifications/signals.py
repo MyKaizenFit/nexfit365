@@ -14,6 +14,7 @@ from .push_service import push_service
 from .email_service import email_service
 from .delivery_tracking import update_delivery_log
 from .delivery_options import should_send_email, should_send_push
+from backend.frontend_urls import build_frontend_url
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ def send_notifications_sync(notification_id: int):
                     title=notification.title,
                     body=notification.message,
                     notification_type=notification.type,
-                    url=notification.action_url or "/dashboard",
+                    url=build_frontend_url(notification.action_url or "/dashboard"),
                     data=notification.data or {},
                     create_notification=False  # Ya existe la notificación
                 )

@@ -3,6 +3,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import Recipe, NutritionPlan, PlanMeal, Food, PlanMealRecipe, RecipeIngredient, EquivalenceCategory
 from .serializers import RecipeIngredientSerializer, FoodMinimalSerializer
+from backend.media_urls import PublicMediaImageField
 
 User = get_user_model()
 
@@ -43,6 +44,7 @@ class AdminRecipeIngredientSerializer(serializers.ModelSerializer):
 
 class AdminRecipeSerializer(serializers.ModelSerializer):
     recipe_ingredients = AdminRecipeIngredientSerializer(many=True, required=False)
+    image = PublicMediaImageField(required=False, allow_null=True)
 
     class Meta:
         model = Recipe
@@ -76,6 +78,7 @@ class AdminRecipeSerializer(serializers.ModelSerializer):
 
 class RecipeMinimalForMealSerializer(serializers.ModelSerializer):
     """Serializer minimal de recetas para mostrar en comidas"""
+    image = PublicMediaImageField(required=False, allow_null=True)
     class Meta:
         model = Recipe
         fields = [

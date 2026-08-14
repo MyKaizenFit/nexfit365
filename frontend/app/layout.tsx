@@ -10,6 +10,7 @@ import { RegisterServiceWorker } from './register-sw'
 import { ClientVersionGuard } from './client-version-guard'
 import { ThemeProvider } from '@/components/theme-provider'
 import { CookieBanner } from '@/components/cookie-banner'
+import { appPath } from '@/lib/app-path'
 
 const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
   || (process.env.NODE_ENV === 'production'
@@ -17,6 +18,7 @@ const frontendBaseUrl = process.env.NEXT_PUBLIC_FRONTEND_URL
     : 'http://localhost:3000')
 
 const pwaEnabled = (process.env.NEXT_PUBLIC_ENABLE_PWA || '').toLowerCase() === 'true'
+const appScope = appPath('/')
 
 export const metadata: Metadata = {
   metadataBase: new URL(frontendBaseUrl),
@@ -35,7 +37,6 @@ export const metadata: Metadata = {
     shortcut: ['/icono.png?v=3'],
     apple: [{ url: '/apple-touch-icon.png?v=3', sizes: '180x180', type: 'image/png' }],
   },
-  manifest: '/manifest.json',
   other: {
     'theme-color': '#14b8a6',
   },
@@ -63,10 +64,17 @@ export default function RootLayout({
               (function () {
                 if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
+                var appScope = ${JSON.stringify(appScope)};
                 var clearWorkers = function () {
                   navigator.serviceWorker.getRegistrations()
                     .then(function (registrations) {
-                      return Promise.all(registrations.map(function (registration) {
+                      return Promise.all(registrations.filter(function (registration) {
+                        try {
+                          return new URL(registration.scope).pathname === appScope;
+                        } catch (e) {
+                          return false;
+                        }
+                      }).map(function (registration) {
                         return registration.unregister().catch(function () { return false; });
                       }));
                     })
@@ -75,7 +83,9 @@ export default function RootLayout({
                   if ('caches' in window) {
                     caches.keys()
                       .then(function (keys) {
-                        return Promise.all(keys.map(function (key) {
+                        return Promise.all(keys.filter(function (key) {
+                          return key.indexOf('nexfit365-') === 0;
+                        }).map(function (key) {
                           return caches.delete(key).catch(function () { return false; });
                         }));
                       })

@@ -18,6 +18,10 @@ TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
 mkdir -p "$(dirname "$ALERT_LOG")"
 touch "$ALERT_LOG"
 
+# shellcheck source=scripts/lib/frontend-health-path.sh
+. "/srv/mykaizenfit/pro/scripts/lib/frontend-health-path.sh"
+FRONTEND_HEALTH_URL="$(frontend_local_health_url "$(read_named_env_value "/srv/mykaizenfit/pro/frontend/docker.env.production" "NEXT_PUBLIC_BASE_PATH")")"
+
 compose() {
     COMPOSE_PROJECT_NAME=$PROJECT docker compose -f "$COMPOSE_FILE" "$@"
 }
@@ -56,7 +60,7 @@ fi
 # 2. Frontend
 # ============================================================================
 echo -n "Checking Frontend... "
-if curl -fsS --max-time 8 http://localhost:3000 > /dev/null 2>&1; then
+if curl -fsS --max-time 8 "$FRONTEND_HEALTH_URL" > /dev/null 2>&1; then
     log_status "Frontend" "✅ Healthy"
 else
     log_status "Frontend" "🔴 CRITICAL: no responde"
