@@ -23,4 +23,9 @@ describe('dashboard commercial upsell gating', () => {
     expect(source.match(/<CoachingCTA/g)?.length).toBe(4)
     expect(matches.length).toBe(4)
   })
+
+  it('keeps Recomendaciones as a product section, not a commercial upsell', () => {
+    expect(source).toContain('PREMIUM_BLOCKED_SECTIONS = new Set(["coaching"])')
+    expect(source).not.toContain('showCommercialUpsell ? (\n                  <Suspense fallback={null}>\n                    <RecommendationsSection />')
+  })
 })

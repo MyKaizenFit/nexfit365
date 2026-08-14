@@ -104,7 +104,7 @@ const menuItems = [
   { title: "Configuración", icon: Settings, url: "settings" },
 ]
 
-const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
+const PREMIUM_BLOCKED_SECTIONS = new Set(["coaching"])
 const REST_WELLNESS_SECTION = "rest-wellness"
 
 function DashboardSectionSync({
@@ -277,11 +277,9 @@ function DashboardContent() {
                     <CoachingCTA placement="dashboard-home" cooldownHours={48} />
                   </Suspense>
                 ) : null}
-                {showCommercialUpsell ? (
-                  <Suspense fallback={null}>
-                    <RecommendationsSection />
-                  </Suspense>
-                ) : null}
+                <Suspense fallback={null}>
+                  <RecommendationsSection />
+                </Suspense>
                 <Suspense fallback={null}>
                   <TipsShowcase />
                 </Suspense>
@@ -295,15 +293,6 @@ function DashboardContent() {
 
 
       case "recommendations":
-        if (hideUpsellSections) {
-          return (
-            <div className="fade-in-stagger scroll-area h-full w-full relative">
-              <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-                <DashboardEnhanced />
-              </div>
-            </div>
-          )
-        }
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
