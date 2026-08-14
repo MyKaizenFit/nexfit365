@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { Camera, ChefHat, CloudMoon, Crown, Dumbbell, Heart, Home, Medal, Moon, Settings, Sparkles, Target, TrendingUp, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import { filterUserNavItems } from "@/lib/dashboard-navigation"
 
 const mainMenuItems = [
   { title: "Inicio", icon: Home, url: "dashboard", badge: null },
@@ -14,7 +15,7 @@ const mainMenuItems = [
 
 const moreMenuItems = [
   { title: "Día 1", icon: Target, url: "day-one", badge: null, premiumBlocked: false },
-  { title: "Recomendaciones", icon: Sparkles, url: "recommendations", badge: null, premiumBlocked: true },
+  { title: "Recomendaciones", icon: Sparkles, url: "recommendations", badge: null, premiumBlocked: false },
   { title: "Ayuda 1:1", icon: Crown, url: "coaching", badge: null, premiumBlocked: true },
   { title: "Team SK", icon: Camera, url: "recipe-community", badge: null, premiumBlocked: false },
   { title: "Consejos", icon: Heart, url: "tips", badge: null, premiumBlocked: false },
@@ -35,10 +36,11 @@ interface MobileNavigationProps {
 export function MobileNavigation({
   selectedSection,
   onSectionChange,
-  hideUpsellSections = false,
+  hideUpsellSections = true,
   canAccessRestWellness = false,
 }: MobileNavigationProps) {
-  const visibleMoreItems = moreMenuItems.filter((item) => {
+  const visibleMainItems = filterUserNavItems(mainMenuItems)
+  const visibleMoreItems = filterUserNavItems(moreMenuItems).filter((item) => {
     if (item.url === "rest-wellness" && !canAccessRestWellness) return false
     if (hideUpsellSections && item.premiumBlocked) return false
     return true
@@ -121,7 +123,7 @@ export function MobileNavigation({
       {/* Navigation items */}
       <nav className="relative z-50 responsive-flex items-center justify-center px-2 sm:px-4 py-2 sm:py-3 w-full safe-area-pl safe-area-pr">
         <div className="flex items-center justify-around w-full max-w-2xl mx-auto gap-1">
-          {mainMenuItems.map((item, index) => {
+          {visibleMainItems.map((item, index) => {
             const IconComponent = item.icon
             const isActive = selectedSection === item.url
             return (
