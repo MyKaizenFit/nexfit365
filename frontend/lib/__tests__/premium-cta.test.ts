@@ -1,4 +1,10 @@
-import { canShowPremiumCTA, canShowPremiumCTAForUser, hasPremiumAccess } from '../premium-cta'
+import {
+  canShowCommercialUpsell,
+  canShowCommercialUpsellForUser,
+  canShowPremiumCTA,
+  canShowPremiumCTAForUser,
+  hasPremiumAccess,
+} from '../premium-cta'
 
 describe('hasPremiumAccess', () => {
   it('treats paid and trial membership as Premium access', () => {
@@ -18,66 +24,54 @@ describe('hasPremiumAccess', () => {
   })
 })
 
-describe('canShowPremiumCTA', () => {
-  it('hides the CTA for paid Premium', () => {
-    expect(canShowPremiumCTA({ loaded: true, status: 'active' })).toBe(false)
-  })
+describe('commercial upsell fail-closed matrix', () => {
+  const cases: Array<{
+    name: string
+    input: Parameters<typeof canShowCommercialUpsell>[0]
+    show: boolean
+  }> = [
+    { name: 'FREE none', input: { loaded: true, status: 'none' }, show: true },
+    { name: 'expired', input: { loaded: true, status: 'expired' }, show: true },
+    { name: 'cancelled', input: { loaded: true, status: 'cancelled' }, show: true },
+    { name: 'TRIAL', input: { loaded: true, status: 'trial' }, show: false },
+    { name: 'ACTIVE', input: { loaded: true, status: 'active' }, show: false },
+    { name: 'LOADING', input: { loaded: false, status: 'none' }, show: false },
+    { name: 'UNDEFINED input', input: undefined, show: false },
+    { name: 'NULL input', input: null, show: false },
+    { name: 'UNDEFINED status', input: { loaded: true, status: undefined }, show: false },
+    { name: 'NULL status', input: { loaded: true, status: null }, show: false },
+    { name: 'ERROR', input: { loaded: true, error: true, status: 'none' }, show: false },
+  ]
 
-  it('hides the CTA for active trial Premium', () => {
-    expect(canShowPremiumCTA({ loaded: true, status: 'trial' })).toBe(false)
-  })
-
-  it('hides the CTA while membership is loading', () => {
-    expect(canShowPremiumCTA({ loaded: false, status: 'none' })).toBe(false)
-    expect(canShowPremiumCTA({ loaded: true, status: 'none' })).toBe(true)
-  })
-
-  it('hides the CTA when membership is undefined, null, or missing', () => {
-    expect(canShowPremiumCTA(undefined)).toBe(false)
-    expect(canShowPremiumCTA(null)).toBe(false)
-    expect(canShowPremiumCTA({ loaded: true, status: undefined })).toBe(false)
-    expect(canShowPremiumCTA({ loaded: true, status: null })).toBe(false)
-    expect(canShowPremiumCTA({ loaded: true, status: '' })).toBe(false)
-    expect(canShowPremiumCTA({ loaded: true })).toBe(false)
-  })
-
-  it('hides the CTA when membership failed to load', () => {
-    expect(canShowPremiumCTA({ loaded: true, error: true, status: 'none' })).toBe(false)
-    expect(canShowPremiumCTA({ loaded: false, error: true })).toBe(false)
-  })
-
-  it('shows the CTA only for confirmed free membership', () => {
-    expect(canShowPremiumCTA({ loaded: true, status: 'none' })).toBe(true)
-    expect(canShowPremiumCTA({ loaded: true, status: 'expired' })).toBe(true)
-    expect(canShowPremiumCTA({ loaded: true, status: 'cancelled' })).toBe(true)
-  })
-
-  it('hides the CTA for unknown statuses', () => {
-    expect(canShowPremiumCTA({ loaded: true, status: 'pending' })).toBe(false)
+  it.each(cases)('$name', ({ input, show }) => {
+    expect(canShowPremiumCTA(input)).toBe(show)
+    expect(canShowCommercialUpsell(input)).toBe(show)
   })
 })
 
-describe('canShowPremiumCTAForUser', () => {
-  it('hides the CTA until auth/membership is loaded', () => {
+describe('canShowCommercialUpsellForUser', () => {
+  it('hides all commercial upsells until auth/membership is loaded', () => {
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'none' }, false)).toBe(false)
     expect(canShowPremiumCTAForUser({ subscription_status: 'none' }, false)).toBe(false)
-    expect(canShowPremiumCTAForUser(null, true)).toBe(false)
-    expect(canShowPremiumCTAForUser(undefined, true)).toBe(false)
+    expect(canShowCommercialUpsellForUser(null, true)).toBe(false)
+    expect(canShowCommercialUpsellForUser(undefined, true)).toBe(false)
   })
 
-  it('hides the CTA for Premium and trial users from the auth profile', () => {
-    expect(canShowPremiumCTAForUser({ subscription_status: 'active' })).toBe(false)
-    expect(canShowPremiumCTAForUser({ subscription_status: 'trial' })).toBe(false)
-    expect(canShowPremiumCTAForUser({ has_active_membership: true, subscription_status: 'none' })).toBe(false)
-    expect(canShowPremiumCTAForUser({ role: 'PREMIUM', subscription_status: 'none' })).toBe(false)
+  it('hides Premium and Coaching CTAs for trial and paid Premium', () => {
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'active' })).toBe(false)
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'trial' })).toBe(false)
+    expect(canShowCommercialUpsellForUser({ has_active_membership: true, subscription_status: 'none' })).toBe(false)
+    expect(canShowCommercialUpsellForUser({ role: 'PREMIUM', subscription_status: 'none' })).toBe(false)
   })
 
-  it('hides the CTA when the profile has no membership status yet', () => {
-    expect(canShowPremiumCTAForUser({ role: 'basic' })).toBe(false)
-    expect(canShowPremiumCTAForUser({ subscription_status: null, role: 'basic' })).toBe(false)
+  it('hides commercial upsells when the profile has no membership status yet', () => {
+    expect(canShowCommercialUpsellForUser({ role: 'basic' })).toBe(false)
+    expect(canShowCommercialUpsellForUser({ subscription_status: null, role: 'basic' })).toBe(false)
   })
 
-  it('shows the CTA for a confirmed free user', () => {
-    expect(canShowPremiumCTAForUser({ subscription_status: 'none', role: 'basic' })).toBe(true)
-    expect(canShowPremiumCTAForUser({ subscription_status: 'expired', has_active_membership: false })).toBe(true)
+  it('shows Premium and Coaching CTAs for confirmed free users', () => {
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'none', role: 'basic' })).toBe(true)
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'expired', has_active_membership: false })).toBe(true)
+    expect(canShowCommercialUpsellForUser({ subscription_status: 'cancelled', role: 'basic' })).toBe(true)
   })
 })

@@ -82,7 +82,7 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { useRestWellnessAccess } from "@/hooks/use-rest-wellness-access"
-import { canShowPremiumCTAForUser } from "@/lib/premium-cta"
+import { canShowCommercialUpsellForUser } from "@/lib/premium-cta"
 import { filterUserNavItems, shouldRedirectHiddenDashboardSection } from "@/lib/dashboard-navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
@@ -159,9 +159,8 @@ function DashboardContent() {
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
   const { access: restWellnessAccess, loading: restWellnessAccessLoading } = useRestWellnessAccess()
-  // Hide 1:1 / recommendations upsell only for paying members — not during trial.
-  const hideUpsellSections = (user?.subscription_status || "").toLowerCase() === "active"
-  const showPremiumCta = canShowPremiumCTAForUser(user, !isLoading)
+  const showCommercialUpsell = canShowCommercialUpsellForUser(user, !isLoading)
+  const hideUpsellSections = !showCommercialUpsell
   // While access is loading, keep the menu entry visible so a late/failed early
   // fetch does not permanently hide Descanso (GA default is enabled).
   const canAccessRestWellness = restWellnessAccessLoading || restWellnessAccess.can_fill
@@ -265,7 +264,7 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                {showPremiumCta ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <SubscriptionStatusCard />
                   </Suspense>
@@ -273,12 +272,12 @@ function DashboardContent() {
                 <Suspense fallback={null}>
                   <QuinzenalReview />
                 </Suspense>
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="dashboard-home" cooldownHours={48} />
                   </Suspense>
                 ) : null}
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <RecommendationsSection />
                   </Suspense>
@@ -336,14 +335,16 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              {showPremiumCta ? (
+              {showCommercialUpsell ? (
                 <Suspense fallback={null}>
                   <SubscriptionStatusCard />
                 </Suspense>
               ) : null}
-              <Suspense fallback={null}>
-                <CoachingCTA fullPage placement="coaching-page" />
-              </Suspense>
+              {showCommercialUpsell ? (
+                <Suspense fallback={null}>
+                  <CoachingCTA fullPage placement="coaching-page" />
+                </Suspense>
+              ) : null}
             </div>
           </div>
         )
@@ -403,7 +404,7 @@ function DashboardContent() {
                 <Suspense fallback={<DashboardSectionFallback><WorkoutsSectionSkeleton /></DashboardSectionFallback>}>
                   <WorkoutDashboardEnhanced />
                 </Suspense>
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="workouts" cooldownHours={48} />
                   </Suspense>
@@ -457,7 +458,7 @@ function DashboardContent() {
               <Suspense fallback={<MeasurementsSectionSkeleton />}>
                 <BodyMeasurements />
               </Suspense>
-              {!hideUpsellSections ? (
+              {showCommercialUpsell ? (
                 <Suspense fallback={null}>
                   <CoachingCTA placement="measurements" cooldownHours={48} />
                 </Suspense>

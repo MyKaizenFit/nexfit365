@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog"
 import { useAuth } from "@/contexts/auth-context"
 import { buildApiUrl } from "@/lib/api"
+import { canShowCommercialUpsellForUser } from "@/lib/premium-cta"
 import { toast } from "@/hooks/use-toast"
 
 interface CoachingPlan {
@@ -103,9 +104,9 @@ interface CoachingCTAProps {
 }
 
 export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldownHours = 48 }: CoachingCTAProps) {
-  const { getAuthHeaders, user } = useAuth()
+  const { getAuthHeaders, user, isLoading: authLoading } = useAuth()
   const [open, setOpen] = useState(false)
-  const [isVisible, setIsVisible] = useState(true)
+  const [isVisible, setIsVisible] = useState(false)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [plans, setPlans] = useState<CoachingPlan[]>([])
@@ -314,6 +315,11 @@ export function CoachingCTA({ fullPage = false, placement = "dashboard", cooldow
 
   const Wrapper = fullPage ? "div" : Card
   const wrapperProps = fullPage ? { className: "space-y-6" } : { className: "border-0 shadow-xl bg-gradient-to-r from-violet-600 via-fuchsia-600 to-orange-500 text-white overflow-hidden" }
+  const showCommercialUpsell = canShowCommercialUpsellForUser(user, !authLoading)
+
+  if (!showCommercialUpsell) {
+    return null
+  }
 
   if (!fullPage && !isVisible) {
     return null

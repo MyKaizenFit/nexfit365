@@ -1,8 +1,8 @@
 /**
- * Fail-closed Premium CTA visibility.
+ * Fail-closed commercial upsell visibility (Premium trial CTA, coaching 1:1, hire/upgrade).
  *
- * Show hire/trial/upgrade CTAs only when membership is loaded and confirmed free.
- * Trial and paid Premium both have Premium access — never advertise Premium to them.
+ * Show ads only when membership is loaded and confirmed free.
+ * Trial and paid Premium both have Premium access — never advertise to them.
  */
 
 const PREMIUM_ACCESS_STATUSES = new Set(["trial", "active"])
@@ -61,3 +61,7 @@ export function canShowPremiumCTAForUser(
     role: user.role,
   })
 }
+
+/** Same fail-closed rule for every in-app commercial upsell, not only the Premium trial card. */
+export const canShowCommercialUpsell = canShowPremiumCTA
+export const canShowCommercialUpsellForUser = canShowPremiumCTAForUser

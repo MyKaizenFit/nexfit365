@@ -36,7 +36,7 @@ interface MobileNavigationProps {
 export function MobileNavigation({
   selectedSection,
   onSectionChange,
-  hideUpsellSections = false,
+  hideUpsellSections = true,
   canAccessRestWellness = false,
 }: MobileNavigationProps) {
   const visibleMainItems = filterUserNavItems(mainMenuItems)
