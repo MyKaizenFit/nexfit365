@@ -4,6 +4,14 @@ const nextConfig = {
   // antes de aplicar el rewrite hacia el backend.
   skipTrailingSlashRedirect: true,
 
+  async redirects() {
+    return [
+      // ponytail: Bienestar is temporarily hidden; remove these redirects to restore /bienestar and /wellness.
+      { source: '/bienestar', destination: '/dashboard', permanent: false },
+      { source: '/wellness', destination: '/dashboard', permanent: false },
+    ]
+  },
+
   async headers() {
     const noStoreHeaders = [
       { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate, proxy-revalidate' },

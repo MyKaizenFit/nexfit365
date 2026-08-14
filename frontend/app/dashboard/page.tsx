@@ -82,6 +82,8 @@ import { useAuth } from "@/contexts/auth-context"
 import { useUserData } from "@/hooks/use-user-data"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { useRestWellnessAccess } from "@/hooks/use-rest-wellness-access"
+import { canShowCommercialUpsellForUser } from "@/lib/premium-cta"
+import { filterUserNavItems, shouldRedirectHiddenDashboardSection } from "@/lib/dashboard-navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { DashboardSectionFallback, AchievementsSectionSkeleton, DayOneSectionSkeleton, FeedGridSkeleton, MealsSectionSkeleton, MeasurementsSectionSkeleton, ProfileSectionSkeleton, RecommendationsSectionSkeleton, SettingsSectionSkeleton, TipsSectionSkeleton, WellnessSectionSkeleton, WorkoutsSectionSkeleton, DashboardHomeSkeleton } from "@/components/dashboard/dashboard-skeletons"
 
@@ -102,7 +104,7 @@ const menuItems = [
   { title: "Configuración", icon: Settings, url: "settings" },
 ]
 
-const PREMIUM_BLOCKED_SECTIONS = new Set(["recommendations", "coaching"])
+const PREMIUM_BLOCKED_SECTIONS = new Set(["coaching"])
 const REST_WELLNESS_SECTION = "rest-wellness"
 
 function DashboardSectionSync({
@@ -123,6 +125,12 @@ function DashboardSectionSync({
     const sectionParam = searchParams?.get("section")
 
     if (sectionParam && hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(sectionParam)) {
+      onSectionChange("dashboard")
+      router.replace("/dashboard", { scroll: false })
+      return
+    }
+
+    if (sectionParam && shouldRedirectHiddenDashboardSection(sectionParam)) {
       onSectionChange("dashboard")
       router.replace("/dashboard", { scroll: false })
       return
@@ -151,12 +159,12 @@ function DashboardContent() {
   const { userStats } = useUserData()
   const { unreadCount, refresh: refreshNotifications } = useNotificationsEnhanced()
   const { access: restWellnessAccess, loading: restWellnessAccessLoading } = useRestWellnessAccess()
-  // Hide 1:1 / recommendations upsell only for paying members — not during trial.
-  const hideUpsellSections = (user?.subscription_status || "").toLowerCase() === "active"
+  const showCommercialUpsell = canShowCommercialUpsellForUser(user, !isLoading)
+  const hideUpsellSections = !showCommercialUpsell
   // While access is loading, keep the menu entry visible so a late/failed early
   // fetch does not permanently hide Descanso (GA default is enabled).
   const canAccessRestWellness = restWellnessAccessLoading || restWellnessAccess.can_fill
-  const visibleMenuItems = menuItems.filter((item) => {
+  const visibleMenuItems = filterUserNavItems(menuItems).filter((item) => {
     if (item.url === REST_WELLNESS_SECTION && !canAccessRestWellness) return false
     if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(item.url)) return false
     return true
@@ -180,6 +188,12 @@ function DashboardContent() {
 
   const handleMenuClick = useCallback((section: string, title: string) => {
     if (hideUpsellSections && PREMIUM_BLOCKED_SECTIONS.has(section)) {
+      setSelectedSection("dashboard")
+      router.push("/dashboard", { scroll: false })
+      return
+    }
+
+    if (shouldRedirectHiddenDashboardSection(section)) {
       setSelectedSection("dashboard")
       router.push("/dashboard", { scroll: false })
       return
@@ -225,7 +239,11 @@ function DashboardContent() {
   }
 
   const renderContent = () => {
-    switch (selectedSection) {
+    const sectionToRender = shouldRedirectHiddenDashboardSection(selectedSection)
+      ? "dashboard"
+      : selectedSection
+
+    switch (sectionToRender) {
       case "dashboard":
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
@@ -246,7 +264,7 @@ function DashboardContent() {
               {/* Contenido Principal */}
               <div className="w-full space-y-4 sm:space-y-6 animate-in slide-in-from-bottom-8 duration-700 delay-400">
                 <DashboardEnhanced />
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <SubscriptionStatusCard />
                   </Suspense>
@@ -254,16 +272,14 @@ function DashboardContent() {
                 <Suspense fallback={null}>
                   <QuinzenalReview />
                 </Suspense>
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="dashboard-home" cooldownHours={48} />
                   </Suspense>
                 ) : null}
-                {!hideUpsellSections ? (
-                  <Suspense fallback={null}>
-                    <RecommendationsSection />
-                  </Suspense>
-                ) : null}
+                <Suspense fallback={null}>
+                  <RecommendationsSection />
+                </Suspense>
                 <Suspense fallback={null}>
                   <TipsShowcase />
                 </Suspense>
@@ -277,15 +293,6 @@ function DashboardContent() {
 
 
       case "recommendations":
-        if (hideUpsellSections) {
-          return (
-            <div className="fade-in-stagger scroll-area h-full w-full relative">
-              <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-                <DashboardEnhanced />
-              </div>
-            </div>
-          )
-        }
         return (
           <div className="fade-in-stagger scroll-area h-full w-full relative">
             <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -317,12 +324,16 @@ function DashboardContent() {
               <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-orange-200/20 to-pink-200/20 rounded-full blur-3xl animate-pulse delay-700"></div>
             </div>
             <div className="responsive-content p-3 sm:p-4 lg:p-6 space-y-4 sm:space-y-6 relative z-10">
-              <Suspense fallback={null}>
-                <SubscriptionStatusCard />
-              </Suspense>
-              <Suspense fallback={null}>
-                <CoachingCTA fullPage placement="coaching-page" />
-              </Suspense>
+              {showCommercialUpsell ? (
+                <Suspense fallback={null}>
+                  <SubscriptionStatusCard />
+                </Suspense>
+              ) : null}
+              {showCommercialUpsell ? (
+                <Suspense fallback={null}>
+                  <CoachingCTA fullPage placement="coaching-page" />
+                </Suspense>
+              ) : null}
             </div>
           </div>
         )
@@ -382,7 +393,7 @@ function DashboardContent() {
                 <Suspense fallback={<DashboardSectionFallback><WorkoutsSectionSkeleton /></DashboardSectionFallback>}>
                   <WorkoutDashboardEnhanced />
                 </Suspense>
-                {!hideUpsellSections ? (
+                {showCommercialUpsell ? (
                   <Suspense fallback={null}>
                     <CoachingCTA placement="workouts" cooldownHours={48} />
                   </Suspense>
@@ -436,7 +447,7 @@ function DashboardContent() {
               <Suspense fallback={<MeasurementsSectionSkeleton />}>
                 <BodyMeasurements />
               </Suspense>
-              {!hideUpsellSections ? (
+              {showCommercialUpsell ? (
                 <Suspense fallback={null}>
                   <CoachingCTA placement="measurements" cooldownHours={48} />
                 </Suspense>
