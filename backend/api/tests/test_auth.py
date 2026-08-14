@@ -401,6 +401,26 @@ class TestForgotPassword:
             plain_token.encode("utf-8")
         ).hexdigest()
 
+    @override_settings(
+        FRONTEND_URL="https://metodosk.com/nexfit",
+        EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    )
+    def test_forgot_password_email_uses_frontend_url_with_base_path(self, api_client, regular_user):
+        import hashlib
+        import re
+
+        response = api_client.post(reverse("auth-forgot-password"), {"email": "user@example.com"})
+
+        assert response.status_code == status.HTTP_200_OK
+        assert len(mail.outbox) == 1
+        match = re.search(r"token=([^\s&]+)", mail.outbox[0].body)
+        assert match, "reset token missing from email body"
+        plain_token = match.group(1)
+        assert (
+            f"https://metodosk.com/nexfit/auth/reset-password?token={plain_token}"
+            in mail.outbox[0].body
+        )
+
     def test_forgot_password_nonexistent_email(self, api_client):
         """Test de solicitud con email inexistente"""
         url = reverse("auth-forgot-password")

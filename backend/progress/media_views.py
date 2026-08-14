@@ -14,6 +14,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 
+from backend.media_urls import build_public_absolute_url
+
 PROGRESS_MEDIA_PREFIX = "progress_photos/"
 PROFILE_MEDIA_PREFIX = "profile_pictures/"
 PII_MEDIA_PREFIXES = (PROGRESS_MEDIA_PREFIX, PROFILE_MEDIA_PREFIX)
@@ -32,24 +34,13 @@ def unsign_progress_media_path(token: str) -> str:
     )
 
 
-def _force_https_absolute(request, url: str) -> str:
-    if not request:
-        return url
-    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
-    host = (request.get_host() or "").split(":")[0].lower()
-    is_local_host = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local")
-    should_force_https = (
-        forwarded_proto == "https"
-        or request.is_secure()
-        or (not settings.DEBUG and not is_local_host)
-    )
-    if should_force_https and url.startswith("http://"):
-        return "https://" + url[len("http://") :]
-    return url
-
-
 def build_signed_pii_media_url(request, file_field, required_prefix: str) -> str | None:
-    """Absolute URL to the signed PII media endpoint (works in <img src>)."""
+    """Absolute URL to the signed PII media endpoint (works in <img src>).
+
+    Sigue siendo /api/progress/protected-media/ (no /media/ público).
+    Con PUBLIC_MEDIA_BASE_URL=https://metodosk.com/nexfit la URL pública es
+    https://metodosk.com/nexfit/api/progress/protected-media/?token=...
+    """
     if not file_field:
         return None
     relative = getattr(file_field, "name", None) or str(file_field)
@@ -58,9 +49,7 @@ def build_signed_pii_media_url(request, file_field, required_prefix: str) -> str
         return None
     token = sign_progress_media_path(relative)
     path = f"/api/progress/protected-media/?token={quote(token, safe='')}"
-    if not request:
-        return path
-    return _force_https_absolute(request, request.build_absolute_uri(path))
+    return build_public_absolute_url(request, path)
 
 
 def build_signed_progress_media_url(request, file_field) -> str | None:

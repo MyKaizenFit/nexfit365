@@ -104,3 +104,42 @@ class TestProtectedProfileMedia:
         data = UserProfileSerializer(user, context={"request": request}).data
         assert data["profile_picture_url"]
         assert "/api/progress/protected-media/?token=" in data["profile_picture_url"]
+
+    def test_signed_urls_use_future_public_media_base(self, user, rf, monkeypatch):
+        monkeypatch.setenv("PUBLIC_MEDIA_BASE_URL", "https://metodosk.com/nexfit")
+        photo = ProgressPhoto.objects.create(
+            user=user,
+            photo=_png("future.png"),
+            photo_type="front",
+            date="2026-06-01",
+        )
+        user.profile_picture = _png("future-avatar.png")
+        user.save(update_fields=["profile_picture"])
+        request = rf.get("/")
+        progress_url = build_signed_progress_media_url(request, photo.photo)
+        profile_url = build_signed_profile_media_url(request, user.profile_picture)
+        assert progress_url.startswith(
+            "https://metodosk.com/nexfit/api/progress/protected-media/?token="
+        )
+        assert profile_url.startswith(
+            "https://metodosk.com/nexfit/api/progress/protected-media/?token="
+        )
+        assert "/nexfit/" in progress_url
+        assert "origin-nexfit" not in progress_url
+
+        from progress.serializers import ProgressPhotoSerializer
+
+        data = ProgressPhotoSerializer(photo, context={"request": request}).data
+        assert data["photo"].startswith(
+            "https://metodosk.com/nexfit/api/progress/protected-media/?token="
+        )
+        assert "/media/progress_photos/" not in (data["photo"] or "")
+        assert data["photo_url"].startswith(
+            "https://metodosk.com/nexfit/api/progress/protected-media/?token="
+        )
+
+        profile_data = UserProfileSerializer(user, context={"request": request}).data
+        assert profile_data["profile_picture"].startswith(
+            "https://metodosk.com/nexfit/api/progress/protected-media/?token="
+        )
+        assert "/media/profile_pictures/" not in (profile_data["profile_picture"] or "")

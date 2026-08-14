@@ -1,6 +1,5 @@
 # accounts/serializers.py
 from rest_framework import serializers
-from django.conf import settings
 from django.db import DatabaseError
 from datetime import timedelta
 from django.db import models
@@ -78,28 +77,16 @@ def _training_days_for_count(current_days, desired_count: int) -> list[int]:
     return sorted(days[:desired_count])
 
 
-def _build_public_media_url(request, media_path: str | None) -> str | None:
-    """Build absolute media URLs and keep production media HTTPS-safe."""
-    if not media_path:
-        return None
+class SignedProfilePictureField(serializers.ImageField):
+    """Avatar PII: URL firmada, nunca /media/profile_pictures/ público."""
 
-    if not request:
-        return media_path
+    def to_representation(self, value):
+        if not value:
+            return None
+        request = self.context.get("request") if getattr(self, "context", None) else None
+        from progress.media_views import build_signed_profile_media_url
+        return build_signed_profile_media_url(request, value)
 
-    url = request.build_absolute_uri(media_path)
-    forwarded_proto = (request.META.get("HTTP_X_FORWARDED_PROTO") or "").split(",")[0].strip().lower()
-    host = (request.get_host() or "").split(":")[0].lower()
-    is_local_host = host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local")
-
-    should_force_https = (
-        forwarded_proto == "https"
-        or request.is_secure()
-        or (not settings.DEBUG and not is_local_host)
-    )
-
-    if should_force_https and url.startswith("http://"):
-        return "https://" + url[len("http://"):]
-    return url
 
 class UserProfileSerializer(serializers.ModelSerializer):
     """Serializer para el perfil completo del usuario"""
@@ -107,7 +94,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
     bmi = serializers.FloatField(read_only=True, allow_null=True)
     membership_days_remaining = serializers.IntegerField(read_only=True, allow_null=True)
     has_active_membership = serializers.BooleanField(read_only=True)
-    profile_picture = serializers.ImageField(read_only=True)
+    profile_picture = SignedProfilePictureField(read_only=True)
     profile_picture_url = serializers.SerializerMethodField()
     
     class Meta:
@@ -155,6 +142,7 @@ class AdminUserSerializer(serializers.ModelSerializer):
     is_superuser_display = serializers.SerializerMethodField()
     last_login_formatted = serializers.SerializerMethodField()
     created_at_formatted = serializers.SerializerMethodField()
+    profile_picture = SignedProfilePictureField(required=False, allow_null=True)
     profile_picture_url = serializers.SerializerMethodField()
     premium_alerts = serializers.SerializerMethodField()
     excluded_recipes = serializers.SerializerMethodField()
@@ -456,6 +444,7 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     dietary_restrictions = FlexibleStringListField(required=False)
     allergies = FlexibleStringListField(required=False)
     medical_conditions = FlexibleStringListField(required=False)
+    profile_picture = SignedProfilePictureField(required=False, allow_null=True)
     
     class Meta:
         model = CustomUser

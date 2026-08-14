@@ -7,6 +7,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Iterable, Optional
 
 from nutrition.models import NutritionPlan, PlanMeal, PlanMealRecipe, Recipe
+from backend.media_urls import recipe_image_display_url
 
 
 MAX_CUSTOM_MACRO = Decimal('9999.99')
@@ -145,14 +146,7 @@ def meal_recipe_scaled_macros(meal_recipe: PlanMealRecipe, ratio: float = 1.0) -
 
 def recipe_option_payload(recipe: Recipe, meal: PlanMeal, macros: dict) -> dict:
     """Payload de alternativa compartido por plan-meals y recomendaciones."""
-    image_url = ''
-    if getattr(recipe, 'image_url', None):
-        image_url = recipe.image_url
-    elif getattr(recipe, 'image', None):
-        try:
-            image_url = recipe.image.url
-        except (ValueError, OSError):
-            image_url = ''
+    image_url = recipe_image_display_url(recipe)
     prep = int(getattr(recipe, 'prep_time_minutes', 0) or 0)
     cook = int(getattr(recipe, 'cook_time_minutes', 0) or 0)
     return {

@@ -2,7 +2,7 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.pagination import PageNumberPagination
+from backend.pagination import PublicApiPageNumberPagination
 from django_filters.rest_framework import DjangoFilterBackend
 from django.db import DatabaseError
 from django.db.models import Count
@@ -25,6 +25,7 @@ from .permissions import (
 )
 from .birthdays import ensure_birthday_notifications_for_user, ensure_today_birthday_notifications
 from accounts.permissions import user_has_staff_access
+from backend.frontend_urls import build_frontend_url
 
 
 IMPORTANT_NOTIFICATION_TYPES = {value for value, _ in Notification.NOTIFICATION_TYPES}
@@ -44,7 +45,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
     search_fields = ["title", "message"]
 
-    class NotificationPagination(PageNumberPagination):
+    class NotificationPagination(PublicApiPageNumberPagination):
         page_size = 20
         page_size_query_param = "page_size"
         max_page_size = 100
@@ -120,7 +121,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                     "title": "Entreno de hoy",
                     "message": "Completa tu sesión de fuerza.",
                     "data": {"priority": "medium"},
-                    "action_url": "https://nexfit365.dpdns.org/dashboard",
+                    "action_url": build_frontend_url("/dashboard"),
                 },
                 request_only=True,
             )
@@ -382,7 +383,7 @@ class AdminMessageViewSet(viewsets.ModelViewSet):
     ordering = ["-created_at"]
     search_fields = ["title", "message"]
 
-    class AdminMessagePagination(PageNumberPagination):
+    class AdminMessagePagination(PublicApiPageNumberPagination):
         page_size = 20
         page_size_query_param = "page_size"
         max_page_size = 100

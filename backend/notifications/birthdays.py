@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from django.utils import timezone
 
+from backend.frontend_urls import build_frontend_url
+
 from .models import Notification
 
 
@@ -47,7 +49,7 @@ def ensure_user_birthday_notification(user, today=None) -> bool:
         title="¡Feliz cumpleaños!",
         message="Todo el equipo te desea un día genial. ¡A disfrutarlo!",
         data={"kind": BIRTHDAY_USER_KIND, "birthday_date": today.isoformat()},
-        action_url="/dashboard",
+        action_url=build_frontend_url("/dashboard"),
     )
     return True
 
@@ -82,7 +84,7 @@ def ensure_admin_birthday_notifications(user, today=None) -> int:
                 "birthday_user_name": display_name,
                 "birthday_date": today.isoformat(),
             },
-            action_url=f"/admin/user-v2/{user.id}",
+            action_url=build_frontend_url(f"/admin/user-v2/{user.id}"),
         )
         created += 1
 
