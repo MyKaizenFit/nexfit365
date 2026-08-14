@@ -25,6 +25,10 @@ mkdir -p "$(dirname "$HEALTH_LOG")"
 
 TIMESTAMP="[$(date '+%Y-%m-%d %H:%M:%S')]"
 
+# shellcheck source=scripts/lib/frontend-health-path.sh
+. "/srv/mykaizenfit/pro/scripts/lib/frontend-health-path.sh"
+FRONTEND_HEALTH_URL="$(frontend_local_health_url "$(read_named_env_value "/srv/mykaizenfit/pro/frontend/docker.env.production" "NEXT_PUBLIC_BASE_PATH")")"
+
 log_status() {
     local service=$1
     local status=$2
@@ -66,13 +70,13 @@ fi
 # 2. Frontend
 # ============================================================================
 echo -n "Checking Frontend... "
-if curl -s http://localhost:3000 | grep -q "html\|DOCTYPE\|next" > /dev/null 2>&1; then
+if curl -fsS --max-time 8 "$FRONTEND_HEALTH_URL" > /dev/null 2>&1; then
     log_status "Frontend" "✅ Healthy"
 else
     log_status "Frontend" "❌ FAILED - Restarting..."
     restart_service "frontend"
     sleep 5
-    if curl -s http://localhost:3000 > /dev/null 2>&1; then
+    if curl -fsS --max-time 8 "$FRONTEND_HEALTH_URL" > /dev/null 2>&1; then
         log_status "Frontend" "✅ Recovered after restart"
     else
         log_status "Frontend" "❌ Still down after restart"
