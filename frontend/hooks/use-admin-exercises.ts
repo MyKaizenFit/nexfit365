@@ -1,6 +1,6 @@
 'use client'
 
-import { buildApiUrl } from '@/lib/api'
+import { buildApiUrl, buildUploadApiUrl } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { handle401AndRefresh } from '@/lib/fetch-with-auth'
@@ -581,7 +581,7 @@ export const useAdminExercises = () => {
 
       let headers = await getAuthHeaders()
 
-      let response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
+      let response = await fetch(buildUploadApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
         credentials: 'include',
         method: 'POST',
         headers: withUploadIdHeader(headers, uploadId),
@@ -592,8 +592,8 @@ export const useAdminExercises = () => {
         const newHeaders = await handle401AndRefresh(getAuthHeaders)
         if (!newHeaders) throw new Error('Sesión expirada')
         headers = newHeaders
-        response = await fetch(buildApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
-        credentials: 'include',
+        response = await fetch(buildUploadApiUrl(`admin/exercises/${exerciseId}/upload-video/`), {
+          credentials: 'include',
           method: 'POST',
           headers: withUploadIdHeader(headers, uploadId),
           body: createVideoFormData()

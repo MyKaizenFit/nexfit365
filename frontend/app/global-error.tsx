@@ -1,5 +1,6 @@
 'use client'
 
+import { appPath } from '@/lib/app-path'
 export default function GlobalError({
   error,
   reset,
@@ -24,7 +25,7 @@ export default function GlobalError({
                 Reintentar
               </button>
               <button
-                onClick={() => (window.location.href = '/auth')}
+                onClick={() => (window.location.href = appPath('/auth'))}
                 className="px-4 py-2 rounded-md border border-border text-foreground hover:bg-muted"
               >
                 Ir a login

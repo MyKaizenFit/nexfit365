@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
 import { fixEncoding } from "@/lib/encoding-fix"
+import { buildApiUrl } from "@/lib/api"
 
 interface Exercise {
   id: string
@@ -87,7 +88,7 @@ export function WorkoutPlanTemplates() {
       if (filterDifficulty && filterDifficulty !== 'all') params.append('difficulty', filterDifficulty)
       if (filterGoal && filterGoal !== 'all') params.append('goal', filterGoal)
       
-      const response = await fetch(`/api/workout-plan-templates/?${params}`, { credentials: 'include' })
+      const response = await fetch(buildApiUrl(`workout-plan-templates/?${params}`), { credentials: 'include' })
       if (response.ok) {
         const data = await response.json()
         setTemplates(data.results || data)
@@ -110,7 +111,7 @@ export function WorkoutPlanTemplates() {
   // Crear nueva plantilla
   const handleCreateTemplate = async () => {
     try {
-      const response = await fetch('/api/workout-plan-templates/', {
+      const response = await fetch(buildApiUrl('workout-plan-templates/'), {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -142,7 +143,7 @@ export function WorkoutPlanTemplates() {
   // Duplicar plantilla
   const handleDuplicateTemplate = async (template: WorkoutPlanTemplate) => {
     try {
-      const response = await fetch(`/api/workout-plan-templates/${template.id}/duplicate/`, {
+      const response = await fetch(buildApiUrl(`workout-plan-templates/${template.id}/duplicate/`), {
         credentials: 'include',
         method: 'POST'
       })
@@ -172,7 +173,7 @@ export function WorkoutPlanTemplates() {
     }
 
     try {
-      const response = await fetch(`/api/workout-plan-templates/${template.id}/`, {
+      const response = await fetch(buildApiUrl(`workout-plan-templates/${template.id}/`), {
         credentials: 'include',
         method: 'DELETE'
       })

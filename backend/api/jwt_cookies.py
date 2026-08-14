@@ -18,6 +18,13 @@ def _cookie_domain() -> Optional[str]:
     return domain or None
 
 
+def _cookie_path() -> str:
+    path = (os.getenv("JWT_COOKIE_PATH") or "/").strip()
+    if not path:
+        return "/"
+    return path if path.startswith("/") else f"/{path}"
+
+
 def _cookie_secure() -> bool:
     if os.getenv("JWT_COOKIE_SECURE", "").lower() in {"1", "true", "yes"}:
         return True
@@ -69,7 +76,7 @@ def set_jwt_cookies(response, *, access: str, refresh: str, remember: bool = Tru
         "domain": domain,
         "secure": secure,
         "samesite": _cookie_samesite(domain=domain, secure=secure),
-        "path": "/",
+        "path": _cookie_path(),
     }
 
     response.set_cookie(
@@ -100,6 +107,7 @@ def clear_jwt_cookies(response):
     """Expire JWT/CSRF cookies for all Domain/SameSite/Secure variants we may have set."""
     domain = _cookie_domain()
     secure = _cookie_secure()
+    path = _cookie_path()
     if domain and not secure:
         secure = True
 
@@ -116,12 +124,12 @@ def clear_jwt_cookies(response):
                 try:
                     response.delete_cookie(
                         name,
-                        path="/",
+                        path=path,
                         domain=dom,
                         samesite=samesite,
                     )
                 except TypeError:
-                    response.delete_cookie(name, path="/", domain=dom)
+                    response.delete_cookie(name, path=path, domain=dom)
                 # Force expire via Set-Cookie (browsers honor this for HttpOnly too)
                 use_secure = secure or samesite == "None"
                 response.set_cookie(
@@ -129,7 +137,7 @@ def clear_jwt_cookies(response):
                     "",
                     max_age=0,
                     expires=0,
-                    path="/",
+                    path=path,
                     domain=dom,
                     secure=use_secure,
                     httponly=httponly,

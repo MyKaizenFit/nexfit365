@@ -27,6 +27,13 @@ class ProgressPhotoImageField(serializers.ImageField):
 
         return super().to_internal_value(data)
 
+    def to_representation(self, value):
+        # Do not emit public /media/progress_photos/ URLs (403 + would drop /nexfit).
+        if not value:
+            return None
+        request = self.context.get("request") if getattr(self, "context", None) else None
+        return build_signed_progress_media_url(request, value)
+
 
 class ProgressPhotoSerializer(serializers.ModelSerializer):
     photo = ProgressPhotoImageField()

@@ -2,7 +2,7 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.pagination import PageNumberPagination
+from backend.pagination import PublicApiPageNumberPagination
 from rest_framework.permissions import IsAdminUser
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db import DatabaseError
@@ -91,7 +91,7 @@ def _upload_file_metadata(uploaded_file):
     }
 
 
-class LargeResultsSetPagination(PageNumberPagination):
+class LargeResultsSetPagination(PublicApiPageNumberPagination):
     """Paginación personalizada para listados grandes"""
     page_size = 1000  # Devolver hasta 1000 elementos por defecto
     page_size_query_param = 'page_size'

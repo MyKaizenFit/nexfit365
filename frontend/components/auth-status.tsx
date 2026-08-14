@@ -3,6 +3,7 @@
 
 "use client"
 
+import { appPath } from '@/lib/app-path'
 import { useAuth, useUser, useIsAdmin } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -62,7 +63,7 @@ export function AuthStatus() {
             <div className="pt-4">
               <Button 
                 className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3 text-lg"
-                onClick={() => window.location.href = '/auth'}
+                onClick={() => window.location.href = appPath('/auth')}
               >
                 Iniciar sesión <UserCheck className="w-5 h-5 ml-2" />
               </Button>
@@ -182,7 +183,7 @@ export function AuthStatus() {
               variant="outline"
               size="lg"
               className="flex-1 bg-gradient-to-r from-blue-50 to-indigo-50 hover:from-blue-100 hover:to-indigo-100 border-blue-200 text-blue-700 hover:text-blue-800 transition-all duration-300"
-              onClick={() => window.location.href = '/dashboard'}
+              onClick={() => window.location.href = appPath('/dashboard')}
             >
               <Settings className="w-5 h-5 mr-2" />
               Ir a Inicio

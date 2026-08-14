@@ -1,0 +1,13 @@
+# TEMPLATE / NO APLICADO
+# Copiar a /etc/nginx/snippets/nexfit-origin-token-check.conf en el cutover.
+# Sustituir __NEXFIT_ORIGIN_TOKEN__ por el secreto local.
+# Nunca commitear el archivo con el valor real.
+#
+# El Worker envía X-Nexfit-Origin-Token desde un Worker Secret.
+# Sin este header (acceso directo al origin) → 403.
+#
+# No aplica a healthchecks: esos pegan a localhost:3000, no a este server.
+
+if ($http_x_nexfit_origin_token != "__NEXFIT_ORIGIN_TOKEN__") {
+    return 403;
+}

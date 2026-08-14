@@ -20,6 +20,8 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/frontend-health-path.sh
+. "$SCRIPT_DIR/scripts/lib/frontend-health-path.sh"
 DEPLOY_LOG_DIR="$SCRIPT_DIR/data/logs"
 DEPLOY_PID_FILE="$DEPLOY_LOG_DIR/deploy.pid"
 DEPLOY_LOG_FILE="$DEPLOY_LOG_DIR/deploy-latest.log"
@@ -445,7 +447,8 @@ print_info "Verificando health checks..."
 sleep 5
 
 BACKEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ || echo "000")
-FRONTEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ || echo "000")
+FRONTEND_HEALTH_URL="$(frontend_local_health_url "$(read_named_env_value "$SCRIPT_DIR/frontend/docker.env.production" "NEXT_PUBLIC_BASE_PATH")")"
+FRONTEND_HEALTH=$(curl -s -o /dev/null -w "%{http_code}" "$FRONTEND_HEALTH_URL" || echo "000")
 
 if [ "$BACKEND_HEALTH" = "200" ] || [ "$BACKEND_HEALTH" = "301" ] || [ "$BACKEND_HEALTH" = "302" ]; then
     print_success "Backend está respondiendo correctamente"

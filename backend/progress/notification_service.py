@@ -6,6 +6,7 @@ from typing import Dict, Optional
 from django.utils import timezone
 from datetime import timedelta
 from accounts.models import CustomUser
+from backend.frontend_urls import build_frontend_url
 from notifications.models import Notification
 from progress.services import ProgressAnalysisService
 
@@ -73,7 +74,7 @@ class ProgressNotificationService:
                     },
                     'auto_generated': True,
                 },
-                action_url='/dashboard/progress',  # URL para ver el progreso
+                action_url=build_frontend_url('/dashboard/progress'),
                 expires_at=timezone.now() + timedelta(days=7),  # Expira en 7 días
             )
             
@@ -121,7 +122,7 @@ class ProgressNotificationService:
                     'recommendation': main_recommendation,
                     'auto_generated': True,
                 },
-                action_url='/dashboard/progress',
+                action_url=build_frontend_url('/dashboard/progress'),
                 expires_at=timezone.now() + timedelta(days=5),
             )
             
@@ -149,7 +150,7 @@ class ProgressNotificationService:
                     'adjustment': adjustment_data,
                     'auto_generated': True,
                 },
-                action_url='/dashboard/nutrition',
+                action_url=build_frontend_url('/dashboard/nutrition'),
                 expires_at=timezone.now() + timedelta(days=3),
             )
             
