@@ -15,7 +15,9 @@ COMPOSE_PROJECT_NAME="nexfit-pro"
 COMPOSE_FILE="docker-compose.prod.yml"
 LOCK_FILE="/tmp/nexfit-check.lock"
 BACKEND_HEALTH_URL="http://localhost:8000/api/health/"
-FRONTEND_URL="http://localhost:3000"
+# shellcheck source=scripts/lib/frontend-health-path.sh
+. "$PROJECT_DIR/scripts/lib/frontend-health-path.sh"
+FRONTEND_URL="$(frontend_local_health_url "$(read_named_env_value "$PROJECT_DIR/frontend/docker.env.production" "NEXT_PUBLIC_BASE_PATH")")"
 ALERT_LOG="/srv/mykaizenfit/pro/backups/alerts.log"
 
 log() {

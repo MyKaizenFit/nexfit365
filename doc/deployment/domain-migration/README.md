@@ -14,3 +14,5 @@ Esta carpeta documenta el cutover. Nada de aquí se instala hasta que se pida ex
 | [ROLLBACK.md](./ROLLBACK.md) | Rollback sin `reset --hard` ni `compose down` |
 
 La landing `https://metodosk.com/` vive en Cloudflare, no en este VPS. Nginx no debe servir `/`.
+
+TLS previsto: Origin Certificate en `origin-nexfit`; Let's Encrypt en `uploads`. IP VPS: `45.136.19.91`.

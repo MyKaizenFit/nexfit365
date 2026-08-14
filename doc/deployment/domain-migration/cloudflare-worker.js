@@ -42,6 +42,9 @@ export default {
     }
 
     const headers = new Headers(request.headers);
+    // Host must come from the origin URL (origin-nexfit.metodosk.com).
+    // Copying the inbound Host (metodosk.com) would miss the origin server_name.
+    headers.delete("Host");
     headers.set("X-Forwarded-Host", inbound.host);
     headers.set("X-Forwarded-Proto", inbound.protocol.replace(":", ""));
     headers.set("X-Nexfit-Origin-Token", token);
