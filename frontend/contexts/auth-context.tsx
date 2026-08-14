@@ -3,6 +3,7 @@
 
 "use client"
 
+import { appPath, isAppPath } from '@/lib/app-path'
 import React, { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -121,7 +122,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
-        if (typeof window !== 'undefined' && window.location.pathname.startsWith('/auth')) {
+        if (typeof window !== 'undefined' && isAppPath(window.location.pathname, '/auth')) {
           localStorage.removeItem('auth_logout_in_progress')
         }
 
@@ -145,12 +146,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             hasValidTokens = false
             if (
               typeof window !== 'undefined' &&
-              !window.location.pathname.startsWith('/auth') &&
-              (window.location.pathname.startsWith('/dashboard') ||
-                window.location.pathname.startsWith('/admin') ||
-                window.location.pathname.startsWith('/initial-registration'))
+              !isAppPath(window.location.pathname, '/auth') &&
+              (isAppPath(window.location.pathname, '/dashboard') ||
+                isAppPath(window.location.pathname, '/admin') ||
+                isAppPath(window.location.pathname, '/initial-registration'))
             ) {
-              window.location.replace('/auth?stale=1')
+              window.location.replace(appPath('/auth?stale=1'))
               return
             }
           }
@@ -199,9 +200,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               })
               if (
                 typeof window !== 'undefined' &&
-                !window.location.pathname.startsWith('/auth')
+                !isAppPath(window.location.pathname, '/auth')
               ) {
-                window.location.replace('/auth?stale=1')
+                window.location.replace(appPath('/auth?stale=1'))
                 return
               }
             }
@@ -217,11 +218,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
           if (
             typeof window !== 'undefined' &&
-            (window.location.pathname.startsWith('/dashboard') ||
-              window.location.pathname.startsWith('/admin'))
+            (isAppPath(window.location.pathname, '/dashboard') ||
+              isAppPath(window.location.pathname, '/admin'))
           ) {
             await authService.forceClearBrowserSession()
-            window.location.replace('/auth?stale=1')
+            window.location.replace(appPath('/auth?stale=1'))
             return
           }
         }
@@ -302,7 +303,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (isAdmin) {
         // Pequeño delay para asegurar que las cookies se guarden
         await new Promise(resolve => setTimeout(resolve, 100))
-        window.location.href = '/admin'
+        window.location.href = appPath('/admin')
       } else {
         const formCompleted = authService.isAuthenticated()
           ? await syncInitialRegistrationStatus()
@@ -310,10 +311,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (!formCompleted) {
           await new Promise(resolve => setTimeout(resolve, 100))
-          window.location.href = '/initial-registration'
+          window.location.href = appPath('/initial-registration')
         } else {
           await new Promise(resolve => setTimeout(resolve, 100))
-          window.location.href = '/dashboard'
+          window.location.href = appPath('/dashboard')
         }
       }
     } catch (error: any) {
@@ -390,11 +391,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Usar window.location.href para forzar un reload completo
       if (isAdmin) {
         await new Promise(resolve => setTimeout(resolve, 100))
-        window.location.href = '/admin'
+        window.location.href = appPath('/admin')
       } else {
         // SIEMPRE redirigir al formulario de registro inicial después de registrar
         await new Promise(resolve => setTimeout(resolve, 100))
-        window.location.href = '/initial-registration'
+        window.location.href = appPath('/initial-registration')
       }
     } catch (error: any) {
       const errorMessage = error.message || 'Error al registrar usuario'
@@ -454,7 +455,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     if (typeof window !== 'undefined') {
       // Evitar re-render del dashboard sin sesión (dispara error.tsx) antes de salir.
-      window.location.replace('/auth')
+      window.location.replace(appPath('/auth'))
       return
     }
 

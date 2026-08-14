@@ -1,3 +1,4 @@
+import { appPath } from '@/lib/app-path'
 import { buildApiUrl } from '@/lib/api'
 // hooks/use-admin-nutrition-plans.ts
 import { useState, useEffect } from 'react'
@@ -135,7 +136,7 @@ export const useAdminNutritionPlans = () => {
           })
         } else {
           if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login'
+            window.location.href = appPath('/auth/login')
           }
           return
         }

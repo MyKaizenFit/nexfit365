@@ -190,7 +190,7 @@ class PushService {
     }
     // Fallback: obtener del backend
     try {
-      const response = await fetch('/api/notifications/push-subscriptions/vapid-public-key/')
+      const response = await fetch(buildApiUrl('notifications/push-subscriptions/vapid-public-key/'))
       if (response.ok) {
         const data = await response.json()
         return data.vapid_public_key

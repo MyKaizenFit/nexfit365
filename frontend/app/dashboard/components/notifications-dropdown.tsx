@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "@/hooks/use-toast"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
+import { appPath } from "@/lib/app-path"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -261,7 +262,7 @@ export function NotificationsDropdown() {
                               size="sm"
                               onClick={async () => {
                                 await trackClick(notification.id)
-                                window.location.href = notification.action_url!
+                                window.location.href = appPath(notification.action_url!)
                               }}
                               className="h-7 w-7 p-0 hover:bg-blue-100 transition-colors"
                               title="Abrir enlace"

@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { toast } from "@/hooks/use-toast"
+import { buildApiUrl } from "@/lib/api"
 
 interface User {
   id: string
@@ -77,9 +78,9 @@ export function UserWorkoutPlans() {
       if (filterActive && filterActive !== 'all') params.append('is_active', filterActive)
       
       const [plansResponse, usersResponse, templatesResponse] = await Promise.all([
-        fetch(`/api/user-workout-plans/?${params}`, { credentials: 'include' }),
-        fetch('/api/users/', { credentials: 'include' }),
-        fetch('/api/workout-plan-templates/?is_active=true', { credentials: 'include' })
+        fetch(buildApiUrl(`user-workout-plans/?${params}`), { credentials: 'include' }),
+        fetch(buildApiUrl('users/'), { credentials: 'include' }),
+        fetch(buildApiUrl('workout-plan-templates/?is_active=true'), { credentials: 'include' })
       ])
 
       if (plansResponse.ok) {
@@ -114,7 +115,7 @@ export function UserWorkoutPlans() {
   // Asignar plan a usuario
   const handleAssignPlan = async () => {
     try {
-      const response = await fetch('/api/user-workout-plans/', {
+      const response = await fetch(buildApiUrl('user-workout-plans/'), {
         credentials: 'include',
         method: 'POST',
         headers: {
@@ -146,7 +147,7 @@ export function UserWorkoutPlans() {
   // Activar/desactivar plan
   const handleTogglePlan = async (plan: UserWorkoutPlan) => {
     try {
-      const response = await fetch(`/api/user-workout-plans/${plan.id}/activate/`, {
+      const response = await fetch(buildApiUrl(`user-workout-plans/${plan.id}/activate/`), {
         credentials: 'include',
         method: 'POST'
       })
@@ -176,7 +177,7 @@ export function UserWorkoutPlans() {
     }
 
     try {
-      const response = await fetch(`/api/user-workout-plans/${plan.id}/`, {
+      const response = await fetch(buildApiUrl(`user-workout-plans/${plan.id}/`), {
         credentials: 'include',
         method: 'DELETE'
       })

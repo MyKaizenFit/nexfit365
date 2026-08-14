@@ -1,5 +1,6 @@
 'use client'
 
+import { appPath } from '@/lib/app-path'
 import { useEffect, useMemo, useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -156,7 +157,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
               </Button>
             )}
             {hasAuthError && (
-              <Button onClick={() => { window.location.href = '/auth' }}>
+              <Button onClick={() => { window.location.href = appPath('/auth') }}>
                 Iniciar sesion
               </Button>
             )}
@@ -233,7 +234,7 @@ export function TodaysWorkoutCard({ className }: TodaysWorkoutCardProps) {
 
       // Esperar un momento para que se vea el toast
       setTimeout(() => {
-        window.location.href = '/initial-registration'
+        window.location.href = appPath('/initial-registration')
       }, 1500)
     } catch (error) {
       toast({

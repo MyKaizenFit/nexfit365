@@ -12,6 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { toast } from "@/hooks/use-toast"
 import { useNotificationsEnhanced } from "@/hooks/use-notifications-enhanced"
 import { Notification } from "@/lib/notification-service"
+import { appPath } from "@/lib/app-path"
 
 export function NotificationsPanel() {
   const [filter, setFilter] = useState("all")
@@ -317,7 +318,7 @@ export function NotificationsPanel() {
                         {notification.action_url && (
                           <DropdownMenuItem onClick={async () => {
                             await trackClick(notification.id)
-                            window.location.href = notification.action_url!
+                            window.location.href = appPath(notification.action_url!)
                           }} className="cursor-pointer">
                             <ArrowRight className="h-4 w-4 mr-2 text-blue-600" />
                             <span className="text-blue-600">Ir a notificación</span>

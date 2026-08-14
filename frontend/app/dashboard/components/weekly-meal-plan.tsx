@@ -1,5 +1,6 @@
 "use client"
 
+import { appPath } from '@/lib/app-path'
 import { useState, useEffect, useCallback, useMemo } from "react"
 import { Calendar, ChefHat, Check, BookOpen, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -623,7 +624,7 @@ export function WeeklyMealPlan() {
               <p className="text-sm text-red-700">
                 Tu sesion ha expirado. Inicia sesion de nuevo para cargar correctamente tu menu semanal.
               </p>
-              <Button onClick={() => { window.location.href = '/auth' }}>
+              <Button onClick={() => { window.location.href = appPath('/auth') }}>
                 Iniciar sesion
               </Button>
             </div>

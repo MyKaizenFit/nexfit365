@@ -1,5 +1,6 @@
 "use client"
 
+import { appPath } from '@/lib/app-path'
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -42,7 +43,7 @@ export default function HomePage() {
 
     // Si el usuario debe cambiar contraseña, respetar ese flujo primero
     if (user?.must_change_password) {
-      window.location.replace('/auth/change-password')
+      window.location.replace(appPath('/auth/change-password'))
       return
     }
 
@@ -66,7 +67,7 @@ export default function HomePage() {
       !!(user && (user.is_superuser || user.is_staff || ((user as any).role || '').toLowerCase() === 'admin' || ((user as any).role || '').toLowerCase() === 'trainer'))
 
     if (isAdmin) {
-      window.location.replace('/admin')
+      window.location.replace(appPath('/admin'))
       return
     }
 
@@ -75,14 +76,14 @@ export default function HomePage() {
     try {
       const formCompleted = localStorage.getItem('initial_form_completed')
       if (!formCompleted || formCompleted !== 'true') {
-        window.location.replace('/initial-registration')
+        window.location.replace(appPath('/initial-registration'))
         return
       }
     } catch {
       // Si localStorage falla, ir al dashboard y el middleware decidirá si debe bloquear
     }
 
-    window.location.replace('/dashboard')
+    window.location.replace(appPath('/dashboard'))
   }, [isAuthenticated, isLoading, user])
 
   // Si está autenticado, el efecto anterior se encarga de redirigir.

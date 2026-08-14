@@ -1,5 +1,13 @@
 /** @type {import('next').NextConfig} */
+const rawBasePath = (process.env.NEXT_PUBLIC_BASE_PATH || '').trim()
+const appBasePath = rawBasePath.replace(/\/+$/, '')
+
+if (appBasePath && !appBasePath.startsWith('/')) {
+  throw new Error('NEXT_PUBLIC_BASE_PATH debe estar vacío o empezar por /')
+}
+
 const nextConfig = {
+  basePath: appBasePath,
   // Evita bucles en dev: Django usa slash final en API y Next intentaba quitarlo
   // antes de aplicar el rewrite hacia el backend.
   skipTrailingSlashRedirect: true,
@@ -93,6 +101,11 @@ const nextConfig = {
     unoptimized: true,
     qualities: [75, 85, 100],
     remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'metodosk.com',
+        pathname: appBasePath ? `${appBasePath}/media/**` : '/media/**',
+      },
       {
         protocol: 'https',
         hostname: 'api.nexfit365.dpdns.org',

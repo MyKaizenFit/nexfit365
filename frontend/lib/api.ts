@@ -15,14 +15,24 @@ export const getApiBaseUrl = (): string => {
     return baseUrl
   }
 
-  // Si no hay variable de entorno, lanzar error en producción
   if (process.env.NODE_ENV === 'production') {
-    // En producción, usar el dominio HTTPS como fallback si no hay variable de entorno
-    return 'https://api.nexfit365.dpdns.org'
+    throw new Error(
+      'NEXT_PUBLIC_API_URL es obligatorio en producción'
+    )
   }
 
-  // Solo en desarrollo, usar localhost:8000 como fallback
   return 'http://localhost:8000'
+}
+
+export const getUploadApiBaseUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_UPLOAD_API_URL
+
+  // Sin configuración específica, usar la API normal.
+  if (!envUrl) {
+    return getApiBaseUrl()
+  }
+
+  return envUrl.replace(/\/api\/?$/, '').replace(/\/?$/, '')
 }
 
 export const API_CONFIG = {
@@ -125,6 +135,15 @@ export const buildApiUrl = (endpoint: string): string => {
   // Asegurar que no haya dobles barras
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
   return `${API_CONFIG.BASE_URL}/api/${cleanEndpoint}`
+}
+
+/**
+ * API directa para operaciones que pueden superar el límite del proxy público.
+ * Si NEXT_PUBLIC_UPLOAD_API_URL no está definido, usa la API normal.
+ */
+export const buildUploadApiUrl = (endpoint: string): string => {
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint
+  return `${getUploadApiBaseUrl()}/api/${cleanEndpoint}`
 }
 
 /** URL absoluta para archivos en /media/ (vídeos, miniaturas). */
