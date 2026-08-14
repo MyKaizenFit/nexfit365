@@ -103,12 +103,89 @@ describe('MealSelectionModal recommendations', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Mejor encaje').length).toBeGreaterThan(0)
     })
-    expect(screen.getByText(/Presupuesto orientativo/i)).toBeInTheDocument()
+    expect(screen.queryByText(/Presupuesto orientativo/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Presupuesto slot/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Comidas pendientes después de esta/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Objetivo día/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Consumido:/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Restante:/i)).not.toBeInTheDocument()
     expect(screen.getByText(/Día proyectado: 1180 kcal/i)).toBeInTheDocument()
     expect(screen.getByText('Seleccionada')).toBeInTheDocument()
+    expect(screen.getByText(/Selecciona una opción para cena/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /No como ninguna de estas/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Receta equivalencia/i })).toBeInTheDocument()
 
     const names = screen.getAllByRole('heading', { level: 4 }).map((el) => el.textContent)
     expect(names[0]).toContain('Cena ligera')
+  })
+
+  it('hides the internal budget block for every meal slot', async () => {
+    mockGetReco.mockResolvedValue({
+      date: '2026-08-04',
+      plan_meal_id: 'slot-breakfast',
+      context: {
+        daily_goals: { calories: 1650, protein: 120, carbs: 150, fat: 50 },
+        consumed: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+        remaining: { calories: 1650, protein: 120, carbs: 150, fat: 50 },
+        slot_budget: { calories: 542, protein: 40, carbs: 50, fat: 16 },
+        pending_meals_count: 3,
+        goals_exceeded: { calories: false, protein: false, carbs: false, fat: false },
+        current_slot_id: 'slot-breakfast',
+        date: '2026-08-04',
+      },
+      alternatives: [
+        {
+          ...fallbackOptions[1],
+          name: 'Tostadas',
+          is_recommended: true,
+          recommendation_level: 'ideal',
+        },
+      ],
+    })
+
+    const { rerender } = render(
+      <MealSelectionModal
+        isOpen
+        onClose={jest.fn()}
+        mealName="Desayuno"
+        mealTime="08:00"
+        mealType="breakfast"
+        planMealId="slot-breakfast"
+        date="2026-08-04"
+        options={fallbackOptions}
+        onSelectOption={jest.fn()}
+      />,
+    )
+
+    const slots = [
+      { mealName: 'Desayuno', mealType: 'breakfast' },
+      { mealName: 'Snack Mañana', mealType: 'morning_snack' },
+      { mealName: 'Almuerzo', mealType: 'lunch' },
+      { mealName: 'Snack Tarde', mealType: 'afternoon_snack' },
+      { mealName: 'Cena', mealType: 'dinner' },
+    ] as const
+
+    for (const slot of slots) {
+      rerender(
+        <MealSelectionModal
+          isOpen
+          onClose={jest.fn()}
+          mealName={slot.mealName}
+          mealTime="12:00"
+          mealType={slot.mealType}
+          planMealId="slot-breakfast"
+          date="2026-08-04"
+          options={fallbackOptions}
+          onSelectOption={jest.fn()}
+        />,
+      )
+      await waitFor(() => {
+        expect(screen.getByText(/Selecciona una opción para/i)).toBeInTheDocument()
+      })
+      expect(screen.queryByText(/Presupuesto orientativo/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Presupuesto slot/i)).not.toBeInTheDocument()
+      expect(screen.queryByText(/Comidas pendientes después de esta/i)).not.toBeInTheDocument()
+    }
   })
 
   it('falls back to plan options when recommendation endpoint fails', async () => {
