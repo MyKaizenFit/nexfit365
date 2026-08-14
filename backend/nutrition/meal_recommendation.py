@@ -490,7 +490,9 @@ def rank_slot_option_lists(
     Ordena las alternativas de cada slot con el mismo motor que Cambiar.
 
     Las recetas en skip_recipe_ids se aplazan al final (siguen visibles si el
-    coach las asignó) para que la opción inicial coincida con Mejor encaje.
+    coach las asignó) y nunca reciben is_recommended si hay alguna alternativa
+    válida. Si todas están excluidas, se conserva la lista original sin marcar
+    recomendada y sin inventar recetas.
     """
     skip = {str(rid).lower() for rid in (skip_recipe_ids or set())}
     current_recipes = current_recipe_by_slot or {}
@@ -511,6 +513,8 @@ def rank_slot_option_lists(
             else:
                 rankable.append(opt)
         if not rankable:
+            for opt in options:
+                opt.pop('is_recommended', None)
             ranked_out[slot.id] = options
             continue
         result = rank_alternatives(
@@ -523,5 +527,8 @@ def rank_slot_option_lists(
             current_recipe_id=current_rid_str,
             replacing_completed_slot=bool(replacing.get(slot.id)),
         )
-        ranked_out[slot.id] = [alt.to_option_dict() for alt in result.alternatives] + deferred
+        ranked_options = [alt.to_option_dict() for alt in result.alternatives]
+        for skipped in deferred:
+            skipped['is_recommended'] = False
+        ranked_out[slot.id] = ranked_options + deferred
     return ranked_out

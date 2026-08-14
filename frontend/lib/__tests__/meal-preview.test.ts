@@ -68,7 +68,28 @@ describe('meal preview selection', () => {
   it('uses persisted macros over recipe base for the same recipe', () => {
     expect(pickCanonicalMacro(350, 700, 700)).toBe(350)
     expect(pickCanonicalMacro(null, 350, 700)).toBe(350)
+    expect(pickCanonicalMacro(undefined, 350, 700)).toBe(350)
+    expect(pickCanonicalMacro('', 350, 700)).toBe(350)
     expect(pickCanonicalMacro(undefined, undefined, 700)).toBe(700)
+  })
+
+  it('treats explicit zero in MealLog as persisted and null as missing slot fallback', () => {
+    expect(pickCanonicalMacro(0, 350, 700)).toBe(0)
+    expect(pickCanonicalMacro(null, 350, 700)).toBe(350)
+  })
+
+  it('does not replace a persisted selection after a refresh-like recompute', () => {
+    const persisted: MealOption = { ...heavy, calories: 680, recipeId: 'heavy' }
+    const rankedAfterRefresh: MealOption[] = [
+      { ...light, is_recommended: true },
+      { ...heavy, calories: 700 },
+    ]
+    const first = resolveDisplayedMealOption(persisted, rankedAfterRefresh)
+    const second = resolveDisplayedMealOption(persisted, rankedAfterRefresh)
+    expect(first.displayOption?.recipeId).toBe('heavy')
+    expect(second.displayOption?.recipeId).toBe('heavy')
+    expect(first.displayOption?.calories).toBe(680)
+    expect(second.isPreview).toBe(false)
   })
 
   it('keeps the same recipe calories between dashboard preview and Cambiar list', () => {

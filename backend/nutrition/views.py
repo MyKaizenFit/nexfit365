@@ -651,23 +651,30 @@ def plan_meals_for_selection(request):
 
         skip_recipe_ids = set(excluded_recipe_ids)
         user_allergens = set(getattr(user, 'allergies', None) or [])
+        from nutrition.services import (
+            _get_user_blocked_terms,
+            _get_user_dietary_restrictions,
+            _recipe_matches_blocked_terms,
+            _recipe_supports_user_restrictions,
+        )
+        # Una sola lectura de exclusiones de ingredientes; el ranking no hace N+1.
+        blocked_terms = _get_user_blocked_terms(user)
+        restrictions = _get_user_dietary_restrictions(user)
         for meal in meals:
-            for meal_recipe in list(meal.meal_recipes.all()):
-                recipe = meal_recipe.recipe
-                if not recipe:
+            recipes = [mr.recipe for mr in list(meal.meal_recipes.all()) if mr.recipe]
+            recipes.extend(list(meal.suggested_recipes.all()))
+            for recipe in recipes:
+                rid = str(recipe.id).lower()
+                if rid in skip_recipe_ids:
                     continue
-                rid = str(recipe.id).lower()
-                if not recipe_allowed_for_user(recipe):
-                    skip_recipe_ids.add(rid)
                 recipe_allergens = set(getattr(recipe, 'allergens', None) or [])
                 if user_allergens and recipe_allergens.intersection(user_allergens):
                     skip_recipe_ids.add(rid)
-            for recipe in list(meal.suggested_recipes.all()):
-                rid = str(recipe.id).lower()
-                if not recipe_allowed_for_user(recipe):
+                    continue
+                if not _recipe_supports_user_restrictions(recipe, restrictions):
                     skip_recipe_ids.add(rid)
-                recipe_allergens = set(getattr(recipe, 'allergens', None) or [])
-                if user_allergens and recipe_allergens.intersection(user_allergens):
+                    continue
+                if _recipe_matches_blocked_terms(recipe, blocked_terms):
                     skip_recipe_ids.add(rid)
 
         day_slots = [

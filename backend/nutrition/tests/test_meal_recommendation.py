@@ -29,6 +29,7 @@ from nutrition.meal_recommendation import (
     sum_completed_intake,
 )
 from nutrition.models import (
+    MealIngredientExclusion,
     MealLog,
     MealRecipeExclusion,
     NutritionPlan,
@@ -346,6 +347,45 @@ class TestRankSlotOptionLists:
         assert ranked['d'][0]['is_recommended'] is True
         assert names[-1] == 'Excluida'
         assert 'Excluida' in names
+        assert ranked['d'][-1].get('is_recommended') is False
+        assert ranked['d'][0].get('recipeId') != 'skip-me'
+
+    def test_excluded_never_recommended_when_valid_alternative_exists(self):
+        slot = SlotInfo('d', 'dinner', 1, calories=567)
+        ranked = rank_slot_option_lists(
+            date='2026-08-14',
+            slots=[slot],
+            logs=[],
+            daily_goals=NutrientVector(1700, 120, 170, 55),
+            options_by_slot_id={
+                'd': [
+                    {'id': 'x', 'name': 'Excluida ligera', 'calories': 280, 'protein': 30, 'carbs': 20, 'fat': 8, 'recipeId': 'skip-me'},
+                    {'id': 'h', 'name': 'Pesada', 'calories': 700, 'protein': 50, 'carbs': 60, 'fat': 25, 'recipeId': 'heavy'},
+                ]
+            },
+            skip_recipe_ids={'skip-me'},
+        )
+        assert ranked['d'][0]['recipeId'] != 'skip-me'
+        assert ranked['d'][0]['is_recommended'] is True
+        excluded = [opt for opt in ranked['d'] if opt['recipeId'] == 'skip-me']
+        assert excluded and excluded[0].get('is_recommended') is False
+
+    def test_all_excluded_keeps_coach_options_without_inventing(self):
+        slot = SlotInfo('d', 'dinner', 1, calories=567)
+        original = [
+            {'id': 'a', 'name': 'A', 'calories': 400, 'protein': 20, 'carbs': 40, 'fat': 10, 'recipeId': 'a'},
+            {'id': 'b', 'name': 'B', 'calories': 500, 'protein': 25, 'carbs': 50, 'fat': 12, 'recipeId': 'b'},
+        ]
+        ranked = rank_slot_option_lists(
+            date='2026-08-14',
+            slots=[slot],
+            logs=[],
+            daily_goals=NutrientVector(1700, 120, 170, 55),
+            options_by_slot_id={'d': original},
+            skip_recipe_ids={'a', 'b'},
+        )
+        assert [opt['recipeId'] for opt in ranked['d']] == ['a', 'b']
+        assert all(opt.get('is_recommended') is not True for opt in ranked['d'])
 
     def test_does_not_invent_options_when_empty(self):
         slot = SlotInfo('b', 'breakfast', 1, calories=400)
@@ -730,6 +770,212 @@ class TestPlanMealsInitialRecommendation:
         initial_sum = sum(initial_calories)
         assert initial_sum < display_order_sum
         assert MealLog.objects.filter(completed=True).count() == 0
+
+    def test_initial_preview_accounts_for_completed_intake(
+        self, auth_client, user, three_meal_new_account_plan,
+    ):
+        date_str = '2026-08-14'
+        breakfast = three_meal_new_account_plan['slots'][0]
+        lunch = three_meal_new_account_plan['slots'][1]
+        lunch_id = str(lunch['meal'].id)
+
+        empty = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        empty_lunch = empty.data['options_by_meal_id'][lunch_id][0]
+
+        MealLog.objects.create(
+            user=user,
+            date=date_str,
+            plan_meal=breakfast['meal'],
+            meal_type='breakfast',
+            recipe=breakfast['light'],
+            completed=True,
+            calories=350,
+            protein=Decimal('30'),
+            carbs=Decimal('30'),
+            fat=Decimal('10'),
+        )
+
+        after = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        reco = auth_client.get(
+            '/api/nutrition/meal-alternatives-recommendation/',
+            {'date': date_str, 'plan_meal_id': lunch_id},
+        )
+        initial = after.data['options_by_meal_id'][lunch_id][0]
+        top = reco.data['alternatives'][0]
+        assert str(initial['recipeId']) == str(top['recipeId'])
+        assert initial['calories'] == top['calories']
+        assert initial['protein'] == top['protein']
+        assert initial['carbs'] == top['carbs']
+        assert initial['fat'] == top['fat']
+        assert initial.get('is_recommended') is True
+        assert top.get('is_recommended') is True
+        assert reco.data['context']['consumed']['calories'] == 350
+        assert str(initial['recipeId']) != str(empty_lunch['recipeId'])
+
+    def test_ranking_uses_requested_date_not_today(
+        self, auth_client, user, three_meal_new_account_plan,
+    ):
+        breakfast = three_meal_new_account_plan['slots'][0]
+        lunch = three_meal_new_account_plan['slots'][1]
+        lunch_id = str(lunch['meal'].id)
+        MealLog.objects.create(
+            user=user,
+            date='2026-08-14',
+            plan_meal=breakfast['meal'],
+            meal_type='breakfast',
+            recipe=breakfast['light'],
+            completed=True,
+            calories=350,
+            protein=Decimal('30'),
+            carbs=Decimal('30'),
+            fat=Decimal('10'),
+        )
+        today_resp = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': '2026-08-14'},
+        )
+        tomorrow_resp = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': '2026-08-15'},
+        )
+        today_lunch = today_resp.data['options_by_meal_id'][lunch_id][0]
+        tomorrow_lunch = tomorrow_resp.data['options_by_meal_id'][lunch_id][0]
+        tomorrow_reco = auth_client.get(
+            '/api/nutrition/meal-alternatives-recommendation/',
+            {'date': '2026-08-15', 'plan_meal_id': lunch_id},
+        )
+        assert str(tomorrow_lunch['recipeId']) == str(tomorrow_reco.data['alternatives'][0]['recipeId'])
+        assert str(today_lunch['recipeId']) != str(tomorrow_lunch['recipeId'])
+
+    def test_excluded_recipe_is_not_initial_preview(
+        self, auth_client, user, three_meal_new_account_plan,
+    ):
+        dinner = three_meal_new_account_plan['slots'][2]
+        MealRecipeExclusion.objects.create(
+            user=user, recipe=dinner['light'], is_active=True,
+        )
+        date_str = '2026-08-14'
+        plan_response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        reco = auth_client.get(
+            '/api/nutrition/meal-alternatives-recommendation/',
+            {'date': date_str, 'plan_meal_id': str(dinner['meal'].id)},
+        )
+        options = plan_response.data['options_by_meal_id'][str(dinner['meal'].id)]
+        initial = options[0]
+        assert str(initial['recipeId']) != str(dinner['light'].id)
+        assert initial.get('is_recommended') is True
+        assert str(initial['recipeId']) == str(reco.data['alternatives'][0]['recipeId'])
+        excluded = [opt for opt in options if str(opt['recipeId']) == str(dinner['light'].id)]
+        assert excluded
+        assert excluded[0].get('is_recommended') is not True
+
+    def test_parity_with_cambiar_on_recipe_macros_and_flag(
+        self, auth_client, user, three_meal_new_account_plan,
+    ):
+        date_str = '2026-08-14'
+        breakfast = three_meal_new_account_plan['slots'][0]
+        MealLog.objects.create(
+            user=user,
+            date=date_str,
+            plan_meal=breakfast['meal'],
+            meal_type='breakfast',
+            recipe=breakfast['heavy'],
+            completed=True,
+            calories=700,
+            protein=Decimal('40'),
+            carbs=Decimal('70'),
+            fat=Decimal('25'),
+        )
+        MealRecipeExclusion.objects.create(
+            user=user,
+            recipe=three_meal_new_account_plan['slots'][1]['heavy'],
+            is_active=True,
+        )
+        plan_response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        for item in three_meal_new_account_plan['slots'][1:]:
+            slot_id = str(item['meal'].id)
+            initial = plan_response.data['options_by_meal_id'][slot_id][0]
+            reco = auth_client.get(
+                '/api/nutrition/meal-alternatives-recommendation/',
+                {'date': date_str, 'plan_meal_id': slot_id},
+            )
+            top = reco.data['alternatives'][0]
+            assert str(initial['recipeId']) == str(top['recipeId'])
+            assert initial['calories'] == top['calories']
+            assert initial['protein'] == top['protein']
+            assert initial['carbs'] == top['carbs']
+            assert initial['fat'] == top['fat']
+            assert initial.get('is_recommended') is True
+            assert top.get('is_recommended') is True
+
+    def test_initial_sum_matches_recommended_not_display_order(
+        self, auth_client, three_meal_new_account_plan,
+    ):
+        date_str = '2026-08-14'
+        plan_response = auth_client.get(
+            '/api/nutrition/plan-meals-for-selection/',
+            {'date': date_str},
+        )
+        recommended_sum = 0
+        preview_sum = 0
+        display_order_sum = 0
+        for item in three_meal_new_account_plan['slots']:
+            slot_id = str(item['meal'].id)
+            options = plan_response.data['options_by_meal_id'][slot_id]
+            preview_sum += int(options[0]['calories'])
+            display_order_sum += 700
+            reco = auth_client.get(
+                '/api/nutrition/meal-alternatives-recommendation/',
+                {'date': date_str, 'plan_meal_id': slot_id},
+            )
+            recommended_sum += int(reco.data['alternatives'][0]['calories'])
+        assert preview_sum == recommended_sum
+        assert preview_sum != display_order_sum
+
+    def test_plan_meals_ranking_query_count_does_not_grow_per_recipe(
+        self, auth_client, user, three_meal_new_account_plan,
+    ):
+        date_str = '2026-08-14'
+        MealIngredientExclusion.objects.create(user=user, term='cebolla', is_active=True)
+        with CaptureQueriesContext(connection) as baseline:
+            first = auth_client.get(
+                '/api/nutrition/plan-meals-for-selection/',
+                {'date': date_str},
+            )
+        assert first.status_code == 200
+        baseline_count = len(baseline.captured_queries)
+
+        dinner = three_meal_new_account_plan['slots'][2]['meal']
+        for index in range(8):
+            extra = _make_recipe(
+                f'Extra {index}', 300 + index * 15, 20, 25, 8, meal_types=['dinner'],
+            )
+            PlanMealRecipe.objects.create(
+                meal=dinner, recipe=extra, display_order=20 + index, servings=Decimal('1'),
+            )
+        with CaptureQueriesContext(connection) as extra_ctx:
+            second = auth_client.get(
+                '/api/nutrition/plan-meals-for-selection/',
+                {'date': date_str},
+            )
+        assert second.status_code == 200
+        extra_count = len(extra_ctx.captured_queries)
+        # Medido: 9 queries con 6 recetas y 9 con +8 recetas. Ranking in-memory.
+        assert extra_count < 40, f'queries baseline={baseline_count} extra={extra_count}'
+        assert extra_count <= baseline_count + 3, f'queries baseline={baseline_count} extra={extra_count}'
+        assert MealLog.objects.count() == 0
 
     def test_same_recipe_calories_match_between_endpoints(
         self, auth_client, three_meal_new_account_plan,
